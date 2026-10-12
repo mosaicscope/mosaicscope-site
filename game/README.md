@@ -7,7 +7,7 @@ A living, isometric stick-figure town hidden inside the MosaicScope website. It'
 
 ---
 
-## For Hannah (non-programmer quick guide)
+## Quick guide (no coding needed)
 
 **Where is it?** Once the site is live, it's at `https://mosaicscope.pages.dev/world/` (or `yourdomain/world/`). Visitors find it through the "Our world · step inside" sign that turns up in the footer after they've watched the Mosaics for a while.
 
