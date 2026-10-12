@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+- Clinical layer: 249 evidence-tagged studies (`mind/Evidence.ts`), stress, anxiety, depression, trauma and a rare psychosis spectrum with genetic liability from families (`Psychopathology.ts`, `Kin.ts`), whanau support and stigma (`Whanau.ts`), care pathways, Putahi Mental Health Unit. Saves are now v6 (v5 migrates).
+- Interiors: enterable interiors with props and people (hospital, Putahi, police, bank, office, apartments, house, hotel); other kinds use a generic shopfront until more are written.
+- Zoo: visitors react to the animals you own.
+- Mobile: zoom rescue on rotation, pinch/double-tap zoom blocked.
+- Smoke test accepts the interior overlay for the police station.
+
 ## 0.3.0: the living city (2026-10-13)
 
 - **Roads and traffic.** 4-lane roads (left-hand traffic), lane choice and changes, stop lines, give-way rules, pedestrian signals (people cross on the green man), a 164-tile map with clubs and a zoo placed in real Christchurch blocks.

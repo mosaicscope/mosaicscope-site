@@ -11,6 +11,7 @@ import "../ui/travel.css";
 import { Minimap } from "../ui/Minimap";
 import { ROLE_LABEL } from "../content/names";
 import { Simulation } from "../sim/Simulation";
+import { zooState } from "../mind/Town";
 import { SimulationClock } from "../core/clock";
 import { Renderer, Quality } from "../render/Renderer";
 import { AudioSystem } from "../audio/Audio";
@@ -240,7 +241,7 @@ export class Game {
     this.tickFocus(now);
     this.touch.update();
     if (now - this.clubTickAt > 1000) { const earned = this.club.tick(Math.min(5, (now - (this.clubTickAt || now)) / 1000)); this.clubTickAt = now; if (earned > 0) this.sim.player.cash += earned; }
-    this.renderer.zooAnimals = this.luxury.empire.animals;
+    this.renderer.zooAnimals = this.luxury.empire.animals; zooState.animals = this.luxury.empire.animals.length;
     this.touch.el.classList.toggle("hidden", this.casino.open || this.interior.open || this.modal.open || this.dialogue.open || this.travel.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
     this.tickStory(now);
     this.minimap.update(now);

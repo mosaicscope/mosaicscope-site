@@ -4,6 +4,7 @@ import type { Simulation } from "../sim/Simulation";
 import { T } from "../world/World";
 import type { CultureProfile } from "./Culture";
 import { deriveProfile, getProfile, setProfile } from "./Culture";
+import { appraise } from "./Affect";
 import { updateDress } from "./Dress";
 import { updateWhanau } from "./Whanau";
 export { kin } from "./Kin";
@@ -135,9 +136,27 @@ function free(sim: Simulation, c: Character): boolean {
 function logEvent(st: TownState, e: NormEvent): void { st.log.push(e); if (st.log.length > 80) st.log.shift(); }
 
 /** Called once a second from the environment tick. Cheap: a staggered slice of the town per call. */
+/** Animals in the Velvet Zoo (set by the app from the player's empire). Visitors react to them. */
+export const zooState = { animals: 0 };
+const ZOO_LINES = ["Is that a giraffe?", "Kevin's looking well.", "The kea's got my sunnies.", "Kids, don't feed the whale.", "Best $2 I've spent all week."];
+
+/** Zoo visitors: a small appraisal lift per animal (novelty, awe), a murmur now and then. */
+function zooVisit(sim: Simulation): void {
+  if (zooState.animals <= 0) return;
+  const a = sim.world.areas.find((x) => x.name === "Velvet Zoo");
+  if (!a) return;
+  for (const c of sim.chars) {
+    if (c.tier === "player" || c.lod > Lod.REDUCED || c.inside >= 0 || c.inCar >= 0) continue;
+    if (Math.hypot(c.x - a.cx, c.y - a.cy) > 9 || (c.id + sim.tick) % 7 !== 0) continue;
+    appraise(c, sim.tick, { rel: Math.min(0.5, 0.12 + zooState.animals * 0.03), cong: 0.6, ctrl: 0.8, blame: "none" });
+    if (free(sim, c) && sim.rng.next() < 0.08) sim.say(c, ZOO_LINES[(c.id + sim.tick) % ZOO_LINES.length], "think", 2);
+  }
+}
+
 export function updateTown(sim: Simulation): void {
   updateDress(sim);
   updateWhanau(sim);
+  zooVisit(sim);
   const st = townOf(sim);
   const slot = Math.floor(sim.tick / 60) % 6;
   for (const c of sim.chars) {
