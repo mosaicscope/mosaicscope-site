@@ -65,6 +65,8 @@ export interface Psy {
   /** social: who they lean on */
   confidant: number; confidantName: string;
   scan: number; lastResp: number; lastVoice: number;
+  /** optional pinned liability z / age (scenarios and tests); normally derived from kin and culture */
+  liabLock?: number; ageLock?: number;
 }
 
 export function newPsy(id: number): Psy {
@@ -128,7 +130,7 @@ export function setForceGoal(f: typeof forceGoal): void { forceGoal = f; }
 
 export function updatePsy(c: Character, sim: Simulation, dt: number): void {
   const m = c.mind, p = m.psy, o = ocean(c.pers), tick = sim.tick, h = dt / 60;
-  p.liab = liabilityZ(sim, c);
+  p.liab = p.liabLock ?? liabilityZ(sim, c);
   const aceN = p.ace / 5, liabN = sig(p.liab), male = c.look.kind === "guy";
 
   // 1. social support: closest friends, recent kind contact, whanau nearby (Cohen & Wills)
@@ -184,7 +186,7 @@ export function updatePsy(c: Character, sim: Simulation, dt: number): void {
 
   // 8. psychotic-spectrum dynamics: needs high liability AND high stress, in the right age window, and starts with a prodrome
   const gate = p.liab >= PSY.liabGate && p.load >= PSY.loadGate;
-  const age = ageOf(sim, c), af = onsetAgeFactor(age, male);
+  const age = p.ageLock ?? ageOf(sim, c), af = onsetAgeFactor(age, male);
   if (gate && af > 0.1) {
     const R = 0.35 * p.liab + 0.9 * p.load + 0.5 * p.sleep + 0.5 * p.subst + 0.3 * p.acute + 0.12 * p.ace + 0.7 * af;
     p.prod = cl(p.prod + 0.02 * h * Math.max(0, R - 1.6) * 6);
