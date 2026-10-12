@@ -955,6 +955,7 @@ export class Game {
     this.speedEls = speeds.map(([v, l]) => h("button", { "data-speed": v, "aria-label": v === "0" ? "Pause" : `Speed ${v}x`, "aria-pressed": "false", onclick: () => this.setSpeed(+v), text: l }) as HTMLButtonElement);
     this.soundBtn = h("button.btn.iconbtn", { "aria-label": "Sound on/off", title: "Sound", onclick: () => { this.settings.sound = !this.settings.sound; this.applySettings(); this.persistSettings(); } }) as HTMLButtonElement;
     return h("header.bar", null, [
+      h("button.btn.menu-toggle", { "aria-label": "Menu", "aria-expanded": "false", text: "☰", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar")!; const on = bar.classList.toggle("open"); (e.currentTarget as HTMLElement).setAttribute("aria-expanded", String(on)); try { navigator.vibrate?.(8); } catch { /* ignore */ } } }),
       h("a.brand", { href: "/", title: "Back to MosaicScope" }, [h("b", { text: "The Mosaics" }), h("i", { text: "our world" })]),
       this.clockEl, h("div.spacer"),
       h("div.seg", { role: "group", "aria-label": "Simulation speed" }, this.speedEls),

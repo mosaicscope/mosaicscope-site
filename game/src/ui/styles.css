@@ -298,3 +298,42 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; color:
   .phone { right: 8px; left: 8px; width: auto; top: auto; bottom: 12px; transform: none; }
   .hint { display: none; }
 }
+/* ===== phones (touch): slim one-row top bar with a menu, HUD tucked top-left, radar top-right ===== */
+.menu-toggle { display: none; }
+@media (pointer: coarse) and (max-width: 760px) {
+  .bar { flex-wrap: wrap; row-gap: 6px; padding-bottom: 6px; }
+  .bar .brand i, .bar .clock .wx { display: none; }
+  .bar .brand b { font-size: 18px; }
+  .menu-toggle { display: inline-flex; margin-left: auto; width: 44px; height: 40px; justify-content: center; align-items: center; font-size: 20px; }
+  .bar > :not(.brand):not(.clock):not(.menu-toggle) { display: none; }
+  .bar.open { background: rgba(14,11,10,.96); box-shadow: 0 10px 30px rgba(0,0,0,.6); }
+  .bar.open > :not(.brand):not(.clock):not(.menu-toggle) { display: flex; }
+  .bar.open .btn { min-height: 44px; }
+  .hud { left: 10px; right: auto; top: 54px; justify-items: start; grid-auto-flow: row; gap: 3px; text-shadow: 0 1px 4px #000; }
+  .hud .cash { font-size: 20px; } .hud .stars { font-size: 14px; letter-spacing: 1px; }
+  .hud .bars { grid-template-columns: 74px; gap: 3px; } .hud .bars span { display: none; }
+  .minimap { right: 10px; left: auto; top: 54px; bottom: auto; width: 88px; height: 88px; opacity: .88; }
+  .radio { top: 150px; bottom: auto; left: 10px; padding: 3px; } .radio .radio-title { display: none; }
+  .areaname { right: 10px; bottom: 210px; font-size: 20px; }
+  .toasts { top: 100px; }
+  .dialogue .opts button { min-height: 44px; }
+  .hint { display: none; }
+  .tc .tc-btn, .menu-toggle, .bar .btn { -webkit-tap-highlight-color: transparent; }
+}
+@media (pointer: coarse) and (max-width: 760px) {
+  .bar > .brand { order: 0; } .bar > .clock { order: 1; } .bar > .menu-toggle { order: 2; margin-left: auto; }
+  .bar > :not(.brand):not(.clock):not(.menu-toggle) { order: 3; }
+}
+@media (pointer: coarse) and (max-width: 760px) {
+  .bar.open { z-index: 8; background: rgba(14,11,10,.985); padding-bottom: 14px; align-items: flex-start; }
+  .bar.open > :not(.brand):not(.clock):not(.menu-toggle) { flex: 1 1 calc(33.333% - 8px); max-width: calc(33.333% - 6px); height: 46px; align-self: auto; justify-content: center; margin: 0; }
+  .bar.open > div, .bar.open > span:not(.clock) { flex-basis: 100%; max-width: 100%; }
+  .bar.open ~ .hud, .bar.open ~ .minimap { visibility: hidden; }
+}
+@media (pointer: coarse) and (max-width: 760px) {
+  .bar > .spacer { display: none !important; }
+  .bar.open > .seg { flex: 1 1 100%; max-width: 100%; display: flex; }
+  .bar.open > .seg button { flex: 1; min-height: 46px; }
+  .bar > .menu-toggle { margin-left: auto; }
+  .bar > .clock { margin-right: 0; }
+}

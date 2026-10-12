@@ -118,7 +118,10 @@ export class Renderer {
     // camera follow
     if (cam.follow >= 0 && sim.chars[cam.follow]) { const f = sim.chars[cam.follow]; cam.lookAt(f.x, f.y); }
     // zoomed right in: the camera drops to street level for a flat 2D side view; zoom out to go back to 3D
-    if (z > 3) { cam.update(dt, o.reduceMotion); this.render2D(dt, o); this.stats.frameMs = performance.now() - t0; return; }
+    // (hysteresis stops it flickering at the boundary mid-pinch; a quick crossfade hides the switch)
+    const want2D = this.in2D ? z > 2.8 : z > 3.4;
+    if (want2D !== this.in2D) { this.in2D = want2D; this.crossfade(); }
+    if (want2D) { cam.update(dt, o.reduceMotion); this.render2D(dt, o); this.stats.frameMs = performance.now() - t0; return; }
     cam.update(dt, o.reduceMotion);
     sim.focus.x = cam.x; sim.focus.y = cam.y;
 
@@ -383,7 +386,7 @@ export class Renderer {
 
   private drawBubbles(view: Item[], o: RenderOptions): void {
     const sim = this.sim, g = this.g, cam = this.cam, z = cam.zoom;
-    const maxB = 3; // a calm street: only the few conversations nearest you are 'heard'
+    const small = cam.viewW < 520, maxB = small ? 2 : 3; // a calm street: only the few conversations nearest you are 'heard'
     let shown = 0;
     g.textBaseline = "alphabetic";
     // nearest to the camera centre first
@@ -430,10 +433,10 @@ export class Renderer {
       if (!c.bubble || ba < 0.02 || shown >= maxB) continue;
       shown++;
       const txt = c.bubble.text;
-      const fs = Math.round(Math.max(10, Math.min(13, 11 * z)));
+      const fs = small ? 10 : Math.round(Math.max(10, Math.min(13, 11 * z)));
       g.font = `${c.bubble.kind === "shout" ? "700 " : "500 "}${fs}px "IBM Plex Mono", ui-monospace, monospace`;
-      const lines = wrap(g, txt, 170);
-      const w = Math.min(180, Math.max(...lines.map((l) => g.measureText(l).width))) + 12, h = lines.length * (fs + 3) + 8;
+      const lines = wrap(g, txt, small ? 120 : 170);
+      const w = Math.min(small ? 130 : 180, Math.max(...lines.map((l) => g.measureText(l).width))) + 12, h = lines.length * (fs + 3) + 8;
       const bx = Math.max(4, Math.min(cam.viewW - w - 4, it.sx - w / 2)), by = Math.max(4, headY - h - 10);
       const fade = Math.min(1, Math.max(0, (c.bubble.until - sim.tick) / 20)) * ba;
       if (fade < 0.02) continue;
@@ -675,6 +678,20 @@ export class Renderer {
     const vg = g.createRadialGradient(W / 2, H * 0.55, H * 0.3, W / 2, H * 0.55, H * 0.95); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.5)"); g.fillStyle = vg; g.fillRect(0, 0, W, H);
     g.fillStyle = "rgba(238,228,211,.7)"; g.font = "600 12px 'IBM Plex Mono', monospace"; g.fillText(`2D street view · ${sim.world.streetName(f.x, f.y)} · press V or scroll out for 3D`, 16, 66);
     void o;
+  }
+
+  private in2D = false;
+  private fadeEl: HTMLCanvasElement | null = null;
+  /** Freeze the last frame on top of the canvas and fade it out, so 3D <-> 2D dissolves instead of cutting. */
+  private crossfade(): void {
+    const host = this.canvas.parentElement;
+    if (!host) return;
+    if (!this.fadeEl) { this.fadeEl = document.createElement("canvas"); this.fadeEl.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;opacity:0"; host.insertBefore(this.fadeEl, this.canvas.nextSibling); }
+    const f = this.fadeEl;
+    f.width = this.canvas.width; f.height = this.canvas.height;
+    f.getContext("2d")!.drawImage(this.canvas, 0, 0);
+    f.style.transition = "none"; f.style.opacity = "1";
+    requestAnimationFrame(() => { f.style.transition = "opacity .38s ease-out"; f.style.opacity = "0"; });
   }
 
   /** Animals the player has bought (drawn in the Velvet Zoo). */
