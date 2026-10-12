@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MosaicScope</title>
+<meta name="description" content="MosaicScope: photography, film and cinematography by Chris Jacob, Aotearoa New Zealand.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=Instrument+Serif:ital@0;1&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<!--BODY-START-->
+<a class="skip" href="#work">Skip to the work</a>
+
+<header class="bar" id="bar">
+  <a class="bar__mark" href="#top" aria-label="MosaicScope, back to top">Mosaic<i>scope</i></a>
+  <nav class="bar__nav" aria-label="Main">
+    <a href="#work">Work</a>
+    <a href="#instagram">Instagram</a>
+    <a href="#journal">Journal</a>
+    <a href="#services">Commissions</a>
+  </nav>
+  <div class="bar__end">
+    <button class="sound" id="sound" type="button" aria-pressed="false"><span class="sound__bars" aria-hidden="true"><i></i><i></i><i></i></span><span class="sound__label">Sound off</span></button>
+    <a class="enquire" href="#contact">Enquire</a>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero" aria-labelledby="wordmark">
+    <canvas class="hero__gl" id="hero-gl" aria-hidden="true"></canvas>
+    <div class="hero__fallback" id="hero-fallback" aria-hidden="true"></div>
+    <div class="hero__inner">
+      <p class="kicker mono"><span class="dot" aria-hidden="true"></span><span data-bind="availability">Taking photo and film commissions</span></p>
+      <h1 class="wordmark" id="wordmark" aria-label="MosaicScope">
+        <span class="wm" aria-hidden="true">
+          <span class="wm__slice"><span class="wm__a">Mosaic</span><span class="wm__b">scope</span></span>
+          <span class="wm__slice"><span class="wm__a">Mosaic</span><span class="wm__b">scope</span></span>
+          <span class="wm__slice"><span class="wm__a">Mosaic</span><span class="wm__b">scope</span></span>
+          <span class="wm__slice"><span class="wm__a">Mosaic</span><span class="wm__b">scope</span></span>
+          <span class="wm__slice"><span class="wm__a">Mosaic</span><span class="wm__b">scope</span></span>
+          <span class="wm__slice"><span class="wm__a">Mosaic</span><span class="wm__b">scope</span></span>
+        </span>
+      </h1>
+      <div class="hero__foot">
+        <p class="hero__who"><strong data-bind="owner">Chris Jacob</strong><span data-bind="roles">Photographer / Filmmaker / Cinematographer</span></p>
+        <p class="hero__where mono"><span data-bind="location">Aotearoa New Zealand</span><a href="#work" class="scrollcue">Scroll to the work <span aria-hidden="true">↓</span></a></p>
+      </div>
+    </div>
+    <p class="hero__note mono" id="hero-note" hidden>Placeholder plate. Add your own hero photo as <code>heroImage</code> in content.json.</p>
+  </section>
+
+  <section class="intro" aria-label="About">
+    <p class="intro__text" data-bind="intro">I photograph and film artists, crews, cars, skaters and the nights they fill.</p>
+  </section>
+
+  <section class="work" id="work" aria-labelledby="work-h">
+    <div class="sechead">
+      <h2 id="work-h"><span class="mono sechead__no">A</span>Selected work</h2>
+      <div class="filters" role="group" aria-label="Filter work">
+        <button type="button" class="filter is-on" data-filter="all" aria-pressed="true">All</button>
+        <button type="button" class="filter" data-filter="photo" aria-pressed="false">Photo</button>
+        <button type="button" class="filter" data-filter="film" aria-pressed="false">Film</button>
+        <button type="button" class="filter" data-filter="sound" aria-pressed="false">Sound</button>
+        <button type="button" class="filter" data-filter="experiment" aria-pressed="false">Experiments</button>
+      </div>
+    </div>
+    <div class="masonry" id="gallery"></div>
+    <p class="empty mono" id="gallery-empty" hidden>Nothing here yet in this category.</p>
+  </section>
+
+  <section class="lightbox" id="instagram" aria-labelledby="ig-h">
+    <div class="sechead">
+      <h2 id="ig-h"><span class="mono sechead__no">B</span>On the light table <em>latest from Instagram</em></h2>
+      <a class="follow mono" href="https://www.instagram.com/mosaicscope/" target="_blank" rel="noopener">@mosaicscope ↗</a>
+    </div>
+    <p class="ig-note mono" id="ig-note" hidden></p>
+    <div class="board" id="ig-board"></div>
+  </section>
+
+  <section class="journal" id="journal" aria-labelledby="journal-h">
+    <div class="sechead">
+      <h2 id="journal-h"><span class="mono sechead__no">C</span>Journal <em>tests, edits, in progress</em></h2>
+    </div>
+    <div class="strip" id="strip" tabindex="0" aria-label="Journal entries, scroll sideways"></div>
+  </section>
+
+  <section class="services" id="services" aria-labelledby="services-h">
+    <div class="sechead">
+      <h2 id="services-h"><span class="mono sechead__no">D</span>Commissions</h2>
+    </div>
+    <div class="services__grid" id="services-grid"></div>
+    <p class="services__note" data-bind="servicesNote"></p>
+  </section>
+
+  <section class="contact" id="contact" aria-labelledby="contact-h">
+    <h2 class="contact__h" id="contact-h">Book a shoot<br><em>or a film.</em></h2>
+    <div class="contact__grid">
+      <form class="form" id="form" novalidate>
+        <div class="field">
+          <label for="f-name">Your name</label>
+          <input id="f-name" name="name" type="text" autocomplete="name" required>
+        </div>
+        <div class="field">
+          <label for="f-email">Your email</label>
+          <input id="f-email" name="email" type="email" autocomplete="email" required>
+        </div>
+        <div class="field">
+          <label for="f-type">What is it?</label>
+          <select id="f-type" name="type">
+            <option>Photography</option>
+            <option>Music video</option>
+            <option>Event</option>
+            <option>Film or cinematography</option>
+            <option>Something else</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-date">Date, if you have one</label>
+          <input id="f-date" name="date" type="text" placeholder="e.g. late November">
+        </div>
+        <div class="field field--wide">
+          <label for="f-msg">Tell me about it</label>
+          <textarea id="f-msg" name="message" rows="5" required></textarea>
+        </div>
+        <div class="form__row">
+          <button class="send" type="submit" id="f-send">Send enquiry</button>
+          <p class="form__status" id="f-status" role="status" aria-live="polite"></p>
+        </div>
+      </form>
+      <aside class="direct">
+        <p class="mono direct__label">Or email directly</p>
+        <p class="direct__email"><span id="email-text">mosiacscope@gmail.com</span></p>
+        <button type="button" class="copy" id="copy-email">Copy email</button>
+        <ul class="socials" id="socials"></ul>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <p class="foot__mark">Mosaic<i>scope</i></p>
+  <p class="mono foot__meta"><span>© <span id="year"></span> <span data-bind="owner">Chris Jacob</span></span><span>All work shown is my own unless marked placeholder.</span></p>
+</footer>
+
+<div class="viewer" id="viewer" role="dialog" aria-modal="true" aria-labelledby="viewer-title" hidden>
+  <div class="viewer__panel" id="viewer-panel">
+    <button class="viewer__close" id="viewer-close" type="button">Close <span aria-hidden="true">×</span></button>
+    <div class="viewer__body" id="viewer-body"></div>
+  </div>
+</div>
+
+<div class="loupe" id="loupe" aria-hidden="true"></div>
+<div class="cursor" id="cursor" aria-hidden="true"><span>View</span></div>
+<div class="grain" aria-hidden="true"></div>
+<!--BODY-END-->
+<script src="main.js"></script>
+</body>
+</html>

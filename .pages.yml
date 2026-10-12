@@ -1,0 +1,80 @@
+# Pages CMS settings. This gives you a visual editor for content.json at https://app.pagescms.org
+# You don't need to edit this file.
+media:
+  input: images
+  output: images
+
+content:
+  - name: site
+    label: Website content
+    type: file
+    path: content.json
+    format: json
+    fields:
+      - name: site
+        label: Basics
+        type: object
+        fields:
+          - { name: name, label: Brand name, type: string }
+          - { name: owner, label: Your name, type: string }
+          - { name: roles, label: What you do (one line), type: string }
+          - { name: location, label: Where you're based, type: string }
+          - { name: availability, label: Availability line, type: string }
+          - { name: intro, label: Intro paragraph, type: text }
+          - { name: heroImage, label: Big opening photo, type: image }
+          - { name: email, label: Email for enquiries, type: string }
+          - { name: web3formsKey, label: Web3Forms access key (makes the form send), type: string }
+          - { name: beholdFeed, label: Behold feed link (shows your Instagram), type: string }
+          - { name: instagramFillsWork, label: Fill empty work slots with Instagram photos, type: boolean }
+      - name: social
+        label: Social links
+        type: object
+        list: true
+        fields:
+          - { name: label, label: Name, type: string }
+          - { name: handle, label: Handle, type: string }
+          - { name: url, label: Link, type: string }
+      - name: projects
+        label: Work
+        type: object
+        list: true
+        fields:
+          - { name: title, label: Title, type: string }
+          - name: category
+            label: Category
+            type: select
+            options:
+              values: [photo, film, sound, experiment]
+          - name: shape
+            label: Tile shape
+            type: select
+            options:
+              values: [tall, wide, square]
+          - { name: year, label: Year, type: string }
+          - { name: client, label: Client or artist (only if real), type: string }
+          - { name: role, label: Your role, type: string }
+          - { name: summary, label: Short description, type: text }
+          - { name: cover, label: Cover image, type: image }
+          - { name: images, label: More images, type: image, list: true }
+          - { name: videoFile, label: Video file (MP4, optional), type: file }
+          - { name: videoLink, label: YouTube or Vimeo link (optional), type: string }
+          - { name: audioFile, label: Audio file (MP3, optional), type: file }
+          - { name: placeholder, label: Is this a placeholder? (switch off for real work), type: boolean }
+      - name: journal
+        label: Journal
+        type: object
+        list: true
+        fields:
+          - { name: date, label: Date, type: string }
+          - { name: title, label: Title, type: string }
+          - { name: note, label: Note, type: text }
+          - { name: image, label: Image, type: image }
+          - { name: placeholder, label: Is this a placeholder?, type: boolean }
+      - name: services
+        label: Commissions
+        type: object
+        list: true
+        fields:
+          - { name: title, label: Heading, type: string }
+          - { name: items, label: Items, type: string, list: true }
+      - { name: servicesNote, label: Note under commissions, type: text }

@@ -1,0 +1,206 @@
+{
+  "site": {
+    "name": "MosaicScope",
+    "owner": "Chris Jacob",
+    "roles": "Photographer / Filmmaker / Cinematographer",
+    "location": "Aotearoa New Zealand",
+    "availability": "Taking photo and film commissions",
+    "intro": "I photograph and film artists, crews, cars, skaters and the nights they fill. Portraits, music videos, events and street work, graded loud and cut close.",
+    "heroImage": "",
+    "email": "mosiacscope@gmail.com",
+    "web3formsKey": "",
+    "beholdFeed": "",
+    "instagramFillsWork": true
+  },
+  "social": [
+    {
+      "label": "Instagram",
+      "handle": "@mosaicscope",
+      "url": "https://www.instagram.com/mosaicscope/"
+    },
+    {
+      "label": "Threads",
+      "handle": "@mosaicscope",
+      "url": "https://www.threads.net/@mosaicscope"
+    },
+    {
+      "label": "Zora",
+      "handle": "@mscope",
+      "url": "https://zora.co/@mscope"
+    }
+  ],
+  "projects": [
+    {
+      "placeholder": true,
+      "title": "Artist portraits",
+      "category": "photo",
+      "shape": "tall",
+      "year": "",
+      "client": "",
+      "role": "",
+      "summary": "PLACEHOLDER. Add a real artist shoot here: a cover image, a few frames, and two lines about it.",
+      "cover": "",
+      "images": [],
+      "videoFile": "",
+      "videoLink": "",
+      "audioFile": ""
+    },
+    {
+      "placeholder": true,
+      "title": "Music video",
+      "category": "film",
+      "shape": "wide",
+      "year": "",
+      "client": "",
+      "role": "",
+      "summary": "PLACEHOLDER. Add a music video: a still as the cover, plus a YouTube or Vimeo link.",
+      "cover": "",
+      "images": [],
+      "videoFile": "",
+      "videoLink": "",
+      "audioFile": ""
+    },
+    {
+      "placeholder": true,
+      "title": "Nightlife and events",
+      "category": "photo",
+      "shape": "square",
+      "year": "",
+      "client": "",
+      "role": "",
+      "summary": "PLACEHOLDER. Add an event or club night you shot.",
+      "cover": "",
+      "images": [],
+      "videoFile": "",
+      "videoLink": "",
+      "audioFile": ""
+    },
+    {
+      "placeholder": true,
+      "title": "Car meet",
+      "category": "film",
+      "shape": "tall",
+      "year": "",
+      "client": "",
+      "role": "",
+      "summary": "PLACEHOLDER. Add automotive or car meet work, photo or film.",
+      "cover": "",
+      "images": [],
+      "videoFile": "",
+      "videoLink": "",
+      "audioFile": ""
+    },
+    {
+      "placeholder": true,
+      "title": "Skate and street",
+      "category": "photo",
+      "shape": "wide",
+      "year": "",
+      "client": "",
+      "role": "",
+      "summary": "PLACEHOLDER. Add skate or street photography.",
+      "cover": "",
+      "images": [],
+      "videoFile": "",
+      "videoLink": "",
+      "audioFile": ""
+    },
+    {
+      "placeholder": true,
+      "title": "Sound piece",
+      "category": "sound",
+      "shape": "square",
+      "year": "",
+      "client": "",
+      "role": "",
+      "summary": "PLACEHOLDER. Add a sound or audio piece. Upload an MP3 and it plays here.",
+      "cover": "",
+      "images": [],
+      "videoFile": "",
+      "videoLink": "",
+      "audioFile": ""
+    },
+    {
+      "placeholder": true,
+      "title": "Colour experiment",
+      "category": "experiment",
+      "shape": "tall",
+      "year": "",
+      "client": "",
+      "role": "",
+      "summary": "PLACEHOLDER. Add an edit or grading experiment.",
+      "cover": "",
+      "images": [],
+      "videoFile": "",
+      "videoLink": "",
+      "audioFile": ""
+    },
+    {
+      "placeholder": true,
+      "title": "Portrait session",
+      "category": "photo",
+      "shape": "tall",
+      "year": "",
+      "client": "",
+      "role": "",
+      "summary": "PLACEHOLDER. Add a portrait session.",
+      "cover": "",
+      "images": [],
+      "videoFile": "",
+      "videoLink": "",
+      "audioFile": ""
+    }
+  ],
+  "journal": [
+    {
+      "placeholder": true,
+      "date": "",
+      "title": "Journal entry",
+      "note": "PLACEHOLDER. Short notes, tests and edits go here.",
+      "image": ""
+    },
+    {
+      "placeholder": true,
+      "date": "",
+      "title": "Journal entry",
+      "note": "PLACEHOLDER. A frame you like, a grade you tried.",
+      "image": ""
+    },
+    {
+      "placeholder": true,
+      "date": "",
+      "title": "Journal entry",
+      "note": "PLACEHOLDER. Behind the scenes from a shoot.",
+      "image": ""
+    },
+    {
+      "placeholder": true,
+      "date": "",
+      "title": "Journal entry",
+      "note": "PLACEHOLDER. Anything in progress.",
+      "image": ""
+    }
+  ],
+  "services": [
+    {
+      "title": "Photography",
+      "items": [
+        "Artist and press portraits",
+        "Nightlife and events",
+        "Car meets and automotive",
+        "Skate and street",
+        "Personal portraits"
+      ]
+    },
+    {
+      "title": "Film and cinematography",
+      "items": [
+        "Music videos",
+        "Event films",
+        "Short-form and social content",
+        "Automotive films"
+      ]
+    }
+  ],
+  "servicesNote": "Rates depend on the job. Tell me what you have in mind and I'll get back to you."
+}
