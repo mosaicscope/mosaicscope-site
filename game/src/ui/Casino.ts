@@ -351,7 +351,8 @@ export class Casino {
     const tray = h("div.cx-tray-cage", { role: "group", "aria-label": "Chip tray: your chips by denomination. Pick one to bet with." }, [...CHIPS].reverse().map((c) => {
       const n = held.filter((x) => x === c).length;
       return h("button.cx-groove" + (this.chipSel === c.v ? ".sel" : ""), { "aria-label": `${n} × ${money(c.v)} chips. Bet with ${money(c.v)}`, "aria-pressed": String(this.chipSel === c.v), onclick: () => { this.chipSel = c.v; this.render(); } }, [
-        h("div.cx-roll", { style: `${chipVars(c)};--n:${Math.min(n, 18)}` }, Array.from({ length: Math.min(n, 18) }, () => h("i"))),
+        n ? h("div.cx-stacks", { "aria-hidden": "true" }, [h("div.cx-stack", { style: `--n:${Math.min(n, 12)}` }, Array.from({ length: Math.min(n, 12) }, (_, i) => h("i.cx-sc", { style: `${chipVars(c)};--i:${i}`, "data-v": i === Math.min(n, 12) - 1 ? chipLabel(c.v) : null })))])
+          : h("i.cx-ghost", { style: chipVars(c), "aria-hidden": "true" }),
         h("span", { text: `${money(c.v)} × ${n}` }),
       ]);
     }));
@@ -401,9 +402,9 @@ export class Casino {
     ]);
     const arc = (id: string, d: string) => svg("path", { id, d, fill: "none" });
     const tp = (href: string, text: string, cls: string) => svg("text", { class: cls }, [svg("textPath", { href: "#" + href, startOffset: "50%", "text-anchor": "middle" }, [text])]);
-    const print = svg("svg", { class: "cx-print", viewBox: "0 0 1000 230", role: "img", "aria-label": "Blackjack pays 3 to 2. Dealer must stand on soft 17. Insurance pays 2 to 1." }, [
-      arc("cx-a1", "M 70 10 Q 500 150 930 10"), arc("cx-a2", "M 170 52 Q 500 168 830 52"), arc("cx-a3", "M 230 128 Q 500 236 770 128"),
-      svg("path", { class: "cx-ins", d: "M 200 98 Q 500 214 800 98" }), svg("path", { class: "cx-ins", d: "M 220 150 Q 500 270 780 150" }),
+    const print = svg("svg", { class: "cx-print", viewBox: "0 0 1000 250", role: "img", "aria-label": "Blackjack pays 3 to 2. Dealer must stand on soft 17. Insurance pays 2 to 1." }, [
+      arc("cx-a1", "M 70 34 Q 500 150 930 34"), arc("cx-a2", "M 150 88 Q 500 200 850 88"), arc("cx-a3", "M 230 160 Q 500 262 770 160"),
+      svg("path", { class: "cx-ins", d: "M 200 126 Q 500 240 800 126" }), svg("path", { class: "cx-ins", d: "M 220 178 Q 500 296 780 178" }),
       tp("cx-a1", "BLACKJACK PAYS 3 TO 2", "t1"), tp("cx-a2", "DEALER MUST STAND ON SOFT 17", "t2"), tp("cx-a3", "INSURANCE PAYS 2 TO 1", "t3"),
     ]);
     const addChip = () => { if (this.bjBet + this.chipSel > 500) { this.msg = "Table limit is $500."; } else this.bjBet += this.chipSel; this.render(); };

@@ -1,3 +1,4 @@
+import "../ui/casino.css";
 import { RoastBattle } from "../ui/minigames/Roast";
 import { BurgerShift } from "../ui/minigames/Burger";
 import "../ui/minigames/minigames.css";
