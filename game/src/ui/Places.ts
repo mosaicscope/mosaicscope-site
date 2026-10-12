@@ -153,7 +153,7 @@ export class Radio {
   constructor(private url: string) {
     this.title = h("span.radio-title", { text: "MosaicScope FM" });
     this.el = h("div.radio", { role: "group", "aria-label": "Radio" }, [
-      h("button.radio-btn", { "aria-label": "Play or pause the radio", onclick: () => this.toggle(), text: "▶" }),
+      h("button.radio-btn", { "aria-label": "Play or pause the radio", title: "Radio on/off", onclick: () => this.toggle(), text: "▶" }),
       h("button.radio-btn", { "aria-label": "Next track", onclick: () => this.widget?.next(), text: "⏭" }),
       this.title,
     ]);
@@ -170,16 +170,16 @@ export class Radio {
       this.widget = SC.Widget(this.frame);
       const E = SC.Widget.Events;
       this.widget.bind(E.READY, () => { if (this.playing) this.widget.play(); });
-      this.widget.bind(E.PLAY, () => { this.widget.getCurrentSound((snd: any) => { if (snd) this.title.textContent = `♪ ${snd.title}`; }); this.setBtn(true); });
-      this.widget.bind(E.PAUSE, () => this.setBtn(false));
-      this.widget.bind(E.FINISH, () => this.widget.next());
+      this.widget.bind(E.PLAY, () => { if (!this.playing) { this.widget.pause(); return; } this.widget.getCurrentSound((snd: any) => { if (snd) this.title.textContent = `♪ ${snd.title}`; }); });
+      this.widget.bind(E.FINISH, () => { if (this.playing) this.widget.next(); });
     };
     s.onerror = () => { this.title.textContent = "Radio unavailable here"; };
     document.head.append(s);
   }
   private setBtn(on: boolean): void { this.playing = on; (this.el.firstElementChild as HTMLElement).textContent = on ? "❚❚" : "▶"; }
-  play(): void { this.ensure(); this.playing = true; this.widget?.play(); }
-  pause(): void { this.playing = false; this.widget?.pause(); }
+  play(): void { this.ensure(); this.setBtn(true); this.widget?.play(); }
+  /** Stop now (the button flips immediately; the widget catches up). */
+  pause(): void { this.setBtn(false); this.widget?.pause(); }
   toggle(): void { this.playing ? this.pause() : this.play(); }
   setVolume(v: number): void { this.widget?.setVolume(Math.round(v * 100)); }
 }

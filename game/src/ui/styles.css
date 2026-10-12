@@ -268,3 +268,12 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; color:
   .bar .clock .wx { display: none; }
   .hud { top: 104px; }
 }
+/* conversations: keep the dialogue box clear (no bottom bar, caption up top, box above the vignette) */
+.focus.talk .focus-bar.bot { display: none; }
+.focus.talk .focus-cap { bottom: auto; top: calc(11vh + 12px); }
+.focus.talk .focus-cap b { font-size: calc(26px * var(--ts)); }
+.dialogue, .phone, .casino, .modal-wrap { z-index: 5; }
+.cas-floorwrap { display: grid; gap: 10px; }
+.cas-floor { width: 100%; height: auto; aspect-ratio: 960 / 460; border-radius: 8px; border: 1px solid rgba(246,182,44,.35); display: block; }
+.cas-floorwrap .row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.casino { background: radial-gradient(ellipse at 50% 30%, #2a1630, #0b070d 70%); }

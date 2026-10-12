@@ -24,7 +24,8 @@ export class Casino {
   el: HTMLElement;
   chips = 0;
   private bought = 0; private cashedOut = 0;
-  private tab = "cashier";
+  private tab = "floor";
+  private floorRaf = 0;
   private body: HTMLElement;
   private chipSel = 5;
   private bj = new Blackjack(rnd);
@@ -47,7 +48,7 @@ export class Casino {
     this.el = h("div.casino.hidden", { role: "dialog", "aria-modal": "true", "aria-label": "The Tessera Casino" }, []);
   }
 
-  show(): void { this.open = true; this.el.classList.remove("hidden"); this.render(); }
+  show(): void { this.open = true; this.tab = "floor"; this.el.classList.remove("hidden"); this.render(); }
   close(): void {
     if (this.bj.phase === "player" || this.bj.phase === "insurance") { this.msg = "Finish the hand first."; this.render(); return; }
     if (this.rSpinning || this.slotSpinning) return;
@@ -64,7 +65,7 @@ export class Casino {
   private take(n: number): boolean { if (n > this.chips + 1e-9) { this.msg = "Not enough chips. Visit the cashier."; return false; } this.chips -= n; return true; }
 
   private render(): void {
-    const tabs = [["cashier", "Cashier"], ["blackjack", "Blackjack"], ["roulette", "Roulette"], ["pokies", "Pokies"], ["poker", "Video Poker"]];
+    const tabs = [["floor", "Casino floor"], ["cashier", "Cashier"], ["blackjack", "Blackjack"], ["roulette", "Roulette"], ["pokies", "Pokies"], ["poker", "Video Poker"]];
     const nav = h("nav.cas-tabs", { role: "tablist" }, tabs.map(([id, l]) => h("button" + (this.tab === id ? ".on" : ""), { role: "tab", "aria-selected": String(this.tab === id), onclick: () => { this.tab = id; this.msg = ""; this.render(); } }, [l])));
     const head = h("header.cas-head", null, [
       h("div", null, [h("h2", { text: "The Tessera" }), h("p.cas-sub", { text: `${this.w.patrons()} people inside tonight · 18+ · play for fun, it's in-game money` })]),
@@ -77,10 +78,110 @@ export class Casino {
       case "roulette": view = this.rouletteView(); break;
       case "pokies": view = this.pokiesView(); break;
       case "poker": view = this.pokerView(); break;
+      case "floor": view = this.floorView(); break;
       default: view = this.cashierView();
     }
+    if (this.tab !== "floor") cancelAnimationFrame(this.floorRaf);
     this.body.replaceChildren(view, this.msg ? h("p.cas-msg", { role: "status", text: this.msg }) : h("span"));
     this.el.replaceChildren(h("div.cas-frame", null, [head, nav, this.body, h("footer.cas-foot", { text: "Gamble responsibly. In real life, set a limit and stick to it. NZ Gambling Helpline: 0800 654 655." })]));
+  }
+
+  // ------------------------------------------------------------------ the floor
+  /**
+   * The inside of the Tessera: carpet, chandeliers, a neon sign, the blackjack and roulette tables,
+   * a bank of pokies, the video poker bar and the cashier cage, with gamblers milling about. Click a
+   * station (or use the buttons under it) to sit down and play.
+   */
+  private floorView(): HTMLElement {
+    const W = 960, H = 460;
+    const cv = h("canvas.cas-floor", { width: W, height: H, "aria-label": "The casino floor. Choose a table below." }) as HTMLCanvasElement;
+    const spots: { id: string; label: string; x: number; y: number; w: number; h: number }[] = [
+      { id: "blackjack", label: "Blackjack", x: 70, y: 250, w: 240, h: 150 },
+      { id: "roulette", label: "Roulette", x: 360, y: 250, w: 250, h: 150 },
+      { id: "pokies", label: "Kiwi Gold pokies", x: 650, y: 120, w: 280, h: 140 },
+      { id: "poker", label: "Video poker bar", x: 660, y: 300, w: 260, h: 110 },
+      { id: "cashier", label: "Cashier", x: 40, y: 90, w: 190, h: 110 },
+    ];
+    let hover = "";
+    const pos = (e: MouseEvent) => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * (W / r.width), y: (e.clientY - r.top) * (H / r.height) }; };
+    const hit = (x: number, y: number) => spots.find((s) => x >= s.x && x <= s.x + s.w && y >= s.y && y <= s.y + s.h);
+    cv.addEventListener("mousemove", (e) => { const p = pos(e); hover = hit(p.x, p.y)?.id ?? ""; cv.style.cursor = hover ? "pointer" : ""; });
+    cv.addEventListener("click", (e) => { const p = pos(e); const s = hit(p.x, p.y); if (s) { this.tab = s.id; this.msg = ""; this.render(); } });
+    const g = cv.getContext("2d")!;
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const people = Array.from({ length: 16 }, (_, i) => ({ x: 80 + ((i * 137) % 800), y: 210 + ((i * 59) % 230), c: ["#ff7ad9", "#3dd6ff", "#c6ff3d", "#f6b62c", "#b48cff", "#eee4d3"][i % 6], ph: i * 1.3, sp: 8 + (i % 5) * 4 }));
+    const fig = (x: number, y: number, col: string, t: number, sit = false) => {
+      g.strokeStyle = col; g.lineWidth = 3; g.lineCap = "round";
+      const sw = sit ? 0 : Math.sin(t * 6) * 6;
+      g.beginPath(); g.arc(x, y - 44, 7, 0, 6.283); g.stroke();
+      g.beginPath(); g.moveTo(x, y - 37); g.lineTo(x, y - 16); g.moveTo(x, y - 30); g.lineTo(x - 9, y - 22 + sw * 0.3); g.moveTo(x, y - 30); g.lineTo(x + 9, y - 22 - sw * 0.3);
+      if (sit) { g.moveTo(x, y - 16); g.lineTo(x + 10, y - 14); g.lineTo(x + 10, y); } else { g.moveTo(x, y - 16); g.lineTo(x - 6 + sw, y); g.moveTo(x, y - 16); g.lineTo(x + 6 - sw, y); }
+      g.stroke();
+    };
+    const draw = (t: number) => {
+      // carpet: deep plum with a gold diamond pattern, vignette
+      g.fillStyle = "#1c0f1e"; g.fillRect(0, 0, W, H);
+      g.strokeStyle = "rgba(246,182,44,.07)"; g.lineWidth = 1;
+      for (let x = -H; x < W; x += 28) { g.beginPath(); g.moveTo(x, 70); g.lineTo(x + H, H + 70); g.moveTo(x + H, 70); g.lineTo(x, H + 70); g.stroke(); }
+      g.fillStyle = "#120a14"; g.fillRect(0, 0, W, 70); // back wall
+      // neon sign
+      g.font = "900 34px 'Big Shoulders Display', Impact, sans-serif"; g.textAlign = "center";
+      g.shadowColor = "#f6b62c"; g.shadowBlur = reduce ? 6 : 10 + Math.sin(t * 2) * 4; g.fillStyle = "#f6b62c"; g.fillText("THE TESSERA", W / 2, 48); g.shadowBlur = 0;
+      // chandeliers
+      for (const cx of [220, 480, 740]) {
+        g.strokeStyle = "rgba(238,228,211,.25)"; g.beginPath(); g.moveTo(cx, 0); g.lineTo(cx, 26); g.stroke();
+        for (let k = 0; k < 7; k++) { const a = (k / 7) * 6.283 + t * 0.2, px = cx + Math.cos(a) * 26, py = 34 + Math.sin(a) * 7; g.fillStyle = `rgba(255,236,170,${0.55 + 0.45 * Math.sin(t * 3 + k)})`; g.beginPath(); g.arc(px, py, 2.6, 0, 6.283); g.fill(); }
+        const grd = g.createRadialGradient(cx, 40, 0, cx, 40, 160); grd.addColorStop(0, "rgba(255,230,160,.12)"); grd.addColorStop(1, "rgba(255,230,160,0)"); g.fillStyle = grd; g.fillRect(cx - 160, 0, 320, 220);
+      }
+      // cashier cage
+      g.fillStyle = "#2a1630"; g.fillRect(40, 90, 190, 110); g.strokeStyle = "#f6b62c"; g.lineWidth = 2; g.strokeRect(40, 90, 190, 110);
+      g.strokeStyle = "rgba(246,182,44,.5)"; for (let x = 52; x < 230; x += 12) { g.beginPath(); g.moveTo(x, 100); g.lineTo(x, 150); g.stroke(); }
+      fig(135, 160, "#eee4d3", t, false);
+      g.fillStyle = "#eee4d3"; g.font = "700 13px 'IBM Plex Mono', monospace"; g.fillText("CASHIER · CHIPS", 135, 190);
+      // blackjack: green felt half-moon, dealer, players on stools, cards
+      g.fillStyle = "#14532d"; g.beginPath(); g.ellipse(190, 300, 115, 62, 0, 0, Math.PI); g.fill(); g.fillRect(75, 286, 230, 14);
+      g.strokeStyle = "#6b3a12"; g.lineWidth = 6; g.beginPath(); g.ellipse(190, 300, 115, 62, 0, 0, Math.PI); g.stroke();
+      fig(190, 286, "#eee4d3", t, false);
+      for (let k = 0; k < 4; k++) { const a = 0.35 + k * 0.8, px = 190 + Math.cos(a) * 125, py = 300 + Math.sin(a) * 72; fig(px, py + 30, ["#ff7ad9", "#3dd6ff", "#c6ff3d", "#b48cff"][k], t + k, true); g.fillStyle = "#eee4d3"; g.fillRect(190 + Math.cos(a) * 80 - 6, 300 + Math.sin(a) * 40 - 8, 12, 16); }
+      // roulette: table with a spinning wheel
+      g.fillStyle = "#14532d"; g.fillRect(380, 270, 210, 90); g.strokeStyle = "#6b3a12"; g.lineWidth = 6; g.strokeRect(380, 270, 210, 90);
+      for (let k = 0; k < 12; k++) { g.fillStyle = k % 2 ? "#ec2a1c" : "#0e0b0a"; g.fillRect(440 + (k % 6) * 22, 285 + Math.floor(k / 6) * 28, 20, 26); }
+      const wa = reduce ? 0 : t * 2.2; g.save(); g.translate(410, 315);
+      for (let k = 0; k < 18; k++) { g.fillStyle = k === 0 ? "#2d6b24" : k % 2 ? "#ec2a1c" : "#0e0b0a"; g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 24, wa + (k / 18) * 6.283, wa + ((k + 1) / 18) * 6.283); g.fill(); }
+      g.fillStyle = "#eee4d3"; g.beginPath(); g.arc(Math.cos(-wa * 1.6) * 18, Math.sin(-wa * 1.6) * 18, 2.5, 0, 6.283); g.fill(); g.restore();
+      fig(485, 268, "#eee4d3", t, false);
+      // pokies bank with blinking toppers
+      for (let k = 0; k < 6; k++) {
+        const x = 660 + k * 45, y = 130;
+        g.fillStyle = "#2a1630"; g.fillRect(x, y, 38, 110); g.fillStyle = "#0e0b0a"; g.fillRect(x + 5, y + 30, 28, 30);
+        g.fillStyle = Math.floor(t * 4 + k) % 3 === 0 ? "#f6b62c" : k % 2 ? "#ff7ad9" : "#3dd6ff"; g.fillRect(x + 4, y + 6, 30, 14);
+        g.fillStyle = "#eee4d3"; g.font = "700 11px monospace"; g.fillText(["7", "💎", "🥝"][(Math.floor(t * 2) + k) % 3], x + 19, y + 50);
+      }
+      fig(700, 262, "#c6ff3d", t, true); fig(790, 262, "#ff7ad9", t + 2, true);
+      // video poker bar
+      g.fillStyle = "#3a1f12"; g.fillRect(660, 340, 260, 34); g.fillStyle = "#6b3a12"; g.fillRect(660, 334, 260, 8);
+      for (let k = 0; k < 5; k++) { g.fillStyle = "#1d2a38"; g.fillRect(672 + k * 50, 310, 34, 24); g.fillStyle = "#3dd6ff"; g.fillRect(676 + k * 50, 314, 26, 10); }
+      // wandering gamblers
+      for (const p of people) {
+        const x = p.x + (reduce ? 0 : Math.sin(t * 0.3 + p.ph) * p.sp * 3), y = p.y;
+        if (y < 230 || (x > 60 && x < 330 && y > 240 && y < 400) || (x > 360 && x < 620 && y > 250 && y < 380) || (x > 640 && y < 420 && y > 110)) continue;
+        fig(x, y, p.c, t + p.ph);
+      }
+      // hotspots
+      for (const s of spots) {
+        const on = s.id === hover;
+        g.strokeStyle = on ? "#c6ff3d" : "rgba(238,228,211,.18)"; g.lineWidth = on ? 3 : 1; g.setLineDash(on ? [] : [6, 6]); g.strokeRect(s.x, s.y, s.w, s.h); g.setLineDash([]);
+        g.fillStyle = on ? "#c6ff3d" : "rgba(238,228,211,.8)"; g.font = "800 15px 'Big Shoulders Display', Impact, sans-serif"; g.textAlign = "center";
+        g.fillText(s.label.toUpperCase() + (on ? "  ▶ PLAY" : ""), s.x + s.w / 2, s.y + s.h + 16);
+      }
+      // the way out
+      g.fillStyle = "rgba(238,228,211,.5)"; g.font = "600 12px monospace"; g.fillText("EXIT ↓  (Esc)", W / 2, H - 8);
+    };
+    const loop = (ms: number) => { if (!this.open || this.tab !== "floor") return; draw(ms / 1000); this.floorRaf = requestAnimationFrame(loop); };
+    cancelAnimationFrame(this.floorRaf);
+    this.floorRaf = requestAnimationFrame(loop);
+    draw(0);
+    return h("div.cas-floorwrap", null, [cv, h("div.row", null, spots.map((s) => h("button.btn", { onclick: () => { this.tab = s.id; this.msg = ""; this.render(); }, text: s.label })))]);
   }
 
   private chipRow(): HTMLElement {
