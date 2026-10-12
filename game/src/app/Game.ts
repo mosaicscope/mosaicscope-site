@@ -139,6 +139,9 @@ export class Game {
     this.bindInput();
     this.bindSim();
     this.bindStats();
+    // phones: stop the browser's own pinch/double-tap page zoom from fighting the game's camera
+    for (const ev of ["gesturestart", "gesturechange", "gestureend"]) document.addEventListener(ev, (e) => e.preventDefault());
+    addEventListener("orientationchange", () => setTimeout(() => this.rescueZoom(), 350));
     addEventListener("error", (e) => this.fault("window", e.error ?? e.message));
     addEventListener("unhandledrejection", (e) => this.fault("promise", e.reason));
     this.loadEmpire();
@@ -809,9 +812,19 @@ export class Game {
     this.focus(c.nickname ? `${first} "${c.nickname}"` : first, label, 0, true);
   }
 
+  /** On phones, if the camera ends up absurdly close (rotation, stuck pinch, finished cinematic) pull it back. */
+  private rescueZoom(): void {
+    if (!matchMedia("(pointer: coarse)").matches) return;
+    const cam = this.renderer.cam;
+    if (this.focusEl.classList.contains("on")) return;
+    if (cam.targetZoom > 3.4 && !this.userWanted2D) cam.setZoom(1.5);
+  }
+  private userWanted2D = false;
+
   /** V / the 2D button: jump between the 3D city and the 2D street view. */
   private toggle2D(): void {
     const cam = this.renderer.cam;
+    this.userWanted2D = cam.targetZoom <= 3;
     cam.setZoom(cam.targetZoom > 3 ? 1.5 : 4);
     cam.follow = this.sim.playerId;
   }
@@ -941,7 +954,9 @@ export class Game {
   focus(title: string, sub = "", secs = 3.5, talk = false): void {
     const cam = this.renderer.cam;
     if (!this.focusEl.classList.contains("on")) this.focusZoom = cam.targetZoom;
-    cam.setZoom(Math.max(this.focusZoom, 2.2));
+    // a gentler push-in on phones (the screen is already small), never past street-view territory
+    const coarse = matchMedia("(pointer: coarse)").matches;
+    cam.setZoom(coarse ? Math.min(Math.max(this.focusZoom, 1.8), 2.2) : Math.max(this.focusZoom, 2.2));
     cam.follow = this.sim.playerId;
     (this.focusEl.querySelector(".focus-cap b") as HTMLElement).textContent = title;
     (this.focusEl.querySelector(".focus-cap span") as HTMLElement).textContent = sub;

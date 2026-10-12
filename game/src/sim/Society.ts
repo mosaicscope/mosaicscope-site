@@ -7,6 +7,7 @@ import { carried, detach, transfer, pickUp } from "../inventory/Inventory";
 import { SHOOTS, MOSAIC } from "../content/mosaicscope";
 import { Building, Graffiti, T } from "../world/World";
 import { forceGoal } from "../ai/brain";
+import { chooseFood, onConsume, learnPlace, welcomeReward, noteGamble, chaseProbability, stakeFactor } from "../mind/Mind";
 
 /* =============================== economy =============================== */
 
@@ -38,6 +39,9 @@ export function consume(sim: Simulation, c: Character, t: Toy): boolean {
   if (!f || t.holder !== c.id) return false;
   detach(c, t.id);
   t.state = "broken"; t.brokenAt = sim.tick; t.holder = -1; t.x = -100; t.y = -100;
+  // the mind learns from the outcome (and a too-hot drink burns: Garcia one-trial aversion)
+  const scalded = onConsume(sim, c, t.def, c.hunger);
+  if (scalded) { sim.say(c, sim.rng.pick(["OW! Hot hot hot!", "Ahh, my tongue!", "Who made that, the sun?!"]), "shout", 1.6); }
   c.hunger = Math.min(1, c.hunger + f.hunger);
   c.needs.energy = Math.min(1, c.needs.energy + f.energy);
   c.emo.mood = Math.min(1, c.emo.mood + 0.08);
@@ -108,7 +112,17 @@ export function insideOutcome(sim: Simulation, c: Character, b: Building): void 
   const def = BUILDINGS[b.kind];
   if (def.menu && c.hunger < 0.6) {
     const food = def.menu.filter((m) => TOYS[m].category === "food" && TOYS[m].value <= c.cash);
-    if (food.length) { const r = buy(sim, c, sim.rng.pick(food), { building: b.id }); if (r.ok && r.toy) consume(sim, c, r.toy); }
+    if (food.length) {
+      // choose by learned taste, current aversions and curiosity (mind/Learning.ts), not at random
+      const r = buy(sim, c, chooseFood(sim, c, food), { building: b.id });
+      if (r.ok && r.toy) {
+        const burns = c.mind.scalds;
+        const before = c.mind.v["item:" + r.toy.def] ?? 0;
+        consume(sim, c, r.toy);
+        const outcome = (c.mind.v["item:" + r.toy.def] ?? 0) - before;
+        learnPlace(sim, c, b.kind, b.id, b.name, outcome * 2.5 + welcomeReward(sim, c, b.id) - (c.mind.scalds > burns ? 0.3 : 0));
+      }
+    }
   }
   if (b.kind === "casino") gambleOffscreen(sim, c);
   if (b.kind === "pawn") fenceGoods(sim, c);
@@ -118,16 +132,27 @@ export function insideOutcome(sim: Simulation, c: Character, b: Building): void 
 
 /** NPC casino visits use the real game odds: blackjack ~0.5% edge, roulette 2.7%, pokies ~6%. */
 function gambleOffscreen(sim: Simulation, c: Character): void {
-  const stake = Math.min(c.cash, Math.max(5, Math.round(c.cash * sim.rng.range(0.1, 0.5))));
+  const start = c.cash;
+  let stake = Math.min(c.cash, Math.max(5, Math.round(c.cash * sim.rng.range(0.1, 0.5) * stakeFactor(c))));
   if (stake <= 0) return;
+  const stake0 = stake;
   const game = sim.rng.pick(["blackjack", "roulette", "pokies"]);
   const edge = game === "blackjack" ? 0.005 : game === "roulette" ? 0.027 : 0.06;
   const swing = game === "pokies" ? 1.6 : 1;
-  const result = Math.round(stake * (sim.rng.gauss() * 0.6 * swing - edge * 6));
-  c.cash = Math.max(0, c.cash + result);
-  c.emo.mood = Math.max(-1, Math.min(1, c.emo.mood + Math.sign(result) * 0.25));
-  if (result < 0) c.emo.frustration = Math.min(1, c.emo.frustration + Math.min(0.4, -result / 200));
-  if (Math.abs(result) > 60) sim.emit({ type: "casino", x: c.x, y: c.y, actors: [c.id], data: { amount: result, game }, summary: result > 0 ? `${c.name} won ${fmtCash(result)} at ${game}` : `${c.name} lost ${fmtCash(-result)} at ${game}` });
+  // up to four rounds: after each result prospect theory + personality decide whether to chase or walk away
+  let net = 0;
+  for (let round = 0; round < 4 && stake > 0; round++) {
+    const result = Math.round(stake * (sim.rng.gauss() * 0.6 * swing - edge * 6));
+    c.cash = Math.max(0, c.cash + result);
+    net += result;
+    c.emo.mood = Math.max(-1, Math.min(1, c.emo.mood + Math.sign(result) * 0.25));
+    if (result < 0) c.emo.frustration = Math.min(1, c.emo.frustration + Math.min(0.4, -result / 200));
+    if (c.cash < 5 || !sim.rng.chance(chaseProbability(c, net, stake0))) break;
+    // chasing: bet bigger to get back to even; the cautious keep it flat
+    stake = Math.min(c.cash, Math.round(stake * (net < 0 ? 1.3 : 1)));
+  }
+  noteGamble(sim, c, c.cash - start, stake0);
+  if (Math.abs(net) > 60) sim.emit({ type: "casino", x: c.x, y: c.y, actors: [c.id], data: { amount: net, game }, summary: net > 0 ? `${c.name} won ${fmtCash(net)} at ${game}` : `${c.name} lost ${fmtCash(-net)} at ${game}` });
 }
 
 /** Sell stolen or unwanted valuables at the pawn shop. */

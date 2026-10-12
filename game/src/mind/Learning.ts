@@ -154,7 +154,7 @@ export function placePull(c: Character, kind: string, id: number): number {
 }
 
 /** Learn a place from a visit. `reward` is the outcome (food, welcome, winnings). */
-export function learnPlace(sim: Simulation, c: Character, kind: string, id: number, name: string, reward: number): void {
+export function learnPlace(_sim: Simulation, c: Character, kind: string, id: number, name: string, reward: number): void {
   const m = c.mind;
   const nextBest = m.v["place:" + kind] ?? 0;
   td(c, "bld:" + id, reward, nextBest);
@@ -255,6 +255,7 @@ export function stakeFactor(c: Character): number { const g = c.mind.gamble; ret
 /** How strongly `a` is influenced by `b`: liking, respect, status, and a conformity trait. */
 export function influence(a: Character, b: Character): number {
   const r = peek(a, b.id);
+  if (!r) return 0;
   const w = 0.4 * Math.max(0, r.aff) + 0.3 * Math.max(0, r.respect) + 0.15 * Math.max(0, b.reputation) + 0.15 * Math.min(1, r.fam);
   return cl(w * (0.5 + a.mind.conform), 0, 1);
 }

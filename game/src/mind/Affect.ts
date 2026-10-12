@@ -1,5 +1,5 @@
 import type { Character, Personality } from "../entities/types";
-import type { Mind, EmotionName } from "./Mind";
+import type { EmotionName } from "./Mind";
 
 /**
  * Affect and appraisal.

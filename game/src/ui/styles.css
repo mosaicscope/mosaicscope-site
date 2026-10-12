@@ -340,3 +340,4 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; color:
 .fault { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 20; background: #0e0b0a; border: 2px solid var(--red); border-radius: 14px; padding: 20px 22px; width: min(360px, calc(100vw - 32px)); display: grid; gap: 10px; box-shadow: 0 20px 60px rgba(0,0,0,.7); }
 .fault h2 { margin: 0; font: 900 24px var(--display); color: var(--paper); } .fault p { margin: 0; color: var(--dim); font: 500 13px/1.4 var(--mono); }
 .fault .row { display: flex; gap: 8px; } .fault .row .btn { flex: 1; min-height: 44px; }
+html, body, #ui, #ui * { touch-action: manipulation; } #world { touch-action: none; } body { overscroll-behavior: none; -webkit-text-size-adjust: 100%; }

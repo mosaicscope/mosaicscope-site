@@ -8,6 +8,8 @@ import { FIRST_GIRL, FIRST_GUY, SURNAMES, NICKNAMES, ROLE_COUNTS, Role, ROLE_LAB
 import { uniqueLook, MOSAIC_FACE, lookKey } from "../content/appearance";
 import { BUILDINGS } from "../content/buildings";
 import { Building } from "../world/World";
+import { deriveProfile, culturalize, setProfile, shiftRoutine } from "../mind/Culture";
+import { dress } from "../mind/Dress";
 
 function randomPers(rng: Rng): Personality {
   const r = () => Math.min(1, Math.max(0, 0.5 + rng.gauss() * 0.22));
@@ -24,6 +26,20 @@ function shapeForRole(p: Personality, role: Role): void {
   if (role === "medic") { p.kindness = c(p.kindness + 0.3); }
   if (role === "gambler") { p.boldness = c(p.boldness + 0.2); p.temper = c(p.temper + 0.1); }
   if (role === "car_enthusiast" || role === "skater") { p.playfulness = c(p.playfulness + 0.2); }
+}
+
+/**
+ * Give a freshly created person their regional culture (see src/mind/Culture.ts): sub-culture, age
+ * cohort and chronotype derive from role + district on a private RNG stream (so the rest of the world
+ * spawns exactly as before), the rolled personality is skewed towards that culture (not replaced), and
+ * they get dressed for the current climate. `shape` is false for authored characters whose traits are
+ * hand-written.
+ */
+function enculture(sim: Simulation, c: Character, areaKind: string, shape = true) {
+  const prof = setProfile(c, deriveProfile(sim.cfg.seed, c.id, c.role, areaKind, c.tier === "principal"));
+  if (shape) { culturalize(c.pers, prof); c.emo.confidence = 0.4 + c.pers.boldness * 0.5; }
+  dress(sim, c);
+  return prof;
 }
 
 export class NameBook {
@@ -58,6 +74,7 @@ export function spawnAll(sim: Simulation): void {
   const pp = world.nearestWalkable(plaza.cx + 2, plaza.cy + 3);
   const player = addChar(sim, "You", "player", pp.x, pp.y, { kind: "guy", color: "#eee4d3", accent: "#ec2a1c", hat: "none", hair: "sidepart", scale: 1, face: { eyes: "round", brows: "straight", mouth: "smile", nose: "dot", facial: "none", extra: "none", head: "round" } }, { boldness: 0.6, kindness: 0.6, temper: 0.3, sociability: 0.7, curiosity: 0.8, playfulness: 0.7, honesty: 0.8 });
   player.speed = 2.6; player.bio = "A stranger who found the Mosaics' world."; player.cash = 250; player.role = "local";
+  enculture(sim, player, plaza.kind, false);
   usedLooks.add(lookKey(player.look));
   sim.playerId = player.id;
 
@@ -72,7 +89,7 @@ export function spawnAll(sim: Simulation): void {
     c.speed = 1.7 + d.pers.boldness * 0.3; c.cash = 120 + rng.int(0, 300);
     c.role = d.name === "Kodak" ? "photographer" : d.name === "Static" ? "musician" : d.name === "Bando" ? "mechanic" : d.name === "Grain" ? "skater" : d.name === "Flash" ? "car_enthusiast" : "local";
     c.home = rng.pick(homes).id;
-    sim.routines.set(c.id, d.routine);
+    sim.routines.set(c.id, shiftRoutine(d.routine, enculture(sim, c, home.kind, false))); // larks start early, owls late
   });
   // Chris runs MosaicScope (photography + film). He works out of the Studio.
   const studio = world.areas.find((a) => a.kind === "studio")!;
@@ -84,7 +101,7 @@ export function spawnAll(sim: Simulation): void {
   chris.role = "photographer"; chris.style = "smooth"; chris.homeArea = studio.id; chris.cash = 400; chris.catchphrase = "Send me a few reference pics.";
   chris.bio = "Runs MosaicScope: photography and music videos around Christchurch. Artists, raves, car meets, skate. Always has a camera on him.";
   chris.likes = ["camera", "frisbee"];
-  sim.routines.set(chris.id, [[8, "studio"], [12, "plaza"], [14, "studio"], [18, "gallery"], [20, "dealership"], [22, "stage"]]);
+  sim.routines.set(chris.id, shiftRoutine([[8, "studio"], [12, "plaza"], [14, "studio"], [18, "gallery"], [20, "dealership"], [22, "stage"]], enculture(sim, chris, studio.kind, false)));
 
   // the crew knows each other already: seed relationships from the site's crews
   const crews = [["Tiles", "Glitter"], ["Kodak", "Nova", "Grain"], ["Flash", "Ruby"], ["Bando", "Lux", "Static"]];
@@ -125,6 +142,7 @@ export function spawnAll(sim: Simulation): void {
     const c = addChar(sim, names.next(kind), "mid", p.x, p.y, look, pers);
     c.role = role; c.homeArea = area.id; c.style = rng.pick(MID_STYLES);
     c.workplace = workFor(role)?.id ?? -1; c.home = rng.pick(homes).id;
+    enculture(sim, c, area.kind);
     c.cash = role === "thief" ? rng.int(0, 25) : role === "gambler" ? rng.int(200, 900) : role === "tourist" ? rng.int(150, 600) : rng.int(30, 260);
     if (role === "thief" && rng.chance(0.5)) c.nickname = rng.pick(NICKNAMES);
     const portable = Object.values(TOYS).filter((t) => t.spawn > 0).map((t) => t.id);
@@ -166,6 +184,7 @@ export function spawnAll(sim: Simulation): void {
     if (sp.nick) c.nickname = sp.nick;
     c.workplace = sp.role === "mobster" ? world.buildings.find((b) => b.kind === "casino")?.id ?? -1 : -1;
     c.bio = sp.bio;
+    enculture(sim, c, area.kind); Object.assign(c.pers, sp.pers ?? {}); c.emo.confidence = 0.4 + c.pers.boldness * 0.5;
   }
 
   // regulars: a dozen couples, some of them not as solid as they look
@@ -214,6 +233,7 @@ export function spawnBackground(sim: Simulation, n: number): void {
     c.role = rng.pick(["local", "office", "student", "local", "tourist"] as Role[]);
     c.home = homes.length ? rng.pick(homes).id : -1;
     c.workplace = work.length && c.role !== "tourist" ? rng.pick(work).id : -1;
+    enculture(sim, c, area.kind);
     c.bio = `${c.name}, ${ROLE_LABEL[c.role]}.`;
   }
 }

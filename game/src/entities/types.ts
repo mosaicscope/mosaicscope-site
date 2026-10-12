@@ -77,6 +77,8 @@ export interface Memory {
   from: number;         // who told us (-1 if first-hand)
   cred: number;         // credibility 0..1
   ev: number;           // world event id (-1)
+  /** rehearsal count and last-recall tick (Ebbinghaus spacing; see mind/Memory.ts) */
+  rep?: number; rec?: number;
 }
 
 export interface Rel {
@@ -217,6 +219,8 @@ export interface Character {
   attractedTo: ("guy" | "girl")[];
   dirty: boolean;                // render-relevant state changed (background batching)
   seedPhase: number;             // per-entity animation offset
+  /** learned tastes, habits, affect and fears (see src/mind); plain JSON so it saves as-is */
+  mind: import("../mind/Mind").Mind;
 }
 
 export type ToyState = "rest" | "flying" | "held" | "broken";

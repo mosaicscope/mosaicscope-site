@@ -2,7 +2,7 @@
 export type BuildingKind =
   | "casino" | "studio" | "gallery" | "police" | "dealership" | "diner" | "pizza" | "sushi" | "bakery" | "cafe" | "fishchips" | "dairy"
   | "toyshop" | "sports" | "pawn" | "bank" | "nightclub" | "apartments" | "house" | "office" | "garage" | "hospital" | "records" | "barber" | "gym" | "hotel" | "airport"
-  | "stripclub" | "velvet";
+  | "stripclub" | "velvet" | "mentalhealth";
 
 export interface BuildingDef {
   kind: BuildingKind;
@@ -41,6 +41,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
   office: { kind: "office", names: ["Cathedral Square Offices", "Towr Insurance", "BNZed Centre"], floors: [7, 11], colors: ["#1d2a38", "#24242c", "#2a3240"], roof: "#3a3a48", open: [7, 19], enterable: false, sign: "#3dd6ff" },
   garage: { kind: "garage", names: ["Zed Station", "Seagull Fuel"], floors: [1, 1], colors: ["#2a2420"], roof: "#ec2a1c", open: [0, 24], menu: ["pie", "lp", "energy_drink", "donut", "bandage"], enterable: true, sign: "#ec2a1c", job: "mechanic" },
   hospital: { kind: "hospital", names: ["Christchurch Public Hospital"], floors: [5, 7], colors: ["#d8cdb8"], roof: "#9a8d80", open: [0, 24], enterable: false, sign: "#ec2a1c", job: "medic" },
+  mentalhealth: { kind: "mentalhealth", names: ["Pūtahi Mental Health Unit"], floors: [2, 3], colors: ["#cfd8cf", "#c4d0c8"], roof: "#6f8a7a", open: [0, 24], enterable: true, sign: "#6fe3b0", job: "medic" },
   records: { kind: "records", names: ["Penny Lame Records"], floors: [2, 3], colors: ["#2a1630"], roof: "#b48cff", open: [10, 18], menu: ["vinyl", "headphones"], enterable: true, sign: "#b48cff", job: "shopkeeper" },
   barber: { kind: "barber", names: ["Fresh Cutz"], floors: [2, 3], colors: ["#2b2026"], roof: "#ec2a1c", open: [9, 18], enterable: false, sign: "#3dd6ff" },
   gym: { kind: "gym", names: ["Iron Works Gym"], floors: [3, 3], colors: ["#24242c"], roof: "#3a3430", open: [5, 22], enterable: false, sign: "#ec2a1c" },

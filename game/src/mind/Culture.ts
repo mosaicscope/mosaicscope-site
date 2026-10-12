@@ -315,3 +315,68 @@ export function profileOf(seed: number, c: Character, areaKind: string): Culture
   if (!p) { p = deriveProfile(seed, c.id, c.role, areaKind, c.tier === "principal"); PROFILES.set(c, p); }
   return p;
 }
+
+// ---------------------------------------------------------------- dialogue sensitivity
+
+/**
+ * Tone of an authored exchange, estimated lexically once per exchange (cached by the caller). The
+ * 3,000-odd lines carry no tone metadata, so register is read from the words: exclamation and caps
+ * (loud), understatement markers (dry), boasts, politeness markers, slang, weather and sport talk.
+ * Each score is 0..1.
+ */
+export interface Tone { loud: number; dry: number; boast: number; warm: number; formal: number; slang: number; weather: number; sport: number }
+
+const WORDS = {
+  dry: /\b(not bad|fair enough|yeah,? nah|nah,? yeah|reckon|a bit|bit of a|suppose|could be worse|i guess|no worries|she'll be right|fine|alright|sweet enough|eh\b)/gi,
+  boast: /\b(best|greatest|richest|genius|legend|champion|obviously|i'm the|famous|bow down|number one|flawless)\b/gi,
+  warm: /\b(love|lovely|thanks|thank you|cheers|ta\b|aww|sweet|mate|bless|hug|proud|miss you|appreciate)\b/gi,
+  formal: /\b(please|sir|madam|excuse me|pardon|kindly|good (day|evening|morning)|would you)\b/gi,
+  slang: /\b(sweet as|heaps|chur|bro|mate|eh\b|aye|munted|stoked|choice|jandals|dairy|togs|hard out|yeah nah|ute|bach|crib|chilly bin)\b/gi,
+  weather: /\b(wind|windy|rain|raining|nor'?wester|southerly|cold|freezing|hot|weather|sunny|storm|frost|chilly)\b/gi,
+  sport: /\b(rugby|cricket|netball|all blacks|crusaders|match|game on|try\b|the ref)\b/gi,
+};
+const count = (re: RegExp, s: string) => (s.match(re) ?? []).length;
+
+export function toneOfExchange(lines: readonly string[], tags: readonly string[]): Tone {
+  const n = Math.max(1, lines.length), text = lines.join(" ");
+  const caps = (text.match(/\b[A-Z]{3,}\b/g) ?? []).length;
+  const norm = (v: number) => Math.min(1, v / n * 1.4);
+  return {
+    loud: norm((text.match(/!/g) ?? []).length * 0.5 + caps),
+    dry: norm(count(WORDS.dry, text)),
+    boast: norm(count(WORDS.boast, text)),
+    warm: norm(count(WORDS.warm, text)),
+    formal: norm(count(WORDS.formal, text)),
+    slang: norm(count(WORDS.slang, text)),
+    weather: Math.min(1, norm(count(WORDS.weather, text)) + (tags.includes("rain") || tags.includes("storm") ? 0.35 : 0)),
+    sport: norm(count(WORDS.sport, text)),
+  };
+}
+
+/**
+ * Multiplier (about 0.3..3.3) on an exchange's pick weight for this speaker: restrained people
+ * (tall-poppy ethos, high modesty) avoid boasting and shouting and prefer understatement; slangy
+ * young people prefer slang; formal/older people prefer polite phrasing; warm people prefer warm lines;
+ * a weather-talking culture likes weather small talk; sport-mad cultures like sport. `listenerOlder`
+ * bumps formality (respect for elders, within an informal culture).
+ */
+export function cultureWeight(sp: CultureProfile, tone: Tone, listenerOlder = false): number {
+  const r = sp.register, ctr = (v: number) => (v - 0.5) * 2;
+  const formality = clamp01(r.formality + (listenerOlder ? 0.15 : 0));
+  const score =
+    ctr(r.restraint) * (1.2 * tone.dry - 1.0 * tone.loud - 1.6 * tone.boast) +
+    ctr(r.slang) * 1.1 * tone.slang +
+    ctr(formality) * (1.2 * tone.formal - 0.4 * tone.slang) +
+    ctr(r.warmth) * 0.9 * tone.warm +
+    ctr(r.banter) * 0.7 * tone.dry +
+    (sp.norms.weatherTalk - 0.3) * 1.4 * tone.weather +
+    (sp.norms.sportMad - 0.4) * 1.0 * tone.sport;
+  return Math.exp(Math.max(-1.2, Math.min(1.2, score * 0.8)));
+}
+
+/** Sprinkle a regional discourse particle on a short statement ("Good day, eh."). Returns the line unchanged most of the time. */
+export function regionalise(line: string, sp: CultureProfile, roll: number): string {
+  if (line.length > 62 || !/[a-z][.]$/i.test(line) || /\beh\b|\bmate\b|\baye\b/i.test(line)) return line;
+  if (roll > sp.register.slang * 0.22) return line;
+  return line.slice(0, -1) + (sp.register.slang > 0.75 ? ", aye." : ", eh.");
+}

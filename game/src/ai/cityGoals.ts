@@ -7,6 +7,7 @@ import { SHOOTS } from "../content/mosaicscope";
 import { findWall, shootArea } from "../sim/Society";
 import { carried } from "../inventory/Inventory";
 import { friendship, peek, hostility } from "../social/Social";
+import { placePull, gambleUrge } from "../mind/Mind";
 import { attracted, loveOf, chemistry } from "../sim/Romance";
 
 /** Goals that make the city run: food, jobs, homes, shopping, crime, policing, art and the business. */
@@ -22,7 +23,8 @@ function nearestFood(sim: Simulation, c: Character): { building?: number; poi?: 
     if (!def.menu || !def.menu.some(isFood) || !isOpen(def, sim.hour)) continue;
     const cheapest = Math.min(...def.menu.filter(isFood).map((m) => TOYS[m].value));
     if (cheapest > c.cash) continue;
-    const d = Math.hypot(b.door.x - c.x, b.door.y - c.y);
+    // learned place preference (TD value of earlier visits: good food, a warm welcome) shortens the felt distance
+    const d = Math.hypot(b.door.x - c.x, b.door.y - c.y) - placePull(c, b.kind, b.id);
     if (d < 40 && (!best || d < best.d)) best = { building: b.id, d };
   }
   for (const p of sim.world.pois) {
@@ -91,7 +93,7 @@ export const CITY_GOALS: GoalDef[] = [
     score: (c, sim) => {
       const casino = sim.world.buildings.find((b) => b.kind === "casino");
       if (!casino || c.cash < 40 || c.tier === "principal" && c.name !== "Tiles" && c.name !== "Flash") return null;
-      const keen = c.role === "gambler" ? 0.55 : c.pers.boldness > 0.6 && c.needs.fun < 0.45 ? 0.25 : 0;
+      const keen = c.role === "gambler" ? 0.55 : c.pers.boldness > 0.6 && c.needs.fun < 0.45 ? 0.25 : gambleUrge(c) > 0.3 ? 0.2 + gambleUrge(c) * 0.3 : 0; // last: loss-chasers want to win it back
       return keen ? { u: keen + Math.min(0.2, c.cash / 2000), target: -1, toy: casino.id } : null;
     },
     build: (_c, sim, ch) => [{ kind: "enter", building: ch.toy, minutes: sim.rng.range(20, 70) }],

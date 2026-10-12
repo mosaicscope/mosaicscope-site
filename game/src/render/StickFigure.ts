@@ -1,5 +1,7 @@
 import type { Character } from "../entities/types";
 import { Phys } from "../entities/types";
+import { dressOf } from "../mind/Dress";
+import type { Dress } from "../mind/Dress";
 
 /**
  * Procedural stick figures in the style of the MosaicScope footer crew (same proportions as the
@@ -205,11 +207,47 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
     g.stroke();
     if (L.main) { g.strokeStyle = "#f6b62c"; g.lineWidth = lw * 0.6; g.beginPath(); g.moveTo(bx - 4 * k, by); g.quadraticCurveTo(bx, by + 8 * k, bx + 4 * k, by); g.stroke(); }
   }
-  drawHead(g, L, J[4], J[5], k, dir, lw, col, alpha);
+  const D = dressOf(c);
+  if (D) drawDress(g, D, L, k, dir, lw, alpha);
+  drawHead(g, L, J[4], J[5], k, dir, lw, col, alpha, D ? D.hat : L.hat);
   if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 14 * k, k, t);
 }
 
-function drawHead(g: CanvasRenderingContext2D, L: Character["look"], x: number, y: number, k: number, dir: number, lw: number, col: string, alpha: number): void {
+/** Outer layers by climate (see src/mind/Dress.ts): coats, bare legs in shorts, gumboots, scarf, umbrella. */
+const OUTER: Partial<Record<Dress["top"], string>> = { raincoat: "#f6c21c", puffer: "", jacket: "#2b2f3a", hivis: "#f08a1c", wetsuit: "#15181c", suit: "#10131a", uniform: "#1c3a6b", knit: "", apron: "#e8e0cf", robe: "#7b3f9e" };
+function drawDress(g: CanvasRenderingContext2D, D: Dress, L: Character["look"], k: number, dir: number, lw: number, alpha: number): void {
+  const col = D.tint ?? OUTER[D.top] ?? "";
+  const outer = col || L.accent;
+  if (D.legs === "shorts") { // bare lower legs (skin) from knee to ankle
+    g.strokeStyle = "#e9c7a0"; g.lineWidth = lw * 0.85; g.globalAlpha = alpha;
+    g.beginPath(); g.moveTo(J[16], J[17]); g.lineTo(J[18], J[19]); g.moveTo(J[20], J[21]); g.lineTo(J[22], J[23]); g.stroke();
+  }
+  if (D.feet === "gumboots") {
+    g.strokeStyle = "#2f7d3a"; g.lineWidth = lw * 1.5;
+    g.beginPath(); g.moveTo(J[16] + (J[18] - J[16]) * 0.35, J[17] + (J[19] - J[17]) * 0.35); g.lineTo(J[18], J[19]); g.moveTo(J[20] + (J[22] - J[20]) * 0.35, J[21] + (J[23] - J[21]) * 0.35); g.lineTo(J[22], J[23]); g.stroke();
+  }
+  if (D.top !== "tee" && D.top !== "shirt") {
+    const fat = D.top === "puffer" ? 6.5 : D.top === "wetsuit" || D.top === "suit" ? 3.2 : 5;
+    const ux = J[6] - J[0], uy = J[7] - J[1], len = Math.hypot(ux, uy) || 1, px = (-uy / len) * fat * k, py = (ux / len) * fat * k;
+    g.fillStyle = outer; g.globalAlpha = alpha * (D.top === "knit" ? 0.5 : 0.8);
+    g.beginPath(); g.moveTo(J[0] + px * 0.9, J[1] + py * 0.9); g.lineTo(J[6] + px, J[7] + py); g.lineTo(J[6] - px, J[7] - py); g.lineTo(J[0] - px * 0.9, J[1] - py * 0.9); g.closePath(); g.fill();
+    if (D.top !== "apron" && D.top !== "robe") { // sleeves
+      g.strokeStyle = outer; g.lineWidth = lw * (D.top === "puffer" ? 1.5 : 1.15); g.globalAlpha = alpha * 0.85;
+      g.beginPath(); g.moveTo(J[6], J[7]); g.lineTo(J[8], J[9]); g.moveTo(J[6], J[7]); g.lineTo(J[12], J[13]); g.stroke();
+    }
+    if (D.top === "hivis") { g.strokeStyle = "#e8f2f0"; g.lineWidth = Math.max(0.8, lw * 0.35); g.globalAlpha = alpha * 0.9; g.beginPath(); g.moveTo(J[0] + px, J[1] + py); g.lineTo(J[0] - px, J[1] - py); g.stroke(); }
+  }
+  if (D.scarf) { g.strokeStyle = L.accent; g.lineWidth = lw * 1.3; g.globalAlpha = alpha; g.beginPath(); g.moveTo(J[2] - 3 * k, J[3]); g.lineTo(J[2] + 3 * k, J[3]); g.stroke(); }
+  if (D.umbrella) {
+    g.globalAlpha = alpha * 0.9; g.fillStyle = "#3a3f58"; g.strokeStyle = "#cfd4e8"; g.lineWidth = Math.max(0.8, lw * 0.4);
+    const ux = J[4] + 2 * k * dir, uy = J[5] - 15 * k;
+    g.beginPath(); g.ellipse(ux, uy, 13 * k, 7 * k, 0, Math.PI, 0); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(ux, uy); g.lineTo(J[10], J[11]); g.stroke();
+  }
+  g.globalAlpha = alpha;
+}
+
+function drawHead(g: CanvasRenderingContext2D, L: Character["look"], x: number, y: number, k: number, dir: number, lw: number, col: string, alpha: number, hat: Character["look"]["hat"] = L.hat): void {
   const F = L.face ?? { eyes: "shades", brows: "none", mouth: L.kind === "girl" ? "smile" : "smile", nose: "none", facial: "none", extra: "none", head: "round" } as const;
   const r = HEAD_R * k;
   const rx = F.head === "wide" ? r * 1.12 : r, ry = F.head === "oval" ? r * 1.12 : r;
@@ -238,7 +276,6 @@ function drawHead(g: CanvasRenderingContext2D, L: Character["look"], x: number, 
     g.globalAlpha = alpha;
   }
   // ---- hats
-  const hat = L.hat;
   if (hat !== "none") {
     g.fillStyle = L.accent; g.strokeStyle = L.accent;
     const capDome = (ext = 1.02) => { g.beginPath(); g.ellipse(x, y - 1 * k, rx * ext, ry * ext, 0, Math.PI * 1.05, Math.PI * 1.95); g.closePath(); g.fill(); };

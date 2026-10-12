@@ -23,8 +23,17 @@ export class Places {
     if (b.kind === "dealership") return this.dealership(b);
     if (b.kind === "gallery") return this.gallery();
     if (b.kind === "police") return this.police(b);
+    if (b.kind === "mentalhealth") return this.putahi(b);
     if (def.menu) return this.shop(b);
     this.toast(`${b.name}: nothing for you inside.`);
+  }
+
+  /** Pūtahi: a calm, respectful walk-in space. Real NZ help lines are free: 1737 (call or text). */
+  putahi(b: Building): void {
+    this.show(b.name, [
+      h("p", { text: "Kia ora, come in. Pūtahi is a walk-in space: a cuppa, a quiet room and someone to korero with. Whānau welcome. No appointment, no judgement." }),
+      h("p", { style: { color: "var(--dim)" }, text: "If things get heavy in real life: call or text 1737 any time, free, any day." }),
+    ], "shop");
   }
 
   private wallet(): HTMLElement { const p = this.sim().player; return h("p.wallet", { text: `Cash ${fmtCash(p.cash)}` }); }

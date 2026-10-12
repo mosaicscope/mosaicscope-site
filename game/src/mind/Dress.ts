@@ -2,7 +2,6 @@ import type { Character, HatStyle } from "../entities/types";
 import type { Role } from "../content/names";
 import type { Simulation } from "../sim/Simulation";
 import type { Weather } from "../sim/Environment";
-import { TICKS_PER_HOUR } from "../sim/Environment";
 import type { CultureProfile } from "./Culture";
 import { deriveProfile, getProfile, setProfile } from "./Culture";
 
@@ -57,6 +56,9 @@ export interface Climate {
 }
 
 // ---------------------------------------------------------------- climate
+
+/** One game hour in ticks (mirrors Environment.TICKS_PER_HOUR; duplicated to avoid an import cycle). */
+const TICKS_PER_HOUR = 3600;
 
 /** Mean daily temperature by month (Christchurch, NIWA 1991-2020 normals, rounded). */
 const MONTH_MEAN = [17.3, 17.2, 15.4, 12.6, 9.7, 7.1, 6.5, 7.8, 10.1, 12.1, 14.1, 16.2];
