@@ -263,7 +263,6 @@
       var v = k === "availNote" ? (data.availability || {}).note : (k === "servicesNote" || k === "ratesNote") ? data[k] : site[k];
       if (v) el.textContent = v;
     });
-    if (site.name) document.title = site.name;
     $("#year").textContent = new Date().getFullYear();
     $("#email-text").textContent = site.email || "";
 
