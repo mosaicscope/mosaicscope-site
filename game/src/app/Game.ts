@@ -80,7 +80,7 @@ export class Game {
   private moveTarget: { x: number; y: number } | null = null;
   private pendingTalk = -1;
   private pendingEnter: { building: number; studio: boolean } | null = null;
-  private quality: Quality = 2;
+  private quality: Quality = 1; // auto starts at medium and steps up only if frames stay fast
   private fpsAvg = 60; private slowFor = 0; private fastFor = 0;
   private ticksThisSecond = 0; private tickRate = 0; private tickWindow = 0;
   private toastEl: HTMLElement; private hintEl: HTMLElement; private clockEl: HTMLElement; private speedEls: HTMLButtonElement[] = [];
@@ -221,9 +221,10 @@ export class Game {
   private adaptQuality(dt: number): void {
     if (this.settings.quality !== "auto") return;
     const ms = dt * 1000;
-    if (ms > 26) { this.slowFor += dt; this.fastFor = 0; } else if (ms < 14) { this.fastFor += dt; this.slowFor = Math.max(0, this.slowFor - dt); } else { this.fastFor = 0; }
-    if (this.slowFor > 2 && this.quality > 0) { this.quality = (this.quality - 1) as Quality; this.slowFor = 0; this.renderer.resize(this.quality); }
-    if (this.fastFor > 8 && this.quality < 2) { this.quality = (this.quality + 1) as Quality; this.fastFor = 0; this.renderer.resize(this.quality); }
+    // aim for 60fps: anything slower than ~55fps for a second steps quality down; recover slowly
+    if (ms > 18.5) { this.slowFor += dt; this.fastFor = 0; } else if (ms < 13) { this.fastFor += dt; this.slowFor = Math.max(0, this.slowFor - dt); } else { this.fastFor = 0; }
+    if (this.slowFor > 1 && this.quality > 0) { this.quality = (this.quality - 1) as Quality; this.slowFor = 0; this.renderer.resize(this.quality); }
+    if (this.fastFor > 12 && this.quality < 2) { this.quality = (this.quality + 1) as Quality; this.fastFor = 0; this.renderer.resize(this.quality); }
   }
 
   // ------------------------------------------------------------------ player

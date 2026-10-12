@@ -10,6 +10,7 @@ import { pose, solve, drawFigure, pathSilhouette, J } from "./StickFigure";
 import { drawToy, drawIsoBox } from "./ToyArt";
 import { INK } from "./palette";
 import { drawBuildingTile, GLOW } from "./Buildings";
+import { resetHdBudget } from "./StickFigure";
 import { AD_BOXES, AdBox } from "./Ads";
 import { drawCar, headlights } from "./Cars";
 import { lightGreenFor } from "../sim/Traffic";
@@ -95,7 +96,7 @@ export class Renderer {
   resize(quality: Quality): void {
     const w = this.canvas.clientWidth || window.innerWidth, h = this.canvas.clientHeight || window.innerHeight;
     const native = window.devicePixelRatio || 1;
-    this.dpr = quality === 0 ? Math.min(1, native) * 0.75 : quality === 1 ? Math.min(1.5, native) : Math.min(2, native); // HD on high quality; auto drops a level if frames suffer
+    this.dpr = quality === 0 ? Math.min(1, native) * 0.75 : quality === 1 ? Math.min(1.25, native) : Math.min(1.5, native); // fill-rate is the real cost: keep pixels in check, auto steps down further
     this.canvas.width = Math.round(w * this.dpr); this.canvas.height = Math.round(h * this.dpr);
     this.cam.resize(w, h);
     this.particles.scale = quality === 0 ? 0.35 : quality === 1 ? 0.7 : 1;
@@ -145,6 +146,7 @@ export class Renderer {
 
     this.nItems = 0;
     this.viewB.clear();
+    resetHdBudget(o.quality === 2 ? 40 : o.quality === 1 ? 20 : 0);
     const pt = this.pt;
     for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
       const t = sim.world.tiles[ty * S + tx];

@@ -1,41 +1,41 @@
 {
-  "date": "2026-10-12T09:56:27.528Z",
+  "date": "2026-10-12T13:10:24.471Z",
   "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.0.0 Safari/537.36",
   "viewport": "1280x800",
   "quality": "high",
   "note": "Headless Chromium, software rendering (no GPU) in a 4-vCPU cloud container",
   "results": [
     {
-      "entities": 500,
-      "fps": 59.799075107635,
-      "renderMs": 2.4256666666734965,
-      "simMs": 0.5,
-      "drawn": 95,
-      "batches": 34
+      "entities": 440,
+      "fps": 26.71131842282825,
+      "renderMs": 14.08731343278856,
+      "simMs": 0.40000000037252903,
+      "drawn": 38,
+      "batches": 13
     },
     {
-      "entities": 1000,
-      "fps": 48.60848257863836,
-      "renderMs": 2.767213114726235,
-      "simMs": 0.7000000001862645,
-      "drawn": 177,
-      "batches": 77
+      "entities": 440,
+      "fps": 27.722772277227723,
+      "renderMs": 13.133571428685848,
+      "simMs": 0.599999999627471,
+      "drawn": 38,
+      "batches": 13
     },
     {
-      "entities": 2000,
-      "fps": 32.46171310218289,
-      "renderMs": 3.8576687116495854,
-      "simMs": 0.6000000000931323,
-      "drawn": 305,
-      "batches": 149
+      "entities": 440,
+      "fps": 27.03078727168529,
+      "renderMs": 13.49632352942546,
+      "simMs": 0.40000000037252903,
+      "drawn": 38,
+      "batches": 13
     },
     {
-      "entities": 5000,
-      "fps": 23.447590660705416,
-      "renderMs": 6.416949152528166,
-      "simMs": 2,
-      "drawn": 687,
-      "batches": 386
+      "entities": 440,
+      "fps": 27.96644027167399,
+      "renderMs": 12.930000000034592,
+      "simMs": 0.40000000037252903,
+      "drawn": 38,
+      "batches": 13
     }
   ]
 }
