@@ -15,14 +15,14 @@ export const OPAQUE = new Set<number>([T.WALL, T.TREE, T.STALL, T.BUILDING]);
 /** Tiles cars may drive on. */
 export const DRIVABLE = new Set<number>([T.ROAD, T.CROSSWALK, T.PARKING]);
 /** Pathfinding cost per tile (people prefer sidewalks and crossings to walking down the road). */
-export const WALK_COST: Record<number, number> = { [T.ROAD]: 30, [T.PARKING]: 1.5 }; // jaywalking is a last resort: crosswalks are cheap
+export const WALK_COST: Record<number, number> = { [T.ROAD]: 60, [T.PARKING]: 1.5 }; // jaywalking is a last resort: people walk round to a crossing
 /** Decoration that the generator may remove to keep the world connected. */
 export const DECOR = new Set<number>([T.TREE, T.HEDGE, T.STALL, T.CRATE]);
 /** Visual heights for rendering blocks. */
 export const TILE_HEIGHT: Record<number, number> = { [T.WALL]: 1.25, [T.FENCE]: 0.7, [T.STALL]: 1.3, [T.FOUNTAIN]: 0.45, [T.STAGE]: 0.3, [T.HEDGE]: 0.8, [T.CRATE]: 0.8 };
 
 export type AreaKind = "street" | "plaza" | "park" | "court" | "studio" | "stage" | "market" | "playground" | "alley"
-  | "casino" | "police" | "food" | "shops" | "residential" | "office" | "dealership" | "hospital" | "gallery" | "airport";
+  | "casino" | "police" | "food" | "shops" | "residential" | "office" | "dealership" | "hospital" | "gallery" | "airport" | "nightlife";
 export interface Area { id: number; name: string; kind: AreaKind; x0: number; y0: number; x1: number; y1: number; cx: number; cy: number }
 export type PoiKind = "bench" | "boombox" | "toychest" | "lamp" | "hoop" | "door" | "springpad" | "fountain" | "busstop" | "foodtruck" | "atm" | "mural" | "hydrant" | "billboard" | "light" | "plane";
 export interface Poi { id: number; kind: PoiKind; x: number; y: number; area: number; on?: boolean; building?: number; menu?: string[]; name?: string; dir?: number }
@@ -43,6 +43,18 @@ export interface Building {
 /** One painted tag or mural on a building face. */
 export interface Graffiti { id: number; tx: number; ty: number; face: "s" | "e"; text: string; color: string; artist: number; tick: number; legal: boolean; style: number }
 
+/**
+ * Road grid geometry. Every PERIOD tiles there is a ROAD_W-wide road (two lanes each way, left-hand
+ * traffic: lanes at offsets 0.5/1.5 carry eastbound/northbound traffic, 2.5/3.5 westbound/southbound,
+ * the centre line sits at offset 2). Each block between roads is a 2-tile sidewalk ring around a
+ * 12x12 interior. Crosswalks are the CROSS_W tiles of road next to each intersection, in line with
+ * the sidewalk.
+ */
+export const PERIOD = 20;
+export const ROAD_W = 4;
+export const SIDEWALK_W = 2;
+export const CROSS_W = 2;
+
 export class World {
   readonly size: number;
   readonly tiles: Uint8Array;
@@ -54,8 +66,8 @@ export class World {
   /** building id per tile (-1 none) */
   readonly buildingOf: Int16Array;
   graffiti: Graffiti[] = [];
-  /** road grid: roads at coordinates where c % period is 0 or 1 */
-  readonly period = 16;
+  /** road grid: roads at coordinates where c % period < ROAD_W */
+  readonly period = PERIOD;
   /** real street names per road line (index = coordinate / period), west->east and north->south */
   streetsX: string[] = [];
   streetsY: string[] = [];
@@ -72,11 +84,14 @@ export class World {
 
   /** "Colombo St" etc. for a point on (or next to) a road; the nearest street otherwise. */
   streetName(x: number, y: number): string {
-    const lx = Math.round(x / this.period), ly = Math.round(y / this.period);
-    const dx = Math.abs(x - lx * this.period - 1), dy = Math.abs(y - ly * this.period - 1);
+    const half = ROAD_W / 2;
+    const lx = Math.round((x - half) / this.period), ly = Math.round((y - half) / this.period);
+    const dx = Math.abs(x - lx * this.period - half), dy = Math.abs(y - ly * this.period - half);
     return (dx <= dy ? this.streetsX[lx] : this.streetsY[ly]) ?? "";
   }
-  isRoadLine(c: number): boolean { const m = c % this.period; return m === 0 || m === 1; }
+  isRoadLine(c: number): boolean { return c >= 0 && c % this.period < ROAD_W; }
+  /** Index of the last road line (roads run along both map edges). */
+  get maxLine(): number { return Math.floor((this.size - ROAD_W) / this.period); }
   drivable(x: number, y: number): boolean { return DRIVABLE.has(this.tile(Math.floor(x), Math.floor(y))); }
   buildingAt(tx: number, ty: number): Building | undefined { if (!this.inBounds(tx, ty)) return undefined; const b = this.buildingOf[ty * this.size + tx]; return b >= 0 ? this.buildings[b] : undefined; }
   walkCost(tx: number, ty: number): number { return WALK_COST[this.tiles[ty * this.size + tx]] ?? 1; }

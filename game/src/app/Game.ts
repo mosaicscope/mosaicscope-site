@@ -1,3 +1,5 @@
+import { Club } from "../ui/Club";
+import "../ui/club.css";
 import { Luxury } from "../ui/Luxury";
 import { TouchControls } from "../ui/Touch";
 import "../ui/casino.css";
@@ -126,7 +128,7 @@ export class Game {
     this.radio = new Radio(MOSAIC.soundcloud);
     this.hudEl = h("div.hud", { "aria-live": "polite" });
     this.bustedEl = h("div.busted.hidden", { role: "alert" });
-    root.append(this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.modal.el, this.casino.el, this.bustedEl);
+    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.modal.el, this.casino.el, this.bustedEl);
     // browsers only allow sound after a gesture: the first click/key starts the playlist
     const firstGesture = () => { if (this.gestured) return; this.gestured = true; if (this.settings.sound) this.audio.setEnabled(true); }; // the radio only plays when you press ▶
     window.addEventListener("pointerdown", firstGesture, { once: false, capture: true });
@@ -196,8 +198,9 @@ export class Game {
   private uiTick(now: number): void {
     this.tickFocus(now);
     this.touch.update();
+    if (now - this.clubTickAt > 1000) { const earned = this.club.tick(Math.min(5, (now - (this.clubTickAt || now)) / 1000)); this.clubTickAt = now; if (earned > 0) this.sim.player.cash += earned; }
     this.renderer.zooAnimals = this.luxury.empire.animals;
-    this.touch.el.classList.toggle("hidden", this.casino.open || this.modal.open || this.dialogue.open || this.travel.open || this.minimap.bigOpen || this.luxury.open);
+    this.touch.el.classList.toggle("hidden", this.casino.open || this.modal.open || this.dialogue.open || this.travel.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
     this.tickStory(now);
     this.minimap.update(now);
     if (now - this.lastUi < 250) return;
@@ -312,6 +315,8 @@ export class Game {
     if (door.studio) { this.places.enter(null, true); return; }
     const b = sim.world.buildings[door.building];
     if (b.kind === "airport") { this.travel.show(); return; }
+    if ((b.kind as string) === "stripclub") { this.club.show("strip"); return; }
+    if ((b.kind as string) === "velvet") { this.club.show("velvet"); return; }
     if (b.kind === "diner") { this.burger.start(); return; } // pick up a shift flipping burgers
     if (b.kind === "casino") { this.statsCasino++; }
     if (b.kind === "casino") { this.pausedBefore = this.clock.paused; this.casino.show(); return; }
@@ -773,6 +778,15 @@ export class Game {
   private luxury = new Luxury({ getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; this.saveEmpire(); }, toast: (t) => this.toast(t, "acid") });
   private saveEmpire(): void { try { localStorage.setItem("mosaics-world:empire", JSON.stringify(this.luxury.empire)); } catch { /* private mode */ } }
   private loadEmpire(): void { try { const e = JSON.parse(localStorage.getItem("mosaics-world:empire") ?? "null"); if (e && Array.isArray(e.items)) this.luxury.load(e); } catch { /* ignore */ } }
+
+  // ------------------------------------------------------------------ the clubs
+  private owned = new Set<string>((() => { try { return JSON.parse(localStorage.getItem("mosaics-world:owned") ?? "[]") as string[]; } catch { return []; } })());
+  private club = new Club({
+    getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; }, toast: (t) => this.toast(t, "acid"),
+    playerName: () => "you", owned: (k) => this.owned.has(k),
+    setOwned: (k, v) => { if (v) this.owned.add(k); else this.owned.delete(k); try { localStorage.setItem("mosaics-world:owned", JSON.stringify([...this.owned])); } catch { /* private mode */ } },
+  });
+  private clubTickAt = 0;
 
   // ------------------------------------------------------------------ touch controls
   private touchMove = { x: 0, y: 0 }; private touchBrake = false;

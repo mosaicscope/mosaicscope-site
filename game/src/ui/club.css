@@ -1,0 +1,89 @@
+/* ================= The Pink Pukeko & The Velvet Rooms — markup in Club.ts, classes prefixed cl- ================= */
+.club { position: fixed; inset: 0; z-index: 6; display: grid; place-items: center; padding: 12px; background: rgba(8,4,10,.8); }
+.cl-frame {
+  --acc: #ff4fa3; --acc2: #3dd6ff; --cream: #fff0fa; --edge: rgba(255,79,163,.35);
+  position: relative; width: min(1040px, 100%); max-height: calc(100vh - 24px); overflow: auto; border-radius: 14px;
+  background: linear-gradient(#1b0818, #0c040d); border: 1px solid var(--edge); color: var(--cream);
+  box-shadow: 0 0 0 1px rgba(255,79,163,.12) inset, 0 0 60px rgba(255,79,163,.15), 0 40px 100px rgba(0,0,0,.7);
+}
+.cl-frame.velvet {
+  --acc: #f6d77c; --acc2: #e7c46a; --cream: #fbf3df; --edge: rgba(231,196,106,.4);
+  background: linear-gradient(#2a0711, #12030a); box-shadow: 0 0 0 1px rgba(231,196,106,.15) inset, 0 40px 100px rgba(0,0,0,.7);
+}
+
+.cl-head { position: relative; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 56px 10px 18px; border-bottom: 1px solid var(--edge); background: linear-gradient(90deg, rgba(255,79,163,.16), transparent 70%); }
+.velvet .cl-head { background: linear-gradient(90deg, rgba(231,196,106,.14), transparent 70%); }
+.cl-head h2 { margin: 0; font: 900 calc(30px * var(--ts, 1)) / 1 var(--display, Impact, sans-serif); text-transform: uppercase; letter-spacing: .04em; color: var(--acc); text-shadow: 0 0 14px color-mix(in srgb, var(--acc) 60%, transparent); }
+.velvet .cl-head h2 { font: italic 400 calc(34px * var(--ts, 1)) / 1 var(--serif, Georgia, serif); text-transform: none; letter-spacing: .01em; }
+.cl-sub { margin: 4px 0 0; font-size: calc(11px * var(--ts, 1)); color: rgba(255,240,250,.6); letter-spacing: .04em; }
+.cl-bank { display: grid; grid-template-columns: auto auto; gap: 2px 10px; align-items: baseline; font-size: calc(11px * var(--ts, 1)); text-transform: uppercase; letter-spacing: .1em; color: rgba(255,240,250,.6); }
+.cl-bank b { font: 800 calc(18px * var(--ts, 1)) / 1 var(--mono, monospace); color: var(--acc); letter-spacing: 0; }
+.cl-x { position: absolute; top: 10px; right: 10px; width: 36px; height: 36px; border: 0; background: none; color: rgba(255,240,250,.6); font-size: 22px; cursor: pointer; }
+.cl-x:hover { color: var(--acc); }
+
+.cl-stage { position: relative; margin: 12px 14px 0; }
+.cl-canvas { display: block; width: 100%; height: auto; aspect-ratio: 960 / 500; border-radius: 10px; border: 1px solid var(--edge); touch-action: none; user-select: none; -webkit-user-select: none; }
+.cl-ticker { margin: 8px 14px 0; padding: 8px 12px; min-height: 1.45em; border-radius: 8px; border: 1px solid var(--edge); background: rgba(0,0,0,.35); font-size: calc(12.5px * var(--ts, 1)); }
+.cl-ticker b { color: var(--acc); text-transform: uppercase; letter-spacing: .06em; }
+.velvet .cl-ticker { font: italic calc(16px * var(--ts, 1)) / 1.35 var(--serif, Georgia, serif); }
+.velvet .cl-ticker b { font: 700 calc(11px * var(--ts, 1)) var(--mono, monospace); }
+
+.cl-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: center; margin: 10px 14px 0; }
+.cl-box .cl-row { margin: 8px 0 0; }
+.cl-btn {
+  min-height: 38px; padding: 7px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,.16); cursor: pointer;
+  background: linear-gradient(#3a1a3a, #200c22); color: var(--cream); font: 600 calc(12.5px * var(--ts, 1)) / 1.2 var(--mono, monospace); letter-spacing: .03em;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 2px 0 #0a050c; transition: transform .08s, filter .15s;
+}
+.cl-btn.sm { min-height: 32px; padding: 5px 11px; font-size: calc(11.5px * var(--ts, 1)); }
+.cl-btn:hover:not(:disabled) { filter: brightness(1.2); }
+.cl-btn:active:not(:disabled) { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255,255,255,.14); }
+.cl-btn:disabled { opacity: .4; cursor: not-allowed; }
+.cl-btn.hot { background: linear-gradient(#ff6bb5, #c2186f); border-color: #ff9ad5; color: #fff; }
+.cl-btn.gold { background: linear-gradient(#f7d77c, #c08a22); border-color: #ffe7a0; color: #241503; }
+.cl-btn.big { min-height: 52px; padding: 10px 28px; margin-top: 10px; font: 900 calc(20px * var(--ts, 1)) / 1 var(--display, Impact, sans-serif); text-transform: uppercase; letter-spacing: .1em; touch-action: none; user-select: none; -webkit-user-select: none; }
+.velvet .cl-btn { background: linear-gradient(#4a1420, #2a0711); }
+.velvet .cl-btn.gold { background: linear-gradient(#f7d77c, #c08a22); }
+
+.cl-note-btn { min-height: 32px; padding: 4px 12px; border-radius: 6px; border: 2px solid var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--cream); font: 700 calc(12px * var(--ts, 1)) var(--mono, monospace); cursor: pointer; }
+.cl-note-btn.on { background: var(--c); color: #120612; box-shadow: 0 0 12px var(--c); }
+
+.cl-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; padding: 12px 14px 4px; }
+.cl-box { padding: 12px; border-radius: 12px; border: 1px solid var(--edge); background: rgba(0,0,0,.28); display: grid; justify-items: center; align-content: start; text-align: center; }
+.cl-box h3 { margin: 0 0 6px; font: 900 calc(16px * var(--ts, 1)) / 1 var(--display, Impact, sans-serif); text-transform: uppercase; letter-spacing: .08em; color: var(--acc2); }
+.cl-note { margin: 4px 0 8px; font-size: calc(12px * var(--ts, 1)); color: rgba(255,240,250,.72); max-width: 46ch; }
+.cl-stats { display: grid; grid-template-columns: auto auto; gap: 2px 12px; align-items: baseline; font-size: calc(11px * var(--ts, 1)); text-transform: uppercase; letter-spacing: .08em; color: rgba(255,240,250,.6); }
+.cl-stats b { font: 800 calc(17px * var(--ts, 1)) var(--mono, monospace); color: var(--acc); text-align: left; letter-spacing: 0; }
+
+.cl-combo { display: grid; grid-template-columns: auto 1fr 3.2em; gap: 8px; align-items: center; width: min(320px, 100%); margin-top: 10px; font-size: calc(11px * var(--ts, 1)); text-transform: uppercase; letter-spacing: .1em; }
+.cl-track { height: 10px; border-radius: 5px; background: rgba(255,255,255,.08); overflow: hidden; }
+.cl-track i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #3dd6ff, #ff4fa3, #f6b62c); box-shadow: 0 0 10px #ff4fa3; }
+.cl-combonum { font: 900 calc(16px * var(--ts, 1)) var(--display, Impact, sans-serif); color: var(--acc); }
+
+.cl-ups { list-style: none; margin: 8px 0 0; padding: 0; width: 100%; display: grid; gap: 6px; text-align: left; }
+.cl-ups li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px; background: rgba(255,255,255,.04); font-size: calc(11.5px * var(--ts, 1)); }
+.cl-ups li span { color: rgba(255,240,250,.68); }
+.cl-owned { color: #c6ff3d !important; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; }
+
+.cl-card {
+  position: absolute; inset: 50% auto auto 50%; transform: translate(-50%, -50%); width: min(460px, 86%); padding: 20px 22px; border-radius: 14px; text-align: center;
+  background: linear-gradient(#2a0711, #160309); border: 1px solid #e7c46a; box-shadow: 0 0 40px rgba(231,196,106,.25), 0 20px 50px rgba(0,0,0,.6);
+  animation: cl-card-in .35s ease-out;
+}
+.cl-card-k { margin: 0; font: 700 calc(11px * var(--ts, 1)) var(--mono, monospace); color: rgba(246,215,124,.7); text-transform: uppercase; letter-spacing: .2em; }
+.cl-card h3 { margin: 6px 0 10px; font: italic 400 calc(28px * var(--ts, 1)) / 1.05 var(--serif, Georgia, serif); color: #f6d77c; }
+.cl-card p:not(.cl-card-k) { margin: 0 0 16px; font: calc(16px * var(--ts, 1)) / 1.4 var(--serif, Georgia, serif); color: #fbf3df; }
+@keyframes cl-card-in { from { opacity: 0; transform: translate(-50%, -46%); } to { opacity: 1; transform: translate(-50%, -50%); } }
+
+.cl-foot { padding: 8px 14px 14px; text-align: center; font-size: calc(10.5px * var(--ts, 1)); color: rgba(255,240,250,.45); }
+
+@media (max-width: 640px) {
+  .cl-head { flex-wrap: wrap; padding: 12px 48px 8px 12px; }
+  .cl-head h2 { font-size: calc(24px * var(--ts, 1)); }
+  .cl-stage, .cl-ticker { margin-left: 8px; margin-right: 8px; }
+  .cl-panels { padding: 10px 8px 4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cl-card { animation: none; }
+  .cl-btn, .cl-x { transition: none; }
+}

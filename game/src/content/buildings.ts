@@ -1,7 +1,8 @@
 /** Building types that fill the city blocks. Hours are 24h; `menu` lists what you can buy inside. */
 export type BuildingKind =
   | "casino" | "studio" | "gallery" | "police" | "dealership" | "diner" | "pizza" | "sushi" | "bakery" | "cafe" | "fishchips" | "dairy"
-  | "toyshop" | "sports" | "pawn" | "bank" | "nightclub" | "apartments" | "house" | "office" | "garage" | "hospital" | "records" | "barber" | "gym" | "hotel" | "airport";
+  | "toyshop" | "sports" | "pawn" | "bank" | "nightclub" | "apartments" | "house" | "office" | "garage" | "hospital" | "records" | "barber" | "gym" | "hotel" | "airport"
+  | "stripclub" | "velvet";
 
 export interface BuildingDef {
   kind: BuildingKind;
@@ -44,6 +45,8 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
   barber: { kind: "barber", names: ["Fresh Cutz"], floors: [2, 3], colors: ["#2b2026"], roof: "#ec2a1c", open: [9, 18], enterable: false, sign: "#3dd6ff" },
   gym: { kind: "gym", names: ["Iron Works Gym"], floors: [3, 3], colors: ["#24242c"], roof: "#3a3430", open: [5, 22], enterable: false, sign: "#ec2a1c" },
   airport: { kind: "airport", names: ["Christchurch Airport"], floors: [3, 3], colors: ["#d8cdb8", "#cfc6b4"], roof: "#9a8d80", open: [0, 24], sells: "flights", enterable: true, sign: "#3dd6ff" },
+  stripclub: { kind: "stripclub", names: ["The Pink Pukeko"], floors: [2, 2], colors: ["#2a1626", "#33182c"], roof: "#4a1f3d", open: [20, 4], enterable: true, sign: "#ff7ad9", job: "bouncer" },
+  velvet: { kind: "velvet", names: ["The Velvet Rooms"], floors: [3, 4], colors: ["#1e1630", "#24182e"], roof: "#3a2850", open: [19, 3], enterable: true, sign: "#b48cff", job: "bouncer" },
   hotel: { kind: "hotel", names: ["The Crowned Plaza"], floors: [8, 11], colors: ["#2a2a33", "#33252c"], roof: "#3a3a48", open: [0, 24], enterable: false, sign: "#f6b62c" },
 };
 

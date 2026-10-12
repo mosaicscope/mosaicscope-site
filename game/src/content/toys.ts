@@ -14,6 +14,12 @@ export interface WeaponStats {
   blood: number;      // 0..1 chance of a (fake, cartoon) blood splatter on a solid hit
   ammo?: string;      // projectile item id
   stun?: number;      // seconds of stun (taser)
+  /** firearm: muzzle flash, casings, bang, bullets that wound (see sim/Turf.ts) */
+  gun?: boolean;
+  mag?: number;       // rounds before a reload pause
+  reload?: number;    // seconds to reload
+  pellets?: number;   // projectiles per shot (shotgun)
+  spread?: number;    // radians of pellet spread
 }
 
 export interface ToyDef {
@@ -87,6 +93,19 @@ export const TOYS: Record<string, ToyDef> = {
     weapon: { damage: 1.7, reach: 10, rate: 1.0, knockback: 3.5, accuracy: 0.65, blood: 0.35, ammo: "pebble" } }),
   taser: T({ id: "taser", name: "police taser", category: "weapon", uses: ["ranged"], radius: 0.15, durability: 500, color: "#f6b62c", punch: 0, value: 900,
     weapon: { damage: 0.6, reach: 5, rate: 2.5, knockback: 1, accuracy: 0.9, blood: 0, ammo: "probe", stun: 3.5 }, blurb: "Police issue. Stuns for a few seconds." }),
+  // ---- firearms (cartoon street guns; black market only, never in toy chests)
+  pistol: T({ id: "pistol", name: "pistol", category: "weapon", uses: ["ranged"], radius: 0.16, mass: 0.8, durability: 900, color: "#3a3430", punch: 0, material: "metal", value: 650,
+    weapon: { damage: 2.4, reach: 12, rate: 0.45, knockback: 4, accuracy: 0.78, blood: 0.8, ammo: "bullet", gun: true, mag: 12, reload: 1.4 }, blurb: "Twelve in the mag. Every shot is a three-star crime." }),
+  revolver: T({ id: "revolver", name: "revolver", category: "weapon", uses: ["ranged"], radius: 0.18, mass: 1.1, durability: 1200, color: "#9a8d80", punch: 0, material: "metal", value: 900,
+    weapon: { damage: 3.2, reach: 13, rate: 0.85, knockback: 6.5, accuracy: 0.86, blood: 0.9, ammo: "bullet", gun: true, mag: 6, reload: 2.2 }, blurb: "Six shots, big kick, slow reload. Very cowboy." }),
+  smg: T({ id: "smg", name: "SMG", category: "weapon", uses: ["ranged"], radius: 0.2, mass: 1.6, durability: 900, color: "#0e0b0a", punch: 0, material: "metal", value: 2200,
+    weapon: { damage: 1.5, reach: 10, rate: 0.11, knockback: 2.5, accuracy: 0.5, blood: 0.7, ammo: "bullet", gun: true, mag: 25, reload: 1.8 }, blurb: "Sprays more than it aims." }),
+  shotgun: T({ id: "shotgun", name: "pump shotgun", category: "weapon", uses: ["ranged"], radius: 0.3, mass: 2.4, durability: 1200, color: "#6b3a12", punch: 0, material: "metal", value: 1600,
+    weapon: { damage: 2.2, reach: 7, rate: 1.05, knockback: 8.5, accuracy: 0.6, blood: 0.9, ammo: "buckshot", gun: true, mag: 6, reload: 2.6, pellets: 6, spread: 0.22 }, blurb: "Chk-chk. Short range, knocks people off their feet." }),
+  golden_pistol: T({ id: "golden_pistol", name: "golden pistol", category: "weapon", uses: ["ranged"], radius: 0.16, mass: 1.6, durability: 600, color: "#f6b62c", punch: 0, material: "metal", value: 25000,
+    weapon: { damage: 2.4, reach: 11, rate: 0.55, knockback: 4, accuracy: 0.42, blood: 0.8, ammo: "bullet", gun: true, mag: 7, reload: 1.6 }, blurb: "Solid gold, terrible aim. Shoots sparkles as well as bullets. Pure flex." }),
+  bullet: T({ id: "bullet", name: "bullet", uses: ["projectile"], radius: 0.06, mass: 0.05, restitution: 0, friction: 3, durability: 1, color: "#fff6c8", punch: 3, material: "metal", portable: false, value: 0 }),
+  buckshot: T({ id: "buckshot", name: "buckshot pellet", uses: ["projectile"], radius: 0.05, mass: 0.04, restitution: 0, friction: 3, durability: 1, color: "#fff6c8", punch: 2.5, material: "metal", portable: false, value: 0 }),
   dart: T({ id: "dart", name: "foam dart", uses: ["projectile"], radius: 0.08, mass: 0.05, restitution: 0.2, friction: 3, durability: 4, color: "#ff9a3d", punch: 2.2, material: "foam", portable: false, value: 0 }),
   pellet: T({ id: "pellet", name: "paint pellet", uses: ["projectile"], radius: 0.06, mass: 0.05, restitution: 0, friction: 3, durability: 1, color: "#ff7ad9", punch: 3, material: "rubber", portable: false, value: 0 }),
   droplet: T({ id: "droplet", name: "water", uses: ["projectile"], radius: 0.05, mass: 0.02, restitution: 0, friction: 3, durability: 1, color: "#3dd6ff", punch: 0.6, material: "rubber", portable: false, value: 0 }),
@@ -130,4 +149,9 @@ export const canThrow = (def: string) => TOYS[def]?.uses.includes("throw") ?? fa
 export const isMelee = (def: string) => TOYS[def]?.uses.includes("melee") ?? false;
 export const isRanged = (def: string) => TOYS[def]?.uses.includes("ranged") ?? false;
 export const isFood = (def: string) => TOYS[def]?.category === "food" && def !== "bandage";
+export const isGun = (def: string) => !!TOYS[def]?.weapon?.gun;
+/** Bullets and buckshot: projectiles fired by a gun. */
+export const isBullet = (def: string) => def === "bullet" || def === "buckshot";
+/** Firearms for sale at the black-market dealer (the only place that sells them). Price = TOYS[id].value. */
+export const BLACK_MARKET: readonly string[] = ["pistol", "revolver", "smg", "shotgun", "golden_pistol"];
 export const valueOf = (def: string) => TOYS[def]?.value ?? 0;

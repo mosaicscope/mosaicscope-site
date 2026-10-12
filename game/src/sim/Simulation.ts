@@ -30,6 +30,7 @@ import { VEHICLES } from "../content/vehicles";
 import { forceGoal } from "../ai/brain";
 import { updateHealth, hospitalise, wound, useBandage, recomputeBleed } from "./Life";
 import { clamp } from "../core/math";
+import { fireGun, startTurfWar, turfWarActive } from "./Turf";
 
 export type FxKind = "dust" | "impact" | "spark" | "confetti" | "break" | "heart" | "rain_splash" | "text" | "spring" | "zzz" | "music" | "star" | "blood" | "spray" | "flash" | "paint" | "water" | "cash" | "gib";
 export interface SimSignals {
@@ -611,6 +612,7 @@ export class Simulation {
   onImpact!: (attacker: Character, victim: Character, def: string, res: ReturnType<typeof applyImpact>, melee: boolean) => void;
 
   shootAt(c: Character, tx: number, ty: number, targetId: number): boolean {
+    if (c.hand >= 0 && TOYS[this.toys[c.hand]?.def]?.weapon?.gun) return this.fireGun(c, tx, ty, targetId); // firearms: sim/Turf.ts
     const weapon = c.hand >= 0 ? TOYS[this.toys[c.hand]?.def]?.weapon : undefined;
     if ((this.nextAttack.get(c.id) ?? 0) > this.tick) return false;
     this.nextAttack.set(c.id, this.tick + Math.round((weapon?.rate ?? 0.9) * 60));
@@ -802,6 +804,14 @@ export class Simulation {
   }
 
   toast(text: string, kind = "info"): void { this.toasts.push({ text, tick: this.tick, kind }); }
+
+  // ------------------------------------------------------------------ firearms & turf war (sim/Turf.ts)
+  /** Fire the held gun at a point (muzzle flash, casing, bang, bullets; witnessed = "gunfire" crime). */
+  fireGun(c: Character, tx: number, ty: number, targetId = -1): boolean { return fireGun(this, c, tx, ty, targetId); }
+  /** Kick off a Famiglia vs Riccarton Boys skirmish now (missions, dev panel). */
+  startTurfWar(): boolean { return startTurfWar(this, true); }
+  /** The skirmish in progress, if any. */
+  get turfWar(): { x: number; y: number; area: string } | null { return turfWarActive(this); }
 }
 
 export type { Choice };

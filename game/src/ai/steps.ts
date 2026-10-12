@@ -321,6 +321,20 @@ export function runCityStep(c: Character, s: Step, g: ActiveGoal, sim: Simulatio
       const d = Math.hypot(sus.x - c.x, sus.y - c.y);
       c.anim.pose = "auto";
       if (d > 30 || g.stepTimer > 45) { c.pursuing = -1; sim.emit({ type: "escaped", x: sus.x, y: sus.y, actors: [sus.id, c.id], summary: `${sus.name} got away from ${c.name}` }); return DONE; }
+      // armed suspect: armed response. Keep some distance, sidearm out, return fire; cuff them once they're down
+      if (isArmed(sim, sus) && drawGun(sim, c)) {
+        c.facing = Math.atan2(sus.y - c.y, sus.x - c.x);
+        if (sus.phys === Phys.DOWN && d < 1.1) { arrest(sim, c, sus); return DONE; }
+        if (sus.phys !== Phys.DOWN && d < 9 && d > 1.5 && sim.world.lineOfSight(c.x, c.y, sus.x, sus.y)) {
+          stop(c); c.anim.pose = "shoot";
+          if (g.stepTimer > 0.8) sim.fireGun(c, sus.x, sus.y, sus.id);
+          if (d > 6) moveTo(c, sus.x, sus.y, sim, 5, 1.2);
+          return RUN;
+        }
+        moveTo(c, sus.x, sus.y, sim, sus.phys === Phys.DOWN ? 0.9 : 5, 1.7);
+        return RUN;
+      }
+      if (holdsGun(sim, c)) { holster(sim, c); const tz = _carried(c).find((id) => sim.toys[id]?.def === "taser"); if (tz !== undefined) equip(c, tz); }
       // taser at range
       const taser = c.hand >= 0 && sim.toys[c.hand]?.def === "taser";
       if (taser && d < 5 && d > 1.4 && sim.tick > (c.lastHitTick + 150) && sus.phys === 0) {
@@ -329,6 +343,22 @@ export function runCityStep(c: Character, s: Step, g: ActiveGoal, sim: Simulatio
       }
       if (d < 1.1) { arrest(sim, c, sus); return DONE; }
       moveTo(c, sus.x, sus.y, sim, 0.9, 1.95);
+      return RUN;
+    }
+    case "gunfight": {
+      // a turf skirmish: gun out, pick the nearest rival, trade shots from cover-ish range, then scarper
+      if (!drawGun(sim, c)) return FAIL;
+      const foe = nearestFoe(sim, c, 16);
+      if (!s.text) { s.text = "started"; sim.say(c, sim.rng.pick(TURF_TAUNTS), "shout", 1.8); }
+      if (g.stepTimer > (s.time ?? 18) || c.emo.composure < 0.2) { holster(sim, c); return DONE; }
+      if (!foe) { stop(c); c.anim.pose = "threaten"; return RUN; }
+      const d = Math.hypot(foe.x - c.x, foe.y - c.y);
+      const reach = _TOYS[sim.toys[c.hand].def].weapon?.reach ?? 10;
+      if (d > reach * 0.85) { c.anim.pose = "auto"; moveTo(c, foe.x, foe.y, sim, reach * 0.7, 1.3); return RUN; }
+      if (d < 3) { const a = Math.atan2(c.y - foe.y, c.x - foe.x) + 0.6; const p = sim.world.nearestWalkable(c.x + Math.cos(a) * 3, c.y + Math.sin(a) * 3); moveTo(c, p.x, p.y, sim, 0.4, 1.4); }
+      else stop(c);
+      c.facing = Math.atan2(foe.y - c.y, foe.x - c.x); c.anim.pose = "shoot";
+      if (g.stepTimer > 1.2) sim.fireGun(c, foe.x + foe.vx * 0.15, foe.y + foe.vy * 0.15, foe.id);
       return RUN;
     }
     case "photo": {
@@ -459,3 +489,5 @@ import { kiss as romanceKiss, addLove } from "../sim/Romance";
 import { forceGoal as _forceGoal } from "./brain";
 function forceFollow(sim: Simulation, o: Character, leader: Character): void { _forceGoal(o, sim, "follow", { u: 2, target: leader.id }); }
 void findWall;
+import { drawGun, holster, holdsGun, isArmed, nearestFoe } from "../sim/Turf";
+const TURF_TAUNTS = ["This is our street!", "Riccarton runs this!", "The Don sends his regards!", "Get off our patch!", "You lot again?!", "Nobody touches the hubcaps!"];

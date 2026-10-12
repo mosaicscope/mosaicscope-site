@@ -77,6 +77,15 @@ export function drawToy(g: CanvasRenderingContext2D, def: string, x: number, y: 
       if (def === "water_pistol") { g.fillStyle = "rgba(61,214,255,.6)"; g.beginPath(); g.arc(x + 0.2 * u * dir, y - 0.55 * u, 0.25 * u, 0, 6.283); g.fill(); }
       break;
     }
+    case "pistol": case "revolver": case "smg": case "shotgun": case "golden_pistol": drawGun(g, def, x, y, u, dir); break;
+    case "bullet": {
+      // a hot tracer streak along the flight direction
+      const lx = Math.cos(angle) * 0.7 * u, ly = Math.sin(angle) * 0.35 * u;
+      g.strokeStyle = "rgba(255,170,60,.55)"; g.lineWidth = 0.2 * u; g.beginPath(); g.moveTo(x - lx * 1.6, y - ly * 1.6); g.lineTo(x, y); g.stroke();
+      g.strokeStyle = color; g.lineWidth = 0.1 * u; g.beginPath(); g.moveTo(x - lx, y - ly); g.lineTo(x + lx * 0.3, y + ly * 0.3); g.stroke();
+      break;
+    }
+    case "buckshot": g.fillStyle = color; g.beginPath(); g.arc(x, y, 0.12 * u, 0, 6.283); g.fill(); break;
     case "slingshot": g.strokeStyle = color; g.lineWidth = 0.18 * u; g.beginPath(); g.moveTo(x, y + 0.4 * u); g.lineTo(x, y - 0.1 * u); g.lineTo(x - 0.35 * u, y - 0.6 * u); g.moveTo(x, y - 0.1 * u); g.lineTo(x + 0.35 * u, y - 0.6 * u); g.stroke(); break;
     case "pellet": g.fillStyle = color; g.beginPath(); g.arc(x, y, 0.22 * u, 0, 6.283); g.fill(); break;
     case "droplet": g.fillStyle = "rgba(61,214,255,.8)"; g.beginPath(); g.arc(x, y, 0.16 * u, 0, 6.283); g.fill(); break;
@@ -118,4 +127,64 @@ export function drawIsoBox(g: CanvasRenderingContext2D, x: number, y: number, hw
   g.beginPath(); g.moveTo(x + hw, y - hh); g.lineTo(x, y); g.lineTo(x, y - h); g.lineTo(x + hw, y - hh - h); g.closePath(); g.fill();
   g.fillStyle = top;
   g.beginPath(); g.moveTo(x, y - h); g.lineTo(x - hw, y - hh - h); g.lineTo(x, y - hh * 2 - h); g.lineTo(x + hw, y - hh - h); g.closePath(); g.fill();
+}
+
+/**
+ * Cartoon firearms, drawn side-on at the hand (x, y) pointing along `dir` (+1 right, -1 left).
+ * Chunky neon-outlined shapes with a bright orange muzzle cap, so they read as toys-from-a-film props.
+ */
+function drawGun(g: CanvasRenderingContext2D, def: string, x: number, y: number, u: number, dir: number): void {
+  const X = (dx: number) => x + dx * u * dir, Y = (dy: number) => y + dy * u;
+  const poly = (pts: [number, number][], fill: string, stroke?: string, lw = 0.07) => {
+    g.beginPath(); g.moveTo(X(pts[0][0]), Y(pts[0][1]));
+    for (let i = 1; i < pts.length; i++) g.lineTo(X(pts[i][0]), Y(pts[i][1]));
+    g.closePath(); g.fillStyle = fill; g.fill();
+    if (stroke) { g.strokeStyle = stroke; g.lineWidth = lw * u; g.stroke(); }
+  };
+  const guard = (cx: number, cy: number, r: number, col: string) => { g.strokeStyle = col; g.lineWidth = 0.07 * u; g.beginPath(); g.arc(X(cx), Y(cy), r * u, 0, Math.PI); g.stroke(); };
+  switch (def) {
+    case "pistol": case "golden_pistol": {
+      const gold = def === "golden_pistol";
+      const body = gold ? "#f6b62c" : "#3a3430", edge = gold ? "#fff1a8" : "#9a8d80";
+      poly([[-0.25, 0.05], [0.05, 0.05], [-0.05, 0.75], [-0.42, 0.75]], gold ? "#c98a12" : "#1a1614", edge); // grip
+      guard(0.2, 0.08, 0.17, edge);
+      poly([[-0.3, -0.38], [1.15, -0.38], [1.15, 0.05], [-0.3, 0.05]], body, edge); // slide
+      g.strokeStyle = edge; g.lineWidth = 0.05 * u; g.beginPath(); g.moveTo(X(0.1), Y(-0.22)); g.lineTo(X(0.9), Y(-0.22)); g.stroke(); // slide serrations line
+      g.fillStyle = gold ? "#fff6c8" : "#ff9a3d"; g.fillRect(Math.min(X(1.1), X(1.25)), Y(-0.36), 0.15 * u, 0.38 * u); // muzzle cap
+      if (gold) { // bling sparkle
+        g.strokeStyle = "#fff6c8"; g.lineWidth = 0.06 * u; const sx = X(0.45), sy = Y(-0.7);
+        g.beginPath(); g.moveTo(sx - 0.22 * u, sy); g.lineTo(sx + 0.22 * u, sy); g.moveTo(sx, sy - 0.22 * u); g.lineTo(sx, sy + 0.22 * u); g.stroke();
+      }
+      break;
+    }
+    case "revolver": {
+      poly([[-0.3, 0.0], [0.05, 0.0], [-0.12, 0.78], [-0.5, 0.7]], "#8a4a1c", "#c08040"); // wooden grip
+      guard(0.15, 0.05, 0.17, "#9a8d80");
+      g.fillStyle = "#6f6660"; g.beginPath(); g.ellipse(X(0.2), Y(-0.15), 0.32 * u, 0.24 * u, 0, 0, 6.283); g.fill(); // cylinder
+      g.strokeStyle = "#eee4d3"; g.lineWidth = 0.05 * u; g.stroke();
+      poly([[0.4, -0.32], [1.5, -0.32], [1.5, -0.08], [0.4, -0.08]], "#9a8d80", "#eee4d3"); // long barrel
+      poly([[-0.3, -0.36], [0.0, -0.36], [0.0, 0.02], [-0.3, 0.02]], "#6f6660");
+      g.fillStyle = "#ff9a3d"; g.fillRect(Math.min(X(1.45), X(1.6)), Y(-0.32), 0.15 * u, 0.24 * u);
+      break;
+    }
+    case "smg": {
+      poly([[-0.9, -0.3], [-0.3, -0.25], [-0.3, 0.0], [-0.9, 0.15]], "#3a3430", "#9a8d80"); // folding stock
+      poly([[-0.3, -0.42], [1.0, -0.42], [1.0, 0.08], [-0.3, 0.08]], "#0e0b0a", "#3dd6ff"); // receiver (neon edge)
+      poly([[0.45, 0.08], [0.7, 0.08], [0.62, 0.95], [0.4, 0.95]], "#1a1614", "#3dd6ff"); // long magazine
+      poly([[-0.15, 0.08], [0.12, 0.08], [0.02, 0.6], [-0.25, 0.6]], "#1a1614", "#9a8d80"); // grip
+      poly([[1.0, -0.3], [1.45, -0.3], [1.45, -0.12], [1.0, -0.12]], "#3a3430"); // barrel
+      g.fillStyle = "#ff9a3d"; g.fillRect(Math.min(X(1.4), X(1.55)), Y(-0.3), 0.15 * u, 0.18 * u);
+      break;
+    }
+    case "shotgun": {
+      poly([[-1.3, -0.25], [-0.2, -0.3], [-0.2, 0.05], [-1.3, 0.35]], "#8a4a1c", "#c08040"); // wooden stock
+      poly([[-0.2, -0.36], [0.5, -0.36], [0.5, 0.05], [-0.2, 0.05]], "#3a3430", "#9a8d80"); // receiver
+      poly([[0.5, -0.34], [2.3, -0.34], [2.3, -0.16], [0.5, -0.16]], "#6f6660", "#eee4d3", 0.05); // barrel
+      poly([[0.5, -0.14], [2.0, -0.14], [2.0, 0.0], [0.5, 0.0]], "#3a3430"); // tube
+      poly([[0.9, -0.2], [1.55, -0.2], [1.55, 0.12], [0.9, 0.12]], "#b0641c", "#f6b62c", 0.05); // pump
+      guard(0.1, 0.05, 0.16, "#9a8d80");
+      g.fillStyle = "#ff9a3d"; g.fillRect(Math.min(X(2.25), X(2.4)), Y(-0.36), 0.15 * u, 0.22 * u);
+      break;
+    }
+  }
 }

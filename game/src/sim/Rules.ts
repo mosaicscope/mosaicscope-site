@@ -8,6 +8,7 @@ import { forceGoal } from "../ai/brain";
 import { commitCrime } from "./Society";
 import { drop } from "../inventory/Inventory";
 import { wound, pickPart } from "./Life";
+import { bulletHit, bulletBounce, isBullet, registerTurfEvents, ensureGangs, updateTurf } from "./Turf";
 
 /**
  * Causal rules: physical outcomes become world events; world events change minds, memories and goals;
@@ -19,9 +20,11 @@ export function installRules(sim: Simulation): void {
   const areaId = (x: number, y: number) => sim.world.areaAt(x, y)?.id ?? 0;
   const name = (id: number) => sim.chars[id]?.name ?? "someone";
   const fx = sim.bus;
+  registerTurfEvents(sim);
 
   sim.hooks = {
     onToyHitChar(t: Toy, c: Character, impulse: number, nx: number, ny: number) {
+      if (isBullet(t.def)) { bulletHit(sim, t, c, nx, ny); return; } // firearms: wounds, police, panic (sim/Turf.ts)
       const thrower = sim.chars[t.thrower];
       // a gentle, unaimed toss that bumps into someone is a startle, not an attack
       if (!sim.throwIntent.has(t.id) && impulse < 2 && thrower) {
@@ -62,6 +65,7 @@ export function installRules(sim: Simulation): void {
       fx.emit("fx", { kind: "spark", x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: a.z, n: 4, color: "#eee4d3" });
     },
     onToyBounce(t: Toy, speed: number, wall: boolean) {
+      if (isBullet(t.def)) { bulletBounce(sim, t); return; }
       fx.emit("sound", { kind: wall ? "thud" : "bounce_" + TOYS[t.def].material, x: t.x, y: t.y, vol: Math.min(0.7, speed / 10) });
       if (!wall && speed > 3) fx.emit("fx", { kind: "dust", x: t.x, y: t.y, z: 0, n: 3 });
       // a loud bang next to someone startles them (and can start trouble with whoever threw it)
@@ -160,7 +164,7 @@ export function installRules(sim: Simulation): void {
     toy_hit: "saw_fight", melee_hit: "saw_fight", knockdown: "saw_fight", toy_fight: "saw_fight", argument: "argued", help: "helped",
     reconcile: "made_up", gift: "gift_to", toy_broken: "saw_break", party: "party", prank: "event", player: "player_action",
   };
-  const FEARFUL = new Set(["knockdown", "toy_fight", "panic", "blackout", "argument"]);
+  const FEARFUL = new Set(["knockdown", "toy_fight", "panic", "blackout", "argument", "gunshot", "turf_war"]);
 
   sim.events.onAny((e: WorldEvent) => {
     fx.emit("event", e);
@@ -310,7 +314,9 @@ export function installRules(sim: Simulation): void {
     if (tick % 3000 === 0) arrivals();
     if (tick % 600 === 0 && sim.isDark && sim.env.weather === "clear" && sim.rng.chance(0.04)) sim.emit({ type: "rare_meteor", x: sim.world.size / 2, y: sim.world.size / 2, summary: "A shooting star crossed the sky" });
     if (tick % 1200 === 0) competitionCheck();
+    updateTurf(sim);
   };
+  ensureGangs(sim);
 
   const knownFriends = new Set<string>();
   let primed = false; // first pass (new world or loaded save) records existing friendships silently
