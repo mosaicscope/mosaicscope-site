@@ -99,7 +99,9 @@ export class Game {
   private gestured = false;
   private pinchDist = 0;
 
+  private rootEl: HTMLElement;
   constructor(private canvas: HTMLCanvasElement, root: HTMLElement) {
+    this.rootEl = root;
     this.settings = loadSettings(this.store);
     this.sim = new Simulation({ backgroundCount: Math.min(this.settings.density, 300) });
     this.renderer = new Renderer(canvas, this.sim);
@@ -137,6 +139,8 @@ export class Game {
     this.bindInput();
     this.bindSim();
     this.bindStats();
+    addEventListener("error", (e) => this.fault("window", e.error ?? e.message));
+    addEventListener("unhandledrejection", (e) => this.fault("promise", e.reason));
     this.loadEmpire();
     this.applyAbsence();
     const mq = window.matchMedia?.("(prefers-reduced-motion: reduce)");
@@ -154,26 +158,53 @@ export class Game {
   start(): void { this.renderer.resize(this.quality); this.loop(); }
 
   // ------------------------------------------------------------------ main loop
+  /** Run one part of the frame; a failure is counted and survived, never fatal. */
+  private guard(name: string, fn: () => void): void {
+    try { fn(); } catch (e) { this.fault(name, e); }
+  }
+  private faults: number[] = []; private faultEl: HTMLElement | null = null;
+  private fault(name: string, e: unknown): void {
+    const now = performance.now();
+    console.error(`[mosaics:${name}]`, e);
+    this.faults.push(now); this.faults = this.faults.filter((t) => now - t < 5000);
+    if (this.faults.length >= 8 && !this.faultEl) {
+      // something keeps failing: stop the clock and let the player choose, instead of a dead screen
+      this.setSpeed(0);
+      this.faultEl = h("div.fault", { role: "alertdialog", "aria-label": "Something glitched" }, [
+        h("h2", { text: "Something glitched" }), h("p", { text: "The city hit a snag. Your cash and progress are safe in this tab." }),
+        h("div.row", null, [
+          h("button.btn.acid", { onclick: () => { this.faultEl?.remove(); this.faultEl = null; this.faults = []; this.setSpeed(1); }, text: "Keep going" }),
+          h("button.btn", { onclick: () => location.reload(), text: "Reload" }),
+        ]),
+      ]);
+      this.rootEl.append(this.faultEl);
+    }
+  }
+
   private loop = (): void => {
     this.raf = requestAnimationFrame(this.loop);
+    this.guard("frame", () => this.frame());
+  };
+
+  private frame(): void {
     const now = performance.now();
     const dt = Math.min(0.1, (now - this.last) / 1000);
     this.last = now;
     const steps = this.clock.advance(dt);
-    for (let i = 0; i < steps; i++) { this.controlPlayer(); this.sim.step(); }
+    for (let i = 0; i < steps; i++) this.guard("sim", () => { this.controlPlayer(); this.sim.step(); });
     this.ticksThisSecond += steps; this.tickWindow += dt;
     if (this.tickWindow >= 1) { this.tickRate = this.ticksThisSecond / this.tickWindow; this.ticksThisSecond = 0; this.tickWindow = 0; }
     this.hovered = this.mouse.dragging ? -1 : this.renderer.pickCharacter(this.mouse.x, this.mouse.y);
     const ad = this.hovered < 0 && !this.mouse.dragging ? this.renderer.pickAd(this.mouse.x, this.mouse.y) : null;
     this.canvas.style.cursor = ad || this.hovered >= 0 ? "pointer" : "";
     this.canvas.title = ad ? `${ad.label} (opens in a new tab)` : "";
-    this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames });
-    this.audio.update(this.sim);
+    this.guard("render", () => this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames }));
+    this.guard("audio", () => this.audio.update(this.sim));
     this.fpsAvg = this.fpsAvg * 0.95 + (1 / Math.max(dt, 0.001)) * 0.05;
     this.adaptQuality(dt);
-    this.dev.update(dt);
-    this.uiTick(now);
-  };
+    this.guard("dev", () => this.dev.update(dt));
+    this.guard("ui", () => this.uiTick(now));
+  }
 
   private lastUi = 0;
   private pausedBefore = false;

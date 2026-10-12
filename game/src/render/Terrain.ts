@@ -3,6 +3,10 @@ import { TILE_W, TILE_H, Z_PX } from "../world/iso";
 import { GROUND } from "./palette";
 import type { Camera } from "./Camera";
 import { drawAd } from "./Ads";
+import { fillTextured, type Material } from "./Textures";
+
+/** Which material each ground type gets, and how strongly. */
+const MAT_OF: Record<number, [Material, number]> = { 0: ["grass", 0.9], 1: ["pavers", 0.9], 2: ["concrete", 0.7], 13: ["asphalt", 0.9], 14: ["concrete", 0.5], 16: ["asphalt", 1], 17: ["pavers", 0.9], 18: ["asphalt", 1], 20: ["asphalt", 0.8] };
 
 /**
  * Ground is pre-rendered into 16x16-tile chunk canvases (only rebuilt when tiles change).
@@ -35,6 +39,9 @@ export class Terrain {
       // diamond
       g.fillStyle = n < 0.5 ? c1 : c2;
       g.beginPath(); g.moveTo(sx, sy); g.lineTo(sx + TILE_W / 2, sy + TILE_H / 2); g.lineTo(sx, sy + TILE_H); g.lineTo(sx - TILE_W / 2, sy + TILE_H / 2); g.closePath(); g.fill();
+      // real-world grit (the chunk is cached, so this costs nothing per frame)
+      const mat = MAT_OF[base];
+      if (mat) fillTextured(g, mat[0], mat[1]);
       detail(g, base, sx, sy, n, w, tx, ty);
     }
     this.chunksBuilt++;
