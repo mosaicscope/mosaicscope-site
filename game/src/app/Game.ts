@@ -470,6 +470,7 @@ export class Game {
       else if (key === "m") this.minimap.toggle();
       else if (key === k.dev || key === "~") this.dev.toggle();
       else if (key === "c") { this.renderer.cam.follow = this.sim.playerId; }
+      else if (key === "v") this.toggle2D();
       else if (key === "=" || key === "+") this.renderer.cam.setZoom(this.renderer.cam.targetZoom * 1.2);
       else if (key === "-") this.renderer.cam.setZoom(this.renderer.cam.targetZoom / 1.2);
     });
@@ -747,6 +748,13 @@ export class Game {
     this.focus(c.nickname ? `${first} "${c.nickname}"` : first, label, 0, true);
   }
 
+  /** V / the 2D button: jump between the 3D city and the 2D street view. */
+  private toggle2D(): void {
+    const cam = this.renderer.cam;
+    cam.setZoom(cam.targetZoom > 3 ? 1.5 : 4);
+    cam.follow = this.sim.playerId;
+  }
+
   // ------------------------------------------------------------------ focus mode
   private minimap = new Minimap(() => this.sim);
   private roast = new RoastBattle((r) => { if (r.won) { this.sim.player.cash += 150; this.focus("You won the roast", `Crowd ${Math.round(r.crowd)}% · +$150 · Roastie respects you now`, 3.5); } else this.focus("Roasted", "Roastie Malone wins this one. Run it back.", 3); });
@@ -829,6 +837,7 @@ export class Game {
       this.clockEl, h("div.spacer"),
       h("div.seg", { role: "group", "aria-label": "Simulation speed" }, this.speedEls),
       this.soundBtn,
+      h("button.btn", { onclick: () => this.toggle2D(), text: "2D/3D", title: "Street view (V)" }),
       h("button.btn", { onclick: () => this.log.toggle(), text: "Log" }),
       h("button.btn", { onclick: () => this.select(this.selected === this.sim.playerId ? -1 : this.sim.playerId), text: "Me", class: "btn wide" }),
       h("button.btn", { onclick: () => this.openSaves(), text: "Save" }),
