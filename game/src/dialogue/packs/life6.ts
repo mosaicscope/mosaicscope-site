@@ -220,7 +220,7 @@ export const LIFE_6: Exchange[] = [
     tags: ["a:photographer", "@street", "day"],
     lines: [
       "Waited forty minutes for the tram to line up.",
-      "And?",
+      "Worth the wait?",
       "Tourist waved from the window. Accidentally perfect.",
     ],
   },
@@ -1279,7 +1279,7 @@ export const LIFE_6: Exchange[] = [
     tags: ["a:cleaner", "b:cleaner", "a:tired"],
     lines: [
       "Dreamt I scrubbed the entire Cathedral clean.",
-      "And?",
+      "Spotless, was it?",
       "Woke up with my arm still going in circles.",
     ],
   },
@@ -1533,7 +1533,7 @@ export const LIFE_6: Exchange[] = [
     tags: ["a:musician", "b:musician", "rivals"],
     lines: [
       "Heard your new single.",
-      "And?",
+      "Go on, say it. I can take it.",
       "It's very... confident for something in G.",
     ],
   },
@@ -1742,7 +1742,7 @@ export const LIFE_6: Exchange[] = [
     tags: ["post", "a:musician", "b:local"],
     lines: [
       "Sent '{post}' to the band chat.",
-      "And?",
+      "Anyone bite?",
       "Drummer replied 'book it'. First full sentence all year.",
     ],
   },
