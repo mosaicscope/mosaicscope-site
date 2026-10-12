@@ -1,5 +1,20 @@
 # MosaicScope website: your guide
 
+## ✅ Your last 3 jobs (only you can do these)
+
+1. **Make the form email you** (2 min): web3forms.com → enter your email → copy the key from their email → Pages CMS → Basics → *Web3Forms access key* → Save.
+2. **Get your domain** (~$30 NZD/yr): buy `mosaicscope.co.nz`, then Cloudflare → Workers & Pages → mosaicscope → Custom domains → add it.
+3. **Google Business Profile** (free): business.google.com → "MosaicScope", photographer, Christchurch, add the website link. This is how locals find you on Google Maps.
+
+## 🔧 Things you can fill in whenever
+
+- **Raw vs edited slider**: Pages CMS → *Raw vs edited* → upload a raw shot + your Lightroom version. The section appears by itself.
+- **Pin your best Insta posts first**: Pages CMS → *Instagram posts to pin first* → paste post links.
+- **Rates, booking steps, gear**: all editable in Pages CMS.
+- **Visitor stats**: Cloudflare → Workers & Pages → mosaicscope → Metrics → Web Analytics.
+
+---
+
 Short steps. Do one at a time.
 
 ---
