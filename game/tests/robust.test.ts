@@ -14,7 +14,7 @@ describe("robustness", () => {
       for (let t = 0; t < 60 * 180; t++) {
         if (t % 90 === 0) { p.x = 4 + rnd() * (sim.world.size - 8); p.y = 4 + rnd() * (sim.world.size - 8); p.vx = (rnd() - 0.5) * 3; p.vy = (rnd() - 0.5) * 3; }
         if (t % 400 === 0) { p.wanted = Math.floor(rnd() * 6); p.cash = Math.floor(rnd() * 5000); }
-        if (t % 700 === 0) sim.shootAt(p, p.x + 3, p.y + 3);
+        if (t % 700 === 0) sim.shootAt(p, p.x + 3, p.y + 3, -1);
         sim.step();
       }
       for (const c of sim.chars) {
