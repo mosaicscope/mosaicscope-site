@@ -5,6 +5,7 @@ import { runStep, RUN, DONE, FAIL, moveTo, stop } from "./steps";
 import { updateNeeds } from "./needs";
 import { enterBuilding } from "../sim/Society";
 import { goalBias, onGoalDone, updateMind } from "../mind/Mind";
+import { violentBlocked, setForceGoal } from "../mind/Psychopathology";
 
 /**
  * Top-level hierarchical state machine:
@@ -73,7 +74,7 @@ export function chooseGoal(c: Character, sim: Simulation): void {
   const now = sim.tick;
   for (const g of GOALS) {
     if (g.principalOnly && c.tier !== "principal") continue;
-    if ((c.goalCooldowns[g.id] ?? 0) > now) continue;
+    if ((c.goalCooldowns[g.id] ?? 0) > now || violentBlocked(c, g.id)) continue;
     const ch = g.score(c, sim);
     if (ch && ch.u > 0) { ch.u *= goalBias(c, g.id, sim.hour); candidates.push({ g, ch }); }
   }
@@ -101,9 +102,11 @@ export function forceGoal(c: Character, sim: Simulation, id: string, ch: Choice)
   if (c.tier === "player" || c.phys === Phys.DOWN || c.phys === Phys.RECOVER) return false;
   if (c.goal && !GOAL_BY_ID.get(c.goal.id)?.interruptible && c.goal.id !== "wander" && c.goal.id === id) return false;
   const g = GOAL_BY_ID.get(id);
-  if (!g) return false;
+  if (!g || violentBlocked(c, id)) return false;
   return startGoal(c, sim, g, ch);
 }
+
+setForceGoal(forceGoal);
 
 function execute(c: Character, sim: Simulation, dt: number): void {
   const goal = c.goal!;

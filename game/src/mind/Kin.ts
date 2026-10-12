@@ -130,12 +130,13 @@ export function makeFamilies(sim: Simulation, eligible: Character[], maxFamilies
       sim.names?.reserve(m.name);
       m.home = head.home;
     }
-    if (parents.length === 2) {
-      const [a, b] = parents;
-      if (a.partner < 0 && b.partner < 0) {
-        a.partner = b.id; b.partner = a.id;
-        for (const [x, y] of [[a, b], [b, a]] as const) { const r = sim.relate(x, y.id); r.love = 0.7; r.aff = Math.max(r.aff, 0.6); r.trust = Math.max(r.trust, 0.5); r.fam = 1; }
-      }
+    // the parents are whoever the derived kin group says they are (it also catches a namesake in the same district)
+    resetKin(sim);
+    const k = kin(sim, picked[0]), ps = (k.parents.length ? k.parents : picked[0] && kin(sim, sim.chars[k.members[0]] ?? picked[0]).parents).map((id) => sim.chars[id]);
+    if (ps.length === 2 && ps[0].partner < 0 && ps[1].partner < 0) {
+      const [a, b] = ps;
+      a.partner = b.id; b.partner = a.id;
+      for (const [x, y] of [[a, b], [b, a]] as const) { const r = sim.relate(x, y.id); r.love = 0.7; r.aff = Math.max(r.aff, 0.6); r.trust = Math.max(r.trust, 0.5); r.fam = 1; }
     }
     // everyone in the household knows each other well
     for (const x of picked) for (const y of picked) if (x !== y) { const r = sim.relate(x, y.id); r.fam = Math.max(r.fam, 0.9); r.aff = Math.max(r.aff, 0.4); r.trust = Math.max(r.trust, 0.4); }

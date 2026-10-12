@@ -1,6 +1,7 @@
 import type { Simulation } from "../sim/Simulation";
 import type { Character, Personality } from "../entities/types";
 import { TOYS } from "../content/toys";
+import { newPsy, updatePsy, psyBias, activate, mentalSummary, type Psy } from "./Psychopathology";
 import { appraise, baseline, COMPLEX_GOALS, emotionBias, ocean, performance, relaxAffect } from "./Affect";
 import { retention, rehearseAbout, sweepMemories, vividCount } from "./Memory";
 import { aversion, h01, habitStrength, labelOf, learnGoal, lossLambda, slotOf, SLOT_NAMES, socialLearn } from "./Learning";
@@ -44,6 +45,8 @@ export interface Mind {
   last: number; lastSocial: number;
   /** recent lessons, newest last (human readable) */
   log: string[];
+  /** clinical layer: diathesis-stress state (see Psychopathology.ts) */
+  psy: Psy;
 }
 
 export const newLog = (m: Mind, tick: number, text: string): void => {
@@ -64,7 +67,7 @@ export function newMind(id: number, pers: Personality): Mind {
     stress: 0, burnout: 0, coping: o.c * 0.7 + (1 - o.n) * 0.3 > 0.5 ? "problem" : "emotion",
     gamble: { caution: 0, urge: 0, streak: 0, net: 0 },
     conform: 0.4 + 0.6 * o.a * (1 - 0.5 * o.o),
-    scalds: 0, last: -(id % 40), lastSocial: -99999, log: [],
+    scalds: 0, last: -(id % 40), lastSocial: -99999, log: [], psy: newPsy(id),
   };
 }
 
@@ -72,7 +75,7 @@ export function newMind(id: number, pers: Personality): Mind {
 export function ensureMind(c: Character): Mind {
   const d = newMind(c.id, c.pers);
   const m = (c.mind ?? {}) as Partial<Mind>;
-  c.mind = { ...d, ...m, gamble: { ...d.gamble, ...(m.gamble ?? {}) } };
+  c.mind = { ...d, ...m, gamble: { ...d.gamble, ...(m.gamble ?? {}) }, psy: { ...d.psy, ...(m.psy ?? {}) } };
   return c.mind;
 }
 
@@ -108,6 +111,7 @@ export function goalBias(c: Character, goal: string, hour: number): number {
   const alert = 0.5 + 0.5 * Math.cos(((hour - (15 + 4 * m.chrono)) / 24) * Math.PI * 2);
   if (goal === "rest" || goal === "gohome" || goal === "home") k *= 1 + 0.4 * (0.5 - alert);
   else if (goal === "work" || goal === "craft") k *= 0.9 + 0.2 * alert;
+  k *= psyBias(c, goal);
   if (goal === "gamble") k *= cl(1 + 0.9 * m.gamble.urge - 0.8 * m.gamble.caution, 0.15, 2);
   return cl(k, 0.3, 2);
 }
@@ -150,6 +154,9 @@ export function updateMind(c: Character, sim: Simulation): void {
   const gd = Math.exp(-dt / (3600 * 36));
   m.gamble.caution *= gd; m.gamble.urge *= gd;
 
+  // clinical layer (stress physiology, mood, trauma, care)
+  updatePsy(c, sim, dt);
+
   // memory: forgetting curve; talking about someone rehearses what you know of them
   sweepMemories(c, tick);
   if (c.talkWith >= 0) {
@@ -162,7 +169,7 @@ export function updateMind(c: Character, sim: Simulation): void {
 }
 
 /** Hook for brain.finish. */
-export function onGoalDone(c: Character, goal: string, ok: boolean, sim: Simulation): void { learnGoal(c, goal, ok, sim.hour); if (!ok) appraise(c, sim.tick, { rel: 0.15, cong: -0.3, ctrl: 0.6, blame: "none" }); }
+export function onGoalDone(c: Character, goal: string, ok: boolean, sim: Simulation): void { learnGoal(c, goal, ok, sim.hour); activate(c, goal, ok); if (!ok) appraise(c, sim.tick, { rel: 0.15, cong: -0.3, ctrl: 0.6, blame: "none" }); }
 
 /* ============================ the inspector view ============================ */
 
@@ -200,6 +207,7 @@ export function describeMind(c: Character, tick = c.mind?.last ?? 0): string[] {
   else if (m.stress > 0.35) out.push(`Stressed (${Math.round(m.stress * 100)}%), coping ${m.coping === "problem" ? "by tackling it head on" : "by seeking comfort"}.`);
   const vivid = vividCount(c, tick);
   if (c.memories.length) out.push(`Remembers ${c.memories.length} things, ${vivid} vividly.`);
+  out.push(...mentalSummary(c, tick));
   for (const l of m.log.slice(-3)) out.push(l);
   return out;
 }

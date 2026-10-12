@@ -7,6 +7,7 @@ import { carried, detach, transfer, pickUp } from "../inventory/Inventory";
 import { SHOOTS, MOSAIC } from "../content/mosaicscope";
 import { Building, Graffiti, T } from "../world/World";
 import { forceGoal } from "../ai/brain";
+import { isCareBuilding, noteEnter, careOutcome } from "../mind/Psychopathology";
 import { chooseFood, onConsume, learnPlace, welcomeReward, noteGamble, chaseProbability, stakeFactor } from "../mind/Mind";
 
 /* =============================== economy =============================== */
@@ -95,7 +96,9 @@ export function executeTrade(sim: Simulation, a: Character, b: Character, aGives
 
 /** Walk into a building: hidden from the street until `until`. */
 export function enterBuilding(sim: Simulation, c: Character, b: Building, minutes: number): void {
+  const gid = c.goal?.id;
   c.inside = b.id; c.insideUntil = sim.tick + Math.round(minutes * 60);
+  if (isCareBuilding(b.kind)) noteEnter(sim, c, b.kind, gid);
   c.vx = c.vy = 0; c.path = null; c.goal = null;
   if (c.talkWith >= 0) sim.endConversation(c);
 }
@@ -110,6 +113,7 @@ export function exitBuilding(sim: Simulation, c: Character): void {
 /** What happens while someone is inside (resolved when they come out). */
 export function insideOutcome(sim: Simulation, c: Character, b: Building): void {
   const def = BUILDINGS[b.kind];
+  if (isCareBuilding(b.kind)) careOutcome(sim, c, b);
   if (def.menu && c.hunger < 0.6) {
     const food = def.menu.filter((m) => TOYS[m].category === "food" && TOYS[m].value <= c.cash);
     if (food.length) {

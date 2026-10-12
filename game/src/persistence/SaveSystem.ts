@@ -17,7 +17,7 @@ import { ensureMind, newMind } from "../mind/Mind";
  * and event history. Transient AI state (paths,
  * current plans) is dropped and rebuilt by the AI on load.
  */
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 /** v3 packs the two biggest structures into tuples (about half the size of objects). */
 /** v5 appends the Ebbinghaus rehearsal count and last-recall tick (omitted when never rehearsed). */
@@ -60,6 +60,8 @@ export const MIGRATIONS: Record<number, (d: any) => any> = {
   // v3 predates the city: no cars, tags, tills, crime records or bookings (the city fills them in fresh)
   3: (d) => ({ ...d, version: 4, graffiti: [], tills: {}, crimes: [], bookings: [] }),
   // v4 had no minds: everyone starts with a fresh, personality-derived one (they learn from here)
+  // v5 minds had no clinical state: ensureMind() on restore fills it in (liability comes from the kin module, so nothing else to store)
+  5: (d) => ({ ...d, version: 6, chars: d.chars.map((c: any) => ({ ...c, mind: c.mind ? { ...c.mind, psy: c.mind.psy ?? newMind(c.id, c.pers).psy } : c.mind })) }),
   4: (d) => ({ ...d, version: 5, chars: d.chars.map((c: any) => ({ ...c, mind: c.mind ?? newMind(c.id, c.pers) })) }),
 };
 

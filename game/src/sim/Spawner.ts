@@ -190,7 +190,7 @@ export function spawnAll(sim: Simulation): void {
 
   // whānau: ordinary residents of a district become families (shared surname, parent couple, heritable liability; see mind/Kin.ts)
   const FAMILY_ROLES = new Set<Role>(["local", "student", "office", "shopkeeper", "driver", "taxi", "mechanic", "busker", "cleaner", "barista", "chef", "vendor"]);
-  makeFamilies(sim, sim.chars.filter((c) => c.tier === "mid" && FAMILY_ROLES.has(c.role) && !SPECIALS.some((s) => s.name === c.name) && !CAST.some((d) => d.name === c.name)));
+  makeFamilies(sim, sim.chars.filter((c) => c.tier === "mid" && c.partner < 0 && FAMILY_ROLES.has(c.role) && !SPECIALS.some((s) => s.name === c.name) && !CAST.some((d) => d.name === c.name)));
 
   // regulars: a dozen couples, some of them not as solid as they look
   const singles = sim.chars.filter((c) => c.tier === "mid" && c.partner < 0); // family parents are already a couple

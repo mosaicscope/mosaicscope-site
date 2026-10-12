@@ -5,7 +5,6 @@ import { kin as kinFromTown, updateTown } from "../src/mind/Town";
 import { careOf, helpSeekingProbability, personalStigma, updateWhanau, goForHelp, whanauSupportNear } from "../src/mind/Whanau";
 import { deriveProfile } from "../src/mind/Culture";
 import { BUILDINGS } from "../src/content/buildings";
-import type { Character } from "../src/entities/types";
 
 const big = (seed: number) => new Simulation({ seed, midCount: 110, backgroundCount: 40 });
 const finite = (o: unknown, path = ""): string[] => {
