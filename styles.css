@@ -1524,3 +1524,95 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 .raver.d-bootypop .rv__armR { transform: rotate(20deg); }
 .raver.d-bootypop .rv__head { transform: rotate(-24deg); }
 @keyframes cp-pop { 0% { transform: rotate(30deg); } 50% { transform: rotate(22deg) translateX(-2px); } }
+
+/* ================= Round 17: a real party ================= */
+.raver__fig { transform-origin: 50% 100%; }
+/* everyone moves their own way (layered on top of the dance) */
+.raver.is-rave.st-bouncy .raver__fig { animation: st-bouncy .42s cubic-bezier(.3,0,.3,1) infinite; }
+.raver.is-rave.st-smooth .raver__fig { animation: st-smooth .84s ease-in-out infinite; }
+.raver.is-rave.st-hype .raver__fig { animation: st-hype .42s cubic-bezier(.2,.8,.3,1) infinite; }
+.raver.is-rave.st-loose .raver__fig { animation: st-loose .84s cubic-bezier(.5,1.6,.5,1) infinite; }
+.raver.is-rave.st-sharp .raver__fig { animation: st-sharp .42s steps(1) infinite; }
+.raver.is-rave.st-swagger .raver__fig { animation: st-swagger .84s ease-in-out infinite; }
+@keyframes st-bouncy { 0%, 100% { translate: 0 0; scale: 1.05 .93; } 45% { translate: 0 -9px; scale: .96 1.05; } }
+@keyframes st-smooth { 0%, 100% { rotate: -5deg; translate: -3px 0; } 50% { rotate: 5deg; translate: 3px 1px; } }
+@keyframes st-hype { 0%, 100% { translate: 0 0; rotate: 0deg; } 30% { translate: 0 -15px; rotate: -6deg; } 60% { translate: 0 -4px; rotate: 5deg; } }
+@keyframes st-loose { 0% { rotate: -8deg; } 25% { rotate: 6deg; translate: 0 -4px; } 50% { rotate: -4deg; translate: 0 0; } 75% { rotate: 8deg; translate: 0 -4px; } 100% { rotate: -8deg; } }
+@keyframes st-sharp { 0% { translate: 0 0; } 25% { translate: 2px -5px; } 50% { translate: -2px 0; } 75% { translate: 0 -7px; } }
+@keyframes st-swagger { 0%, 100% { translate: 0 0; rotate: -3deg; } 50% { translate: 0 -6px; rotate: 3deg; } }
+/* show-off stunts */
+.stage .raver.x-flip .raver__fig { transform-origin: 50% 55%; animation: x-flip 1.1s cubic-bezier(.3,.1,.3,1) both; }
+.stage .raver.x-spin .raver__fig { animation: x-spin 1.1s cubic-bezier(.3,.1,.3,1) both; }
+.stage .raver.x-split .raver__fig { animation: x-jump 1s cubic-bezier(.3,.1,.3,1) both; }
+.raver.x-split .rv__legL { transform: rotate(72deg) !important; animation: none !important; }
+.raver.x-split .rv__legR { transform: rotate(-72deg) !important; animation: none !important; }
+.raver.x-split .rv__armL { transform: rotate(120deg) !important; animation: none !important; }
+.raver.x-split .rv__armR { transform: rotate(-120deg) !important; animation: none !important; }
+@keyframes x-flip { 0% { translate: 0 0; rotate: 0deg; scale: 1; } 15% { translate: 0 5px; scale: 1.06 .88; } 50% { translate: 0 -48px; rotate: -180deg; scale: 1; } 85% { translate: 0 0; rotate: -360deg; } 92% { scale: 1.06 .9; } 100% { translate: 0 0; rotate: -360deg; scale: 1; } }
+@keyframes x-spin { 0% { translate: 0 0; rotate: y 0deg; } 15% { translate: 0 4px; scale: 1.05 .9; } 50% { translate: 0 -30px; scale: 1; } 85% { translate: 0 0; rotate: y 720deg; } 100% { translate: 0 0; rotate: y 720deg; } }
+@keyframes x-jump { 0%, 100% { translate: 0 0; scale: 1; } 15% { translate: 0 5px; scale: 1.06 .88; } 50% { translate: 0 -38px; scale: 1; } 85% { translate: 0 0; } 92% { scale: 1.06 .9; } }
+/* twirl: he holds her hand up while she spins */
+.raver.d-twirlguy .rv__armR { animation: tw-hand .6s ease-in-out infinite alternate; }
+.raver.d-twirlguy .rv__armL { transform: rotate(-25deg); }
+.raver.d-twirlguy .rv { animation: mv-knees .6s ease-in-out infinite; }
+@keyframes tw-hand { from { transform: rotate(-150deg); } to { transform: rotate(-165deg); } }
+/* glow sticks */
+.rv__glow { opacity: 0; transition: opacity .4s; }
+.stage.is-party .raver.has-glow.is-rave:not(.d-throw):not(.d-shoot) .rv__glow { opacity: 1; filter: drop-shadow(0 0 3px rgba(255, 255, 255, .7)); }
+/* lasers + haze, only while the music's on */
+.stage__fx { position: absolute; inset: 0; pointer-events: none; z-index: 0; opacity: 0; transition: opacity 1.5s var(--ease); }
+.stage.is-party .stage__fx { opacity: 1; }
+.laser { position: absolute; top: 2px; width: 60%; height: 1px; transform-origin: 0 50%; opacity: .35; }
+.laser--l { left: 0; background: linear-gradient(90deg, var(--acid), transparent); animation: laser-l 5s ease-in-out infinite; }
+.laser--r { right: 0; transform-origin: 100% 50%; background: linear-gradient(270deg, #ff7ad9, transparent); animation: laser-r 6s ease-in-out infinite; }
+@keyframes laser-l { 0%, 100% { transform: rotate(8deg); } 50% { transform: rotate(22deg); } }
+@keyframes laser-r { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(-24deg); } }
+.haze { position: absolute; left: 0; right: 0; bottom: 0; height: 40px; background: radial-gradient(60% 100% at 50% 100%, rgba(238, 228, 211, .08), transparent); animation: haze 6s ease-in-out infinite; }
+@keyframes haze { 50% { opacity: .5; transform: scaleX(1.1); } }
+.stage.is-paused .stage__fx * { animation-play-state: paused; }
+/* balloons drift up out of the strip */
+.balloon { position: absolute; bottom: 0; width: 13px; height: 16px; border-radius: 50% 50% 48% 48%; background: var(--c); opacity: 0; pointer-events: none; z-index: 0; animation: balloon 11s ease-in both; }
+.balloon::after { content: ""; position: absolute; left: 50%; top: 100%; width: 1px; height: 14px; background: rgba(238, 228, 211, .4); }
+@keyframes balloon { 0% { opacity: 0; transform: translate(0, 10px); } 10% { opacity: .9; } 50% { transform: translate(10px, -70px) rotate(6deg); } 100% { opacity: 0; transform: translate(-6px, -170px) rotate(-6deg); } }
+/* confetti */
+.cash__note--conf { width: 6px; height: 6px; border: 0; box-shadow: none; border-radius: 1px; }
+/* after hours neon: the reward for staying */
+.prop--neon { top: 32px; right: 10px; padding: 2px 6px; border: 1px solid #ff7ad9; border-radius: 3px; color: #ff7ad9; font-size: 10px; letter-spacing: .12em; text-shadow: 0 0 6px #ff7ad9; box-shadow: 0 0 10px rgba(255, 122, 217, .35); animation: neon 4s steps(1) infinite; }
+@keyframes neon { 0%, 46%, 50%, 100% { opacity: 1; } 47%, 49% { opacity: .35; } }
+/* animals */
+.critter { position: absolute; bottom: 4px; left: 0; z-index: 1; pointer-events: none; transform: translateX(var(--x, -100px)); transition: transform 0s linear; }
+.critter svg { width: 100%; height: 100%; overflow: visible; transform-origin: 50% 100%; }
+.critter.is-left svg { transform: scaleX(-1); }
+.critter [class^="cr__"] { transform-box: view-box; }
+.critter--giraffe .cr__legA, .critter--giraffe .cr__legB { transform-origin: 50px 92px; }
+.critter--giraffe .cr__neck { transform-origin: 66px 78px; }
+.critter--flamingo .cr__legA, .critter--flamingo .cr__legB { transform-origin: 50px 80px; }
+.critter--flamingo .cr__neck { transform-origin: 58px 66px; }
+.critter--flamingo .cr__wing { transform-origin: 40px 70px; }
+.critter--dog .cr__legA, .critter--dog .cr__legB { transform-origin: 48px 110px; }
+.critter--dog .cr__neck { transform-origin: 64px 98px; }
+.critter--dog .cr__tail { transform-origin: 30px 100px; }
+.critter--penguin .cr__legA, .critter--penguin .cr__legB { transform-origin: 50px 128px; }
+.critter--penguin .cr__neck { transform-origin: 50px 82px; }
+.critter--penguin .cr__wing { transform-origin: 50px 96px; }
+.critter.is-walk svg { animation: cr-bob .5s ease-in-out infinite; }
+.critter.is-walk .cr__legA { animation: rv-step .5s ease-in-out infinite alternate; }
+.critter.is-walk .cr__legB { animation: rv-step .5s ease-in-out infinite alternate-reverse; }
+.critter--penguin.is-walk svg { animation: cr-waddle .4s ease-in-out infinite alternate; }
+.critter.is-dance svg { animation: cr-dance .42s ease-in-out infinite; }
+.critter.is-dance .cr__neck { animation: cr-neck .84s ease-in-out infinite; }
+.critter.is-dance .cr__tail { animation: cr-wag .18s ease-in-out infinite alternate; }
+.critter.is-dance .cr__wing { animation: cr-flap .3s ease-in-out infinite alternate; }
+.critter.is-dance .cr__legA { animation: rv-step .42s ease-in-out infinite alternate; }
+.critter--giraffe.is-dance .cr__neck { animation: cr-neckbig 1.68s ease-in-out infinite; }
+@keyframes cr-bob { 50% { translate: 0 -2px; } }
+@keyframes cr-waddle { from { rotate: -8deg; } to { rotate: 8deg; } }
+@keyframes cr-dance { 0%, 100% { translate: 0 0; scale: 1.03 .96; } 50% { translate: 0 -6px; scale: .98 1.03; } }
+@keyframes cr-neck { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } }
+@keyframes cr-neckbig { 0%, 100% { transform: rotate(-18deg); } 25% { transform: rotate(4deg); } 50% { transform: rotate(16deg); } 75% { transform: rotate(-2deg); } }
+@keyframes cr-wag { from { transform: rotate(-25deg); } to { transform: rotate(25deg); } }
+@keyframes cr-flap { from { transform: rotate(-20deg); } to { transform: rotate(20deg); } }
+.stage.is-paused .critter * , .stage.is-paused .critter { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) { .stage__fx, .balloon, .critter { display: none; } .raver__fig { animation: none !important; } }
+.stage.is-after .prop--banner { color: #ff7ad9; border-color: #ff7ad9; text-shadow: 0 0 6px #ff7ad9; }
+@media (max-width: 520px) { .prop--neon { display: none; } }

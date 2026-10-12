@@ -1686,6 +1686,8 @@
     { name: "Lux", kind: "girl", color: "#c6ff3d", accent: "#3dd6ff", hair: "bun", g: 3 },
     { name: "Static", kind: "guy", color: "#8fe3c0", accent: "#ff7ad9", hat: "cap", g: 3 }
   ];
+  // everyone moves their own way when the music's on
+  var STYLE = { Tiles: "swagger", Glitter: "smooth", Kodak: "bouncy", Nova: "loose", Grain: "sharp", Flash: "hype", Ruby: "smooth", Bando: "bouncy", Lux: "loose", Static: "sharp" };
   var IDLE = ["walk", "walk", "walk", "chill", "chill", "smoke", "sit", "drink", "wave", "phone", "selfie", "stretch", "look", "crouch", "pushup", "sleep", "box", "flip"];
   var GLAM_IDLE = ["walk", "flip", "selfie", "phone", "flip", "chill", "drink", "wave", "walk", "selfie"];
   var MAIN_IDLE = ["walk", "chill", "smoke", "sit", "drink", "phone", "look", "chill", "wave"];
@@ -1699,11 +1701,12 @@
     { at: 120, prop: "lights" },
     { at: 180, prop: "disco" },
     { at: 300, prop: "banner" },
-    { at: 420, prop: "sign" }
+    { at: 420, prop: "sign" },
+    { at: 600, prop: "neon" }
   ];
   var POSE_CLASSES = [];
   IDLE.concat(["rave", "throw", "count", "think", "posecool", "posegirl", "shoot", "camera", "cheer"]).forEach(function (p) { POSE_CLASSES.push("is-" + p); });
-  DANCE_POOL.concat(GIRL_HYPE, GUY_HYPE, ["worm", "throw", "shoot", "grind", "grindguy", "lean"]).forEach(function (d) { if (POSE_CLASSES.indexOf("d-" + d) < 0) POSE_CLASSES.push("d-" + d); });
+  DANCE_POOL.concat(GIRL_HYPE, GUY_HYPE, ["worm", "throw", "shoot", "grind", "grindguy", "lean", "twirlguy", "spin"]).forEach(function (d) { if (POSE_CLASSES.indexOf("d-" + d) < 0) POSE_CLASSES.push("d-" + d); });
 
   function figSVG(c) {
     var C = c.color, A = c.accent, girl = c.kind === "girl";
@@ -1728,6 +1731,7 @@
         '<g class="rv__legR"><path d="M50 82 L58 104 L62 122"/>' + boot(58) + '</g>' +
         '<g class="rv__top"><path d="M50 40 L50 82"/>' + outfit +
           '<g class="rv__armL"><path d="M50 47 L38 60 L34 72"/><rect class="rv__beer" x="30" y="70" width="7" height="11" rx="1.5" fill="#f6b62c" stroke="#f6b62c" stroke-width="1"/>' +
+            '<path class="rv__glow" d="M33 71 L29 81" stroke="' + A + '" stroke-width="2.8"/>' +
             '<rect class="rv__wad" x="29" y="69" width="9" height="6" rx="1" fill="#7bd36b" stroke="#2d6b24" stroke-width="1"/></g>' +
           '<g class="rv__armR"><path d="M50 47 L62 60 L66 72"/>' +
             '<path class="rv__cig" d="M66 72 L73 70" stroke="#eee4d3" stroke-width="2"/><circle class="rv__cig" cx="73.5" cy="69.8" r="1.4" fill="#ec2a1c" stroke="none"/>' +
@@ -1772,7 +1776,7 @@
     function Person(cfg, i) {
       var el = document.createElement("button");
       el.type = "button";
-      el.className = "raver is-chill";
+      el.className = "raver is-chill st-" + (STYLE[cfg.name] || "bouncy");
       el.setAttribute("data-name", cfg.name);
       el.setAttribute("aria-label", cfg.name + (hasMusic ? ", play music" : ""));
       el.innerHTML = figSVG(cfg);
@@ -1842,8 +1846,12 @@
     function wave(p) { p.pose("is-wave"); clearTimeout(p.timer); p.timer = setTimeout(p.next, 2200); }
 
     /* ---- the scene grows the longer you stay ---- */
-    function buildProp(name) {
+    var temps = {};
+    function buildProp(name, temp) {
       if (props[name]) return;
+      // a prop that came out for a party becomes permanent once it's earned
+      if (temps[name] && !temp) { props[name] = temps[name]; props[name].classList.add("is-in"); updateLabel(); return; }
+      if (temp && temps[name]) return temps[name];
       var el;
       if (name === "boombox") {
         el = document.createElement("button");
@@ -1870,17 +1878,24 @@
         el = document.createElement("div");
         el.className = "prop prop--sign mono";
         el.innerHTML = "Our world<br>coming soon";
+      } else if (name === "neon") {
+        el = document.createElement("div");
+        el.className = "prop prop--neon mono";
+        el.textContent = "after hours";
       }
       el.setAttribute("aria-hidden", name === "boombox" ? "false" : "true");
       stage.appendChild(el);
+      if (temp) { temps[name] = el; return el; }
       props[name] = el;
       requestAnimationFrame(function () { el.classList.add("is-in"); });
+      if (name === "neon") { stage.classList.add("is-after"); }
       updateLabel();
     }
+    function spicy() { return hung >= 600; }
     function updateLabel() {
       var n = crew.length;
       var lvl = STAGES.filter(function (s) { return props[s.prop]; }).length;
-      label.textContent = "The Mosaics · " + n + "/" + max + " here" + (lvl ? " · lvl " + (lvl + 1) : "");
+      label.textContent = "The Mosaics · " + n + "/" + max + " here" + (lvl ? " · lvl " + (lvl + 1) : "") + (spicy() ? " · after hours" : "");
       egg.crew = Math.max(egg.crew, n); egg.level = Math.max(egg.level, lvl + 1);
     }
     function tick() {
@@ -1902,7 +1917,8 @@
       var high = !!opts.high;
       for (var k = 0; k < n; k++) {
         var d = document.createElement("span");
-        d.className = "cash__note";
+        d.className = "cash__note" + (opts.conf ? " cash__note--conf" : "");
+        if (opts.conf) d.style.background = rnd(["#c6ff3d", "#ff7ad9", "#3dd6ff", "#f6b62c", "#ec2a1c", "#eee4d3"]);
         d.style.left = (r.left + r.width * (left ? 0.15 : 0.85)) + "px";
         d.style.top = (r.top + r.height * 0.45) + "px";
         var dx = (left ? -1 : 1) * (20 + Math.random() * (opts.spray ? 140 : 70)) + (Math.random() - 0.5) * 40;
@@ -1939,7 +1955,7 @@
     function stopParty() { partyTimers.forEach(function (t) { clearTimeout(t); clearInterval(t); }); partyTimers = []; }
     // put one person somewhere, then do something when they get there
     function go(m, x, face, act) {
-      m.walkTo(x, function () { if (face) m.face(face === "L" ? -1e4 : face === "R" ? 1e4 : face); act(); }, 140);
+      m.walkTo(x, function () { if (face) m.face(face === "L" ? -1e4 : face === "R" ? 1e4 : face); act(); }, 80 + Math.random() * 60);
     }
 
     // one crew, one set. dir = which way the set faces
@@ -1951,17 +1967,24 @@
       var D = function (m, d) { return function () { if (raving) m.dance(d); }; };
       if (set === "throw" && g1) {
         go(g1, c - 22 * dir, c, D(g1, "throw"));
-        if (girl) go(girl, c + 18 * dir, dir > 0 ? "R" : "L", D(girl, rnd(["hipshake", "bootypop"])));
+        if (girl) go(girl, c + 18 * dir, spicy() ? (dir > 0 ? "R" : "L") : c - 400 * dir, D(girl, spicy() ? rnd(["hipshake", "bootypop"]) : rnd(["shimmy", "bodyroll", "dougie"])));
         if (g2) go(g2, c + 60 * dir, c, D(g2, "handsup"));
         var t = every(function () { if (!raving) return; if (g1.el.classList.contains("d-throw")) bills(g1.el, 3, { high: Math.random() < 0.12 }); }, 420);
         later(function () { clearInterval(t); }, 3000);
         egg.throws++;
       } else if (set === "spray" && g1) {
         go(g1, c - 34 * dir, c, D(g1, "shoot"));
-        if (girl) go(girl, c + 14 * dir, c - 400 * dir, D(girl, rnd(["drop", "hipshake"])));
+        if (girl) go(girl, c + 14 * dir, c - 400 * dir, D(girl, spicy() ? rnd(["drop", "hipshake"]) : rnd(["handsup", "shimmy"])));
         if (g2) go(g2, c + 56 * dir, c, D(g2, "handsup"));
         var t2 = every(function () { if (!raving) return; if (g1.el.classList.contains("d-shoot")) bills(g1.el, 3, { spray: true, high: Math.random() < 0.15 }); }, 300);
         later(function () { clearInterval(t2); }, 2600);
+      } else if (set === "hype") {
+        if (girl) go(girl, c, null, D(girl, rnd(["bodyroll", "shimmy", "dougie", "sway"])));
+        guys.forEach(function (m, k) { go(m, c + (k ? 1 : -1) * (30 + Math.random() * 10), c, D(m, rnd(["handsup", "bounce", "clap"]))); });
+      } else if (set === "twirl" && g1 && girl) {
+        go(girl, c + 10 * dir, null, D(girl, "spin"));
+        go(g1, c - 14 * dir, c + 400 * dir, D(g1, "twirlguy"));
+        if (g2) go(g2, c + 52 * dir, c, D(g2, "clap"));
       } else if (set === "grind" && g1 && girl) {
         // she's in front with her back to him, both facing the same way
         go(girl, c + 9 * dir, dir > 0 ? "R" : "L", D(girl, "grind"));
@@ -1984,19 +2007,22 @@
         gr.forEach(function (m, k) { go(m, c + (k - (gr.length - 1) / 2) * 30, c + 400 * dir, D(m, mv)); });
       }
     }
-    var MONEY_SETS = ["spray", "grind", "drop", "bootypop", "wine"];
-    var FREE_SETS = ["grind", "wine", "drop", "bootypop", "sync", "sync"];
+    // the spicy sets are a reward: they only come out after someone has hung around 10 minutes
+    function moneySets() { return spicy() ? ["spray", "grind", "drop", "bootypop", "wine"] : ["spray", "hype", "twirl", "sync"]; }
+    function freeSets() { return spicy() ? ["grind", "wine", "drop", "bootypop", "twirl", "sync"] : ["hype", "twirl", "sync", "sync"]; }
     function moneyMoment() {
       if (!raving) return;
       stopParty();
-      var gs = groups(), sets = shuffle(MONEY_SETS);
+      var gs = groups(), sets = shuffle(moneySets());
+      if (Math.random() < 0.5 && crew.length) bills(rnd(crew).el, 16, { conf: true, high: Math.random() < 0.2 });
       // Tiles' crew always makes it rain; every other crew does something different
       gs.forEach(function (gr, i) { doSet(gr, gr[0].cfg.main ? "throw" : sets[i % sets.length]); });
     }
     function freeDance() {
       if (!raving) return;
       stopParty();
-      var gs = groups(), sets = shuffle(FREE_SETS);
+      var gs = groups(), sets = shuffle(freeSets());
+      later(stunt, 1500 + Math.random() * 2000);
       var used = {};
       gs.forEach(function (gr, i) {
         var set = sets[i % sets.length];
@@ -2005,6 +2031,112 @@
         doSet(gr, set);
       });
     }
+    // music starts: people react on their own, then drift over and find their crew
+    function warmUp() {
+      stopParty();
+      crew.forEach(function (m) {
+        clearTimeout(m.timer); m.timer = null;
+        later(function () { if (raving) m.dance(rnd(["bop", "bounce", "sway", "clap", "twostep"])); }, 120 + Math.random() * 1700);
+      });
+      groups().forEach(function (gr) {
+        var c = home(gr[0].cfg.g);
+        var girl = gr.filter(function (m) { return m.cfg.kind === "girl"; })[0];
+        var guys = gr.filter(function (m) { return m.cfg.kind !== "girl"; });
+        var t0 = 1800 + Math.random() * 1600;
+        if (girl) later(function () { if (raving) girl.walkTo(c + (Math.random() - 0.5) * 24, function () { girl.dance(rnd(["sway", "bodyroll", "bop"])); }, 45 + Math.random() * 25); }, t0);
+        guys.forEach(function (m, k) {
+          later(function () {
+            if (!raving) return;
+            m.walkTo(c + (k ? 1 : -1) * (30 + Math.random() * 14), function () {
+              if (girl) {
+                // a little "hey" before he starts dancing with her
+                m.face(girl.x); m.pose("is-wave");
+                later(function () { if (raving) m.dance(rnd(["bounce", "twostep", "bop"])); }, 600 + Math.random() * 600);
+              } else m.dance("bounce");
+            }, 55 + Math.random() * 50);
+          }, t0 + 400 + Math.random() * 1400 + k * 700);
+        });
+      });
+    }
+    // now and then someone shows off
+    function stunt() {
+      if (!raving || !crew.length) return;
+      var m = rnd(crew);
+      if (m.el.matches(".d-grind, .d-grindguy, .d-throw, .d-shoot")) return;
+      var x = rnd(["x-flip", "x-spin", "x-split", "x-flip"]);
+      m.el.classList.add(x);
+      setTimeout(function () { m.el.classList.remove(x); }, 1200);
+    }
+    function partyFx(on) {
+      ["lights", "disco"].forEach(function (n) {
+        if (props[n]) return;
+        var el = buildProp(n, true);
+        if (el) requestAnimationFrame(function () { el.classList.toggle("is-in", on); });
+      });
+      crew.forEach(function (m) { m.el.classList.toggle("has-glow", on && Math.random() < 0.6); });
+      if (on && !reduceMotion) {
+        for (var i = 0; i < 4; i++) {
+          var b = document.createElement("span");
+          b.className = "balloon";
+          b.style.left = (8 + Math.random() * 84) + "%";
+          b.style.setProperty("--c", rnd(["#ec2a1c", "#c6ff3d", "#ff7ad9", "#3dd6ff", "#f6b62c"]));
+          b.style.animationDelay = (i * 0.9 + Math.random()) + "s";
+          stage.appendChild(b);
+          (function (b) { setTimeout(function () { b.remove(); }, 14000); })(b);
+        }
+      }
+    }
+    var fx = document.createElement("div");
+    fx.className = "stage__fx";
+    fx.setAttribute("aria-hidden", "true");
+    fx.innerHTML = '<i class="laser laser--l"></i><i class="laser laser--r"></i><i class="haze"></i>';
+    stage.appendChild(fx);
+
+    /* ---- animals that turn up to party now and then ---- */
+    var CRITTERS = {
+      giraffe: { vb: "14 2 80 132", s: 0.85, svg: '<g fill="none" stroke="#f6b62c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><g class="cr__legB"><path d="M38 92 L36 132 M64 92 L66 132"/></g><g class="cr__legA"><path d="M44 94 L46 132 M58 94 L56 132"/></g><ellipse cx="50" cy="84" rx="22" ry="11" fill="#f6b62c" fill-opacity=".18"/><path d="M28 80 l-9 12"/><g class="cr__neck"><path d="M66 78 L76 22" stroke-width="5"/><ellipse cx="80" cy="18" rx="9" ry="5.5" fill="#f6b62c" fill-opacity=".18"/><path d="M75 13 l-2 -7 M80 13 l1 -7"/><circle cx="81" cy="16" r="1" fill="#0e0b0a" stroke="none"/></g></g><g fill="#b0641c"><circle cx="42" cy="82" r="3"/><circle cx="54" cy="87" r="2.5"/><circle cx="60" cy="79" r="2.2"/><circle cx="71" cy="50" r="2"/></g>' },
+      flamingo: { vb: "30 10 50 124", s: 0.62, svg: '<g fill="none" stroke="#ff7ad9" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><g class="cr__legA"><path d="M50 80 L50 132"/></g><g class="cr__legB"><path d="M50 80 L50 104 L60 96"/></g><ellipse cx="48" cy="72" rx="15" ry="9" fill="#ff7ad9" fill-opacity=".2"/><g class="cr__wing"><path d="M40 70 Q48 62 58 70"/></g><g class="cr__neck"><path d="M60 66 Q74 50 62 38 Q54 26 64 20"/><circle cx="65" cy="18" r="4.5"/><path d="M69 18 l6 5" stroke="#0e0b0a" stroke-width="2.4"/></g></g>' },
+      dog: { vb: "16 74 70 60", s: 0.62, svg: '<g fill="none" stroke="#eee4d3" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><g class="cr__legA"><path d="M36 110 L34 132 M60 110 L62 132"/></g><g class="cr__legB"><path d="M42 110 L44 132 M54 110 L52 132"/></g><ellipse cx="48" cy="104" rx="19" ry="8" fill="#eee4d3" fill-opacity=".15"/><g class="cr__tail"><path d="M30 100 l-9 -10"/></g><g class="cr__neck"><circle cx="70" cy="90" r="8"/><path d="M66 84 l-3 -8 l7 4 M77 92 h4" /><circle cx="72" cy="88" r="1" fill="#0e0b0a" stroke="none"/></g></g>' },
+      penguin: { vb: "22 58 58 76", s: 0.6, svg: '<g stroke-linecap="round" stroke-linejoin="round"><g class="cr__legA"><path d="M42 130 h8" stroke="#f6b62c" stroke-width="3"/></g><g class="cr__legB"><path d="M54 130 h8" stroke="#f6b62c" stroke-width="3"/></g><ellipse cx="50" cy="104" rx="16" ry="25" fill="#0e0b0a" stroke="#eee4d3" stroke-width="3"/><ellipse cx="53" cy="108" rx="9" ry="17" fill="#eee4d3" fill-opacity=".35"/><g class="cr__wing"><path d="M35 96 l-9 16 M65 96 l9 16" stroke="#eee4d3" stroke-width="3"/></g><g class="cr__neck"><circle cx="50" cy="72" r="10" fill="#0e0b0a" stroke="#eee4d3" stroke-width="3"/><path d="M58 71 l8 2 l-8 2 z" fill="#f6b62c" stroke="none"/><circle cx="53" cy="70" r="1.2" fill="#eee4d3"/></g></g>' }
+    };
+    var critterOut = false;
+    function critter() {
+      if (critterOut || reduceMotion || !visible || document.hidden) return;
+      critterOut = true; egg.animals = (egg.animals || 0) + 1;
+      var kind = rnd(Object.keys(CRITTERS)), k = CRITTERS[kind];
+      var vb = k.vb.split(" ").map(Number), sc = k.s * (innerWidth < 520 ? 0.8 : 1);
+      k = { w: Math.round(vb[2] * sc), h: Math.round(vb[3] * sc), svg: k.svg, vb: k.vb };
+      var el = document.createElement("div");
+      el.className = "critter critter--" + kind + " is-walk";
+      el.setAttribute("aria-hidden", "true");
+      el.style.width = k.w + "px"; el.style.height = k.h + "px";
+      el.innerHTML = '<svg viewBox="' + k.vb + '">' + k.svg + '</svg>';
+      stage.appendChild(el);
+      var w = stageW(), fromLeft = Math.random() < 0.5, x = fromLeft ? -k.w - 10 : w + 10;
+      var move = function (tx, cb) {
+        var dur = Math.abs(tx - x) / 45; x = tx;
+        el.classList.toggle("is-left", tx < parseFloat(el.style.getPropertyValue("--x") || 0));
+        el.classList.add("is-walk"); el.classList.remove("is-dance");
+        el.style.transitionDuration = dur + "s";
+        el.style.setProperty("--x", Math.round(tx) + "px");
+        setTimeout(cb, dur * 1000);
+      };
+      el.style.transitionDuration = "0s";
+      el.style.setProperty("--x", Math.round(x) + "px");
+      requestAnimationFrame(function () {
+        move(w * (0.25 + Math.random() * 0.5), function () {
+          el.classList.remove("is-walk"); el.classList.toggle("is-dance", raving);
+          setTimeout(function () {
+            move(fromLeft ? w + 10 : -k.w - 10, function () { el.remove(); critterOut = false; });
+          }, raving ? 7000 + Math.random() * 4000 : 3500);
+        });
+      });
+    }
+    setInterval(function () {
+      if (!visible || document.hidden) return;
+      if (raving ? Math.random() < 0.4 : Math.random() < 0.08) critter();
+    }, 20000);
+
     function partyLoop() {
       if (!raving) return;
       moneyMoment();
@@ -2066,6 +2198,7 @@
 
     /* ---- public hooks used by the music player and the form ---- */
     window.hype = {
+      critter: function () { critter(); },
       set: function (on) {
         raving = on;
         clearTimeout(cycleTimer); stopParty();
@@ -2074,9 +2207,12 @@
         stage.classList.toggle("is-party", on);
         if (on) {
           if (reduceMotion) { crew.forEach(function (m) { m.dance("bounce"); }); return; }
-          freeDance();
-          cycleTimer = setTimeout(partyLoop, 3000);
+          partyFx(true);
+          warmUp();
+          cycleTimer = setTimeout(partyLoop, 7500);
+          if (Math.random() < 0.35) setTimeout(critter, 9000);
         } else {
+          partyFx(false);
           crew.forEach(function (m, i) { m.pose("is-chill"); m.timer = setTimeout(m.next, 800 + i * 350); });
         }
       },
