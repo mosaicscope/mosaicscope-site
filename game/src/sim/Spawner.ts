@@ -10,6 +10,7 @@ import { BUILDINGS } from "../content/buildings";
 import { Building } from "../world/World";
 import { deriveProfile, culturalize, setProfile, shiftRoutine } from "../mind/Culture";
 import { dress } from "../mind/Dress";
+import { makeFamilies } from "../mind/Kin";
 
 function randomPers(rng: Rng): Personality {
   const r = () => Math.min(1, Math.max(0, 0.5 + rng.gauss() * 0.22));
@@ -187,8 +188,12 @@ export function spawnAll(sim: Simulation): void {
     enculture(sim, c, area.kind); Object.assign(c.pers, sp.pers ?? {}); c.emo.confidence = 0.4 + c.pers.boldness * 0.5;
   }
 
+  // whānau: ordinary residents of a district become families (shared surname, parent couple, heritable liability; see mind/Kin.ts)
+  const FAMILY_ROLES = new Set<Role>(["local", "student", "office", "shopkeeper", "driver", "taxi", "mechanic", "busker", "cleaner", "barista", "chef", "vendor"]);
+  makeFamilies(sim, sim.chars.filter((c) => c.tier === "mid" && FAMILY_ROLES.has(c.role) && !SPECIALS.some((s) => s.name === c.name) && !CAST.some((d) => d.name === c.name)));
+
   // regulars: a dozen couples, some of them not as solid as they look
-  const singles = sim.chars.filter((c) => c.tier === "mid");
+  const singles = sim.chars.filter((c) => c.tier === "mid" && c.partner < 0); // family parents are already a couple
   for (let i = 0; i < 12 && singles.length > 2; i++) {
     const a = singles.splice(rng.int(0, singles.length - 1), 1)[0];
     const bi = singles.findIndex((b) => a.attractedTo.includes(b.look.kind) && b.attractedTo.includes(a.look.kind));

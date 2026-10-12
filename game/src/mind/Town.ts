@@ -5,6 +5,9 @@ import { T } from "../world/World";
 import type { CultureProfile } from "./Culture";
 import { deriveProfile, getProfile, setProfile } from "./Culture";
 import { updateDress } from "./Dress";
+import { updateWhanau } from "./Whanau";
+export { kin } from "./Kin";
+export type { Kin } from "./Kin";
 
 /**
  * TOWN PSYCHOLOGY: the shared norms that make people from here behave recognisably Kiwi, and make
@@ -134,6 +137,7 @@ function logEvent(st: TownState, e: NormEvent): void { st.log.push(e); if (st.lo
 /** Called once a second from the environment tick. Cheap: a staggered slice of the town per call. */
 export function updateTown(sim: Simulation): void {
   updateDress(sim);
+  updateWhanau(sim);
   const st = townOf(sim);
   const slot = Math.floor(sim.tick / 60) % 6;
   for (const c of sim.chars) {
