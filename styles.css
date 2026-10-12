@@ -1616,3 +1616,31 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 @media (prefers-reduced-motion: reduce) { .stage__fx, .balloon, .critter { display: none; } .raver__fig { animation: none !important; } }
 .stage.is-after .prop--banner { color: #ff7ad9; border-color: #ff7ad9; text-shadow: 0 0 6px #ff7ad9; }
 @media (max-width: 520px) { .prop--neon { display: none; } }
+
+/* ================= Round 18: props, performers, fireworks, softer light ================= */
+/* walks ease in and out so people glide over instead of sliding */
+.stage .raver { transition-timing-function: cubic-bezier(.42,.05,.38,1); }
+.raver__fig { transition: transform .35s var(--ease); }
+/* holding things */
+.stage .raver.is-gag .rv__armR { transform: rotate(var(--arm)); animation: gag-wob var(--spd, 1s) ease-in-out infinite alternate; }
+@keyframes gag-wob { from { transform: rotate(var(--arm)); } to { transform: rotate(calc(var(--arm) + var(--amp, 0deg))); } }
+.rv__item .spin { transform-box: fill-box; transform-origin: center; animation: spin-rec .8s linear infinite; }
+@keyframes spin-rec { to { transform: rotate(360deg); } }
+.raver.is-gag .rv__cig, .raver.is-gag .rv__phone { opacity: 0 !important; }
+/* guitar */
+.rv__guitar { opacity: 0; transition: opacity .3s; }
+.raver.is-guitar .rv__guitar { opacity: 1; }
+.stage .raver.is-guitar .rv__armR { animation: strum .22s ease-in-out infinite alternate; }
+.stage .raver.is-guitar .rv__armL { transform: rotate(52deg); animation: none; }
+.raver.is-guitar .rv__head { animation: rv-bang .44s ease-in-out infinite; }
+@keyframes strum { from { transform: rotate(6deg); } to { transform: rotate(24deg); } }
+/* particle layer */
+.fxcanvas { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; }
+/* soft ambient light instead of lasers */
+.laser { display: none; }
+.wash { position: absolute; top: -20px; width: 46%; height: 150%; border-radius: 50%; filter: blur(18px); opacity: .1; mix-blend-mode: screen; animation: wash 12s ease-in-out infinite alternate; }
+.wash--a { left: -8%; background: radial-gradient(closest-side, #ff7ad9, transparent); }
+.wash--b { left: 27%; background: radial-gradient(closest-side, #3dd6ff, transparent); animation-duration: 15s; animation-delay: -5s; }
+.wash--c { right: -8%; background: radial-gradient(closest-side, #c6ff3d, transparent); animation-duration: 18s; animation-delay: -9s; }
+@keyframes wash { 0% { transform: translateX(-6%); opacity: .06; } 50% { opacity: .14; } 100% { transform: translateX(6%); opacity: .08; } }
+@media (prefers-reduced-motion: reduce) { .fxcanvas { display: none; } }

@@ -1705,8 +1705,160 @@
     { at: 600, prop: "neon" }
   ];
   var POSE_CLASSES = [];
-  IDLE.concat(["rave", "throw", "count", "think", "posecool", "posegirl", "shoot", "camera", "cheer"]).forEach(function (p) { POSE_CLASSES.push("is-" + p); });
+  IDLE.concat(["rave", "throw", "count", "think", "posecool", "posegirl", "shoot", "camera", "cheer", "gag", "guitar"]).forEach(function (p) { POSE_CLASSES.push("is-" + p); });
   DANCE_POOL.concat(GIRL_HYPE, GUY_HYPE, ["worm", "throw", "shoot", "grind", "grindguy", "lean", "twirlguy", "spin"]).forEach(function (d) { if (POSE_CLASSES.indexOf("d-" + d) < 0) POSE_CLASSES.push("d-" + d); });
+
+  /* ---- things they hold: [arm angle, wobble, speed, item svg drawn upright at the hand, what it gives off] ---- */
+  var GAGS = {
+    mic: { arm: -105, amp: 8, spd: .42, emit: "adlib", every: 900, item: '<rect x="-1.4" y="-9" width="2.8" height="9" rx="1" fill="#2a2420" stroke="#9a8d80" stroke-width=".8"/><circle cx="0" cy="-10.5" r="2.8" fill="#9a8d80" stroke="none"/>' },
+    guitar: { guitar: true, emit: "notes", every: 520 },
+    champagne: { arm: -125, amp: 10, spd: .5, emit: "spray", every: 110, item: '<path d="M-2 2 h4 v-9 l-1 -3 v-3 h-2 v3 l-1 3 Z" fill="#2d6b24" stroke="#c6ff3d" stroke-width=".8"/><rect x="-1.2" y="-13" width="2.4" height="2" fill="#f6b62c" stroke="none"/>' },
+    sparkler: { arm: -115, amp: 25, spd: .35, emit: "spark", every: 70, item: '<path d="M0 2 V-14" stroke="#9a8d80" stroke-width="1"/><circle cx="0" cy="-14" r="1.8" fill="#fff6c8" stroke="none"/>' },
+    bubbles: { arm: -65, amp: 12, spd: .7, emit: "bubble", every: 380, item: '<path d="M0 0 V-8" stroke="#ff7ad9" stroke-width="1.2"/><circle cx="0" cy="-11" r="3" fill="none" stroke="#ff7ad9" stroke-width="1.2"/>' },
+    airhorn: { arm: -110, amp: 4, spd: .2, emit: "rings", every: 700, item: '<rect x="-2" y="-4" width="4" height="6" fill="#ec2a1c" stroke="none"/><path d="M-1 -4 L-5 -12 H5 L1 -4 Z" fill="#eee4d3" stroke="none"/>' },
+    popper: { arm: -100, amp: 6, spd: .3, emit: "confetti", every: 1400, item: '<path d="M-2 2 L2 2 L4 -9 L-4 -9 Z" fill="#f6b62c" stroke="#ec2a1c" stroke-width=".8"/>' },
+    fan: { arm: -60, amp: 28, spd: .22, item: '<path d="M0 0 L-8 -10 Q0 -15 8 -10 Z" fill="#ff7ad9" fill-opacity=".8" stroke="#eee4d3" stroke-width=".7"/>' },
+    tambourine: { arm: -125, amp: 16, spd: .18, emit: "clink", every: 900, item: '<circle cx="0" cy="-6" r="5.5" fill="none" stroke="#f6b62c" stroke-width="1.6"/><circle cx="-5" cy="-6" r="1.2" fill="#eee4d3" stroke="none"/><circle cx="5" cy="-6" r="1.2" fill="#eee4d3" stroke="none"/>' },
+    maracas: { arm: -95, amp: 22, spd: .16, item: '<path d="M0 1 V-5" stroke="#9a5a1c" stroke-width="1.4"/><ellipse cx="0" cy="-8.5" rx="3" ry="4" fill="#ec2a1c" stroke="#f6b62c" stroke-width=".8"/>' },
+    foamfinger: { arm: -150, amp: 8, spd: .84, item: '<path d="M-4 2 h8 v-8 h-2 v-8 h-4 v8 h-2 Z" fill="#c6ff3d" stroke="#2d6b24" stroke-width=".8"/>' },
+    flag: { arm: -150, amp: 18, spd: .55, item: '<path d="M0 2 V-18" stroke="#9a8d80" stroke-width="1"/><rect x="0" y="-18" width="11" height="7" fill="#ec2a1c" stroke="none"/><rect x="2" y="-16.5" width="2" height="2" fill="#f6b62c"/>' },
+    glowwand: { arm: -135, amp: 45, spd: .45, item: '<path d="M0 2 V-16" stroke="#3dd6ff" stroke-width="2.4" style="filter:drop-shadow(0 0 3px #3dd6ff)"/>' },
+    pizza: { arm: -95, amp: 4, spd: 1, item: '<path d="M-4 0 L4 0 L0 -10 Z" fill="#f6b62c" stroke="#9a5a1c" stroke-width=".8"/><circle cx="0" cy="-4" r="1" fill="#ec2a1c" stroke="none"/>' },
+    icecream: { arm: -95, amp: 4, spd: .9, item: '<path d="M-3 -6 L3 -6 L0 2 Z" fill="#f6b62c" stroke="none"/><circle cx="0" cy="-8" r="3.2" fill="#ff7ad9" stroke="none"/>' },
+    balloondog: { arm: -60, amp: 6, spd: 1.2, item: '<g fill="#3dd6ff" stroke="none"><ellipse cx="0" cy="-6" rx="6" ry="2.2"/><ellipse cx="6" cy="-10" rx="2" ry="3"/><ellipse cx="-4" cy="-2" rx="1.2" ry="3"/><ellipse cx="4" cy="-2" rx="1.2" ry="3"/></g>' },
+    phonelight: { arm: -150, amp: 14, spd: 1.6, emit: "glint", every: 1200, item: '<rect x="-2.5" y="-6" width="5" height="8" rx="1" fill="#0e0b0a" stroke="#eee4d3" stroke-width=".8"/><circle cx="0" cy="-8" r="3" fill="#fff6c8" stroke="none" style="filter:blur(1px)"/>' },
+    lighter: { arm: -150, amp: 14, spd: 1.6, item: '<rect x="-1.5" y="-4" width="3" height="6" fill="#ec2a1c" stroke="none"/><path d="M0 -5 Q-2 -8 0 -11 Q2 -8 0 -5" fill="#f6b62c" stroke="none"/>' },
+    cup: { arm: -75, amp: 5, spd: .6, item: '<path d="M-3 -7 h6 l-1 8 h-4 Z" fill="#ec2a1c" stroke="#eee4d3" stroke-width=".7"/>' },
+    rose: { arm: -60, amp: 3, spd: 1, item: '<path d="M0 2 V-9" stroke="#2d6b24" stroke-width="1.2"/><circle cx="0" cy="-10.5" r="2.6" fill="#ec2a1c" stroke="none"/>' },
+    megaphone: { arm: -95, amp: 4, spd: .3, emit: "rings", every: 800, item: '<path d="M-2 0 L-2 -4 L8 -9 L8 5 Z" fill="#eee4d3" stroke="#ec2a1c" stroke-width=".8"/>' },
+    drumsticks: { arm: -60, amp: 30, spd: .18, item: '<path d="M0 0 L9 -6" stroke="#f6b62c" stroke-width="1.4"/>' },
+    cowbell: { arm: -70, amp: 12, spd: .21, emit: "clink", every: 840, item: '<path d="M-3 -2 L3 -2 L4 -9 L-4 -9 Z" fill="#9a8d80" stroke="#eee4d3" stroke-width=".7"/>' },
+    watergun: { arm: -62, amp: 6, spd: .3, emit: "water", every: 110, item: '<path d="M-3 0 h10 v-4 h-10 Z M-3 0 v4 h3 v-4" fill="#3dd6ff" stroke="#f6b62c" stroke-width=".8"/>' },
+    sign: { arm: -150, amp: 6, spd: .84, item: '<path d="M0 2 V-10" stroke="#9a8d80" stroke-width="1"/><rect x="-8" y="-19" width="16" height="9" fill="#eee4d3" stroke="none"/><text x="0" y="-12.4" font-size="6" font-family="monospace" font-weight="700" text-anchor="middle" fill="#ec2a1c" stroke="none">LIT</text>' },
+    trumpet: { arm: -95, amp: 4, spd: .42, emit: "notes", every: 600, item: '<path d="M-1 0 H9 M9 -3 L13 -5 V5 L9 3 Z" stroke="#f6b62c" stroke-width="1.6" fill="#f6b62c"/>' },
+    keytar: { arm: -62, amp: 5, spd: .3, emit: "notes", every: 560, item: '<rect x="-10" y="-3" width="18" height="5" rx="1" fill="#ec2a1c" stroke="#eee4d3" stroke-width=".7"/><path d="M-8 -3 v3 M-5 -3 v3 M-2 -3 v3 M1 -3 v3 M4 -3 v3" stroke="#eee4d3" stroke-width=".6"/>' },
+    vinyl: { arm: -62, amp: 8, spd: .25, item: '<g class="spin"><circle cx="0" cy="-6" r="6" fill="#0e0b0a" stroke="#9a8d80" stroke-width=".8"/><circle cx="0" cy="-6" r="1.8" fill="#ec2a1c" stroke="none"/></g>' }
+  };
+  var HATS = {
+    partyhat: '<path d="M43 17 L57 17 L50 1 Z" fill="#ff7ad9" stroke="#f6b62c" stroke-width="1"/><circle cx="50" cy="1" r="1.8" fill="#f6b62c" stroke="none"/>',
+    crown: '<path d="M42 17 L42 9 L46 13 L50 6 L54 13 L58 9 L58 17 Z" fill="#f6b62c" stroke="#9a5a1c" stroke-width="1"/>',
+    headphones: '<path d="M39 27 Q39 13 50 13 Q61 13 61 27" fill="none" stroke="#0e0b0a" stroke-width="2.4"/><rect x="36" y="23" width="5" height="8" rx="2" fill="#ec2a1c" stroke="none"/><rect x="59" y="23" width="5" height="8" rx="2" fill="#ec2a1c" stroke="none"/>'
+  };
+  var PARTY_GAGS = ["champagne", "sparkler", "bubbles", "airhorn", "popper", "fan", "tambourine", "maracas", "foamfinger", "flag", "glowwand", "phonelight", "lighter", "megaphone", "drumsticks", "cowbell", "watergun", "sign", "trumpet", "keytar", "vinyl", "cup"];
+  var IDLE_GAGS = ["pizza", "icecream", "balloondog", "fan", "bubbles", "cup", "sign", "vinyl", "foamfinger", "phonelight"];
+  var ADLIBS = ["uh", "yeah", "ayy", "lets go", "run it back", "mosaic!", "skrrt", "say less", "woo", "lights up", "on beat", "ok ok"];
+
+  /* ---- one shared particle layer: sparks, bubbles, notes, fireworks ---- */
+  var FX = (function () {
+    var cv = null, g = null, ps = [], running = false, dpr = 1;
+    function ensure() {
+      if (cv) return true;
+      var host = document.getElementById("cash");
+      if (!host || !host.getContext && !document.createElement("canvas").getContext) return false;
+      cv = document.createElement("canvas");
+      cv.className = "fxcanvas";
+      cv.setAttribute("aria-hidden", "true");
+      host.appendChild(cv);
+      g = cv.getContext("2d");
+      size(); window.addEventListener("resize", size);
+      return !!g;
+    }
+    function size() { if (!cv) return; dpr = Math.min(2, window.devicePixelRatio || 1); cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; }
+    function add(p) {
+      p.life = 0; p.max = p.max || 60; p.g = p.g == null ? 0.06 : p.g; p.drag = p.drag || 0.985; p.size = p.size || 2; p.a = p.a == null ? 1 : p.a;
+      ps.push(p);
+      if (!running) { running = true; requestAnimationFrame(loop); }
+    }
+    function loop() {
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.clearRect(0, 0, innerWidth, innerHeight);
+      for (var i = ps.length - 1; i >= 0; i--) {
+        var p = ps[i];
+        p.life++;
+        p.vx *= p.drag; p.vy = p.vy * p.drag + p.g;
+        p.x += p.vx; p.y += p.vy;
+        if (p.spin) p.rot = (p.rot || 0) + p.spin;
+        var t = p.life / p.max, al = p.a * (t > 0.7 ? (1 - t) / 0.3 : 1);
+        if (p.strobe && (p.life >> 2) % 2) al *= 0.2;
+        if (p.twinkle) al *= 0.5 + Math.random() * 0.5;
+        g.globalAlpha = Math.max(0, al);
+        g.fillStyle = g.strokeStyle = p.c || "#f6b62c";
+        var k = p.k;
+        if (k === "spark") { g.lineWidth = p.size; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x - p.vx * 3, p.y - p.vy * 3); g.stroke(); }
+        else if (k === "ring") { g.lineWidth = 1.2; g.beginPath(); g.arc(p.x, p.y, p.size + p.life * (p.grow || 0.6), 0, 6.283); g.stroke(); }
+        else if (k === "bubble") { g.lineWidth = 1; g.beginPath(); g.arc(p.x, p.y, p.size, 0, 6.283); g.stroke(); }
+        else if (k === "text") { g.font = (p.bold ? "700 " : "") + (p.size || 10) + "px ui-monospace, monospace"; g.fillText(p.text, p.x, p.y); }
+        else if (k === "sq") { g.save(); g.translate(p.x, p.y); g.rotate(p.rot || 0); g.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * (p.h || 1)); g.restore(); }
+        else if (k === "smoke") { g.globalAlpha = Math.max(0, al * 0.25); g.beginPath(); g.arc(p.x, p.y, p.size + p.life * 0.1, 0, 6.283); g.fill(); }
+        else { g.beginPath(); g.arc(p.x, p.y, p.size, 0, 6.283); g.fill(); }
+        if (p.life >= p.max) { ps.splice(i, 1); if (p.then) p.then(p); }
+      }
+      g.globalAlpha = 1;
+      if (ps.length) requestAnimationFrame(loop); else { running = false; g.clearRect(0, 0, innerWidth, innerHeight); }
+    }
+    var COL = ["#c6ff3d", "#ff7ad9", "#3dd6ff", "#f6b62c", "#ec2a1c", "#eee4d3", "#b48cff"];
+    function pick() { return COL[(Math.random() * COL.length) | 0]; }
+    function burst(x, y, n, sp, o) {
+      o = o || {};
+      for (var i = 0; i < n; i++) {
+        var a = o.even ? i / n * 6.283 : Math.random() * 6.283, v = o.even ? sp : sp * (0.4 + Math.random() * 0.6);
+        add({ x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, k: o.k || "dot", c: o.c || (o.multi ? pick() : o.col), max: o.max || 55 + Math.random() * 20, g: o.g, drag: o.drag || 0.95, size: o.size || 1.8, strobe: o.strobe, twinkle: o.twinkle, then: o.then });
+      }
+    }
+    function shell(x, y, top, cb, col) {
+      add({ x: x, y: y, vx: (Math.random() - 0.5) * 0.6, vy: -Math.sqrt(2 * 0.06 * (y - top)) , k: "spark", c: col || "#fff6c8", size: 1.2, g: 0.06, drag: 1, max: Math.max(10, Math.round(Math.sqrt(2 * (y - top) / 0.06))), then: function (p) { cb(p.x, p.y); } });
+    }
+    // 20 kinds, all kept small so they sit in the footer and don't take over the page
+    var KINDS = {
+      peony: function (x, y, t) { var c = pick(); shell(x, y, t, function (a, b) { burst(a, b, 36, 2.4, { col: c }); }); },
+      chrysanthemum: function (x, y, t) { var c = pick(); shell(x, y, t, function (a, b) { burst(a, b, 44, 2.6, { k: "spark", col: c, size: 1.2 }); }); },
+      willow: function (x, y, t) { shell(x, y, t, function (a, b) { burst(a, b, 36, 1.8, { k: "spark", col: "#f6b62c", g: 0.025, drag: 0.97, max: 110, size: 1 }); }); },
+      palm: function (x, y, t) { var c = pick(); shell(x, y, t, function (a, b) { burst(a, b, 8, 2.6, { even: true, k: "spark", col: c, size: 2.4, max: 60 }); }); },
+      ring: function (x, y, t) { var c = pick(); shell(x, y, t, function (a, b) { burst(a, b, 30, 2.2, { even: true, col: c, g: 0.02 }); }); },
+      crossette: function (x, y, t) { var c = pick(); shell(x, y, t, function (a, b) { burst(a, b, 6, 2.2, { even: true, col: c, max: 26, then: function (p) { burst(p.x, p.y, 4, 1.4, { even: true, col: c, max: 30 }); } }); }); },
+      crackle: function (x, y, t) { shell(x, y, t, function (a, b) { burst(a, b, 26, 2, { col: "#eee4d3", max: 34, then: function (p) { if (Math.random() < 0.6) burst(p.x, p.y, 3, 0.8, { col: "#fff", max: 10, size: 1.2 }); } }); }); },
+      strobe: function (x, y, t) { shell(x, y, t, function (a, b) { burst(a, b, 22, 2, { col: "#eee4d3", strobe: true, g: 0.02, max: 80 }); }); },
+      heart: function (x, y, t) { shell(x, y, t, function (a, b) { for (var i = 0; i < 28; i++) { var q = i / 28 * 6.283, hx = 16 * Math.pow(Math.sin(q), 3), hy = -(13 * Math.cos(q) - 5 * Math.cos(2 * q) - 2 * Math.cos(3 * q) - Math.cos(4 * q)); add({ x: a, y: b, vx: hx * 0.12, vy: hy * 0.12, c: "#ff7ad9", g: 0.01, drag: 0.95, max: 60, size: 1.8 }); } }); },
+      star: function (x, y, t) { var c = pick(); shell(x, y, t, function (a, b) { for (var i = 0; i < 30; i++) { var q = i / 30 * 6.283, r = (i % 6 < 3 ? 1 : 0.45) * 2.4; add({ x: a, y: b, vx: Math.cos(q) * r, vy: Math.sin(q) * r, c: c, g: 0.015, drag: 0.95, max: 55, size: 1.6 }); } }); },
+      fountain: function (x, y) { for (var i = 0; i < 70; i++) (function (i) { setTimeout(function () { add({ x: x, y: y, vx: (Math.random() - 0.5) * 1.6, vy: -2.6 - Math.random() * 1.4, k: "spark", c: Math.random() < 0.5 ? "#f6b62c" : "#fff6c8", g: 0.07, max: 40, size: 1 }); }, i * 28); })(i); },
+      roman: function (x, y) { for (var i = 0; i < 5; i++) (function (i) { setTimeout(function () { var c = pick(); add({ x: x, y: y, vx: (Math.random() - 0.5) * 0.8, vy: -3.6 - Math.random(), c: c, size: 2.6, g: 0.06, drag: 1, max: 45, then: function (p) { burst(p.x, p.y, 6, 0.8, { col: c, max: 16 }); } }); }, i * 380); })(i); },
+      spinner: function (x, y) { for (var i = 0; i < 80; i++) (function (i) { setTimeout(function () { var a = i * 0.5; add({ x: x + Math.cos(a) * 6, y: y - 14 + Math.sin(a) * 6, vx: -Math.sin(a) * 2.2, vy: Math.cos(a) * 2.2, k: "spark", c: i % 2 ? "#3dd6ff" : "#c6ff3d", g: 0.03, max: 22, size: 1 }); }, i * 22); })(i); },
+      firecrackers: function (x, y) { for (var i = 0; i < 12; i++) (function (i) { setTimeout(function () { var px = x + i * 7 - 40; burst(px, y - 3, 6, 1.4, { col: "#fff6c8", max: 10, size: 1.2 }); add({ x: px, y: y - 4, vx: 0, vy: -0.3, k: "smoke", c: "#eee4d3", g: 0, max: 50, size: 3 }); }, i * 90 + Math.random() * 60); })(i); },
+      popper: function (x, y) { for (var i = 0; i < 30; i++) add({ x: x, y: y - 6, vx: (Math.random() - 0.5) * 3, vy: -2 - Math.random() * 3, k: "sq", c: pick(), size: 3, h: 0.6, spin: 0.3, g: 0.06, drag: 0.97, max: 80 }); },
+      smokeball: function (x, y) { var c = pick(); for (var i = 0; i < 14; i++) add({ x: x + (Math.random() - 0.5) * 10, y: y - 8, vx: (Math.random() - 0.5) * 0.8, vy: -0.4 - Math.random() * 0.6, k: "smoke", c: c, g: -0.002, drag: 0.99, max: 90, size: 3 + Math.random() * 3 }); },
+      comet: function (x, y, t) { shell(x, y, t, function (a, b) { burst(a, b, 12, 0.9, { col: "#fff6c8", max: 26, size: 1 }); }, "#c6ff3d"); },
+      brocade: function (x, y, t) { shell(x, y, t, function (a, b) { burst(a, b, 40, 2, { k: "spark", col: "#f6b62c", twinkle: true, g: 0.03, drag: 0.96, max: 90, size: 1 }); }); },
+      glitter: function (x, y, t) { shell(x, y, t, function (a, b) { burst(a, b, 50, 1.8, { col: "#eee4d3", twinkle: true, g: 0.015, max: 80, size: 1 }); }); },
+      mosaic: function (x, y, t) { shell(x, y, t, function (a, b) { for (var i = 0; i < 24; i++) { var q = Math.random() * 6.283, v = 1 + Math.random() * 1.6; add({ x: a, y: b, vx: Math.cos(q) * v, vy: Math.sin(q) * v, k: "sq", c: ["#ec2a1c", "#f6b62c", "#c6ff3d"][i % 3], size: 4, spin: 0.1, g: 0.03, drag: 0.96, max: 70 }); } }); }
+    };
+    function rect(el) { var r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
+    // little things coming off what people hold
+    function emitAt(el, kind, lines) {
+      if (!ensure() || reduceMotion || document.hidden) return;
+      var r = el.getBoundingClientRect(); if (!r.width && !r.height) return;
+      var x = r.left + r.width / 2, y = r.top + r.height / 2, d = Math.random() < 0.5 ? -1 : 1;
+      if (kind === "adlib") add({ x: x - 10, y: y - 14, vx: d * 0.2, vy: -0.5, k: "text", text: (lines || ADLIBS)[(Math.random() * (lines || ADLIBS).length) | 0], c: "#c6ff3d", bold: true, size: 10, g: 0, drag: 1, max: 70 });
+      else if (kind === "notes") add({ x: x, y: y - 6, vx: d * 0.35, vy: -0.6, k: "text", text: Math.random() < 0.5 ? "♪" : "♫", c: pick(), size: 12, g: 0, drag: 1, max: 75 });
+      else if (kind === "spray") for (var i = 0; i < 4; i++) add({ x: x, y: y - 8, vx: (Math.random() - 0.3) * 2, vy: -2 - Math.random() * 2, c: "#fff6c8", size: 1.2, g: 0.08, max: 40 });
+      else if (kind === "spark") for (var j = 0; j < 3; j++) add({ x: x, y: y - 10, vx: (Math.random() - 0.5) * 2.4, vy: (Math.random() - 0.7) * 2.4, k: "spark", c: "#fff6c8", size: 0.8, g: 0.04, max: 16 });
+      else if (kind === "bubble") add({ x: x, y: y - 10, vx: (Math.random() - 0.5) * 0.6, vy: -0.4 - Math.random() * 0.4, k: "bubble", c: "#3dd6ff", size: 2 + Math.random() * 3, g: -0.003, drag: 0.995, max: 110, a: 0.8 });
+      else if (kind === "rings") add({ x: x, y: y - 8, vx: 0, vy: 0, k: "ring", c: "#eee4d3", size: 3, grow: 0.5, g: 0, max: 30, a: 0.7 });
+      else if (kind === "confetti") KINDS.popper(x, y);
+      else if (kind === "clink") burst(x, y - 8, 6, 1, { col: "#fff6c8", max: 14, size: 1.2 });
+      else if (kind === "water") add({ x: x + 6, y: y - 2, vx: 2.6 + Math.random(), vy: -0.6 - Math.random() * 0.6, c: "#3dd6ff", size: 1.4, g: 0.08, max: 34 });
+      else if (kind === "glint") add({ x: x, y: y - 10, vx: 0, vy: 0, k: "ring", c: "#fff6c8", size: 2, grow: 0.3, g: 0, max: 24, a: 0.5 });
+    }
+    function firework(stageEl, kind) {
+      if (!ensure() || reduceMotion || document.hidden) return;
+      var r = stageEl.getBoundingClientRect();
+      var x = r.left + 30 + Math.random() * (r.width - 60), y = r.bottom - 6;
+      var top = r.top - 10 - Math.random() * 50;
+      kind = kind || Object.keys(KINDS)[(Math.random() * 20) | 0];
+      KINDS[kind](x, y, top);
+      return kind;
+    }
+    return { emitAt: emitAt, firework: firework, kinds: Object.keys(KINDS) };
+  })();
 
   function figSVG(c) {
     var C = c.color, A = c.accent, girl = c.kind === "girl";
@@ -1730,6 +1882,7 @@
         '<g class="rv__legL"><path d="M50 82 L42 104 L40 122"/>' + boot(35) + '</g>' +
         '<g class="rv__legR"><path d="M50 82 L58 104 L62 122"/>' + boot(58) + '</g>' +
         '<g class="rv__top"><path d="M50 40 L50 82"/>' + outfit +
+          '<g class="rv__guitar"><path d="M21 48 L48 64" stroke="#9a5a1c" stroke-width="2.4"/><ellipse cx="54" cy="67" rx="8.5" ry="6.5" transform="rotate(32 54 67)" fill="#b0641c" stroke="#6b3a12" stroke-width="1.2"/><circle cx="54" cy="67" r="1.8" fill="#0e0b0a" stroke="none"/></g>' +
           '<g class="rv__armL"><path d="M50 47 L38 60 L34 72"/><rect class="rv__beer" x="30" y="70" width="7" height="11" rx="1.5" fill="#f6b62c" stroke="#f6b62c" stroke-width="1"/>' +
             '<path class="rv__glow" d="M33 71 L29 81" stroke="' + A + '" stroke-width="2.8"/>' +
             '<rect class="rv__wad" x="29" y="69" width="9" height="6" rx="1" fill="#7bd36b" stroke="#2d6b24" stroke-width="1"/></g>' +
@@ -1737,12 +1890,13 @@
             '<path class="rv__cig" d="M66 72 L73 70" stroke="#eee4d3" stroke-width="2"/><circle class="rv__cig" cx="73.5" cy="69.8" r="1.4" fill="#ec2a1c" stroke="none"/>' +
             '<path class="rv__gun" d="M66 72 L73 70 M66 72 L66 66" stroke-width="2.6"/>' +
             '<rect class="rv__phone" x="64" y="66" width="6" height="10" rx="1.2" fill="#0e0b0a" stroke-width="1.6"/>' +
-            '<g class="rv__mgun"><path d="M63 67 h13 v5 h-7 v6 h-4 v-6 h-2 Z" fill="#7bd36b" stroke="#2d6b24" stroke-width="1"/></g>' +
+            '<g class="rv__mgun"><path d="M61 66 h18 v7 h-9 v8 h-5 v-8 h-4 Z" fill="#7bd36b" stroke="#2d6b24" stroke-width="1"/><rect x="66" y="62" width="9" height="4" fill="#eee4d3" stroke="#2d6b24" stroke-width=".6"/></g>' +
+            '<g class="rv__item"></g>' +
             '<g class="rv__cam"><rect x="61" y="63" width="12" height="8" rx="1.2" fill="#0e0b0a" stroke-width="1.6"/><circle cx="67" cy="67" r="2.2" stroke-width="1.4"/></g>' +
             '<circle class="rv__flash" cx="67" cy="66" r="7" fill="#fff" stroke="none"/>' +
             '<rect class="rv__note" x="68" y="64" width="9" height="5" rx="1" fill="#7bd36b" stroke="#2d6b24" stroke-width="1"/>' +
           '</g>' +
-          '<g class="rv__head">' + hair + '<circle cx="50" cy="27" r="10.5"/>' + hat +
+          '<g class="rv__head">' + hair + '<circle cx="50" cy="27" r="10.5"/>' + hat + '<g class="rv__hat2"></g>' +
             '<path d="M40 25.5 H49 V30.5 Q44.5 32 40 30.5 Z M51 25.5 H60 V30.5 Q55.5 32 51 30.5 Z" fill="#0e0b0a" stroke-width="1.6"/><path d="M49 27 H51" stroke-width="1.6"/>' + face +
           '</g>' +
         '</g>' +
@@ -1782,7 +1936,26 @@
       el.innerHTML = figSVG(cfg);
       stage.appendChild(el);
       var me = { el: el, cfg: cfg, i: i, x: 0, timer: null, lock: false };
-      me.pose = function (p) { POSE_CLASSES.forEach(function (c) { el.classList.remove(c); }); p.split(" ").forEach(function (c) { if (c) el.classList.add(c); }); };
+      var itemEl = el.querySelector(".rv__item"), hatEl = el.querySelector(".rv__hat2"), gtrEl = el.querySelector(".rv__guitar");
+      me.pose = function (p) {
+        if (me.emitT) { clearInterval(me.emitT); me.emitT = null; itemEl.innerHTML = ""; }
+        POSE_CLASSES.forEach(function (c) { el.classList.remove(c); });
+        p.split(" ").forEach(function (c) { if (c) el.classList.add(c); });
+      };
+      // hold something and use it
+      me.gag = function (name, base) {
+        var G = GAGS[name]; if (!G) return;
+        me.pose(base || "is-chill");
+        el.classList.add(G.guitar ? "is-guitar" : "is-gag");
+        if (!G.guitar) {
+          el.style.setProperty("--arm", G.arm + "deg"); el.style.setProperty("--amp", (G.amp || 0) + "deg"); el.style.setProperty("--spd", (G.spd || 1) + "s");
+          itemEl.innerHTML = '<g transform="translate(66 72) rotate(' + (-G.arm) + ')">' + G.item + "</g>";
+        }
+        var src = G.guitar ? gtrEl : itemEl;
+        me.emitT = setInterval(function () { if (G.emit && !document.hidden && visible) FX.emitAt(src, G.emit); }, G.every || 999999);
+        if (G.emit) setTimeout(function () { if (me.emitT) FX.emitAt(src, G.emit); }, 400);
+      };
+      me.hat = function (name) { hatEl.innerHTML = name ? HATS[name] : ""; };
       me.place = function (x, dur) { el.style.transitionDuration = (dur || 0) + "s"; me.x = x; el.style.setProperty("--x", Math.round(x) + "px"); };
       me.maxX = function () { return Math.max(0, stageW() - el.offsetWidth); };
       me.face = function (tx) { el.classList.toggle("is-left", tx < me.x); };
@@ -1803,6 +1976,23 @@
         if (reduceMotion) { me.pose("is-chill"); return; }
         var pool = cfg.main ? MAIN_IDLE : cfg.glam ? GLAM_IDLE : IDLE;
         var act = rnd(pool);
+        if (Math.random() < 0.16) {
+          var mate = crew.filter(function (o) { return o !== me && o.cfg.g === cfg.g && !o.lock && Math.abs(o.x - me.x) < 160; })[0];
+          if (mate && Math.random() < 0.35) {
+            // a little moment with their partner: a toast, or a rose
+            var both = cfg.kind !== mate.cfg.kind && cfg.kind === "guy" && Math.random() < 0.5 ? "rose" : "cup";
+            var mid = (me.x + mate.x) / 2;
+            clearTimeout(mate.timer);
+            me.walkTo(mid - 16, function () { me.face(mate.x); me.gag(both); me.timer = setTimeout(me.next, 4200); }, 45);
+            mate.walkTo(mid + 16, function () { mate.face(me.x); mate.gag(both === "rose" ? "cup" : "cup"); if (both === "rose") mate.pose("is-wave"); mate.timer = setTimeout(mate.next, 4200); }, 45);
+            if (both === "cup") setTimeout(function () { if (me.emitT) FX.emitAt(me.el.querySelector(".rv__item"), "clink"); }, 2200);
+            return;
+          }
+          var gname = cfg.name === "Grain" && Math.random() < 0.4 ? "mic" : cfg.name === "Flash" && Math.random() < 0.4 ? "guitar" : rnd(IDLE_GAGS);
+          me.gag(gname);
+          me.timer = setTimeout(me.next, 4500 + Math.random() * 2500);
+          return;
+        }
         // the crew drifts towards Tiles now and then
         if (act === "walk") {
           var to = Math.random() < 0.6 ? home(cfg.g) + (Math.random() - 0.5) * 120 : Math.random() * me.maxX();
@@ -1955,16 +2145,23 @@
     function stopParty() { partyTimers.forEach(function (t) { clearTimeout(t); clearInterval(t); }); partyTimers = []; }
     // put one person somewhere, then do something when they get there
     function go(m, x, face, act) {
-      m.walkTo(x, function () { if (face) m.face(face === "L" ? -1e4 : face === "R" ? 1e4 : face); act(); }, 80 + Math.random() * 60);
+      var fin = function () { if (face) m.face(face === "L" ? -1e4 : face === "R" ? 1e4 : face); act(); };
+      // close enough: stay put and just turn, so nobody shuffles around for no reason
+      if (Math.abs(x - m.x) < 22) { fin(); return; }
+      later(function () { if (raving) m.walkTo(x, fin, 55 + Math.random() * 35); }, Math.random() * 450);
     }
+    var gdir = {};
 
     // one crew, one set. dir = which way the set faces
     function doSet(gr, set) {
-      var c = home(gr[0].cfg.g), dir = Math.random() < 0.5 ? 1 : -1;
+      var gk = gr[0].cfg.g;
+      if (!gdir[gk] || Math.random() < 0.2) gdir[gk] = gdir[gk] ? -gdir[gk] : (Math.random() < 0.5 ? 1 : -1);
+      var c = home(gk), dir = gdir[gk];
       var girl = gr.filter(function (m) { return m.cfg.kind === "girl"; })[0];
       var guys = gr.filter(function (m) { return m.cfg.kind !== "girl"; });
       var g1 = guys[0], g2 = guys[1];
       var D = function (m, d) { return function () { if (raving) m.dance(d); }; };
+      if (set === "throw" && g1 && Math.random() < 0.35) set = "spray";
       if (set === "throw" && g1) {
         go(g1, c - 22 * dir, c, D(g1, "throw"));
         if (girl) go(girl, c + 18 * dir, spicy() ? (dir > 0 ? "R" : "L") : c - 400 * dir, D(girl, spicy() ? rnd(["hipshake", "bootypop"]) : rnd(["shimmy", "bodyroll", "dougie"])));
@@ -2023,6 +2220,7 @@
       stopParty();
       var gs = groups(), sets = shuffle(freeSets());
       later(stunt, 1500 + Math.random() * 2000);
+      later(extras, 1600 + Math.random() * 800);
       var used = {};
       gs.forEach(function (gr, i) {
         var set = sets[i % sets.length];
@@ -2067,7 +2265,28 @@
       m.el.classList.add(x);
       setTimeout(function () { m.el.classList.remove(x); }, 1200);
     }
+    function extras() {
+      if (!raving) return;
+      var named = function (n) { return crew.filter(function (m) { return m.cfg.name === n; })[0]; };
+      var r = Math.random(), star = null;
+      // Grain spits a few bars, or Flash plays guitar, while their crew vibes around them
+      if (r < 0.3 && named("Grain")) { star = named("Grain"); star.gag("mic", "is-rave d-bounce"); }
+      else if (r < 0.55 && named("Flash")) { star = named("Flash"); star.gag("guitar", "is-rave d-sway"); }
+      if (star) crew.forEach(function (m) { if (m !== star && m.cfg.g === star.cfg.g) m.face(star.x); });
+      var others = shuffle(crew.filter(function (m) { return m !== star && !m.el.matches(".d-grind, .d-grindguy, .d-throw, .d-shoot"); }));
+      others.slice(0, Math.random() < 0.5 ? 1 : 2).forEach(function (m) { m.gag(rnd(PARTY_GAGS), "is-rave d-" + rnd(["bounce", "bop", "twostep", "sway"])); });
+    }
+    var fwTimer = null;
+    function fireworks(on) {
+      clearTimeout(fwTimer);
+      if (!on) return;
+      (function next() {
+        fwTimer = setTimeout(function () { if (!raving) return; if (visible) FX.firework(stage); next(); }, 6000 + Math.random() * 6000);
+      })();
+    }
     function partyFx(on) {
+      fireworks(on);
+      crew.forEach(function (m) { m.hat(on ? (m.cfg.main ? "crown" : m.cfg.name === "Static" ? "headphones" : Math.random() < 0.4 ? "partyhat" : null) : null); });
       ["lights", "disco"].forEach(function (n) {
         if (props[n]) return;
         var el = buildProp(n, true);
@@ -2089,7 +2308,7 @@
     var fx = document.createElement("div");
     fx.className = "stage__fx";
     fx.setAttribute("aria-hidden", "true");
-    fx.innerHTML = '<i class="laser laser--l"></i><i class="laser laser--r"></i><i class="haze"></i>';
+    fx.innerHTML = '<i class="wash wash--a"></i><i class="wash wash--b"></i><i class="wash wash--c"></i><i class="haze"></i>';
     stage.appendChild(fx);
 
     /* ---- animals that turn up to party now and then ---- */
@@ -2199,6 +2418,8 @@
     /* ---- public hooks used by the music player and the form ---- */
     window.hype = {
       critter: function () { critter(); },
+      firework: function (k) { return FX.firework(stage, k); },
+      gag: function (i, n) { if (crew[i]) crew[i].gag(n, raving ? "is-rave d-bounce" : null); },
       set: function (on) {
         raving = on;
         clearTimeout(cycleTimer); stopParty();
