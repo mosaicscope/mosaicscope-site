@@ -645,7 +645,7 @@ export class Game {
       { title: "Mannequin Mike 2 · Gnome Run", brief: "The Botanic Gardens gnomes are 'retiring'. To the Tuam Laneways.", stops: [["a:Botanic Gardens", "Load the gnomes"], ["a:Tuam Laneways", "Drop them in the laneways"]], pay: 900, heat: 1 },
     ],
     "Sir Ponsonby Velvet": [
-      { title: "Velvet 1 · Kevin's Escape", brief: "Kevin the giraffe has left the zoo. Last seen in Hagley Park North. Bring him home.", stops: [["a:Hagley Park North", "Find Kevin in Hagley Park"], ["a:Botanic Gardens", "Walk Kevin back to the zoo"]], pay: 1500 },
+      { title: "Velvet 1 · Kevin's Escape", brief: "Kevin the giraffe has left the zoo. Last seen in Hagley Park North. Bring him home.", stops: [["a:Hagley Park North", "Find Kevin in Hagley Park"], ["a:Velvet Zoo", "Walk Kevin back to the zoo"]], pay: 1500 },
       { title: "Velvet 2 · The VELVET Cover", brief: "Book MosaicScope for my cover shoot, darling. Studio first, then the Hotel on Worcester.", stops: [["b:studio", "Book the shoot at MosaicScope Studio"], ["b:hotel", "Bring the crew to the hotel set"]], pay: 2000 },
       { title: "Velvet 3 · A Whale Too Far", brief: "My whale arrives at the airport. It doesn't fit anywhere. Find it a pool. Victoria Square will do.", stops: [["b:airport", "Meet the whale at the airport"], ["a:Victoria Square", "Release it into the Avon (temporarily)"]], pay: 5000, secs: 150 },
     ],

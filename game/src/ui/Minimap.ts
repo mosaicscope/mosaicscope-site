@@ -135,8 +135,8 @@ export class Minimap {
       if (!this.base) this.base = this.buildBase();
       g.drawImage(this.base, 0, 0, W, W);
       g.fillStyle = "#eee4d3"; g.font = "700 13px 'IBM Plex Mono', monospace"; g.textAlign = "center";
-      w.streetsX.forEach((n, i) => { g.save(); g.translate(i * 16 * k + k, W / 2); g.rotate(-Math.PI / 2); g.fillText(n, 0, -4); g.restore(); });
-      w.streetsY.forEach((n, i) => g.fillText(n, W / 2, i * 16 * k + k - 4));
+      w.streetsX.forEach((n, i) => { g.save(); g.translate(i * w.period * k + 2 * k, W / 2); g.rotate(-Math.PI / 2); g.fillText(n, 0, -4); g.restore(); });
+      w.streetsY.forEach((n, i) => g.fillText(n, W / 2, i * w.period * k + 2 * k - 4));
       g.font = "600 11px 'IBM Plex Mono', monospace"; g.fillStyle = "rgba(198,255,61,.9)";
       for (const a of w.areas) if (a.kind !== "street") g.fillText(a.name, a.cx * k, a.cy * k);
       g.fillStyle = "#ec2a1c"; g.beginPath(); g.arc(p.x * k, p.y * k, 7, 0, 6.283); g.fill(); g.strokeStyle = "#eee4d3"; g.lineWidth = 2; g.stroke();
