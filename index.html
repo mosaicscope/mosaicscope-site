@@ -93,7 +93,7 @@
     </div>
     <ul class="rates__list" id="rates-list"></ul>
     <div class="rates__foot">
-      <p class="rates__kit mono"><a href="#quote">Build your quote ↓</a></p>
+      <p class="rates__kit mono"><span data-bind="ratesAddons">Add-ons: +1 hour $40 · +1 location $25</span> · <a href="#quote">Build your quote ↓</a></p>
       <p class="rates__note"><span data-bind="ratesNote">Booking? Send a few reference pics so I know the vibe.</span> <a href="#contact">Book a shoot ↓</a></p>
     </div>
   </section>
@@ -112,12 +112,22 @@
       </fieldset>
       <fieldset class="qb__group">
         <legend class="mono">Music video</legend>
-        <label class="qb__opt"><input type="checkbox" name="vshoot"><span>I shoot it <b data-q="videoShoot"></b></span></label>
-        <label class="qb__opt"><input type="checkbox" name="vedit"><span>I edit it <b data-q="videoEdit"></b></span></label>
+        <label class="qb__opt"><input type="radio" name="video" value="none" checked><span>No video</span></label>
+        <label class="qb__opt"><input type="radio" name="video" value="shoot"><span>Shoot only <b data-q="videoShoot"></b></span></label>
+        <label class="qb__opt"><input type="radio" name="video" value="edit"><span>Edit only <b data-q="videoEdit"></b></span></label>
+        <label class="qb__opt"><input type="radio" name="video" value="package"><span>Shoot + edit <b data-q="videoPackage"></b></span></label>
+      </fieldset>
+      <fieldset class="qb__group">
+        <legend class="mono">Events &amp; extras</legend>
+        <label class="qb__opt qb__opt--num"><span>Event coverage <b data-q="eventHour" data-suffix="/hr"></b></span><input type="number" name="eventHours" min="0" max="12" value="0" aria-label="Event coverage hours"></label>
+        <label class="qb__opt qb__opt--num"><span>Short-form edits <b data-q="shortForm" data-suffix=" each"></b></span><input type="number" name="shorts" min="0" max="20" value="0" aria-label="Number of short-form edits"></label>
+        <label class="qb__opt qb__opt--num"><span>Extra hours <b data-q="extraHour" data-suffix="/hr"></b></span><input type="number" name="extraHours" min="0" max="8" value="0" aria-label="Extra hours"></label>
+        <label class="qb__opt qb__opt--num"><span>Extra locations <b data-q="extraLocation" data-suffix=" each"></b></span><input type="number" name="extraLocs" min="0" max="5" value="0" aria-label="Extra locations"></label>
       </fieldset>
       <div class="qb__total">
         <p class="mono">Estimate</p>
         <p class="qb__sum" id="qb-sum" aria-live="polite">$0</p>
+        <p class="qb__list" id="qb-list"></p>
         <button class="cta cta--solid" type="submit" id="qb-go">Request this</button>
       </div>
     </form>

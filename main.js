@@ -260,7 +260,7 @@
     var site = data.site || {};
     $$("[data-bind]").forEach(function (el) {
       var k = el.getAttribute("data-bind");
-      var v = k === "availNote" ? (data.availability || {}).note : (k === "servicesNote" || k === "ratesNote") ? data[k] : site[k];
+      var v = k === "availNote" ? (data.availability || {}).note : (k === "servicesNote" || k === "ratesNote" || k === "ratesAddons") ? data[k] : site[k];
       if (v) el.textContent = v;
     });
     $("#year").textContent = new Date().getFullYear();
@@ -320,7 +320,7 @@
 
     // quote builder prices
     var q = data.quote || {};
-    $$("[data-q]").forEach(function (el) { var n = q[el.getAttribute("data-q")]; el.textContent = n ? "$" + n : ""; });
+    $$("[data-q]").forEach(function (el) { var n = q[el.getAttribute("data-q")]; el.textContent = n ? "$" + n + (el.getAttribute("data-suffix") || "") : ""; });
 
     // raw vs edited sliders
     var gl = $("#grade-list");
@@ -1511,27 +1511,40 @@
     var form = $("#qb"), sumEl = $("#qb-sum");
     if (!form) return;
     var q = data.quote || {};
+    function n(name) { var el = form.elements[name]; return el ? Math.max(0, Math.floor(+el.value || 0)) : 0; }
     function picked() {
       var photo = (form.querySelector("input[name=photo]:checked") || {}).value;
+      var video = (form.querySelector("input[name=video]:checked") || {}).value;
       var items = [], total = 0;
-      if (photo === "raw") { items.push("Photoshoot (unedited)"); total += +q.photoshoot || 0; }
-      if (photo === "edits") { items.push("Photoshoot with Lightroom edits"); total += +q.photoshootEdits || 0; }
-      if (form.vshoot.checked) { items.push("Music video shoot"); total += +q.videoShoot || 0; }
-      if (form.vedit.checked) { items.push("Music video edit"); total += +q.videoEdit || 0; }
+      function add(label, amount) { items.push(label); total += amount; }
+      if (photo === "raw") add("Photoshoot (unedited)", +q.photoshoot || 0);
+      if (photo === "edits") add("Photoshoot with Lightroom edits", +q.photoshootEdits || 0);
+      if (video === "shoot") add("Music video shoot", +q.videoShoot || 0);
+      if (video === "edit") add("Music video edit", +q.videoEdit || 0);
+      if (video === "package") add("Music video shoot + edit", +q.videoPackage || 0);
+      if (n("eventHours")) add(n("eventHours") + "h event coverage", n("eventHours") * (+q.eventHour || 0));
+      if (n("shorts")) add(n("shorts") + " short-form edit" + (n("shorts") > 1 ? "s" : ""), n("shorts") * (+q.shortForm || 0));
+      if (n("extraHours")) add("+" + n("extraHours") + " extra hour" + (n("extraHours") > 1 ? "s" : ""), n("extraHours") * (+q.extraHour || 0));
+      if (n("extraLocs")) add("+" + n("extraLocs") + " extra location" + (n("extraLocs") > 1 ? "s" : ""), n("extraLocs") * (+q.extraLocation || 0));
       return { items: items, total: total };
     }
     function update() {
       var p = picked();
       sumEl.textContent = "$" + p.total;
+      $("#qb-list").textContent = p.items.join(" + ");
       $("#qb-go").disabled = !p.items.length;
     }
     form.addEventListener("change", update);
+    form.addEventListener("input", update);
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       var p = picked();
       if (!p.items.length) return;
       var type = $("#f-type");
-      if (type) type.value = p.items.some(function (x) { return /video/i.test(x); }) ? (p.items.some(function (x) { return /Photo/.test(x); }) ? "Something else" : "Music video") : "Photography";
+      if (type) {
+        var hasVid = p.items.some(function (x) { return /video/i.test(x); }), hasPhoto = p.items.some(function (x) { return /Photoshoot/.test(x); }), hasEvent = p.items.some(function (x) { return /event/i.test(x); });
+        type.value = hasEvent && !hasVid && !hasPhoto ? "Event" : hasVid && !hasPhoto ? "Music video" : hasPhoto && !hasVid ? "Photography" : "Something else";
+      }
       var msg = $("#f-msg");
       if (msg) msg.value = "Quote: " + p.items.join(" + ") + " (estimate $" + p.total + " NZD).\n\n" + (msg.value || "");
       var c = $("#contact");

@@ -888,3 +888,14 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 @media (prefers-reduced-motion: reduce) {
   html.reveal-on .reveal { opacity: 1; transform: none; }
 }
+
+/* Quote builder v2 */
+.qb { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
+.qb__opt--num { justify-content: space-between; }
+.qb__opt--num span { width: auto; flex: 1; }
+.qb__opt--num input { width: 64px; flex: none; background: transparent; border: 1px solid var(--line); color: var(--paper); padding: 6px 8px; font: 500 1rem/1 var(--f-mono); text-align: center; }
+.qb__opt--num:has(input:not([value="0"])) { border-color: var(--line); }
+.qb__list { margin: 0; color: var(--dim); font-size: 0.9rem; min-height: 1.2em; }
+.qb__opt--num span { display: grid; gap: 2px; justify-content: start; }
+.qb__opt--num b { font-size: 1rem; }
+.qb__opt--num input { width: 56px; }

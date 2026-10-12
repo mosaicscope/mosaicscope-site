@@ -73,6 +73,7 @@ content:
           - { name: unit, label: Per (e.g. per shoot), type: string }
           - { name: detail, label: One line about it, type: string }
       - { name: ratesNote, label: Line under the rates, type: string }
+      - { name: ratesAddons, label: Add-ons line, type: string }
       - name: booking
         label: How booking works
         type: object
@@ -108,6 +109,11 @@ content:
           - { name: photoshootEdits, label: Photoshoot with edits, type: number }
           - { name: videoShoot, label: Music video shoot, type: number }
           - { name: videoEdit, label: Music video edit, type: number }
+          - { name: videoPackage, label: Music video shoot + edit, type: number }
+          - { name: eventHour, label: Event coverage per hour, type: number }
+          - { name: shortForm, label: Short-form edit each, type: number }
+          - { name: extraHour, label: Extra hour, type: number }
+          - { name: extraLocation, label: Extra location, type: number }
       - name: faq
         label: FAQ
         type: object

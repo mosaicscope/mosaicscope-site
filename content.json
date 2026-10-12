@@ -205,6 +205,24 @@
       "price": "$220",
       "unit": "per video",
       "detail": "Full edit and colour grade, up to 3 minutes. Exported in 1080p or 4K."
+    },
+    {
+      "title": "Music video package",
+      "price": "$300",
+      "unit": "shoot + edit",
+      "detail": "I shoot it and edit it. Saves you $20."
+    },
+    {
+      "title": "Event coverage",
+      "price": "$60",
+      "unit": "per hour",
+      "detail": "Raves, gigs, car meets. Photos or video."
+    },
+    {
+      "title": "Short-form edits",
+      "price": "$30",
+      "unit": "each",
+      "detail": "Reels and TikToks cut from your shoot."
     }
   ],
   "ratesNote": "Booking? Send a few reference pics so I know the vibe.",
@@ -220,7 +238,7 @@
       },
       {
         "title": "Shoot day",
-        "text": "I bring the camera, tripods and lights. You bring the vibe."
+        "text": "I bring the camera, tripods and lights. We make it happen."
       },
       {
         "title": "Delivery",
@@ -243,7 +261,12 @@
     "photoshoot": 40,
     "photoshootEdits": 80,
     "videoShoot": 100,
-    "videoEdit": 220
+    "videoEdit": 220,
+    "videoPackage": 300,
+    "extraHour": 40,
+    "extraLocation": 25,
+    "eventHour": 60,
+    "shortForm": 30
   },
   "faq": [
     {
@@ -278,5 +301,6 @@
       "q": "What resolution are the videos?",
       "a": "Filmed in 4K or 1080p, and edits are exported in 1080p or 4K."
     }
-  ]
+  ],
+  "ratesAddons": "Add-ons: +1 hour $40 · +1 location $25"
 }
