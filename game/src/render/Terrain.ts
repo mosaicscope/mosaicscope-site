@@ -340,6 +340,12 @@ export function drawPoi(g: CanvasRenderingContext2D, p: Poi, sx: number, sy: num
     }
     case "mural": break;
     case "door": {
+      // every door you can walk into gets a glowing mat and a bobbing arrow
+      if (p.building !== undefined && (p.building === -2 || p.building >= 0)) {
+        const bob = Math.sin(time * 3) * 3 * z;
+        g.fillStyle = "rgba(198,255,61,.18)"; g.beginPath(); g.ellipse(sx, sy, 16 * z, 7 * z, 0, 0, 6.283); g.fill();
+        g.fillStyle = "#c6ff3d"; g.beginPath(); g.moveTo(sx - 5 * z, sy - 30 * z + bob); g.lineTo(sx + 5 * z, sy - 30 * z + bob); g.lineTo(sx, sy - 23 * z + bob); g.closePath(); g.fill();
+      }
       if (p.building === -2) {
         g.font = `700 ${Math.round(11 * z)}px "Big Shoulders Display", Impact, sans-serif`;
         g.textAlign = "center";

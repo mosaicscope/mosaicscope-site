@@ -75,6 +75,7 @@ export class Game {
   private mouse = { x: 0, y: 0, down: false, dragging: false, sx: 0, sy: 0, button: 0 };
   private moveTarget: { x: number; y: number } | null = null;
   private pendingTalk = -1;
+  private pendingEnter: { building: number; studio: boolean } | null = null;
   private quality: Quality = 2;
   private fpsAvg = 60; private slowFor = 0; private fastFor = 0;
   private ticksThisSecond = 0; private tickRate = 0; private tickWindow = 0;
@@ -121,7 +122,7 @@ export class Game {
     this.bustedEl = h("div.busted.hidden", { role: "alert" });
     root.append(this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.modal.el, this.casino.el, this.bustedEl);
     // browsers only allow sound after a gesture: the first click/key starts the playlist
-    const firstGesture = () => { if (this.gestured) return; this.gestured = true; if (this.settings.sound) { this.audio.setEnabled(true); this.radio.play(); } };
+    const firstGesture = () => { if (this.gestured) return; this.gestured = true; if (this.settings.sound) this.audio.setEnabled(true); }; // the radio only plays when you press ▶
     window.addEventListener("pointerdown", firstGesture, { once: false, capture: true });
     window.addEventListener("keydown", firstGesture, { capture: true });
     this.applySettings();
@@ -245,7 +246,11 @@ export class Game {
       if (this.dialogue.open) this.dialogue.close();
       this.renderer.cam.follow = p.id;
     } else if (this.moveTarget) {
-      if (moveTo(p, this.moveTarget.x, this.moveTarget.y, sim, 0.3)) { this.moveTarget = null; stop(p); }
+      if (moveTo(p, this.moveTarget.x, this.moveTarget.y, sim, 0.3)) {
+        this.moveTarget = null; stop(p);
+        // walked to a door you clicked: go in
+        if (this.pendingEnter) { const d = this.pendingEnter; this.pendingEnter = null; this.enterPlace(d); }
+      }
     } else if (this.pendingTalk >= 0) {
       const t = sim.chars[this.pendingTalk];
       if (!t) this.pendingTalk = -1;
@@ -483,7 +488,33 @@ export class Game {
       this.moveTarget = { x: t.x, y: t.y }; this.renderer.cam.follow = p.id; return;
     }
     const w = this.renderer.cam.toWorld(x, y);
+    // clicked a building you can go into: walk to its door and step inside
+    const b = this.buildingAtScreen(w.x, w.y);
+    if (b) {
+      const door = sim.world.pois.find((q) => q.kind === "door" && q.building === b.id);
+      if (door) {
+        const d = { building: b.id, studio: false };
+        if (Math.hypot(door.x - p.x, door.y - p.y) < 1.6) { this.enterPlace(d); return; }
+        this.moveTarget = { x: door.x, y: door.y }; this.pendingEnter = d; this.pendingTalk = -1; this.renderer.cam.follow = p.id;
+        this.toast(`Heading into ${b.name}`);
+        return;
+      }
+    }
+    this.pendingEnter = null;
     if (sim.world.walkable(w.x, w.y)) { this.moveTarget = { x: w.x, y: w.y }; this.pendingTalk = -1; this.renderer.cam.follow = p.id; this.sim.bus.emit("fx", { kind: "spring", x: w.x, y: w.y, z: 0, n: 1 }); }
+  }
+
+  /**
+   * The enterable building under a ground point picked from the screen. Walls and roofs sit above
+   * the ground, so we walk the view ray towards the camera (+x, +y) looking for a footprint.
+   */
+  private buildingAtScreen(wx: number, wy: number): import("../world/World").Building | null {
+    const w = this.sim.world;
+    for (let k = 0; k <= 14; k += 0.5) {
+      const b = w.buildingAt(Math.floor(wx + k), Math.floor(wy + k));
+      if (b && BUILDINGS[b.kind].enterable) { if (k * 0.8 <= b.height * 1.25 + 1) return b; }
+    }
+    return null;
   }
 
   private updateHint(): void {
@@ -547,7 +578,7 @@ export class Game {
     if (!c || !this.dialogue.open) return;
     const r = this.sim.player.rel.get(id), close = (r?.aff ?? 0) > 0.35, first = c.name.split(" ")[0];
     const label = this.sim.player.partner === id ? "Your person" : close ? (c.look.kind === "girl" ? "Your homegirl" : "Your homie") : c.tier === "principal" ? "One of the Mosaics" : ROLE_LABEL[c.role] ? `The ${ROLE_LABEL[c.role]}` : "";
-    this.focus(c.nickname ? `${first} "${c.nickname}"` : first, label, 0);
+    this.focus(c.nickname ? `${first} "${c.nickname}"` : first, label, 0, true);
   }
 
   // ------------------------------------------------------------------ focus mode
@@ -563,14 +594,14 @@ export class Game {
   private focusEl = h("div.focus", { "aria-hidden": "true" }, [h("div.focus-bar.top"), h("div.focus-bar.bot"), h("div.focus-cap", null, [h("b"), h("span")])]);
   private focusUntil = 0; private focusZoom = 0; private focusHeld = false;
   /** Letterbox, vignette, push in on the player, caption. `secs` <= 0 holds until unfocus(). */
-  focus(title: string, sub = "", secs = 3.5): void {
+  focus(title: string, sub = "", secs = 3.5, talk = false): void {
     const cam = this.renderer.cam;
     if (!this.focusEl.classList.contains("on")) this.focusZoom = cam.targetZoom;
     cam.setZoom(Math.max(this.focusZoom, 2.2));
     cam.follow = this.sim.playerId;
     (this.focusEl.querySelector(".focus-cap b") as HTMLElement).textContent = title;
     (this.focusEl.querySelector(".focus-cap span") as HTMLElement).textContent = sub;
-    this.focusEl.classList.remove("on"); void this.focusEl.offsetWidth; this.focusEl.classList.add("on");
+    this.focusEl.classList.remove("on"); this.focusEl.classList.toggle("talk", talk); void this.focusEl.offsetWidth; this.focusEl.classList.add("on");
     this.focusHeld = secs <= 0;
     this.focusUntil = secs > 0 ? performance.now() + secs * 1000 : Infinity;
   }
@@ -662,7 +693,8 @@ export class Game {
   private applySettings(): void {
     const s = this.settings;
     this.renderer.fakeBlood = s.fakeBlood; this.sim.fakeBlood = s.fakeBlood;
-    if (this.radio) { if (!s.sound) this.radio.pause(); else if (this.gestured && !this.radio.playing) this.radio.play(); this.radio.setVolume(s.volume); }
+    // muting silences everything, radio included; unmuting never restarts the radio on its own
+    if (this.radio) { if (!s.sound && this.radio.playing) this.radio.pause(); this.radio.setVolume(s.volume); }
     document.documentElement.style.setProperty("--ts", String(s.textScale));
     this.audio.setVolume(s.volume);
     if (this.gestured && s.sound !== this.audio.enabled) this.audio.setEnabled(s.sound);
