@@ -1,7 +1,7 @@
 {
   "name": "mosaics-world",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.4.0",
   "description": "The Mosaics' world: a living isometric stick-figure simulation (MosaicScope easter egg).",
   "type": "module",
   "scripts": {

@@ -254,7 +254,7 @@ export function runCityStep(c: Character, s: Step, g: ActiveGoal, sim: Simulatio
       if (!moveTo(c, poi.x, poi.y + 0.6, sim, 0.7)) { c.anim.pose = "auto"; return RUN; }
       const opts = poi.menu.filter((m) => _TOYS[m].value <= c.cash && (s.item ? m === s.item : _isFood(m)));
       if (!opts.length) return FAIL;
-      const r = buy(sim, c, sim.rng.pick(opts), { poi: poi.id });
+      const r = buy(sim, c, s.item ? sim.rng.pick(opts) : chooseFood(sim, c, opts), { poi: poi.id });
       return r.ok ? DONE : FAIL;
     }
     case "eat": {
@@ -484,6 +484,7 @@ export function runCityStep(c: Character, s: Step, g: ActiveGoal, sim: Simulatio
   return null;
 }
 import { remember } from "../social/Social";
+import { chooseFood } from "../mind/Mind";
 import { bandage as lifeBandage, hospitalise as lifeHospital } from "../sim/Life";
 import { kiss as romanceKiss, addLove } from "../sim/Romance";
 import { forceGoal as _forceGoal } from "./brain";

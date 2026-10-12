@@ -11,6 +11,7 @@ import "../ui/travel.css";
 import { Minimap } from "../ui/Minimap";
 import { ROLE_LABEL } from "../content/names";
 import { Simulation } from "../sim/Simulation";
+import { zooState } from "../mind/Town";
 import { SimulationClock } from "../core/clock";
 import { Renderer, Quality } from "../render/Renderer";
 import { AudioSystem } from "../audio/Audio";
@@ -31,6 +32,7 @@ import { setImpactIntensity } from "../physics/combat";
 import { Phys } from "../entities/types";
 import { Casino } from "../ui/Casino";
 import { Places, Radio } from "../ui/Places";
+import { InteriorOverlay } from "../ui/InteriorOverlay";
 import { nearestCar, playerInput, seat, unseat } from "../sim/Traffic";
 import { useBandage } from "../sim/Life";
 import { commitCrime, fmtCash } from "../sim/Society";
@@ -93,7 +95,7 @@ export class Game {
   private raf = 0;
   private reduceMotionOS = false;
   private touches = new Map<number, { x: number; y: number }>();
-  casino: Casino; places: Places; radio: Radio;
+  casino: Casino; places: Places; radio: Radio; interior: InteriorOverlay;
   private hudEl: HTMLElement;
   private areaEl: HTMLElement = h("div.areaname", { "aria-live": "polite" }); private lastArea = ""; private bustedEl: HTMLElement; private lastBusted = -1;
   private gestured = false;
@@ -126,11 +128,16 @@ export class Game {
       patrons: () => this.sim.chars.filter((c) => c.inside >= 0 && this.sim.world.buildings[c.inside]?.kind === "casino").length + 3,
     }, () => { this.clock.paused = this.pausedBefore; });
     this.places = new Places(() => this.sim, (t, b, cls) => this.modal.show(t, b, cls), () => this.modal.close(), (t, k) => this.toast(t, k));
+    this.interior = new InteriorOverlay({
+      sim: () => this.sim, toast: (t, k) => this.toast(t, k), launch: (what, b) => this.places.launch(what, b), modalOpen: () => this.modal.open,
+      keys: () => ({ up: this.settings.keys.up, down: this.settings.keys.down, left: this.settings.keys.left, right: this.settings.keys.right, use: this.settings.keys.pickup }),
+    });
+    this.places.openInterior = (b) => this.interior.show(b);
     this.dialogue.onTrade = (id) => this.places.trade(this.sim.chars[id]);
     this.radio = new Radio(MOSAIC.soundcloud);
     this.hudEl = h("div.hud", { "aria-live": "polite" });
     this.bustedEl = h("div.busted.hidden", { role: "alert" });
-    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.modal.el, this.casino.el, this.bustedEl);
+    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.interior.el, this.modal.el, this.casino.el, this.bustedEl);
     // browsers only allow sound after a gesture: the first click/key starts the playlist
     const firstGesture = () => { if (this.gestured) return; this.gestured = true; if (this.settings.sound) this.audio.setEnabled(true); }; // the radio only plays when you press ▶
     window.addEventListener("pointerdown", firstGesture, { once: false, capture: true });
@@ -139,6 +146,9 @@ export class Game {
     this.bindInput();
     this.bindSim();
     this.bindStats();
+    // phones: stop the browser's own pinch/double-tap page zoom from fighting the game's camera
+    for (const ev of ["gesturestart", "gesturechange", "gestureend"]) document.addEventListener(ev, (e) => e.preventDefault());
+    addEventListener("orientationchange", () => setTimeout(() => this.rescueZoom(), 350));
     addEventListener("error", (e) => this.fault("window", e.error ?? e.message));
     addEventListener("unhandledrejection", (e) => this.fault("promise", e.reason));
     this.loadEmpire();
@@ -198,7 +208,7 @@ export class Game {
     const ad = this.hovered < 0 && !this.mouse.dragging ? this.renderer.pickAd(this.mouse.x, this.mouse.y) : null;
     this.canvas.style.cursor = ad || this.hovered >= 0 ? "pointer" : "";
     this.canvas.title = ad ? `${ad.label} (opens in a new tab)` : "";
-    this.guard("render", () => this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames }));
+    if (!this.interior.open) this.guard("render", () => this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames }));
     this.guard("audio", () => this.audio.update(this.sim));
     this.fpsAvg = this.fpsAvg * 0.95 + (1 / Math.max(dt, 0.001)) * 0.05;
     this.adaptQuality(dt);
@@ -231,8 +241,8 @@ export class Game {
     this.tickFocus(now);
     this.touch.update();
     if (now - this.clubTickAt > 1000) { const earned = this.club.tick(Math.min(5, (now - (this.clubTickAt || now)) / 1000)); this.clubTickAt = now; if (earned > 0) this.sim.player.cash += earned; }
-    this.renderer.zooAnimals = this.luxury.empire.animals;
-    this.touch.el.classList.toggle("hidden", this.casino.open || this.modal.open || this.dialogue.open || this.travel.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
+    this.renderer.zooAnimals = this.luxury.empire.animals; zooState.animals = this.luxury.empire.animals.length;
+    this.touch.el.classList.toggle("hidden", this.casino.open || this.interior.open || this.modal.open || this.dialogue.open || this.travel.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
     this.tickStory(now);
     this.minimap.update(now);
     if (now - this.lastUi < 250) return;
@@ -272,6 +282,7 @@ export class Game {
   // ------------------------------------------------------------------ player
   private controlPlayer(): void {
     const sim = this.sim, p = sim.player, k = this.settings.keys;
+    if (this.interior.open) { p.vx = p.vy = 0; return; } // you're indoors; the street body waits at the door
     if (p.inCar >= 0) {
       const up = this.keys.has(k.up) || this.keys.has("arrowup"), down = this.keys.has(k.down) || this.keys.has("arrowdown");
       const left = this.keys.has(k.left) || this.keys.has("arrowleft"), right = this.keys.has(k.right) || this.keys.has("arrowright");
@@ -691,6 +702,15 @@ export class Game {
       { title: "Dr Quakenstein 2 · The Spire Heist", brief: "The Cathedral spire! To my lair under the Arts Centre! Do not let the Night Kiwi see you.", stops: [["a:Cathedral Square", "'Borrow' the spire"], ["a:Arts Centre", "Into the lair"]], pay: 1500, heat: 2 },
       { title: "Dr Quakenstein 3 · The Cone Ransom", brief: "Every road cone in High St. Then we hold the Don's casino to ransom. Christchurch will KNEEL.", stops: [["a:High St", "Collect the cones"], ["b:casino", "Deliver the ransom note to the Don"]], pay: 3000, heat: 1 },
     ],
+    "Robyn Kea": [
+      { title: "Zoo 1 · Feeding Time", brief: "Kevin only eats fish and chips from Sumner-style shops. Grab a bag and bring it to the zoo. Don't ask.", stops: [["b:fishchips", "Buy fish and chips"], ["a:Velvet Zoo", "Feed Kevin"]], pay: 700 },
+      { title: "Zoo 2 · Kea Heist", brief: "The kea stole four wiper blades and hid them at the car yards. Get them back before Sir P notices.", stops: [["b:dealership", "Find the stolen wiper blades"], ["a:Velvet Zoo", "Return them (to the kea's disappointment)"]], pay: 1100, secs: 120 },
+      { title: "Zoo 3 · Whale Watch", brief: "The whale needs company. Sir P's idea: bring the Night Kiwi to cheer it up. Meet him in Victoria Square first.", stops: [["a:Victoria Square", "Find the Night Kiwi"], ["a:Velvet Zoo", "Introduce him to the whale"]], pay: 1800 },
+    ],
+    "Pete Gumboots": [
+      { title: "Gumboots 1 · Penguin Break", brief: "Three penguins waddled off towards Cathedral Square. They're easy to spot. They're wearing nothing.", stops: [["a:Cathedral Square", "Round up the penguins"], ["a:Velvet Zoo", "Waddle them home"]], pay: 800, secs: 100 },
+      { title: "Gumboots 2 · Peacock Politics", brief: "The peacocks have unionised and are bullying the butler. Take this bribe of pies to the Arts Centre hall, then talk terms.", stops: [["b:bakery", "Buy the pies"], ["a:Velvet Zoo", "Negotiate with the peacocks"]], pay: 1400 },
+    ],
     "Roastie Malone": [
       { title: "Roastie 1 · Open Mic", brief: "Town Hall open mic tonight. You, me, a mic, and the entire Famiglia in the front row. Show up.", stops: [["a:Town Hall", "Play the Town Hall open mic"]], pay: 700 },
     ],
@@ -800,9 +820,19 @@ export class Game {
     this.focus(c.nickname ? `${first} "${c.nickname}"` : first, label, 0, true);
   }
 
+  /** On phones, if the camera ends up absurdly close (rotation, stuck pinch, finished cinematic) pull it back. */
+  private rescueZoom(): void {
+    if (!matchMedia("(pointer: coarse)").matches) return;
+    const cam = this.renderer.cam;
+    if (this.focusEl.classList.contains("on")) return;
+    if (cam.targetZoom > 3.4 && !this.userWanted2D) cam.setZoom(1.5);
+  }
+  private userWanted2D = false;
+
   /** V / the 2D button: jump between the 3D city and the 2D street view. */
   private toggle2D(): void {
     const cam = this.renderer.cam;
+    this.userWanted2D = cam.targetZoom <= 3;
     cam.setZoom(cam.targetZoom > 3 ? 1.5 : 4);
     cam.follow = this.sim.playerId;
   }
@@ -917,7 +947,13 @@ export class Game {
     companions: () => this.sim.chars.filter((c) => c.tier === "principal" && c.name !== "Chris").map((c) => ({ name: c.name, color: c.look.color })),
     carried: () => carried(this.sim.player).map((id) => this.sim.toys[id]).filter(Boolean).map((t) => ({ id: t.id, name: TOYS[t.def].name, category: TOYS[t.def].category ?? "toy" })),
     confiscate: (ids) => { const p = this.sim.player; for (const id of ids) { const t = this.sim.toys[id]; if (!t) continue; detach(p, id); t.state = "broken"; t.x = -100; t.holder = -1; } },
-    onReturn: (summary) => { this.toast(summary, "acid"); this.focus("Home", "Welcome back to Christchurch", 3); },
+    onReturn: (summary, souvenirs, photos) => {
+      this.toast(summary, "acid"); this.focus("Home", "Welcome back to Christchurch", 3);
+      // the trip goes in the Empire tab as a travel log entry
+      const when = new Date().toLocaleDateString("en-NZ", { day: "numeric", month: "short" });
+      this.luxury.empire.items.push(`✈ ${when}: ${summary}${souvenirs.length ? ` · souvenirs: ${souvenirs.join(", ")}` : ""}${photos ? ` · ${photos} photos for @mosaicscope` : ""}`);
+      this.saveEmpire();
+    },
     toast: (t) => this.toast(t),
   });
   private focusEl = h("div.focus", { "aria-hidden": "true" }, [h("div.focus-bar.top"), h("div.focus-bar.bot"), h("div.focus-cap", null, [h("b"), h("span")])]);
@@ -926,7 +962,9 @@ export class Game {
   focus(title: string, sub = "", secs = 3.5, talk = false): void {
     const cam = this.renderer.cam;
     if (!this.focusEl.classList.contains("on")) this.focusZoom = cam.targetZoom;
-    cam.setZoom(Math.max(this.focusZoom, 2.2));
+    // a gentler push-in on phones (the screen is already small), never past street-view territory
+    const coarse = matchMedia("(pointer: coarse)").matches;
+    cam.setZoom(coarse ? Math.min(Math.max(this.focusZoom, 1.8), 2.2) : Math.max(this.focusZoom, 2.2));
     cam.follow = this.sim.playerId;
     (this.focusEl.querySelector(".focus-cap b") as HTMLElement).textContent = title;
     (this.focusEl.querySelector(".focus-cap span") as HTMLElement).textContent = sub;

@@ -9,6 +9,8 @@ import { peek, friendship, hostility } from "../social/Social";
 import { loveOf } from "../sim/Romance";
 import { MOSAIC, captionLine } from "../content/mosaicscope";
 import { TOYS } from "../content/toys";
+import { profile } from "../mind/Town";
+import { cultureWeight, regionalise, toneOfExchange, Tone } from "../mind/Culture";
 
 /**
  * Picks which authored exchange two people have, from ~3,000 lines of call-and-response dialogue.
@@ -26,6 +28,10 @@ const AFTER: Record<string, string[]> = {
 };
 const RECENT_TICKS = 60 * 90; // events from the last ~90 real seconds are still the talk of the street
 const RECENT_TILES = 16;
+
+/** Tone of each exchange, read once from its wording (see mind/Culture.ts). */
+const TONES = new Map<string, Tone>();
+const toneOf = (e: Exchange): Tone => { let t = TONES.get(e.id); if (!t) { t = toneOfExchange(e.lines, e.tags); TONES.set(e.id, t); } return t; };
 
 export interface PairCtx { tags: Set<string>; who: string }
 
@@ -94,6 +100,8 @@ export class Director {
     const key = a.id < b.id ? `${a.id}:${b.id}` : `${b.id}:${a.id}`;
     const had = this.byPair.get(key) ?? [];
     const cands: Exchange[] = [], weights: number[] = [];
+    // culture decides the register: who they are (restraint, slang, formality, warmth, cohort) biases which exchange they open with
+    const pa = profile(sim, a), older = profile(sim, b).cohort === "older";
     for (const e of EXCHANGES) {
       if (had.includes(e.id)) continue;
       if (!e.tags.every((tg) => ctx.tags.has(tg))) continue;
@@ -101,13 +109,15 @@ export class Director {
       let wgt = (e.w ?? 1) * (1 + e.tags.length * 1.6);
       if (this.recentGlobal.includes(e.id)) wgt *= 0.05;
       if (prefer && prefer(e)) wgt *= 4;
+      wgt *= cultureWeight(pa, toneOf(e), older);
       cands.push(e); weights.push(wgt);
     }
     if (!cands.length) return null;
     const e = cands[Math.max(0, sim.rng.weighted(weights))];
     had.push(e.id); if (had.length > 60) had.shift(); this.byPair.set(key, had);
     this.recentGlobal.push(e.id); if (this.recentGlobal.length > 160) this.recentGlobal.shift();
-    return e.lines.map((l) => this.fill(l, a, b, ctx));
+    const pb = profile(sim, b);
+    return e.lines.map((l, i) => regionalise(this.fill(l, a, b, ctx), i % 2 === 0 ? pa : pb, sim.rng.next()));
   }
 
   private fill(text: string, a: Character, b: Character, ctx: PairCtx): string {

@@ -8,6 +8,7 @@ import { EnvState } from "../sim/Environment";
 import { WorldEvent } from "../events/WorldEvents";
 import { Group } from "../social/Groups";
 import { StorageProvider, NS } from "./storage";
+import { ensureMind, newMind } from "../mind/Mind";
 
 /**
  * Versioned saves. The world layout is regenerated from the seed (deterministic), so a save stores
@@ -16,15 +17,16 @@ import { StorageProvider, NS } from "./storage";
  * and event history. Transient AI state (paths,
  * current plans) is dropped and rebuilt by the AI on load.
  */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 6;
 
 /** v3 packs the two biggest structures into tuples (about half the size of objects). */
-type MemTuple = [number, Memory["kind"], number, number, string | null, number, number, Memory["src"], number, number, number];
+/** v5 appends the Ebbinghaus rehearsal count and last-recall tick (omitted when never rehearsed). */
+type MemTuple = [number, Memory["kind"], number, number, string | null, number, number, Memory["src"], number, number, number, number?, number?];
 type RelTuple = [number, number, number, number, number, number, number, number, number, number, number];
 type SavedChar = Omit<Character, "rel" | "path" | "goal" | "bubble" | "goalCooldowns" | "memories"> & { rel: RelTuple[]; memories: MemTuple[] };
 
-export const packMem = (m: Memory): MemTuple => [m.t, m.kind, m.subj, m.obj, m.toy, m.area, m.val, m.src, m.from, m.cred, m.ev];
-export const unpackMem = (a: MemTuple): Memory => ({ t: a[0], kind: a[1], subj: a[2], obj: a[3], toy: a[4], area: a[5], val: a[6], src: a[7], from: a[8], cred: a[9], ev: a[10] });
+export const packMem = (m: Memory): MemTuple => (m.rep || m.rec ? [m.t, m.kind, m.subj, m.obj, m.toy, m.area, m.val, m.src, m.from, m.cred, m.ev, m.rep ?? 0, m.rec ?? 0] : [m.t, m.kind, m.subj, m.obj, m.toy, m.area, m.val, m.src, m.from, m.cred, m.ev]);
+export const unpackMem = (a: MemTuple): Memory => { const m: Memory = { t: a[0], kind: a[1], subj: a[2], obj: a[3], toy: a[4], area: a[5], val: a[6], src: a[7], from: a[8], cred: a[9], ev: a[10] }; if (a[11]) m.rep = a[11]; if (a[12]) m.rec = a[12]; return m; };
 export const packRel = (id: number, r: Rel): RelTuple => [id, r.fam, r.trust, r.aff, r.respect, r.fear, r.rivalry, r.grudge, r.shared, r.favours, r.last];
 export const unpackRel = (a: RelTuple): [number, Rel] => [a[0], { fam: a[1], trust: a[2], aff: a[3], respect: a[4], fear: a[5], rivalry: a[6], grudge: a[7], shared: a[8], favours: a[9], last: a[10] }];
 export interface SaveData {
@@ -57,6 +59,10 @@ export const MIGRATIONS: Record<number, (d: any) => any> = {
   2: (d) => ({ ...d, version: 3, chars: d.chars.map((c: any) => ({ ...c, memories: (c.memories ?? []).map(packMem), rel: (c.rel ?? []).map(([id, r]: [number, Rel]) => packRel(id, r)) })) }),
   // v3 predates the city: no cars, tags, tills, crime records or bookings (the city fills them in fresh)
   3: (d) => ({ ...d, version: 4, graffiti: [], tills: {}, crimes: [], bookings: [] }),
+  // v4 had no minds: everyone starts with a fresh, personality-derived one (they learn from here)
+  // v5 minds had no clinical state: ensureMind() on restore fills it in (liability comes from the kin module, so nothing else to store)
+  5: (d) => ({ ...d, version: 6, chars: d.chars.map((c: any) => ({ ...c, mind: c.mind ? { ...c.mind, psy: c.mind.psy ?? newMind(c.id, c.pers).psy } : c.mind })) }),
+  4: (d) => ({ ...d, version: 5, chars: d.chars.map((c: any) => ({ ...c, mind: c.mind ?? newMind(c.id, c.pers) })) }),
 };
 
 export function serialize(sim: Simulation, label = "Save"): SaveData {
@@ -65,7 +71,7 @@ export function serialize(sim: Simulation, label = "Save"): SaveData {
     cfg: sim.cfg, tick: sim.tick, rng: sim.rng.getState(), env: { ...sim.env }, playerId: sim.playerId,
     chars: sim.chars.map((c) => {
       const { rel, memories, path: _p, goal: _g, bubble: _b, goalCooldowns: _gc, ...rest } = c;
-      return { ...rest, talkWith: -1, pathReq: 0, mode: c.tier === "player" ? "player" : "idle", rel: [...rel.entries()].map(([id, r]) => packRel(id, r)), memories: memories.map(packMem) } as SavedChar;
+      return { ...rest, talkWith: -1, pathReq: 0, mode: c.tier === "player" ? "player" : "idle", rel: [...rel.entries()].map(([id, r]) => packRel(id, r)), memories: memories.map(packMem), mind: structuredClone(c.mind) } as SavedChar;
     }),
     toys: sim.toys.map((t) => ({ ...t })),
     events: sim.events.serialize(),
@@ -109,6 +115,7 @@ export function restore(d: SaveData): Simulation {
     const base = makeCharacter(sc.id, sc.name, sc.tier, sc.x, sc.y, sc.look, sc.pers, sim.rng);
     const { rel, memories, ...rest } = sc;
     const c: Character = Object.assign(base, rest, { rel: new Map(rel.map(unpackRel)), memories: memories.map(unpackMem), path: null, goal: null, bubble: null, goalCooldowns: {}, nextThink: d.tick + (sc.id % 20) });
+    ensureMind(c);
     return c;
   });
   sim.toys = d.toys.map((t) => ({ ...t }));

@@ -188,7 +188,7 @@ await check("the studio door shows the real price list and booking links", async
 await check("the police station (open 24/7) opens its panel", async () => {
   await toDoor("police");
   await page.keyboard.press("e");
-  const dlg = page.locator(".modal[role=dialog]");
+  const dlg = page.locator(".modal[role=dialog], .iv:not(.hidden)").first();
   await dlg.waitFor({ timeout: 2000 });
   await page.keyboard.press("Escape");
 });

@@ -4,6 +4,8 @@ import { GOALS, GOAL_BY_ID, Choice, GoalDef } from "./goals";
 import { runStep, RUN, DONE, FAIL, moveTo, stop } from "./steps";
 import { updateNeeds } from "./needs";
 import { enterBuilding } from "../sim/Society";
+import { goalBias, onGoalDone, updateMind } from "../mind/Mind";
+import { violentBlocked, setForceGoal } from "../mind/Psychopathology";
 
 /**
  * Top-level hierarchical state machine:
@@ -16,6 +18,8 @@ export function think(c: Character, sim: Simulation, dt: number): void {
   sim.metrics.aiDecisions++;
   updateNeeds(c, dt, { raining: sim.env.raining, dark: sim.isDark, sheltered: sim.world.isSheltered(c.x, c.y), party: sim.env.party && sim.world.areaAt(c.x, c.y)?.kind === "stage" });
   if (c.tier === "player") return;
+  // cognition: low-rate affect/stress/forgetting/social-learning update, only for detailed characters
+  if (c.lod <= Lod.REDUCED && sim.tick - c.mind.last >= 45) updateMind(c, sim);
 
   // 1. physical layer (a stumble only pauses; a knockdown interrupts everything)
   if (c.phys === Phys.STUMBLE) { stop(c); return; }
@@ -70,9 +74,9 @@ export function chooseGoal(c: Character, sim: Simulation): void {
   const now = sim.tick;
   for (const g of GOALS) {
     if (g.principalOnly && c.tier !== "principal") continue;
-    if ((c.goalCooldowns[g.id] ?? 0) > now) continue;
+    if ((c.goalCooldowns[g.id] ?? 0) > now || violentBlocked(c, g.id)) continue;
     const ch = g.score(c, sim);
-    if (ch && ch.u > 0) candidates.push({ g, ch });
+    if (ch && ch.u > 0) { ch.u *= goalBias(c, g.id, sim.hour); candidates.push({ g, ch }); }
   }
   if (!candidates.length) { c.goal = null; return; }
   candidates.sort((a, b) => b.ch.u - a.ch.u);
@@ -98,9 +102,11 @@ export function forceGoal(c: Character, sim: Simulation, id: string, ch: Choice)
   if (c.tier === "player" || c.phys === Phys.DOWN || c.phys === Phys.RECOVER) return false;
   if (c.goal && !GOAL_BY_ID.get(c.goal.id)?.interruptible && c.goal.id !== "wander" && c.goal.id === id) return false;
   const g = GOAL_BY_ID.get(id);
-  if (!g) return false;
+  if (!g || violentBlocked(c, id)) return false;
   return startGoal(c, sim, g, ch);
 }
+
+setForceGoal(forceGoal);
 
 function execute(c: Character, sim: Simulation, dt: number): void {
   const goal = c.goal!;
@@ -132,6 +138,7 @@ function finish(c: Character, sim: Simulation, ok: boolean): void {
   c.goalCooldowns[g.id] = sim.tick + 60 * (def ? (ok ? def.cooldown : Math.max(4, def.cooldown / 2)) : 4);
   if (!ok) { c.emo.frustration = Math.min(1, c.emo.frustration + 0.04); sim.metrics.failedGoals++; const k = g.id + ":" + (g.plan[g.stepIdx]?.kind ?? "?"); sim.metrics.failByGoal[k] = (sim.metrics.failByGoal[k] ?? 0) + 1; }
   sim.onGoalFinished(c, g.id, ok);
+  if (c.tier !== "background") onGoalDone(c, g.id, ok, sim);
   c.goal = null; c.mode = "idle"; stop(c);
   if (c.anim.pose !== "auto") c.anim.pose = "auto";
 }

@@ -25,7 +25,7 @@ function rgba(hex: string, a: number): string {
 
 type Style = "shop" | "tower" | "flats" | "house" | "civic" | "club" | "fuel";
 const STYLE: Record<string, Style> = {
-  office: "tower", hotel: "tower", bank: "tower", hospital: "civic", police: "civic", gallery: "civic", studio: "civic",
+  office: "tower", hotel: "tower", bank: "tower", hospital: "civic", mentalhealth: "civic", police: "civic", gallery: "civic", studio: "civic",
   apartments: "flats", house: "house", nightclub: "club", casino: "club", garage: "fuel", gym: "civic",
 };
 const styleOf = (b: Building): Style => STYLE[b.kind] ?? "shop";

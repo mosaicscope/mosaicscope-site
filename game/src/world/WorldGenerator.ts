@@ -279,7 +279,8 @@ export function generateWorld(opts: GenOptions): World {
         fill(ix1 - 2, iy0, ix1, iy0 + 7, T.PARKING);
         fill(ix1 + 1, iy0 + 2, ix1 + SW, iy0 + 3, T.PARKING); // driveway
         building("cafe", ix0, iy1 - 2, ix0 + 4, iy1, a, "n");
-        poi("bench", ix0 + 7, iy0 + 9, a);
+        building("mentalhealth", ix0 + 6, iy1 - 3, ix0 + 10, iy1, a, "n"); // Pūtahi, beside the hospital
+        poi("bench", ix0 + 5, iy0 + 9, a);
         break;
       }
       case "food": case "food2": {

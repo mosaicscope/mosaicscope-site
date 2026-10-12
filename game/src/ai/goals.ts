@@ -5,6 +5,7 @@ import { friendship, hostility, peek } from "../social/Social";
 import { carried, craftable, findCarried } from "../inventory/Inventory";
 import { F, planSteps, PlanContext } from "./planner";
 import { CITY_GOALS } from "./cityGoals";
+import { PSY_GOALS } from "../mind/Psychopathology";
 
 /**
  * Utility-scored goals. Each goal scores itself from needs, personality, relationships and the
@@ -339,5 +340,5 @@ export const GOALS: GoalDef[] = [
   },
 ];
 
-GOALS.push(...CITY_GOALS);
+GOALS.push(...CITY_GOALS, ...PSY_GOALS);
 export const GOAL_BY_ID = new Map(GOALS.map((g) => [g.id, g]));

@@ -2,6 +2,7 @@ import { Rng } from "../core/rng";
 import { TOYS } from "../content/toys";
 import { Character, Lod, Look, Personality, Tier, Toy } from "./types";
 import { LAYER, MASK } from "../physics/layers";
+import { newMind } from "../mind/Mind";
 
 export function makeCharacter(id: number, name: string, tier: Tier, x: number, y: number, look: Look, pers: Personality, rng: Rng): Character {
   const memMax = tier === "principal" ? 32 : tier === "mid" ? 10 : tier === "player" ? 16 : 4;
@@ -30,6 +31,7 @@ export function makeCharacter(id: number, name: string, tier: Tier, x: number, y
     role: "local", cash: Math.round(rng.range(20, 180)), hunger: rng.range(0.5, 1), inside: -1, insideUntil: 0, inCar: -1, workplace: -1, home: -1,
     pursuing: -1, arrestedBy: -1, jailUntil: 0, wanted: 0, stunUntil: 0, nickname: "", crew: "",
     wounds: [], bleed: 0, blood: 1, partner: -1, affair: -1,
+    mind: newMind(id, pers),
     attractedTo: rng.chance(0.1) ? ["guy", "girl"] : rng.chance(0.12) ? [look.kind] : [look.kind === "guy" ? "girl" : "guy"],
   };
 }

@@ -71,7 +71,7 @@ export class Minimap {
     // blips
     const dot = (x: number, y: number, r: number, col: string) => { g.fillStyle = col; g.beginPath(); g.arc(x, y, r, 0, 6.283); g.fill(); };
     for (const b of w.buildings) {
-      const col = b.kind === "casino" ? "#f6b62c" : b.kind === "studio" || b.kind === "gallery" ? "#ff7ad9" : b.kind === "police" ? "#3dd6ff" : b.kind === "hospital" ? "#ec2a1c" : b.kind === "airport" ? "#eee4d3" : b.kind === "dealership" ? "#c6ff3d" : "";
+      const col = b.kind === "casino" ? "#f6b62c" : b.kind === "studio" || b.kind === "gallery" ? "#ff7ad9" : b.kind === "police" ? "#3dd6ff" : b.kind === "hospital" ? "#ec2a1c" : b.kind === "mentalhealth" ? "#6fe3b0" : b.kind === "airport" ? "#eee4d3" : b.kind === "dealership" ? "#c6ff3d" : "";
       if (col) dot(b.door.x + 0.5, b.door.y + 0.5, 1.6, col);
     }
     if (p.wanted > 0) for (const c of sim.chars) if (c.role === "cop" && c.inside < 0) dot(c.x, c.y, 1.1, Math.floor(now / 250) % 2 ? "#ec2a1c" : "#3d7bff");

@@ -1,6 +1,6 @@
 # The Mosaics · Our World
 
-A living, isometric stick-figure town hidden inside the MosaicScope website. It's the "Our world" sign that appears after a while in the footer easter egg. Tiles, Glitter and the rest of the Mosaics live here with about 80 regulars and 400+ background locals. Everyone has needs, moods, memories, friendships and grudges. Toy fights, parties, rumours, apologies and crowds come out of what people actually see and do. None of it is scripted.
+A living, isometric stick-figure parody of central Christchurch hidden inside the MosaicScope website, opened by the "Mosaic World" sign in the footer easter egg. Tiles, Glitter and the rest of the Mosaics live here with about 110 regulars and 300 background locals. Everyone has needs, moods, memories, friendships, grudges and a psychologically modelled mind that learns from experience. Fights, parties, rumours, crimes, romances and routines come out of what people actually see and do.
 
 ![Daytime in the plaza with the inspector open on Tiles](docs/screenshot-day.jpg)
 ![A party at the After Hours Yard](docs/screenshot-party.jpg)
@@ -9,7 +9,7 @@ A living, isometric stick-figure town hidden inside the MosaicScope website. It'
 
 ## Quick guide (no coding needed)
 
-**Where is it?** Once the site is live, it's at `https://mosaicscope.pages.dev/world/` (or `yourdomain/world/`). Visitors find it through the "Our world · step inside" sign that turns up in the footer after they've watched the Mosaics for a while.
+**Where is it?** Once the site is live, it's at `https://mosaicscope.pages.dev/world/` (or `yourdomain/world/`). Visitors open it from the "Mosaic World" sign in the footer easter egg.
 
 **Does it slow down the main site?** No. It's a separate page. The main site only gained one link. Nothing from the game loads until someone clicks the sign.
 
@@ -64,7 +64,7 @@ Pick-up, drop, throw and talk keys can be remapped in Settings.
   - Parties at the boombox, lamps and night lighting, and a rare shooting star round it out.
 - **Rendering**: Canvas 2D isometric renderer with cached ground chunks and depth sorting. Background figures are batched by colour, there's culling, pooled particles, low-res lighting with lamp holes, rain, speech bubbles and auto quality scaling. Characters are procedural stick figures in the same style as the site's footer crew.
 - **Player tools**: an inspector (needs, feelings, personality, live plan, inventory, relationships, memories with sources), a searchable event log with cause chains, speed controls, three save slots, settings and a first-run tutorial.
-- **Persistence**: versioned saves (v3) with v1→v2→v3 migrations. Corrupted or foreign saves fail with a readable message. A pluggable storage provider uses localStorage under the `mosaics-world:` namespace and never touches the main site's keys.
+- **Persistence**: versioned saves (v4+) with migrations. Corrupted or foreign saves fail with a readable message. A pluggable storage provider uses localStorage under the `mosaics-world:` namespace and never touches the main site's keys.
 - **Audio**: synthesised spatial sound (impacts by material, whooshes, boings, breaks, rain, party beat). It's off by default, has a volume control, and is rate-limited.
 - **Accessibility**: keyboard-only play, touch controls, text scaling, reduced motion (follows the OS; no lightning flashes or fast effects), gentle-fights mode, key remapping, ARIA labels and readable errors when the browser can't run the game.
 - **Developer panel**:
@@ -173,3 +173,22 @@ Without a GPU, the browser's rasterisation cost dominates. A normal desktop with
 - Browser numbers above come from software rendering only. GPU-backed and mobile performance hasn't been measured.
 
 See [ROADMAP.md](ROADMAP.md) for what's planned and [FEATURE_CATALOGUE.md](FEATURE_CATALOGUE.md) for the full catalogue.
+
+
+## Controls (PC and phone)
+
+Move WASD/arrows (phone: the floating stick; push hard to sprint). E uses/enters/gets in a car, T talks, R pickpockets (or holds up a till with a weapon in hand), B bandages, H horns, F throws, Space swings or brakes, M opens the map, V toggles the 2D street view (also the 2D/3D button), ` opens the developer panel. On phones the big button does the most useful thing right now and the ⋯ button holds every other action.
+
+## Graphics quality
+
+Settings → Graphics quality: Auto adapts to your device, Low, Medium, High, **Ultra** (2x-density weathered textures with baked bump lighting, supersampled ground, native resolution, HD figures and a cinematic grade). Auto never selects Ultra.
+
+## Back end (Cloudflare Pages Functions in `/functions/api`)
+
+- `/api/world-stats`: anonymous per-day play-time totals. GET is private: set a `STATS_KEY` variable and send it as `Authorization: Bearer <key>` or `?key=`.
+- `/api/chch-map`: OpenStreetMap streets for the full map (© OpenStreetMap contributors, ODbL).
+- Both use the optional `EGG` KV binding.
+
+## Dialogue pipeline
+
+Writers produce packs of exchanges (`src/dialogue/packs`); `scripts/merge-dialogue.ts` validates tags and placeholders, drops repeats and over-long lines, and merges everything into `packs/life.ts`.

@@ -1,4 +1,5 @@
 import type { Simulation } from "./Simulation";
+import { updateTown } from "../mind/Town";
 
 /** Time of day, weather (seeded Markov chain), power and party state. */
 export type Weather = "clear" | "cloudy" | "rain" | "storm";
@@ -41,6 +42,7 @@ export function updateEnvironment(sim: Simulation): void {
       sim.emit({ type: "weather", x: sim.world.size / 2, y: sim.world.size / 2, data: { from: was, to: next }, summary: `Weather: ${was} → ${next}` });
     }
   }
+  updateTown(sim); // once a second: outfits follow the weather, town norms play out
   env.rain += ((env.raining ? (env.storm ? 1 : 0.6) : 0) - env.rain) * 0.01;
   if (env.storm && rng.chance(1 / 400)) env.lightningAt = tick;
   // blackouts: storms at night can knock the power out
