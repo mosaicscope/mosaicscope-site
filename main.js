@@ -298,6 +298,7 @@
         return '<details class="qa"' + (i === 0 ? " open" : "") + '><summary><span class="qa__q">' + esc(f.q) + '</span><span class="qa__icon" aria-hidden="true">+</span></summary><p>' + esc(f.a) + "</p></details>";
       }).join("");
       $("#faq").hidden = !faq.length;
+      fl.querySelectorAll("details").forEach(function (d) { d.querySelector("summary").addEventListener("click", function () { if (!d.open) document.dispatchEvent(new CustomEvent("crew", { detail: "faq" })); }); });
       if (faq.length) {
         var ld = document.createElement("script");
         ld.type = "application/ld+json";
@@ -514,6 +515,20 @@
         hoverTarget = 0;
         if (!easing) { easing = true; requestAnimationFrame(easeLoop); }
       });
+    }
+    // phones: the mosaic follows your finger, and drifts on its own so it never sits flat
+    if (!finePointer && !reduceMotion) {
+      var heroT = canvas.parentElement, heroOn = true;
+      var nudge = function (x, y) { target = [x, y]; hoverTarget = 1; if (!easing) { easing = true; requestAnimationFrame(easeLoop); } };
+      heroT.addEventListener("pointermove", function (e) { var r = heroT.getBoundingClientRect(); nudge((e.clientX - r.left) / r.width, 1 - (e.clientY - r.top) / r.height); }, { passive: true });
+      heroT.addEventListener("touchmove", function (e) { var t = e.touches[0], r = heroT.getBoundingClientRect(); if (t) nudge((t.clientX - r.left) / r.width, 1 - (t.clientY - r.top) / r.height); }, { passive: true });
+      if ("IntersectionObserver" in window) new IntersectionObserver(function (es) { heroOn = es[0].isIntersecting; }).observe(heroT);
+      var drift = 0;
+      setInterval(function () {
+        if (!heroOn || document.hidden) return;
+        drift += 1;
+        nudge(0.5 + Math.sin(drift * 0.9) * 0.28, 0.5 + Math.cos(drift * 0.6) * 0.22);
+      }, 2600);
     }
     function resize() {
       var dpr = Math.min(window.devicePixelRatio || 1, window.innerWidth < 720 ? 1.25 : 1.75);
@@ -882,6 +897,7 @@
     }
 
     function open(i, tile) {
+      document.dispatchEvent(new CustomEvent("crew", { detail: "photo" }));
       var p = data.projects[i];
       if (!p) return;
       lastTile = tile;
@@ -1418,7 +1434,17 @@
 
   // Gallery tiles tip slightly toward the cursor with a soft light sheen.
   function initTileFX() {
-    if (!finePointer || reduceMotion) return;
+    if (reduceMotion) return;
+    // phones have no hover, so the tile crossing the middle of the screen gets the hover look
+    if (!finePointer) {
+      if (!("IntersectionObserver" in window)) return;
+      var io = new IntersectionObserver(function (es) { es.forEach(function (e) { e.target.classList.toggle("is-focus", e.isIntersecting); }); }, { rootMargin: "-42% 0px -42% 0px" });
+      var watch = function () { $$("#gallery .tile, .slide").forEach(function (t) { if (!t._io) { t._io = 1; io.observe(t); } }); };
+      watch();
+      var mo = new MutationObserver(watch);
+      ["#gallery", "#ig-board"].forEach(function (id) { var n = $(id); if (n) mo.observe(n, { childList: true }); });
+      return;
+    }
     var gal = $("#gallery");
     gal.addEventListener("pointermove", function (e) {
       var t = e.target.closest && e.target.closest(".tile");
@@ -1553,7 +1579,7 @@
       $("#qb-list").textContent = p.items.join(" + ");
       $("#qb-go").disabled = !p.items.length;
     }
-    form.addEventListener("change", update);
+    form.addEventListener("change", function () { update(); document.dispatchEvent(new CustomEvent("crew", { detail: "quote" })); });
     form.addEventListener("input", update);
     form.addEventListener("submit", function (e) {
       e.preventDefault();
@@ -1635,28 +1661,47 @@
     window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
   }
 
-  /* ---------------- Easter egg: the crew in the footer ----------------
-     A little crew lives in the black strip at the very bottom of the page.
-     Music off: they live their lives (walk, smoke, sit with a beer, scroll their phones, take selfies,
-     stretch, nap and more). Music on: the whole crew raves, swapping dance moves every few seconds.
-     Click anyone to play or pause. They make it rain $ when someone sends an enquiry. */
-  // The crew. First is the main guy (he drops the cash), second is his girl.
+  /* =====================================================================
+     Easter egg: THE MOSAICS
+     A crew that lives in the black strip at the very bottom of the page.
+     - Tiles is the main guy. Glitter is his girl. Eight friends arrive over time.
+     - Music off: they live their lives. The longer someone stays, the more the scene builds
+       (boombox, string lights, disco ball, a banner, and a sign for their world, coming soon).
+     - Music on: they gather round Tiles. When he throws cash the girls hype him up and the
+       boys put their hands up, two of them spray money guns.
+     - They react to the page: open a photo and they do a mock photoshoot, build a quote and
+       Tiles counts his cash, open the FAQ and someone has a think, send an enquiry and it rains.
+     ===================================================================== */
   var CAST = [
-    { kind: "guy", color: "#c6ff3d", accent: "#ec2a1c", hat: "bandana", main: true, name: "The main guy" },
-    { kind: "girl", color: "#ff7ad9", accent: "#f6b62c", hair: "big", glam: true, name: "His girl" },
-    { kind: "guy", color: "#f6b62c", accent: "#eee4d3", hat: "cap", name: "Friend" },
-    { kind: "girl", color: "#3dd6ff", accent: "#ff7ad9", hair: "bun", name: "Friend" },
-    { kind: "guy", color: "#eee4d3", accent: "#ec2a1c", hat: "none", name: "Friend" },
-    { kind: "girl", color: "#ec2a1c", accent: "#c6ff3d", hair: "big", name: "Friend" },
-    { kind: "guy", color: "#b48cff", accent: "#f6b62c", hat: "cap", name: "Friend" },
-    { kind: "girl", color: "#c6ff3d", accent: "#3dd6ff", hair: "bun", name: "Friend" },
-    { kind: "guy", color: "#ff9a3d", accent: "#3dd6ff", hat: "bandana", name: "Friend" },
-    { kind: "girl", color: "#f6b62c", accent: "#b48cff", hair: "big", name: "Friend" }
+    { name: "Tiles", kind: "guy", color: "#c6ff3d", accent: "#ec2a1c", hat: "bandana", main: true },
+    { name: "Glitter", kind: "girl", color: "#ff7ad9", accent: "#f6b62c", hair: "big", glam: true },
+    { name: "Kodak", kind: "guy", color: "#f6b62c", accent: "#eee4d3", hat: "cap", gun: true },
+    { name: "Nova", kind: "girl", color: "#3dd6ff", accent: "#ff7ad9", hair: "bun" },
+    { name: "Grain", kind: "guy", color: "#eee4d3", accent: "#ec2a1c", hat: "none" },
+    { name: "Ruby", kind: "girl", color: "#ec2a1c", accent: "#c6ff3d", hair: "big" },
+    { name: "Flash", kind: "guy", color: "#b48cff", accent: "#f6b62c", hat: "cap" },
+    { name: "Lux", kind: "girl", color: "#c6ff3d", accent: "#3dd6ff", hair: "bun" },
+    { name: "Bando", kind: "guy", color: "#ff9a3d", accent: "#3dd6ff", hat: "bandana", gun: true },
+    { name: "Honey", kind: "girl", color: "#f6b62c", accent: "#b48cff", hair: "big" }
   ];
+  var IDLE = ["walk", "walk", "walk", "chill", "chill", "smoke", "sit", "drink", "wave", "phone", "selfie", "stretch", "look", "crouch", "pushup", "sleep", "box", "flip"];
   var GLAM_IDLE = ["walk", "flip", "selfie", "phone", "flip", "chill", "drink", "wave", "walk", "selfie"];
-  var IDLE = ["walk", "walk", "walk", "chill", "smoke", "sit", "drink", "wave", "phone", "selfie", "stretch", "look", "crouch", "pushup", "sleep", "box", "flip"];
-  var DANCES = ["goff", "worm", "robot", "shuffle", "sprinkler", "dab", "floss", "jacks", "runman", "moon", "spin"];
-  var POSE_CLASSES = IDLE.concat(["rave"]).map(function (p) { return "is-" + p; }).concat(DANCES.map(function (d) { return "d-" + d; }));
+  var MAIN_IDLE = ["walk", "chill", "smoke", "sit", "drink", "phone", "look", "chill", "wave"];
+  // dance pools: everyday party moves first, showy moves rarer
+  var DANCE_POOL = ["twostep", "bounce", "bodyroll", "shimmy", "tutting", "popping", "jerk", "dougie", "naenae", "whip", "millyrock", "hitdemfolks", "sway", "clap", "sidestep", "bop", "heeltoe", "krump",
+    "twostep", "bounce", "sway", "bop", "clap", "goff", "robot", "shuffle", "sprinkler", "dab", "floss", "runman", "moon", "jacks", "spin"];
+  var GIRL_HYPE = ["hipshake", "hipshake", "bodyroll", "shimmy", "dougie", "sway", "bop"];
+  var GUY_HYPE = ["handsup", "handsup", "bounce", "clap", "jerk", "naenae"];
+  var STAGES = [
+    { at: 60, prop: "boombox" },
+    { at: 120, prop: "lights" },
+    { at: 180, prop: "disco" },
+    { at: 300, prop: "banner" },
+    { at: 420, prop: "sign" }
+  ];
+  var POSE_CLASSES = [];
+  IDLE.concat(["rave", "throw", "count", "think", "posecool", "posegirl", "shoot", "camera", "cheer"]).forEach(function (p) { POSE_CLASSES.push("is-" + p); });
+  DANCE_POOL.concat(GIRL_HYPE, GUY_HYPE, ["worm", "throw", "shoot"]).forEach(function (d) { if (POSE_CLASSES.indexOf("d-" + d) < 0) POSE_CLASSES.push("d-" + d); });
 
   function figSVG(c) {
     var C = c.color, A = c.accent, girl = c.kind === "girl";
@@ -1667,122 +1712,320 @@
     if (c.hat === "bandana") hat = '<path d="M39.6 23 Q50 12 60.4 23 Z" fill="' + A + '" stroke="' + A + '" stroke-width="2"/><path d="M60 22 l7 -4 M60 22 l7 2" stroke="' + A + '" stroke-width="2.4"/>';
     if (c.hat === "cap") hat = '<path d="M39.5 23 Q50 11 60.5 23 Z" fill="' + A + '" stroke="' + A + '" stroke-width="2"/><path d="M58 22 H70" stroke="' + A + '" stroke-width="3"/>';
     var outfit = girl
-      ? '<path d="M43 52 H57 V60 H43 Z" fill="' + A + '" fill-opacity=".9" stroke="' + A + '" stroke-width="1.6"/><path d="M42 72 H58 L62 84 H38 Z" fill="' + A + '" fill-opacity=".9" stroke="' + A + '" stroke-width="1.6"/>'
-      : '<path d="M42 52 H58 L59 78 H41 Z" stroke-width="2.4"/>';
-    var boots = girl
-      ? '<path d="M35 121 h9 v6 h-9 Z" fill="' + A + '" stroke="' + A + '" stroke-width="1.5"/>'
-      : '<path d="M34 126 h10" stroke="' + A + '" stroke-width="6"/>';
-    var bootsR = girl
-      ? '<path d="M58 121 h9 v6 h-9 Z" fill="' + A + '" stroke="' + A + '" stroke-width="1.5"/>'
-      : '<path d="M59 126 h10" stroke="' + A + '" stroke-width="6"/>';
+      ? '<path d="M43 52 H57 V60 H43 Z" fill="' + A + '" fill-opacity=".9" stroke="' + A + '" stroke-width="1.6"/><path class="rv__skirt" d="M42 72 H58 L62 84 H38 Z" fill="' + A + '" fill-opacity=".9" stroke="' + A + '" stroke-width="1.6"/>'
+      : '<path d="M42 52 H58 L59 78 H41 Z" stroke-width="2.4"/>' + (c.main ? '<path d="M45 52 Q50 62 55 52" stroke="#f6b62c" stroke-width="1.8"/>' : "");
+    var boot = function (x) {
+      return girl ? '<path d="M' + x + ' 121 h9 v6 h-9 Z" fill="' + A + '" stroke="' + A + '" stroke-width="1.5"/>' : '<path d="M' + (x - 1) + ' 126 h10" stroke="' + A + '" stroke-width="6"/>';
+    };
     var glam = c.glam ? '<path d="M40 25 l-2 -2 M60 25 l2 -2" stroke-width="1.6"/><circle cx="39" cy="35" r="3.2" stroke-width="1.6"/><circle cx="61" cy="35" r="3.2" stroke-width="1.6"/>' : "";
-    var extras = glam + (girl ? '<circle cx="39" cy="32" r="2.2" stroke-width="1.4"/><circle cx="61" cy="32" r="2.2" stroke-width="1.4"/><path d="M47 34.5 Q50 36.5 53 34.5" stroke="' + A + '" stroke-width="2.2"/>' : '<path d="M46 34 Q50 36.5 54 34" stroke-width="2"/>');
+    var face = glam + (girl ? '<circle cx="39" cy="32" r="2.2" stroke-width="1.4"/><circle cx="61" cy="32" r="2.2" stroke-width="1.4"/><path d="M47 34.5 Q50 36.5 53 34.5" stroke="' + A + '" stroke-width="2.2"/>' : '<path d="M46 34 Q50 36.5 54 34" stroke-width="2"/>');
     return '<svg class="raver__fig" viewBox="0 0 100 140" aria-hidden="true">' +
       '<g class="rv__chair" fill="none" stroke="#9a8d80" stroke-width="3" stroke-linecap="round"><path d="M28 104 H58 M30 104 L28 132 M56 104 L58 132 M30 104 L26 70"/></g>' +
       '<g class="rv" fill="none" stroke="' + C + '" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">' +
-        '<g class="rv__legL"><path d="M50 82 L42 104 L40 122"/>' + boots + '</g>' +
-        '<g class="rv__legR"><path d="M50 82 L58 104 L62 122"/>' + bootsR + '</g>' +
+        '<g class="rv__legL"><path d="M50 82 L42 104 L40 122"/>' + boot(35) + '</g>' +
+        '<g class="rv__legR"><path d="M50 82 L58 104 L62 122"/>' + boot(58) + '</g>' +
         '<g class="rv__top"><path d="M50 40 L50 82"/>' + outfit +
-          '<g class="rv__armL"><path d="M50 47 L38 60 L34 72"/><rect class="rv__beer" x="30" y="70" width="7" height="11" rx="1.5" fill="#f6b62c" stroke="#f6b62c" stroke-width="1"/></g>' +
+          '<g class="rv__armL"><path d="M50 47 L38 60 L34 72"/><rect class="rv__beer" x="30" y="70" width="7" height="11" rx="1.5" fill="#f6b62c" stroke="#f6b62c" stroke-width="1"/>' +
+            '<rect class="rv__wad" x="29" y="69" width="9" height="6" rx="1" fill="#7bd36b" stroke="#2d6b24" stroke-width="1"/></g>' +
           '<g class="rv__armR"><path d="M50 47 L62 60 L66 72"/>' +
             '<path class="rv__cig" d="M66 72 L73 70" stroke="#eee4d3" stroke-width="2"/><circle class="rv__cig" cx="73.5" cy="69.8" r="1.4" fill="#ec2a1c" stroke="none"/>' +
             '<path class="rv__gun" d="M66 72 L73 70 M66 72 L66 66" stroke-width="2.6"/>' +
-            '<rect class="rv__phone" x="64" y="66" width="6" height="10" rx="1.2" fill="#0e0b0a" stroke-width="1.6"/><circle class="rv__flash" cx="67" cy="66" r="6" fill="#fff" stroke="none"/>' +
+            '<rect class="rv__phone" x="64" y="66" width="6" height="10" rx="1.2" fill="#0e0b0a" stroke-width="1.6"/>' +
+            '<g class="rv__mgun"><path d="M63 67 h13 v5 h-7 v6 h-4 v-6 h-2 Z" fill="#7bd36b" stroke="#2d6b24" stroke-width="1"/></g>' +
+            '<g class="rv__cam"><rect x="61" y="63" width="12" height="8" rx="1.2" fill="#0e0b0a" stroke-width="1.6"/><circle cx="67" cy="67" r="2.2" stroke-width="1.4"/></g>' +
+            '<circle class="rv__flash" cx="67" cy="66" r="7" fill="#fff" stroke="none"/>' +
+            '<rect class="rv__note" x="68" y="64" width="9" height="5" rx="1" fill="#7bd36b" stroke="#2d6b24" stroke-width="1"/>' +
           '</g>' +
           '<g class="rv__head">' + hair + '<circle cx="50" cy="27" r="10.5"/>' + hat +
-            '<path d="M40 25.5 H49 V30.5 Q44.5 32 40 30.5 Z M51 25.5 H60 V30.5 Q55.5 32 51 30.5 Z" fill="#0e0b0a" stroke-width="1.6"/><path d="M49 27 H51" stroke-width="1.6"/>' + extras +
+            '<path d="M40 25.5 H49 V30.5 Q44.5 32 40 30.5 Z M51 25.5 H60 V30.5 Q55.5 32 51 30.5 Z" fill="#0e0b0a" stroke-width="1.6"/><path d="M49 27 H51" stroke-width="1.6"/>' + face +
           '</g>' +
         '</g>' +
       '</g></svg>' +
-      '<span class="raver__smoke" aria-hidden="true"><i></i><i></i><i></i></span><span class="raver__zz mono" aria-hidden="true"><i>z</i><i>z</i></span>';
+      '<span class="raver__smoke" aria-hidden="true"><i></i><i></i><i></i></span>' +
+      '<span class="raver__zz mono" aria-hidden="true"><i>z</i><i>z</i></span>' +
+      '<span class="raver__bubble" aria-hidden="true">?</span>';
   }
 
+  var crewApi = null;
   function initHype() {
     var stage = $("#stage"), cash = $("#cash");
     if (!stage) return;
     var hasMusic = !$("#sc").hidden;
-    var cast = CAST.slice(0, innerWidth < 520 ? 3 : innerWidth < 900 ? 6 : 10);
-    var raving = false, visible = true, crew = [], moneyTimer = null;
+    var max = innerWidth < 420 ? 6 : innerWidth < 900 ? 8 : 10;
+    var raving = false, visible = false, crew = [], pending = null, busy = false;
+    var cycleTimer = null, gunTimer = null;
 
-    function Raver(cfg, i) {
+    // how long this visitor has hung out with the crew, across visits
+    var hung = 0;
+    try { hung = parseInt(localStorage.getItem("ms-crew-time"), 10) || 0; } catch (e) { hung = 0; }
+    var props = {};
+    var label = document.createElement("p");
+    label.className = "stage__label mono";
+    stage.appendChild(label);
+
+    function rnd(a) { return a[(Math.random() * a.length) | 0]; }
+    function stageW() { return stage.clientWidth; }
+
+    /* ---- one person ---- */
+    function Person(cfg, i) {
       var el = document.createElement("button");
       el.type = "button";
       el.className = "raver is-chill";
-      el.setAttribute("aria-label", hasMusic ? "Play music" : cfg.name);
+      el.setAttribute("data-name", cfg.name);
+      el.setAttribute("aria-label", cfg.name + (hasMusic ? ", play music" : ""));
       el.innerHTML = figSVG(cfg);
       stage.appendChild(el);
-      var me = { el: el, cfg: cfg, x: 0, timer: null };
-      function pose(p) { POSE_CLASSES.forEach(function (c) { el.classList.remove(c); }); p.split(" ").forEach(function (c) { el.classList.add(c); }); }
-      function maxX() { return Math.max(0, stage.clientWidth - el.offsetWidth); }
-      me.place = function (x) { me.x = x; el.style.setProperty("--x", x + "px"); };
+      var me = { el: el, cfg: cfg, i: i, x: 0, timer: null, lock: false };
+      me.pose = function (p) { POSE_CLASSES.forEach(function (c) { el.classList.remove(c); }); p.split(" ").forEach(function (c) { if (c) el.classList.add(c); }); };
+      me.place = function (x, dur) { el.style.transitionDuration = (dur || 0) + "s"; me.x = x; el.style.setProperty("--x", Math.round(x) + "px"); };
+      me.maxX = function () { return Math.max(0, stageW() - el.offsetWidth); };
+      me.face = function (tx) { el.classList.toggle("is-left", tx < me.x); };
+      me.walkTo = function (tx, cb, speed) {
+        tx = Math.max(0, Math.min(me.maxX(), tx));
+        var dist = Math.abs(tx - me.x);
+        if (dist < 6) { if (cb) cb(); return; }
+        me.face(tx);
+        var dur = dist / (speed || (38 + Math.random() * 18));
+        me.pose("is-walk");
+        me.place(tx, dur);
+        clearTimeout(me.timer);
+        me.timer = setTimeout(function () { if (raving) me.dance(rnd(["bounce", "twostep", "sway", "bop"])); else me.pose("is-chill"); if (cb) cb(); }, dur * 1000);
+      };
       me.next = function () {
         clearTimeout(me.timer); me.timer = null;
-        if (raving || !visible) return;
-        if (reduceMotion) { pose("is-chill"); return; }
-        var pool = cfg.glam ? GLAM_IDLE : IDLE;
-        var act = pool[(Math.random() * pool.length) | 0];
+        if (raving || !visible || me.lock || busy) return;
+        if (reduceMotion) { me.pose("is-chill"); return; }
+        var pool = cfg.main ? MAIN_IDLE : cfg.glam ? GLAM_IDLE : IDLE;
+        var act = rnd(pool);
+        // the crew drifts towards Tiles now and then
         if (act === "walk") {
-          var to = Math.round(Math.random() * maxX());
-          var dist = Math.abs(to - me.x);
-          if (dist < 40) { me.timer = setTimeout(me.next, 300); return; }
-          el.classList.toggle("is-left", to < me.x);
-          var dur = dist / (38 + Math.random() * 20);
-          el.style.transitionDuration = dur + "s";
-          pose("is-walk");
-          me.place(to);
-          me.timer = setTimeout(function () { pose("is-chill"); me.timer = setTimeout(me.next, 700 + Math.random() * 1200); }, dur * 1000);
-        } else {
-          pose("is-" + act);
-          var t = { sit: 11000, sleep: 9000, smoke: 8000, drink: 6000, phone: 7000, pushup: 5000 }[act] || 4000;
-          me.timer = setTimeout(me.next, t + Math.random() * 2000);
+          var to = Math.random() < 0.35 && crew[0] && !cfg.main ? crew[0].x + (Math.random() < 0.5 ? -1 : 1) * (50 + Math.random() * 120) : Math.random() * me.maxX();
+          me.walkTo(to, function () { me.timer = setTimeout(me.next, 700 + Math.random() * 1400); });
+          return;
         }
+        // only one person asleep or doing push-ups at a time, so nobody looks dropped
+        if ((act === "sleep" || act === "pushup") && crew.some(function (m) { return m !== me && (m.el.classList.contains("is-sleep") || m.el.classList.contains("is-pushup")); })) act = "chill";
+        me.pose("is-" + act);
+        var t = { sit: 11000, sleep: 9000, smoke: 8000, drink: 6000, phone: 7000, pushup: 5000 }[act] || 4000;
+        me.timer = setTimeout(me.next, t + Math.random() * 2500);
       };
-      me.rave = function () {
-        clearTimeout(me.timer);
-        el.style.transitionDuration = "0s";
-        var r = el.getBoundingClientRect();
-        me.place(Math.round(r.left - stage.getBoundingClientRect().left));
-        function dance() {
-          if (!raving) return;
-          var d = DANCES[(Math.random() * DANCES.length) | 0];
-          pose("is-rave d-" + d);
-          if (d === "moon") { var to = Math.max(0, Math.min(maxX(), me.x + (el.classList.contains("is-left") ? 90 : -90))); el.style.transitionDuration = "3.5s"; me.place(to); }
-          me.timer = setTimeout(dance, 3200 + Math.random() * 2400);
-        }
-        setTimeout(dance, i * 120);
-      };
-      me.chill = function () { clearTimeout(me.timer); pose("is-chill"); me.timer = setTimeout(me.next, 800 + i * 400); };
-      el.addEventListener("click", function () { if (window.hypeToggle) window.hypeToggle(); });
-      me.place(Math.round(Math.max(0, stage.clientWidth - 60) * ((i + 0.5) / cast.length)));
-      if (i % 2) el.classList.add("is-left");
+      me.dance = function (d) { clearTimeout(me.timer); me.timer = null; me.pose("is-rave d-" + d); };
+      el.addEventListener("click", function () {
+        el.classList.add("is-tag");
+        clearTimeout(el._tag); el._tag = setTimeout(function () { el.classList.remove("is-tag"); }, 1600);
+        if (window.hypeToggle) window.hypeToggle();
+      });
       return me;
     }
 
-    crew = cast.map(function (c, i) { return Raver(c, i); });
+    function addPerson(i, arrive) {
+      var p = Person(CAST[i], i);
+      crew.push(p);
+      if (arrive) {
+        var fromLeft = Math.random() < 0.5;
+        p.place(fromLeft ? -70 : stageW() + 10);
+        requestAnimationFrame(function () {
+          p.walkTo(crew[0] ? crew[0].x + (Math.random() - 0.5) * 300 : Math.random() * p.maxX(), function () {
+            p.timer = setTimeout(p.next, 1200);
+            if (p.cfg.name && visible && !raving) wave(p);
+          });
+        });
+      } else {
+        p.place(Math.max(0, stageW() - 60) * ((i + 0.5) / Math.max(2, Math.min(max, 2 + Math.floor(hung / 12)))) + (Math.random() - 0.5) * 20);
+        p.timer = setTimeout(p.next, 600 + i * 500);
+      }
+      updateLabel();
+      return p;
+    }
+    function wave(p) { p.pose("is-wave"); clearTimeout(p.timer); p.timer = setTimeout(p.next, 2200); }
 
-    function drop() {
-      if (reduceMotion || document.hidden || !visible) return;
-      var r = crew[0].el.getBoundingClientRect();
-      var d = document.createElement("span");
-      d.className = "cash__bill";
-      d.textContent = "$";
-      d.style.left = (r.left + r.width * (0.2 + Math.random() * 0.6)) + "px";
-      d.style.top = (r.top + r.height * 0.15) + "px";
-      d.style.setProperty("--dx", ((Math.random() - 0.5) * 90).toFixed(0) + "px");
-      d.style.setProperty("--rot", ((Math.random() - 0.5) * 60).toFixed(0) + "deg");
-      cash.appendChild(d);
-      setTimeout(function () { d.remove(); }, 2200);
+    /* ---- the scene grows the longer you stay ---- */
+    function buildProp(name) {
+      if (props[name]) return;
+      var el;
+      if (name === "boombox") {
+        el = document.createElement("button");
+        el.type = "button";
+        el.className = "prop prop--boombox";
+        el.setAttribute("aria-label", "Boombox, play music");
+        el.innerHTML = '<span class="bb__handle"></span><span class="bb__body"><i></i><b></b><i></i></span>';
+        el.addEventListener("click", function () { if (window.hypeToggle) window.hypeToggle(); egg.boombox++; });
+      } else if (name === "lights") {
+        el = document.createElement("div");
+        el.className = "prop prop--lights";
+        var b = "";
+        for (var k = 0; k < 28; k++) b += '<i style="--k:' + k + '"></i>';
+        el.innerHTML = b;
+      } else if (name === "disco") {
+        el = document.createElement("div");
+        el.className = "prop prop--disco";
+        el.innerHTML = '<span class="disco__string"></span><span class="disco__ball"></span>';
+      } else if (name === "banner") {
+        el = document.createElement("div");
+        el.className = "prop prop--banner mono";
+        el.textContent = "THE MOSAICS";
+      } else if (name === "sign") {
+        el = document.createElement("div");
+        el.className = "prop prop--sign mono";
+        el.innerHTML = "Our world<br>coming soon";
+      }
+      el.setAttribute("aria-hidden", name === "boombox" ? "false" : "true");
+      stage.appendChild(el);
+      props[name] = el;
+      requestAnimationFrame(function () { el.classList.add("is-in"); });
+      updateLabel();
+    }
+    function updateLabel() {
+      var n = crew.length;
+      var lvl = STAGES.filter(function (s) { return props[s.prop]; }).length;
+      label.textContent = "The Mosaics · " + n + "/" + max + " here" + (lvl ? " · lvl " + (lvl + 1) : "");
+      egg.crew = Math.max(egg.crew, n); egg.level = Math.max(egg.level, lvl + 1);
+    }
+    function tick() {
+      if (!visible || document.hidden) return;
+      hung += 1;
+      if (hung % 5 === 0) { try { localStorage.setItem("ms-crew-time", hung); } catch (e) { /* ignore */ } }
+      var want = Math.min(max, 2 + Math.floor(hung / 12));
+      if (crew.length < want) addPerson(crew.length, true);
+      STAGES.forEach(function (s) { if (hung >= s.at) buildProp(s.prop); });
+      if (pending && !busy) { var p = pending; pending = null; react(p); }
     }
 
+    /* ---- money ---- */
+    function bills(fromEl, n, opts) {
+      if (reduceMotion || document.hidden) return;
+      opts = opts || {};
+      var r = fromEl.getBoundingClientRect();
+      var left = fromEl.classList.contains("is-left");
+      var high = !!opts.high;
+      for (var k = 0; k < n; k++) {
+        var d = document.createElement("span");
+        d.className = "cash__note";
+        d.style.left = (r.left + r.width * (left ? 0.15 : 0.85)) + "px";
+        d.style.top = (r.top + r.height * 0.45) + "px";
+        var dx = (left ? -1 : 1) * (20 + Math.random() * (opts.spray ? 140 : 70)) + (Math.random() - 0.5) * 40;
+        var up = high && Math.random() < 0.6 ? -(260 + Math.random() * 380) : -(50 + Math.random() * 90);
+        d.style.setProperty("--dx", dx.toFixed(0) + "px");
+        d.style.setProperty("--up", up.toFixed(0) + "px");
+        d.style.setProperty("--rot", ((Math.random() - 0.5) * 540).toFixed(0) + "deg");
+        d.style.setProperty("--dur", (high ? 2.6 : 1.7) + Math.random() * 0.8 + "s");
+        d.style.animationDelay = (k * 0.06).toFixed(2) + "s";
+        cash.appendChild(d);
+        (function (d) { setTimeout(function () { d.remove(); }, 4200); })(d);
+      }
+    }
+
+    /* ---- the party ---- */
+    function gather() {
+      // the party happens under the disco ball: Tiles in the middle, the girls closest, the boys round the outside
+      var main = crew[0], w = stageW();
+      var cx = w / 2 - main.el.offsetWidth / 2;
+      main.walkTo(cx, null, 110);
+      var ring = crew.slice(1).filter(function (m) { return m.cfg.kind === "girl"; }).concat(crew.slice(1).filter(function (m) { return m.cfg.kind !== "girl"; }));
+      var per = Math.ceil(ring.length / 2) || 1;
+      var gap = Math.max(26, Math.min(70, (w / 2 - 40) / per));
+      ring.forEach(function (m, k) {
+        var side = k % 2 ? 1 : -1;
+        var to = cx + side * gap * (Math.floor(k / 2) + 1);
+        m.walkTo(to, function () { m.face(cx); }, 120);
+      });
+    }
+    function freeDance() {
+      crew.forEach(function (m, i) {
+        setTimeout(function () {
+          if (!raving) return;
+          m.dance(m.cfg.main ? rnd(["goff", "bounce", "twostep", "jerk", "millyrock", "krump"]) : rnd(DANCE_POOL));
+        }, i * 90);
+      });
+    }
+    function moneyMoment() {
+      if (!raving) return;
+      var main = crew[0];
+      main.dance("throw");
+      var throws = 0;
+      var t = setInterval(function () {
+        if (!raving || throws++ > 4) { clearInterval(t); return; }
+        bills(main.el, 4, { high: throws === 3 && Math.random() < 0.5 });
+      }, 420);
+      egg.throws++;
+      crew.slice(1).forEach(function (m, i) {
+        setTimeout(function () {
+          if (!raving) return;
+          if (m.cfg.gun) { m.dance("shoot"); return; }
+          m.dance(m.cfg.kind === "girl" ? rnd(GIRL_HYPE) : rnd(GUY_HYPE));
+        }, 60 * i);
+      });
+      clearInterval(gunTimer);
+      gunTimer = setInterval(function () {
+        if (!raving) { clearInterval(gunTimer); return; }
+        crew.forEach(function (m) { if (m.cfg.gun && m.el.classList.contains("d-shoot")) bills(m.el, 3, { spray: true, high: Math.random() < 0.18 }); });
+      }, 300);
+      setTimeout(function () { clearInterval(gunTimer); }, 2600);
+    }
+    function partyLoop() {
+      if (!raving) return;
+      moneyMoment();
+      cycleTimer = setTimeout(function () {
+        if (!raving) return;
+        freeDance();
+        cycleTimer = setTimeout(function () { freeDance(); cycleTimer = setTimeout(partyLoop, 3600); }, 3600);
+      }, 3000);
+    }
+
+    /* ---- reacting to the page ---- */
+    function react(kind) {
+      if (raving || !crew.length) return;
+      if (!visible || busy) { if (!pending || kind === "photo" || kind === "send") pending = kind; return; }
+      busy = true;
+      crew.forEach(function (m) { clearTimeout(m.timer); });
+      var done = function (ms) { setTimeout(function () { busy = false; crew.forEach(function (m) { m.next(); }); }, ms); };
+      if (kind === "photo") {
+        egg.photos++;
+        var sw = stageW(), sp = sw < 520 ? 34 : 52;
+        var cx = Math.max(20, sw / 2 - (sw < 520 ? 110 : 160));
+        var models = crew.filter(function (m) { return !m.cfg.gun; }).slice(0, 4);
+        var shooters = crew.filter(function (m) { return models.indexOf(m) < 0; }).slice(0, 2);
+        if (!shooters.length && crew.length > 1) { shooters = [models.pop()]; }
+        models.forEach(function (m, k) { m.walkTo(cx + k * sp, function () { m.face(cx + 400); m.pose(m.cfg.kind === "girl" ? "is-posegirl" : "is-posecool"); }, 120); });
+        shooters.forEach(function (m, k) { m.walkTo(cx + sp * models.length + (sw < 520 ? 40 : 110) + k * sp, function () { m.face(cx - 400); m.pose("is-camera"); }, 120); });
+        crew.forEach(function (m) { if (models.indexOf(m) < 0 && shooters.indexOf(m) < 0) { m.face(cx); m.pose(rnd(["is-look", "is-phone", "is-chill"])); } });
+        done(7000);
+      } else if (kind === "quote") {
+        var main = crew[0];
+        main.pose("is-count");
+        bills(main.el, 2, {});
+        crew.slice(1, 3).forEach(function (m) { m.face(main.x); m.pose("is-look"); });
+        done(3500);
+      } else if (kind === "faq") {
+        var who = rnd(crew.slice(1).length ? crew.slice(1) : crew);
+        who.pose("is-think");
+        done(4000);
+      } else if (kind === "send") {
+        crew.forEach(function (m) { m.pose("is-cheer"); });
+        done(4000);
+      }
+    }
+    document.addEventListener("crew", function (e) { react(e.detail); });
+
+    /* ---- public hooks used by the music player and the form ---- */
     window.hype = {
       set: function (on) {
         raving = on;
-        clearInterval(moneyTimer);
-        crew.forEach(function (m) { m.el.setAttribute("aria-label", on ? "Pause music" : "Play music"); on ? m.rave() : m.chill(); });
-        if (on && !reduceMotion) moneyTimer = setInterval(drop, 700);
+        clearTimeout(cycleTimer); clearInterval(gunTimer);
+        busy = false;
+        crew.forEach(function (m) { clearTimeout(m.timer); m.el.setAttribute("aria-label", m.cfg.name + (on ? ", pause music" : ", play music")); });
+        stage.classList.toggle("is-party", on);
+        if (on) {
+          if (reduceMotion) { crew.forEach(function (m) { m.dance("bounce"); }); return; }
+          gather();
+          cycleTimer = setTimeout(partyLoop, 2200);
+        } else {
+          crew.forEach(function (m, i) { m.pose("is-chill"); m.timer = setTimeout(m.next, 800 + i * 350); });
+        }
       },
       rain: function () {
         egg.rains++;
+        react("send");
         if (reduceMotion) return;
         for (var i = 0; i < 46; i++) {
           (function (i) {
@@ -1801,18 +2044,24 @@
         }
       }
     };
-    window.addEventListener("resize", function () {
-      crew.forEach(function (m) { var mx = Math.max(0, stage.clientWidth - m.el.offsetWidth); if (m.x > mx) m.place(mx); });
-    });
-    // only animate while the footer is on screen
+
+    // start: Tiles and Glitter are always there; returning visitors find more of the crew
+    var start = Math.min(max, 2 + Math.floor(hung / 12));
+    for (var i = 0; i < start; i++) addPerson(i, false);
+    STAGES.forEach(function (s) { if (hung >= s.at) buildProp(s.prop); });
+
+    window.addEventListener("resize", function () { crew.forEach(function (m) { if (m.x > m.maxX()) m.place(m.maxX()); }); });
     if ("IntersectionObserver" in window) {
       new IntersectionObserver(function (es) {
         visible = es[0].isIntersecting;
         stage.classList.toggle("is-paused", !visible);
-        if (visible && !raving) crew.forEach(function (m) { if (!m.timer) m.next(); });
+        if (visible && !raving) {
+          if (pending) { var p = pending; pending = null; setTimeout(function () { react(p); }, 600); }
+          else crew.forEach(function (m) { if (!m.timer) m.next(); });
+        }
       }).observe(stage);
     }
-    crew.forEach(function (m, i) { m.timer = setTimeout(m.next, 400 + i * 450); });
+    setInterval(tick, 1000);
     initEggStats(stage);
   }
 
@@ -1820,7 +2069,7 @@
      Counts how many visitors find the crew, how long they watch, how often they click,
      and whether the crew got the music going. Sent once when the visitor leaves the page
      to /api/egg (a free Cloudflare function). See your numbers at /api/egg. */
-  var egg = { seen: 0, ms: 0, clicks: 0, plays: 0, rains: 0, since: 0 };
+  var egg = { seen: 0, ms: 0, clicks: 0, plays: 0, rains: 0, since: 0, photos: 0, throws: 0, boombox: 0, crew: 0, level: 0 };
   function initEggStats(stage) {
     if (!("IntersectionObserver" in window)) return;
     new IntersectionObserver(function (es) {
@@ -1833,7 +2082,7 @@
       if (sent || !egg.seen) return;
       if (egg.since) { egg.ms += performance.now() - egg.since; egg.since = 0; }
       sent = true;
-      var body = JSON.stringify({ seen: 1, seconds: Math.round(egg.ms / 1000), clicks: egg.clicks, plays: egg.plays, rains: egg.rains });
+      var body = JSON.stringify({ seen: 1, seconds: Math.round(egg.ms / 1000), clicks: egg.clicks, plays: egg.plays, rains: egg.rains, photos: egg.photos, throws: egg.throws, boombox: egg.boombox, crew: egg.crew, level: egg.level });
       try {
         if (navigator.sendBeacon) navigator.sendBeacon("/api/egg", new Blob([body], { type: "application/json" }));
         else fetch("/api/egg", { method: "POST", body: body, keepalive: true, headers: { "Content-Type": "application/json" } });

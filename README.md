@@ -6,11 +6,17 @@
 2. **Get your domain** (~$30 NZD/yr): buy `mosaicscope.co.nz`, then Cloudflare → Workers & Pages → mosaicscope → Custom domains → add it.
 3. **Google Business Profile** (free): business.google.com → "MosaicScope", photographer, Christchurch, add the website link. This is how locals find you on Google Maps.
 
-## 🤫 Easter egg
+## 🤫 Easter egg: The Mosaics
 
-A crew of ten lives in the black strip at the very bottom: the bandana guy, his glam girl and eight friends. Music off: they walk, smoke, sit with a beer, scroll phones, take selfies, nap, do push-ups and more. Music on: they all rave (the worm, robot, shuffle, floss, moonwalk...). Click anyone to play/pause. They make it rain when someone sends an enquiry.
+A crew lives in the black strip at the very bottom: **Tiles** (main guy), **Glitter** (his girl), and Kodak, Nova, Grain, Ruby, Flash, Lux, Bando and Honey.
 
-**Easter egg stats:** open https://mosaicscope.pages.dev/api/egg to see how many people found the crew, how long they watched, how many clicked them, and how often they started the music (last 30 days).
+- **Music off:** they live their lives (walk, smoke, sit with a beer, selfies, naps, push-ups...).
+- **Music on:** they party under the disco ball. Tiles throws cash, the girls hype him, the boys put their hands up, Kodak and Bando spray money guns. Sometimes the cash floats up the page.
+- **They react to the site:** open a photo → mock photoshoot with flashing cameras. Build a quote → Tiles counts his cash. Open a FAQ → someone has a think. Send an enquiry → it rains money.
+- **The longer people stay, the more it grows:** more of the crew turn up, then a boombox (clickable), string lights, a disco ball, a banner, and an "Our world, coming soon" sign (the hook for the future world page).
+- Tap/hover anyone to see their name. Click anyone to play/pause music.
+
+**Stats:** https://mosaicscope.pages.dev/api/egg shows visitors who found them, time watched, clicks, music plays, photoshoots, cash throws, boombox clicks, biggest crew and highest level (last 30 days).
 
 ## 🔧 Things you can fill in whenever
 

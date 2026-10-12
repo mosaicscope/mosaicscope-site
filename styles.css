@@ -1156,9 +1156,318 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 @keyframes dn-spin { to { rotate: y 360deg; } }
 
 /* every rave move gets a little bounce in the head */
-.raver.is-rave:not(.d-goff):not(.d-robot):not(.d-dab) .rv__head { animation: rv-nod .42s ease-in-out infinite; }
+:where(.raver.is-rave) .rv__head { animation: rv-nod .42s ease-in-out infinite; }
 
 /* crew of ten: a bit smaller so they fit */
 .stage .raver { width: 58px; height: 82px; }
 @media (max-width: 520px) { .stage .raver { width: 50px; height: 70px; } }
 .raver.is-crouch .rv__top { transform: rotate(18deg); }
+
+/* ================= Round 15: The Mosaics ================= */
+.stage { overflow-x: clip; }
+.rv__mgun, .rv__cam, .rv__wad, .rv__note { opacity: 0; transition: opacity .3s; }
+.raver__bubble { position: absolute; left: 60%; top: -14px; display: none; padding: 1px 6px; border-radius: 10px; background: var(--paper, #eee4d3); color: #0e0b0a; font: 700 11px/1.3 var(--f-mono, monospace); pointer-events: none; }
+.raver.is-left .raver__bubble { left: 4%; }
+.raver.is-think .raver__bubble { display: block; animation: rv-pop 2s ease-in-out infinite; }
+@keyframes rv-pop { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-3px) scale(1.08); } }
+
+/* name tag on hover / keyboard focus */
+.raver::after { content: attr(data-name); position: absolute; left: 50%; bottom: 100%; transform: translate(-50%, 4px); padding: 1px 6px; border-radius: 3px; background: rgba(14, 11, 10, .85); color: var(--acid, #c6ff3d); font: 10px/1.4 var(--f-mono, monospace); letter-spacing: .04em; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
+.raver:hover::after, .raver:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+.raver:hover { z-index: 3; }
+
+/* ---- reacting to the page ---- */
+/* Tiles throws cash: wad in one hand, flicking notes with the other */
+.raver.d-throw .rv__wad { opacity: 1; }
+.raver.d-throw .rv__armL { transform: rotate(-38deg); }
+.raver.d-throw .rv__armR { animation: mv-flick .42s cubic-bezier(.3,0,.2,1) infinite; }
+.raver.d-throw .rv__note { animation: mv-note .42s steps(1) infinite; }
+.raver.d-throw .rv { animation: rv-bob .42s ease-in-out infinite; }
+.raver.d-throw .rv__top { transform: rotate(-5deg); }
+@keyframes mv-flick { 0%, 100% { transform: rotate(-40deg); } 35% { transform: rotate(-150deg); } 55% { transform: rotate(-120deg); } }
+@keyframes mv-note { 0% { opacity: 1; } 35% { opacity: 0; } }
+/* money gun */
+.raver.d-shoot .rv__mgun { opacity: 1; }
+.raver.d-shoot .rv__armR { animation: mv-recoil .3s ease-in-out infinite; }
+.raver.d-shoot .rv__armL { transform: rotate(-60deg); }
+.raver.d-shoot .rv { animation: rv-bob .3s ease-in-out infinite; }
+@keyframes mv-recoil { 0%, 100% { transform: rotate(-95deg); } 30% { transform: rotate(-108deg); } }
+/* counting cash (quote builder) */
+.raver.is-count .rv__wad { opacity: 1; }
+.raver.is-count .rv__armL { transform: rotate(-52deg); }
+.raver.is-count .rv__armR { animation: mv-count .3s ease-in-out infinite alternate; }
+.raver.is-count .rv__head { transform: rotate(12deg); }
+@keyframes mv-count { from { transform: rotate(40deg); } to { transform: rotate(56deg); } }
+/* thinking (FAQ) */
+.raver.is-think .rv__armR { transform: rotate(-128deg); }
+.raver.is-think .rv__armL { transform: rotate(-40deg); }
+.raver.is-think .rv__head { animation: ev-look 3s ease-in-out infinite; }
+/* cheering (enquiry sent) */
+.raver.is-cheer .rv { animation: rv-jump .5s ease-in-out infinite; }
+.raver.is-cheer .rv__armL { animation: mv-upL .5s ease-in-out infinite alternate; }
+.raver.is-cheer .rv__armR { animation: mv-upR .5s ease-in-out infinite alternate; }
+@keyframes mv-upL { from { transform: rotate(140deg); } to { transform: rotate(165deg); } }
+@keyframes mv-upR { from { transform: rotate(-140deg); } to { transform: rotate(-165deg); } }
+/* photoshoot: little cameras that flash */
+.raver.is-camera .rv__cam { opacity: 1; }
+.raver.is-camera .rv__armR { transform: rotate(-84deg); }
+.raver.is-camera .rv__armL { transform: rotate(-98deg); }
+.raver.is-camera .rv__head { transform: rotate(8deg); }
+.raver.is-camera .rv { animation: mv-crouchshot 2.6s ease-in-out infinite; }
+.raver.is-camera .rv__flash { animation: mv-flash 1.3s steps(1) infinite; }
+.raver.is-camera:nth-of-type(even) .rv__flash { animation-delay: .65s; }
+@keyframes mv-flash { 0%, 84% { opacity: 0; } 86% { opacity: 1; } 92% { opacity: .4; } }
+@keyframes mv-crouchshot { 0%, 45%, 100% { transform: translateY(0); } 55%, 90% { transform: translateY(8px); } }
+/* models: girls switch poses on every flash */
+.raver.is-posegirl .rv__armR { animation: mv-pgR 2.6s steps(1) infinite; }
+.raver.is-posegirl .rv__armL { animation: mv-pgL 2.6s steps(1) infinite; }
+.raver.is-posegirl .rv__top { animation: mv-pgT 2.6s steps(1) infinite; }
+.raver.is-posegirl .rv__head { animation: mv-pgH 2.6s steps(1) infinite; }
+.raver.is-posegirl .rv__legR { animation: mv-pgLeg 2.6s steps(1) infinite; }
+@keyframes mv-pgR { 0% { transform: rotate(-150deg); } 33% { transform: rotate(40deg); } 66% { transform: rotate(-120deg); } }
+@keyframes mv-pgL { 0% { transform: rotate(-30deg); } 33% { transform: rotate(150deg); } 66% { transform: rotate(-30deg); } }
+@keyframes mv-pgT { 0% { transform: rotate(-6deg); } 33% { transform: rotate(7deg); } 66% { transform: rotate(-3deg); } }
+@keyframes mv-pgH { 0% { transform: rotate(-10deg); } 33% { transform: rotate(10deg); } 66% { transform: rotate(-4deg); } }
+@keyframes mv-pgLeg { 0% { transform: rotate(-14deg); } 33% { transform: rotate(4deg); } 66% { transform: rotate(-20deg); } }
+/* models: guys go arms crossed, peace sign, chin up */
+.raver.is-posecool .rv__armR { animation: mv-pcR 2.6s steps(1) infinite; }
+.raver.is-posecool .rv__armL { animation: mv-pcL 2.6s steps(1) infinite; }
+.raver.is-posecool .rv__head { animation: mv-pcH 2.6s steps(1) infinite; }
+.raver.is-posecool .rv__legL { transform: rotate(-8deg); }
+@keyframes mv-pcR { 0% { transform: rotate(72deg); } 33% { transform: rotate(-135deg); } 66% { transform: rotate(-30deg); } }
+@keyframes mv-pcL { 0% { transform: rotate(-72deg); } 33% { transform: rotate(10deg); } 66% { transform: rotate(-80deg); } }
+@keyframes mv-pcH { 0% { transform: rotate(-8deg); } 33% { transform: rotate(6deg); } 66% { transform: rotate(-2deg); } }
+
+/* ---- 20 new dance moves (feet stay on the ground) ---- */
+/* two-step */
+.raver.d-twostep .rv { animation: mv-side .84s ease-in-out infinite; }
+.raver.d-twostep .rv__legL { animation: mv-stepL .84s ease-in-out infinite; }
+.raver.d-twostep .rv__legR { animation: mv-stepR .84s ease-in-out infinite; }
+.raver.d-twostep .rv__armL { animation: rv-swing .84s ease-in-out infinite alternate; }
+.raver.d-twostep .rv__armR { animation: rv-swing .84s ease-in-out infinite alternate-reverse; }
+@keyframes mv-side { 0%, 100% { transform: translate(-3px, 0); } 25% { transform: translate(0, -2px); } 50% { transform: translate(3px, 0); } 75% { transform: translate(0, -2px); } }
+@keyframes mv-stepL { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(14deg); } 50% { transform: rotate(4deg); } }
+@keyframes mv-stepR { 0%, 50%, 100% { transform: rotate(0); } 75% { transform: rotate(-14deg); } }
+/* bounce */
+.raver.d-bounce .rv { animation: mv-knees .42s ease-in-out infinite; }
+.raver.d-bounce .rv__armL { animation: mv-pumpL .42s ease-in-out infinite alternate; }
+.raver.d-bounce .rv__armR { animation: mv-pumpR .42s ease-in-out infinite alternate; }
+@keyframes mv-knees { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px) scaleY(.97); } }
+@keyframes mv-pumpL { from { transform: rotate(-10deg); } to { transform: rotate(-40deg); } }
+@keyframes mv-pumpR { from { transform: rotate(10deg); } to { transform: rotate(40deg); } }
+/* body roll */
+.raver.d-bodyroll .rv__top { animation: mv-roll 1.26s ease-in-out infinite; }
+.raver.d-bodyroll .rv__head { animation: mv-rollH 1.26s ease-in-out infinite; }
+.raver.d-bodyroll .rv__armL { transform: rotate(-25deg); }
+.raver.d-bodyroll .rv__armR { transform: rotate(-150deg); }
+@keyframes mv-roll { 0%, 100% { transform: rotate(-8deg) translateX(-2px); } 33% { transform: rotate(4deg) translateY(2px); } 66% { transform: rotate(9deg) translateX(2px); } }
+@keyframes mv-rollH { 0%, 100% { transform: rotate(10deg); } 50% { transform: rotate(-12deg); } }
+/* shimmy */
+.raver.d-shimmy .rv__top { animation: mv-shim .16s ease-in-out infinite alternate; }
+.raver.d-shimmy .rv__armL { transform: rotate(78deg); }
+.raver.d-shimmy .rv__armR { transform: rotate(-78deg); }
+.raver.d-shimmy .rv { animation: mv-knees .84s ease-in-out infinite; }
+@keyframes mv-shim { from { transform: rotate(-5deg); } to { transform: rotate(5deg); } }
+/* tutting: sharp right angles */
+.raver.d-tutting .rv__armL { animation: mv-tutL 1.68s steps(1) infinite; }
+.raver.d-tutting .rv__armR { animation: mv-tutR 1.68s steps(1) infinite; }
+.raver.d-tutting .rv__head { animation: mv-tutH 1.68s steps(1) infinite; }
+@keyframes mv-tutL { 0% { transform: rotate(-45deg); } 25% { transform: rotate(45deg); } 50% { transform: rotate(135deg); } 75% { transform: rotate(-90deg); } }
+@keyframes mv-tutR { 0% { transform: rotate(-135deg); } 25% { transform: rotate(-45deg); } 50% { transform: rotate(45deg); } 75% { transform: rotate(-90deg); } }
+@keyframes mv-tutH { 0%, 50% { transform: rotate(-8deg); } 25%, 75% { transform: rotate(8deg); } }
+/* popping */
+.raver.d-popping .rv { animation: mv-pop .42s steps(2) infinite; }
+.raver.d-popping .rv__armL { animation: mv-popL .84s steps(2) infinite; }
+.raver.d-popping .rv__armR { animation: mv-popR .84s steps(2) infinite; }
+@keyframes mv-pop { 0% { transform: translateY(0); } 50% { transform: translateY(-2px) scale(1.02); } }
+@keyframes mv-popL { 0% { transform: rotate(-20deg); } 50% { transform: rotate(80deg); } }
+@keyframes mv-popR { 0% { transform: rotate(-80deg); } 50% { transform: rotate(20deg); } }
+/* jerk */
+.raver.d-jerk .rv__top { transform: rotate(-10deg); }
+.raver.d-jerk .rv__legL { animation: mv-jerkL .5s ease-in-out infinite; }
+.raver.d-jerk .rv__legR { animation: mv-jerkR .5s ease-in-out infinite; }
+.raver.d-jerk .rv__armL { animation: mv-pumpL .25s ease-in-out infinite alternate; }
+.raver.d-jerk .rv__armR { animation: mv-pumpR .25s ease-in-out infinite alternate; }
+@keyframes mv-jerkL { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-26deg); } }
+@keyframes mv-jerkR { 0%, 100% { transform: rotate(-26deg); } 50% { transform: rotate(0); } }
+/* dougie: hand brushes past the head */
+.raver.d-dougie .rv__armR { animation: mv-brush .84s ease-in-out infinite; }
+.raver.d-dougie .rv__armL { transform: rotate(-20deg); }
+.raver.d-dougie .rv__top { animation: dn-flossT .84s ease-in-out infinite alternate; }
+.raver.d-dougie .rv { animation: mv-knees .42s ease-in-out infinite; }
+@keyframes mv-brush { 0%, 100% { transform: rotate(-150deg); } 50% { transform: rotate(-100deg); } }
+/* nae nae */
+.raver.d-naenae .rv__armR { animation: mv-naeR .84s ease-in-out infinite; }
+.raver.d-naenae .rv__armL { transform: rotate(30deg); }
+.raver.d-naenae .rv__top { animation: mv-naeT .84s ease-in-out infinite; }
+.raver.d-naenae .rv { animation: mv-knees .42s ease-in-out infinite; }
+@keyframes mv-naeR { 0%, 100% { transform: rotate(-160deg); } 50% { transform: rotate(-140deg); } }
+@keyframes mv-naeT { 0%, 100% { transform: rotate(-9deg); } 50% { transform: rotate(-3deg); } }
+/* whip: steering the wheel */
+.raver.d-whip .rv__armR { transform: rotate(-88deg); }
+.raver.d-whip .rv__armL { animation: mv-wheel .84s ease-in-out infinite alternate; }
+.raver.d-whip .rv__top { animation: mv-whipT .84s ease-in-out infinite alternate; }
+.raver.d-whip .rv__legL { transform: rotate(-12deg); }
+@keyframes mv-wheel { from { transform: rotate(-60deg); } to { transform: rotate(-100deg); } }
+@keyframes mv-whipT { from { transform: rotate(3deg); } to { transform: rotate(-4deg); } }
+/* milly rock */
+.raver.d-millyrock .rv__armL { animation: mv-millyL .84s ease-in-out infinite; }
+.raver.d-millyrock .rv__armR { animation: mv-millyR .84s ease-in-out infinite; }
+.raver.d-millyrock .rv__top { animation: dn-flossT .84s ease-in-out infinite alternate; }
+.raver.d-millyrock .rv__legL { animation: mv-stepL .84s ease-in-out infinite; }
+@keyframes mv-millyL { 0%, 100% { transform: rotate(20deg); } 50% { transform: rotate(110deg); } }
+@keyframes mv-millyR { 0%, 100% { transform: rotate(-110deg); } 50% { transform: rotate(-20deg); } }
+/* hit dem folks */
+.raver.d-hitdemfolks .rv { animation: mv-knees .42s ease-in-out infinite; }
+.raver.d-hitdemfolks .rv__armL { animation: mv-folksL .84s steps(2) infinite; }
+.raver.d-hitdemfolks .rv__armR { animation: mv-folksR .84s steps(2) infinite; }
+.raver.d-hitdemfolks .rv__top { animation: mv-folksT .84s steps(2) infinite; }
+@keyframes mv-folksL { 0% { transform: rotate(-70deg); } 50% { transform: rotate(10deg); } }
+@keyframes mv-folksR { 0% { transform: rotate(-10deg); } 50% { transform: rotate(70deg); } }
+@keyframes mv-folksT { 0% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+/* sway */
+.raver.d-sway .rv__top { animation: dn-flossT 1.68s ease-in-out infinite alternate; }
+.raver.d-sway .rv__armL { animation: rv-swing 1.68s ease-in-out infinite alternate; }
+.raver.d-sway .rv__armR { animation: rv-swing 1.68s ease-in-out infinite alternate; }
+/* clap on the beat */
+.raver.d-clap .rv__armL { animation: mv-clapL .42s ease-in-out infinite alternate; }
+.raver.d-clap .rv__armR { animation: mv-clapR .42s ease-in-out infinite alternate; }
+.raver.d-clap .rv { animation: mv-knees .84s ease-in-out infinite; }
+@keyframes mv-clapL { from { transform: rotate(-70deg); } to { transform: rotate(-112deg); } }
+@keyframes mv-clapR { from { transform: rotate(-150deg); } to { transform: rotate(-110deg); } }
+/* side step */
+.raver.d-sidestep .rv { animation: mv-sidestep 1.68s ease-in-out infinite; }
+.raver.d-sidestep .rv__legL { animation: mv-stepL .84s ease-in-out infinite; }
+.raver.d-sidestep .rv__legR { animation: mv-stepR .84s ease-in-out infinite; }
+.raver.d-sidestep .rv__armL { animation: mv-pumpL .42s ease-in-out infinite alternate; }
+.raver.d-sidestep .rv__armR { animation: mv-pumpR .42s ease-in-out infinite alternate; }
+@keyframes mv-sidestep { 0%, 100% { transform: translateX(-7px); } 50% { transform: translateX(7px); } }
+/* bop: fist pump and head nod */
+.raver.d-bop .rv__armR { animation: mv-fist .42s ease-in-out infinite alternate; }
+.raver.d-bop .rv__armL { transform: rotate(-15deg); }
+.raver.d-bop .rv { animation: mv-knees .42s ease-in-out infinite; }
+.raver.d-bop .rv__head { animation: rv-bang .42s ease-in-out infinite; }
+@keyframes mv-fist { from { transform: rotate(-150deg); } to { transform: rotate(-115deg); } }
+/* heel toe */
+.raver.d-heeltoe .rv__legR { animation: mv-heel .42s ease-in-out infinite alternate; }
+.raver.d-heeltoe .rv__legL { animation: mv-heel .42s ease-in-out infinite alternate-reverse; }
+.raver.d-heeltoe .rv__armL { transform: rotate(-30deg); }
+.raver.d-heeltoe .rv__armR { transform: rotate(30deg); }
+.raver.d-heeltoe .rv { animation: mv-side .84s ease-in-out infinite; }
+@keyframes mv-heel { from { transform: rotate(-12deg); } to { transform: rotate(10deg); } }
+/* krump */
+.raver.d-krump .rv { animation: mv-stomp .5s cubic-bezier(.5,0,.2,1) infinite; }
+.raver.d-krump .rv__top { transform: rotate(10deg); }
+.raver.d-krump .rv__armL { animation: mv-krumpL .5s cubic-bezier(.5,0,.2,1) infinite; }
+.raver.d-krump .rv__armR { animation: mv-krumpR .5s cubic-bezier(.5,0,.2,1) infinite .25s; }
+.raver.d-krump .rv__head { animation: rv-bang .25s ease-in-out infinite; }
+@keyframes mv-stomp { 0%, 100% { transform: translateY(0); } 30% { transform: translateY(-5px); } 45% { transform: translateY(2px); } }
+@keyframes mv-krumpL { 0%, 100% { transform: rotate(-60deg); } 40% { transform: rotate(120deg); } }
+@keyframes mv-krumpR { 0%, 100% { transform: rotate(60deg); } 40% { transform: rotate(-140deg); } }
+/* hip shake: squat low, lean in, shake it */
+.raver.d-hipshake .rv { transform: translateY(5px); }
+.raver.d-hipshake .rv__top { transform: rotate(26deg); }
+.raver.d-hipshake .rv__legL { animation: mv-hipL .22s ease-in-out infinite alternate; }
+.raver.d-hipshake .rv__legR { animation: mv-hipR .22s ease-in-out infinite alternate; }
+.raver.d-hipshake .rv__armL { transform: rotate(-24deg); }
+.raver.d-hipshake .rv__armR { transform: rotate(14deg); }
+.raver.d-hipshake .rv__head { animation: mv-hipH .44s ease-in-out infinite; }
+@keyframes mv-hipL { from { transform: rotate(18deg); } to { transform: rotate(28deg); } }
+@keyframes mv-hipR { from { transform: rotate(-28deg); } to { transform: rotate(-18deg); } }
+@keyframes mv-hipH { 0%, 100% { transform: rotate(-22deg); } 50% { transform: rotate(-14deg); } }
+/* hands up */
+.raver.d-handsup .rv { animation: mv-knees .42s ease-in-out infinite; }
+.raver.d-handsup .rv__armL { animation: mv-upL .42s ease-in-out infinite alternate; }
+.raver.d-handsup .rv__armR { animation: mv-upR .42s ease-in-out infinite alternate-reverse; }
+
+/* ---- the scene builds the longer you stay ---- */
+.prop { position: absolute; z-index: 0; opacity: 0; transform: translateY(6px); transition: opacity 1.2s var(--ease), transform 1.2s var(--ease); pointer-events: none; }
+.prop.is-in { opacity: 1; transform: none; }
+.stage .raver { z-index: 1; }
+.stage__label { position: absolute; top: 16px; right: 8px; margin: 0; font-size: 10px; letter-spacing: .06em; color: rgba(238, 228, 211, .32); pointer-events: none; }
+/* boombox */
+.prop--boombox { left: 10px; bottom: 6px; width: 40px; height: 28px; padding: 0; border: 0; background: none; cursor: pointer; pointer-events: auto; }
+.prop--boombox:focus-visible { outline: 2px solid var(--acid); outline-offset: 3px; }
+.bb__handle { position: absolute; left: 10px; right: 10px; top: 0; height: 7px; border: 2px solid #9a8d80; border-bottom: 0; border-radius: 4px 4px 0 0; }
+.bb__body { position: absolute; left: 0; right: 0; bottom: 0; height: 21px; display: flex; align-items: center; justify-content: space-between; padding: 0 4px; border-radius: 4px; background: #2a2420; border: 1px solid #4a403a; }
+.bb__body i { width: 11px; height: 11px; border-radius: 50%; background: radial-gradient(circle, #0e0b0a 30%, #6b5f56 32%, #0e0b0a 60%); }
+.bb__body b { width: 7px; height: 4px; background: var(--acid, #c6ff3d); opacity: .5; }
+.stage.is-party .bb__body i { animation: bb-thump .42s ease-in-out infinite; }
+.stage.is-party .bb__body b { opacity: 1; }
+@keyframes bb-thump { 50% { transform: scale(1.18); } }
+/* string lights */
+.prop--lights { left: 0; right: 0; top: 0; height: 12px; display: flex; justify-content: space-around; border-top: 1px solid rgba(238, 228, 211, .12); }
+.prop--lights i { width: 5px; height: 5px; margin-top: 2px; border-radius: 50%; background: #f6b62c; box-shadow: 0 0 6px currentColor; color: #f6b62c; opacity: .55; animation: lt-twinkle 3s ease-in-out infinite; animation-delay: calc(var(--k) * -0.37s); }
+.prop--lights i:nth-child(even) { margin-top: 5px; }
+.prop--lights i:nth-child(3n) { background: #ec2a1c; color: #ec2a1c; }
+.prop--lights i:nth-child(3n+1) { background: #c6ff3d; color: #c6ff3d; }
+.stage.is-party .prop--lights i { animation-duration: .84s; opacity: .9; }
+@keyframes lt-twinkle { 50% { opacity: 1; } }
+/* disco ball */
+.prop--disco { left: 50%; top: 0; width: 18px; margin-left: -9px; }
+.disco__string { display: block; width: 1px; height: 14px; margin: 0 auto; background: rgba(238, 228, 211, .3); }
+.disco__ball { display: block; width: 18px; height: 18px; border-radius: 50%; background: repeating-conic-gradient(#9a8d80 0 25%, #eee4d3 0 50%) 0 0 / 6px 6px; animation: disco-spin 6s linear infinite; }
+.stage.is-party .disco__ball { animation-duration: 1.4s; box-shadow: 0 0 14px rgba(238, 228, 211, .6), 0 0 40px rgba(198, 255, 61, .25); }
+@keyframes disco-spin { to { background-position: 18px 0; } }
+/* banner */
+.prop--banner { left: 12px; top: 16px; padding: 2px 8px; border: 1px solid rgba(198, 255, 61, .4); color: var(--acid, #c6ff3d); font-size: 10px; letter-spacing: .14em; transform: rotate(-2deg); }
+.prop--banner.is-in { transform: rotate(-2deg); }
+/* sign for their world, coming later */
+.prop--sign { right: 10px; bottom: 6px; padding: 3px 6px 3px; border-radius: 2px; background: #3a2c22; border: 1px solid #5c4636; color: #eee4d3; font-size: 9px; line-height: 1.25; text-align: center; }
+.prop--sign::after { content: ""; position: absolute; left: 50%; top: 100%; width: 2px; height: 8px; margin-left: -1px; background: #5c4636; }
+.prop--sign { bottom: 14px; }
+
+/* ---- cash notes ---- */
+.cash__note { position: fixed; width: 15px; height: 8px; border-radius: 1px; background: #7bd36b; border: 1px solid #2d6b24; box-shadow: inset 0 0 0 1.5px #a6e89a; opacity: 0; animation: cash-note var(--dur, 2s) cubic-bezier(.2,.6,.4,1) both; }
+.cash__note:nth-child(4n) { background: #f6b62c; border-color: #8a6416; box-shadow: none; }
+@keyframes cash-note {
+  0% { opacity: 0; transform: translate(0, 0) rotate(0); }
+  8% { opacity: 1; }
+  45% { transform: translate(calc(var(--dx) * .6), var(--up)) rotate(calc(var(--rot) * .5)); }
+  80% { opacity: .9; }
+  100% { opacity: 0; transform: translate(var(--dx), calc(var(--up) * .45 + 50px)) rotate(var(--rot)); }
+}
+
+@media (max-width: 520px) {
+  .prop--banner, .stage__label { font-size: 9px; }
+  .prop--sign { font-size: 8px; }
+  .stage__label { top: 34px; }
+}
+@media (prefers-reduced-motion: reduce) { .prop, .prop * { animation: none !important; transition: none !important; } .cash__note { display: none; } }
+
+/* ================= Round 15b: phones ================= */
+/* tiles light up as they pass the middle of the screen (no hover on phones) */
+.tile.is-focus .frag:nth-child(odd) { transform: translate3d(4px, 0, 0); filter: hue-rotate(-25deg) saturate(1.4); }
+.tile.is-focus .frag:nth-child(even) { transform: translate3d(-4px, 0, 0); }
+.tile.is-focus .tile__media::after { opacity: 1; }
+.tile.is-focus .slate span:first-child { background: var(--acid); color: var(--ink); }
+.slide.is-focus { transform: rotate(0deg) scale(1.03); z-index: 2; transition: transform .8s var(--ease); }
+/* crew name tag on tap */
+.raver.is-tag::after { opacity: 1; transform: translate(-50%, 0); }
+
+@media (max-width: 720px) {
+  .bar__end { gap: 10px; }
+}
+@media (max-width: 520px) {
+  .sc__title { display: none !important; }
+  .bar__mark span { font-size: .95em; }
+  .enquire { padding-inline: 14px; }
+  /* work: two columns so you see more than one photo at a time */
+  .masonry { column-count: 2; column-gap: 10px; }
+  .tile { margin-bottom: 14px; }
+  .tile:nth-child(3n+2) { margin-top: 0; }
+  .tile:nth-child(even) { margin-top: 0; }
+  .tile .slate span { font-size: 9px; padding: 3px 4px; }
+  .tile .slate span + span { display: none; }
+  .tile__cap { gap: 6px; padding-top: 6px; }
+  .tile__cap strong { font-size: .82rem; overflow-wrap: anywhere; }
+  .tile__cap em { font-size: .8rem; }
+  /* the crew strip gets a bit more room on phones */
+  .stage { height: 116px; }
+  .stage .raver { width: 46px; height: 64px; }
+  .stage__label { display: none; }
+  .prop--banner { top: 14px; left: 4px; }
+  .prop--sign { right: 4px; top: 14px; bottom: auto; }
+  .prop--sign::after { display: none; }
+  .prop--boombox { left: 4px; transform: scale(.85); transform-origin: left bottom; }
+}
