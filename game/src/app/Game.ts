@@ -138,6 +138,7 @@ export class Game {
     this.bindSim();
     this.bindStats();
     this.loadEmpire();
+    this.applyAbsence();
     const mq = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     this.reduceMotionOS = !!mq?.matches;
     mq?.addEventListener?.("change", (e) => { this.reduceMotionOS = e.matches; });
@@ -831,6 +832,35 @@ export class Game {
     },
   });
 
+  // ------------------------------------------------------------------ life goes on while you're away
+  /**
+   * The world remembers when you last played. Stay away and there are consequences: you lose weight
+   * and the fridge is empty, rent and bills come out of your cash, the crew misses you (and Tiles is
+   * a little hurt), and the city has moved on a bit. Real elapsed time counts (capped at 30 days).
+   */
+  private applyAbsence(): void {
+    let last = 0;
+    try { last = +(localStorage.getItem("mosaics-world:last") ?? 0); } catch { /* private mode */ }
+    const mark = () => { try { localStorage.setItem("mosaics-world:last", String(Date.now())); } catch { /* ignore */ } };
+    mark(); addEventListener("pagehide", mark); setInterval(mark, 30000);
+    if (!last) return;
+    const hours = (Date.now() - last) / 3600000;
+    if (hours < 6) return;
+    const days = Math.min(30, hours / 24), sim = this.sim, p = sim.player;
+    const notes: string[] = [];
+    if (days >= 0.25) { p.hunger = Math.min(p.hunger, Math.max(0.12, 0.6 - days * 0.12)); notes.push("you're starving"); }
+    if (days >= 1.5) { const k = Math.max(0.7, 1 - days * 0.025); p.look.build = Math.min(p.look.build ?? 1, k); notes.push(k < 0.85 ? "you've gone skinny" : "you've lost a bit of weight"); }
+    const rent = Math.min(p.cash * 0.4, Math.round(days * 45));
+    if (rent >= 5) { p.cash -= rent; notes.push(`rent and bills took ${fmtCash(rent)}`); }
+    const crew = sim.chars.filter((c) => c.tier === "principal" && c.name !== "Chris");
+    if (days >= 1) for (const c of crew) { const r = sim.relate(c, p.id); r.aff = Math.min(1, r.aff + 0.05); r.fam = Math.min(1, r.fam + 0.05); }
+    const tiles = crew.find((c) => c.name === "Tiles"), glitter = crew.find((c) => c.name === "Glitter");
+    const miss = days < 3 ? "The crew says you were quiet." : days < 10 ? `Glitter: "${days.toFixed(0)} days?! We thought you'd moved to Auckland."` : "Tiles: \"Thought you were gone for good, bro.\"";
+    if (tiles && glitter && days >= 3) { sim.say(glitter, days < 10 ? "There you are! We missed you!" : "Where have you BEEN?!", "shout", 4); }
+    const when = days < 1 ? `${Math.round(hours)} hours` : `${days.toFixed(days < 3 ? 1 : 0)} days`;
+    setTimeout(() => this.focus("Welcome back", `Gone ${when}: ${notes.join(", ") || "the city carried on"}. ${miss}`, 6), 1500);
+  }
+
   // ------------------------------------------------------------------ anonymous play-time stats
   /** One beacon when the visitor leaves: seconds played, whether they've been before, missions, casino. */
   private statsStart = performance.now(); private statsSent = false; statsMissions = 0; statsCasino = 0;
@@ -925,6 +955,7 @@ export class Game {
     this.speedEls = speeds.map(([v, l]) => h("button", { "data-speed": v, "aria-label": v === "0" ? "Pause" : `Speed ${v}x`, "aria-pressed": "false", onclick: () => this.setSpeed(+v), text: l }) as HTMLButtonElement);
     this.soundBtn = h("button.btn.iconbtn", { "aria-label": "Sound on/off", title: "Sound", onclick: () => { this.settings.sound = !this.settings.sound; this.applySettings(); this.persistSettings(); } }) as HTMLButtonElement;
     return h("header.bar", null, [
+      h("button.btn.menu-toggle", { "aria-label": "Menu", "aria-expanded": "false", text: "☰", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar")!; const on = bar.classList.toggle("open"); (e.currentTarget as HTMLElement).setAttribute("aria-expanded", String(on)); try { navigator.vibrate?.(8); } catch { /* ignore */ } } }),
       h("a.brand", { href: "/", title: "Back to MosaicScope" }, [h("b", { text: "The Mosaics" }), h("i", { text: "our world" })]),
       this.clockEl, h("div.spacer"),
       h("div.seg", { role: "group", "aria-label": "Simulation speed" }, this.speedEls),
