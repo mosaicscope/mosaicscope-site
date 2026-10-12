@@ -1701,7 +1701,7 @@
     { at: 120, prop: "lights" },
     { at: 180, prop: "disco" },
     { at: 300, prop: "banner" },
-    { at: 420, prop: "sign" },
+    { at: 0, prop: "sign" }, // the door to the Mosaics' world is there from the start
     { at: 600, prop: "neon" }
   ];
   var POSE_CLASSES = [];
@@ -2097,15 +2097,18 @@
         el.className = "prop prop--banner mono";
         el.textContent = "THE MOSAICS";
       } else if (name === "sign") {
-        el = document.createElement("div");
+        // the sign is the door to the Mosaics' world (a separate page at /world/, nothing loads until clicked)
+        el = document.createElement("a");
+        el.href = "/world/";
         el.className = "prop prop--sign mono";
-        el.innerHTML = "Our world<br>coming soon";
+        el.innerHTML = "Mosaic World<br>enter &rarr;";
+        el.setAttribute("aria-label", "Enter the Mosaics' world");
       } else if (name === "neon") {
         el = document.createElement("div");
         el.className = "prop prop--neon mono";
         el.textContent = "after hours";
       }
-      el.setAttribute("aria-hidden", name === "boombox" ? "false" : "true");
+      el.setAttribute("aria-hidden", name === "boombox" || name === "sign" ? "false" : "true");
       stage.appendChild(el);
       if (temp) { temps[name] = el; return el; }
       props[name] = el;

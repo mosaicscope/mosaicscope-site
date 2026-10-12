@@ -1,0 +1,21 @@
+/** Soak test: run the city headless for a while and print what happened. npm run soak [-- minutes] */
+import { Simulation } from "../src/sim/Simulation";
+const mins = +(process.argv[2] ?? 6);
+const t0 = performance.now();
+const sim = new Simulation({ seed: +(process.argv[3] ?? 20251012) });
+console.log(`built in ${(performance.now() - t0).toFixed(0)} ms: ${sim.chars.length} people, ${sim.vehicles.length} vehicles, ${sim.world.buildings.length} buildings, ${sim.toys.length} items`);
+const t1 = performance.now();
+for (let i = 0; i < 60 * 60 * mins; i++) sim.step();
+const ms = performance.now() - t1;
+console.log(`${mins} real minutes (${mins} game hours, ${sim.hour.toFixed(1)}h now): ${(ms / (3600 * mins)).toFixed(3)} ms/tick`);
+const counts = Object.entries(sim.events.counts).sort((a, b) => b[1] - a[1]);
+console.log(counts.map(([k, v]) => `${k}:${v}`).join("  "));
+const inside = sim.chars.filter((c) => c.inside >= 0).length, driving = sim.chars.filter((c) => c.inCar >= 0).length;
+console.log(`inside buildings ${inside}, driving ${driving}, jailed ${sim.chars.filter((c) => c.jailUntil > 0).length}, graffiti ${sim.world.graffiti.length}, bookings ${sim.bookings.length} (${sim.bookings.filter((b) => b.done).length} shot)`);
+const goals: Record<string, number> = {};
+for (const c of sim.chars) if (c.goal) goals[c.goal.id] = (goals[c.goal.id] ?? 0) + 1;
+console.log("goals now:", JSON.stringify(goals));
+console.log("failures:", JSON.stringify(Object.entries(sim.metrics.failByGoal).sort((a, b) => b[1] - a[1]).slice(0, 12)));
+const cash = sim.chars.reduce((s, c) => s + c.cash, 0);
+console.log(`total cash in wallets $${cash.toFixed(0)}, tills $${Object.values(sim.tills).reduce((a, b) => a + b, 0).toFixed(0)}`);
+console.log("\nlast events:\n" + sim.events.history.slice(-25).map((e) => "  " + e.summary).join("\n"));
