@@ -672,7 +672,9 @@ export class Game {
     this.focus(job.title, `"${job.brief}"`, 5);
   }
   private tickStory(now: number): void {
-    const job = this.currentJob(), t = this.storyTarget();
+    this.tickContract();
+    const job = this.currentJob(), ct = this.contract ? this.sim.chars[this.contract.target] : null;
+    const t = this.storyTarget() ?? (ct ? { x: ct.x, y: ct.y, label: "contract" } : null);
     this.minimap.target = t;
     const live = this.sim.chars.filter((c) => this.isContact(c) && this.hasJob(c) && c.inside < 0);
     this.minimap.contacts = live.map((c) => ({ x: c.x, y: c.y }));
@@ -686,7 +688,44 @@ export class Game {
     this.story[this.job.who].ch++; this.job = null;
     this.focus(job.title.split(" · ")[1] + " · done", `+${fmtCash(job.pay)}${job.heat ? ` · the cops noticed (${job.heat}★)` : ""}`, 4);
   }
+  // ------------------------------------------------------------------ contracts (the target is gone for good)
+  private contract: { target: number; pay: number; from: string } | null = null;
+  private offerContract(from: { name: string }): void {
+    const sim = this.sim, first = from.name.split(" ")[0];
+    if (this.contract) { const t = sim.chars[this.contract.target]; this.focus(first, `"${t ? t.name : "They"} is still walking around. Fix that."`, 3); return; }
+    const pool = sim.chars.filter((c) => c.tier === "mid" && c.role !== "mobster" && c.role !== "cop" && c.inside < 0 && c.inCar < 0 && !this.isContact(c));
+    const t = pool[Math.floor(Math.random() * pool.length)];
+    if (!t) return;
+    const pay = 400 + Math.round(Math.random() * 1200);
+    const why = ["owes the Don money", "put pineapple on the Don's pizza", "parked in the Don's spot", "called the tomatoes 'just okay'", "dated Gina and didn't call", "sold the Famiglia a dodgy hubcap"][Math.floor(Math.random() * 6)];
+    this.contract = { target: t.id, pay, from: first };
+    this.focus("Contract", `${t.name} ${why}. Whack them: ${fmtCash(pay)}.`, 4.5);
+  }
+  private tickContract(): void {
+    const c = this.contract;
+    if (!c) return;
+    const t = this.sim.chars[c.target];
+    if (!t) { this.contract = null; return; }
+    if (t.phys === Phys.DOWN) {
+      const sim = this.sim;
+      sim.player.cash += c.pay; sim.player.wanted = Math.max(sim.player.wanted, 3);
+      // whacked: a last cartoon burst, then they're gone from the city for good
+      sim.bus.emit("fx", { kind: "blood", x: t.x, y: t.y, z: 0.6, n: 60, color: "#b3121b" });
+      sim.bus.emit("fx", { kind: "gib", x: t.x, y: t.y, z: 1, n: 12 });
+      sim.bus.emit("fx", { kind: "text", x: t.x, y: t.y, z: 2.2, n: 1, color: "#eee4d3", text: "💀 RIP" });
+      if (t.talkWith >= 0) sim.dialogue.end(t);
+      t.goal = null; t.path = null; t.vx = t.vy = 0; t.partner = -1;
+      const morgue = sim.world.buildings.find((b) => b.kind === "hospital");
+      t.inside = morgue ? morgue.id : 0; t.insideUntil = Number.MAX_SAFE_INTEGER; t.bubble = null;
+      for (const o of sim.chars) if (o.partner === t.id) o.partner = -1;
+      this.focus("Whacked", `RIP ${t.name}. ${c.from} paid ${fmtCash(c.pay)}. The cops want a word (3★).`, 4);
+      this.toast(`📰 Press: ${t.name} found dead on ${sim.world.streetName(t.x, t.y) || "a city street"}. Police appeal for witnesses.`, "red");
+      this.contract = null;
+    }
+  }
+
   objective(): string {
+    if (this.contract && !this.job) { const t = this.sim.chars[this.contract.target]; return t ? `🎯 Whack ${t.name}` : ""; }
     const t = this.storyTarget();
     if (!t || !this.job) return "";
     const left = this.job.until ? Math.max(0, Math.ceil((this.job.until - performance.now()) / 1000)) : 0;
@@ -698,6 +737,7 @@ export class Game {
     const don = this.sim.chars[id];
     if (don && this.isContact(don) && (this.hasJob(don) || this.job?.who === don.name) && !(don.role === "comic" && !this.job && (this.story[don.name]?.ch ?? 0) > 0)) { this.talkToContact(don.name); return; }
     if (don && don.role === "comic") { this.roast.start(); return; } // Roastie Malone: roast battle
+    if (don && don.role === "mobster" && !this.isContact(don)) { this.offerContract(don); return; }
     this.dialogue.start(id);
     const c = this.sim.chars[id];
     if (!c || !this.dialogue.open) return;
