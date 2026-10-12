@@ -74,7 +74,7 @@ export function spawnVehicles(sim: Simulation): void {
     const d = traffic[rng.weighted(traffic.map((t) => t.traffic))];
     const dir = rng.int(0, 3);
     const horizontal = dir % 2 === 0;
-    const line = rng.int(0, 6), along = rng.range(3, w.size - 3);
+    const line = rng.int(0, Math.floor((w.size - 2) / 16)), along = rng.range(3, w.size - 3);
     // keep spawns out of intersections
     const a = w.isRoadLine(Math.floor(along)) ? along + 3 : along;
     const x = horizontal ? a : laneCoord(dir, line), y = horizontal ? laneCoord(dir, line) : a;
@@ -261,6 +261,8 @@ function laneDrive(sim: Simulation, v: Vehicle, dt: number): void {
         v.honkAt = sim.tick + 240;
         sim.bus.emit("sound", { kind: "horn", x: v.x, y: v.y, vol: 0.6 });
         const c = sim.chars[blockedBy];
+        // someone loitering in the lane steps back onto the footpath instead of blocking traffic forever
+        if (c.tier !== "player" && v.stuck > 3) { const k = sim.world.nearestWalkable(c.x + (c.x - v.x), c.y + (c.y - v.y)); if (!sim.world.isRoadLine(Math.floor(k.x)) && !sim.world.isRoadLine(Math.floor(k.y))) { c.x = c.px = k.x; c.y = c.py = k.y; c.path = null; } }
         if (c.tier !== "player") { c.emo.fear = Math.min(1, c.emo.fear + 0.1); c.emo.frustration = Math.min(1, c.emo.frustration + 0.05); sim.say(c, sim.dialogue.bark(c, "honked"), "shout", 1.2); }
       }
     }

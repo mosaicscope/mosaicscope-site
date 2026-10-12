@@ -192,12 +192,13 @@ export class Renderer {
       if (!inView(pt.x, pt.y, 80 * z)) continue;
       this.push(this.behind(v.x, v.y, v.x + v.y + 0.03), 4, v.id, pt.x, pt.y);
     }
-    for (let r = 0; r <= 6; r++) for (let cc = 0; cc <= 6; cc++) {
+    const nl = Math.floor((S - 2) / 16);
+    for (let r = 0; r <= nl; r++) for (let cc = 0; cc <= nl; cc++) {
       const lx = cc * 16 + 2.15, ly = r * 16 + 2.15;
       if (lx > S || ly > S) continue;
       cam.toScreen(lx, ly, 0, pt);
       if (!inView(pt.x, pt.y, 80 * z)) continue;
-      this.push(lx + ly, 5, r * 7 + cc, pt.x, pt.y);
+      this.push(lx + ly, 5, r * 16 + cc, pt.x, pt.y);
     }
     for (const c of sim.chars) {
       if (c.lod === Lod.SLEEP || c.inside >= 0 || c.inCar >= 0) continue;
@@ -291,7 +292,7 @@ export class Renderer {
         drawCar(g, cam, sim.vehicles[it.ref], alpha, time, 1 - sim.daylight, it.ref === this.selectedCar);
       } else if (it.kind === 5) {
         flush();
-        this.drawLight(it.ref % 7, Math.floor(it.ref / 7), it.sx, it.sy, z);
+        this.drawLight(it.ref % 16, Math.floor(it.ref / 16), it.sx, it.sy, z);
       } else {
         flush();
         drawPoi(g, sim.world.pois[it.ref], it.sx, it.sy, z, time, party, isDark);

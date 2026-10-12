@@ -260,3 +260,11 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; color:
 .inspector .card-now .emo { font-size: calc(22px * var(--ts)); line-height: 1; }
 .inspector .card-you { margin: 6px 0 0; color: var(--gold); font-weight: 600; }
 .inspector .card-more { margin-top: 10px; } .inspector .card-more summary { cursor: pointer; color: var(--dim); font: 600 calc(11px * var(--ts)) var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.focus, .focus * { pointer-events: none !important; }
+.hud, .areaname, .toasts, .hint { pointer-events: none !important; }
+/* small screens: the top bar wraps instead of pushing Save/Settings off-screen */
+@media (max-width: 760px) {
+  .bar { flex-wrap: wrap; row-gap: 6px; }
+  .bar .clock .wx { display: none; }
+  .hud { top: 104px; }
+}

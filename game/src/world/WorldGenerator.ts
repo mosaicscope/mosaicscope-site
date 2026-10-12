@@ -14,7 +14,7 @@ type Plan = "houses" | "apartments" | "playground" | "office" | "bank" | "hotel"
   | "police" | "plaza" | "food" | "food2" | "shops" | "shops2" | "alley" | "casino" | "hospital" | "garage" | "river" | "airport";
 
 /**
- * Central Christchurch inside the Four Avenues, on the game's 6x6 block grid. Streets keep their
+ * Central Christchurch inside the Four Avenues, on the game's 8x8 block grid. Streets keep their
  * real order (west to east: Deans Ave ... Madras St; north to south: Bealey Ave ... Moorhouse Ave)
  * and landmarks sit in the block they really occupy: Hagley Park and the Botanic Gardens to the
  * west, the hospital at Hagley's south-east corner, Cathedral Square on Colombo St between Worcester
@@ -23,24 +23,28 @@ type Plan = "houses" | "apartments" | "playground" | "office" | "bank" | "hotel"
  * SALT District laneways. Source: OpenStreetMap (c) OpenStreetMap contributors, ODbL; simplified to
  * the grid. The airport (really 10 km north-west) is pulled in as the north-west block.
  */
-export const STREETS_X = ["Deans Ave", "Rolleston Ave", "Montreal St", "Durham St", "Colombo St", "Manchester St", "Madras St"];
-export const STREETS_Y = ["Bealey Ave", "Kilmore St", "Armagh St", "Worcester St", "Hereford St", "Cashel St", "Moorhouse Ave"];
+export const STREETS_X = ["Deans Ave", "Rolleston Ave", "Montreal St", "Durham St", "Colombo St", "Manchester St", "Madras St", "Barbadoes St", "Fitzgerald Ave"];
+export const STREETS_Y = ["Bealey Ave", "Salisbury St", "Kilmore St", "Armagh St", "Worcester St", "Hereford St", "Cashel St", "Tuam St", "Moorhouse Ave"];
 
 const PLAN: Plan[][] = [
-  ["airport", "houses", "casino", "food2", "apartments", "houses"],
-  ["park", "court", "stage", "river", "office", "playground"],
-  ["park", "apartments", "hotel", "bank", "food", "apartments"],
-  ["river", "mosaicscope", "food", "plaza", "office", "houses"],
-  ["hospital", "houses", "market", "shops", "shops2", "apartments"],
-  ["houses", "dealership", "garage", "police", "alley", "houses"],
+  ["airport", "houses", "apartments", "food2", "houses", "apartments", "houses", "houses"],
+  ["park", "houses", "casino", "stage", "office", "apartments", "river", "houses"],
+  ["park", "court", "apartments", "river", "office", "playground", "houses", "apartments"],
+  ["park", "apartments", "hotel", "bank", "food", "apartments", "houses", "houses"],
+  ["river", "mosaicscope", "food", "plaza", "office", "shops2", "park", "houses"],
+  ["hospital", "houses", "market", "shops", "food", "apartments", "apartments", "houses"],
+  ["houses", "apartments", "dealership", "alley", "shops", "houses", "apartments", "houses"],
+  ["houses", "dealership", "garage", "police", "alley", "office", "houses", "houses"],
 ];
 const NAMES: string[][] = [
-  ["Christchurch Airport", "Salisbury St", "The Tessera Casino", "Victoria St", "Kilmore Apartments", "Peterborough St"],
-  ["Hagley Park North", "Cranmer Square", "Town Hall", "Victoria Square", "Te Pae", "Margaret Mahy Playground"],
-  ["Botanic Gardens", "Montreal Apartments", "Worcester Boulevard", "Gloucester Bank Corner", "New Regent St", "Manchester Apartments"],
-  ["Hagley Park South", "Arts Centre", "The Terrace", "Cathedral Square", "Hereford Offices", "Madras St"],
-  ["Christchurch Hospital", "Lichfield St", "Riverside Market", "Cashel Mall", "High St", "Tuam Apartments"],
-  ["Addington", "Moorhouse Motors", "Moorhouse Fuel", "Central Police Station", "SALT District", "Sydenham"],
+  ["Christchurch Airport", "Bealey Ave", "Salisbury Flats", "Victoria St", "Peterborough St", "Salisbury Lofts", "Barbadoes St", "Fitzgerald Ave"],
+  ["Hagley Park North", "Park Terrace", "The Tessera Casino", "Town Hall", "Kilmore Offices", "Kilmore Apartments", "Avon Loop", "Dallington Edge"],
+  ["Hagley Park", "Cranmer Square", "Montreal Apartments", "Victoria Square", "Te Pae", "Margaret Mahy Playground", "Madras St", "Barbadoes Apartments"],
+  ["Botanic Gardens", "Worcester Apartments", "Worcester Boulevard", "Gloucester Bank Corner", "New Regent St", "Gloucester Apartments", "Gloucester St", "Fitzgerald Homes"],
+  ["Hagley Park South", "Arts Centre", "The Terrace", "Cathedral Square", "Hereford Offices", "High St", "Latimer Square", "Hereford St East"],
+  ["Christchurch Hospital", "Antigua St", "Riverside Market", "Cashel Mall", "Eat Street", "Lichfield Apartments", "St Asaph Lofts", "Phillipstown North"],
+  ["Addington", "Hagley Ave Flats", "Moorhouse Motors", "SALT District", "Tuam St Shops", "Sydenham North", "St Asaph Apartments", "Waltham"],
+  ["Sydenham", "Moorhouse Car Yards", "Moorhouse Fuel", "Central Police Station", "Tuam Laneways", "Moorhouse Offices", "Phillipstown", "Linwood"],
 ];
 
 const AREA_KIND: Record<Plan, AreaKind> = {
@@ -50,8 +54,8 @@ const AREA_KIND: Record<Plan, AreaKind> = {
 };
 
 export function generateWorld(opts: GenOptions): World {
-  const P = 16, BLOCKS = 6;
-  const S = BLOCKS * P + 2; // 98: roads on every side
+  const P = 16, BLOCKS = PLAN.length;
+  const S = BLOCKS * P + 2; // 130: roads on every side
   const rng = new Rng(opts.seed);
   const w = new World(S);
   const idx = (x: number, y: number) => y * S + x;
@@ -80,7 +84,7 @@ export function generateWorld(opts: GenOptions): World {
   const nameFor = (k: BuildingKind) => {
     const opts = BUILDINGS[k].names.filter((n) => !usedNames.has(n));
     let n = opts.length ? rng.pick(opts) : "";
-    for (let i = 0; !n && i < 40; i++) { const c = `${rng.pick(STREETS)} ${rng.pick(BUILDINGS[k].names).replace(/^The /, "")}`; if (!usedNames.has(c)) n = c; }
+    for (let i = 0; !n && i < 40; i++) { const st = rng.pick(STREETS), base = rng.pick(BUILDINGS[k].names).replace(/^The /, ""); const c = `${st} ${base}`; if (!usedNames.has(c) && !base.includes(st)) n = c; }
     if (!n) n = `${rng.pick(BUILDINGS[k].names)} on ${rng.pick(STREETS)}`;
     usedNames.add(n);
     return n;
