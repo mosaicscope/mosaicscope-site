@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.0: the city (2026-10-12)
+
+- **Christchurch.** The world is now central Christchurch inside the Four Avenues: real street names in their real order (Deans Ave … Madras St, Bealey Ave … Moorhouse Ave) and landmarks in the right blocks, including Hagley Park, the Botanic Gardens and the Avon, Cathedral Square, Victoria Square, the Arts Centre, Cashel Mall, the hospital, the police station and the SALT District, plus an airport. Street names are painted on the roads, the HUD shows street and district, a GTA-style district title fades in, and a radar minimap and full map (M) are added. In production the full map draws real OpenStreetMap streets via the new `/api/chch-map` Pages Function (© OpenStreetMap contributors, ODbL).
+- **Buildings.** Proper storeys (tall shopfront ground floors, flats and offices above) with striped awnings, glass curtain walls, brick flats with balconies, gabled houses with chimneys, parapets, rooftop plant and water tanks, neon trim that glows after dark, and a smooth perspective cutaway that dissolves only what stands between the camera and you.
+- **Cars.** Lofted 3D models with per-face lighting, raked glass, pillars, spoked wheels, liveries, light bars, wings, racing stripes and neon underglow. There are 12 classes with parody names, lane traffic with lights, driving, carjacking, crashes, towing, a dealership, Pay 'n' Spray at the fuel station, and a police helicopter with a searchlight at 3+ stars.
+- **Life.** Cash in NZD, shops, food, pawning and barter. A full casino (blackjack, European roulette, Jacks or Better 9/6, and a pokie with an exact 92.54% RTP). Crime with witnesses, police, arrests and wanted stars; graffiti and cleaners; wounds, bleeding, bandages, collapse and hospital (nobody dies); romance, dates, affairs and gossip (off-screen, adults only).
+- **People.** Unique names and faces, roles with workplaces and homes, and new parody characters: the Famiglia Tessera, Roastie Malone the roast comic, Sir Ponsonby Velvet and his VELVET models, the Night Kiwi, Dr Quakenstein, ski bunnies, smugglers and zookeepers.
+- **Dialogue.** About 4,000 lines of authored call-and-response exchanges, picked by time, weather, place, roles, moods, relationships and recent events, never repeated between the same pair, and paced by reading time. Speech bubbles are calmer: only the three nearest conversations are heard.
+- **Focus mode.** Important moments (being mugged, busted, crashing, a kiss, talking to someone) get letterbox bars, a vignette, a push-in and a caption. Family members phone you with branching calls.
+- **Character cards.** Who they are, what they're doing, how they feel about you and a few fun facts; the detail lives behind "More".
+- **MosaicScope.** Billboards carry the real logo and one short line, and click through to the site; the crew plug real Instagram posts and the real price list.
+- **Saves.** v4, carrying cars, graffiti, tills, crime records and bookings; v3 saves migrate.
+- **Fixes.** Dates no longer deadlock when both partners lead; repeat 111 calls no longer delay the ambulance; nobody can be pushed off the map edge; movers behind tall buildings sort correctly; keys work while a dev-panel checkbox has focus.
+
 ## 0.1.0: first playable world (2026-10-12)
 
 - New: the Mosaics' world at `/world/`, a separate static page built from `game/` into `world/`. The only main-site change is that the footer easter egg's "Our world · coming soon" sign is now a link ("Our world · step inside").

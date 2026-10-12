@@ -2101,7 +2101,7 @@
         el = document.createElement("a");
         el.href = "/world/";
         el.className = "prop prop--sign mono";
-        el.innerHTML = "Our world<br>enter &rarr;";
+        el.innerHTML = "Mosaic World<br>enter &rarr;";
         el.setAttribute("aria-label", "Enter the Mosaics' world");
       } else if (name === "neon") {
         el = document.createElement("div");

@@ -306,6 +306,7 @@ export class Renderer {
     this.lighting.draw(g, sim, cam, time, o.quality, o.reduceMotion);
     for (const f of GLOW) f();
     GLOW.length = 0;
+    this.drawHeli(g, sim, time, z);
     const darkness = 1 - sim.daylight;
     if (darkness > 0.3 && o.quality > 0) {
       g.globalCompositeOperation = "lighter";
@@ -516,6 +517,48 @@ export class Renderer {
   }
 
   /** Character under a screen point (topmost), or -1. */
+  /** Police helicopter circling a 3+ star player, with a searchlight that sweeps after dark. */
+  private heliA = 0;
+  private drawHeli(g: CanvasRenderingContext2D, sim: Simulation, time: number, z: number): void {
+    const p = sim.player;
+    if (p.wanted < 3) return;
+    const px = p.inCar >= 0 ? sim.vehicles[p.inCar].x : p.x, py = p.inCar >= 0 ? sim.vehicles[p.inCar].y : p.y;
+    this.heliA = time * 0.45;
+    const hx = px + Math.cos(this.heliA) * 5, hy = py + Math.sin(this.heliA) * 5, alt = 9;
+    const cam = this.cam, pt = this.pt;
+    // searchlight: a soft ellipse on the ground that wobbles around you
+    const lx = px + Math.cos(time * 1.3) * 0.8, ly = py + Math.sin(time * 1.7) * 0.8;
+    cam.toScreen(lx, ly, 0, pt); const gx = pt.x, gy = pt.y;
+    cam.toScreen(hx, hy, alt, pt); const sx = pt.x, sy = pt.y;
+    if (sim.daylight < 0.7) {
+      g.globalCompositeOperation = "lighter";
+      g.fillStyle = "rgba(220,235,255,.08)";
+      g.beginPath(); g.moveTo(sx, sy); g.lineTo(gx - 46 * z, gy); g.lineTo(gx + 46 * z, gy); g.closePath(); g.fill();
+      const grd = g.createRadialGradient(gx, gy, 0, gx, gy, 52 * z);
+      grd.addColorStop(0, "rgba(235,245,255,.35)"); grd.addColorStop(1, "rgba(235,245,255,0)");
+      g.fillStyle = grd; g.beginPath(); g.ellipse(gx, gy, 52 * z, 26 * z, 0, 0, 6.283); g.fill();
+      g.globalCompositeOperation = "source-over";
+    }
+    // shadow on the ground
+    cam.toScreen(hx, hy, 0, pt);
+    g.fillStyle = "rgba(0,0,0,.25)"; g.beginPath(); g.ellipse(pt.x, pt.y, 26 * z, 11 * z, 0, 0, 6.283); g.fill();
+    // body
+    const dir = Math.cos(this.heliA + Math.PI / 2) > 0 ? 1 : -1, k = z;
+    g.save(); g.translate(sx, sy); g.scale(dir, 1);
+    g.fillStyle = "#1c2836"; g.beginPath(); g.ellipse(0, 0, 22 * k, 10 * k, 0, 0, 6.283); g.fill();
+    g.fillStyle = "#3a5068"; g.beginPath(); g.ellipse(9 * k, -2 * k, 9 * k, 6 * k, 0, 0, 6.283); g.fill();
+    g.strokeStyle = "#1c2836"; g.lineWidth = 4 * k; g.beginPath(); g.moveTo(-18 * k, 0); g.lineTo(-44 * k, -5 * k); g.stroke();
+    g.fillStyle = "#eee4d3"; g.font = `800 ${Math.max(6, 6 * k)}px monospace`; g.fillText("POLICE", -14 * k, 3 * k);
+    g.strokeStyle = "#0e0b0a"; g.lineWidth = 1.5 * k; g.beginPath(); g.moveTo(-14 * k, 11 * k); g.lineTo(14 * k, 11 * k); g.stroke();
+    // rotor blur + tail rotor
+    g.strokeStyle = "rgba(14,11,10,.55)"; g.lineWidth = 2 * k; g.beginPath(); g.ellipse(0, -12 * k, 40 * k, 5 * k, 0, 0, 6.283); g.stroke();
+    const r = time * 40; g.strokeStyle = "rgba(14,11,10,.8)"; g.beginPath(); g.moveTo(Math.cos(r) * 40 * k, -12 * k + Math.sin(r) * 5 * k); g.lineTo(-Math.cos(r) * 40 * k, -12 * k - Math.sin(r) * 5 * k); g.stroke();
+    g.beginPath(); g.arc(-44 * k, -5 * k, 6 * k, 0, 6.283); g.stroke();
+    // beacon
+    if (Math.floor(time * 3) % 2) { g.fillStyle = "#ff3b2f"; g.beginPath(); g.arc(0, 10 * k, 2.4 * k, 0, 6.283); g.fill(); }
+    g.restore();
+  }
+
   /** Buildings on screen this frame, and how much each is cut away (0..1, eased). */
   private viewB = new Set<number>();
   private cut = new Map<number, number>();

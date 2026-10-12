@@ -287,7 +287,8 @@ export function drawPoi(g: CanvasRenderingContext2D, p: Poi, sx: number, sy: num
     }
     case "plane": {
       // a parked widebody on the apron, nose to the east; world x = (32, 16) px, world y = (-32, 16) px, up = 26 px
-      const W = (wx: number, wy: number, h: number) => [sx + (wx - wy) * 32 * z, sy + (wx + wy) * 16 * z - h * 26 * z];
+      // drawn at 0.72 scale so wings and tail stay on the apron, clear of the terminal
+      const W = (wx: number, wy: number, h: number) => [sx + (wx - wy) * 0.72 * 32 * z, sy + (wx + wy) * 0.72 * 16 * z - h * 0.72 * 26 * z];
       const line = (pts: number[][], lw: number, col: string) => { g.strokeStyle = col; g.lineWidth = lw; g.lineCap = "round"; g.beginPath(); pts.forEach((q, i) => (i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]))); g.stroke(); g.lineCap = "butt"; };
       const polyF = (pts: number[][], col: string) => { g.fillStyle = col; g.beginPath(); pts.forEach((q, i) => (i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]))); g.closePath(); g.fill(); };
       // shadow

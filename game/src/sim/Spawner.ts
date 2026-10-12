@@ -133,6 +133,41 @@ export function spawnAll(sim: Simulation): void {
     const work = c.workplace >= 0 ? world.buildings[c.workplace] : null;
     c.bio = `${c.name}${c.nickname ? ` ("${c.nickname}")` : ""}, ${ROLE_LABEL[role]}${work ? ` at ${work.name}` : ""}. Lives on ${world.buildings[c.home]?.name ?? "the block"}.`;
   }
+  // the city's characters: the Famiglia, the roast comic, the mogul and his models, a masked hero,
+  // a would-be supervillain, ski bunnies, smugglers and the zoo crew (all parody)
+  const SPECIALS: { name: string; nick?: string; kind: "girl" | "guy"; role: Role; area: string; cash: number; bio: string; look?: Partial<import("../entities/types").Look>; pers?: Partial<import("../entities/types").Personality> }[] = [
+    { name: "Vito Tessera", nick: "The Don", kind: "guy", role: "mobster", area: "casino", cash: 48000, bio: "Head of the Famiglia Tessera. Runs things from behind the casino. Grows award-winning tomatoes. Asks politely, once.", look: { hat: "beret", accent: "#0e0b0a" }, pers: { boldness: 0.85, honesty: 0.2, kindness: 0.4, temper: 0.55 } },
+    { name: "Gina Tessera", kind: "girl", role: "mobster", area: "casino", cash: 9000, bio: "The Don's niece and the only one who can do the books. Smarter than everyone in the room and lets them know.", pers: { boldness: 0.75, honesty: 0.3 } },
+    { name: "Sal Moretti", nick: "Two Pies", kind: "guy", role: "mobster", area: "food", cash: 2400, bio: "Famiglia muscle. Collects 'protection' from dairies, mostly in mince and cheese pies.", look: { hat: "cap" } },
+    { name: "Nico Fontana", kind: "guy", role: "mobster", area: "casino", cash: 3100, bio: "Famiglia driver. Thinks he's in a film. Narrates his own parking." },
+    { name: "Roastie Malone", kind: "guy", role: "comic", area: "plaza", cash: 140, bio: "Christchurch's roast comedian. Will roast your shoes, your car and your nan's car. Charming about it.", look: { hat: "snapback", accent: "#f6b62c" }, pers: { playfulness: 0.95, boldness: 0.9, kindness: 0.55 } },
+    { name: "Sir Ponsonby Velvet", nick: "Sir P", kind: "guy", role: "mogul", area: "office", cash: 4_200_000, bio: "Silk robe, pipe, VELVET magazine and Velvet Mansion. Owns a zoo, a giraffe called Kevin and a whale that doesn't fit. Calls his glamour shoots 'art'.", look: { hat: "none", accent: "#b48cff" }, pers: { boldness: 0.8, playfulness: 0.8, kindness: 0.6 } },
+    { name: "Coco Reign", kind: "girl", role: "model", area: "office", cash: 1800, bio: "VELVET cover star. Studying law between shoots. Will out-argue you." },
+    { name: "Jade Monroe", kind: "girl", role: "model", area: "office", cash: 1500, bio: "VELVET model with a side business in candles. Books every shoot through MosaicScope." },
+    { name: "Marco Steele", kind: "guy", role: "model", area: "office", cash: 1200, bio: "Male model. Cannot walk past a reflective surface." },
+    { name: "Bryce Wainui", nick: "The Night Kiwi", kind: "guy", role: "vigilante", area: "residential", cash: 900, bio: "Mild-mannered accountant by day. By night, the Night Kiwi: Kiwi-rang, Kiwi-signal, gravelly voice. Everyone knows.", look: { hat: "hood", accent: "#0e0b0a" }, pers: { boldness: 0.9, kindness: 0.85, honesty: 0.9 } },
+    { name: "Hamish Quake", nick: "Dr Quakenstein", kind: "guy", role: "villain", area: "gallery", cash: 60, bio: "Aspiring supervillain with a lair under the Arts Centre. Plans: freeze the Avon, steal the road cones. Results: pending.", look: { hat: "helmet", accent: "#c6ff3d" }, pers: { boldness: 0.7, honesty: 0.15, temper: 0.7 } },
+    { name: "Saffy Hollis", kind: "girl", role: "skibunny", area: "food", cash: 600, bio: "Lives for Mt Hutt powder days. Has opinions about your bindings." },
+    { name: "Tama Frost", kind: "guy", role: "skibunny", area: "plaza", cash: 450, bio: "Snowboarder. Says 'it's dumping' about any weather, including sun." },
+    { name: "Mia Kingsley", kind: "girl", role: "skibunny", area: "shops", cash: 700, bio: "Cardrona season pass, Porters day pass, après-ski playlist ready." },
+    { name: "Mike Dodd", nick: "Mannequin Mike", kind: "guy", role: "smuggler", area: "alley", cash: 1300, bio: "Smuggles mannequin limbs, knock-off sneakers and garden gnomes. Don't ask about the gnomes." },
+    { name: "Dodge Patterson", kind: "guy", role: "smuggler", area: "market", cash: 900, bio: "Runs undeclared Pineapple Lumps through the airport. Mostly eats the evidence." },
+    { name: "Robyn Kea", kind: "girl", role: "zookeeper", area: "park", cash: 300, bio: "Head keeper at Sir P's private zoo. Kevin the giraffe only listens to her." },
+    { name: "Pete Gumboots", kind: "guy", role: "zookeeper", area: "park", cash: 200, bio: "Zookeeper. Has lost four wiper blades to the kea this week." },
+  ];
+  for (const sp of SPECIALS) {
+    const pers = randomPers(rng); shapeForRole(pers, sp.role); Object.assign(pers, sp.pers ?? {});
+    const look = uniqueLook(rng, sp.kind, false, usedLooks, sp.look ?? {});
+    const area = areaByKind(sp.area);
+    const p = world.randomPointIn(area, rng);
+    const c = addChar(sim, sp.name, "mid", p.x, p.y, look, pers);
+    names.reserve?.(sp.name);
+    c.role = sp.role; c.homeArea = area.id; c.style = rng.pick(MID_STYLES); c.cash = sp.cash; c.home = rng.pick(homes).id;
+    if (sp.nick) c.nickname = sp.nick;
+    c.workplace = sp.role === "mobster" ? world.buildings.find((b) => b.kind === "casino")?.id ?? -1 : -1;
+    c.bio = sp.bio;
+  }
+
   // regulars: a dozen couples, some of them not as solid as they look
   const singles = sim.chars.filter((c) => c.tier === "mid");
   for (let i = 0; i < 12 && singles.length > 2; i++) {

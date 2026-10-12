@@ -12,7 +12,7 @@ export const STREET: Exchange[] = [
   { id: "street_cop_spraycan", tags: ["a:cop", "b:graffiti"], lines: ["That spray can for a school project, is it?", "Yeah. Art history. I'm making some.", "Make it on paper or make it down the station."] },
   { id: "street_cop_busker", tags: ["a:cop", "b:busker"], lines: ["Got a permit for that amp?", "Got a permit for that moustache?", "Yes, actually. Renewed annually. Laminated."] },
   { id: "street_cop_wanted_singing", tags: ["a:cop", "b:cop", "wanted"], lines: ["That's the one off the radio. Right there.", "Window down, singing, in a car that isn't theirs?", "Confidence like that should be illegal. Oh, wait."] },
-  { id: "street_cop_cathedral", tags: ["a:cop", "b:tourist"], lines: ["You look lost.", "Looking for the Cathedral. Map says it's right here.", "It is right here. It's just having a long renovation."] },
+  { id: "street_cop_cathedral", tags: ["a:cop", "b:tourist"], lines: ["You look lost, sir.", "Looking for the Cathedral. Map says it's right here.", "It is right here. It's just having a long renovation."] },
   { id: "street_cop_sandwiches", tags: ["a:cop", "b:thief"], lines: ["Evening. What's in the bag?", "Sandwiches. A great many sandwiches.", "Sandwiches with wallets in them?", "It's a regional recipe."] },
   { id: "street_cop_scooter_chase", tags: ["a:cop", "a:tired"], lines: ["Chased one up the Port Hills today.", "On foot?", "On foot. He was on an e-scooter. I lost by a valley."] },
   { id: "street_cop_cones", tags: ["a:cop", "storm"], lines: ["Nor'wester's taken out three road cones.", "Want to report them missing?", "They'll turn up in a student flat. They always do."] },
@@ -135,7 +135,7 @@ export const STREET: Exchange[] = [
   { id: "street_car_jdm_vs_euro", tags: ["a:car_enthusiast", "b:car_enthusiast", "evening"], lines: ["Euro cars are just JDM with a mortgage.", "And JDM is just Euro with a sticker kit.", "Take that back.", "Take your fourteen stickers back first."] },
 
   // ── Casino ────────────────────────────────────────────────────
-  { id: "street_casino_red", tags: ["@casino", "a:gambler", "b:gambler"], lines: ["I've got a system for roulette.", "Go on.", "Bet red until it's black.", "That's not a system. That's weather."] },
+  { id: "street_casino_red", tags: ["@casino", "a:gambler", "b:gambler"], lines: ["I've got a system for roulette.", "Go on, then. Spin it.", "Bet red until it's black.", "That's not a system. That's weather."] },
   { id: "street_casino_seventeen", tags: ["a:gambler", "a:broke"], lines: ["Put the rent money on seventeen.", "And?", "Seventeen's a lovely number. Shame it never came."] },
   { id: "street_casino_hit_stand", tags: ["@casino", "a:dealer", "b:gambler"], lines: ["Hit or stand?", "What would you do?", "I'd go home, sir. Hit or stand?"] },
   { id: "street_casino_bells", tags: ["after:casino_win"], lines: ["Hear the bells? {who} hit the jackpot!", "What'd they win?", "Enough for a ute. Or one very nice tyre."] },
@@ -154,7 +154,7 @@ export const STREET: Exchange[] = [
 
   // ── Hospital and paramedics ───────────────────────────────────
   { id: "street_medic_cone_head", tags: ["a:medic", "b:medic"], lines: ["Twelve-hour shift. I've seen it all.", "Seen the bloke with a road cone stuck on his head?", "...Okay. Now I've seen it all."] },
-  { id: "street_medic_where_hurt", tags: ["a:medic", "b:hurt"], lines: ["Where does it hurt?", "Everywhere I've got.", "Narrow it down. I've only got two hands."] },
+  { id: "street_medic_where_hurt", tags: ["a:medic", "b:hurt"], lines: ["Tell me where it hurts.", "Everywhere I've got.", "Narrow it down. I've only got two hands."] },
   { id: "street_medic_spuds", tags: ["after:collapse", "a:medic"], lines: ["{who} went down like a sack of spuds.", "Breathing?", "Breathing and complaining. Both good signs."] },
   { id: "street_collapse_bakery", tags: ["after:collapse"], lines: ["{who} just fainted outside the bakery.", "Heat?", "Price of a sausage roll, I reckon."] },
   { id: "street_collapse_cpr", tags: ["after:collapse", "a:scared"], lines: ["Is {who} okay? Should I do CPR?", "They're talking. Don't jump on them.", "Right. Good. Putting my arms away."] },
@@ -235,7 +235,7 @@ export const STREET: Exchange[] = [
   { id: "street_gen_party_noise", tags: ["after:party"], lines: ["Third noise complaint and it's barely ten.", "{who} brought a smoke machine to a flat party.", "Smoke alarms joined the band, then."] },
   { id: "street_gen_hungry_heist", tags: ["a:hungry"], lines: ["I'd commit actual crimes for a cheese roll right now.", "Please don't.", "Then buy me one and save the city."] },
   { id: "street_gen_bored_scanner", tags: ["a:bored"], lines: ["Bought a police scanner for entertainment.", "Any good?", "Mostly about a loose sheep. I'm hooked."] },
-  { id: "street_gen_happy_ticket", tags: ["a:happy"], lines: ["Got a parking ticket and I'm still smiling.", "Why?", "It's on my ex's car. I borrowed it."] },
+  { id: "street_gen_happy_ticket", tags: ["a:happy"], lines: ["Got a parking ticket and I'm still smiling.", "How come?", "It's on my ex's car. I borrowed it."] },
   { id: "street_gen_sad_bike", tags: ["a:sad"], lines: ["Someone nicked my bike seat.", "Just the seat?", "Just the seat. Which is somehow more personal."] },
   { id: "street_gen_tired_alarms", tags: ["a:tired"], lines: ["Car alarms all night. Didn't sleep.", "Earplugs?", "I'm writing a strongly worded letter instead."] },
   { id: "street_gen_scared_alley", tags: ["a:scared"], lines: ["Did you hear footsteps behind us?", "That's your own echo.", "My echo walks very confidently."] },

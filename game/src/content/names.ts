@@ -30,13 +30,16 @@ export const NICKNAMES = ["Chopper", "Smokey", "Bubbles", "Gizmo", "Moose", "Ace
 /** Character roles: a job or a way of life. Drives schedules, goals and dialogue. */
 export type Role =
   | "local" | "student" | "barista" | "chef" | "vendor" | "shopkeeper" | "cop" | "thief" | "graffiti" | "cleaner" | "dealer" | "bouncer"
-  | "busker" | "skater" | "car_enthusiast" | "office" | "tourist" | "mechanic" | "musician" | "photographer" | "medic" | "taxi" | "driver" | "gambler";
+  | "busker" | "skater" | "car_enthusiast" | "office" | "tourist" | "mechanic" | "musician" | "photographer" | "medic" | "taxi" | "driver" | "gambler"
+  | "mobster" | "smuggler" | "comic" | "mogul" | "model" | "vigilante" | "villain" | "skibunny" | "zookeeper";
 
 export const ROLE_LABEL: Record<Role, string> = {
   local: "local", student: "uni student", barista: "barista", chef: "cook", vendor: "food truck vendor", shopkeeper: "shopkeeper", cop: "police officer",
   thief: "small-time thief", graffiti: "graffiti artist", cleaner: "city cleaner", dealer: "casino dealer", bouncer: "bouncer", busker: "busker",
   skater: "skater", car_enthusiast: "car-meet regular", office: "office worker", tourist: "tourist", mechanic: "mechanic", musician: "musician",
   photographer: "photographer", medic: "paramedic", taxi: "taxi driver", driver: "delivery driver", gambler: "regular at the casino",
+  mobster: "Famiglia Tessera wiseguy", smuggler: "smuggler", comic: "roast comedian", mogul: "mogul", model: "glamour model", vigilante: "masked vigilante",
+  villain: "aspiring supervillain", skibunny: "ski bunny", zookeeper: "zookeeper",
 };
 
 /** How many regulars of each role (the rest are locals/students/office workers). */

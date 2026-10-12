@@ -60,6 +60,7 @@ export function discoverCheating(sim: Simulation, victim: Character, cheater: Ch
   if (victim.partner !== cheater.id) return;
   const r = sim.relate(victim, cheater.id);
   r.trust = Math.max(-1, r.trust - 0.6); r.grudge = Math.min(1, r.grudge + 0.5);
+  r.love = Math.max(0, (r.love ?? 0) - 0.3); // even if they forgive, it stings
   victim.emo.frustration = Math.min(1, victim.emo.frustration + 0.5);
   const e = sim.emit({ type: "caught_cheating", x: victim.x, y: victim.y, actors: [victim.id, cheater.id, ...(lover ? [lover.id] : [])], severity: 4,
     summary: how === "saw" ? `${victim.name} caught ${cheater.name} with ${lover?.name ?? "someone else"}` : `${victim.name} found out ${cheater.name} has been cheating${lover ? ` with ${lover.name}` : ""}` });

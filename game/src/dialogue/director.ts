@@ -45,6 +45,7 @@ export class Director {
     const area = sim.world.areaAt(a.x, a.y);
     if (area) t.add("@" + area.kind);
     if (sim.env.party) t.add("party");
+    if (b.tier === "player") t.add("b:player");
     const rel = peek(a, b.id);
     if (a.partner === b.id || a.affair === b.id) t.add("couple");
     else if (loveOf(a, b.id) > 0.3) t.add("crush");

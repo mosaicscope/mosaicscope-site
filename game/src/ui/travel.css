@@ -1,0 +1,74 @@
+/* ================= travel (Christchurch Airport) ================= */
+.travel { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: #050308; padding: max(12px, env(safe-area-inset-top)) 12px 12px; overflow: auto; }
+.tv-scene { width: min(1000px, 100%); display: flex; flex-direction: column; gap: 12px; }
+.tv-scene.tv-in { animation: tv-in .45s cubic-bezier(.2, .8, .2, 1); }
+@keyframes tv-in { from { opacity: 0; transform: translateY(14px) scale(.985); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+
+.tv-cap { position: relative; display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 2px 12px; padding: 10px 2px; border-bottom: 1px solid var(--line); }
+.tv-kick { grid-column: 1; margin: 0; color: var(--dim); text-transform: uppercase; letter-spacing: .1em; font-size: calc(11px * var(--ts)); }
+.tv-title { grid-column: 1; margin: 0; font: 900 calc(44px * var(--ts)) / .95 var(--display); text-transform: uppercase; letter-spacing: .02em; color: var(--acid); text-shadow: 0 0 18px rgba(198,255,61,.45); }
+.tv-wallet { grid-column: 2; grid-row: 1 / span 2; display: grid; text-align: right; }
+.tv-wallet span { color: var(--dim); font-size: calc(10px * var(--ts)); text-transform: uppercase; letter-spacing: .08em; }
+.tv-wallet b { font: 900 calc(24px * var(--ts)) / 1 var(--display); color: var(--gold); }
+
+.tv-body { display: flex; flex-direction: column; gap: 10px; }
+.tv-canvas { display: block; width: 100%; height: auto; aspect-ratio: 960 / 420; background: #000; border-block: 14px solid #000; border-radius: 4px; box-shadow: 0 0 0 1px var(--line), 0 24px 60px rgba(0,0,0,.6); }
+.tv-msg { min-height: 1.45em; margin: 0; color: var(--paper); font-size: calc(14px * var(--ts)); }
+.tv-msg:empty { display: none; }
+.tv-speech, .tv-agent { margin: 0; font: italic calc(19px * var(--ts)) / 1.3 var(--serif); color: var(--pink); }
+.tv-note { margin: 0; color: var(--dim); }
+.tv-h3 { margin: 6px 0 0; font: 600 calc(11px * var(--ts)) / 1 var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: .08em; }
+
+.tv-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.tv-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 8px 16px; border: 1px solid var(--line); border-radius: 999px; background: var(--ink2); text-align: left; transition: border-color .15s, background .15s, transform .15s; }
+.tv-btn:hover:not([disabled]) { border-color: var(--acid); transform: translateY(-1px); }
+.tv-btn[disabled] { opacity: .45; cursor: default; }
+.tv-btn.primary { background: var(--acid); border-color: var(--acid); color: var(--ink); font-weight: 600; box-shadow: 0 0 18px rgba(198,255,61,.35); }
+.tv-btn kbd { font: 600 calc(11px * var(--ts)) / 1 var(--mono); padding: 3px 6px; border-radius: 4px; background: var(--ink3); color: var(--acid); }
+
+/* departures board */
+.tv-board { display: grid; gap: 3px; padding: 10px; background: #0a0807; border: 1px solid #2a2420; border-radius: 8px; box-shadow: inset 0 0 30px rgba(0,0,0,.8); overflow-x: auto; }
+.tv-row { display: grid; grid-template-columns: 26px 9.5em 11em 1fr 70px 80px; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid transparent; border-radius: 5px; background: none; text-align: left; font: inherit; min-width: 640px; }
+.tv-row.head { color: var(--dim); font-size: calc(10px * var(--ts)); text-transform: uppercase; letter-spacing: .1em; }
+button.tv-row:hover { border-color: var(--line); }
+.tv-row.on { border-color: var(--gold); background: rgba(246,182,44,.08); }
+.tv-num { color: var(--dim); }
+.tv-time { color: var(--dim); }
+.tv-fare { color: var(--paper); font-weight: 600; text-align: right; }
+.tv-status { color: var(--acid); font-size: calc(11px * var(--ts)); letter-spacing: .08em; }
+.tv-row.on .tv-status { color: var(--gold); }
+.flap { display: inline-flex; gap: 1px; }
+.flap i { display: inline-block; width: .9em; text-align: center; font-style: normal; font-weight: 600; color: var(--gold); background: linear-gradient(#1c1816 50%, #141110 50%); border-radius: 2px; animation: tv-flap .5s steps(4) both; }
+@keyframes tv-flap { 0% { transform: rotateX(90deg); color: var(--dim); } 60% { transform: rotateX(-30deg); } 100% { transform: none; } }
+.tv-comps { display: flex; flex-wrap: wrap; gap: 6px; }
+.tv-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--ink2); }
+.tv-chip.on { border-color: var(--cyan); color: var(--cyan); box-shadow: 0 0 12px rgba(61,214,255,.3); }
+.tv-chip .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+/* check-in */
+.tv-desk { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; padding: 18px; background: var(--ink2); border: 1px solid var(--line); border-radius: 10px; }
+.tv-scale { display: grid; justify-items: center; gap: 4px; padding: 14px 22px; background: #000; border: 2px solid var(--cyan); border-radius: 8px; box-shadow: 0 0 20px rgba(61,214,255,.3); }
+.tv-scale span { font-size: calc(10px * var(--ts)); letter-spacing: .12em; color: var(--dim); }
+.tv-scale b { font: 900 calc(42px * var(--ts)) / 1 var(--display); color: var(--cyan); animation: tv-tick .6s steps(6) both; }
+.tv-scale .ok { color: var(--acid); } .tv-scale .bad { color: var(--red); }
+@keyframes tv-tick { from { opacity: .2; } }
+
+/* security + summary */
+.tv-flags { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+.tv-flags li { padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: calc(12px * var(--ts)); color: var(--dim); }
+.tv-flags li.bad { border-color: var(--red); color: var(--red); }
+.tv-card { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; margin: 0; padding: 16px 18px; background: var(--ink2); border: 1px solid var(--gold); border-radius: 10px; box-shadow: 0 0 24px rgba(246,182,44,.18); }
+.tv-card dt { color: var(--dim); text-transform: uppercase; letter-spacing: .08em; font-size: calc(11px * var(--ts)); align-self: center; }
+.tv-card dd { margin: 0; font-weight: 600; }
+
+@media (max-width: 640px) {
+  .tv-title { font-size: calc(32px * var(--ts)); }
+  .tv-desk { grid-template-columns: 1fr; }
+  .tv-btn { flex: 1 1 100%; justify-content: center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tv-scene.tv-in { animation: tv-fade .2s ease both; }
+  .flap i, .tv-scale b { animation: none; }
+  .tv-btn { transition: none; }
+}
+@keyframes tv-fade { from { opacity: 0; } }

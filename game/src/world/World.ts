@@ -89,7 +89,9 @@ export class World {
     const i = ty * this.size + tx;
     if (this.tiles[i] !== t) { this.tiles[i] = t; this.dirtyTiles.add(i); }
   }
-  walkableTile(tx: number, ty: number): boolean { return this.inBounds(tx, ty) && !SOLID.has(this.tiles[ty * this.size + tx]); }
+  /** Extra solid footprints that aren't tiles (the parked jet): blocks walking, not drawing. */
+  blocked: Uint8Array = new Uint8Array(0);
+  walkableTile(tx: number, ty: number): boolean { return this.inBounds(tx, ty) && !SOLID.has(this.tiles[ty * this.size + tx]) && !this.blocked[ty * this.size + tx]; }
   walkable(x: number, y: number): boolean { return this.walkableTile(Math.floor(x), Math.floor(y)); }
   isSheltered(x: number, y: number): boolean { const tx = Math.floor(x), ty = Math.floor(y); return this.inBounds(tx, ty) && this.shelter[ty * this.size + tx] === 1; }
   areaAt(x: number, y: number): Area | undefined { const tx = Math.floor(x), ty = Math.floor(y); return this.inBounds(tx, ty) ? this.areas[this.areaOf[ty * this.size + tx]] : undefined; }

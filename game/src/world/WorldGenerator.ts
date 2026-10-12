@@ -149,9 +149,13 @@ export function generateWorld(opts: GenOptions): World {
       }
       case "airport": {
         fill(ix0, iy0, ix1, iy1, T.PAVE);
-        building("airport", ix0, iy0, ix1 - 5, iy0 + 3, a, "s");
-        // apron with a parked jet beside the terminal, car park below
-        poi("plane", ix1 - 2, iy0 + 2, a, { name: "Aotearoa Air 787" });
+        building("airport", ix0, iy0, ix0 + 4, iy0 + 3, a, "s");
+        // apron with a parked jet clear of the terminal; its footprint is solid (you walk round it)
+        const jx = ix0 + 8, jy = iy0 + 3;
+        poi("plane", jx, jy, a, { name: "Aotearoa Air 787" });
+        if (!w.blocked.length) w.blocked = new Uint8Array(S * S);
+        for (let x = jx - 2; x <= jx + 2; x++) w.blocked[idx(x, jy)] = 1;          // fuselage
+        for (let y = jy - 2; y <= jy + 2; y++) w.blocked[idx(jx, y)] = 1;          // wings at the root
         fill(ix0, iy0 + 8, ix1, iy1, T.PARKING);
         fill(ix0 - 1, iy0 + 9, ix0 - 1, iy0 + 10, T.PARKING);
         poi("busstop", ix0 + 3, iy0 + 6, a, { name: "Airport shuttle" });

@@ -1,3 +1,7 @@
+import { Travel } from "../ui/Travel";
+import "../ui/travel.css";
+import { Minimap } from "../ui/Minimap";
+import { ROLE_LABEL } from "../content/names";
 import { Simulation } from "../sim/Simulation";
 import { SimulationClock } from "../core/clock";
 import { Renderer, Quality } from "../render/Renderer";
@@ -28,6 +32,33 @@ import { carried, detach } from "../inventory/Inventory";
 import { BUILDINGS } from "../content/buildings";
 
 /** Wires simulation, renderer, input, audio, UI and persistence together and runs the loop. */
+/** People who ring you. Lines can mention {place} and {cash}. */
+interface Call { name: string; label: string; missed: string; script: { say: string; opts: [string, number, ("money" | "send")?][] }[] }
+const FAMILY: Call[] = [
+  { name: "Mum", label: "Mum", missed: "Fine. I'll just talk to the dog then.", script: [
+    { say: "Hello love! Have you eaten today? Proper food, not a pie.", opts: [["Yes Mum", 1], ["...it was a pie", 2]] },
+    { say: "Good. Your aunty saw you on Instagram at {place}. Very famous!", opts: [["It's @mosaicscope Mum", 3], ["Tell her hi", 3]] },
+    { say: "A pie is not a meal. I'm sending you some money for vegetables.", opts: [["Love you Mum", 3, "money"], ["I'm fine, honest", 3]] },
+    { say: "Call your nana this week. And wear a jacket, the nor'wester's coming.", opts: [["Will do. Love you", -1], ["Gotta go, love you", -1]] },
+  ] },
+  { name: "Dad", label: "Dad", missed: "Righto. Ring back when you've got a minute.", script: [
+    { say: "G'day. Quick one. How's the car going?", opts: [["Haven't crashed it", 1], ["Define 'going'", 1]] },
+    { say: "Check the oil. And the tyres. When did you last check the tyres?", opts: [["Yesterday", 2], ["What's a tyre", 2]] },
+    { say: "Your mother says you're doing photos now. Proud of you. Don't tell her I said that.", opts: [["Cheers Dad", -1], ["Can I borrow $40?", 3]] },
+    { say: "...Fine. But I want it back. With interest. Love you, bye.", opts: [["Legend", -1, "money"]] },
+  ] },
+  { name: "Little sis", label: "Sister", missed: "ok rude 🙄", script: [
+    { say: "omg are you at {place}?? can you get me a hokey pokey", opts: [["Sure", 1], ["Get your own", 2]] },
+    { say: "ur the best. also I need $40 for a concert don't tell mum", opts: [["Send it", -1, "send"], ["Nice try", -1]] },
+    { say: "wow ok. telling mum you ate a pie for dinner", opts: [["...fine, sending money", -1, "send"], ["Do it, coward", -1]] },
+  ] },
+  { name: "Nana", label: "Nana", missed: "Nana left a voicemail. It's four minutes long and mostly about the cat.", script: [
+    { say: "Is that you, sweetheart? I can never work this phone.", opts: [["It's me Nana", 1]] },
+    { say: "Are you keeping warm? Are you courting anyone nice?", opts: [["Working on it", 2], ["Nana!", 2]] },
+    { say: "Well I've put a little something in your account. Don't spend it on the pokies.", opts: [["Thanks Nana ❤", -1, "money"]] },
+  ] },
+];
+
 export class Game {
   sim: Simulation;
   clock = new SimulationClock({ step: 1 / 60, maxStepsPerFrame: 8 });
@@ -88,7 +119,7 @@ export class Game {
     this.radio = new Radio(MOSAIC.soundcloud);
     this.hudEl = h("div.hud", { "aria-live": "polite" });
     this.bustedEl = h("div.busted.hidden", { role: "alert" });
-    root.append(this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.modal.el, this.casino.el, this.bustedEl);
+    root.append(this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.modal.el, this.casino.el, this.bustedEl);
     // browsers only allow sound after a gesture: the first click/key starts the playlist
     const firstGesture = () => { if (this.gestured) return; this.gestured = true; if (this.settings.sound) { this.audio.setEnabled(true); this.radio.play(); } };
     window.addEventListener("pointerdown", firstGesture, { once: false, capture: true });
@@ -153,7 +184,10 @@ export class Game {
   }
 
   private uiTick(now: number): void {
+    this.tickFocus(now);
+    this.minimap.update(now);
     if (now - this.lastUi < 250) return;
+    this.maybeCall();
     this.lastUi = now;
     const sim = this.sim;
     const wx = { clear: "clear", cloudy: "cloudy", rain: "rain", storm: "storm" }[sim.env.weather];
@@ -215,7 +249,7 @@ export class Game {
     } else if (this.pendingTalk >= 0) {
       const t = sim.chars[this.pendingTalk];
       if (!t) this.pendingTalk = -1;
-      else if (Math.hypot(t.x - p.x, t.y - p.y) < 1.8) { stop(p); const id = this.pendingTalk; this.pendingTalk = -1; this.dialogue.start(id); }
+      else if (Math.hypot(t.x - p.x, t.y - p.y) < 1.8) { stop(p); const id = this.pendingTalk; this.pendingTalk = -1; this.openTalk(id); }
       else moveTo(p, t.x, t.y, sim, 1.4);
     } else stop(p);
     if (p.anim.pose !== "auto" && sim.tick % 30 === 0) p.anim.pose = "auto";
@@ -254,6 +288,7 @@ export class Game {
     const sim = this.sim;
     if (door.studio) { this.places.enter(null, true); return; }
     const b = sim.world.buildings[door.building];
+    if (b.kind === "airport") { this.travel.show(); return; }
     if (b.kind === "casino") { this.pausedBefore = this.clock.paused; this.casino.show(); return; }
     this.places.enter(b);
   }
@@ -261,6 +296,19 @@ export class Game {
   /** E: get out of the car / go into a place / pick up / get into a car. */
   private interact(): void {
     const sim = this.sim, p = sim.player;
+    // Pay 'n' Spray: roll up to the fuel station in a car to lose the heat
+    if (p.inCar >= 0) {
+      const v = sim.vehicles[p.inCar], fuel = sim.world.buildings.find((b) => b.kind === "garage");
+      if (fuel && Math.hypot(fuel.door.x + 0.5 - v.x, fuel.door.y + 0.5 - v.y) < 4 && Math.abs(v.speed) < 2 && (p.wanted > 0 || v.damage > 0.2)) {
+        const cost = 150 + p.wanted * 100;
+        if (p.cash < cost) { this.toast(`Respray is ${fmtCash(cost)}. You're short.`, "red"); return; }
+        p.cash -= cost; p.wanted = 0; v.damage = 0;
+        for (const c of sim.chars) if (c.pursuing === p.id) { c.pursuing = -1; c.goal = null; }
+        const cols = VEHICLES[v.cls].colors; v.color = cols[(cols.indexOf(v.color) + 1) % cols.length]; v.plate = v.plate.split("").reverse().join("");
+        this.focus("Fresh paint", `${fmtCash(cost)} · new plates · cops lost you`, 2.6);
+        return;
+      }
+    }
     if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; if (Math.abs(v.speed) > 2) { this.toast("Slow down to get out"); return; } v.speed = 0; unseat(sim, v); v.state = "parked"; this.renderer.cam.follow = p.id; return; }
     const door = this.nearDoor();
     if (door) { this.enterPlace(door); return; }
@@ -340,7 +388,7 @@ export class Game {
   private talkTo(id: number): void {
     const p = this.sim.player, c = this.sim.chars[id];
     if (!c || c === p) return;
-    if (Math.hypot(c.x - p.x, c.y - p.y) < 1.8) this.dialogue.start(id);
+    if (Math.hypot(c.x - p.x, c.y - p.y) < 1.8) this.openTalk(id);
     else { this.pendingTalk = id; this.moveTarget = null; }
   }
 
@@ -359,6 +407,7 @@ export class Game {
       const typing = tag === "SELECT" || tag === "TEXTAREA" || tag === "INPUT" && !["checkbox", "radio", "range", "button"].includes((el as HTMLInputElement).type);
       if (key !== "escape" && typing) return;
       if (key === "escape" && this.casino.open) { this.casino.close(); return; }
+      if (key === "escape" && this.minimap.bigOpen) { this.minimap.toggle(false); return; }
       if (key === "escape") { if (this.modal.open) this.modal.close(); else if (this.dialogue.open) this.dialogue.close(); else { this.select(-1); this.dev.toggle(false); this.log.toggle(false); } return; }
       if (this.modal.open) return;
       if (this.dialogue.open && /^[1-9]$/.test(key)) { if (this.dialogue.key(+key)) e.preventDefault(); return; }
@@ -378,6 +427,7 @@ export class Game {
       else if (key === k.pause) this.setSpeed(this.clock.paused ? this.clock.speed : 0);
       else if (key === k.inspect) this.select(this.sim.playerId);
       else if (key === k.log) this.log.toggle();
+      else if (key === "m") this.minimap.toggle();
       else if (key === k.dev || key === "~") this.dev.toggle();
       else if (key === "c") { this.renderer.cam.follow = this.sim.playerId; }
       else if (key === "=" || key === "+") this.renderer.cam.setZoom(this.renderer.cam.targetZoom * 1.2);
@@ -423,7 +473,7 @@ export class Game {
     const sim = this.sim, p = sim.player;
     if (button === 2) { this.mouse.x = x; this.mouse.y = y; this.act("throw"); return; }
     const id = this.renderer.pickCharacter(x, y);
-    if (id >= 0) { this.select(id === this.selected && id !== p.id ? -1 : id); if (id !== p.id && this.selected === id && Math.hypot(sim.chars[id].x - p.x, sim.chars[id].y - p.y) < 1.8) this.dialogue.start(id); return; }
+    if (id >= 0) { this.select(id === this.selected && id !== p.id ? -1 : id); if (id !== p.id && this.selected === id && Math.hypot(sim.chars[id].x - p.x, sim.chars[id].y - p.y) < 1.8) this.openTalk(id); return; }
     const ad = this.renderer.pickAd(x, y);
     if (ad) { window.open(ad.url, "_blank", "noopener"); this.toast("Opening the MosaicScope site in a new tab"); return; }
     const tid = this.renderer.pickToy(x, y);
@@ -471,7 +521,96 @@ export class Game {
       else if (e.type === "power_back" || e.type === "rare_meteor" || e.type === "weather") this.toast(e.summary);
       else if (near && (e.type === "knockdown" || e.type === "toy_fight" || e.type === "reconcile" || e.type === "friendship" || e.type === "alliance" || e.type === "gathering")) this.toast(e.summary, e.type === "knockdown" || e.type === "toy_fight" ? "red" : "");
       if (e.actors.includes(p.id) && e.type === "knockdown") this.toast("You got knocked down!", "red");
+      // important moments in your life get the camera's full attention
+      if (e.actors.includes(p.id)) {
+        const street = sim.world.streetName(e.x, e.y) || "the street";
+        const other = e.actors.find((id) => id !== p.id), on = other !== undefined && other >= 0 ? sim.chars[other] : null;
+        const F: Record<string, () => [string, string] | null> = {
+          crime: () => (e.actors[0] === p.id ? ["Caught in the act", `${street}. Someone saw that.`] : ["Mugged", `${street}. ${on ? on.name.split(" ")[0] + " got you." : ""}`]),
+          arrest: () => ["Busted", `${street}`], busted: () => ["Busted", "Hands where we can see them"],
+          car_crash: () => ["Crash", `${street}`], car_hit: () => (e.actors[0] === p.id ? ["Hit and run?", street] : ["Hit by a car", street]),
+          kiss: () => ["A moment", on ? `You and ${on.name.split(" ")[0]}` : ""], date: () => ["Date night", on ? `With ${on.name.split(" ")[0]}` : ""],
+          collapse: () => ["Down", "Someone call an ambulance"], hospital: () => ["Patched up", "Christchurch Hospital"],
+          caught_cheating: () => ["Caught", "This is going to be a conversation"], breakup: () => ["It's over", on ? on.name.split(" ")[0] : ""],
+          injury: () => (+e.data.level >= 2 ? ["Hurt", "That's going to need a bandage (B)"] : null),
+        };
+        const f = F[e.type]?.();
+        if (f) this.focus(f[0], f[1], 3.6);
+      }
     });
+  }
+
+  /** Open a conversation with the camera on the two of you. */
+  private openTalk(id: number): void {
+    this.dialogue.start(id);
+    const c = this.sim.chars[id];
+    if (!c || !this.dialogue.open) return;
+    const r = this.sim.player.rel.get(id), close = (r?.aff ?? 0) > 0.35, first = c.name.split(" ")[0];
+    const label = this.sim.player.partner === id ? "Your person" : close ? (c.look.kind === "girl" ? "Your homegirl" : "Your homie") : c.tier === "principal" ? "One of the Mosaics" : ROLE_LABEL[c.role] ? `The ${ROLE_LABEL[c.role]}` : "";
+    this.focus(c.nickname ? `${first} "${c.nickname}"` : first, label, 0);
+  }
+
+  // ------------------------------------------------------------------ focus mode
+  private minimap = new Minimap(() => this.sim);
+  private travel = new Travel({
+    getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; },
+    companions: () => this.sim.chars.filter((c) => c.tier === "principal" && c.name !== "Chris").map((c) => ({ name: c.name, color: c.look.color })),
+    carried: () => carried(this.sim.player).map((id) => this.sim.toys[id]).filter(Boolean).map((t) => ({ id: t.id, name: TOYS[t.def].name, category: TOYS[t.def].category ?? "toy" })),
+    confiscate: (ids) => { const p = this.sim.player; for (const id of ids) { const t = this.sim.toys[id]; if (!t) continue; detach(p, id); t.state = "broken"; t.x = -100; t.holder = -1; } },
+    onReturn: (summary) => { this.toast(summary, "acid"); this.focus("Home", "Welcome back to Christchurch", 3); },
+    toast: (t) => this.toast(t),
+  });
+  private focusEl = h("div.focus", { "aria-hidden": "true" }, [h("div.focus-bar.top"), h("div.focus-bar.bot"), h("div.focus-cap", null, [h("b"), h("span")])]);
+  private focusUntil = 0; private focusZoom = 0; private focusHeld = false;
+  /** Letterbox, vignette, push in on the player, caption. `secs` <= 0 holds until unfocus(). */
+  focus(title: string, sub = "", secs = 3.5): void {
+    const cam = this.renderer.cam;
+    if (!this.focusEl.classList.contains("on")) this.focusZoom = cam.targetZoom;
+    cam.setZoom(Math.max(this.focusZoom, 2.2));
+    cam.follow = this.sim.playerId;
+    (this.focusEl.querySelector(".focus-cap b") as HTMLElement).textContent = title;
+    (this.focusEl.querySelector(".focus-cap span") as HTMLElement).textContent = sub;
+    this.focusEl.classList.remove("on"); void this.focusEl.offsetWidth; this.focusEl.classList.add("on");
+    this.focusHeld = secs <= 0;
+    this.focusUntil = secs > 0 ? performance.now() + secs * 1000 : Infinity;
+  }
+  unfocus(): void {
+    if (!this.focusEl.classList.contains("on")) return;
+    this.focusEl.classList.remove("on"); this.focusHeld = false; this.focusUntil = 0;
+    this.renderer.cam.setZoom(this.focusZoom || 1.5);
+  }
+  private tickFocus(now: number): void {
+    if (this.focusEl.classList.contains("on") && !this.focusHeld && now > this.focusUntil) this.unfocus();
+    if (this.focusHeld && !this.dialogue.open && !this.phone.open) this.unfocus();
+  }
+
+  // ------------------------------------------------------------------ family
+  private phone = { open: false, el: h("div.phone.hidden", { role: "dialog", "aria-label": "Phone call" }), nextCall: 0, calls: 0 };
+  private maybeCall(): void {
+    const sim = this.sim;
+    if (this.phone.open || this.dialogue.open || this.casino.open || this.modal.open) return;
+    if (!this.phone.nextCall) { this.phone.nextCall = sim.tick + 60 * 60 * 3; return; }
+    if (sim.tick < this.phone.nextCall) return;
+    this.phone.nextCall = sim.tick + 60 * 60 * (6 + Math.random() * 6);
+    const who = FAMILY[this.phone.calls++ % FAMILY.length];
+    this.phone.open = true;
+    this.focus(`${who.name} is calling`, "Answer or decline", 0);
+    const p = sim.player;
+    const close = (msg?: string) => { this.phone.open = false; this.phone.el.classList.add("hidden"); if (msg) this.toast(msg); this.unfocus(); };
+    const step = (i: number) => {
+      const line = who.script[i];
+      if (!line) { close(); return; }
+      this.phone.el.replaceChildren(
+        h("div.who", null, [h("b", { text: who.name }), h("span", { text: who.label })]),
+        h("p.line", { text: `“${line.say.replace("{place}", sim.world.areaAt(p.x, p.y)?.name ?? "town").replace("{cash}", "$" + Math.round(p.cash))}”` }),
+        h("div.opts", null, line.opts.map(([label, next, effect], k) => h("button", { onclick: () => { if (effect === "money") { p.cash += 50; this.toast(`${who.name} sent you $50`, "acid"); } if (effect === "send") { const amt = Math.min(p.cash, 40); p.cash -= amt; this.toast(`You sent ${who.name} $${amt}`); } if (next < 0) close(); else step(next); } }, [h("kbd", { text: String(k + 1) }), label]))),
+      );
+    };
+    this.phone.el.classList.remove("hidden");
+    this.phone.el.replaceChildren(h("div.who", null, [h("b", { text: who.name }), h("span", { text: `${who.label} · calling…` })]), h("div.opts", null, [
+      h("button.btn.acid", { onclick: () => step(0), text: "Answer" }),
+      h("button.btn", { onclick: () => close(`${who.name}: "${who.missed}"`), text: "Decline" }),
+    ]));
   }
 
   private toast(text: string, kind = ""): void {
@@ -584,7 +723,7 @@ export class Game {
   private swapSim(sim: Simulation): void {
     sim.fakeBlood = this.settings.fakeBlood;
     this.dialogue.close();
-    this.sim = sim;
+    this.sim = sim; this.minimap.reset();
     this.renderer.setSim(sim);
     this.audio.attach(sim);
     this.select(-1); this.moveTarget = null; this.pendingTalk = -1;

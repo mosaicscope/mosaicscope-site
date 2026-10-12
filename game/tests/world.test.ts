@@ -10,7 +10,7 @@ describe("world generator", () => {
       const seen = reachableMask(w);
       for (let i = 0; i < w.tiles.length; i++) if (!SOLID.has(w.tiles[i])) expect(seen[i]).toBe(1);
       for (const p of w.pois) {
-        if (p.kind === "fountain" || p.kind === "door") continue;
+        if (p.kind === "fountain" || p.kind === "door" || p.kind === "plane") continue;
         const tx = Math.floor(p.x), ty = Math.floor(p.y);
         expect(seen[ty * w.size + tx], `${p.kind} at ${tx},${ty}`).toBe(1);
       }
