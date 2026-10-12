@@ -1,0 +1,26 @@
+# Copies the public visitor summary into the "stats-data" branch every 6 hours so the bots can read it
+# from the repo (their cloud sandbox can't reach the live site). No secrets needed.
+name: stats-snapshot
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch summary and push to stats-data
+        run: |
+          mkdir -p out
+          curl -fsS --max-time 30 "https://mosaicscope.pages.dev/api/world-stats?summary=1" -o out/latest.json || echo '{"error":"unreachable"}' > out/latest.json
+          date -u +%FT%TZ > out/fetched-at.txt
+          git config user.name "stats-bot"; git config user.email "stats-bot@users.noreply.github.com"
+          git checkout --orphan stats-data
+          git rm -rf . >/dev/null 2>&1 || true
+          cp out/latest.json out/fetched-at.txt .
+          git add latest.json fetched-at.txt
+          git commit -m "stats snapshot" >/dev/null
+          git push -f origin stats-data
