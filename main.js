@@ -154,7 +154,7 @@
       var frags = "";
       for (var f = 0; f < 4; f++) {
         var top = f * 25, bottom = 100 - (f + 1) * 25;
-        var dx = 0;
+        var dx = reduceMotion ? 0 : (f % 2 ? 1 : -1) * 18;
         frags += '<span class="frag" style="background-image:url(\'' + img + '\');clip-path:inset(' + top + '% 0 ' + bottom + '% 0);--dx:' + dx + 'px;--s:1.04"></span>';
       }
       var vid = p.videoFile ? '<video class="tile__vid" muted loop playsinline preload="none" src="' + esc(p.videoFile) + '"></video>' : "";
@@ -255,7 +255,7 @@
   var FS = [
     "precision mediump float;",
     "varying vec2 v;",
-    "uniform sampler2D t;uniform sampler2D t2;uniform vec2 res;uniform vec2 img;uniform vec2 img2;uniform float mixv;uniform float grain;",
+    "uniform sampler2D t;uniform sampler2D t2;uniform vec2 res;uniform vec2 img;uniform vec2 img2;uniform float mixv;uniform float grain;uniform vec2 mouse;uniform float hover;",
     "float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}",
     "vec2 cover(vec2 uv,vec2 s0){float ra=res.x/res.y;float ia=s0.x/s0.y;vec2 s=ra>ia?vec2(1.0,ia/ra):vec2(ra/ia,1.0);return (uv-0.5)*s+0.5;}",
     "vec3 tap(sampler2D tx,vec2 uv,vec2 s0,float sp){vec2 u=clamp(cover(uv,s0),0.001,0.999);return vec3(texture2D(tx,u+vec2(sp,0.0)).r,texture2D(tx,u).g,texture2D(tx,u-vec2(sp,0.0)).b);}",
@@ -267,13 +267,14 @@
     " float c=floor(uv.x*cols+shift); vec2 cell=vec2(c,r); float rnd=h(cell);",
     " vec2 center=vec2((c+0.5-shift)/cols,(r+0.5)/rows);",
     " vec2 off=(vec2(h(cell+1.3),h(cell+4.1))-0.5)*0.01;",
-    " vec2 suv=(uv-center)/(1.0+(rnd-0.5)*0.03)+center+off;",
+    " vec2 dm=(center-mouse)*vec2(res.x/res.y,1.0); float md=exp(-dot(dm,dm)*9.0)*hover;",
+    " vec2 suv=(uv-center)/(1.0+(rnd-0.5)*0.03+md*0.035)+center+off;",
     " vec3 a=tap(t,suv,img,0.0015); vec3 b=tap(t2,suv,img2,0.0015);",
     " float m=clamp(mixv*1.8-rnd*0.8,0.0,1.0); m=m*m*(3.0-2.0*m);",
     " vec3 col=mix(a,b,m);",
     " vec2 f=vec2(fract(uv.x*cols+shift),fract(uv.y*rows));",
     " float e=smoothstep(0.0,0.008,f.x)*smoothstep(0.0,0.008,1.0-f.x)*smoothstep(0.0,0.014,f.y)*smoothstep(0.0,0.014,1.0-f.y);",
-    " col*=mix(0.12,1.0,e); col*=0.9+0.16*rnd;",
+    " col*=mix(0.12,1.0,e); col*=0.9+0.16*rnd+md*0.14;",
     " col+=(h(uv*res+grain)-0.5)*0.05;",
     " vec2 q=uv-0.5; col*=1.0-dot(q,q)*1.2;",
     " gl_FragColor=vec4(col,1.0);",
@@ -291,6 +292,12 @@
 
   function makeSlideshow(show) {
     var slides = [], idx = 0, timer = null;
+    var hero = $(".hero");
+    if (hero) hero.addEventListener("click", function (e) {
+      if (e.target.closest("a, button") || slides.length < 2) return;
+      idx = (idx + 1) % slides.length;
+      show(slides[idx].img); setPlateLabel(slides, idx);
+    });
     return function setSlides(list) {
       slides = list || []; idx = 0;
       if (!slides.length) return;
@@ -347,7 +354,7 @@
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 
     var U = {};
-    ["res", "img", "img2", "mixv", "grain", "t", "t2"].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
+    ["res", "img", "img2", "mixv", "grain", "t", "t2", "mouse", "hover"].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
     gl.uniform1i(U.t, 0); gl.uniform1i(U.t2, 1);
 
     function mkTex() {
@@ -369,6 +376,29 @@
     sizeA = upload(texA, plate); sizeB = upload(texB, plate);
 
     var mixv = 0, fading = false;
+    // Gentle hover: tiles under the cursor lift and brighten slightly, eased slowly.
+    var mouse = [0.5, 0.5], target = [0.5, 0.5], hover = 0, hoverTarget = 0, easing = false;
+    function easeLoop() {
+      mouse[0] += (target[0] - mouse[0]) * 0.07;
+      mouse[1] += (target[1] - mouse[1]) * 0.07;
+      hover += (hoverTarget - hover) * 0.06;
+      if (!fading) draw();
+      if (Math.abs(target[0] - mouse[0]) + Math.abs(target[1] - mouse[1]) + Math.abs(hoverTarget - hover) > 0.002) requestAnimationFrame(easeLoop);
+      else easing = false;
+    }
+    if (finePointer && !reduceMotion) {
+      var heroEl = canvas.parentElement;
+      heroEl.addEventListener("pointermove", function (e) {
+        var r = heroEl.getBoundingClientRect();
+        target = [(e.clientX - r.left) / r.width, 1 - (e.clientY - r.top) / r.height];
+        hoverTarget = 1;
+        if (!easing) { easing = true; requestAnimationFrame(easeLoop); }
+      });
+      heroEl.addEventListener("pointerleave", function () {
+        hoverTarget = 0;
+        if (!easing) { easing = true; requestAnimationFrame(easeLoop); }
+      });
+    }
     function resize() {
       var dpr = Math.min(window.devicePixelRatio || 1, window.innerWidth < 720 ? 1.25 : 1.75);
       var w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
@@ -384,6 +414,8 @@
       gl.uniform2f(U.img2, sizeB[0], sizeB[1]);
       gl.uniform1f(U.mixv, mixv);
       gl.uniform1f(U.grain, 1.0);
+      gl.uniform2f(U.mouse, mouse[0], mouse[1]);
+      gl.uniform1f(U.hover, hover);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
 
@@ -813,20 +845,24 @@
   /* ---------------- Cursor ---------------- */
   function initCursor() {
     if (!finePointer || reduceMotion) return;
-    var c = $("#cursor"), x = 0, y = 0, cx = 0, cy = 0, on = false;
-    document.addEventListener("pointermove", function (e) {
-      x = e.clientX; y = e.clientY;
-      if (!on) { on = true; cx = x; cy = y; c.classList.add("is-on"); tick(); }
-      var t = e.target.closest && e.target.closest(".tile");
-      c.classList.toggle("is-view", !!t && $("#viewer").hidden);
-    });
-    document.addEventListener("pointerleave", function () { c.classList.remove("is-on"); on = false; });
+    var c = $("#cursor"), gal = $("#gallery");
+    if (!c || !gal) return;
+    var x = 0, y = 0, cx = 0, cy = 0, running = false;
     function tick() {
-      if (!on) return;
-      cx += (x - cx) * 0.2; cy += (y - cy) * 0.2;
+      cx += (x - cx) * 0.14; cy += (y - cy) * 0.14;
       c.style.transform = "translate3d(" + cx + "px," + cy + "px,0)";
-      requestAnimationFrame(tick);
+      if (c.classList.contains("is-view") || Math.abs(x - cx) + Math.abs(y - cy) > 0.5) requestAnimationFrame(tick); else running = false;
     }
+    gal.addEventListener("pointermove", function (e) {
+      x = e.clientX; y = e.clientY;
+      var t = e.target.closest && e.target.closest(".tile");
+      if (t && !c.classList.contains("is-view")) { cx = x; cy = y; }
+      c.classList.toggle("is-view", !!t);
+      if (!running) { running = true; requestAnimationFrame(tick); }
+    });
+    gal.addEventListener("pointerleave", function () { c.classList.remove("is-view"); });
+    window.addEventListener("scroll", function () { c.classList.remove("is-view"); }, { passive: true });
+    $("#gallery").addEventListener("click", function () { c.classList.remove("is-view"); });
   }
 
   /* ---------------- Optional sound ----------------
@@ -1035,19 +1071,12 @@
     }).join("");
     track.innerHTML = html + html;
     if (reduceMotion) return;
-    var x = 0, dir = -1, vel = 0, lastY = window.scrollY;
-    window.addEventListener("scroll", function () {
-      var y = window.scrollY, d = y - lastY; lastY = y;
-      if (d) dir = d > 0 ? -1 : 1;
-      vel = Math.min(40, vel + Math.abs(d) * 0.15);
-    }, { passive: true });
+    var x = 0;
     (function step() {
       var half = track.scrollWidth / 2;
-      x += dir * (0.6 + vel);
-      vel *= 0.9;
+      x -= 0.35;
       if (x <= -half) x += half;
-      if (x > 0) x -= half;
-      track.style.transform = "translate3d(" + x + "px,0,0)";
+      track.style.transform = "translate3d(" + x.toFixed(2) + "px,0,0)";
       requestAnimationFrame(step);
     })();
   }
@@ -1076,25 +1105,17 @@
   // 3. Section headings decode from scrambled characters when they come into view.
   function initScramble() {
     var els = $$(".scramble");
-    if (reduceMotion || !("IntersectionObserver" in window)) return;
-    var glyphs = "MOSAIC#/\\[]<>01—*+";
-    function run(el) {
-      var final = el.getAttribute("data-final") || el.textContent;
-      el.setAttribute("data-final", final);
-      el.setAttribute("aria-label", final);
-      var frame = 0, total = 22;
-      (function tick() {
-        var out = "";
-        for (var i = 0; i < final.length; i++) {
-          var settle = (i / final.length) * total * 0.8;
-          out += final[i] === " " || frame >= settle + 4 ? final[i] : glyphs[(Math.random() * glyphs.length) | 0];
-        }
-        el.textContent = out;
-        if (frame++ < total + 4) requestAnimationFrame(tick); else el.textContent = final;
-      })();
-    }
+    els.forEach(function (el) {
+      var text = el.textContent;
+      el.setAttribute("aria-label", text);
+      el.innerHTML = Array.from(text).map(function (ch, i) {
+        return '<span class="rise" aria-hidden="true" style="--i:' + i + '">' + (ch === " " ? "&nbsp;" : esc(ch)) + "</span>";
+      }).join("");
+    });
+    if (reduceMotion || !("IntersectionObserver" in window)) { els.forEach(function (el) { el.classList.add("is-up"); }); return; }
+    els.forEach(function (el) { el.classList.add("rise-ready"); });
     var io = new IntersectionObserver(function (es) {
-      es.forEach(function (e) { if (e.isIntersecting) { run(e.target); io.unobserve(e.target); } });
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("is-up"); io.unobserve(e.target); } });
     }, { threshold: 0.6 });
     els.forEach(function (el) { io.observe(el); });
   }
@@ -1131,24 +1152,25 @@
 
   /* ---------------- FX layer ---------------- */
 
-  // Mosaic cursor trail: little tiles in the brand colours fall off the cursor as it moves.
+  // Mosaic cursor trail: a few small tiles fade out where the cursor has been. They don't move.
   function initTrail() {
     if (!finePointer || reduceMotion) return;
     var c = $("#trail");
     if (!c) return;
     var g = c.getContext("2d"), dpr = Math.min(2, window.devicePixelRatio || 1);
     var cols = ["#ec2a1c", "#c6ff3d", "#f6b62c", "#eee4d3"];
-    var bits = [], lx = 0, ly = 0, active = false;
+    var bits = [], lx = 0, ly = 0, acc = 0, active = false;
     function size() { c.width = innerWidth * dpr; c.height = innerHeight * dpr; c.style.width = innerWidth + "px"; c.style.height = innerHeight + "px"; }
     size(); window.addEventListener("resize", size);
     document.addEventListener("pointermove", function (e) {
-      var dx = e.clientX - lx, dy = e.clientY - ly, d = Math.hypot(dx, dy);
+      var d = Math.hypot(e.clientX - lx, e.clientY - ly);
       lx = e.clientX; ly = e.clientY;
-      if (!$("#viewer").hidden || e.target.closest(".board, .contact, input, textarea, select")) return;
-      var n = Math.min(4, Math.floor(d / 14));
-      for (var i = 0; i < n && bits.length < 120; i++) {
-        bits.push({ x: lx - dx * (i / n), y: ly - dy * (i / n), s: 4 + Math.random() * 12, c: cols[(Math.random() * cols.length) | 0], vx: (Math.random() - 0.5) * 1.2, vy: 0.4 + Math.random(), life: 1 });
-      }
+      if (!$("#viewer").hidden || e.target.closest(".board, .contact, input, textarea, select, .tile")) return;
+      acc += d;
+      if (acc < 28 || bits.length > 40) return;
+      acc = 0;
+      var s = 6 + Math.random() * 6;
+      bits.push({ x: Math.round(lx / 8) * 8, y: Math.round(ly / 8) * 8, s: s, c: cols[(Math.random() * cols.length) | 0], life: 1 });
       if (!active) { active = true; requestAnimationFrame(tick); }
     });
     function tick() {
@@ -1156,80 +1178,49 @@
       g.clearRect(0, 0, innerWidth, innerHeight);
       for (var i = bits.length - 1; i >= 0; i--) {
         var b = bits[i];
-        b.x += b.vx; b.y += b.vy; b.vy += 0.05; b.life -= 0.025;
+        b.life -= 0.018;
         if (b.life <= 0) { bits.splice(i, 1); continue; }
-        g.globalAlpha = b.life * 0.85;
+        g.globalAlpha = b.life * 0.5;
         g.fillStyle = b.c;
-        var s = b.s * (0.4 + b.life * 0.6);
-        g.fillRect(Math.round(b.x - s / 2), Math.round(b.y - s / 2), Math.round(s), Math.round(s * 0.66));
+        g.fillRect(b.x - b.s / 2, b.y - b.s / 2, b.s, b.s * 0.7);
       }
       if (bits.length) requestAnimationFrame(tick); else { active = false; g.clearRect(0, 0, innerWidth, innerHeight); }
     }
   }
 
-  // Magnetic buttons: key controls lean toward the cursor.
+  // Magnetic buttons: key controls lean a few pixels toward the cursor.
   function initMagnetic() {
     if (!finePointer || reduceMotion) return;
-    $$(".enquire, .send, .filter, .copy, .sc__play, .follow, .ig-cta__big").forEach(function (el) {
+    $$(".enquire, .send, .filter, .copy, .follow, .ig-cta__big").forEach(function (el) {
       el.classList.add("magnet");
       el.addEventListener("pointermove", function (e) {
         var r = el.getBoundingClientRect();
         var x = (e.clientX - r.left - r.width / 2) / r.width, y = (e.clientY - r.top - r.height / 2) / r.height;
-        el.style.transform = "translate(" + x * 14 + "px," + y * 10 + "px)";
+        el.style.transform = "translate(" + (x * 6).toFixed(1) + "px," + (y * 4).toFixed(1) + "px)";
       });
       el.addEventListener("pointerleave", function () { el.style.transform = ""; });
     });
   }
 
-  // Gallery tiles tilt in 3D with a moving glare, and the image ripples like liquid while hovered.
+  // Gallery tiles tip slightly toward the cursor with a soft light sheen.
   function initTileFX() {
     if (!finePointer || reduceMotion) return;
     var gal = $("#gallery");
-    var turb = $("#liquid-turb"), disp = $("#liquid-disp");
-    var hovered = null, raf = 0, t0 = 0;
     gal.addEventListener("pointermove", function (e) {
       var t = e.target.closest && e.target.closest(".tile");
       if (!t) return;
       var r = t.getBoundingClientRect();
       var x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
-      t.style.setProperty("--ry", ((x - 0.5) * 14).toFixed(2) + "deg");
-      t.style.setProperty("--rx", ((0.5 - y) * 10).toFixed(2) + "deg");
+      t.style.setProperty("--ry", ((x - 0.5) * 5).toFixed(2) + "deg");
+      t.style.setProperty("--rx", ((0.5 - y) * 4).toFixed(2) + "deg");
       t.style.setProperty("--gx", (x * 100).toFixed(1) + "%");
       t.style.setProperty("--gy", (y * 100).toFixed(1) + "%");
-      if (hovered !== t) {
-        if (hovered) hovered.classList.remove("is-liquid");
-        hovered = t; t.classList.add("is-liquid"); t0 = performance.now();
-        if (!raf) raf = requestAnimationFrame(wobble);
-      }
     });
     gal.addEventListener("pointerout", function (e) {
       var t = e.target.closest && e.target.closest(".tile");
       if (!t || t.contains(e.relatedTarget)) return;
       t.style.setProperty("--rx", "0deg"); t.style.setProperty("--ry", "0deg");
-      t.classList.remove("is-liquid");
-      if (hovered === t) hovered = null;
     });
-    function wobble(now) {
-      if (!hovered) { raf = 0; disp.setAttribute("scale", 0); return; }
-      var k = (now - t0) / 1000;
-      var settle = Math.max(0.25, 1 - k * 0.6);
-      turb.setAttribute("baseFrequency", (0.012 + Math.sin(k * 2.1) * 0.004).toFixed(4) + " " + (0.03 + Math.cos(k * 1.7) * 0.01).toFixed(4));
-      disp.setAttribute("scale", (28 * settle).toFixed(1));
-      raf = requestAnimationFrame(wobble);
-    }
-  }
-
-  // Scroll speed bends the gallery: fast scrolling skews the columns, then they spring back.
-  function initScrollSkew() {
-    if (reduceMotion) return;
-    var gal = $("#gallery");
-    var last = window.scrollY, skew = 0;
-    (function loop() {
-      var y = window.scrollY, v = y - last; last = y;
-      skew += (Math.max(-6, Math.min(6, v * 0.12)) - skew) * 0.12;
-      gal.style.setProperty("--skew", skew.toFixed(2) + "deg");
-      requestAnimationFrame(loop);
-    })();
   }
 
   /* ---------------- Bar ---------------- */
@@ -1252,6 +1243,15 @@
     initForm(site);
     initBar();
     initTimecode();
+    initCursor();
+    initMarquee(data);
+    initIntroWords();
+    initScramble();
+    initInkFill();
+    initFootWeight();
+    initTrail();
+    initMagnetic();
+    initTileFX();
     var leader = runLeader();
     leader.then(function () { initWordmark(); hero.restart(); });
     loadInstagram(site).then(function (res) {

@@ -573,3 +573,49 @@ audio { width: 100%; max-width: 640px; }
 .slate .cat-photo, .slate .cat-film, .slate .cat-sound, .slate .cat-experiment { background: rgba(14, 11, 10, 0.72); color: var(--paper); }
 .slate .cat-photo::before, .slate .cat-film::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; background: var(--red); }
 .slate .cat-film::before { background: var(--sodium); }
+
+
+/* ================= Round 6: smooth FX ================= */
+/* Soft letter rise for headings */
+.rise { display: inline-block; }
+.rise-ready .rise { opacity: 0; transform: translateY(0.35em); }
+.rise-ready.is-up .rise { opacity: 1; transform: none; transition: opacity .9s var(--ease), transform .9s var(--ease); transition-delay: calc(var(--i) * 28ms); }
+
+/* Gentle tile tilt + sheen, slices settle on reveal and part slightly on hover */
+.tile { transform: perspective(1200px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform .9s var(--ease); }
+.frag { transition: transform 1.6s var(--ease); }
+.tile:hover .frag:nth-child(odd), .tile:focus-visible .frag:nth-child(odd) { transform: translate3d(4px, 0, 0); }
+.tile:hover .frag:nth-child(even), .tile:focus-visible .frag:nth-child(even) { transform: translate3d(-4px, 0, 0); }
+.tile .frag { transition: transform 1.6s var(--ease); }
+.tile__media::after {
+  content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none; opacity: 0; transition: opacity .8s var(--ease);
+  background: radial-gradient(circle at var(--gx, 50%) var(--gy, 50%), rgba(255, 255, 255, 0.18), transparent 50%);
+  mix-blend-mode: soft-light;
+}
+.tile:hover .tile__media::after { opacity: 1; }
+
+/* Service lines: a small, slow letter ripple */
+.svc li .lt { transition: transform .6s var(--ease); transition-delay: calc(var(--i) * 14ms); }
+.svc li:hover .lt { transform: translateY(-0.08em); }
+
+/* Cursor pill (only over work), trail, magnets */
+.cursor {
+  position: fixed; left: 0; top: 0; z-index: 70; pointer-events: none;
+  width: 72px; height: 72px; margin: -36px 0 0 -36px; border-radius: 50%; background: var(--acid);
+  display: grid; place-items: center; opacity: 0; scale: 0.6; mix-blend-mode: normal; transition: opacity .35s var(--ease), scale .35s var(--ease);
+}
+.cursor span { font: 600 11px/1 var(--f-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink); }
+.cursor.is-view { opacity: 1; scale: 1; width: 72px; height: 72px; margin: -36px 0 0 -36px; }
+.trail { position: fixed; inset: 0; z-index: 69; pointer-events: none; }
+.magnet { transition: transform .6s var(--ease), background .3s, color .3s, border-color .3s; }
+.ig-cta__big { display: inline-block; }
+.hero { cursor: pointer; }
+@media (hover: none), (pointer: coarse) { .cursor { display: none; } .hero { cursor: auto; } }
+@media (prefers-reduced-motion: reduce) {
+  .rise-ready .rise { opacity: 1; transform: none; }
+  .tile { transform: none !important; }
+}
+
+/* Top bar gets a quiet frosted backing once you scroll, so nothing runs underneath the text */
+.bar { transition: background .5s var(--ease), backdrop-filter .5s var(--ease); }
+.bar.is-scrolled { mix-blend-mode: normal; background: rgba(14, 11, 10, 0.72); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }

@@ -78,6 +78,8 @@
   </section>
 
 
+  <div class="marquee" aria-hidden="true"><div class="marquee__track" id="marquee"></div></div>
+
   <section class="work" id="work" aria-labelledby="work-h">
     <div class="sechead">
       <h2 id="work-h"><span class="mono sechead__no">A</span><span class="scramble">Selected work</span></h2>
@@ -122,7 +124,7 @@
   </section>
 
   <section class="contact" id="contact" aria-labelledby="contact-h">
-    <h2 class="contact__h" id="contact-h">Book a shoot<br><em>or a film.</em></h2>
+    <h2 class="contact__h" id="contact-h"><span class="ink-fill">Book a shoot</span><br><em>or a film.</em></h2>
     <div class="contact__grid">
       <form class="form" id="form" novalidate>
         <div class="field">
@@ -180,6 +182,8 @@
 
 <div class="sc-frame" id="sc-frame" aria-hidden="true"></div>
 <div class="loupe" id="loupe" aria-hidden="true"></div>
+<div class="cursor" id="cursor" aria-hidden="true"><span>View</span></div>
+<canvas class="trail" id="trail" aria-hidden="true"></canvas>
 <div class="peek" id="peek" aria-hidden="true"></div>
 <svg class="fx-defs" aria-hidden="true" width="0" height="0">
   <filter id="liquid" x="-10%" y="-10%" width="120%" height="120%">
