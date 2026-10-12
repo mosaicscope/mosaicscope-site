@@ -58,6 +58,15 @@ export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Build
   // facades read brighter by day; at night the neon and windows do the work
   const day = Math.max(0, 1 - dark);
   const kS = 1.15 + 0.45 * day, kE = 0.8 + 0.3 * day;
+  const lite = z < 0.8; // zoomed out: flat walls, no windows/awnings/props (keeps it smooth)
+  if (lite) {
+    const flat = (ax: number, ay: number, bx: number, by: number, k: number) => { g.fillStyle = shade(b.color, k); poly(g, [P(ax, ay, 0), P(bx, by, 0), P(bx, by, top(bx, by)), P(ax, ay, top(ax, ay))]); g.fill(); };
+    if (southOpen) flat(tx, ty + 1, tx + 1, ty + 1, kS);
+    if (eastOpen) flat(tx + 1, ty + 1, tx + 1, ty, kE);
+    g.fillStyle = shade(b.roof, 0.45); poly(g, [P(tx, ty, top(tx, ty)), P(tx + 1, ty, top(tx + 1, ty)), P(tx + 1, ty + 1, top(tx + 1, ty + 1)), P(tx, ty + 1, top(tx, ty + 1))]); g.fill();
+    g.globalAlpha = 1;
+    return;
+  }
   if (southOpen) wall(g, b, P, top, tx, ty + 1, tx + 1, ty + 1, kS, "s", tx, ty, z, dark, night, time);
   if (eastOpen) wall(g, b, P, top, tx + 1, ty + 1, tx + 1, ty, kE, "e", tx, ty, z, dark, night, time);
   if (southOpen) paintGraffiti(g, graffiti.get(`${tx},${ty},s`), P(tx, ty + 1, 0), P(tx + 1, ty + 1, 0), Math.min(H, GROUND_H) * zp, z);

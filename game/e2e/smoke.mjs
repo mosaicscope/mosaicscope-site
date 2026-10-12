@@ -67,6 +67,7 @@ await check("T opens a conversation with choices; a choice gets a reply; Esc clo
   await page.keyboard.press("t");
   const dlg = page.getByRole("dialog", { name: "Conversation" });
   await dlg.waitFor({ timeout: 2000 });
+  await dlg.locator(".opts button").first().waitFor({ timeout: 9000 }); // after the opener lines
   const before = await dlg.locator(".line").textContent();
   await page.keyboard.press("2"); // "Tell me about yourself"
   await page.waitForTimeout(200);

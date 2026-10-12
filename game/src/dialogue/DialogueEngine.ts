@@ -20,7 +20,7 @@ export interface Conversation { id: number; a: number; b: number; topic: string;
 
 export interface PlayerOption { id: string; label: string }
 export interface PlayerLink { label: string; href: string }
-export interface PlayerReply { speaker: string; text: string; options: PlayerOption[]; ended: boolean; links?: PlayerLink[]; img?: string; action?: "trade" }
+export interface PlayerReply { speaker: string; text: string; options: PlayerOption[]; ended: boolean; opener?: string[]; links?: PlayerLink[]; img?: string; action?: "trade" }
 
 const byTopic = new Map<string, LineTemplate[]>();
 for (const l of LINES) { const a = byTopic.get(l.topic) ?? []; a.push(l); byTopic.set(l.topic, a); }
@@ -322,10 +322,13 @@ export class DialogueEngine {
     npc.talkWith = p.id; p.talkWith = npc.id; this.playerTarget = npc.id;
     npc.stats.talks++;
     applyInteraction(npc, p, "talk", true, sim.tick);
-    const text = this.bark(npc, "greet", p);
+    // a short authored back-and-forth (them, then you) before your options appear
+    const script = this.director.pick(npc, p);
+    const opener = script ? script.slice(0, 2) : [this.bark(npc, "greet", p)];
+    const text = opener[0];
     sim.say(npc, text, "say", 3);
     sim.playerAct("talked", npc);
-    return { speaker: npc.name, text, options: this.playerOptions(npc), ended: false };
+    return { speaker: npc.name, text, options: this.playerOptions(npc), ended: false, opener };
   }
 
   playerChoose(npc: Character, optId: string): PlayerReply {

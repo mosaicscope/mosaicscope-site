@@ -40,7 +40,7 @@ export class DialogueUI {
     const id0 = id;
     this.npc = r.ended && !r.options.length ? -1 : id;
     this.el.classList.remove("hidden");
-    const opts = r.options.map((o, i) => h("button", { onclick: () => this.choose(o.id) }, [h("kbd", { text: String(i + 1) }), o.label]));
+    const opts = r.options.map((o, i) => h("button", { onclick: () => this.choose(o.id), title: `Key ${i + 1}`, "aria-keyshortcuts": String(i + 1) }, [o.label]));
     const parts: HTMLElement[] = [
       h("button.x", { "aria-label": "End conversation", onclick: () => this.close(), text: "×" }),
       h("div.who", { text: r.speaker }), h("p.line", { text: `“${r.text}”` }),
