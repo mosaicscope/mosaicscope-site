@@ -16,6 +16,8 @@ A crew lives in the black strip at the very bottom: **Tiles** (main guy), **Glit
 - **The longer people stay, the more it grows:** more of the crew turn up, then a boombox (clickable), string lights, a disco ball, a banner, and an "Our world, coming soon" sign (the hook for the future world page).
 - Tap/hover anyone to see their name. Click anyone to play/pause music.
 
+**Their world:** after about 7 minutes a sign appears saying "Our world · step inside". It opens **/world/**, a whole playable stick-figure town where the Mosaics live with hundreds of locals. They fight with toys, gossip, throw parties, hold grudges and make up. It's a separate page, so it never slows down the main site. Details and controls: `game/README.md`. You don't need to do anything to publish it.
+
 **Stats:** https://mosaicscope.pages.dev/api/egg shows visitors who found them, time watched, clicks, music plays, photoshoots, cash throws, boombox clicks, biggest crew and highest level (last 30 days).
 
 ## 🔧 Things you can fill in whenever
@@ -40,6 +42,8 @@ Short steps. Do one at a time.
 | `images/` | Your photos and videos go here | **Yes** |
 | `index.html`, `styles.css`, `main.js` | The website itself | No |
 | `.pages.yml` | Settings for the editor | No |
+| `world/` | The Mosaics' world game (built, ready to serve) | No |
+| `game/` | Source code for the world game | No |
 
 ---
 

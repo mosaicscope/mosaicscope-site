@@ -2097,15 +2097,17 @@
         el.className = "prop prop--banner mono";
         el.textContent = "THE MOSAICS";
       } else if (name === "sign") {
-        el = document.createElement("div");
+        // the sign is the door to the Mosaics' world (a separate page at /world/, nothing loads until clicked)
+        el = document.createElement("a");
+        el.href = "/world/";
         el.className = "prop prop--sign mono";
-        el.innerHTML = "Our world<br>coming soon";
+        el.innerHTML = "Our world<br>step inside";
       } else if (name === "neon") {
         el = document.createElement("div");
         el.className = "prop prop--neon mono";
         el.textContent = "after hours";
       }
-      el.setAttribute("aria-hidden", name === "boombox" ? "false" : "true");
+      el.setAttribute("aria-hidden", name === "boombox" || name === "sign" ? "false" : "true");
       stage.appendChild(el);
       if (temp) { temps[name] = el; return el; }
       props[name] = el;
