@@ -588,16 +588,16 @@ export class Renderer {
     if (day < 0.4) { g.fillStyle = "rgba(238,228,211,.7)"; for (let i = 0; i < 70; i++) { const x = (i * 97.3 + pu * 2) % W, y = (i * 53.1) % (ground * 0.55); g.fillRect((x + W) % W, y, 1.4, 1.4); } }
     // skyline in three parallax layers (far = dark silhouettes, near = detailed), with haze between
     const bs = sim.world.buildings.map((b) => { const cx = (b.x0 + b.x1 + 1) / 2, cy = (b.y0 + b.y1 + 1) / 2; return { b, u: (cx - cy) / 1.414, v: cx + cy, w: (b.x1 - b.x0 + b.y1 - b.y0 + 2) / 1.6 }; })
-      .filter((q) => q.v < pv - 1 && q.v > pv - 60).sort((a, c) => a.v - c.v);
+      .filter((q) => q.v < pv - 1 && q.v > pv - 40).sort((a, c) => a.v - c.v);
     const haze = day > 0.4 ? "rgba(217,160,122," : "rgba(42,22,48,";
     let layer = -1;
     for (const q of bs) {
-      const depth = (pv - q.v) / 60, k = 1 - depth * 0.6, par = 0.35 + 0.65 * k; // farther = moves slower
+      const depth = (pv - q.v) / 40, k = 1 - depth * 0.6, par = 0.35 + 0.65 * k; // farther = moves slower
       const x = W / 2 + (q.u - pu) * S * par, w = q.w * S * k, h = q.b.height * S * 0.85 * k;
       if (x + w / 2 < 0 || x - w / 2 > W) continue;
-      const L = depth > 0.6 ? 0 : depth > 0.3 ? 1 : 2;
+      const L = depth > 0.45 ? 1 : 2;
       if (L !== layer) { if (layer >= 0) { g.fillStyle = haze + "0.16)"; g.fillRect(0, 0, W, ground); } layer = L; }
-      const base = parseInt(q.b.color.slice(1), 16), dim = L === 0 ? 0.35 : L === 1 ? 0.6 : 0.9;
+      const base = parseInt(q.b.color.slice(1), 16), dim = L === 1 ? 0.55 : 0.9;
       g.fillStyle = `rgb(${((base >> 16) & 255) * dim | 0},${((base >> 8) & 255) * dim | 0},${(base & 255) * dim | 0})`;
       g.fillRect(x - w / 2, ground - h, w, h);
       // rim light on the roofline
@@ -630,10 +630,19 @@ export class Renderer {
       if (day < 0.5) { const grd = g.createRadialGradient(x + 26, ground, 0, x + 26, ground, 120); grd.addColorStop(0, "rgba(255,230,160,.22)"); grd.addColorStop(1, "rgba(255,230,160,0)"); g.fillStyle = grd; g.fillRect(x - 100, ground - 120, 250, 160); }
     }
     // people near you, side-on, nearer ones lower and bigger
-    const near = sim.chars.filter((c) => c.inside < 0 && c.inCar < 0 && Math.abs((c.x + c.y) - pv) < 3 && Math.abs((c.x - c.y) / 1.414 - pu) * S < W * 0.6).sort((a, c) => (a.x + a.y) - (c.x + c.y));
-    for (const c of near) {
-      const dv = (c.x + c.y) - pv, k = (1 + (cam.zoom - 3) * 0.3) * c.look.scale * (1 + dv * 0.06);
-      const sx = W / 2 + ((c.x - c.y) / 1.414 - pu) * S, sy = ground + 6 + dv * 6;
+    const near = sim.chars.filter((c) => c.inside < 0 && c.inCar < 0 && Math.abs((c.x + c.y) - pv) < 1.6 && Math.abs((c.x - c.y) / 1.414 - pu) * S < W * 0.55)
+      .sort((a, c) => Math.hypot(a.x - f.x, a.y - f.y) - Math.hypot(c.x - f.x, c.y - f.y)).slice(0, 7);
+    // lay them out along the pavement: keep everyone at least a body-width apart (you stay put)
+    const kk = (1 + (cam.zoom - 3) * 0.3), minGap = 56 * kk;
+    const slots = near.map((c) => ({ c, x: W / 2 + ((c.x - c.y) / 1.414 - pu) * S })).sort((a, b) => a.x - b.x);
+    for (let pass = 0; pass < 4; pass++) for (let i = 1; i < slots.length; i++) {
+      const gap = slots[i].x - slots[i - 1].x;
+      if (gap < minGap) { const push = (minGap - gap) / 2; if (slots[i - 1].c !== f) slots[i - 1].x -= push; else slots[i].x += push; if (slots[i].c !== f) slots[i].x += push; else slots[i - 1].x -= push; }
+    }
+    slots.sort((a, b) => (a.c.x + a.c.y) - (b.c.x + b.c.y));
+    for (const { c, x: sx } of slots) {
+      const dv = (c.x + c.y) - pv, k = kk * c.look.scale * (1 + dv * 0.04);
+      const sy = ground + 8 + dv * 5;
       const moving = Math.abs(c.x - c.px) + Math.abs(c.y - c.py) > 0.0005, spd = Math.hypot(c.x - c.px, c.y - c.py) * 60;
       c.anim.phase += spd * dt * 5.5;
       const dir = (Math.cos(c.facing) - Math.sin(c.facing)) >= 0 ? 1 : -1;
@@ -647,7 +656,7 @@ export class Renderer {
     g.textAlign = "start";
     // soft vignette to frame the scene
     const vg = g.createRadialGradient(W / 2, H * 0.55, H * 0.3, W / 2, H * 0.55, H * 0.95); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.5)"); g.fillStyle = vg; g.fillRect(0, 0, W, H);
-    g.fillStyle = "rgba(238,228,211,.7)"; g.font = "600 12px 'IBM Plex Mono', monospace"; g.fillText(`2D street view · ${sim.world.streetName(f.x, f.y)} · scroll out for 3D`, 16, 66);
+    g.fillStyle = "rgba(238,228,211,.7)"; g.font = "600 12px 'IBM Plex Mono', monospace"; g.fillText(`2D street view · ${sim.world.streetName(f.x, f.y)} · press V or scroll out for 3D`, 16, 66);
     void o;
   }
 
