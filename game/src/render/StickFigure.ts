@@ -138,6 +138,20 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
   g.globalAlpha = alpha;
   g.lineCap = "round"; g.lineJoin = "round";
   const col = flash > 0 ? "#ffffff" : L.color;
+  // HD pass when you're close: soft neon glow, a crisp ink outline under every limb, then the line
+  const hd = k >= 1.05;
+  const skel = () => {
+    g.beginPath();
+    g.moveTo(J[0], J[1]); g.lineTo(J[16], J[17]); g.lineTo(J[18], J[19]);
+    g.moveTo(J[0], J[1]); g.lineTo(J[20], J[21]); g.lineTo(J[22], J[23]);
+    g.moveTo(J[0], J[1]); g.lineTo(J[2], J[3]); g.lineTo(J[4], J[5]);
+    g.moveTo(J[6], J[7]); g.lineTo(J[8], J[9]); g.lineTo(J[10], J[11]);
+    g.moveTo(J[6], J[7]); g.lineTo(J[12], J[13]); g.lineTo(J[14], J[15]);
+  };
+  if (hd) {
+    g.strokeStyle = col; g.globalAlpha = alpha * 0.13; g.lineWidth = lw * 3.4; skel(); g.stroke();
+    g.globalAlpha = alpha; g.strokeStyle = "rgba(10,8,12,.85)"; g.lineWidth = lw + 2.4 * k; skel(); g.stroke();
+  }
   g.strokeStyle = col; g.lineWidth = lw;
   // legs
   g.beginPath();
@@ -149,6 +163,20 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
   g.moveTo(J[6], J[7]); g.lineTo(J[8], J[9]); g.lineTo(J[10], J[11]);
   g.moveTo(J[6], J[7]); g.lineTo(J[12], J[13]); g.lineTo(J[14], J[15]);
   g.stroke();
+  if (hd) {
+    // rim light along the top-left edge of every limb
+    g.save(); g.translate(-0.55 * k, -0.7 * k); g.strokeStyle = "rgba(255,255,255,.3)"; g.lineWidth = Math.max(0.6, lw * 0.32); skel(); g.stroke(); g.restore();
+    // shirt panel between shoulders and hips, tinted with their accent
+    const ux = J[6] - J[0], uy = J[7] - J[1], len = Math.hypot(ux, uy) || 1, px = (-uy / len) * 5.5 * k, py = (ux / len) * 5.5 * k;
+    g.fillStyle = L.accent; g.globalAlpha = alpha * 0.32;
+    g.beginPath(); g.moveTo(J[0] + px * 0.8, J[1] + py * 0.8); g.lineTo(J[6] + px, J[7] + py); g.lineTo(J[6] - px, J[7] - py); g.lineTo(J[0] - px * 0.8, J[1] - py * 0.8); g.closePath(); g.fill();
+    g.globalAlpha = alpha;
+    // joints (shoulder, elbows, hip, knees) and mitten hands
+    g.fillStyle = col;
+    for (const i of [6, 8, 12, 0, 16, 20]) { g.beginPath(); g.arc(J[i], J[i + 1], lw * 0.62, 0, 6.283); g.fill(); }
+    g.strokeStyle = "rgba(10,8,12,.85)"; g.lineWidth = 1.2 * k;
+    for (const i of [10, 14]) { g.beginPath(); g.arc(J[i], J[i + 1], lw * 0.95, 0, 6.283); g.fill(); g.stroke(); }
+  }
   // boots in accent
   g.strokeStyle = L.accent; g.lineWidth = lw * (girl ? 1.6 : 1.9);
   g.beginPath();
