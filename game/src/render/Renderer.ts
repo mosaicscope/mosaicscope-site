@@ -95,7 +95,7 @@ export class Renderer {
   resize(quality: Quality): void {
     const w = this.canvas.clientWidth || window.innerWidth, h = this.canvas.clientHeight || window.innerHeight;
     const native = window.devicePixelRatio || 1;
-    this.dpr = quality === 0 ? Math.min(1, native) * 0.75 : quality === 1 ? Math.min(1.5, native) : Math.min(2, native);
+    this.dpr = quality === 0 ? Math.min(1, native) * 0.75 : quality === 1 ? Math.min(1.25, native) : Math.min(1.5, native); // crisp but light enough for high frame rates
     this.canvas.width = Math.round(w * this.dpr); this.canvas.height = Math.round(h * this.dpr);
     this.cam.resize(w, h);
     this.particles.scale = quality === 0 ? 0.35 : quality === 1 ? 0.7 : 1;
@@ -311,7 +311,7 @@ export class Renderer {
     const darkness = 1 - sim.daylight;
     if (darkness > 0.3 && o.quality > 0) {
       g.globalCompositeOperation = "lighter";
-      for (const v of sim.vehicles) { cam.toScreen(v.x, v.y, 0, this.pt); if (inView(this.pt.x, this.pt.y, 60)) headlights(g, cam, v, darkness); }
+      for (const v of sim.vehicles) { cam.toScreen(v.x, v.y, 0, this.pt); if (inView(this.pt.x, this.pt.y, 60)) headlights(g, cam, v, Math.min(darkness, sim.env.power ? 0.8 : 0.35)); }
       g.globalCompositeOperation = "source-over";
     }
     this.rain.draw(g, sim.env.rain, cam.viewW, cam.viewH, dt, o.quality === 0 ? 60 : o.quality === 1 ? 160 : 260, o.reduceMotion);

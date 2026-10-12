@@ -19,7 +19,7 @@ export const DEFAULT_KEYS: Record<string, string> = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  quality: "auto", volume: 0.6, sound: true, fakeBlood: true, reducedMotion: null, textScale: 1, gentle: false, density: 420, showNames: true, tutorialDone: false, keys: { ...DEFAULT_KEYS },
+  quality: "auto", volume: 0.6, sound: true, fakeBlood: true, reducedMotion: null, textScale: 1, gentle: false, density: 260, showNames: true, tutorialDone: false, keys: { ...DEFAULT_KEYS },
 };
 
 /** Load settings defensively: any missing or wrong-typed field falls back to its default. */

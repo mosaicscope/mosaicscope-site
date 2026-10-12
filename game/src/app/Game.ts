@@ -97,7 +97,7 @@ export class Game {
 
   constructor(private canvas: HTMLCanvasElement, root: HTMLElement) {
     this.settings = loadSettings(this.store);
-    this.sim = new Simulation({ backgroundCount: this.settings.density });
+    this.sim = new Simulation({ backgroundCount: Math.min(this.settings.density, 300) });
     this.renderer = new Renderer(canvas, this.sim);
     this.audio = new AudioSystem(() => this.renderer.cam);
     this.audio.attach(this.sim);
@@ -847,7 +847,7 @@ export class Game {
   }
 
   reset(seed?: number): void {
-    const sim = new Simulation({ seed: seed ?? this.sim.cfg.seed, backgroundCount: this.settings.density });
+    const sim = new Simulation({ seed: seed ?? this.sim.cfg.seed, backgroundCount: Math.min(this.settings.density, 300) });
     this.swapSim(sim);
     this.toast(seed !== undefined ? `New world · seed ${seed}` : "World restarted");
   }

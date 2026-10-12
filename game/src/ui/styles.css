@@ -285,3 +285,16 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; color:
 .dialogue .opts button:hover, .dialogue .opts button:focus-visible { background: var(--acid); border-color: var(--acid); color: #0e0b0a; outline: none; }
 .dialogue .opts kbd { display: none; }
 .hud .obj { color: var(--gold); font-weight: 700; }
+/* phones in portrait: compact HUD, small radar top-right, full-width dialogue, tucked radio */
+@media (orientation: portrait) and (max-width: 640px) {
+  .minimap { width: 96px; height: 96px; left: auto; right: 10px; top: 112px; bottom: auto; }
+  .hud { top: 104px; right: 116px; }
+  .hud .cash { font-size: 20px; } .hud .bars { grid-template-columns: auto 60px; }
+  .areaname { font-size: 22px; bottom: 150px; right: 10px; }
+  .dialogue { width: calc(100vw - 16px); bottom: 8px; padding: 12px; }
+  .dialogue .opts button { flex: 1 1 100%; text-align: left; }
+  .radio .radio-title { display: none; }
+  .focus-cap b { font-size: 26px; } .focus-bar { height: 7vh; }
+  .phone { right: 8px; left: 8px; width: auto; top: auto; bottom: 12px; transform: none; }
+  .hint { display: none; }
+}

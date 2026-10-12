@@ -28,9 +28,9 @@ await check("first-run tutorial appears and can be skipped", async () => {
   await page.getByRole("button", { name: "Skip" }).click();
   assert(!(await page.getByRole("dialog", { name: "Tutorial" }).isVisible()), "tutorial still visible");
 });
-await check("game booted with 500+ simulated people", async () => {
+await check("game booted with 400+ simulated people", async () => {
   const n = await G(() => window.__mosaics.sim.chars.length);
-  assert(n >= 500, "only " + n);
+  assert(n >= 400, "only " + n);
 });
 await check("canvas renders a varied image (not blank)", async () => {
   const colours = await G(() => {
