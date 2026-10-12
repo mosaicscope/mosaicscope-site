@@ -389,7 +389,7 @@ export class Renderer {
       const a0 = this.bubbleAlpha.get(c.id) ?? 0;
       const a1 = a0 + (target - a0) * Math.min(1, (o.reduceMotion ? 20 : 6) * (1 / 60));
       if (a1 < 0.02 && target === 0) this.bubbleAlpha.delete(c.id); else this.bubbleAlpha.set(c.id, a1);
-      if (a1 > 0.02 || (o.showNames && (c.tier === "principal" || c.tier === "player") && d < 14) || c.id === o.selected || c.id === o.hovered) cands.push(it);
+      if (a1 > 0.02 || this.markers.has(c.id) || (o.showNames && (c.tier === "principal" || c.tier === "player") && d < 14) || c.id === o.selected || c.id === o.hovered) cands.push(it);
     }
     // nearest to you first, and anyone talking to you before everyone else
     const pri = (c: Character) => (c.id === me.id || c.talkWith === me.id ? -100 : 0) + Math.hypot(c.x - mx, c.y - my);
@@ -406,6 +406,12 @@ export class Renderer {
         g.fillStyle = c.tier === "player" ? "#ec2a1c" : c.look.color;
         g.fillText(c.name, it.sx, it.sy + 15);
         g.textAlign = "start";
+      }
+      if (this.markers.has(c.id)) {
+        const my = headY - 18 - Math.sin(performance.now() / 300) * 3;
+        g.fillStyle = "#b48cff"; g.beginPath(); g.moveTo(it.sx, my - 12); g.lineTo(it.sx + 9, my); g.lineTo(it.sx, my + 12); g.lineTo(it.sx - 9, my); g.closePath(); g.fill();
+        g.fillStyle = "#0e0b0a"; g.font = "900 13px 'Big Shoulders Display', Impact, sans-serif"; g.textAlign = "center"; g.fillText("!", it.sx, my + 5);
+        g.font = "700 11px 'IBM Plex Mono', monospace"; g.fillStyle = "#b48cff"; g.fillText(c.nickname ? `${c.name.split(" ")[0]} "${c.nickname}"` : c.name, it.sx, my - 17); g.textAlign = "start";
       }
       const ba = this.bubbleAlpha.get(c.id) ?? 0;
       if (!c.bubble || ba < 0.02 || shown >= maxB) continue;
@@ -562,6 +568,8 @@ export class Renderer {
 
   /** Buildings on screen this frame, and how much each is cut away (0..1, eased). */
   private viewB = new Set<number>();
+  /** story contacts with a job: a bobbing marker and name above their head */
+  markers = new Set<number>();
   private cut = new Map<number, number>();
 
   /** Is world point (x, y) behind building b (north or west of its footprint)? */
