@@ -88,7 +88,7 @@ export class Renderer {
   /** Bleeding characters leave drips (called by the renderer each frame for visible ones). */
   drip(x: number, y: number): void {
     if (!this.fakeBlood) return;
-    this.decals.push({ x: x + (Math.random() - 0.5) * 0.3, y: y + (Math.random() - 0.5) * 0.3, r: 0.05 + Math.random() * 0.06, color: "#7a0d12", born: this.time, life: 25, rot: 0 });
+    this.decals.push({ x: x + (Math.random() - 0.5) * 0.4, y: y + (Math.random() - 0.5) * 0.4, r: 0.06 + Math.random() * 0.1, color: "#7a0d12", born: this.time, life: 40, rot: 0 });
     if (this.decals.length > 220) this.decals.shift();
   }
 
@@ -262,7 +262,9 @@ export class Renderer {
         solve(a, it.sx, it.sy - zOff, k, dir);
         // held toy behind or in front depending on hand
         drawFigure(g, c, it.sx, it.sy - zOff, k, dir, time, c.anim.flash, 1);
-        if (c.bleed > 0 && Math.random() < c.bleed * dt * 3) this.drip(c.x, c.y);
+        if (c.bleed > 0 && Math.random() < c.bleed * dt * 5) this.drip(c.x, c.y);
+        // someone down and bleeding leaves a spreading pool
+        if (c.phys === Phys.DOWN && c.bleed > 0 && this.fakeBlood && Math.random() < dt * 1.5) { this.decals.push({ x: c.x + (Math.random() - 0.5) * 0.2, y: c.y + (Math.random() - 0.5) * 0.2, r: 0.18 + Math.random() * 0.2, color: "#6a0a10", born: this.time, life: 60, rot: 0 }); if (this.decals.length > 220) this.decals.shift(); }
         if (c.wounds.length) this.drawWounds(c, k, dir);
         this.drawHeld(c, k, dir, a.armR);
         figs++;

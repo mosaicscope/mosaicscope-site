@@ -25,11 +25,12 @@ export function wound(sim: Simulation, c: Character, part: WoundPart, severity: 
   else { c.wounds.push(w); if (c.wounds.length > 6) c.wounds.shift(); }
   if (part === "head" && w.severity >= 2) w.kind = kind === "stab" ? "stab" : "gash";
   recomputeBleed(c);
-  if (sim.fakeBlood && w.severity >= 2) {
+  if (sim.fakeBlood) {
     const a = Math.atan2(c.y - fromY, c.x - fromX);
-    // headshots and stabs spray; everything else drips
-    const n = part === "head" ? 22 : kind === "stab" ? 16 : 8;
+    // headshots and stabs spray hard; every hit draws some (cartoon) blood
+    const n = (part === "head" ? 40 : kind === "stab" ? 30 : 14) * w.severity;
     sim.bus.emit("fx", { kind: "blood", x: c.x + Math.cos(a) * 0.2, y: c.y + Math.sin(a) * 0.2, z: part === "head" ? 1.6 : 1.0, n, color: "#b3121b" });
+    if (w.severity >= 3 || part === "head" && w.severity >= 2) sim.bus.emit("fx", { kind: "gib", x: c.x, y: c.y, z: 1.2, n: part === "head" ? 4 : 3 });
   }
   if (w.severity >= 2) {
     const att = sim.chars[by];
