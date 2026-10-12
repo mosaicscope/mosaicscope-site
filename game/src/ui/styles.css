@@ -284,3 +284,4 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; color:
 .dialogue .opts button { border: 1px solid rgba(238,228,211,.25); background: rgba(238,228,211,.06); color: var(--paper); border-radius: 999px; padding: 8px 14px; font: 600 calc(12px * var(--ts)) var(--mono); cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
 .dialogue .opts button:hover, .dialogue .opts button:focus-visible { background: var(--acid); border-color: var(--acid); color: #0e0b0a; outline: none; }
 .dialogue .opts kbd { display: none; }
+.hud .obj { color: var(--gold); font-weight: 700; }

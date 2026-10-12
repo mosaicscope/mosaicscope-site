@@ -177,6 +177,7 @@ export class Game {
       h("div.bars", null, [...bar("health", p.blood * p.emo.composure ** 0.3, p.bleed > 0 ? "#ec2a1c" : "#c6ff3d"), ...bar("hunger", p.hunger, "#f6b62c")])];
     if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; kids.push(h("div.car", null, [h("b", { text: String(Math.round(Math.abs(v.speed) * 7.2)) }), " km/h · " + VEHICLES[v.cls].name])); }
     if (p.bleed > 0) kids.push(h("div.car", { text: "You're bleeding. B to bandage." }));
+    const obj = this.objective(); if (obj) kids.push(h("div.car.obj", { text: obj }));
     this.hudEl.replaceChildren(...kids);
     if (sim.bustedAt !== this.lastBusted && sim.bustedAt >= 0) {
       this.lastBusted = sim.bustedAt;
@@ -188,6 +189,7 @@ export class Game {
 
   private uiTick(now: number): void {
     this.tickFocus(now);
+    this.tickMafia(now);
     this.minimap.update(now);
     if (now - this.lastUi < 250) return;
     this.maybeCall();
@@ -574,8 +576,59 @@ export class Game {
     });
   }
 
+  // ------------------------------------------------------------------ the Famiglia (mafia story)
+  private mafia = { ch: 0, step: 0, until: 0 };
+  /** Five chapters from errand runner to made: Don Vito hands out each job when you talk to him. */
+  private mafiaJob(): { title: string; brief: string; stops: [string, string][]; pay: number; heat: number; secs: number } | null {
+    return [
+      { title: "Chapter 1 · Pies for the Don", brief: "Take this box to Moorhouse Fuel. Don't open it. It's pies.", stops: [["garage", "Drop the box at Moorhouse Fuel"]], pay: 200, heat: 0, secs: 0 },
+      { title: "Chapter 2 · The Tomato Fund", brief: "Visit our friends. They 'donate' to my tomato garden.", stops: [["dairy", "Collect from the dairy"], ["pizza", "Collect from the pizza shop"], ["sushi", "Collect from the sushi bar"]], pay: 500, heat: 0, secs: 0 },
+      { title: "Chapter 3 · Moon Sherbet", brief: "SALT District has a parcel of Moon Sherbet. Casino. Ninety seconds.", stops: [["alley", "Pick up the Moon Sherbet in the SALT District"], ["casino", "Bring it to the Tessera, fast"]], pay: 1200, heat: 1, secs: 90 },
+      { title: "Chapter 4 · The Riccarton Boys", brief: "They're selling hubcaps on my street. Go to the car yards. Make an impression.", stops: [["dealership", "Make an impression at the car yards"]], pay: 2500, heat: 2, secs: 0 },
+      { title: "Chapter 5 · Made", brief: "Come back to the Tessera. Family dinner. Wear something nice.", stops: [["casino", "Family dinner at the Tessera"]], pay: 10000, heat: 0, secs: 0 },
+    ][this.mafia.ch] as { title: string; brief: string; stops: [string, string][]; pay: number; heat: number; secs: number } | undefined ?? null;
+  }
+  private mafiaTarget(): { x: number; y: number; label: string } | null {
+    const job = this.mafiaJob();
+    if (!job || this.mafia.step === 0) return null;
+    const [kind, label] = job.stops[this.mafia.step - 1] ?? [];
+    if (!kind) return null;
+    const w = this.sim.world, p = this.sim.player;
+    const b = kind === "alley" ? null : w.buildings.filter((x) => x.kind === kind).sort((a, c) => Math.hypot(a.door.x - p.x, a.door.y - p.y) - Math.hypot(c.door.x - p.x, c.door.y - p.y))[0];
+    if (b) return { x: b.door.x + 0.5, y: b.door.y + 0.5, label };
+    const a = w.areas.find((x) => x.name === "SALT District") ?? w.areas.find((x) => x.kind === "alley");
+    return a ? { x: a.cx, y: a.cy, label } : null;
+  }
+  private talkToDon(): void {
+    const job = this.mafiaJob();
+    if (!job) { this.focus("Capo", "\"You're family now. Go enjoy the city.\" (Don Vito)", 3.5); return; }
+    if (this.mafia.step > 0) { this.focus("Don Vito", `"${this.mafiaTarget()?.label ?? "Get it done"}. Capisce?"`, 3); return; }
+    this.mafia.step = 1; this.mafia.until = job.secs ? performance.now() + job.secs * 1000 : 0;
+    this.focus(job.title, `"${job.brief}"`, 4.5);
+  }
+  private tickMafia(now: number): void {
+    const job = this.mafiaJob(), t = this.mafiaTarget();
+    this.minimap.target = t;
+    if (!job || !t) return;
+    const p = this.sim.player, px = p.inCar >= 0 ? this.sim.vehicles[p.inCar].x : p.x, py = p.inCar >= 0 ? this.sim.vehicles[p.inCar].y : p.y;
+    if (this.mafia.until && now > this.mafia.until) { this.mafia.step = 0; this.mafia.until = 0; this.focus("Too slow", "The Don is disappointed. Talk to him again.", 3); return; }
+    if (Math.hypot(px - t.x, py - t.y) > 2.2) return;
+    if (this.mafia.step < job.stops.length) { this.mafia.step++; this.toast(`✓ ${t.label}`, "acid"); return; }
+    p.cash += job.pay; p.wanted = Math.max(p.wanted, job.heat);
+    this.mafia.ch++; this.mafia.step = 0; this.mafia.until = 0;
+    this.focus(job.title.split(" · ")[1] + " · done", `The Famiglia paid you ${fmtCash(job.pay)}${job.heat ? ` · the cops noticed (${job.heat}★)` : ""}`, 4);
+  }
+  objective(): string {
+    const t = this.mafiaTarget();
+    if (!t) return "";
+    const left = this.mafia.until ? Math.max(0, Math.ceil((this.mafia.until - performance.now()) / 1000)) : 0;
+    return `🌹 ${t.label}${left ? ` · ${left}s` : ""}`;
+  }
+
   /** Open a conversation with the camera on the two of you. */
   private openTalk(id: number): void {
+    const don = this.sim.chars[id];
+    if (don && don.role === "mobster" && don.nickname === "The Don") { this.talkToDon(); return; }
     this.dialogue.start(id);
     const c = this.sim.chars[id];
     if (!c || !this.dialogue.open) return;
