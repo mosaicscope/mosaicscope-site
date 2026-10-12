@@ -1705,7 +1705,7 @@
     { at: 600, prop: "neon" }
   ];
   var POSE_CLASSES = [];
-  IDLE.concat(["rave", "throw", "count", "think", "posecool", "posegirl", "shoot", "camera", "cheer", "gag", "guitar"]).forEach(function (p) { POSE_CLASSES.push("is-" + p); });
+  IDLE.concat(["rave", "throw", "count", "think", "posecool", "posegirl", "shoot", "camera", "cheer", "gag", "guitar", "hug"]).forEach(function (p) { POSE_CLASSES.push("is-" + p); });
   DANCE_POOL.concat(GIRL_HYPE, GUY_HYPE, ["worm", "throw", "shoot", "grind", "grindguy", "lean", "twirlguy", "spin"]).forEach(function (d) { if (POSE_CLASSES.indexOf("d-" + d) < 0) POSE_CLASSES.push("d-" + d); });
 
   /* ---- things they hold: [arm angle, wobble, speed, item svg drawn upright at the hand, what it gives off] ---- */
@@ -1739,6 +1739,14 @@
     keytar: { arm: -62, amp: 5, spd: .3, emit: "notes", every: 560, item: '<rect x="-10" y="-3" width="18" height="5" rx="1" fill="#ec2a1c" stroke="#eee4d3" stroke-width=".7"/><path d="M-8 -3 v3 M-5 -3 v3 M-2 -3 v3 M1 -3 v3 M4 -3 v3" stroke="#eee4d3" stroke-width=".6"/>' },
     vinyl: { arm: -62, amp: 8, spd: .25, item: '<g class="spin"><circle cx="0" cy="-6" r="6" fill="#0e0b0a" stroke="#9a8d80" stroke-width=".8"/><circle cx="0" cy="-6" r="1.8" fill="#ec2a1c" stroke="none"/></g>' }
   };
+  // after-hours treats (all made up): what they hold, then how it hits them
+  Object.assign(GAGS, {
+    grapejuice: { arm: -112, amp: 8, spd: .6, item: '<path d="M-2.5 2 h5 v-8 l-1.5 -2 v-4 h-2 v4 l-1.5 2 Z" fill="#7a2bd6" stroke="#ff7ad9" stroke-width=".8"/><rect x="-2.5" y="-4" width="5" height="3" fill="#ff7ad9" stroke="none"/>' },
+    cocotin: { arm: -100, amp: 6, spd: .25, emit: "puff", every: 500, item: '<rect x="-4" y="-7" width="8" height="8" rx="1.5" fill="#eee4d3" stroke="#9a5a1c" stroke-width=".8"/><text x="0" y="-1.6" font-size="3.4" font-family="monospace" font-weight="700" text-anchor="middle" fill="#9a5a1c" stroke="none">COCO</text>' },
+    gummies: { arm: -85, amp: 6, spd: .5, emit: "heart", every: 600, item: '<path d="M-4 2 h8 v-8 l-2 -2 h-4 l-2 2 Z" fill="#ff7ad9" stroke="#eee4d3" stroke-width=".8"/><path d="M0 -1.5 l-1.6 -1.6 a1 1 0 0 1 1.6 -1.2 a1 1 0 0 1 1.6 1.2 Z" fill="#ec2a1c" stroke="none"/>' },
+    syrup: { arm: -95, amp: 3, spd: 1.4, item: '<path d="M-3 -7 h6 l-1 8 h-4 Z" fill="#eee4d3" stroke="#9a8d80" stroke-width=".6"/><path d="M-2.6 -3 h5.2 l-.6 4 h-4 Z" fill="#7a2bd6" stroke="none"/>' }
+  });
+  var TREATS = { grapejuice: "woozy", cocotin: "zoomy", gummies: "lovey", syrup: "slow" };
   var HATS = {
     partyhat: '<path d="M43 17 L57 17 L50 1 Z" fill="#ff7ad9" stroke="#f6b62c" stroke-width="1"/><circle cx="50" cy="1" r="1.8" fill="#f6b62c" stroke="none"/>',
     crown: '<path d="M42 17 L42 9 L46 13 L50 6 L54 13 L58 9 L58 17 Z" fill="#f6b62c" stroke="#9a5a1c" stroke-width="1"/>',
@@ -1846,6 +1854,11 @@
       else if (kind === "confetti") KINDS.popper(x, y);
       else if (kind === "clink") burst(x, y - 8, 6, 1, { col: "#fff6c8", max: 14, size: 1.2 });
       else if (kind === "water") add({ x: x + 6, y: y - 2, vx: 2.6 + Math.random(), vy: -0.6 - Math.random() * 0.6, c: "#3dd6ff", size: 1.4, g: 0.08, max: 34 });
+      else if (kind === "hic") add({ x: x + 6, y: y - 12, vx: 0.2, vy: -0.4, k: "text", text: Math.random() < 0.7 ? "hic" : "*hic*", c: "#b48cff", size: 9, g: 0, drag: 1, max: 60 });
+      else if (kind === "heart") add({ x: x + (Math.random() - 0.5) * 10, y: y - 12, vx: (Math.random() - 0.5) * 0.4, vy: -0.5, k: "text", text: "♥", c: Math.random() < 0.5 ? "#ff7ad9" : "#ec2a1c", size: 11, g: 0, drag: 1, max: 70 });
+      else if (kind === "zoom") add({ x: x + 8, y: y - 10, vx: 0.6, vy: -0.6, k: "text", text: Math.random() < 0.5 ? "!!" : "zoom", c: "#eee4d3", bold: true, size: 9, g: 0, drag: 1, max: 34 });
+      else if (kind === "slowz") add({ x: x + 6, y: y - 10, vx: 0.1, vy: -0.25, k: "text", text: "~", c: "#7a2bd6", size: 14, g: 0, drag: 1, max: 90 });
+      else if (kind === "puff") for (var q = 0; q < 3; q++) add({ x: x, y: y - 8, vx: (Math.random() - 0.5) * 0.6, vy: -0.4, k: "smoke", c: "#eee4d3", g: -0.002, max: 40, size: 1.6 });
       else if (kind === "glint") add({ x: x, y: y - 10, vx: 0, vy: 0, k: "ring", c: "#fff6c8", size: 2, grow: 0.3, g: 0, max: 24, a: 0.5 });
     }
     function firework(stageEl, kind) {
@@ -1906,7 +1919,7 @@
       '<span class="raver__bubble" aria-hidden="true">?</span>';
   }
 
-  var crewApi = null;
+  var crewApi = null, treatHook = function () { return false; };
   function initHype() {
     var stage = $("#stage"), cash = $("#cash");
     if (!stage) return;
@@ -1955,6 +1968,21 @@
         me.emitT = setInterval(function () { if (G.emit && !document.hidden && visible) FX.emitAt(src, G.emit); }, G.every || 999999);
         if (G.emit) setTimeout(function () { if (me.emitT) FX.emitAt(src, G.emit); }, 400);
       };
+      // how a treat hits them: woozy, zoomy, lovey or slow. It lasts a while, then wears off
+      var BUZZ_EMIT = { woozy: ["hic", 1800], zoomy: ["zoom", 900], lovey: ["heart", 700], slow: ["slowz", 1500] };
+      me.buzz = function (kind, ms) {
+        me.unbuzz();
+        me.buzzed = kind;
+        el.classList.add("fx-" + kind);
+        var head = el.querySelector(".rv__head");
+        me.buzzT = setInterval(function () { if (visible && !document.hidden) FX.emitAt(head, BUZZ_EMIT[kind][0]); }, BUZZ_EMIT[kind][1]);
+        me.buzzEnd = setTimeout(me.unbuzz, ms);
+      };
+      me.unbuzz = function () {
+        clearInterval(me.buzzT); clearTimeout(me.buzzEnd);
+        if (me.buzzed) el.classList.remove("fx-" + me.buzzed);
+        me.buzzed = null;
+      };
       me.hat = function (name) { hatEl.innerHTML = name ? HATS[name] : ""; };
       me.place = function (x, dur) { el.style.transitionDuration = (dur || 0) + "s"; me.x = x; el.style.setProperty("--x", Math.round(x) + "px"); };
       me.maxX = function () { return Math.max(0, stageW() - el.offsetWidth); };
@@ -1964,7 +1992,9 @@
         var dist = Math.abs(tx - me.x);
         if (dist < 6) { if (cb) cb(); return; }
         me.face(tx);
-        var dur = dist / (speed || (38 + Math.random() * 18));
+        var sp = speed || (38 + Math.random() * 18);
+        if (me.buzzed === "woozy") sp *= 0.6; else if (me.buzzed === "slow") sp *= 0.45; else if (me.buzzed === "zoomy") sp *= 1.8;
+        var dur = dist / sp;
         me.pose("is-walk");
         me.place(tx, dur);
         clearTimeout(me.timer);
@@ -1976,6 +2006,8 @@
         if (reduceMotion) { me.pose("is-chill"); return; }
         var pool = cfg.main ? MAIN_IDLE : cfg.glam ? GLAM_IDLE : IDLE;
         var act = rnd(pool);
+        if (me.buzzed === "zoomy" && Math.random() < 0.6) act = "walk";
+        if (Math.random() < 0.05 && treatHook(me)) return;
         if (Math.random() < 0.16) {
           var mate = crew.filter(function (o) { return o !== me && o.cfg.g === cfg.g && !o.lock && Math.abs(o.x - me.x) < 160; })[0];
           if (mate && Math.random() < 0.35) {
@@ -2260,10 +2292,38 @@
     function stunt() {
       if (!raving || !crew.length) return;
       var m = rnd(crew);
-      if (m.el.matches(".d-grind, .d-grindguy, .d-throw, .d-shoot")) return;
+      if (m.buzzed || m.el.matches(".d-grind, .d-grindguy, .d-throw, .d-shoot")) return;
       var x = rnd(["x-flip", "x-spin", "x-split", "x-flip"]);
       m.el.classList.add(x);
       setTimeout(function () { m.el.classList.remove(x); }, 1200);
+    }
+    // after hours only: someone has a treat, then it kicks in
+    treatHook = function (m) { return treat(m); };
+    function treat(m, name, then) {
+      if (!spicy() || reduceMotion || m.buzzed || crew.filter(function (o) { return o.buzzed; }).length >= 3) return false;
+      name = name || rnd(Object.keys(TREATS));
+      var kind = TREATS[name];
+      clearTimeout(m.timer);
+      m.gag(name, raving ? "is-rave d-sway" : null);
+      egg.treats = (egg.treats || 0) + 1;
+      setTimeout(function () {
+        m.buzz(kind, 16000 + Math.random() * 10000);
+        if (kind === "lovey") {
+          // love gummies get shared with their person, then a hug
+          var mate = crew.filter(function (o) { return o !== m && o.cfg.g === m.cfg.g && !o.buzzed; })[0];
+          if (mate) {
+            mate.buzz("lovey", 14000 + Math.random() * 6000);
+            var mid = (m.x + mate.x) / 2;
+            clearTimeout(mate.timer);
+            m.walkTo(mid - 9, function () { m.face(mate.x); m.pose(raving ? "is-rave is-hug" : "is-hug"); }, 40);
+            mate.walkTo(mid + 9, function () { mate.face(m.x); mate.pose(raving ? "is-rave is-hug" : "is-hug"); mate.timer = setTimeout(mate.next, 5500); }, 40);
+            m.timer = setTimeout(then || m.next, 5500);
+            return;
+          }
+        }
+        if (raving) m.dance(rnd(["sway", "bounce", "bop"])); else m.timer = setTimeout(then || m.next, 300);
+      }, 2600);
+      return true;
     }
     function extras() {
       if (!raving) return;
@@ -2274,7 +2334,10 @@
       else if (r < 0.55 && named("Flash")) { star = named("Flash"); star.gag("guitar", "is-rave d-sway"); }
       if (star) crew.forEach(function (m) { if (m !== star && m.cfg.g === star.cfg.g) m.face(star.x); });
       var others = shuffle(crew.filter(function (m) { return m !== star && !m.el.matches(".d-grind, .d-grindguy, .d-throw, .d-shoot"); }));
-      others.slice(0, Math.random() < 0.5 ? 1 : 2).forEach(function (m) { m.gag(rnd(PARTY_GAGS), "is-rave d-" + rnd(["bounce", "bop", "twostep", "sway"])); });
+      others.slice(0, Math.random() < 0.5 ? 1 : 2).forEach(function (m) {
+        if (spicy() && Math.random() < 0.45 && treat(m)) return;
+        m.gag(rnd(PARTY_GAGS), "is-rave d-" + rnd(["bounce", "bop", "twostep", "sway"]));
+      });
     }
     var fwTimer = null;
     function fireworks(on) {
@@ -2419,6 +2482,7 @@
     window.hype = {
       critter: function () { critter(); },
       firework: function (k) { return FX.firework(stage, k); },
+      treat: function (i, n) { return crew[i] ? treat(crew[i], n) : false; },
       gag: function (i, n) { if (crew[i]) crew[i].gag(n, raving ? "is-rave d-bounce" : null); },
       set: function (on) {
         raving = on;
