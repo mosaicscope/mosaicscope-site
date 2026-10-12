@@ -1,3 +1,5 @@
+import { BurgerShift } from "../ui/minigames/Burger";
+import "../ui/minigames/minigames.css";
 import { Travel } from "../ui/Travel";
 import "../ui/travel.css";
 import { Minimap } from "../ui/Minimap";
@@ -120,7 +122,7 @@ export class Game {
     this.radio = new Radio(MOSAIC.soundcloud);
     this.hudEl = h("div.hud", { "aria-live": "polite" });
     this.bustedEl = h("div.busted.hidden", { role: "alert" });
-    root.append(this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.modal.el, this.casino.el, this.bustedEl);
+    root.append(this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.modal.el, this.casino.el, this.bustedEl);
     // browsers only allow sound after a gesture: the first click/key starts the playlist
     const firstGesture = () => { if (this.gestured) return; this.gestured = true; if (this.settings.sound) this.audio.setEnabled(true); }; // the radio only plays when you press ▶
     window.addEventListener("pointerdown", firstGesture, { once: false, capture: true });
@@ -294,6 +296,7 @@ export class Game {
     if (door.studio) { this.places.enter(null, true); return; }
     const b = sim.world.buildings[door.building];
     if (b.kind === "airport") { this.travel.show(); return; }
+    if (b.kind === "diner") { this.burger.start(); return; } // pick up a shift flipping burgers
     if (b.kind === "casino") { this.pausedBefore = this.clock.paused; this.casino.show(); return; }
     this.places.enter(b);
   }
@@ -550,7 +553,7 @@ export class Game {
       if (e.type === "party") this.toast("🎵 " + e.summary, "acid");
       else if (e.type === "blackout") this.toast(e.summary, "red");
       else if (e.type === "power_back" || e.type === "rare_meteor" || e.type === "weather") this.toast(e.summary);
-      else if (near && (e.type === "knockdown" || e.type === "toy_fight" || e.type === "reconcile" || e.type === "friendship" || e.type === "alliance" || e.type === "gathering")) this.toast(e.summary, e.type === "knockdown" || e.type === "toy_fight" ? "red" : "");
+      else if (near && e.actors.includes(p.id) && (e.type === "reconcile" || e.type === "friendship")) this.toast(e.summary);
       if (e.actors.includes(p.id) && e.type === "knockdown") this.toast("You got knocked down!", "red");
       // important moments in your life get the camera's full attention
       if (e.actors.includes(p.id)) {
@@ -583,6 +586,7 @@ export class Game {
 
   // ------------------------------------------------------------------ focus mode
   private minimap = new Minimap(() => this.sim);
+  private burger = new BurgerShift((r) => { this.sim.player.cash += r.pay; this.toast(`Shift done: ${r.orders} orders, ${r.perfect} perfect. Paid ${fmtCash(r.pay)}`, "acid"); this.focus("Shift over", `Lyttelton Diner paid you ${fmtCash(r.pay)}`, 3); });
   private travel = new Travel({
     getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; },
     companions: () => this.sim.chars.filter((c) => c.tier === "principal" && c.name !== "Chris").map((c) => ({ name: c.name, color: c.look.color })),

@@ -97,7 +97,7 @@ export const CITY_GOALS: GoalDef[] = [
     build: (_c, sim, ch) => [{ kind: "enter", building: ch.toy, minutes: sim.rng.range(20, 70) }],
   },
   {
-    id: "steal", cooldown: 200, interruptible: false,
+    id: "steal", cooldown: 1500, interruptible: false,
     score: (c, sim) => {
       const desperate = c.pers.honesty < 0.3 && c.cash < 15 && c.emo.frustration > 0.4;
       if (c.role !== "thief" && !desperate) return null;
@@ -118,7 +118,7 @@ export const CITY_GOALS: GoalDef[] = [
     build: (_c, _s, ch) => [{ kind: "steal", target: ch.target }, { kind: "flee_far" }],
   },
   {
-    id: "mug", cooldown: 600, interruptible: false,
+    id: "mug", cooldown: 4000, interruptible: false,
     score: (c, sim) => {
       if (c.role !== "thief" || c.hand < 0 || sim.toys[c.hand]?.def !== "knife" || c.jailUntil > 0) return null;
       if (!hourIn(sim.hour, 20, 4) || c.emo.fear > 0.4) return null;
