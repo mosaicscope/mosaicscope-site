@@ -39,6 +39,11 @@
   </nav>
   <div class="bar__end">
     <span class="tc mono" id="tc" aria-hidden="true">00:00:00:00</span>
+    <div class="sc" id="sc" hidden>
+      <button class="sc__play" id="sc-play" type="button" aria-label="Play music"><span class="sc__disc" aria-hidden="true"></span></button>
+      <span class="sc__title mono" id="sc-title">MosaicScope radio</span>
+      <button class="sc__next mono" id="sc-next" type="button" aria-label="Next track">Next</button>
+    </div>
     <button class="sound" id="sound" type="button" aria-pressed="false"><span class="sound__bars" aria-hidden="true"><i></i><i></i><i></i></span><span class="sound__label">Sound off</span></button>
     <a class="enquire" href="#contact">Enquire</a>
   </div>
@@ -65,7 +70,6 @@
         <p class="hero__where mono"><a class="hero__plate" id="hero-plate" href="#" target="_blank" rel="noopener" hidden></a><span data-bind="location">Aotearoa New Zealand</span><a href="#work" class="scrollcue">Scroll to the work <span aria-hidden="true">↓</span></a></p>
       </div>
     </div>
-    <p class="hero__hint mono" aria-hidden="true">Click to shatter</p>
     <p class="hero__note mono" id="hero-note" hidden>Placeholder plate. Add your own hero photo as <code>heroImage</code> in content.json.</p>
   </section>
 
@@ -73,7 +77,6 @@
     <p class="intro__text" data-bind="intro">I photograph and film artists, crews, cars, skaters and the nights they fill.</p>
   </section>
 
-  <div class="marquee" aria-hidden="true"><div class="marquee__track" id="marquee"></div></div>
 
   <section class="work" id="work" aria-labelledby="work-h">
     <div class="sechead">
@@ -119,7 +122,7 @@
   </section>
 
   <section class="contact" id="contact" aria-labelledby="contact-h">
-    <h2 class="contact__h" id="contact-h"><span class="ink-fill" data-text="Book a shoot">Book a shoot</span><br><em>or a film.</em></h2>
+    <h2 class="contact__h" id="contact-h">Book a shoot<br><em>or a film.</em></h2>
     <div class="contact__grid">
       <form class="form" id="form" novalidate>
         <div class="field">
@@ -175,26 +178,15 @@
   </div>
 </div>
 
-<div class="sc" id="sc" hidden>
-  <button class="sc__play" id="sc-play" type="button" aria-label="Play"><span class="sc__disc" aria-hidden="true"></span></button>
-  <div class="sc__info">
-    <p class="sc__label mono">Now spinning</p>
-    <p class="sc__title" id="sc-title">SoundCloud</p>
-  </div>
-  <button class="sc__next mono" id="sc-next" type="button" aria-label="Next track">Next</button>
-  <a class="sc__link mono" id="sc-link" href="#" target="_blank" rel="noopener">SoundCloud ↗</a>
-  <div class="sc__frame" id="sc-frame" aria-hidden="true"></div>
-</div>
+<div class="sc-frame" id="sc-frame" aria-hidden="true"></div>
 <div class="loupe" id="loupe" aria-hidden="true"></div>
 <div class="peek" id="peek" aria-hidden="true"></div>
-<canvas class="trail" id="trail" aria-hidden="true"></canvas>
 <svg class="fx-defs" aria-hidden="true" width="0" height="0">
   <filter id="liquid" x="-10%" y="-10%" width="120%" height="120%">
     <feTurbulence id="liquid-turb" type="fractalNoise" baseFrequency="0.012 0.03" numOctaves="2" seed="7"/>
     <feDisplacementMap id="liquid-disp" in="SourceGraphic" scale="0" xChannelSelector="R" yChannelSelector="G"/>
   </filter>
 </svg>
-<div class="cursor" id="cursor" aria-hidden="true"><span>View</span></div>
 <div class="grain" aria-hidden="true"></div>
 <!--BODY-END-->
 <script src="main.js"></script>

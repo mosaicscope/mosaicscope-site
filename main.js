@@ -154,7 +154,7 @@
       var frags = "";
       for (var f = 0; f < 4; f++) {
         var top = f * 25, bottom = 100 - (f + 1) * 25;
-        var dx = reduceMotion ? 0 : Math.round((f % 2 ? 1 : -1) * (24 + Math.random() * 60));
+        var dx = 0;
         frags += '<span class="frag" style="background-image:url(\'' + img + '\');clip-path:inset(' + top + '% 0 ' + bottom + '% 0);--dx:' + dx + 'px;--s:1.04"></span>';
       }
       var vid = p.videoFile ? '<video class="tile__vid" muted loop playsinline preload="none" src="' + esc(p.videoFile) + '"></video>' : "";
@@ -162,7 +162,7 @@
       b.innerHTML =
         '<span class="tile__media">' + frags + vid +
         '<span class="slate"><span>FR ' + String(i + 1).padStart(2, "0") + '</span><span class="cat-' + esc(p.category) + '">' + esc(CAT_LABEL[p.category] || p.category) + "</span></span>" +
-        (p.placeholder ? '<span class="tag-ph">Placeholder</span>' : "") + (p.fromInstagram ? '<span class="tag-ig">From Instagram</span>' : "") +
+        (p.placeholder ? '<span class="tag-ph">Placeholder</span>' : "") +
         "</span>" +
         '<span class="tile__cap"><strong>' + esc(p.title || "Untitled") + "</strong><em>" + esc(p.year || "") + "</em></span>" +
         (p.mentions && p.mentions.length ? '<span class="tile__tags mono">In frame: ' + esc(p.mentions.map(function (m) { return "@" + m; }).join(" ")) + "</span>" : "");
@@ -248,38 +248,34 @@
     }).join("");
   }
 
-  /* ---------------- Hero WebGL ---------------- */
+  /* ---------------- Hero: still mosaic, slow tile-by-tile crossfade ----------------
+     The photo sits in a fixed mosaic grid. Every 10 seconds the next Instagram photo
+     replaces it one tile at a time. No camera shake, no mouse effects. */
   var VS = "attribute vec2 p;varying vec2 v;void main(){v=p*0.5+0.5;gl_Position=vec4(p,0.0,1.0);}";
   var FS = [
     "precision mediump float;",
     "varying vec2 v;",
-    "uniform sampler2D t;uniform vec2 res;uniform vec2 img;",
-    "uniform float time;uniform float assemble;uniform float scroll;uniform vec2 mouse;uniform float vel;",
+    "uniform sampler2D t;uniform sampler2D t2;uniform vec2 res;uniform vec2 img;uniform vec2 img2;uniform float mixv;uniform float grain;",
     "float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}",
-    "vec2 cover(vec2 uv){float ra=res.x/res.y;float ia=img.x/img.y;vec2 s=ra>ia?vec2(1.0,ia/ra):vec2(ra/ia,1.0);return (uv-0.5)*s+0.5;}",
+    "vec2 cover(vec2 uv,vec2 s0){float ra=res.x/res.y;float ia=s0.x/s0.y;vec2 s=ra>ia?vec2(1.0,ia/ra):vec2(ra/ia,1.0);return (uv-0.5)*s+0.5;}",
+    "vec3 tap(sampler2D tx,vec2 uv,vec2 s0,float sp){vec2 u=clamp(cover(uv,s0),0.001,0.999);return vec3(texture2D(tx,u+vec2(sp,0.0)).r,texture2D(tx,u).g,texture2D(tx,u-vec2(sp,0.0)).b);}",
     "void main(){",
-    " vec2 uv=v; float aspect=res.x/res.y;",
+    " vec2 uv=v;",
     " float rows=7.0; float r=floor(uv.y*rows);",
     " float cols=floor(mix(4.0,12.0,h(vec2(r,3.1))));",
     " float shift=h(vec2(r,7.7));",
     " float c=floor(uv.x*cols+shift); vec2 cell=vec2(c,r); float rnd=h(cell);",
     " vec2 center=vec2((c+0.5-shift)/cols,(r+0.5)/rows);",
-    " vec2 dm=(center-mouse)*vec2(aspect,1.0); float md=exp(-dot(dm,dm)*7.0);",
-    " float chaos=(1.0-assemble)*1.4+md*(0.45+vel*1.2)+scroll*0.7;",
-    " vec2 off=(vec2(h(cell+1.3),h(cell+4.1))-0.5)*0.16*chaos;",
-    " off+=vec2(sin(time*0.6+rnd*6.28),cos(time*0.5+rnd*6.28))*0.004*(0.4+md);",
-    " float z=1.0+(rnd-0.5)*0.14*chaos;",
-    " vec2 suv=(uv-center)/z+center+off;",
-    " vec2 tuv=clamp(cover(suv),0.001,0.999);",
-    " float sp=0.003+0.012*md+0.01*chaos+vel*0.03*md;",
-    " vec3 col=vec3(texture2D(t,tuv+vec2(sp,0.0)).r,texture2D(t,tuv).g,texture2D(t,tuv-vec2(sp,0.0)).b);",
-    " float inv=step(0.94,h(cell+floor(time*0.22)));",
-    " col=mix(col,1.0-col,inv*0.85);",
+    " vec2 off=(vec2(h(cell+1.3),h(cell+4.1))-0.5)*0.01;",
+    " vec2 suv=(uv-center)/(1.0+(rnd-0.5)*0.03)+center+off;",
+    " vec3 a=tap(t,suv,img,0.0015); vec3 b=tap(t2,suv,img2,0.0015);",
+    " float m=clamp(mixv*1.8-rnd*0.8,0.0,1.0); m=m*m*(3.0-2.0*m);",
+    " vec3 col=mix(a,b,m);",
     " vec2 f=vec2(fract(uv.x*cols+shift),fract(uv.y*rows));",
-    " float e=smoothstep(0.0,0.012,f.x)*smoothstep(0.0,0.012,1.0-f.x)*smoothstep(0.0,0.02,f.y)*smoothstep(0.0,0.02,1.0-f.y);",
-    " col*=mix(0.2,1.0,e); col*=0.82+0.32*rnd;",
-    " col+=(h(uv*res+fract(time)*91.0)-0.5)*0.09;",
-    " vec2 q=uv-0.5; col*=1.0-dot(q,q)*1.15;",
+    " float e=smoothstep(0.0,0.008,f.x)*smoothstep(0.0,0.008,1.0-f.x)*smoothstep(0.0,0.014,f.y)*smoothstep(0.0,0.014,1.0-f.y);",
+    " col*=mix(0.12,1.0,e); col*=0.9+0.16*rnd;",
+    " col+=(h(uv*res+grain)-0.5)*0.05;",
+    " vec2 q=uv-0.5; col*=1.0-dot(q,q)*1.2;",
     " gl_FragColor=vec4(col,1.0);",
     "}"
   ].join("\n");
@@ -293,23 +289,8 @@
     el.setAttribute("aria-label", "Opening photo " + (i + 1) + " of " + slides.length + ", view on Instagram");
   }
 
-  // Cycle the opening mosaic through a list of photos. Each change shatters the mosaic and reassembles it.
   function makeSlideshow(show) {
     var slides = [], idx = 0, timer = null;
-    function next() {
-      if (slides.length < 2) return;
-      idx = (idx + 1) % slides.length;
-      show(slides[idx].img); setPlateLabel(slides, idx);
-    }
-    var hero = $(".hero");
-    if (hero && !reduceMotion) {
-      hero.addEventListener("click", function (e) {
-        if (e.target.closest("a, button")) return;
-        next();
-        clearInterval(timer);
-        timer = setInterval(function () { if (!document.hidden && window.scrollY < window.innerHeight) next(); }, 8000);
-      });
-    }
     return function setSlides(list) {
       slides = list || []; idx = 0;
       if (!slides.length) return;
@@ -320,7 +301,7 @@
           if (document.hidden || window.scrollY > window.innerHeight) return;
           idx = (idx + 1) % slides.length;
           show(slides[idx].img); setPlateLabel(slides, idx);
-        }, 8000);
+        }, 10000);
       }
     };
   }
@@ -365,93 +346,76 @@
     gl.enableVertexAttribArray(loc);
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 
-    var tex = gl.createTexture();
-    var imgSize = [plate.width, plate.height];
-    function upload(src) {
-      gl.bindTexture(gl.TEXTURE_2D, tex);
+    var U = {};
+    ["res", "img", "img2", "mixv", "grain", "t", "t2"].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
+    gl.uniform1i(U.t, 0); gl.uniform1i(U.t2, 1);
+
+    function mkTex() {
+      var tx = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tx);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      return tx;
+    }
+    var texA = mkTex(), texB = mkTex();
+    var sizeA = [plate.width, plate.height], sizeB = sizeA.slice();
+    function upload(tx, src) {
+      gl.bindTexture(gl.TEXTURE_2D, tx);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, src);
-      imgSize = [src.naturalWidth || src.width, src.naturalHeight || src.height];
+      return [src.naturalWidth || src.width, src.naturalHeight || src.height];
     }
-    upload(plate);
-    // Load a real photo into the mosaic. Images from other sites need CORS; if refused, the plate stays.
-    function setImage(src, reassemble) {
-      var im = new Image();
-      im.crossOrigin = "anonymous";
-      im.onload = function () {
-        try {
-          upload(im);
-          $("#hero-note").hidden = true;
-          if (reassemble && !reduceMotion) start = performance.now();
-        } catch (e) { upload(plate); }
-        if (!running) draw(performance.now());
-      };
-      im.src = src;
-    }
-    if (hasReal) setImage(site.heroImage);
+    sizeA = upload(texA, plate); sizeB = upload(texB, plate);
 
-    var U = {};
-    ["res", "img", "time", "assemble", "scroll", "mouse", "t", "vel"].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
-    gl.uniform1i(U.t, 0);
-
-    var mouse = [0.5, 0.45], target = [0.5, 0.45], mvel = 0;
-    var start = performance.now();
-    var running = false, visible = true;
-
+    var mixv = 0, fading = false;
     function resize() {
       var dpr = Math.min(window.devicePixelRatio || 1, window.innerWidth < 720 ? 1.25 : 1.75);
       var w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
       if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
       gl.viewport(0, 0, w, h);
     }
-
-    function draw(now) {
+    function draw() {
       resize();
-      var t = (now - start) / 1000;
-      var a = reduceMotion ? 1 : Math.min(1, t / 2.4);
-      a = 1 - Math.pow(1 - a, 4);
-      var dxm = target[0] - mouse[0], dym = target[1] - mouse[1];
-      mouse[0] += dxm * 0.08;
-      mouse[1] += dym * 0.08;
-      mvel = Math.min(1, mvel * 0.92 + Math.hypot(dxm, dym) * 0.6);
-      var sc = Math.min(1, Math.max(0, window.scrollY / (canvas.clientHeight || 1)));
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texA);
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, texB);
       gl.uniform2f(U.res, canvas.width, canvas.height);
-      gl.uniform2f(U.img, imgSize[0], imgSize[1]);
-      gl.uniform1f(U.time, reduceMotion ? 0 : t);
-      gl.uniform1f(U.assemble, a);
-      gl.uniform1f(U.scroll, reduceMotion ? 0 : sc);
-      gl.uniform2f(U.mouse, mouse[0], mouse[1]);
-      gl.uniform1f(U.vel, reduceMotion ? 0 : mvel);
+      gl.uniform2f(U.img, sizeA[0], sizeA[1]);
+      gl.uniform2f(U.img2, sizeB[0], sizeB[1]);
+      gl.uniform1f(U.mixv, mixv);
+      gl.uniform1f(U.grain, 1.0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
-    function loop(now) {
-      if (!visible || document.hidden) { running = false; return; }
-      draw(now);
-      requestAnimationFrame(loop);
-    }
-    function kick() { if (!running && !reduceMotion) { running = true; requestAnimationFrame(loop); } }
 
-    draw(performance.now()); // always paint one frame, even in a background tab
-    if (!reduceMotion) kick();
-    window.addEventListener("resize", function () { if (reduceMotion || !running) draw(performance.now()); });
-    document.addEventListener("visibilitychange", kick);
-    if ("IntersectionObserver" in window) {
-      new IntersectionObserver(function (es) { visible = es[0].isIntersecting; if (visible) kick(); }).observe(canvas);
+    // Crossfade: the new photo goes into texture B, tiles flip over 1.8 s, then B becomes A.
+    function setImage(src, instant) {
+      var im = new Image();
+      im.crossOrigin = "anonymous";
+      im.onload = function () {
+        try { sizeB = upload(texB, im); } catch (e) { return; }
+        $("#hero-note").hidden = true;
+        if (instant || reduceMotion || document.hidden) { swap(); return; }
+        var t0 = performance.now(); fading = true;
+        (function step(now) {
+          mixv = Math.min(1, (now - t0) / 1800);
+          draw();
+          if (mixv < 1) requestAnimationFrame(step); else swap();
+        })(t0);
+      };
+      im.src = src;
     }
-    var hero = canvas.parentElement;
-    hero.addEventListener("pointermove", function (e) {
-      var r = hero.getBoundingClientRect();
-      target = [(e.clientX - r.left) / r.width, 1 - (e.clientY - r.top) / r.height];
-    });
-    hero.addEventListener("pointerleave", function () { target = [0.5, 0.45]; });
-    return {
-      setImage: setImage,
-      setSlides: makeSlideshow(function (u) { setImage(u, true); }),
-      restart: function () { start = performance.now(); if (!running) draw(start); kick(); }
-    };
+    function swap() {
+      var tmp = texA; texA = texB; texB = tmp;
+      var ts = sizeA; sizeA = sizeB; sizeB = ts;
+      mixv = 0; fading = false; draw();
+    }
+    if (hasReal) setImage(site.heroImage, true);
+
+    draw();
+    window.addEventListener("resize", function () { if (!fading) draw(); });
+    document.addEventListener("visibilitychange", function () { if (!document.hidden && !fading) draw(); });
+
+    return { setImage: setImage, setSlides: makeSlideshow(setImage), restart: function () { draw(); } };
   }
 
   /* ---------------- Wordmark ---------------- */
@@ -459,7 +423,7 @@
     var wm = $(".wm");
     var slices = $$(".wm__slice", wm);
     if (reduceMotion) return;
-    slices.forEach(function (s, i) { s.style.setProperty("--o", (i % 2 ? 1 : -1) * (40 + Math.random() * 140)); });
+    slices.forEach(function (s, i) { s.style.setProperty("--o", (i % 2 ? 1 : -1) * (12 + Math.random() * 28)); });
     wm.classList.add("is-split");
     requestAnimationFrame(function () {
       setTimeout(function () {
@@ -467,24 +431,6 @@
         wm.classList.remove("is-split");
       }, 260);
     });
-    var hero = $(".hero");
-    var raf = 0;
-    hero.addEventListener("pointermove", function (e) {
-      if (!finePointer || raf) return;
-      raf = requestAnimationFrame(function () {
-        raf = 0;
-        var r = wm.getBoundingClientRect();
-        var dy = (e.clientY - (r.top + r.height / 2)) / r.height;
-        var dx = (e.clientX - (r.left + r.width / 2)) / r.width;
-        var near = Math.max(0, 1 - Math.abs(dy) * 1.2);
-        slices.forEach(function (s, i) {
-          var band = (i + 0.5) / slices.length - 0.5;
-          var pull = Math.exp(-Math.pow((dy - band) * 4, 2)) * near;
-          s.style.setProperty("--o", Math.round(dx * 60 * pull * (i % 2 ? 1 : -1)));
-        });
-      });
-    });
-    hero.addEventListener("pointerleave", function () { slices.forEach(function (s) { s.style.setProperty("--o", 0); }); });
   }
 
   /* ---------------- Reveal + filters ---------------- */
@@ -1033,7 +979,6 @@
     var box = $("#sc");
     if (!url || !box) return false;
     box.hidden = false;
-    $("#sc-link").href = url;
     var frame = document.createElement("iframe");
     frame.allow = "autoplay";
     frame.title = "SoundCloud player";
@@ -1045,8 +990,7 @@
       state.playing = on;
       box.classList.toggle("is-playing", on);
       playBtn.setAttribute("aria-label", on ? "Pause" : "Play");
-      soundBtn.setAttribute("aria-pressed", on);
-      soundLabel.textContent = on ? "Sound on" : "Sound off";
+      title.classList.toggle("is-live", on);
     }
     function showTitle() {
       if (!sc) return;
@@ -1068,9 +1012,10 @@
     api.onerror = function () { title.textContent = "Open on SoundCloud"; };
     document.head.appendChild(api);
     function toggle() { if (sc) sc.toggle(); else window.open(url, "_blank", "noopener"); }
+    title.addEventListener("click", toggle);
     playBtn.addEventListener("click", toggle);
     $("#sc-next").addEventListener("click", function () { if (sc) { sc.next(); sc.play(); } });
-    soundBtn.addEventListener("click", function (e) { e.stopImmediatePropagation(); toggle(); }, true);
+    soundBtn.hidden = true;
     return true;
   }
 
@@ -1303,20 +1248,10 @@
     renderInstagram(null, data);
     initLoupe();
     initViewer(data);
-    initCursor();
     if (!initSoundCloud(site)) initSound();
     initForm(site);
     initBar();
     initTimecode();
-    initMarquee(data);
-    initIntroWords();
-    initScramble();
-    initInkFill();
-    initFootWeight();
-    initTrail();
-    initMagnetic();
-    initTileFX();
-    initScrollSkew();
     var leader = runLeader();
     leader.then(function () { initWordmark(); hero.restart(); });
     loadInstagram(site).then(function (res) {
