@@ -4,16 +4,13 @@ Ordered by value for the effort. "Done" items live in [CHANGELOG.md](CHANGELOG.m
 
 ## Next (highest value)
 
-1. **Measure on real devices.** Run `e2e/bench-render.mjs` on a GPU desktop and a mid-range phone, record the results, and tune the auto-quality thresholds.
-2. **Wall fading / cutaways.** Fade wall tiles that hide a character. This would let the Studio have taller walls and more rooms.
-3. **Player reputation arc.** Stranger → regular → honorary Mosaic, unlocked by witnessed kindness. Each Mosaic would get special dialogue.
-4. **More autonomous mini-games.** Tag, dodgeball and dance-offs on top of the existing event and group systems (the ball game and throwing contest already exist).
-5. **Crew territories and truces.** Faction behaviour built on the existing crews and group leaders.
-6. **Export/import save files and an IndexedDB storage provider.** The provider interface already exists.
-7. **Event replay.** Snapshot plus seed lets you re-simulate an incident from the log (the simulation is already deterministic).
-8. **Scenario editor and debug console.** Place people and toys, set grudges, and save the setup as a reproducible test.
-9. **Back-facing figure views and more pose variety** (mood-driven walk cycles).
-10. **Hand-made art pass.** Swap the procedural tiles and props for drawn sprites. The renderer API stays the same.
+1. **Measure on real devices.** Run `e2e/bench-render.mjs` on a GPU desktop and phones; tune auto-quality thresholds and the Ultra tier.
+2. **Cache buildings as pre-drawn images** (the largest remaining frame-rate win on weak GPUs).
+3. **Player reputation arc** with each crew member and the Famiglia, driven by the NPC minds.
+4. **Wider story web.** More chapters, consequences that persist across sessions (save slots for story state).
+5. **Real four-lane traffic polish:** buses, trams, cyclists, emergency vehicle priority.
+6. **Server-side world persistence** (optional) so Mark's changes and long-running consequences carry across visitors.
+7. **Hand-made art pass** for key landmarks.
 
 ## Later
 

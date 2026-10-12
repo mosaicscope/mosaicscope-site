@@ -691,6 +691,15 @@ export class Game {
       { title: "Dr Quakenstein 2 · The Spire Heist", brief: "The Cathedral spire! To my lair under the Arts Centre! Do not let the Night Kiwi see you.", stops: [["a:Cathedral Square", "'Borrow' the spire"], ["a:Arts Centre", "Into the lair"]], pay: 1500, heat: 2 },
       { title: "Dr Quakenstein 3 · The Cone Ransom", brief: "Every road cone in High St. Then we hold the Don's casino to ransom. Christchurch will KNEEL.", stops: [["a:High St", "Collect the cones"], ["b:casino", "Deliver the ransom note to the Don"]], pay: 3000, heat: 1 },
     ],
+    "Robyn Kea": [
+      { title: "Zoo 1 · Feeding Time", brief: "Kevin only eats fish and chips from Sumner-style shops. Grab a bag and bring it to the zoo. Don't ask.", stops: [["b:fishchips", "Buy fish and chips"], ["a:Velvet Zoo", "Feed Kevin"]], pay: 700 },
+      { title: "Zoo 2 · Kea Heist", brief: "The kea stole four wiper blades and hid them at the car yards. Get them back before Sir P notices.", stops: [["b:dealership", "Find the stolen wiper blades"], ["a:Velvet Zoo", "Return them (to the kea's disappointment)"]], pay: 1100, secs: 120 },
+      { title: "Zoo 3 · Whale Watch", brief: "The whale needs company. Sir P's idea: bring the Night Kiwi to cheer it up. Meet him in Victoria Square first.", stops: [["a:Victoria Square", "Find the Night Kiwi"], ["a:Velvet Zoo", "Introduce him to the whale"]], pay: 1800 },
+    ],
+    "Pete Gumboots": [
+      { title: "Gumboots 1 · Penguin Break", brief: "Three penguins waddled off towards Cathedral Square. They're easy to spot. They're wearing nothing.", stops: [["a:Cathedral Square", "Round up the penguins"], ["a:Velvet Zoo", "Waddle them home"]], pay: 800, secs: 100 },
+      { title: "Gumboots 2 · Peacock Politics", brief: "The peacocks have unionised and are bullying the butler. Take this bribe of pies to the Arts Centre hall, then talk terms.", stops: [["b:bakery", "Buy the pies"], ["a:Velvet Zoo", "Negotiate with the peacocks"]], pay: 1400 },
+    ],
     "Roastie Malone": [
       { title: "Roastie 1 · Open Mic", brief: "Town Hall open mic tonight. You, me, a mic, and the entire Famiglia in the front row. Show up.", stops: [["a:Town Hall", "Play the Town Hall open mic"]], pay: 700 },
     ],
@@ -917,7 +926,13 @@ export class Game {
     companions: () => this.sim.chars.filter((c) => c.tier === "principal" && c.name !== "Chris").map((c) => ({ name: c.name, color: c.look.color })),
     carried: () => carried(this.sim.player).map((id) => this.sim.toys[id]).filter(Boolean).map((t) => ({ id: t.id, name: TOYS[t.def].name, category: TOYS[t.def].category ?? "toy" })),
     confiscate: (ids) => { const p = this.sim.player; for (const id of ids) { const t = this.sim.toys[id]; if (!t) continue; detach(p, id); t.state = "broken"; t.x = -100; t.holder = -1; } },
-    onReturn: (summary) => { this.toast(summary, "acid"); this.focus("Home", "Welcome back to Christchurch", 3); },
+    onReturn: (summary, souvenirs, photos) => {
+      this.toast(summary, "acid"); this.focus("Home", "Welcome back to Christchurch", 3);
+      // the trip goes in the Empire tab as a travel log entry
+      const when = new Date().toLocaleDateString("en-NZ", { day: "numeric", month: "short" });
+      this.luxury.empire.items.push(`✈ ${when}: ${summary}${souvenirs.length ? ` · souvenirs: ${souvenirs.join(", ")}` : ""}${photos ? ` · ${photos} photos for @mosaicscope` : ""}`);
+      this.saveEmpire();
+    },
     toast: (t) => this.toast(t),
   });
   private focusEl = h("div.focus", { "aria-hidden": "true" }, [h("div.focus-bar.top"), h("div.focus-bar.bot"), h("div.focus-cap", null, [h("b"), h("span")])]);

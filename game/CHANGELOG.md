@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0: the living city (2026-10-13)
+
+- **Roads and traffic.** 4-lane roads (left-hand traffic), lane choice and changes, stop lines, give-way rules, pedestrian signals (people cross on the green man), a 164-tile map with clubs and a zoo placed in real Christchurch blocks.
+- **Places.** The Pink Pukeko (comic strip club with the money-gun "make it rain" game, ownership and income), the Velvet Rooms (innuendo-only lounge), Velvet & Co. Luxury (property, rides, 18 animals), the Velvet Zoo, an HD casino (blackjack, European roulette, pokies, 9/6 video poker), the airport (tickets, check-in, x-ray, flights, six cities) and a travel log in Your Empire.
+- **Stories.** The Famiglia (five chapters), 17 further missions across Mannequin Mike, Sir Ponsonby Velvet, the Night Kiwi, Dr Quakenstein, the zookeepers and Roastie Malone, contract hits, roast battles, burger shifts, pickpocketing, hold-ups, shoplifting, cartoon firearms (black market, gunfire crime, armed police, rare turf wars).
+- **Dialogue.** About 15,500 lines of authored call-and-response exchanges, picked by time, weather, place, role, mood, relationship and recent events; paced by reading time; cute rounded bubbles heard only within about 4 tiles.
+- **Phones.** Floating analog stick, a contextual action button, side buttons, a ⋯ sheet with every PC action, a slim menu bar, tucked HUD and radar, crossfaded 2D/3D.
+- **Graphics.** Procedural material textures, ambient occlusion, a 2D street view (V), a police helicopter, an **Ultra** quality tier (2x textures with weathering and baked bump lighting, supersampled ground, native resolution, cinematic grade).
+- **Life.** Time-away consequences (you get skinny and hungry, rent comes out, the crew misses you), calm everyday-life pacing, 50 crowd styles, natural passing and pace, focus mode, family phone calls.
+- **Minds.** NPCs have psychologically grounded minds (see docs/MINDS.md).
+- **Robustness.** A crash-proof main loop with a recovery panel, a chaos soak test, locked stats endpoint (`STATS_KEY`), anonymous play-time stats, a daily caretaker agent (Mark) that proposes improvements through pull requests.
+
 ## 0.2.0: the city (2026-10-12)
 
 - **Christchurch.** The world is now central Christchurch inside the Four Avenues: real street names in their real order (Deans Ave … Madras St, Bealey Ave … Moorhouse Ave) and landmarks in the right blocks, including Hagley Park, the Botanic Gardens and the Avon, Cathedral Square, Victoria Square, the Arts Centre, Cashel Mall, the hospital, the police station and the SALT District, plus an airport. Street names are painted on the roads, the HUD shows street and district, a GTA-style district title fades in, and a radar minimap and full map (M) are added. In production the full map draws real OpenStreetMap streets via the new `/api/chch-map` Pages Function (© OpenStreetMap contributors, ODbL).
