@@ -197,13 +197,18 @@ export function spawnBackground(sim: Simulation, n: number): void {
   const names = sim.names!;
   const homes = world.buildings.filter((b) => b.kind === "house" || b.kind === "apartments");
   const work = world.buildings.filter((b) => b.kind === "office" || b.kind === "bank" || b.kind === "hotel" || b.kind === "hospital" || BUILDINGS[b.kind].menu);
+  // the crowd dresses from 50 street styles (like real fashion: you see the same looks around town);
+  // faces, builds and hair stay individual, so nobody is a clone
+  const srng = new Rng(sim.cfg.seed ^ 0x5157); // its own stream, so the rest of the world spawns exactly as before
+  const STYLES = Array.from({ length: 50 }, () => uniqueLook(srng, srng.chance(0.5) ? "girl" : "guy", true, new Set<string>()));
   for (let i = 0; i < n; i++) {
     // most walk the sidewalks between home and work; the rest hang around a district
     const onStreet = rng.chance(0.6);
     const area = onStreet ? world.areas[0] : rng.pick(world.areas.filter((a) => a.kind !== "street" && a.kind !== "studio"));
     const p = onStreet ? streetSpot(sim) : world.randomPointIn(area, rng);
     const kind = rng.chance(0.5) ? "girl" : "guy";
-    const look = uniqueLook(rng, kind, true, sim.usedLooks);
+    const st = STYLES[i % STYLES.length];
+    const look = uniqueLook(rng, kind, true, sim.usedLooks, { color: st.color, accent: st.accent, hat: st.hat });
     const c = addChar(sim, names.next(kind), "background", p.x, p.y, look, randomPers(rng));
     c.homeArea = area.id; c.pathGoalX = p.x; c.pathGoalY = p.y;
     c.role = rng.pick(["local", "office", "student", "local", "tourist"] as Role[]);
