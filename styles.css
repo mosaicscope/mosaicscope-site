@@ -710,8 +710,7 @@ html.has-lens .board, html.has-lens .board * { cursor: none !important; }
 .rate__what em { font: italic 400 clamp(1rem, 1.6vw, 1.25rem)/1.3 var(--f-serif); color: var(--dim); }
 .rate__price { font: italic 400 clamp(2.4rem, 6vw, 5rem)/1 var(--f-serif); color: var(--sodium); white-space: nowrap; }
 .rate:nth-child(2) .rate__price { color: var(--acid); }
-.rate:nth-child(3) .rate__price { color: var(--paper); }
-.rate:nth-child(4) .rate__price { color: var(--red); }
+.rate:nth-child(3) .rate__price { color: var(--red); }
 .rates__note { margin: clamp(20px, 3vw, 32px) 0 0; color: var(--dim); font-size: 1.05rem; }
 .rates__note a { color: var(--paper); text-underline-offset: 4px; }
 .rates__note a:hover { color: var(--acid); }
@@ -899,3 +898,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 .qb__opt--num span { display: grid; gap: 2px; justify-content: start; }
 .qb__opt--num b { font-size: 1rem; }
 .qb__opt--num input { width: 56px; }
+
+/* Three-item rate card: unit sits above the price ("from") */
+.rate__price { grid-auto-flow: row; }
+.rate__price small { order: -1; }

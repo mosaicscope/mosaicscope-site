@@ -183,46 +183,22 @@
   "servicesNote": "Every job's different. Send me what you've got and we'll work it out.",
   "rates": [
     {
-      "title": "Photoshoot",
+      "title": "Photos",
       "price": "$40",
-      "unit": "per shoot",
-      "detail": "Unedited. The best frames straight off the camera, full resolution."
+      "unit": "from",
+      "detail": "Unedited $40 · Edited in Lightroom $80"
     },
     {
-      "title": "Photoshoot + edits",
-      "price": "$80",
-      "unit": "per shoot",
-      "detail": "Picked and edited in Lightroom, delivered full resolution."
-    },
-    {
-      "title": "Music video shoot",
+      "title": "Music videos",
       "price": "$100",
-      "unit": "per shoot",
-      "detail": "Filmed in 4K or 1080p. All the raw footage handed over."
+      "unit": "from",
+      "detail": "Shoot $100 · Edit $220 · Shoot + edit $300"
     },
     {
-      "title": "Music video edit",
-      "price": "$220",
-      "unit": "per video",
-      "detail": "Full edit and colour grade, up to 3 minutes. Exported in 1080p or 4K."
-    },
-    {
-      "title": "Music video package",
-      "price": "$300",
-      "unit": "shoot + edit",
-      "detail": "I shoot it and edit it. Saves you $20."
-    },
-    {
-      "title": "Event coverage",
+      "title": "Events",
       "price": "$60",
       "unit": "per hour",
       "detail": "Raves, gigs, car meets. Photos or video."
-    },
-    {
-      "title": "Short-form edits",
-      "price": "$30",
-      "unit": "each",
-      "detail": "Reels and TikToks cut from your shoot."
     }
   ],
   "ratesNote": "Booking? Send a few reference pics so I know the vibe.",
@@ -301,6 +277,5 @@
       "q": "What resolution are the videos?",
       "a": "Filmed in 4K or 1080p, and edits are exported in 1080p or 4K."
     }
-  ],
-  "ratesAddons": "Add-ons: +1 hour $40 · +1 location $25"
+  ]
 }
