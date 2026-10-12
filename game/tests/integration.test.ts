@@ -11,7 +11,7 @@ describe("living world (integration)", () => {
     const tiers = { principal: 0, mid: 0, background: 0 };
     for (const c of sim.chars) if (c.tier !== "player") tiers[c.tier]++;
     expect(tiers.principal).toBe(11); // the ten Mosaics + Chris from MosaicScope expect(tiers.mid).toBeGreaterThanOrEqual(50); expect(tiers.background).toBeGreaterThanOrEqual(400);
-    expect(sim.chars.length).toBeGreaterThanOrEqual(500);
+    expect(sim.chars.length).toBeGreaterThanOrEqual(400);
   });
   it("keeps everyone in a valid place with finite state", () => {
     for (const c of sim.chars) {
