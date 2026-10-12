@@ -42,6 +42,18 @@ function same(a, b) {
 
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
+  // PUBLIC minimal summary (?summary=1): anonymous per-day session counts and average minutes for the last 7 days,
+  // nothing else. It lets the team's reports include visitor numbers without sharing the private key.
+  if (url.searchParams.get("summary") === "1") {
+    if (!env.EGG) return json({ note: "stats not collected yet" });
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const d = day(new Date(Date.now() - i * 86400000));
+      const v = await env.EGG.get("w:" + d, "json");
+      days.push({ day: d, sessions: v ? v.sessions || 0 : 0, avgMinutes: v && v.sessions ? Math.round((v.seconds / v.sessions / 60) * 10) / 10 : 0 });
+    }
+    return new Response(JSON.stringify({ last7Days: days, sessions: days.reduce((a, x) => a + x.sessions, 0) }), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" } });
+  }
   const given = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "") || url.searchParams.get("key") || "";
   if (!env.STATS_KEY || !same(given, env.STATS_KEY)) return json({ error: "unauthorised" }, 401);
   if (!env.EGG) return json({ note: "Bind a KV namespace as EGG to collect stats." });
