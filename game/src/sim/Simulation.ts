@@ -227,6 +227,11 @@ export class Simulation {
     if (c.phys === Phys.DOWN || c.phys === Phys.RECOVER) { c.vx = 0; c.vy = 0; }
     let vx = c.vx, vy = c.vy;
     if (c.phys === Phys.STUMBLE) { vx *= 0.2; vy *= 0.2; }
+    if (c.tier !== "player" && c.mode !== "panic") {
+      const h = this.hour, park = this.world.areaAt(c.x, c.y)?.kind === "park";
+      const pace = (h >= 7 && h < 9.5 ? 1.12 : h >= 18 ? 0.9 : 1) * (park ? 0.82 : 1) * (0.75 + c.needs.energy * 0.3);
+      vx *= pace; vy *= pace;
+    }
     // local avoidance: separation from neighbours (full/reduced only)
     if (c.lod <= Lod.REDUCED) {
       const n = this.charHash.query(c.x, c.y, 0.75, this.tmp);
@@ -238,6 +243,20 @@ export class Simulation {
         if (d2 < 0.0001 || d2 > 0.5) continue;
         const d = Math.sqrt(d2), push = (0.72 - d) / 0.72;
         sx += (dx / d) * push; sy += (dy / d) * push;
+      }
+      // anticipation: someone coming the other way within a few steps? pass on the left, early, like
+      // people do (eye contact, a small sidestep), instead of bumping and correcting at the last moment
+      const sp = Math.hypot(c.vx, c.vy);
+      if (sp > 0.1) {
+        const ux = c.vx / sp, uy = c.vy / sp;
+        const m2 = this.charHash.query(c.x + ux * 1.4, c.y + uy * 1.4, 1.3, this.tmp);
+        for (let i = 0; i < m2; i++) {
+          const o = this.chars[this.tmp[i]];
+          if (o === c || o.inside >= 0 || o.inCar >= 0) continue;
+          const dx = o.x - c.x, dy = o.y - c.y, ahead = dx * ux + dy * uy, side = dx * -uy + dy * ux;
+          const oncoming = (o.vx * ux + o.vy * uy) < 0.2;
+          if (ahead > 0.2 && ahead < 2.4 && Math.abs(side) < 0.7 && oncoming) { const k = (1 - ahead / 2.4) * 0.9; sx += uy * k; sy += -ux * k; break; } // left of travel = (uy, -ux) in screen-iso world
+        }
       }
       // capped, gentle push: people step round each other instead of jittering
       const m = Math.hypot(sx, sy); if (m > 1) { sx /= m; sy /= m; }
