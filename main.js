@@ -26,6 +26,21 @@
     });
   }
 
+  // Tagged accounts link straight to their Instagram profiles.
+  function igUrl(h) { return "https://www.instagram.com/" + encodeURIComponent(String(h).replace(/^@/, "")) + "/"; }
+  function mentionLinks(list) {
+    return (list || []).map(function (h) {
+      h = String(h).replace(/^@/, "");
+      return '<a class="tag-link" href="' + igUrl(h) + '" target="_blank" rel="noopener">@' + esc(h) + "</a>";
+    }).join(" ");
+  }
+  function linkify(text) {
+    return esc(text).replace(/(^|[\s(])@([A-Za-z0-9._]{1,30})/g, function (m, pre, h) {
+      h = h.replace(/\.+$/, "");
+      return pre + '<a class="tag-link" href="' + igUrl(h) + '" target="_blank" rel="noopener">@' + h + "</a>";
+    });
+  }
+
   /* ---------------- Placeholder plates ----------------
      Generated art used ONLY where a real image is missing. Every one is labelled PLACEHOLDER. */
   var PALETTES = {
@@ -149,7 +164,8 @@
         '<span class="slate"><span>FR ' + String(i + 1).padStart(2, "0") + '</span><span class="cat-' + esc(p.category) + '">' + esc(CAT_LABEL[p.category] || p.category) + "</span></span>" +
         (p.placeholder ? '<span class="tag-ph">Placeholder</span>' : "") + (p.fromInstagram ? '<span class="tag-ig">From Instagram</span>' : "") +
         "</span>" +
-        '<span class="tile__cap"><strong>' + esc(p.title || "Untitled") + "</strong><em>" + esc(p.year || "") + "</em></span>";
+        '<span class="tile__cap"><strong>' + esc(p.title || "Untitled") + "</strong><em>" + esc(p.year || "") + "</em></span>" +
+        (p.mentions && p.mentions.length ? '<span class="tile__tags mono">In frame: ' + esc(p.mentions.map(function (m) { return "@" + m; }).join(" ")) + "</span>" : "");
       gal.appendChild(b);
     });
     observeTiles($$(".tile", gal));
@@ -238,7 +254,7 @@
     "precision mediump float;",
     "varying vec2 v;",
     "uniform sampler2D t;uniform vec2 res;uniform vec2 img;",
-    "uniform float time;uniform float assemble;uniform float scroll;uniform vec2 mouse;",
+    "uniform float time;uniform float assemble;uniform float scroll;uniform vec2 mouse;uniform float vel;",
     "float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}",
     "vec2 cover(vec2 uv){float ra=res.x/res.y;float ia=img.x/img.y;vec2 s=ra>ia?vec2(1.0,ia/ra):vec2(ra/ia,1.0);return (uv-0.5)*s+0.5;}",
     "void main(){",
@@ -249,13 +265,13 @@
     " float c=floor(uv.x*cols+shift); vec2 cell=vec2(c,r); float rnd=h(cell);",
     " vec2 center=vec2((c+0.5-shift)/cols,(r+0.5)/rows);",
     " vec2 dm=(center-mouse)*vec2(aspect,1.0); float md=exp(-dot(dm,dm)*7.0);",
-    " float chaos=(1.0-assemble)*1.4+md*0.45+scroll*0.7;",
+    " float chaos=(1.0-assemble)*1.4+md*(0.45+vel*1.2)+scroll*0.7;",
     " vec2 off=(vec2(h(cell+1.3),h(cell+4.1))-0.5)*0.16*chaos;",
     " off+=vec2(sin(time*0.6+rnd*6.28),cos(time*0.5+rnd*6.28))*0.004*(0.4+md);",
     " float z=1.0+(rnd-0.5)*0.14*chaos;",
     " vec2 suv=(uv-center)/z+center+off;",
     " vec2 tuv=clamp(cover(suv),0.001,0.999);",
-    " float sp=0.003+0.012*md+0.01*chaos;",
+    " float sp=0.003+0.012*md+0.01*chaos+vel*0.03*md;",
     " vec3 col=vec3(texture2D(t,tuv+vec2(sp,0.0)).r,texture2D(t,tuv).g,texture2D(t,tuv-vec2(sp,0.0)).b);",
     " float inv=step(0.94,h(cell+floor(time*0.22)));",
     " col=mix(col,1.0-col,inv*0.85);",
@@ -280,6 +296,20 @@
   // Cycle the opening mosaic through a list of photos. Each change shatters the mosaic and reassembles it.
   function makeSlideshow(show) {
     var slides = [], idx = 0, timer = null;
+    function next() {
+      if (slides.length < 2) return;
+      idx = (idx + 1) % slides.length;
+      show(slides[idx].img); setPlateLabel(slides, idx);
+    }
+    var hero = $(".hero");
+    if (hero && !reduceMotion) {
+      hero.addEventListener("click", function (e) {
+        if (e.target.closest("a, button")) return;
+        next();
+        clearInterval(timer);
+        timer = setInterval(function () { if (!document.hidden && window.scrollY < window.innerHeight) next(); }, 8000);
+      });
+    }
     return function setSlides(list) {
       slides = list || []; idx = 0;
       if (!slides.length) return;
@@ -364,10 +394,10 @@
     if (hasReal) setImage(site.heroImage);
 
     var U = {};
-    ["res", "img", "time", "assemble", "scroll", "mouse", "t"].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
+    ["res", "img", "time", "assemble", "scroll", "mouse", "t", "vel"].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
     gl.uniform1i(U.t, 0);
 
-    var mouse = [0.5, 0.45], target = [0.5, 0.45];
+    var mouse = [0.5, 0.45], target = [0.5, 0.45], mvel = 0;
     var start = performance.now();
     var running = false, visible = true;
 
@@ -383,8 +413,10 @@
       var t = (now - start) / 1000;
       var a = reduceMotion ? 1 : Math.min(1, t / 2.4);
       a = 1 - Math.pow(1 - a, 4);
-      mouse[0] += (target[0] - mouse[0]) * 0.08;
-      mouse[1] += (target[1] - mouse[1]) * 0.08;
+      var dxm = target[0] - mouse[0], dym = target[1] - mouse[1];
+      mouse[0] += dxm * 0.08;
+      mouse[1] += dym * 0.08;
+      mvel = Math.min(1, mvel * 0.92 + Math.hypot(dxm, dym) * 0.6);
       var sc = Math.min(1, Math.max(0, window.scrollY / (canvas.clientHeight || 1)));
       gl.uniform2f(U.res, canvas.width, canvas.height);
       gl.uniform2f(U.img, imgSize[0], imgSize[1]);
@@ -392,6 +424,7 @@
       gl.uniform1f(U.assemble, a);
       gl.uniform1f(U.scroll, reduceMotion ? 0 : sc);
       gl.uniform2f(U.mouse, mouse[0], mouse[1]);
+      gl.uniform1f(U.vel, reduceMotion ? 0 : mvel);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
     function loop(now) {
@@ -547,7 +580,11 @@
   }
 
   function firstLine(cap) {
-    var line = (cap || "").split("\n")[0].replace(/(\s*[#@][\w.]+)+\s*$/g, "").trim();
+    var line = (cap || "").split("\n")[0]
+      .replace(/[#@][\w.]+/g, " ")
+      .replace(/\s+/g, " ").trim()
+      .replace(/(\s*(and|with|w\/|x|&|ft\.?|feat\.?|,|\+|-))+$/i, "").trim();
+    if (line.length < 3) return "";
     return line.length > 60 ? line.slice(0, 57).trim() + "…" : line;
   }
   function fmtDate(iso) {
@@ -574,19 +611,18 @@
       note.hidden = true;
     }
     posts.forEach(function (p, i) {
-      var a = document.createElement("a");
+      var a = document.createElement("div");
       a.className = "slide";
-      a.href = p.link || handle.url || "#";
-      a.target = "_blank"; a.rel = "noopener";
       a.style.setProperty("--rot", ((i * 37) % 7 - 3) * 0.55 + "deg");
       a.style.setProperty("--d", (i % 4) * 0.18 + "s");
-      a.setAttribute("aria-label", p.placeholder ? "Placeholder slide, opens Instagram" : (firstLine(p.caption) || "Instagram post") + ", opens on Instagram");
+      var label = p.placeholder ? "Placeholder slide, opens Instagram" : (firstLine(p.caption) || (p.video ? "Reel" : "Instagram post")) + ", opens on Instagram";
       var inner = p.videoUrl
         ? '<span class="slide__img develop is-video" data-src="' + esc(p.img) + '"><video muted loop playsinline preload="none" poster="' + esc(p.img) + '" src="' + esc(p.videoUrl) + '"></video><span class="reel-tag">Reel</span></span>'
         : '<span class="slide__img develop" data-src="' + esc(p.img) + '" style="background-image:url(\'' + esc(p.img) + '\')"></span>';
       a.innerHTML =
-        '<span class="slide__mount">' + inner + "</span>" +
-        '<span class="slide__label mono"><span>' + esc(p.placeholder ? "Placeholder" : fmtDate(p.date) || "Instagram") + "</span><span>" + (p.video ? "Reel" : String(i + 1).padStart(2, "0")) + "</span></span>";
+        '<a class="slide__mount" href="' + esc(p.link || handle.url || "#") + '" target="_blank" rel="noopener" aria-label="' + esc(label) + '">' + inner + "</a>" +
+        '<span class="slide__label mono"><span>' + esc(p.placeholder ? "Placeholder" : fmtDate(p.date) || "Instagram") + "</span><span>" + (p.video ? "Reel" : String(i + 1).padStart(2, "0")) + "</span></span>" +
+        (p.mentions && p.mentions.length ? '<span class="slide__tags">' + mentionLinks(p.mentions) + "</span>" : "");
       board.appendChild(a);
     });
     initDevelop($$(".develop", board));
@@ -599,6 +635,7 @@
       }, { threshold: 0.5 });
       $$("video", board).forEach(function (v) { vio.observe(v); });
     }
+    renderCredits(Array.isArray(result) ? result : []);
     var count = $("#ig-count");
     if (count && igMeta.followers && Array.isArray(result)) count.textContent = Number(igMeta.followers).toLocaleString("en-NZ") + " followers · new work lands there first";
   }
@@ -617,9 +654,11 @@
         var kind = ig.video ? "Reel" : ig.album ? "Photo set" : "Photo";
         var when = ig.date ? new Date(ig.date).toLocaleDateString("en-NZ", { month: "short", year: "numeric" }) : "";
         p.cover = ig.img;
-        p.title = firstLine(ig.caption) || (mentions ? kind + " w/ " + mentions : kind + (when ? " · " + when : ""));
+        var fl = firstLine(ig.caption);
+        if (fl.length < 8 && mentions) fl = "";
+        p.title = fl || (mentions ? kind + " w/ " + mentions : kind + (when ? " · " + when : ""));
         p.summary = ig.caption;
-        p.client = mentions && firstLine(ig.caption) ? mentions : "";
+        p.client = "";
         p.year = ig.date ? String(new Date(ig.date).getFullYear()) : "";
         p.category = ig.video ? "film" : "photo";
         p.shape = ig.video ? "tall" : shapes[idx % shapes.length];
@@ -628,12 +667,52 @@
         p.placeholder = false;
         p.fromInstagram = true;
         p.igLink = ig.link;
+        p.mentions = ig.mentions || [];
         changed = true;
       }
     });
     // placeholders that Instagram couldn't fill are hidden rather than shown empty
     if (changed) data.projects = projects.filter(function (p) { return !p.placeholder || p.cover; });
     return changed;
+  }
+
+  /* ---------------- Credits: everyone tagged on the feed ----------------
+     Rolls like end credits. Hover a name to see the frame they're in. */
+  function renderCredits(posts) {
+    var sec = $("#credits"), list = $("#credits-list"), peek = $("#peek");
+    if (!sec || !list) return;
+    var map = {};
+    posts.forEach(function (p) {
+      (p.mentions || []).forEach(function (m) {
+        m = String(m).replace(/^@/, "");
+        if (!map[m]) map[m] = { name: m, posts: [] };
+        map[m].posts.push(p);
+      });
+    });
+    var people = Object.keys(map).map(function (k) { return map[k]; });
+    if (!people.length) { sec.hidden = true; return; }
+    sec.hidden = false;
+    list.innerHTML = people.map(function (c, i) {
+      return '<li><a class="credit" href="' + igUrl(c.name) + '" target="_blank" rel="noopener" data-img="' + esc(c.posts[0].img) + '">' +
+        '<span class="credit__no mono">' + String(i + 1).padStart(2, "0") + "</span>" +
+        '<span class="credit__name">@' + esc(c.name) + "</span>" +
+        '<span class="credit__meta mono">' + c.posts.length + (c.posts.length === 1 ? " frame" : " frames") + " ↗</span></a></li>";
+    }).join("");
+    if (!finePointer || !peek) return;
+    var px = 0, py = 0, tx = 0, ty = 0, on = false;
+    list.addEventListener("pointerover", function (e) {
+      var a = e.target.closest && e.target.closest(".credit");
+      if (!a) return;
+      peek.style.backgroundImage = "url('" + a.getAttribute("data-img") + "')";
+      peek.classList.add("is-on"); on = true;
+    });
+    list.addEventListener("pointerleave", function () { peek.classList.remove("is-on"); on = false; });
+    list.addEventListener("pointermove", function (e) { tx = e.clientX; ty = e.clientY; });
+    (function follow() {
+      px += (tx - px) * 0.15; py += (ty - py) * 0.15;
+      if (on) peek.style.transform = "translate3d(" + (px + 24) + "px," + (py - 120) + "px,0) rotate(" + ((tx - px) * 0.05) + "deg)";
+      requestAnimationFrame(follow);
+    })();
   }
 
   /* ---------------- Effect: darkroom develop ----------------
@@ -734,7 +813,8 @@
 
       body.innerHTML =
         '<header class="v-head"><p class="v-meta mono">' + meta + '</p><h2 id="viewer-title">' + esc(p.title || "Untitled") + "</h2>" +
-        (p.summary ? '<p class="v-summary">' + esc(p.summary) + "</p>" : "") + "</header>" +
+        (p.summary ? '<p class="v-summary">' + linkify(p.summary) + "</p>" : "") +
+        (p.mentions && p.mentions.length ? '<p class="v-tags mono">In frame ' + mentionLinks(p.mentions) + "</p>" : "") + "</header>" +
         media +
         (extra ? '<div class="v-media">' + extra + "</div>" : "") +
         (grid ? '<div class="v-grid">' + grid + "</div>" : "") +
@@ -1104,6 +1184,109 @@
     foot.addEventListener("pointerleave", function () { letters.forEach(function (l) { l.style.setProperty("--wt", 200); }); });
   }
 
+  /* ---------------- FX layer ---------------- */
+
+  // Mosaic cursor trail: little tiles in the brand colours fall off the cursor as it moves.
+  function initTrail() {
+    if (!finePointer || reduceMotion) return;
+    var c = $("#trail");
+    if (!c) return;
+    var g = c.getContext("2d"), dpr = Math.min(2, window.devicePixelRatio || 1);
+    var cols = ["#ec2a1c", "#c6ff3d", "#f6b62c", "#eee4d3"];
+    var bits = [], lx = 0, ly = 0, active = false;
+    function size() { c.width = innerWidth * dpr; c.height = innerHeight * dpr; c.style.width = innerWidth + "px"; c.style.height = innerHeight + "px"; }
+    size(); window.addEventListener("resize", size);
+    document.addEventListener("pointermove", function (e) {
+      var dx = e.clientX - lx, dy = e.clientY - ly, d = Math.hypot(dx, dy);
+      lx = e.clientX; ly = e.clientY;
+      if (!$("#viewer").hidden || e.target.closest(".board, .contact, input, textarea, select")) return;
+      var n = Math.min(4, Math.floor(d / 14));
+      for (var i = 0; i < n && bits.length < 120; i++) {
+        bits.push({ x: lx - dx * (i / n), y: ly - dy * (i / n), s: 4 + Math.random() * 12, c: cols[(Math.random() * cols.length) | 0], vx: (Math.random() - 0.5) * 1.2, vy: 0.4 + Math.random(), life: 1 });
+      }
+      if (!active) { active = true; requestAnimationFrame(tick); }
+    });
+    function tick() {
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.clearRect(0, 0, innerWidth, innerHeight);
+      for (var i = bits.length - 1; i >= 0; i--) {
+        var b = bits[i];
+        b.x += b.vx; b.y += b.vy; b.vy += 0.05; b.life -= 0.025;
+        if (b.life <= 0) { bits.splice(i, 1); continue; }
+        g.globalAlpha = b.life * 0.85;
+        g.fillStyle = b.c;
+        var s = b.s * (0.4 + b.life * 0.6);
+        g.fillRect(Math.round(b.x - s / 2), Math.round(b.y - s / 2), Math.round(s), Math.round(s * 0.66));
+      }
+      if (bits.length) requestAnimationFrame(tick); else { active = false; g.clearRect(0, 0, innerWidth, innerHeight); }
+    }
+  }
+
+  // Magnetic buttons: key controls lean toward the cursor.
+  function initMagnetic() {
+    if (!finePointer || reduceMotion) return;
+    $$(".enquire, .send, .filter, .copy, .sc__play, .follow, .ig-cta__big").forEach(function (el) {
+      el.classList.add("magnet");
+      el.addEventListener("pointermove", function (e) {
+        var r = el.getBoundingClientRect();
+        var x = (e.clientX - r.left - r.width / 2) / r.width, y = (e.clientY - r.top - r.height / 2) / r.height;
+        el.style.transform = "translate(" + x * 14 + "px," + y * 10 + "px)";
+      });
+      el.addEventListener("pointerleave", function () { el.style.transform = ""; });
+    });
+  }
+
+  // Gallery tiles tilt in 3D with a moving glare, and the image ripples like liquid while hovered.
+  function initTileFX() {
+    if (!finePointer || reduceMotion) return;
+    var gal = $("#gallery");
+    var turb = $("#liquid-turb"), disp = $("#liquid-disp");
+    var hovered = null, raf = 0, t0 = 0;
+    gal.addEventListener("pointermove", function (e) {
+      var t = e.target.closest && e.target.closest(".tile");
+      if (!t) return;
+      var r = t.getBoundingClientRect();
+      var x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+      t.style.setProperty("--ry", ((x - 0.5) * 14).toFixed(2) + "deg");
+      t.style.setProperty("--rx", ((0.5 - y) * 10).toFixed(2) + "deg");
+      t.style.setProperty("--gx", (x * 100).toFixed(1) + "%");
+      t.style.setProperty("--gy", (y * 100).toFixed(1) + "%");
+      if (hovered !== t) {
+        if (hovered) hovered.classList.remove("is-liquid");
+        hovered = t; t.classList.add("is-liquid"); t0 = performance.now();
+        if (!raf) raf = requestAnimationFrame(wobble);
+      }
+    });
+    gal.addEventListener("pointerout", function (e) {
+      var t = e.target.closest && e.target.closest(".tile");
+      if (!t || t.contains(e.relatedTarget)) return;
+      t.style.setProperty("--rx", "0deg"); t.style.setProperty("--ry", "0deg");
+      t.classList.remove("is-liquid");
+      if (hovered === t) hovered = null;
+    });
+    function wobble(now) {
+      if (!hovered) { raf = 0; disp.setAttribute("scale", 0); return; }
+      var k = (now - t0) / 1000;
+      var settle = Math.max(0.25, 1 - k * 0.6);
+      turb.setAttribute("baseFrequency", (0.012 + Math.sin(k * 2.1) * 0.004).toFixed(4) + " " + (0.03 + Math.cos(k * 1.7) * 0.01).toFixed(4));
+      disp.setAttribute("scale", (28 * settle).toFixed(1));
+      raf = requestAnimationFrame(wobble);
+    }
+  }
+
+  // Scroll speed bends the gallery: fast scrolling skews the columns, then they spring back.
+  function initScrollSkew() {
+    if (reduceMotion) return;
+    var gal = $("#gallery");
+    var last = window.scrollY, skew = 0;
+    (function loop() {
+      var y = window.scrollY, v = y - last; last = y;
+      skew += (Math.max(-6, Math.min(6, v * 0.12)) - skew) * 0.12;
+      gal.style.setProperty("--skew", skew.toFixed(2) + "deg");
+      requestAnimationFrame(loop);
+    })();
+  }
+
   /* ---------------- Bar ---------------- */
   function initBar() {
     var bar = $("#bar");
@@ -1130,6 +1313,10 @@
     initScramble();
     initInkFill();
     initFootWeight();
+    initTrail();
+    initMagnetic();
+    initTileFX();
+    initScrollSkew();
     var leader = runLeader();
     leader.then(function () { initWordmark(); hero.restart(); });
     loadInstagram(site).then(function (res) {

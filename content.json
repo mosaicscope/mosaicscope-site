@@ -10,7 +10,7 @@
     "email": "mosiacscope@gmail.com",
     "web3formsKey": "",
     "beholdFeed": "https://feeds.behold.so/BTTwoWiBb9xHhr96wOcE",
-    "soundcloudUrl": "",
+    "soundcloudUrl": "https://soundcloud.com/orqrackcity/sets/mosaicscope",
     "instagramFillsWork": true
   },
   "social": [
@@ -28,6 +28,11 @@
       "label": "Zora",
       "handle": "@mscope",
       "url": "https://zora.co/@mscope"
+    },
+    {
+      "label": "SoundCloud",
+      "handle": "MosaicScope playlist",
+      "url": "https://soundcloud.com/orqrackcity/sets/mosaicscope"
     }
   ],
   "projects": [

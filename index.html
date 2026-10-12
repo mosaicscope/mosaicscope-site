@@ -65,6 +65,7 @@
         <p class="hero__where mono"><a class="hero__plate" id="hero-plate" href="#" target="_blank" rel="noopener" hidden></a><span data-bind="location">Aotearoa New Zealand</span><a href="#work" class="scrollcue">Scroll to the work <span aria-hidden="true">↓</span></a></p>
       </div>
     </div>
+    <p class="hero__hint mono" aria-hidden="true">Click to shatter</p>
     <p class="hero__note mono" id="hero-note" hidden>Placeholder plate. Add your own hero photo as <code>heroImage</code> in content.json.</p>
   </section>
 
@@ -100,6 +101,13 @@
       <span class="ig-cta__big">Follow <i>@mosaicscope</i></span>
       <span class="ig-cta__meta mono" id="ig-count">Everything new lands there first</span>
     </a>
+  </section>
+
+  <section class="credits" id="credits" aria-labelledby="credits-h" hidden>
+    <div class="sechead">
+      <h2 id="credits-h"><span class="mono sechead__no">✶</span><span class="scramble">In frame</span> <em>everyone tagged on the feed</em></h2>
+    </div>
+    <ol class="credits__list" id="credits-list"></ol>
   </section>
 
   <section class="services" id="services" aria-labelledby="services-h">
@@ -178,6 +186,14 @@
   <div class="sc__frame" id="sc-frame" aria-hidden="true"></div>
 </div>
 <div class="loupe" id="loupe" aria-hidden="true"></div>
+<div class="peek" id="peek" aria-hidden="true"></div>
+<canvas class="trail" id="trail" aria-hidden="true"></canvas>
+<svg class="fx-defs" aria-hidden="true" width="0" height="0">
+  <filter id="liquid" x="-10%" y="-10%" width="120%" height="120%">
+    <feTurbulence id="liquid-turb" type="fractalNoise" baseFrequency="0.012 0.03" numOctaves="2" seed="7"/>
+    <feDisplacementMap id="liquid-disp" in="SourceGraphic" scale="0" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
 <div class="cursor" id="cursor" aria-hidden="true"><span>View</span></div>
 <div class="grain" aria-hidden="true"></div>
 <!--BODY-END-->
