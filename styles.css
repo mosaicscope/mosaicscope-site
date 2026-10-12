@@ -942,14 +942,14 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 .raver:focus-visible { outline: 2px solid var(--acid); outline-offset: 4px; }
 .raver__fig { width: 100%; height: 100%; overflow: visible; transition: transform .25s; }
 .raver.is-left .raver__fig { transform: scaleX(-1); }
-.raver.is-paused * { animation-play-state: paused !important; }
+.stage.is-paused * { animation-play-state: paused !important; }
 .raver [class^="rv"] { transform-box: view-box; }
 .rv { transform-origin: 50px 126px; transition: transform .5s var(--ease); }
 .rv__top { transform-origin: 50px 82px; transition: transform .5s var(--ease); }
 .rv__head { transform-origin: 50px 38px; transition: transform .5s var(--ease); }
 .rv__armL, .rv__armR { transform-origin: 50px 47px; transition: transform .5s var(--ease); }
 .rv__legL, .rv__legR { transform-origin: 50px 82px; transition: transform .5s var(--ease); }
-.rv__chair, .rv__beer, .rv__cig, .rv__gun { opacity: 0; transition: opacity .4s; }
+.rv__chair, .rv__beer, .rv__cig, .rv__gun, .rv__phone, .rv__flash { opacity: 0; transition: opacity .4s; }
 
 /* chill: weight on one leg, little head bob */
 .raver.is-chill .rv__legR { transform: rotate(6deg); }
@@ -991,14 +991,14 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 .raver.is-drink .rv__head { animation: rv-tilt 3s ease-in-out infinite; }
 
 /* rave: goes off */
-.raver.is-rave .rv { animation: rv-jump .42s cubic-bezier(.3,0,.3,1) infinite, rv-spin 3.36s cubic-bezier(.6,0,.3,1) infinite; }
-.raver.is-rave .rv__top { animation: rv-whip .84s ease-in-out infinite; }
-.raver.is-rave .rv__head { animation: rv-bang .42s ease-in-out infinite; }
-.raver.is-rave .rv__armL { animation: rv-flailL .84s ease-in-out infinite; }
-.raver.is-rave .rv__armR { animation: rv-flailR .84s ease-in-out infinite; }
-.raver.is-rave .rv__gun { opacity: 1; }
-.raver.is-rave .rv__legL { animation: rv-kickL .84s ease-in-out infinite; }
-.raver.is-rave .rv__legR { animation: rv-kickR .84s ease-in-out infinite; }
+.raver.d-goff .rv { animation: rv-jump .42s cubic-bezier(.3,0,.3,1) infinite, rv-spin 3.36s cubic-bezier(.6,0,.3,1) infinite; }
+.raver.d-goff .rv__top { animation: rv-whip .84s ease-in-out infinite; }
+.raver.d-goff .rv__head { animation: rv-bang .42s ease-in-out infinite; }
+.raver.d-goff .rv__armL { animation: rv-flailL .84s ease-in-out infinite; }
+.raver.d-goff .rv__armR { animation: rv-flailR .84s ease-in-out infinite; }
+.raver.d-goff .rv__gun { opacity: 1; }
+.raver.d-goff .rv__legL { animation: rv-kickL .84s ease-in-out infinite; }
+.raver.d-goff .rv__legR { animation: rv-kickR .84s ease-in-out infinite; }
 
 @keyframes rv-nod { 50% { transform: rotate(-5deg); } }
 @keyframes rv-bob { 50% { transform: translateY(-2px); } }
@@ -1019,3 +1019,146 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 
 @media (max-width: 520px) { .raver { width: 60px; height: 84px; } .stage { height: 100px; } }
 @media (prefers-reduced-motion: reduce) { .raver *, .raver { animation: none !important; transition: none !important; } }
+
+
+/* ================= Round 14: the crew ================= */
+.stage .raver { width: 70px; height: 98px; }
+.raver__zz { position: absolute; left: 56%; top: 30%; display: none; color: #c6ff3d; font-size: 11px; pointer-events: none; }
+.raver.is-sleep .raver__zz { display: block; }
+.raver__zz i { position: absolute; font-style: normal; opacity: 0; animation: hg-z 3s ease-in-out infinite; }
+.raver__zz i:nth-child(2) { animation-delay: 1.5s; }
+@keyframes hg-z { 0% { opacity: 0; transform: translate(0, 0); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(14px, -26px); } }
+.rv__hair { transform-box: view-box; transform-origin: 50px 30px; }
+
+/* ---- 10 new everyday moves ---- */
+/* wave */
+.raver.is-wave .rv__armR { animation: ev-wave .7s ease-in-out infinite alternate; }
+@keyframes ev-wave { from { transform: rotate(-150deg); } to { transform: rotate(-110deg); } }
+/* scroll phone */
+.raver.is-phone .rv__phone { opacity: 1; }
+.raver.is-phone .rv__armR { transform: rotate(-58deg); }
+.raver.is-phone .rv__head { transform: rotate(14deg); }
+/* selfie with flash */
+.raver.is-selfie .rv__phone { opacity: 1; }
+.raver.is-selfie .rv__armR { transform: rotate(-140deg); }
+.raver.is-selfie .rv__head { animation: ev-pose 1.6s ease-in-out infinite; }
+.raver.is-selfie .rv__flash { animation: ev-flash 1.6s steps(1) infinite; }
+@keyframes ev-pose { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(8deg); } }
+@keyframes ev-flash { 0%, 90% { opacity: 0; } 92% { opacity: .9; } }
+/* stretch */
+.raver.is-stretch .rv__armL { animation: ev-stretchL 2s ease-in-out infinite; }
+.raver.is-stretch .rv__armR { animation: ev-stretchR 2s ease-in-out infinite; }
+.raver.is-stretch .rv__top { animation: ev-lean 2s ease-in-out infinite; }
+@keyframes ev-stretchL { 50% { transform: rotate(150deg); } }
+@keyframes ev-stretchR { 50% { transform: rotate(-150deg); } }
+@keyframes ev-lean { 50% { transform: rotate(-8deg) translateY(-2px); } }
+/* look around */
+.raver.is-look .rv__head { animation: ev-look 2.4s ease-in-out infinite; }
+.raver.is-look .rv__armL { transform: rotate(40deg); }
+.raver.is-look .rv__armR { transform: rotate(-40deg); }
+@keyframes ev-look { 0%, 100% { transform: rotate(-16deg); } 50% { transform: rotate(16deg); } }
+/* crouch, tie shoe */
+.raver.is-crouch .rv { transform: translateY(22px); }
+.raver.is-crouch .rv__legL { transform: rotate(-70deg); }
+.raver.is-crouch .rv__legR { transform: rotate(40deg); }
+.raver.is-crouch .rv__top { transform: rotate(28deg); }
+.raver.is-crouch .rv__armR { animation: ev-tie .4s ease-in-out infinite alternate; }
+@keyframes ev-tie { from { transform: rotate(10deg); } to { transform: rotate(30deg); } }
+/* push-ups */
+.raver.is-pushup .rv { transform-origin: 50px 110px; animation: ev-push 1s ease-in-out infinite; }
+@keyframes ev-push { 0%, 100% { transform: translateY(14px) rotate(-78deg); } 50% { transform: translateY(20px) rotate(-86deg); } }
+.raver.is-pushup .rv__armL, .raver.is-pushup .rv__armR { transform: rotate(80deg); }
+/* nap on the ground */
+.raver.is-sleep .rv { transform-origin: 50px 120px; transform: translate(8px, 18px) rotate(-90deg); }
+.raver.is-sleep .rv__top { animation: hg-breathe 3.6s ease-in-out infinite; }
+@keyframes hg-breathe { 50% { transform: translateY(1.5px); } }
+/* shadowbox */
+.raver.is-box .rv__armL { animation: ev-jabL .5s ease-in-out infinite; }
+.raver.is-box .rv__armR { animation: ev-jabR .5s ease-in-out infinite .25s; }
+.raver.is-box .rv { animation: rv-bob .5s ease-in-out infinite; }
+@keyframes ev-jabL { 0%, 100% { transform: rotate(-60deg); } 50% { transform: rotate(-95deg); } }
+@keyframes ev-jabR { 0%, 100% { transform: rotate(-30deg); } 50% { transform: rotate(-90deg); } }
+/* hair flip */
+.raver.is-flip .rv__head { animation: ev-flip 1.4s cubic-bezier(.5,0,.2,1) infinite; }
+.raver.is-flip .rv__armR { transform: rotate(-120deg); }
+.raver.is-flip .rv__hair { animation: ev-hair 1.4s cubic-bezier(.5,0,.2,1) infinite; }
+@keyframes ev-flip { 0%, 100% { transform: rotate(0); } 40% { transform: rotate(-24deg); } 60% { transform: rotate(10deg); } }
+@keyframes ev-hair { 40% { transform: scale(1.12) rotate(-10deg); } }
+
+/* ---- 10 new dance moves ---- */
+/* the worm */
+.raver.d-worm .rv { transform-origin: 50px 120px; animation: dn-worm .9s ease-in-out infinite; }
+.raver.d-worm .rv__legL, .raver.d-worm .rv__legR { animation: dn-wormlegs .9s ease-in-out infinite; }
+.raver.d-worm .rv__armL, .raver.d-worm .rv__armR { transform: rotate(70deg); }
+@keyframes dn-worm { 0%, 100% { transform: translate(6px, 18px) rotate(-90deg); } 30% { transform: translate(6px, 8px) rotate(-74deg); } 60% { transform: translate(6px, 14px) rotate(-104deg); } }
+@keyframes dn-wormlegs { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(24deg); } }
+/* robot */
+.raver.d-robot .rv__armL { animation: dn-robL 1.2s steps(3) infinite; }
+.raver.d-robot .rv__armR { animation: dn-robR 1.2s steps(3) infinite; }
+.raver.d-robot .rv__head { animation: dn-robH 1.2s steps(2) infinite; }
+@keyframes dn-robL { 0% { transform: rotate(0); } 33% { transform: rotate(90deg); } 66% { transform: rotate(45deg); } }
+@keyframes dn-robR { 0% { transform: rotate(-90deg); } 33% { transform: rotate(0); } 66% { transform: rotate(-45deg); } }
+@keyframes dn-robH { 0% { transform: rotate(-12deg); } 50% { transform: rotate(12deg); } }
+/* shuffle */
+.raver.d-shuffle .rv { animation: rv-bob .3s ease-in-out infinite; }
+.raver.d-shuffle .rv__legL { animation: dn-shufL .6s ease-in-out infinite; }
+.raver.d-shuffle .rv__legR { animation: dn-shufR .6s ease-in-out infinite; }
+.raver.d-shuffle .rv__armL, .raver.d-shuffle .rv__armR { animation: rv-swing .3s ease-in-out infinite alternate; }
+@keyframes dn-shufL { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-35deg); } 50% { transform: rotate(10deg); } }
+@keyframes dn-shufR { 0%, 100% { transform: rotate(10deg); } 50% { transform: rotate(0); } 75% { transform: rotate(35deg); } }
+/* sprinkler */
+.raver.d-sprinkler .rv__armL { transform: rotate(-30deg); }
+.raver.d-sprinkler .rv__armR { animation: dn-sprink 1.4s steps(5) infinite; }
+.raver.d-sprinkler .rv__top { animation: dn-sprink2 1.4s steps(5) infinite; }
+@keyframes dn-sprink { 0% { transform: rotate(-100deg); } 100% { transform: rotate(-40deg); } }
+@keyframes dn-sprink2 { 0% { transform: rotate(-10deg); } 100% { transform: rotate(10deg); } }
+/* dab */
+.raver.d-dab .rv__armL { animation: dn-dabL 1.2s steps(1) infinite; }
+.raver.d-dab .rv__armR { animation: dn-dabR 1.2s steps(1) infinite; }
+.raver.d-dab .rv__head { animation: dn-dabH 1.2s steps(1) infinite; }
+@keyframes dn-dabL { 0% { transform: rotate(-120deg); } 50% { transform: rotate(0); } }
+@keyframes dn-dabR { 0% { transform: rotate(-60deg); } 50% { transform: rotate(0); } }
+@keyframes dn-dabH { 0% { transform: rotate(30deg) translateY(3px); } 50% { transform: rotate(0); } }
+/* floss */
+.raver.d-floss .rv__top { animation: dn-flossT .5s ease-in-out infinite alternate; }
+.raver.d-floss .rv__armL { animation: dn-flossA .25s ease-in-out infinite alternate; }
+.raver.d-floss .rv__armR { animation: dn-flossA .25s ease-in-out infinite alternate-reverse; }
+@keyframes dn-flossT { from { transform: rotate(-10deg); } to { transform: rotate(10deg); } }
+@keyframes dn-flossA { from { transform: rotate(30deg); } to { transform: rotate(-30deg); } }
+/* jumping jacks */
+.raver.d-jacks .rv { animation: rv-jump .5s ease-in-out infinite; }
+.raver.d-jacks .rv__armL { animation: dn-jackL .5s ease-in-out infinite; }
+.raver.d-jacks .rv__armR { animation: dn-jackR .5s ease-in-out infinite; }
+.raver.d-jacks .rv__legL { animation: dn-jlegL .5s ease-in-out infinite; }
+.raver.d-jacks .rv__legR { animation: dn-jlegR .5s ease-in-out infinite; }
+@keyframes dn-jackL { 50% { transform: rotate(140deg); } }
+@keyframes dn-jackR { 50% { transform: rotate(-140deg); } }
+@keyframes dn-jlegL { 50% { transform: rotate(18deg); } }
+@keyframes dn-jlegR { 50% { transform: rotate(-18deg); } }
+/* running man */
+.raver.d-runman .rv { animation: rv-bob .35s ease-in-out infinite; }
+.raver.d-runman .rv__legL { animation: dn-runL .7s ease-in-out infinite; }
+.raver.d-runman .rv__legR { animation: dn-runR .7s ease-in-out infinite; }
+.raver.d-runman .rv__armL { animation: rv-swing .35s ease-in-out infinite alternate; }
+.raver.d-runman .rv__armR { animation: rv-swing .35s ease-in-out infinite alternate-reverse; }
+@keyframes dn-runL { 0%, 100% { transform: rotate(-40deg) translateY(-6px); } 50% { transform: rotate(10deg); } }
+@keyframes dn-runR { 0%, 100% { transform: rotate(10deg); } 50% { transform: rotate(-40deg) translateY(-6px); } }
+/* moonwalk: glides backwards while stepping */
+.raver.d-moon { transition-timing-function: linear; }
+.raver.d-moon .rv__legL { animation: dn-moon .6s ease-in-out infinite; }
+.raver.d-moon .rv__legR { animation: dn-moon .6s ease-in-out infinite .3s; }
+.raver.d-moon .rv__head { animation: rv-nod .6s ease-in-out infinite; }
+@keyframes dn-moon { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(14deg) translateY(-3px); } }
+/* spin */
+.raver.d-spin .rv { animation: dn-spin 1s linear infinite; }
+.raver.d-spin .rv__armL { transform: rotate(80deg); }
+.raver.d-spin .rv__armR { transform: rotate(-80deg); }
+@keyframes dn-spin { to { rotate: y 360deg; } }
+
+/* every rave move gets a little bounce in the head */
+.raver.is-rave:not(.d-goff):not(.d-robot):not(.d-dab) .rv__head { animation: rv-nod .42s ease-in-out infinite; }
+
+/* crew of ten: a bit smaller so they fit */
+.stage .raver { width: 58px; height: 82px; }
+@media (max-width: 520px) { .stage .raver { width: 50px; height: 70px; } }
+.raver.is-crouch .rv__top { transform: rotate(18deg); }

@@ -1635,43 +1635,134 @@
     window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
   }
 
-  /* ---------------- Easter egg: the raver in the footer ----------------
-     Lives in the empty black strip at the very bottom. With the music off he just lives his life:
-     walks about, has a smoke, sits on his chair, cracks a beer. Music on and he goes off.
-     Click him to play or pause. He makes it rain when someone sends an enquiry. */
+  /* ---------------- Easter egg: the crew in the footer ----------------
+     A little crew lives in the black strip at the very bottom of the page.
+     Music off: they live their lives (walk, smoke, sit with a beer, scroll their phones, take selfies,
+     stretch, nap and more). Music on: the whole crew raves, swapping dance moves every few seconds.
+     Click anyone to play or pause. They make it rain $ when someone sends an enquiry. */
+  // The crew. First is the main guy (he drops the cash), second is his girl.
+  var CAST = [
+    { kind: "guy", color: "#c6ff3d", accent: "#ec2a1c", hat: "bandana", main: true, name: "The main guy" },
+    { kind: "girl", color: "#ff7ad9", accent: "#f6b62c", hair: "big", glam: true, name: "His girl" },
+    { kind: "guy", color: "#f6b62c", accent: "#eee4d3", hat: "cap", name: "Friend" },
+    { kind: "girl", color: "#3dd6ff", accent: "#ff7ad9", hair: "bun", name: "Friend" },
+    { kind: "guy", color: "#eee4d3", accent: "#ec2a1c", hat: "none", name: "Friend" },
+    { kind: "girl", color: "#ec2a1c", accent: "#c6ff3d", hair: "big", name: "Friend" },
+    { kind: "guy", color: "#b48cff", accent: "#f6b62c", hat: "cap", name: "Friend" },
+    { kind: "girl", color: "#c6ff3d", accent: "#3dd6ff", hair: "bun", name: "Friend" },
+    { kind: "guy", color: "#ff9a3d", accent: "#3dd6ff", hat: "bandana", name: "Friend" },
+    { kind: "girl", color: "#f6b62c", accent: "#b48cff", hair: "big", name: "Friend" }
+  ];
+  var GLAM_IDLE = ["walk", "flip", "selfie", "phone", "flip", "chill", "drink", "wave", "walk", "selfie"];
+  var IDLE = ["walk", "walk", "walk", "chill", "smoke", "sit", "drink", "wave", "phone", "selfie", "stretch", "look", "crouch", "pushup", "sleep", "box", "flip"];
+  var DANCES = ["goff", "worm", "robot", "shuffle", "sprinkler", "dab", "floss", "jacks", "runman", "moon", "spin"];
+  var POSE_CLASSES = IDLE.concat(["rave"]).map(function (p) { return "is-" + p; }).concat(DANCES.map(function (d) { return "d-" + d; }));
+
+  function figSVG(c) {
+    var C = c.color, A = c.accent, girl = c.kind === "girl";
+    var hair = "";
+    if (girl && c.hair === "big") hair = '<path class="rv__hair" d="M38 32 Q28 20 37 12 Q44 2 54 7 Q66 5 66 17 Q73 26 64 34 Q70 42 61 44 M39 32 Q30 41 38 45" fill="' + C + '" fill-opacity=".22" stroke-width="2.4"/>';
+    if (girl && c.hair === "bun") hair = '<circle cx="50" cy="11" r="6.5" fill="' + C + '" fill-opacity=".22" stroke-width="2.4"/><path d="M40 22 Q50 13 60 22" stroke-width="2.4"/><path d="M60 22 Q66 34 62 42" stroke-width="2.2"/>';
+    var hat = "";
+    if (c.hat === "bandana") hat = '<path d="M39.6 23 Q50 12 60.4 23 Z" fill="' + A + '" stroke="' + A + '" stroke-width="2"/><path d="M60 22 l7 -4 M60 22 l7 2" stroke="' + A + '" stroke-width="2.4"/>';
+    if (c.hat === "cap") hat = '<path d="M39.5 23 Q50 11 60.5 23 Z" fill="' + A + '" stroke="' + A + '" stroke-width="2"/><path d="M58 22 H70" stroke="' + A + '" stroke-width="3"/>';
+    var outfit = girl
+      ? '<path d="M43 52 H57 V60 H43 Z" fill="' + A + '" fill-opacity=".9" stroke="' + A + '" stroke-width="1.6"/><path d="M42 72 H58 L62 84 H38 Z" fill="' + A + '" fill-opacity=".9" stroke="' + A + '" stroke-width="1.6"/>'
+      : '<path d="M42 52 H58 L59 78 H41 Z" stroke-width="2.4"/>';
+    var boots = girl
+      ? '<path d="M35 121 h9 v6 h-9 Z" fill="' + A + '" stroke="' + A + '" stroke-width="1.5"/>'
+      : '<path d="M34 126 h10" stroke="' + A + '" stroke-width="6"/>';
+    var bootsR = girl
+      ? '<path d="M58 121 h9 v6 h-9 Z" fill="' + A + '" stroke="' + A + '" stroke-width="1.5"/>'
+      : '<path d="M59 126 h10" stroke="' + A + '" stroke-width="6"/>';
+    var glam = c.glam ? '<path d="M40 25 l-2 -2 M60 25 l2 -2" stroke-width="1.6"/><circle cx="39" cy="35" r="3.2" stroke-width="1.6"/><circle cx="61" cy="35" r="3.2" stroke-width="1.6"/>' : "";
+    var extras = glam + (girl ? '<circle cx="39" cy="32" r="2.2" stroke-width="1.4"/><circle cx="61" cy="32" r="2.2" stroke-width="1.4"/><path d="M47 34.5 Q50 36.5 53 34.5" stroke="' + A + '" stroke-width="2.2"/>' : '<path d="M46 34 Q50 36.5 54 34" stroke-width="2"/>');
+    return '<svg class="raver__fig" viewBox="0 0 100 140" aria-hidden="true">' +
+      '<g class="rv__chair" fill="none" stroke="#9a8d80" stroke-width="3" stroke-linecap="round"><path d="M28 104 H58 M30 104 L28 132 M56 104 L58 132 M30 104 L26 70"/></g>' +
+      '<g class="rv" fill="none" stroke="' + C + '" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">' +
+        '<g class="rv__legL"><path d="M50 82 L42 104 L40 122"/>' + boots + '</g>' +
+        '<g class="rv__legR"><path d="M50 82 L58 104 L62 122"/>' + bootsR + '</g>' +
+        '<g class="rv__top"><path d="M50 40 L50 82"/>' + outfit +
+          '<g class="rv__armL"><path d="M50 47 L38 60 L34 72"/><rect class="rv__beer" x="30" y="70" width="7" height="11" rx="1.5" fill="#f6b62c" stroke="#f6b62c" stroke-width="1"/></g>' +
+          '<g class="rv__armR"><path d="M50 47 L62 60 L66 72"/>' +
+            '<path class="rv__cig" d="M66 72 L73 70" stroke="#eee4d3" stroke-width="2"/><circle class="rv__cig" cx="73.5" cy="69.8" r="1.4" fill="#ec2a1c" stroke="none"/>' +
+            '<path class="rv__gun" d="M66 72 L73 70 M66 72 L66 66" stroke-width="2.6"/>' +
+            '<rect class="rv__phone" x="64" y="66" width="6" height="10" rx="1.2" fill="#0e0b0a" stroke-width="1.6"/><circle class="rv__flash" cx="67" cy="66" r="6" fill="#fff" stroke="none"/>' +
+          '</g>' +
+          '<g class="rv__head">' + hair + '<circle cx="50" cy="27" r="10.5"/>' + hat +
+            '<path d="M40 25.5 H49 V30.5 Q44.5 32 40 30.5 Z M51 25.5 H60 V30.5 Q55.5 32 51 30.5 Z" fill="#0e0b0a" stroke-width="1.6"/><path d="M49 27 H51" stroke-width="1.6"/>' + extras +
+          '</g>' +
+        '</g>' +
+      '</g></svg>' +
+      '<span class="raver__smoke" aria-hidden="true"><i></i><i></i><i></i></span><span class="raver__zz mono" aria-hidden="true"><i>z</i><i>z</i></span>';
+  }
+
   function initHype() {
-    var el = $("#hype"), stage = $("#stage"), cash = $("#cash");
-    if (!el || !stage) return;
+    var stage = $("#stage"), cash = $("#cash");
+    if (!stage) return;
     var hasMusic = !$("#sc").hidden;
-    if (!hasMusic) el.setAttribute("aria-label", "Raver");
-    var x = 40, raving = false, timer = null, moneyTimer = null;
-    var ACTS = ["walk", "smoke", "walk", "sit", "walk", "drink", "chill"];
-    var POSES = ["is-walk", "is-smoke", "is-sit", "is-drink", "is-chill", "is-rave"];
-    function pose(p) { POSES.forEach(function (c) { el.classList.remove(c); }); el.classList.add(p); }
-    function maxX() { return Math.max(0, stage.clientWidth - el.offsetWidth); }
-    function next() {
-      clearTimeout(timer);
-      if (raving) return;
-      var act = ACTS[(Math.random() * ACTS.length) | 0];
-      if (reduceMotion) { pose("is-chill"); return; }
-      if (act === "walk") {
-        var to = Math.round(Math.random() * maxX());
-        var dist = Math.abs(to - x);
-        if (dist < 40) { timer = setTimeout(next, 400); return; }
-        el.classList.toggle("is-left", to < x);
-        var dur = dist / 45;
-        el.style.transitionDuration = dur + "s";
-        pose("is-walk");
-        x = to; el.style.setProperty("--x", x + "px");
-        timer = setTimeout(function () { pose("is-chill"); timer = setTimeout(next, 900); }, dur * 1000);
-      } else {
-        pose("is-" + act);
-        timer = setTimeout(next, act === "sit" ? 11000 : act === "smoke" ? 8000 : act === "drink" ? 6000 : 4000);
-      }
+    var cast = CAST.slice(0, innerWidth < 520 ? 3 : innerWidth < 900 ? 6 : 10);
+    var raving = false, visible = true, crew = [], moneyTimer = null;
+
+    function Raver(cfg, i) {
+      var el = document.createElement("button");
+      el.type = "button";
+      el.className = "raver is-chill";
+      el.setAttribute("aria-label", hasMusic ? "Play music" : cfg.name);
+      el.innerHTML = figSVG(cfg);
+      stage.appendChild(el);
+      var me = { el: el, cfg: cfg, x: 0, timer: null };
+      function pose(p) { POSE_CLASSES.forEach(function (c) { el.classList.remove(c); }); p.split(" ").forEach(function (c) { el.classList.add(c); }); }
+      function maxX() { return Math.max(0, stage.clientWidth - el.offsetWidth); }
+      me.place = function (x) { me.x = x; el.style.setProperty("--x", x + "px"); };
+      me.next = function () {
+        clearTimeout(me.timer); me.timer = null;
+        if (raving || !visible) return;
+        if (reduceMotion) { pose("is-chill"); return; }
+        var pool = cfg.glam ? GLAM_IDLE : IDLE;
+        var act = pool[(Math.random() * pool.length) | 0];
+        if (act === "walk") {
+          var to = Math.round(Math.random() * maxX());
+          var dist = Math.abs(to - me.x);
+          if (dist < 40) { me.timer = setTimeout(me.next, 300); return; }
+          el.classList.toggle("is-left", to < me.x);
+          var dur = dist / (38 + Math.random() * 20);
+          el.style.transitionDuration = dur + "s";
+          pose("is-walk");
+          me.place(to);
+          me.timer = setTimeout(function () { pose("is-chill"); me.timer = setTimeout(me.next, 700 + Math.random() * 1200); }, dur * 1000);
+        } else {
+          pose("is-" + act);
+          var t = { sit: 11000, sleep: 9000, smoke: 8000, drink: 6000, phone: 7000, pushup: 5000 }[act] || 4000;
+          me.timer = setTimeout(me.next, t + Math.random() * 2000);
+        }
+      };
+      me.rave = function () {
+        clearTimeout(me.timer);
+        el.style.transitionDuration = "0s";
+        var r = el.getBoundingClientRect();
+        me.place(Math.round(r.left - stage.getBoundingClientRect().left));
+        function dance() {
+          if (!raving) return;
+          var d = DANCES[(Math.random() * DANCES.length) | 0];
+          pose("is-rave d-" + d);
+          if (d === "moon") { var to = Math.max(0, Math.min(maxX(), me.x + (el.classList.contains("is-left") ? 90 : -90))); el.style.transitionDuration = "3.5s"; me.place(to); }
+          me.timer = setTimeout(dance, 3200 + Math.random() * 2400);
+        }
+        setTimeout(dance, i * 120);
+      };
+      me.chill = function () { clearTimeout(me.timer); pose("is-chill"); me.timer = setTimeout(me.next, 800 + i * 400); };
+      el.addEventListener("click", function () { if (window.hypeToggle) window.hypeToggle(); });
+      me.place(Math.round(Math.max(0, stage.clientWidth - 60) * ((i + 0.5) / cast.length)));
+      if (i % 2) el.classList.add("is-left");
+      return me;
     }
+
+    crew = cast.map(function (c, i) { return Raver(c, i); });
+
     function drop() {
-      if (reduceMotion || document.hidden) return;
-      var r = el.getBoundingClientRect();
+      if (reduceMotion || document.hidden || !visible) return;
+      var r = crew[0].el.getBoundingClientRect();
       var d = document.createElement("span");
       d.className = "cash__bill";
       d.textContent = "$";
@@ -1682,25 +1773,16 @@
       cash.appendChild(d);
       setTimeout(function () { d.remove(); }, 2200);
     }
+
     window.hype = {
       set: function (on) {
         raving = on;
         clearInterval(moneyTimer);
-        el.setAttribute("aria-label", on ? "Pause music" : "Play music");
-        if (on) {
-          clearTimeout(timer);
-          el.style.transitionDuration = "0s";
-          var r = el.getBoundingClientRect();
-          x = Math.round(r.left - stage.getBoundingClientRect().left);
-          el.style.setProperty("--x", x + "px");
-          pose("is-rave");
-          if (!reduceMotion) moneyTimer = setInterval(drop, 700);
-        } else {
-          pose("is-chill");
-          timer = setTimeout(next, 1500);
-        }
+        crew.forEach(function (m) { m.el.setAttribute("aria-label", on ? "Pause music" : "Play music"); on ? m.rave() : m.chill(); });
+        if (on && !reduceMotion) moneyTimer = setInterval(drop, 700);
       },
       rain: function () {
+        egg.rains++;
         if (reduceMotion) return;
         for (var i = 0; i < 46; i++) {
           (function (i) {
@@ -1719,17 +1801,46 @@
         }
       }
     };
-    el.addEventListener("click", function () { if (window.hypeToggle) window.hypeToggle(); });
-    window.addEventListener("resize", function () { if (x > maxX()) { x = maxX(); el.style.setProperty("--x", x + "px"); } });
-    // only bother animating when the footer is on screen
+    window.addEventListener("resize", function () {
+      crew.forEach(function (m) { var mx = Math.max(0, stage.clientWidth - m.el.offsetWidth); if (m.x > mx) m.place(mx); });
+    });
+    // only animate while the footer is on screen
     if ("IntersectionObserver" in window) {
       new IntersectionObserver(function (es) {
-        var vis = es[0].isIntersecting;
-        el.classList.toggle("is-paused", !vis);
-        if (vis && !raving && !timer) next();
+        visible = es[0].isIntersecting;
+        stage.classList.toggle("is-paused", !visible);
+        if (visible && !raving) crew.forEach(function (m) { if (!m.timer) m.next(); });
       }).observe(stage);
     }
-    next();
+    crew.forEach(function (m, i) { m.timer = setTimeout(m.next, 400 + i * 450); });
+    initEggStats(stage);
+  }
+
+  /* ---------------- Easter egg stats ----------------
+     Counts how many visitors find the crew, how long they watch, how often they click,
+     and whether the crew got the music going. Sent once when the visitor leaves the page
+     to /api/egg (a free Cloudflare function). See your numbers at /api/egg. */
+  var egg = { seen: 0, ms: 0, clicks: 0, plays: 0, rains: 0, since: 0 };
+  function initEggStats(stage) {
+    if (!("IntersectionObserver" in window)) return;
+    new IntersectionObserver(function (es) {
+      if (es[0].isIntersecting) { egg.seen = 1; egg.since = performance.now(); }
+      else if (egg.since) { egg.ms += performance.now() - egg.since; egg.since = 0; }
+    }, { threshold: 0.4 }).observe(stage);
+    stage.addEventListener("click", function (e) { if (e.target.closest(".raver")) { egg.clicks++; if (!$("#sc").classList.contains("is-playing")) egg.plays++; } });
+    var sent = false;
+    function send() {
+      if (sent || !egg.seen) return;
+      if (egg.since) { egg.ms += performance.now() - egg.since; egg.since = 0; }
+      sent = true;
+      var body = JSON.stringify({ seen: 1, seconds: Math.round(egg.ms / 1000), clicks: egg.clicks, plays: egg.plays, rains: egg.rains });
+      try {
+        if (navigator.sendBeacon) navigator.sendBeacon("/api/egg", new Blob([body], { type: "application/json" }));
+        else fetch("/api/egg", { method: "POST", body: body, keepalive: true, headers: { "Content-Type": "application/json" } });
+      } catch (e) { /* stats are optional */ }
+    }
+    document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") send(); });
+    window.addEventListener("pagehide", send);
   }
 
   /* ---------------- Bar ---------------- */
