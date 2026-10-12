@@ -1,6 +1,8 @@
 // Cloudflare Pages Function: /api/world-stats
 // POST: the Mosaics' world (/world/) sends anonymous session stats when a visitor leaves.
-// GET:  open https://mosaicscope.pages.dev/api/world-stats for daily totals over the last 30 days:
+// GET:  PRIVATE. Needs your secret key (Cloudflare → Pages → Settings → Variables → STATS_KEY), sent as
+//       the header "Authorization: Bearer <key>" or as ?key=<key>. Without the key it answers 401, and if
+//       STATS_KEY isn't set it answers 401 too (closed by default). Daily totals over the last 30 days:
 //       sessions, total/avg minutes played, how many came back (returning), sessions over 5 and 15 minutes,
 //       missions finished and casino visits.
 // Uses the same KV namespace as /api/egg (binding EGG). Without it, POSTs are ignored and nothing breaks.
@@ -30,7 +32,18 @@ export async function onRequestPost({ request, env }) {
   return new Response(null, { status: 204 });
 }
 
-export async function onRequestGet({ env }) {
+/** Constant-time string comparison so the key can't be guessed byte by byte from response timing. */
+function same(a, b) {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+
+export async function onRequestGet({ request, env }) {
+  const url = new URL(request.url);
+  const given = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "") || url.searchParams.get("key") || "";
+  if (!env.STATS_KEY || !same(given, env.STATS_KEY)) return json({ error: "unauthorised" }, 401);
   if (!env.EGG) return json({ note: "Bind a KV namespace as EGG to collect stats." });
   const days = [];
   const tot = blank();

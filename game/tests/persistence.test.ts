@@ -70,7 +70,7 @@ describe("save / load", () => {
     const store = new MemoryStorageProvider();
     store.set("mosaics-world:settings", "{{{");
     expect(loadSettings(store)).toEqual(DEFAULT_SETTINGS);
-    store.set("mosaics-world:settings", JSON.stringify({ volume: 7, quality: "ultra", gentle: true, keys: { talk: "y", up: 5 } }));
+    store.set("mosaics-world:settings", JSON.stringify({ volume: 7, quality: "extreme", gentle: true, keys: { talk: "y", up: 5 } }));
     const s = loadSettings(store);
     expect(s.volume).toBe(DEFAULT_SETTINGS.volume); expect(s.quality).toBe("auto"); expect(s.gentle).toBe(true); expect(s.keys.talk).toBe("y"); expect(s.keys.up).toBe("w");
   });
