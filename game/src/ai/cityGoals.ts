@@ -227,6 +227,15 @@ export const CITY_GOALS: GoalDef[] = [
     build: (_c, _s, ch) => [{ kind: "clean", poi: ch.poi }],
   },
   {
+    // turf war (sim/Turf.ts starts these, rarely): walk to your crew's side of the border, shoot it out, scarper
+    id: "turf", cooldown: 600, interruptible: false,
+    score: () => null,
+    build: (c, sim, ch) => {
+      if (ch.x === undefined || ch.y === undefined || !c.crew) return null;
+      return [{ kind: "goto", x: ch.x, y: ch.y, dist: 1.5, time: 120 }, { kind: "gunfight", time: sim.rng.range(14, 22) }, { kind: "flee_far" }, { kind: "flee_far" }];
+    },
+  },
+  {
     id: "patrol", cooldown: 20, interruptible: true,
     score: (c) => (c.role === "cop" && c.pursuing < 0 ? { u: 0.3, target: -1 } : null),
     build: (c, sim) => {

@@ -111,7 +111,7 @@ export interface Step {
 export type StepKind =
   | "goto" | "approach" | "pickup" | "throw" | "swing" | "talk" | "sit" | "wait" | "play" | "dance" | "flee"
   | "comfort" | "search" | "give" | "drop" | "craft" | "watch" | "cheer" | "push" | "shoot" | "kick" | "music" | "wander"
-  | "enter" | "buy" | "eat" | "steal" | "spray" | "clean" | "chase" | "photo" | "pose" | "skate" | "busk" | "flee_far" | "trade" | "book" | "treat" | "mug" | "flirt" | "kiss" | "date" | "follow";
+  | "enter" | "buy" | "eat" | "steal" | "spray" | "clean" | "chase" | "photo" | "pose" | "skate" | "busk" | "flee_far" | "trade" | "book" | "treat" | "mug" | "flirt" | "kiss" | "date" | "follow" | "gunfight";
 
 export interface ActiveGoal {
   id: string;
@@ -207,6 +207,8 @@ export interface Character {
   wanted: number;                // 0..5 stars (player and known criminals)
   stunUntil: number;
   nickname: string;
+  /** street crew ("famiglia", "riccarton") or "" for none */
+  crew: string;
   wounds: Wound[];
   bleed: number;                 // current bleeding rate 0..1 (sum of open wounds)
   blood: number;                 // 1 = fine, below 0.35 they collapse

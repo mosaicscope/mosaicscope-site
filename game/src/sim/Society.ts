@@ -142,9 +142,9 @@ function fenceGoods(sim: Simulation, c: Character): void {
 
 /* =============================== crime & police =============================== */
 
-export type CrimeType = "pickpocket" | "snatch" | "shoplift" | "assault" | "vandalism" | "car_theft" | "hit_and_run" | "armed_robbery" | "stabbing";
-export const CRIME_STARS: Record<CrimeType, number> = { pickpocket: 1, snatch: 1, shoplift: 1, assault: 1, vandalism: 1, car_theft: 2, hit_and_run: 2, armed_robbery: 3, stabbing: 3 };
-export const CRIME_LABEL: Record<CrimeType, string> = { pickpocket: "pickpocketing", snatch: "a snatch-and-run", shoplift: "shoplifting", assault: "assault", vandalism: "tagging", car_theft: "car theft", hit_and_run: "a hit and run", armed_robbery: "an armed robbery", stabbing: "a stabbing" };
+export type CrimeType = "pickpocket" | "snatch" | "shoplift" | "assault" | "vandalism" | "car_theft" | "hit_and_run" | "armed_robbery" | "stabbing" | "gunfire";
+export const CRIME_STARS: Record<CrimeType, number> = { pickpocket: 1, snatch: 1, shoplift: 1, assault: 1, vandalism: 1, car_theft: 2, hit_and_run: 2, armed_robbery: 3, stabbing: 3, gunfire: 3 };
+export const CRIME_LABEL: Record<CrimeType, string> = { pickpocket: "pickpocketing", snatch: "a snatch-and-run", shoplift: "shoplifting", assault: "assault", vandalism: "tagging", car_theft: "car theft", hit_and_run: "a hit and run", armed_robbery: "an armed robbery", stabbing: "a stabbing", gunfire: "shots fired" };
 
 export interface Crime { id: number; type: CrimeType; perp: number; victim: number; x: number; y: number; tick: number; reported: boolean; solved: boolean; witnesses: number[]; item: string | null }
 
@@ -171,7 +171,7 @@ export function commitCrime(sim: Simulation, perp: Character, type: CrimeType, v
   const noticed = crime.witnesses.length > 0;
   const label = CRIME_LABEL[type];
   const ev = sim.emit({ type: "crime", x: perp.x, y: perp.y, actors: victim ? [perp.id, victim.id] : [perp.id], toy: item, priority: noticed ? 7 : 2, severity: noticed ? 3 : 1, data: { crime: crime.id, kind: type, noticed: noticed ? 1 : 0 },
-    summary: noticed ? `${perp.name} was seen ${type === "vandalism" ? "tagging a wall" : "committing " + label}${victim ? ` (victim: ${victim.name})` : ""}` : `Unseen ${label}${victim ? ` on ${victim.name}` : ""}` });
+    summary: noticed ? `${perp.name} was seen ${type === "vandalism" ? "tagging a wall" : type === "gunfire" ? "firing a gun" : "committing " + label}${victim ? ` (victim: ${victim.name})` : ""}` : `Unseen ${label}${victim ? ` on ${victim.name}` : ""}` });
   if (noticed) {
     const shouter = sim.chars[crime.witnesses[0]];
     if (shouter && shouter.tier !== "player") sim.say(shouter, sim.dialogue.bark(shouter, type === "vandalism" ? "vandal_shout" : "thief_shout", perp), "shout", 2);

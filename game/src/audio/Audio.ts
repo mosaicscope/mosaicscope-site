@@ -99,6 +99,10 @@ export class AudioSystem {
     if (!o) return;
     const mat = kind.split("_")[1] ?? "";
     const pitch: Record<string, number> = { rubber: 320, foam: 180, plush: 120, plastic: 520, wood: 220, cardboard: 260 };
+    // gunfire: a sharp crack of noise plus a low thump; shotguns boom, SMGs snap; reloads click; ricochets whine
+    if (kind === "bang" || kind === "bang_shotgun" || kind === "bang_smg") { this.noise(o, kind === "bang_shotgun" ? 0.28 : kind === "bang_smg" ? 0.06 : 0.14, kind === "bang_shotgun" ? 700 : 2600); this.tone(o, "triangle", kind === "bang_shotgun" ? 90 : 140, 40, kind === "bang_smg" ? 0.05 : 0.12); return; }
+    if (kind === "reload") { this.tone(o, "square", 900, 700, 0.03); this.tone(o, "square", 600, 500, 0.04); return; }
+    if (kind === "ricochet") { this.tone(o, "sine", 2400, 900, 0.18); return; }
     if (kind.startsWith("hit_")) { this.tone(o, "sine", (pitch[mat] ?? 300) * 1.2, (pitch[mat] ?? 300) * 0.5, 0.12); this.noise(o, 0.06, 1200); }
     else if (kind.startsWith("bounce_") || kind.startsWith("clack_")) this.tone(o, "sine", pitch[mat] ?? 300, (pitch[mat] ?? 300) * 0.7, 0.07);
     else if (kind.startsWith("break_")) this.noise(o, 0.25, 900);

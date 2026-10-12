@@ -14,8 +14,8 @@ const COL: Record<number, string> = { [T.GRASS]: "#24341f", [T.WATER]: "#1d4a63"
 const LON = [172.6155, 172.6262, 172.6305, 172.6337, 172.6372, 172.6407, 172.6440, 172.6478, 172.6520];
 const LAT = [-43.5225, -43.5250, -43.5275, -43.5296, -43.5310, -43.5325, -43.5338, -43.5360, -43.5410];
 function lerpLine(arr: number[], c: number): number {
-  const i = Math.max(0, Math.min(arr.length - 2, Math.floor(c / 16)));
-  return arr[i] + (arr[i + 1] - arr[i]) * ((c - i * 16) / 16);
+  const i = Math.max(0, Math.min(arr.length - 2, Math.floor(c / 20)));
+  return arr[i] + (arr[i + 1] - arr[i]) * ((c - i * 20) / 20);
 }
 export const toLatLon = (x: number, y: number) => ({ lat: lerpLine(LAT, y), lon: lerpLine(LON, x) });
 
@@ -135,8 +135,8 @@ export class Minimap {
       if (!this.base) this.base = this.buildBase();
       g.drawImage(this.base, 0, 0, W, W);
       g.fillStyle = "#eee4d3"; g.font = "700 13px 'IBM Plex Mono', monospace"; g.textAlign = "center";
-      w.streetsX.forEach((n, i) => { g.save(); g.translate(i * 16 * k + k, W / 2); g.rotate(-Math.PI / 2); g.fillText(n, 0, -4); g.restore(); });
-      w.streetsY.forEach((n, i) => g.fillText(n, W / 2, i * 16 * k + k - 4));
+      w.streetsX.forEach((n, i) => { g.save(); g.translate(i * w.period * k + 2 * k, W / 2); g.rotate(-Math.PI / 2); g.fillText(n, 0, -4); g.restore(); });
+      w.streetsY.forEach((n, i) => g.fillText(n, W / 2, i * w.period * k + 2 * k - 4));
       g.font = "600 11px 'IBM Plex Mono', monospace"; g.fillStyle = "rgba(198,255,61,.9)";
       for (const a of w.areas) if (a.kind !== "street") g.fillText(a.name, a.cx * k, a.cy * k);
       g.fillStyle = "#ec2a1c"; g.beginPath(); g.arc(p.x * k, p.y * k, 7, 0, 6.283); g.fill(); g.strokeStyle = "#eee4d3"; g.lineWidth = 2; g.stroke();

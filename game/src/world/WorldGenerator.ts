@@ -1,17 +1,18 @@
 import { Rng } from "../core/rng";
-import { World, T, Area, AreaKind, PoiKind, SOLID, DECOR } from "./World";
+import { World, T, Area, AreaKind, PoiKind, SOLID, DECOR, PERIOD, ROAD_W, SIDEWALK_W, CROSS_W } from "./World";
 import { BUILDINGS, BuildingKind, GROUND_H, FLOOR_H } from "../content/buildings";
 
 /**
- * Seeded city generator. A road grid (two lanes, left-hand traffic) divides the map into 6x6 blocks,
- * each with a sidewalk ring. Blocks are zoned (plaza, MosaicScope studio, casino, food street, shops,
+ * Seeded city generator. A road grid (four lanes, two each way, left-hand traffic) divides the map
+ * into 8x8 blocks, each with a two-tile sidewalk ring around a 12x12 interior. Blocks are zoned (plaza, MosaicScope studio, casino, food street, shops,
  * police, homes, offices...) and filled with buildings, open spaces and street furniture. Afterwards
  * connectivity is validated and anything that would cut an area off is removed.
  */
 export interface GenOptions { size: number; seed: number }
 
 type Plan = "houses" | "apartments" | "playground" | "office" | "bank" | "hotel" | "dealership" | "park" | "market" | "mosaicscope" | "stage" | "court"
-  | "police" | "plaza" | "food" | "food2" | "shops" | "shops2" | "alley" | "casino" | "hospital" | "garage" | "river" | "airport";
+  | "police" | "plaza" | "food" | "food2" | "shops" | "shops2" | "alley" | "casino" | "hospital" | "garage" | "river" | "airport"
+  | "stripclub" | "velvet" | "zoo";
 
 /**
  * Central Christchurch inside the Four Avenues, on the game's 8x8 block grid. Streets keep their
@@ -29,21 +30,21 @@ export const STREETS_Y = ["Bealey Ave", "Salisbury St", "Kilmore St", "Armagh St
 const PLAN: Plan[][] = [
   ["airport", "houses", "apartments", "food2", "houses", "apartments", "houses", "houses"],
   ["park", "houses", "casino", "stage", "office", "apartments", "river", "houses"],
-  ["park", "court", "apartments", "river", "office", "playground", "houses", "apartments"],
-  ["park", "apartments", "hotel", "bank", "food", "apartments", "houses", "houses"],
+  ["zoo", "court", "apartments", "river", "office", "playground", "houses", "apartments"],
+  ["park", "velvet", "hotel", "bank", "food", "apartments", "houses", "houses"],
   ["river", "mosaicscope", "food", "plaza", "office", "shops2", "park", "houses"],
   ["hospital", "houses", "market", "shops", "food", "apartments", "apartments", "houses"],
-  ["houses", "apartments", "dealership", "alley", "shops", "houses", "apartments", "houses"],
+  ["houses", "apartments", "dealership", "alley", "shops", "stripclub", "apartments", "houses"],
   ["houses", "dealership", "garage", "police", "alley", "office", "houses", "houses"],
 ];
 const NAMES: string[][] = [
   ["Christchurch Airport", "Bealey Ave", "Salisbury Flats", "Victoria St", "Peterborough St", "Salisbury Lofts", "Barbadoes St", "Fitzgerald Ave"],
   ["Hagley Park North", "Park Terrace", "The Tessera Casino", "Town Hall", "Kilmore Offices", "Kilmore Apartments", "Avon Loop", "Dallington Edge"],
-  ["Hagley Park", "Cranmer Square", "Montreal Apartments", "Victoria Square", "Te Pae", "Margaret Mahy Playground", "Madras St", "Barbadoes Apartments"],
-  ["Botanic Gardens", "Worcester Apartments", "Worcester Boulevard", "Gloucester Bank Corner", "New Regent St", "Gloucester Apartments", "Gloucester St", "Fitzgerald Homes"],
+  ["Velvet Zoo", "Cranmer Square", "Montreal Apartments", "Victoria Square", "Te Pae", "Margaret Mahy Playground", "Madras St", "Barbadoes Apartments"],
+  ["Botanic Gardens", "The Velvet Rooms", "Worcester Boulevard", "Gloucester Bank Corner", "New Regent St", "Gloucester Apartments", "Gloucester St", "Fitzgerald Homes"],
   ["Hagley Park South", "Arts Centre", "The Terrace", "Cathedral Square", "Hereford Offices", "High St", "Latimer Square", "Hereford St East"],
   ["Christchurch Hospital", "Antigua St", "Riverside Market", "Cashel Mall", "Eat Street", "Lichfield Apartments", "St Asaph Lofts", "Phillipstown North"],
-  ["Addington", "Hagley Ave Flats", "Moorhouse Motors", "SALT District", "Tuam St Shops", "Sydenham North", "St Asaph Apartments", "Waltham"],
+  ["Addington", "Hagley Ave Flats", "Moorhouse Motors", "SALT District", "Tuam St Shops", "The Pink Pukeko", "St Asaph Apartments", "Waltham"],
   ["Sydenham", "Moorhouse Car Yards", "Moorhouse Fuel", "Central Police Station", "Tuam Laneways", "Moorhouse Offices", "Phillipstown", "Linwood"],
 ];
 
@@ -51,11 +52,12 @@ const AREA_KIND: Record<Plan, AreaKind> = {
   houses: "residential", apartments: "residential", playground: "playground", office: "office", bank: "office", hotel: "office", dealership: "dealership",
   park: "park", market: "market", mosaicscope: "studio", stage: "stage", court: "court", police: "police", plaza: "plaza", food: "food", food2: "food",
   shops: "shops", shops2: "shops", alley: "alley", casino: "casino", hospital: "hospital", garage: "shops", river: "park", airport: "airport",
+  stripclub: "nightlife", velvet: "nightlife", zoo: "park",
 };
 
 export function generateWorld(opts: GenOptions): World {
-  const P = 16, BLOCKS = PLAN.length;
-  const S = BLOCKS * P + 2; // 130: roads on every side
+  const P = PERIOD, BLOCKS = PLAN.length;
+  const S = BLOCKS * P + ROAD_W; // 164: roads on every side
   const rng = new Rng(opts.seed);
   const w = new World(S);
   const idx = (x: number, y: number) => y * S + x;
@@ -70,8 +72,10 @@ export function generateWorld(opts: GenOptions): World {
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
     const rx = w.isRoadLine(x), ry = w.isRoadLine(y);
     if (rx || ry) {
+      // zebra crossings on each arm of every intersection, in line with the sidewalks
       const mx = x % P, my = y % P;
-      const cross = (rx && (my === 2 || my === 15) && !ry) || (ry && (mx === 2 || mx === 15) && !rx);
+      const nearX = (m: number) => m >= ROAD_W && m < ROAD_W + CROSS_W || m >= P - CROSS_W;
+      const cross = (rx && !ry && nearX(my)) || (ry && !rx && nearX(mx));
       set(x, y, cross ? T.CROSSWALK : T.ROAD);
     } else set(x, y, T.SIDEWALK);
   }
@@ -112,15 +116,16 @@ export function generateWorld(opts: GenOptions): World {
 
   for (let by = 0; by < BLOCKS; by++) for (let bx = 0; bx < BLOCKS; bx++) {
     const plan = PLAN[by][bx];
-    const x0 = bx * P + 2, y0 = by * P + 2, x1 = x0 + 13, y1 = y0 + 13; // outer block incl. sidewalk ring
-    const a: Area = { id: w.areas.length, name: NAMES[by][bx], kind: AREA_KIND[plan], x0: x0 + 1, y0: y0 + 1, x1: x1 - 1, y1: y1 - 1, cx: (x0 + x1 + 1) / 2, cy: (y0 + y1 + 1) / 2 };
+    const SW = SIDEWALK_W;
+    const x0 = bx * P + ROAD_W, y0 = by * P + ROAD_W, x1 = x0 + P - ROAD_W - 1, y1 = y0 + P - ROAD_W - 1; // outer block incl. sidewalk ring
+    const a: Area = { id: w.areas.length, name: NAMES[by][bx], kind: AREA_KIND[plan], x0: x0 + SW, y0: y0 + SW, x1: x1 - SW, y1: y1 - SW, cx: (x0 + x1 + 1) / 2, cy: (y0 + y1 + 1) / 2 };
     w.areas.push(a);
-    const ix0 = x0 + 1, iy0 = y0 + 1, ix1 = x1 - 1, iy1 = y1 - 1; // 12x12 interior
+    const ix0 = x0 + SW, iy0 = y0 + SW, ix1 = x1 - SW, iy1 = y1 - SW; // 12x12 interior
     for (let y = iy0; y <= iy1; y++) for (let x = ix0; x <= ix1; x++) w.areaOf[idx(x, y)] = a.id;
-    // street lamps on the sidewalk corners
-    poi("lamp", x0, y0, street); poi("lamp", x1, y1, street);
-    if (rng.chance(0.5)) poi("busstop", x0 + 6, y1, street);
-    if (rng.chance(0.4)) poi("hydrant", x1, y0 + 4, street);
+    // street lamps on the kerb at the sidewalk corners
+    poi("lamp", x0, y0 + SW, street); poi("lamp", x1, y1 - SW, street);
+    if (rng.chance(0.5)) poi("busstop", x0 + 8, y1, street);
+    if (rng.chance(0.4)) poi("hydrant", x1, y0 + 6, street);
 
     switch (plan) {
       case "plaza": {
@@ -161,7 +166,7 @@ export function generateWorld(opts: GenOptions): World {
         for (let x = jx - 2; x <= jx + 2; x++) w.blocked[idx(x, jy)] = 1;          // fuselage
         for (let y = jy - 2; y <= jy + 2; y++) w.blocked[idx(jx, y)] = 1;          // wings at the root
         fill(ix0, iy0 + 8, ix1, iy1, T.PARKING);
-        fill(ix0 - 1, iy0 + 9, ix0 - 1, iy0 + 10, T.PARKING);
+        fill(ix0 - SW, iy0 + 9, ix0 - 1, iy0 + 10, T.PARKING); // driveway
         poi("busstop", ix0 + 3, iy0 + 6, a, { name: "Airport shuttle" });
         poi("lamp", ix1 - 1, iy0 + 7, a);
         break;
@@ -247,7 +252,7 @@ export function generateWorld(opts: GenOptions): World {
         fill(ix0, iy0, ix1, iy1, T.PAVE);
         building("casino", ix0 + 1, iy0, ix1 - 1, iy0 + 6, a, "s");
         fill(ix0, iy0 + 9, ix1, iy1, T.PARKING);
-        fill(ix0, iy1 + 1, ix0 + 1, iy1 + 1, T.PARKING); // driveway
+        fill(ix0, iy1 + 1, ix0 + 1, iy1 + SW, T.PARKING); // driveway
         poi("lamp", ix0, iy0 + 8, a); poi("lamp", ix1, iy0 + 8, a); poi("atm", ix1 - 1, iy0 + 7, a);
         break;
       }
@@ -255,7 +260,7 @@ export function generateWorld(opts: GenOptions): World {
         fill(ix0, iy0, ix1, iy1, T.PAVE);
         building("dealership", ix0, iy0, ix0 + 6, iy0 + 4, a, "s");
         fill(ix0, iy0 + 7, ix1, iy1, T.PARKING);
-        fill(ix1 + 1, iy1 - 1, ix1 + 1, iy1, T.PARKING);
+        fill(ix1 + 1, iy1 - 1, ix1 + SW, iy1, T.PARKING); // driveway
         poi("lamp", ix1, iy0 + 6, a); poi("billboard", ix1 - 2, iy0 + 2, a, { name: "cars" });
         break;
       }
@@ -263,7 +268,7 @@ export function generateWorld(opts: GenOptions): World {
         fill(ix0, iy0, ix1, iy1, T.PAVE);
         building("police", ix0, iy0, ix0 + 7, iy0 + 6, a, "s");
         fill(ix0 + 9, iy0, ix1, iy0 + 6, T.PARKING);
-        fill(ix1 + 1, iy0 + 1, ix1 + 1, iy0 + 2, T.PARKING);
+        fill(ix1 + 1, iy0 + 1, ix1 + SW, iy0 + 2, T.PARKING); // driveway
         building("bakery", ix0, iy1 - 3, ix0 + 4, iy1, a, "n");
         poi("lamp", ix0 + 8, iy0 + 8, a);
         break;
@@ -272,7 +277,7 @@ export function generateWorld(opts: GenOptions): World {
         fill(ix0, iy0, ix1, iy1, T.PAVE);
         building("hospital", ix0, iy0, ix1 - 3, iy0 + 7, a, "s");
         fill(ix1 - 2, iy0, ix1, iy0 + 7, T.PARKING);
-        fill(ix1 + 1, iy0 + 2, ix1 + 1, iy0 + 3, T.PARKING);
+        fill(ix1 + 1, iy0 + 2, ix1 + SW, iy0 + 3, T.PARKING); // driveway
         building("cafe", ix0, iy1 - 2, ix0 + 4, iy1, a, "n");
         poi("bench", ix0 + 7, iy0 + 9, a);
         break;
@@ -298,7 +303,7 @@ export function generateWorld(opts: GenOptions): World {
         fill(ix0, iy0, ix1, iy1, T.PAVE);
         building("garage", ix0, iy0, ix0 + 5, iy0 + 3, a, "s");
         fill(ix0, iy0 + 5, ix1, iy0 + 8, T.PARKING);
-        fill(ix0 - 1, iy0 + 6, ix0 - 1, iy0 + 7, T.PARKING);
+        fill(ix0 - SW, iy0 + 6, ix0 - 1, iy0 + 7, T.PARKING); // driveway
         building("dairy", ix1 - 4, iy0, ix1, iy0 + 3, a, "s");
         building("house", ix0, iy1 - 2, ix0 + 3, iy1, a, "n"); building("house", ix1 - 3, iy1 - 2, ix1, iy1, a, "n");
         break;
@@ -320,6 +325,53 @@ export function generateWorld(opts: GenOptions): World {
         building("apartments", ix0, iy1 - 4, ix0 + 4, iy1, a, "n");
         fill(ix1 - 4, iy1 - 4, ix1, iy1, T.GRASS);
         poi("bench", ix1 - 2, iy1 - 2, a); set(ix1 - 1, iy1 - 4, T.TREE);
+        break;
+      }
+      case "stripclub": {
+        // Tuam St nightlife: the club fronting the street, a smokers' courtyard, staff parking out back
+        fill(ix0, iy0, ix1, iy1, T.PAVE);
+        building("stripclub", ix0, iy0, ix0 + 7, iy0 + 5, a, "s");
+        building("bakery", ix1 - 3, iy0, ix1, iy0 + 3, a, "s");
+        fill(ix0, iy1 - 3, ix1, iy1, T.PARKING);
+        fill(ix1 + 1, iy1 - 2, ix1 + SW, iy1 - 1, T.PARKING); // driveway
+        poi("lamp", ix0 + 2, iy0 + 7, a); poi("lamp", ix0 + 6, iy0 + 7, a); poi("bench", ix1 - 2, iy0 + 6, a); poi("atm", ix0 + 8, iy0 + 6, a);
+        break;
+      }
+      case "velvet": {
+        // The Velvet Rooms: a members' lounge off Worcester Boulevard with a hedged garden and a valet lot
+        fill(ix0, iy0, ix1, iy1, T.PAVE);
+        building("velvet", ix0 + 2, iy0, ix1, iy0 + 6, a, "s");
+        fill(ix0, iy0 + 9, ix1 - 6, iy1, T.GRASS);
+        for (let x = ix0; x <= ix1 - 6; x++) { if (x !== ix0 + 3) set(x, iy0 + 9, T.HEDGE); }
+        set(ix0 + 1, iy1 - 1, T.TREE); set(ix1 - 7, iy1 - 1, T.TREE);
+        poi("fountain", ix0 + 3, iy1 - 1, a); set(ix0 + 3, iy1 - 1, T.FOUNTAIN);
+        fill(ix1 - 4, iy0 + 9, ix1, iy1, T.PARKING);
+        fill(ix1 + 1, iy1 - 1, ix1 + SW, iy1, T.PARKING); // driveway
+        poi("lamp", ix0 + 2, iy0 + 8, a); poi("lamp", ix1 - 1, iy0 + 8, a); poi("bench", ix0 + 1, iy0 + 11, a);
+        break;
+      }
+      case "zoo": {
+        // Hagley Park's zoo corner: open grass, a cross of paths, three fenced enclosures with keeper gates
+        fill(ix0, iy0, ix1, iy1, T.GRASS);
+        const mx = ix0 + 5, my = iy0 + 5;
+        for (let x = ix0; x <= ix1; x++) set(x, my, T.PATH);
+        for (let y = iy0; y <= iy1; y++) set(mx, y, T.PATH);
+        const pen = (x0p: number, y0p: number, x1p: number, y1p: number, gx: number, gy: number) => {
+          for (let x = x0p; x <= x1p; x++) { set(x, y0p, T.FENCE); set(x, y1p, T.FENCE); }
+          for (let y = y0p; y <= y1p; y++) { set(x0p, y, T.FENCE); set(x1p, y, T.FENCE); }
+          set(gx, gy, T.PATH); // keeper gate
+        };
+        pen(ix0, iy0, ix0 + 4, iy0 + 4, ix0 + 4, iy0 + 2);          // giraffe paddock
+        set(ix0 + 2, iy0 + 1, T.TREE);
+        pen(ix0 + 6, iy0, ix1, iy0 + 4, ix0 + 6, iy0 + 2);          // penguin pool
+        fill(ix0 + 8, iy0 + 2, ix0 + 9, iy0 + 2, T.WATER);
+        pen(ix0, iy0 + 6, ix0 + 4, iy1, ix0 + 4, iy0 + 8);          // kea aviary
+        set(ix0 + 2, iy1 - 1, T.TREE);
+        // the open lawn: picnic benches, a kiosk and somewhere to sit and watch Kevin
+        for (let i = 0; i < 3; i++) { const x = rng.int(ix0 + 7, ix1), y = rng.int(iy0 + 8, iy1); if (w.tile(x, y) === T.GRASS) set(x, y, T.TREE); }
+        poi("bench", ix0 + 6, my + 1, a); poi("bench", ix0 + 9, my - 1, a); poi("lamp", mx, my, a);
+        poi("foodtruck", ix0 + 8, my + 2, a, { name: "Zoo Kiosk", menu: ["hokey_pokey", "lp", "donut"] });
+        poi("toychest", ix1 - 1, my + 4, a);
         break;
       }
       case "houses": default: {

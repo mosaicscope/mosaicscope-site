@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { Simulation } from "../src/sim/Simulation";
 import { small, byName, stage, emptyHands } from "./helpers";
-import { laneCoord, lightGreenFor, makeVehicle, seat } from "../src/sim/Traffic";
+import { laneCoord, lightGreenFor, makeVehicle, seat, walkSignal, crossingOf } from "../src/sim/Traffic";
+import { T } from "../src/world/World";
 import { buy, consume, evaluateTrade, commitCrime, findWall, paint, book } from "../src/sim/Society";
 import { wound, bandage, updateHealth, hospitalise } from "../src/sim/Life";
 import { addLove, getTogether, kiss, loveOf, onGossip } from "../src/sim/Romance";
@@ -16,7 +17,26 @@ describe("city layout", () => {
   it("every building door is reachable and the key places exist", () => {
     const seen = reachableMask(sim.world);
     for (const b of sim.world.buildings) expect(seen[b.door.y * sim.world.size + b.door.x], b.name).toBe(1);
-    for (const k of ["casino", "police", "dealership", "gallery", "hospital", "pizza", "dairy", "toyshop", "pawn"]) expect(sim.world.buildings.some((b) => b.kind === k), k).toBe(true);
+    for (const k of ["casino", "police", "dealership", "gallery", "hospital", "pizza", "dairy", "toyshop", "pawn", "stripclub", "velvet"]) expect(sim.world.buildings.some((b) => b.kind === k), k).toBe(true);
+  });
+  it("has the clubs and Hagley Park's zoo corner", () => {
+    const w = sim.world;
+    expect(w.buildings.find((b) => b.kind === "stripclub")!.name).toBe("The Pink Pukeko");
+    expect(w.buildings.find((b) => b.kind === "velvet")!.name).toBe("The Velvet Rooms");
+    const zoo = w.areas.find((a) => a.name === "Velvet Zoo")!;
+    expect(zoo.kind).toBe("park");
+    let fences = 0;
+    for (let y = zoo.y0; y <= zoo.y1; y++) for (let x = zoo.x0; x <= zoo.x1; x++) if (w.tile(x, y) === T.FENCE) fences++;
+    expect(fences).toBeGreaterThan(20);
+  });
+  it("roads are four lanes wide with crossings beside every intersection", () => {
+    const w = sim.world, P = w.period;
+    expect(P).toBe(20);
+    for (const m of [0, 1, 2, 3]) expect(w.isRoadLine(2 * P + m)).toBe(true);
+    expect(w.isRoadLine(2 * P + 4)).toBe(false);
+    // crossings on the arms of intersection (2, 2), one sidewalk-width deep
+    for (const [x, y] of [[2 * P + 1, 2 * P + 4], [2 * P + 1, 2 * P - 1], [2 * P + 4, 2 * P + 2], [2 * P - 2, 2 * P + 2]]) expect(w.tile(x, y), `${x},${y}`).toBe(T.CROSSWALK);
+    expect(w.tile(2 * P + 1, 2 * P + 6)).toBe(T.ROAD);
   });
   it("names are unique real names (no numbers) and every face is different", () => {
     const names = sim.chars.map((c) => c.name);
@@ -30,11 +50,45 @@ describe("city layout", () => {
 
 describe("traffic", () => {
   it("drives on the left: lane coordinates per direction", () => {
-    expect(laneCoord(0, 1)).toBe(16.5); expect(laneCoord(2, 1)).toBe(17.5); // E north lane, W south lane
-    expect(laneCoord(1, 2)).toBe(33.5); expect(laneCoord(3, 2)).toBe(32.5);
+    // four lanes per road (period 20): E uses the north half, W the south half; kerb lane 0, inner lane 1
+    expect(laneCoord(0, 1)).toBe(20.5); expect(laneCoord(0, 1, 1)).toBe(21.5);
+    expect(laneCoord(2, 1)).toBe(23.5); expect(laneCoord(2, 1, 1)).toBe(22.5);
+    expect(laneCoord(1, 2)).toBe(43.5); expect(laneCoord(1, 2, 1)).toBe(42.5);
+    expect(laneCoord(3, 2)).toBe(40.5); expect(laneCoord(3, 2, 1)).toBe(41.5);
   });
   it("traffic lights alternate between the two axes", () => {
     for (let t = 0; t < 60 * 40; t += 60) expect(lightGreenFor(0, 2, 3, t).green).not.toBe(lightGreenFor(1, 2, 3, t).green);
+  });
+  it("the green man shows only while the traffic it crosses is held on red", () => {
+    const w = small(9).world, P = w.period;
+    const x = crossingOf(w, 2 * P + 1, 2 * P + 4)!; // across the north-south road below intersection (2, 2)
+    expect(x).toEqual({ c: 2, r: 2, axis: 1 });
+    for (let t = 0; t < 60 * 40; t += 30) {
+      const l = lightGreenFor(1, 2, 2, t), s = walkSignal(w, 2 * P + 1, 2 * P + 4, t);
+      if (l.green) expect(s).toBe("stop");
+      if (s === "walk") expect(l.green).toBe(false);
+    }
+  });
+  it("a car stops at the stop line before the crossing on red", () => {
+    const sim = small(9), P = sim.world.period;
+    for (const v of sim.vehicles) if (v.state === "drive") { v.state = "parked"; v.x = -50; v.y = -50; }
+    sim.tick = 600; // east-west is red at intersection (2, 2) for the next 10 s
+    expect(lightGreenFor(0, 2, 2, sim.tick).green).toBe(false);
+    const v = makeVehicle(sim, "sedan", 2 * P - 12, laneCoord(0, 2), 0, "drive"); v.speed = 7;
+    for (let i = 0; i < 240; i++) sim.step();
+    const front = v.x + 1.0, stopLine = 2 * P - 2;
+    expect(front).toBeLessThanOrEqual(stopLine + 0.05);
+    expect(front).toBeGreaterThan(stopLine - 1.5);
+    expect(v.speed).toBeLessThan(0.2);
+  });
+  it("people wait at the kerb for the green man", () => {
+    const sim = small(9), P = sim.world.period;
+    for (const v of sim.vehicles) { v.state = "parked"; v.x = -50; v.y = -50; v.speed = 0; }
+    const c = byName(sim, "Nova"); c.x = 2 * P + 4.4; c.y = 2 * P + 4.5;
+    sim.tick = 600; // north-south traffic has green: don't walk across it
+    expect(sim.trafficAhead(c, -1, 0)).toBe(true);
+    sim.tick = 60; // north-south held on red: walk
+    expect(sim.trafficAhead(c, -1, 0)).toBe(false);
   });
   it("cars keep their lanes, stop for people and never leave the map", () => {
     const sim = small(9);
@@ -43,15 +97,17 @@ describe("traffic", () => {
       expect(v.x).toBeGreaterThan(0); expect(v.x).toBeLessThan(sim.world.size); expect(Number.isFinite(v.y)).toBe(true);
       if (v.state === "drive" && !(sim.world.isRoadLine(Math.floor(v.x)) && sim.world.isRoadLine(Math.floor(v.y)))) {
         const cross = v.dir % 2 === 0 ? v.y : v.x;
-        expect(Math.abs(cross - laneCoord(v.dir, Math.floor(cross / 16)))).toBeLessThan(0.4);
+        const line = Math.floor(cross / sim.world.period);
+        // in one of its two lanes, or part-way through a lane change between them
+        expect(Math.min(Math.abs(cross - laneCoord(v.dir, line, 0)), Math.abs(cross - laneCoord(v.dir, line, 1)))).toBeLessThan(0.55);
       }
     }
   });
   it("a car brakes for someone standing in its lane", () => {
     const sim = small(9);
     for (const v of sim.vehicles) if (v.state === "drive") { v.state = "parked"; v.x = -50; v.y = -50; }
-    const v = makeVehicle(sim, "sedan", 20, laneCoord(0, 2), 0, "drive"); v.speed = 7;
-    const p = byName(sim, "Nova"); p.x = 27; p.y = laneCoord(0, 2); p.nextThink = 1e9;
+    const v = makeVehicle(sim, "sedan", 27, laneCoord(0, 2), 0, "drive"); v.speed = 7;
+    const p = byName(sim, "Nova"); p.x = 34; p.y = laneCoord(0, 2); p.nextThink = 1e9;
     for (let i = 0; i < 120; i++) sim.step();
     expect(v.x).toBeLessThan(p.x - 1);
     expect(Math.abs(v.speed)).toBeLessThan(0.5);

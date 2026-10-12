@@ -1,3 +1,7 @@
+import { Club } from "../ui/Club";
+import "../ui/club.css";
+import { Luxury } from "../ui/Luxury";
+import { TouchControls } from "../ui/Touch";
 import "../ui/casino.css";
 import { RoastBattle } from "../ui/minigames/Roast";
 import { BurgerShift } from "../ui/minigames/Burger";
@@ -22,7 +26,7 @@ import { ModalHost, settingsBody, keysList } from "../ui/Modals";
 import { h, fmtHour } from "../ui/dom";
 import { moveTo, stop } from "../ai/steps";
 import { canPickUp } from "../inventory/Inventory";
-import { TOYS, canThrow, isMelee } from "../content/toys";
+import { TOYS, canThrow, isMelee, BLACK_MARKET } from "../content/toys";
 import { setImpactIntensity } from "../physics/combat";
 import { Phys } from "../entities/types";
 import { Casino } from "../ui/Casino";
@@ -124,7 +128,7 @@ export class Game {
     this.radio = new Radio(MOSAIC.soundcloud);
     this.hudEl = h("div.hud", { "aria-live": "polite" });
     this.bustedEl = h("div.busted.hidden", { role: "alert" });
-    root.append(this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.modal.el, this.casino.el, this.bustedEl);
+    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.modal.el, this.casino.el, this.bustedEl);
     // browsers only allow sound after a gesture: the first click/key starts the playlist
     const firstGesture = () => { if (this.gestured) return; this.gestured = true; if (this.settings.sound) this.audio.setEnabled(true); }; // the radio only plays when you press ▶
     window.addEventListener("pointerdown", firstGesture, { once: false, capture: true });
@@ -132,6 +136,8 @@ export class Game {
     this.applySettings();
     this.bindInput();
     this.bindSim();
+    this.bindStats();
+    this.loadEmpire();
     const mq = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     this.reduceMotionOS = !!mq?.matches;
     mq?.addEventListener?.("change", (e) => { this.reduceMotionOS = e.matches; });
@@ -191,6 +197,10 @@ export class Game {
 
   private uiTick(now: number): void {
     this.tickFocus(now);
+    this.touch.update();
+    if (now - this.clubTickAt > 1000) { const earned = this.club.tick(Math.min(5, (now - (this.clubTickAt || now)) / 1000)); this.clubTickAt = now; if (earned > 0) this.sim.player.cash += earned; }
+    this.renderer.zooAnimals = this.luxury.empire.animals;
+    this.touch.el.classList.toggle("hidden", this.casino.open || this.modal.open || this.dialogue.open || this.travel.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
     this.tickStory(now);
     this.minimap.update(now);
     if (now - this.lastUi < 250) return;
@@ -235,7 +245,9 @@ export class Game {
       const left = this.keys.has(k.left) || this.keys.has("arrowleft"), right = this.keys.has(k.right) || this.keys.has("arrowright");
       playerInput.throttle = up ? 1 : down ? -1 : 0;
       playerInput.steer = (right ? 1 : 0) - (left ? 1 : 0);
-      playerInput.brake = this.keys.has(" ");
+      playerInput.brake = this.keys.has(" ") || this.touchBrake;
+      // touch: stick x steers, y is gas (up) / reverse (down)
+      if (this.touchMove.x || this.touchMove.y) { playerInput.steer = this.touchMove.x; playerInput.throttle = -this.touchMove.y; }
       this.renderer.cam.follow = p.id;
       return;
     }
@@ -245,6 +257,8 @@ export class Game {
     if (this.keys.has(k.down) || this.keys.has("arrowdown")) iy += 1;
     if (this.keys.has(k.left) || this.keys.has("arrowleft")) ix -= 1;
     if (this.keys.has(k.right) || this.keys.has("arrowright")) ix += 1;
+    // touch stick: analog, push past ~94% to sprint
+    if (this.touchMove.x || this.touchMove.y) { ix = this.touchMove.x; iy = this.touchMove.y; }
     if (ix || iy) {
       // screen directions -> world: screen up = (-1,-1), screen right = (1,-1)
       const wx = ix - iy, wy = -ix - iy, l = Math.hypot(wx, wy);
@@ -301,7 +315,10 @@ export class Game {
     if (door.studio) { this.places.enter(null, true); return; }
     const b = sim.world.buildings[door.building];
     if (b.kind === "airport") { this.travel.show(); return; }
+    if ((b.kind as string) === "stripclub") { this.club.show("strip"); return; }
+    if ((b.kind as string) === "velvet") { this.club.show("velvet"); return; }
     if (b.kind === "diner") { this.burger.start(); return; } // pick up a shift flipping burgers
+    if (b.kind === "casino") { this.statsCasino++; }
     if (b.kind === "casino") { this.pausedBefore = this.clock.paused; this.casino.show(); return; }
     this.places.enter(b);
   }
@@ -628,7 +645,7 @@ export class Game {
       { title: "Mannequin Mike 2 · Gnome Run", brief: "The Botanic Gardens gnomes are 'retiring'. To the Tuam Laneways.", stops: [["a:Botanic Gardens", "Load the gnomes"], ["a:Tuam Laneways", "Drop them in the laneways"]], pay: 900, heat: 1 },
     ],
     "Sir Ponsonby Velvet": [
-      { title: "Velvet 1 · Kevin's Escape", brief: "Kevin the giraffe has left the zoo. Last seen in Hagley Park North. Bring him home.", stops: [["a:Hagley Park North", "Find Kevin in Hagley Park"], ["a:Botanic Gardens", "Walk Kevin back to the zoo"]], pay: 1500 },
+      { title: "Velvet 1 · Kevin's Escape", brief: "Kevin the giraffe has left the zoo. Last seen in Hagley Park North. Bring him home.", stops: [["a:Hagley Park North", "Find Kevin in Hagley Park"], ["a:Velvet Zoo", "Walk Kevin back to the zoo"]], pay: 1500 },
       { title: "Velvet 2 · The VELVET Cover", brief: "Book MosaicScope for my cover shoot, darling. Studio first, then the Hotel on Worcester.", stops: [["b:studio", "Book the shoot at MosaicScope Studio"], ["b:hotel", "Bring the crew to the hotel set"]], pay: 2000 },
       { title: "Velvet 3 · A Whale Too Far", brief: "My whale arrives at the airport. It doesn't fit anywhere. Find it a pool. Victoria Square will do.", stops: [["b:airport", "Meet the whale at the airport"], ["a:Victoria Square", "Release it into the Avon (temporarily)"]], pay: 5000, secs: 150 },
     ],
@@ -688,6 +705,7 @@ export class Game {
     if (this.job.step < job.stops.length) { this.job.step++; this.toast(`✓ ${t.label}`, "acid"); return; }
     p.cash += job.pay; if (job.heat) p.wanted = Math.max(p.wanted, job.heat);
     this.story[this.job.who].ch++; this.job = null;
+    this.statsMissions++;
     this.focus(job.title.split(" · ")[1] + " · done", `+${fmtCash(job.pay)}${job.heat ? ` · the cops noticed (${job.heat}★)` : ""}`, 4);
   }
   // ------------------------------------------------------------------ contracts (the target is gone for good)
@@ -739,6 +757,8 @@ export class Game {
     const don = this.sim.chars[id];
     if (don && this.isContact(don) && (this.hasJob(don) || this.job?.who === don.name) && !(don.role === "comic" && !this.job && (this.story[don.name]?.ch ?? 0) > 0)) { this.talkToContact(don.name); return; }
     if (don && don.role === "comic") { this.roast.start(); return; } // Roastie Malone: roast battle
+    if (don && don.role === "mogul") { this.luxury.show(); return; } // Sir P shows you his catalogue
+    if (don && don.role === "smuggler" && !this.isContact(don)) { this.blackMarket(don.name.split(" ")[0]); return; }
     if (don && don.role === "mobster" && !this.isContact(don)) { this.offerContract(don); return; }
     this.dialogue.start(id);
     const c = this.sim.chars[id];
@@ -753,6 +773,78 @@ export class Game {
     const cam = this.renderer.cam;
     cam.setZoom(cam.targetZoom > 3 ? 1.5 : 4);
     cam.follow = this.sim.playerId;
+  }
+
+  // ------------------------------------------------------------------ luxury & the zoo
+  private luxury = new Luxury({ getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; this.saveEmpire(); }, toast: (t) => this.toast(t, "acid") });
+  private saveEmpire(): void { try { localStorage.setItem("mosaics-world:empire", JSON.stringify(this.luxury.empire)); } catch { /* private mode */ } }
+  private loadEmpire(): void { try { const e = JSON.parse(localStorage.getItem("mosaics-world:empire") ?? "null"); if (e && Array.isArray(e.items)) this.luxury.load(e); } catch { /* ignore */ } }
+
+  // ------------------------------------------------------------------ black market (Dodge sells guns out of a boot)
+  private blackMarket(who: string): void {
+    const sim = this.sim, p = sim.player;
+    const rows = BLACK_MARKET.map((id) => {
+      const d = TOYS[id];
+      return h("li.item", null, [h("div", null, [h("b", { text: d.name }), h("small", { text: d.blurb ?? "" })]), h("span.price", { text: fmtCash(d.value) }),
+        h("button.btn", { disabled: p.cash < d.value, onclick: () => { if (p.cash < d.value) return; p.cash -= d.value; const t = sim.spawnToy(id, p.x, p.y); if (t) sim.pickupToy(p, t); this.toast(`${who}: "Never saw you."`, "acid"); this.modal.close(); }, text: "Buy" })]);
+    });
+    this.modal.show(`${who}'s boot`, [h("p", { text: `"Cash only. No refunds. If anyone asks, you bought a hubcap."` }), h("ul.items", null, rows)]);
+  }
+
+  // ------------------------------------------------------------------ the clubs
+  private owned = new Set<string>((() => { try { return JSON.parse(localStorage.getItem("mosaics-world:owned") ?? "[]") as string[]; } catch { return []; } })());
+  private club = new Club({
+    getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; }, toast: (t) => this.toast(t, "acid"),
+    playerName: () => "you", owned: (k) => this.owned.has(k),
+    setOwned: (k, v) => { if (v) this.owned.add(k); else this.owned.delete(k); try { localStorage.setItem("mosaics-world:owned", JSON.stringify([...this.owned])); } catch { /* private mode */ } },
+  });
+  private clubTickAt = 0;
+
+  // ------------------------------------------------------------------ touch controls
+  private touchMove = { x: 0, y: 0 }; private touchBrake = false;
+  private touch = new TouchControls({
+    move: (x, y) => { this.touchMove.x = x; this.touchMove.y = y; },
+    brake: (held: boolean) => { this.touchBrake = held; },
+    inCar: () => this.sim.player.inCar >= 0,
+    action: (n) => {
+      const sim = this.sim, p = sim.player;
+      if (n === "use") this.interact();
+      else if (n === "talk") { const id = this.nearestPerson(3); if (id >= 0) this.openTalk(id); else this.toast("Nobody close enough to talk to"); }
+      else if (n === "throw") this.throwAtSelected();
+      else if (n === "swing") this.act("swing");
+      else if (n === "rob") this.rob();
+      else if (n === "bandage") this.bandage();
+      else if (n === "horn") sim.bus.emit("sound", { kind: "horn", x: p.x, y: p.y, vol: 0.8 });
+      else if (n === "map") this.minimap.toggle();
+      else if (n === "view2d") this.toggle2D();
+      else if (n === "pickup") this.act("pickup");
+      else if (n === "drop") this.act("drop");
+      else if (n === "sprint") { p.speed = Math.min(3, p.speed * 1.35); setTimeout(() => { p.speed = Math.max(1.6, p.speed / 1.35); }, 2500); }
+    },
+    context: () => {
+      const sim = this.sim, p = sim.player;
+      if (p.inCar >= 0) return { label: "Get out", icon: "exit" };
+      const d = this.nearDoor(); if (d) return { label: d.studio ? "Enter Studio" : `Enter ${sim.world.buildings[d.building].name}`, icon: "use" };
+      if (this.nearestToy()) return { label: "Pick up", icon: "pickup" };
+      const id = this.nearestPerson(1.8); if (id >= 0) return { label: `Talk to ${sim.chars[id].name.split(" ")[0]}`, icon: "talk" };
+      return null;
+    },
+  });
+
+  // ------------------------------------------------------------------ anonymous play-time stats
+  /** One beacon when the visitor leaves: seconds played, whether they've been before, missions, casino. */
+  private statsStart = performance.now(); private statsSent = false; statsMissions = 0; statsCasino = 0;
+  private bindStats(): void {
+    let returning = false;
+    try { const k = "mosaics-world:visits", v = +(localStorage.getItem(k) ?? 0); returning = v > 0; localStorage.setItem(k, String(v + 1)); } catch { /* private mode */ }
+    const send = () => {
+      if (this.statsSent) return;
+      this.statsSent = true;
+      const body = JSON.stringify({ seconds: Math.round((performance.now() - this.statsStart) / 1000), returning, missions: this.statsMissions, casino: this.statsCasino, mobile: matchMedia("(pointer: coarse)").matches });
+      try { navigator.sendBeacon?.("/api/world-stats", new Blob([body], { type: "application/json" })); } catch { /* offline */ }
+    };
+    addEventListener("pagehide", send);
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") send(); else { this.statsSent = false; } });
   }
 
   // ------------------------------------------------------------------ focus mode
@@ -837,6 +929,7 @@ export class Game {
       this.clockEl, h("div.spacer"),
       h("div.seg", { role: "group", "aria-label": "Simulation speed" }, this.speedEls),
       this.soundBtn,
+      h("button.btn", { onclick: () => this.luxury.show(), text: "Luxury", title: "Velvet & Co. Luxury: property, rides, animals" }),
       h("button.btn", { onclick: () => this.toggle2D(), text: "2D/3D", title: "Street view (V)" }),
       h("button.btn", { onclick: () => this.log.toggle(), text: "Log" }),
       h("button.btn", { onclick: () => this.select(this.selected === this.sim.playerId ? -1 : this.sim.playerId), text: "Me", class: "btn wide" }),

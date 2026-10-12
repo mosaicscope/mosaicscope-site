@@ -1,0 +1,119 @@
+/* Mobile touch controls (src/ui/Touch.ts). Hidden unless .tc.on */
+.tc {
+  --tc-s: 1; --tc-ctx: 96px; --tc-btn: 60px; --tc-stick: 128px;
+  --tc-r: max(18px, env(safe-area-inset-right)); --tc-b: max(18px, env(safe-area-inset-bottom)); --tc-l: max(14px, env(safe-area-inset-left));
+  position: absolute; inset: 0; display: none; pointer-events: none !important;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+  font-family: var(--mono); z-index: 5;
+}
+.tc.on { display: block; }
+.tc * { touch-action: none; -webkit-tap-highlight-color: transparent; }
+
+/* ---------------- joystick */
+.tc-zone {
+  position: absolute; left: 0; bottom: 0; width: 45vw; height: 62vh; height: 62dvh;
+  pointer-events: auto; touch-action: none;
+}
+.tc-base {
+  position: absolute; left: calc(var(--tc-l) + var(--tc-stick) / 2 + 10px); top: auto; bottom: calc(var(--tc-b) + var(--tc-stick) / 2 + 10px);
+  width: var(--tc-stick); height: var(--tc-stick); transform: translate(-50%, 50%);
+  border-radius: 50%; border: 2px solid rgba(198,255,61,.28);
+  background: radial-gradient(circle, rgba(198,255,61,.06) 0 45%, rgba(14,11,10,.35) 46% 100%);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.4), inset 0 0 24px rgba(198,255,61,.08);
+  opacity: .45; transition: opacity .2s, border-color .15s, box-shadow .15s; pointer-events: none;
+}
+.tc-base.live { bottom: auto; transform: translate(-50%, -50%); opacity: 1; border-color: rgba(198,255,61,.6); box-shadow: 0 0 18px rgba(198,255,61,.25), inset 0 0 24px rgba(198,255,61,.12); transition: opacity .1s, border-color .15s, box-shadow .15s; }
+.tc-base.sprint { border-color: var(--red); box-shadow: 0 0 26px rgba(236,42,28,.55), inset 0 0 26px rgba(236,42,28,.2); }
+.tc-knob {
+  position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle at 35% 30%, #f4ffd9, var(--acid) 55%, #7fa51f);
+  box-shadow: 0 0 16px rgba(198,255,61,.65), 0 4px 10px rgba(0,0,0,.5);
+}
+.tc-base.sprint .tc-knob { background: radial-gradient(circle at 35% 30%, #ffd2c9, var(--red) 60%, #8d140b); box-shadow: 0 0 20px rgba(236,42,28,.8), 0 4px 10px rgba(0,0,0,.5); }
+
+/* ---------------- right cluster: everything is placed around the context button's centre */
+.tc-cluster {
+  position: absolute; right: calc(var(--tc-r) + var(--tc-ctx) / 2 * var(--tc-s) - var(--tc-ctx) / 2); bottom: calc(var(--tc-b) + var(--tc-ctx) / 2 * var(--tc-s) - var(--tc-ctx) / 2);
+  width: var(--tc-ctx); height: var(--tc-ctx); pointer-events: none;
+}
+.tc-btn {
+  position: absolute; left: 50%; top: 50%; display: grid; place-items: center; align-content: center; gap: 2px;
+  margin: 0; padding: 0; border-radius: 50%; border: 1.5px solid rgba(238,228,211,.22);
+  background: rgba(20,17,15,.78); color: var(--paper); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  box-shadow: 0 6px 18px rgba(0,0,0,.45); pointer-events: auto; touch-action: none; cursor: pointer;
+  transition: transform .08s ease-out, background .08s, color .08s, box-shadow .12s, opacity .2s;
+}
+.tc-btn .tc-ico { display: grid; place-items: center; width: 24px; height: 24px; font-size: 22px; line-height: 1; }
+.tc-btn .tc-ico svg { width: 100%; height: 100%; }
+.tc-btn .tc-lbl { font: 600 10px/1.05 var(--mono); letter-spacing: .04em; text-transform: uppercase; max-width: 86%; text-align: center; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+.tc-arc {
+  width: var(--tc-btn); height: var(--tc-btn);
+  transform: translate(calc(-50% + var(--dx) * 1px * var(--tc-s)), calc(-50% + var(--dy) * 1px * var(--tc-s))) scale(var(--tc-s));
+}
+.tc-arc.down { transform: translate(calc(-50% + var(--dx) * 1px * var(--tc-s)), calc(-50% + var(--dy) * 1px * var(--tc-s))) scale(calc(var(--tc-s) * .9)); }
+.tc-btn.down { background: var(--acid); color: var(--ink); border-color: var(--acid); box-shadow: 0 0 22px rgba(198,255,61,.55); }
+
+.tc-ctx {
+  width: var(--tc-ctx); height: var(--tc-ctx); transform: translate(-50%, -50%) scale(var(--tc-s));
+  border: 2px solid var(--acid); color: var(--acid);
+  background: radial-gradient(circle at 50% 35%, rgba(198,255,61,.18), rgba(20,17,15,.85) 70%);
+  box-shadow: 0 0 22px rgba(198,255,61,.35), inset 0 0 18px rgba(198,255,61,.12), 0 8px 22px rgba(0,0,0,.5);
+}
+.tc-ctx .tc-ico { width: 32px; height: 32px; font-size: 28px; }
+.tc-ctx .tc-lbl { font: 800 13px/1 var(--display); letter-spacing: .03em; color: var(--paper); max-width: 80%; }
+.tc-ctx.down { transform: translate(-50%, -50%) scale(calc(var(--tc-s) * .92)); }
+.tc-ctx.idle { border-color: rgba(238,228,211,.25); color: var(--paper); box-shadow: 0 8px 22px rgba(0,0,0,.5); opacity: .7; }
+.tc-ctx.pop { animation: tc-pop .35s ease-out; }
+@keyframes tc-pop { 0% { box-shadow: 0 0 0 0 rgba(198,255,61,.7), 0 8px 22px rgba(0,0,0,.5); } 100% { box-shadow: 0 0 0 18px rgba(198,255,61,0), 0 8px 22px rgba(0,0,0,.5); } }
+
+/* per-button tints */
+.t-throw { border-color: rgba(246,182,44,.55); color: var(--gold); }
+.t-swing { border-color: rgba(236,42,28,.6); color: #ff6a5c; }
+.t-rob { border-color: rgba(246,182,44,.35); }
+.t-more .tc-lbl { display: none; }
+.t-more .tc-ico { width: 26px; }
+.tc-gas { border-color: var(--acid); }
+.t-brake { border-color: rgba(236,42,28,.7); color: #ff6a5c; }
+.t-brake.down { background: var(--red); border-color: var(--red); color: var(--paper); box-shadow: 0 0 22px rgba(236,42,28,.6); }
+.t-horn { border-color: rgba(246,182,44,.55); color: var(--gold); }
+.t-horn.down { background: var(--gold); border-color: var(--gold); color: var(--ink); }
+
+/* foot vs car sets */
+.tc .car { display: none; }
+.tc.in-car .car { display: grid; }
+.tc.in-car .foot { display: none; }
+.tc.in-car .tc-ctx.foot { display: none; }
+
+/* ---------------- More sheet */
+.tc-sheet {
+  position: absolute; right: calc(12px - var(--tc-r) + var(--tc-ctx) * (1 - var(--tc-s)) / 2); bottom: calc(var(--tc-ctx) / 2 + 146px * var(--tc-s) + 8px);
+  display: grid; grid-template-columns: repeat(3, 72px); gap: 8px; padding: 10px;
+  background: rgba(20,17,15,.94); border: 1px solid rgba(198,255,61,.35); border-radius: 18px;
+  box-shadow: 0 0 24px rgba(198,255,61,.15), 0 14px 40px rgba(0,0,0,.55);
+  pointer-events: none; opacity: 0; transform: translateY(10px) scale(.96); transform-origin: 85% 100%;
+  transition: opacity .14s, transform .14s;
+}
+.tc-sheet.open { pointer-events: auto; opacity: 1; transform: none; }
+.tc-item {
+  display: grid; place-items: center; align-content: center; gap: 4px; width: 72px; height: 68px; margin: 0; padding: 0;
+  border: 1px solid rgba(238,228,211,.16); border-radius: 14px; background: rgba(42,36,32,.75); color: var(--paper); touch-action: none;
+}
+.tc-item .tc-ico { width: 24px; height: 24px; }
+.tc-item .tc-ico svg { width: 100%; height: 100%; }
+.tc-item .tc-lbl { font: 600 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .04em; }
+.tc-item.down { background: var(--acid); color: var(--ink); border-color: var(--acid); }
+.tc.in-car .tc-sheet { grid-template-columns: repeat(3, 72px); }
+.tc.sheet-open .t-more { background: var(--paper); color: var(--ink); }
+
+/* ---------------- sizing: small / short screens, portrait */
+@media (max-height: 420px) { .tc { --tc-s: .84; --tc-stick: 112px; } .tc-zone { height: 80vh; height: 80dvh; } }
+@media (max-width: 380px) { .tc { --tc-s: .86; --tc-stick: 112px; } .tc-sheet { grid-template-columns: repeat(3, 64px); } .tc-item { width: 64px; } }
+@media (orientation: portrait) { .tc-zone { height: 48vh; height: 48dvh; } }
+@media (min-width: 900px) and (min-height: 600px) { .tc { --tc-s: 1.08; } }
+
+/* the old 6-button touch row is superseded when these are on */
+.tc.on ~ .touch, .touch:has(~ .tc.on) { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) { .tc-btn, .tc-base, .tc-sheet { transition: none; } .tc-ctx.pop { animation: none; } }
