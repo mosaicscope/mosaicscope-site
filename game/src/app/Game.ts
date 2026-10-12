@@ -132,6 +132,7 @@ export class Game {
     this.applySettings();
     this.bindInput();
     this.bindSim();
+    this.bindStats();
     const mq = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     this.reduceMotionOS = !!mq?.matches;
     mq?.addEventListener?.("change", (e) => { this.reduceMotionOS = e.matches; });
@@ -302,6 +303,7 @@ export class Game {
     const b = sim.world.buildings[door.building];
     if (b.kind === "airport") { this.travel.show(); return; }
     if (b.kind === "diner") { this.burger.start(); return; } // pick up a shift flipping burgers
+    if (b.kind === "casino") { this.statsCasino++; }
     if (b.kind === "casino") { this.pausedBefore = this.clock.paused; this.casino.show(); return; }
     this.places.enter(b);
   }
@@ -688,6 +690,7 @@ export class Game {
     if (this.job.step < job.stops.length) { this.job.step++; this.toast(`✓ ${t.label}`, "acid"); return; }
     p.cash += job.pay; if (job.heat) p.wanted = Math.max(p.wanted, job.heat);
     this.story[this.job.who].ch++; this.job = null;
+    this.statsMissions++;
     this.focus(job.title.split(" · ")[1] + " · done", `+${fmtCash(job.pay)}${job.heat ? ` · the cops noticed (${job.heat}★)` : ""}`, 4);
   }
   // ------------------------------------------------------------------ contracts (the target is gone for good)
@@ -753,6 +756,22 @@ export class Game {
     const cam = this.renderer.cam;
     cam.setZoom(cam.targetZoom > 3 ? 1.5 : 4);
     cam.follow = this.sim.playerId;
+  }
+
+  // ------------------------------------------------------------------ anonymous play-time stats
+  /** One beacon when the visitor leaves: seconds played, whether they've been before, missions, casino. */
+  private statsStart = performance.now(); private statsSent = false; statsMissions = 0; statsCasino = 0;
+  private bindStats(): void {
+    let returning = false;
+    try { const k = "mosaics-world:visits", v = +(localStorage.getItem(k) ?? 0); returning = v > 0; localStorage.setItem(k, String(v + 1)); } catch { /* private mode */ }
+    const send = () => {
+      if (this.statsSent) return;
+      this.statsSent = true;
+      const body = JSON.stringify({ seconds: Math.round((performance.now() - this.statsStart) / 1000), returning, missions: this.statsMissions, casino: this.statsCasino, mobile: matchMedia("(pointer: coarse)").matches });
+      try { navigator.sendBeacon?.("/api/world-stats", new Blob([body], { type: "application/json" })); } catch { /* offline */ }
+    };
+    addEventListener("pagehide", send);
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") send(); else { this.statsSent = false; } });
   }
 
   // ------------------------------------------------------------------ focus mode
