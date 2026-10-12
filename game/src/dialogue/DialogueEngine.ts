@@ -5,6 +5,10 @@ import { applyInteraction, friendship, hostility, memoryVerb, peek, remember, sh
 import { LINES, LineCtx, LineTemplate } from "./lines";
 import { forceGoal } from "../ai/brain";
 import { transfer } from "../inventory/Inventory";
+import { MOSAIC, PLUG_LINES, captionLine } from "../content/mosaicscope";
+import { receptive, addLove, loveOf, getTogether, onGossip, attracted, kiss } from "../sim/Romance";
+import { ROLE_LABEL } from "../content/names";
+import { Director, readSecs } from "./director";
 
 /**
  * Structured, deterministic dialogue. Lines are chosen from templates whose conditions match the
@@ -12,10 +16,11 @@ import { transfer } from "../inventory/Inventory";
  * short exchanges with consequences: relationships, gossip transfer, toy disputes, reconciliation.
  * No language model is used; an optional one could later rewrite `text` without changing outcomes.
  */
-export interface Conversation { id: number; a: number; b: number; topic: string; turn: number; maxTurns: number; nextAt: number; log: { who: number; text: string }[]; outcome: string }
+export interface Conversation { id: number; a: number; b: number; topic: string; turn: number; maxTurns: number; nextAt: number; log: { who: number; text: string }[]; outcome: string; script?: string[] }
 
 export interface PlayerOption { id: string; label: string }
-export interface PlayerReply { speaker: string; text: string; options: PlayerOption[]; ended: boolean }
+export interface PlayerLink { label: string; href: string }
+export interface PlayerReply { speaker: string; text: string; options: PlayerOption[]; ended: boolean; links?: PlayerLink[]; img?: string; action?: "trade" }
 
 const byTopic = new Map<string, LineTemplate[]>();
 for (const l of LINES) { const a = byTopic.get(l.topic) ?? []; a.push(l); byTopic.set(l.topic, a); }
@@ -28,7 +33,8 @@ export class DialogueEngine {
   /** global template cooldown */
   private lastUse = new Map<string, number>();
   playerTarget = -1;
-  constructor(private sim: Simulation) {}
+  readonly director: Director;
+  constructor(private sim: Simulation) { this.director = new Director(sim); }
 
   // ---------------- context ----------------
   ctx(s: Character, l: Character | null, extra: Partial<LineCtx> = {}): LineCtx {
@@ -95,6 +101,20 @@ export class DialogueEngine {
     return this.fill(pick.l, c);
   }
 
+  /** A line about MosaicScope using real posts and prices. Returns the post it mentions (if any). */
+  plug(c: Character): { text: string; post: (typeof MOSAIC.posts)[number] | null } {
+    const sim = this.sim;
+    const posts = MOSAIC.posts.filter((p) => captionLine(p.caption));
+    const post = posts.length ? posts[sim.rng.int(0, Math.min(posts.length, 6) - 1)] : null;
+    const pool = PLUG_LINES.filter((l) => post || !l.includes("{post}"));
+    const recent = this.recent.get(c.id) ?? [];
+    const opts = pool.filter((l) => !recent.includes("plug:" + l));
+    const line = sim.rng.pick(opts.length ? opts : pool);
+    recent.push("plug:" + line); if (recent.length > 8) recent.shift(); this.recent.set(c.id, recent);
+    const text = line.replace("{post}", post ? captionLine(post.caption) : "").replace("{rate}", MOSAIC.rates[0]?.price ?? "$40");
+    return { text, post: line.includes("{post}") ? post : null };
+  }
+
   bark(c: Character, topic: string, other: Character | null = null, extra: Partial<LineCtx> = {}): string {
     return this.line(topic, this.ctx(c, other, extra));
   }
@@ -107,6 +127,11 @@ export class DialogueEngine {
     const r = peek(b, a.id);
     if (hostility(r) > 0.55 && topic !== "dispute" && topic !== "apology") { this.sim.say(b, this.bark(b, "greet", a), "say", 1.5); return false; }
     const conv: Conversation = { id: this.nextId++, a: a.id, b: b.id, topic, turn: 0, maxTurns: topic === "chat" ? 3 + this.sim.rng.int(0, 3) : 3, nextAt: this.sim.tick + 10, log: [], outcome: "" };
+    // small talk and plugs run as an authored exchange: every reply answers the line before it
+    if (topic === "chat" || topic === "plug") {
+      const script = this.director.pick(a, b, topic === "plug" ? (e) => e.id.startsWith("scene_") : undefined);
+      if (script) { conv.script = script; conv.maxTurns = script.length; }
+    }
     this.convs.set(conv.id, conv);
     a.talkWith = b.id; b.talkWith = a.id;
     a.stats.talks++; b.stats.talks++;
@@ -136,12 +161,29 @@ export class DialogueEngine {
       if (!a || !b || a.talkWith !== b.id || b.talkWith !== a.id || a.phys !== Phys.OK || b.phys !== Phys.OK || Math.hypot(a.x - b.x, a.y - b.y) > 3) { this.close(conv); continue; }
       if (sim.tick < conv.nextAt) continue;
       const speaker = conv.turn % 2 === 0 ? a : b, listener = speaker === a ? b : a;
-      const text = this.exchange(conv, speaker, listener);
-      if (text) { sim.say(speaker, text, conv.topic === "argue" ? "shout" : "say", 2.2); conv.log.push({ who: speaker.id, text }); }
+      const text = conv.script ? this.scripted(conv, speaker, listener) : this.exchange(conv, speaker, listener);
+      // each line stays up as long as it takes to read, then a short beat before the reply
+      const secs = text ? readSecs(text) : 1;
+      if (text) { sim.say(speaker, text, conv.topic === "argue" ? "shout" : "say", secs); conv.log.push({ who: speaker.id, text }); }
       conv.turn++;
-      conv.nextAt = sim.tick + 60 * 2.2;
+      conv.nextAt = sim.tick + Math.round(60 * (secs + 0.45));
       if (conv.turn >= conv.maxTurns || conv.outcome === "end") this.close(conv);
     }
+  }
+
+  /** A line from the conversation's authored exchange, with the same social effects as small talk. */
+  private scripted(conv: Conversation, s: Character, l: Character): string {
+    const sim = this.sim, tick = sim.tick;
+    if (conv.turn === 0) {
+      applyInteraction(s, l, "talk", false, tick); applyInteraction(l, s, "talk", true, tick);
+      if (conv.topic === "plug") {
+        l.needs.curiosity = Math.min(1, l.needs.curiosity + 0.1);
+        sim.emit({ type: "plug", x: s.x, y: s.y, actors: [s.id, l.id], summary: `${s.name} put ${l.name} onto ${MOSAIC.handle}` });
+      }
+    }
+    s.needs.social = Math.min(1, s.needs.social + 0.1); l.needs.social = Math.min(1, l.needs.social + 0.07);
+    if (conv.turn === (conv.script?.length ?? 0) - 1 && s.pers.playfulness > 0.5) { applyInteraction(l, s, "joke", true, tick); }
+    return conv.script?.[conv.turn] ?? "";
   }
 
   /** One utterance with its consequences. Returns the text said. */
@@ -165,9 +207,27 @@ export class DialogueEngine {
       if (s.pers.playfulness > 0.6 && sim.rng.chance(0.35)) { applyInteraction(l, s, "joke", true, tick); applyInteraction(s, l, "joke", false, tick); return this.line("joke", c); }
       return this.line("chat", c);
     }
+    if (t === "flirt") {
+      if (conv.turn % 2 === 0) return this.bark(s, conv.turn === 0 ? "flirt" : "flirt_more", l);
+      const yes = receptive(sim, s, l);
+      addLove(sim, l, s, yes ? 0.09 : 0.02); if (yes) addLove(sim, s, l, 0.07);
+      if (!yes) { conv.outcome = "end"; l.emo.mood = Math.max(-1, l.emo.mood - 0.05); return this.bark(s, "flirt_no", l); }
+      if (conv.turn >= 3 && loveOf(s, l.id) > 0.5 && loveOf(l, s.id) > 0.5 && s.partner !== l.id && s.affair !== l.id) { conv.outcome = "end"; getTogether(sim, s, l); return this.bark(s, "together", l); }
+      return this.bark(s, "flirt_yes", l);
+    }
+    if (t === "plug") {
+      if (conv.turn % 2 === 0) {
+        const p = this.plug(s);
+        l.needs.curiosity = Math.min(1, l.needs.curiosity + 0.1);
+        if (p.post) sim.emit({ type: "plug", x: s.x, y: s.y, actors: [s.id, l.id], summary: `${s.name} told ${l.name} about the @mosaicscope post "${captionLine(p.post.caption)}"` });
+        return p.text;
+      }
+      return this.line("gossip_react", this.ctx(s, l));
+    }
     if (t === "gossip") {
       if (conv.turn % 2 === 0) {
         const m = shareGossip(s, l, tick);
+        if (m) onGossip(sim, l, m.kind, m.subj, m.obj, m.cred);
         const c = this.ctx(s, l);
         if (m) {
           c.mem = m; c.memText = this.describe(m, s);
@@ -242,6 +302,14 @@ export class DialogueEngine {
     if (p.hand >= 0) o.push({ id: "give", label: `Here, have my ${TOYS[sim.toys[p.hand].def].name}.` });
     if (npc.hand >= 0) o.push({ id: "ask", label: `Can I have your ${TOYS[sim.toys[npc.hand].def].name}?` });
     if (p.hand >= 0 && TOYS[sim.toys[p.hand].def].uses.some((u) => u === "melee" || u === "throw")) o.push({ id: "duel", label: "Toy fight. You and me." });
+    o.push({ id: "mosaic", label: "What's MosaicScope?" });
+    if (npc.attractedTo.includes(p.look.kind) && npc.tier !== "background") {
+      if (npc.partner === p.id) o.push({ id: "kiss", label: "Kiss" }, { id: "dateme", label: "Let's go on a date." });
+      else o.push({ id: "flirt", label: "You've got a great smile." });
+      if (npc.partner !== p.id && loveOf(npc, p.id) > 0.45) o.push({ id: "askout", label: "Want to go out sometime?" });
+    }
+    if (npc.tier !== "background" || npc.promoted) o.push({ id: "trade", label: "Want to trade?" });
+    if (npc.role === "cop") o.push({ id: "crime", label: "Any trouble around here?" });
     o.push({ id: "compliment", label: "Love the fit." }, { id: "tease", label: "Nice hat. Did your nan knit it?" }, { id: "bye", label: "Later." });
     return o;
   }
@@ -278,7 +346,8 @@ export class DialogueEngine {
       }
       case "about": {
         const goal = npc.goal ? ` Right now I'm ${GOAL_TEXT[npc.goal.id] ?? "busy"}.` : "";
-        text = this.line("p_about", c()) + goal;
+        const job = npc.tier !== "principal" && npc.role !== "local" ? ` I'm a ${ROLE_LABEL[npc.role]}.` : "";
+        text = this.line("p_about", c()) + job + goal;
         break;
       }
       case "opinion": text = this.line("p_opinion", { ...c(), about: sim.chars[+arg].name, friend: friendship(peek(npc, +arg)), hostile: hostility(peek(npc, +arg)) }); break;
@@ -314,6 +383,45 @@ export class DialogueEngine {
         if (yes) { ended = true; sim.afterConversation(() => forceGoal(npc, sim, "fight", { u: 1, target: p.id })); sim.playerAct("challenged", npc); }
         break;
       }
+      case "mosaic": {
+        const pl = this.plug(npc);
+        const intro = npc.name === "Chris" ? `That's me. Photography and film around ${MOSAIC.location.split(" ·")[0]}: ${MOSAIC.services.slice(0, 4).join(", ").toLowerCase()}. Photos from ${MOSAIC.rates[0]?.price ?? "$40"}. ` : "";
+        text = intro + pl.text;
+        const links: PlayerLink[] = [];
+        if (pl.post) links.push({ label: "See the post on Instagram ↗", href: pl.post.link });
+        links.push({ label: `Follow ${MOSAIC.handle} ↗`, href: MOSAIC.instagram }, { label: "Book a shoot ↗", href: MOSAIC.booking });
+        sim.say(npc, text, "say", 3);
+        return { speaker: npc.name, text, options: this.playerOptions(npc), ended: false, links, img: pl.post?.img };
+      }
+      case "flirt": {
+        const yes = attracted(npc, p) && (npc.partner < 0 || npc.pers.honesty < 0.35) && receptive(sim, npc, p);
+        addLove(sim, npc, p, yes ? 0.12 : 0.02);
+        text = this.line(yes ? "flirt_yes" : "flirt_no", c());
+        break;
+      }
+      case "askout": {
+        const yes = loveOf(npc, p.id) > 0.45 && (npc.partner < 0 || npc.pers.honesty < 0.35);
+        if (yes) { if (npc.partner >= 0) { npc.affair = p.id; } else { npc.partner = p.id; p.partner = npc.id; } sim.emit({ type: "together", x: p.x, y: p.y, actors: [p.id, npc.id], summary: npc.partner === p.id ? `You and ${npc.name} are together now` : `You and ${npc.name} are secretly seeing each other` }); sim.bus.emit("fx", { kind: "heart", x: npc.x, y: npc.y, z: 1.8, n: 6 }); }
+        text = this.line(yes ? "together" : "flirt_no", c());
+        break;
+      }
+      case "kiss": { kiss(sim, npc, p); npc.anim.pose = "kiss"; text = this.line("flirt_yes", c()); break; }
+      case "dateme": {
+        text = "Lead the way.";
+        sim.afterConversation(() => { npc.goal = null; this.sim.forceFollow(npc, p); });
+        ended = true;
+        break;
+      }
+      case "trade": {
+        text = npc.pers.sociability > 0.3 ? "Show me what you've got." : "Make it quick.";
+        sim.say(npc, text, "say", 2);
+        return { speaker: npc.name, text, options: this.playerOptions(npc), ended: false, action: "trade" };
+      }
+      case "crime": {
+        const recent = sim.crimes.filter((c) => sim.tick - c.tick < 60 * 600).slice(-3);
+        text = recent.length ? recent.map((c) => `${sim.chars[c.perp]?.name ?? "Someone"}: ${c.type.replace("_", " ")}${c.solved ? " (sorted)" : " (still out there)"}.`).join(" ") : "Quiet shift so far. Keep it that way.";
+        break;
+      }
       case "compliment": applyInteraction(npc, p, "compliment", true, tick); npc.emo.mood = Math.min(1, npc.emo.mood + 0.1); text = this.line("p_comp", c()); break;
       case "tease": {
         applyInteraction(npc, p, "insult", true, tick);
@@ -343,4 +451,7 @@ export const GOAL_TEXT: Record<string, string> = {
   play: "playing", collect: "grabbing a toy", fight: "settling a score", help: "helping someone out", rest: "taking a breather", watch: "seeing what's going on",
   party: "dancing", music: "sorting the music", shelter: "getting out of the rain", search: "looking for something I lost", reclaim: "getting my stuff back",
   gift: "giving something away", reconcile: "trying to make up with someone", craft: "building something", prank: "up to no good", ballgame: "in a ball game", flee: "getting away",
+  eat: "getting a feed", work: "heading to work", gohome: "heading home", shop: "doing some shopping", gamble: "off to the casino", steal: "minding my own business", escape: "in a hurry",
+  tag: "looking for a good wall", clean: "cleaning up tags", patrol: "on patrol", pursue: "chasing a suspect", book: "booking a MosaicScope shoot", attend: "getting ready for my shoot",
+  photograph: "on a shoot", carmeet: "at the car meet", skate: "skating", busk: "busking", vend: "running the food truck", barter: "looking to trade", commute: "commuting",
 };

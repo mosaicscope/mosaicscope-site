@@ -45,7 +45,7 @@ function face(c: Character, x: number, y: number): void { c.facing = Math.atan2(
 /** Execute one primitive step for one AI tick. dt = simulated seconds since the last think. */
 export function runStep(c: Character, s: Step, g: ActiveGoal, sim: Simulation, dt: number): StepStatus {
   g.stepTimer += dt;
-  if (g.stepTimer > (s.time ?? 0) + 25) return FAIL; // generic timeout: recover from stuck goals
+  if (g.stepTimer > (s.time ?? 0) + 60) return FAIL; // generic timeout: recover from stuck goals
   if (c.pathReq === -1) { c.pathReq = 0; c.path = null; return FAIL; } // unreachable
   const target = s.target !== undefined ? sim.chars[s.target] : undefined;
   if (s.target !== undefined && (!target || target.lod === 4 /* sleeping far away */)) return FAIL;
@@ -223,8 +223,239 @@ export function runStep(c: Character, s: Step, g: ActiveGoal, sim: Simulation, d
     }
     case "drop": { if (c.hand >= 0) sim.dropHeld(c); return DONE; }
     case "push": return DONE;
+    default: { const r = runCityStep(c, s, g, sim, dt); if (r !== null) return r; }
   }
   return FAIL;
 }
 
 export const isIncapacitated = (c: Character) => c.phys === Phys.DOWN || c.phys === Phys.RECOVER;
+
+/* ------------------------------------------------------------------ city behaviours */
+import { enterBuilding, buy, consume, commitCrime, paint, arrest, findWall, book } from "../sim/Society";
+import { isFood as _isFood, TOYS as _TOYS } from "../content/toys";
+import { BUILDINGS as _B, isOpen as _isOpen } from "../content/buildings";
+import { carried as _carried, detach as _detach } from "../inventory/Inventory";
+
+/** Second executor for the city steps; returns null when the step kind isn't one of these. */
+export function runCityStep(c: Character, s: Step, g: ActiveGoal, sim: Simulation, dt: number): StepStatus | null {
+  switch (s.kind) {
+    case "enter": {
+      const b = sim.world.buildings[s.building!];
+      if (!b) return FAIL;
+      if (!_isOpen(_B[b.kind], sim.hour) && b.kind !== "house" && b.kind !== "apartments" && c.workplace !== b.id) return FAIL;
+      c.anim.pose = "auto";
+      if (!moveTo(c, b.door.x + 0.5, b.door.y + 0.5, sim, 0.6)) return RUN;
+      enterBuilding(sim, c, b, s.minutes ?? 10);
+      return DONE;
+    }
+    case "buy": {
+      const poi = sim.world.pois[s.poi!];
+      if (!poi?.menu?.length) return FAIL;
+      if (!moveTo(c, poi.x, poi.y + 0.6, sim, 0.7)) { c.anim.pose = "auto"; return RUN; }
+      const opts = poi.menu.filter((m) => _TOYS[m].value <= c.cash && (s.item ? m === s.item : _isFood(m)));
+      if (!opts.length) return FAIL;
+      const r = buy(sim, c, sim.rng.pick(opts), { poi: poi.id });
+      return r.ok ? DONE : FAIL;
+    }
+    case "eat": {
+      const food = _carried(c).map((id) => sim.toys[id]).find((t) => t && _isFood(t.def));
+      if (!food) return DONE;
+      stop(c); c.anim.pose = "eat";
+      if (g.stepTimer < 2.2) return RUN;
+      consume(sim, c, food);
+      return DONE;
+    }
+    case "steal": {
+      const v = sim.chars[s.target!];
+      if (!v || v.inside >= 0 || v.inCar >= 0) return FAIL;
+      // approach from behind, casually
+      const bx = v.x - Math.cos(v.facing) * 0.6, by = v.y - Math.sin(v.facing) * 0.6;
+      if (!moveTo(c, bx, by, sim, 0.5, 1.15)) { c.anim.pose = "auto"; return g.stepTimer > 20 ? FAIL : RUN; }
+      stop(c);
+      const loot = _carried(v).map((id) => sim.toys[id]).find((t) => t && _TOYS[t.def].category === "valuable");
+      let item: string | null = null;
+      if (loot && sim.rng.chance(0.6)) {
+        _detach(v, loot.id); loot.holder = c.id; loot.state = "held"; c.bag.push(loot.id); item = loot.def;
+        remember(v, { t: sim.tick, kind: "lost_item", subj: v.id, obj: -1, toy: loot.def, area: sim.world.areaAt(v.x, v.y)?.id ?? 0, val: -0.6, ev: -1, src: "did" });
+      } else {
+        const take = Math.min(v.cash, Math.round(10 + sim.rng.next() * 60));
+        v.cash -= take; c.cash += take;
+        if (take <= 0) return FAIL;
+      }
+      c.stats.hits++;
+      commitCrime(sim, c, item ? "snatch" : "pickpocket", v, item);
+      return DONE;
+    }
+    case "flee_far": {
+      c.anim.pose = "auto";
+      if (s.x === undefined) { const a = sim.rng.range(0, 6.28); const p = sim.world.nearestWalkable(c.x + Math.cos(a) * 18, c.y + Math.sin(a) * 18); s.x = p.x; s.y = p.y; }
+      return moveTo(c, s.x!, s.y!, sim, 0.8, 1.9) || g.stepTimer > 14 ? DONE : RUN;
+    }
+    case "spray": {
+      if (!moveTo(c, s.x!, s.y!, sim, 0.4)) { c.anim.pose = "auto"; return g.stepTimer > 25 ? FAIL : RUN; }
+      stop(c); c.anim.pose = "spray";
+      c.facing = s.text === "e" ? Math.PI : -Math.PI / 2;
+      if (g.stepTimer < 4) { if (sim.tick % 6 === 0) sim.bus.emit("fx", { kind: "spray", x: c.x + Math.cos(c.facing) * 0.5, y: c.y + Math.sin(c.facing) * 0.5, z: 1.1, n: 2, color: c.look.color }); return RUN; }
+      const spot = { tx: s.poi!, ty: s.target!, face: (s.text as "s" | "e") ?? "s", legal: s.topic === "legal" };
+      paint(sim, c, spot);
+      if (!spot.legal) commitCrime(sim, c, "vandalism", null);
+      return DONE;
+    }
+    case "clean": {
+      const gi = sim.world.graffiti.findIndex((x) => x.id === s.poi);
+      if (gi < 0) return DONE;
+      const gr = sim.world.graffiti[gi];
+      const sx = gr.face === "e" ? gr.tx + 1.5 : gr.tx + 0.5, sy = gr.face === "s" ? gr.ty + 1.5 : gr.ty + 0.5;
+      if (!moveTo(c, sx, sy, sim, 0.5)) { c.anim.pose = "auto"; return g.stepTimer > 30 ? FAIL : RUN; }
+      stop(c); c.anim.pose = "craft";
+      if (g.stepTimer < 5) return RUN;
+      sim.world.graffiti.splice(gi, 1);
+      sim.emit({ type: "cleanup", x: c.x, y: c.y, actors: [c.id], summary: `${c.name} scrubbed off the "${gr.text}" tag` });
+      return DONE;
+    }
+    case "chase": {
+      const sus = sim.chars[s.target!];
+      if (!sus || sus.jailUntil > 0 || sus.arrestedBy >= 0) { c.pursuing = -1; return DONE; }
+      if (sus.inside >= 0) { c.pursuing = -1; return g.stepTimer > 5 ? DONE : RUN; } // lost them indoors
+      if (sus.inCar >= 0) { const v = sim.vehicles[sus.inCar]; if (v && Math.abs(v.speed) > 2) { moveTo(c, v.x, v.y, sim, 1, 1.8); return g.stepTimer > 30 ? DONE : RUN; } }
+      const d = Math.hypot(sus.x - c.x, sus.y - c.y);
+      c.anim.pose = "auto";
+      if (d > 30 || g.stepTimer > 45) { c.pursuing = -1; sim.emit({ type: "escaped", x: sus.x, y: sus.y, actors: [sus.id, c.id], summary: `${sus.name} got away from ${c.name}` }); return DONE; }
+      // taser at range
+      const taser = c.hand >= 0 && sim.toys[c.hand]?.def === "taser";
+      if (taser && d < 5 && d > 1.4 && sim.tick > (c.lastHitTick + 150) && sus.phys === 0) {
+        c.lastHitTick = sim.tick; c.facing = Math.atan2(sus.y - c.y, sus.x - c.x); c.anim.pose = "shoot";
+        sim.shootAt(c, sus.x, sus.y, sus.id);
+      }
+      if (d < 1.1) { arrest(sim, c, sus); return DONE; }
+      moveTo(c, sus.x, sus.y, sim, 0.9, 1.95);
+      return RUN;
+    }
+    case "photo": {
+      const bk = sim.bookings.find((b) => b.id === s.booking);
+      const cl = bk ? sim.chars[bk.client] : undefined;
+      if (!bk || !cl || bk.done) return DONE;
+      const dx = cl.x - c.x, dy = cl.y - c.y, d = Math.hypot(dx, dy);
+      if (d > 3) { c.anim.pose = "auto"; moveTo(c, cl.x - 2, cl.y + 0.5, sim, 1.2); return g.stepTimer > 40 ? FAIL : RUN; }
+      stop(c); c.facing = Math.atan2(dy, dx); c.anim.pose = "camera";
+      if (sim.tick % 45 === 0) sim.bus.emit("fx", { kind: "flash", x: c.x + Math.cos(c.facing) * 0.4, y: c.y + Math.sin(c.facing) * 0.4, z: 1.3, n: 1 });
+      if (g.stepTimer < 9) return RUN;
+      bk.done = true; bk.shotAt = sim.tick;
+      for (const [a, b2] of [[c, cl], [cl, c]] as const) { remember(a, { t: sim.tick, kind: "shoot", subj: a.id, obj: b2.id, toy: null, area: sim.world.areaAt(a.x, a.y)?.id ?? 0, val: 0.5, ev: -1, src: "did" }); }
+      cl.emo.mood = Math.min(1, cl.emo.mood + 0.3); cl.emo.confidence = Math.min(1, cl.emo.confidence + 0.1);
+      sim.emit({ type: "photoshoot", x: c.x, y: c.y, actors: [c.id, cl.id], data: { booking: bk.id }, summary: `${c.name} shot ${cl.name}'s ${bk.label.replace(/^an? /, "")}. Photos within a week, tag @mosaicscope` });
+      return DONE;
+    }
+    case "pose": {
+      const bk = sim.bookings.find((b) => b.id === s.booking);
+      if (!bk || bk.done) return DONE;
+      if (!moveTo(c, s.x!, s.y!, sim, 0.6)) { c.anim.pose = "auto"; return g.stepTimer > 50 ? FAIL : RUN; }
+      stop(c); c.anim.pose = sim.chars[bk.photographer] && Math.hypot(sim.chars[bk.photographer].x - c.x, sim.chars[bk.photographer].y - c.y) < 4 ? "posecool" : "phone";
+      return g.stepTimer > 150 ? FAIL : RUN;
+    }
+    case "skate": case "busk": {
+      if (s.kind === "skate") {
+        c.anim.pose = "skate";
+        if (!c.path || c.pathIdx * 2 >= (c.path?.length ?? 0) - 2) { const a = sim.world.areas.find((x) => x.kind === "playground")!; const p = sim.world.randomPointIn(a, sim.rng); moveTo(c, p.x, p.y, sim, 0.6, 2.2); }
+        else moveTo(c, c.pathGoalX, c.pathGoalY, sim, 0.6, 2.2);
+        c.needs.fun = Math.min(1, c.needs.fun + dt * 0.04);
+      } else {
+        if (!moveTo(c, s.x!, s.y!, sim, 0.6)) { c.anim.pose = "auto"; return RUN; }
+        stop(c); c.anim.pose = "guitar";
+        if (sim.tick % 50 === 0) sim.bus.emit("fx", { kind: "music", x: c.x, y: c.y, z: 1.6, n: 1, color: c.look.color });
+        if (sim.tick % 300 === 0) sim.tipBusker(c);
+      }
+      return g.stepTimer > (s.time ?? 30) ? DONE : RUN;
+    }
+    case "treat": {
+      const v = sim.chars[s.target!];
+      if (!v || v.inside >= 0) return DONE;
+      if (Math.hypot(v.x - c.x, v.y - c.y) > 1.2) { c.anim.pose = "auto"; moveTo(c, v.x, v.y, sim, 0.9, 1.8); return RUN; }
+      stop(c); c.anim.pose = "comfort";
+      if (g.stepTimer < 3) return RUN;
+      lifeBandage(sim, c, v);
+      if (v.blood < 0.45 || v.phys === 2) lifeHospital(sim, v);
+      sim.say(c, sim.dialogue.bark(c, "help", v), "say", 2);
+      return DONE;
+    }
+    case "mug": {
+      // knifepoint robbery: threaten, take cash/valuables, stab if they fight back
+      const v = sim.chars[s.target!];
+      if (!v || v.inside >= 0 || v.inCar >= 0) return FAIL;
+      if (Math.hypot(v.x - c.x, v.y - c.y) > 1.0) { c.anim.pose = "auto"; moveTo(c, v.x, v.y, sim, 0.8, 1.3); return g.stepTimer > 25 ? FAIL : RUN; }
+      stop(c); c.facing = Math.atan2(v.y - c.y, v.x - c.x); c.anim.pose = "threaten";
+      if (g.stepTimer < 0.4) { sim.say(c, sim.dialogue.bark(c, "mug", v), "shout", 2); v.emo.fear = Math.min(1, v.emo.fear + 0.5); v.goal = null; v.vx = v.vy = 0; return RUN; }
+      if (g.stepTimer < 2) return RUN;
+      const resists = v.tier !== "player" && v.pers.boldness + v.pers.temper * 0.4 > 1.05 && sim.rng.chance(0.6);
+      if (resists) {
+        sim.say(v, "Not a chance!", "shout", 1.5);
+        sim.swingHeld(c);
+        commitCrime(sim, c, "stabbing", v);
+        return DONE;
+      }
+      const take = Math.min(v.cash, Math.max(20, Math.round(v.cash * 0.8)));
+      v.cash -= take; c.cash += take;
+      const loot = _carried(v).map((id) => sim.toys[id]).find((t) => t && _TOYS[t.def].category === "valuable");
+      if (loot) { _detach(v, loot.id); loot.holder = c.id; loot.state = "held"; c.bag.push(loot.id); }
+      if (v.tier !== "player") sim.say(v, "Take it, take it!", "shout", 1.5);
+      remember(v, { t: sim.tick, kind: "robbed", subj: c.id, obj: v.id, toy: loot?.def ?? null, area: sim.world.areaAt(v.x, v.y)?.id ?? 0, val: -0.9, ev: -1, src: "did" });
+      commitCrime(sim, c, "armed_robbery", v, loot?.def ?? null);
+      return DONE;
+    }
+    case "flirt": case "kiss": {
+      const o = sim.chars[s.target!];
+      if (!o || o.inside >= 0 || o.inCar >= 0 || o.phys !== 0) return FAIL;
+      if (Math.hypot(o.x - c.x, o.y - c.y) > 1.1) { c.anim.pose = "auto"; moveTo(c, o.x, o.y, sim, 0.8); return g.stepTimer > 25 ? FAIL : RUN; }
+      stop(c); c.facing = Math.atan2(o.y - c.y, o.x - c.x);
+      if (s.kind === "flirt") { if (c.talkWith >= 0) return RUN; if (s.text === "started") return DONE; if (sim.startConversation(c, o, "flirt")) { s.text = "started"; return RUN; } return FAIL; }
+      c.anim.pose = "kiss"; o.anim.pose = "kiss"; o.facing = Math.atan2(c.y - o.y, c.x - o.x); o.vx = o.vy = 0;
+      if (g.stepTimer < 2) return RUN;
+      romanceKiss(sim, c, o);
+      o.anim.pose = "auto";
+      return DONE;
+    }
+    case "date": {
+      // walk to the place with the partner following, then go in together
+      const o = sim.chars[s.target!], b = sim.world.buildings[s.building!];
+      if (!o || !b || o.inside >= 0 || o.jailUntil > 0) return FAIL;
+      if (o.goal?.id !== "follow" || o.goal.target !== c.id) { if (o.phys === 0 && o.talkWith < 0) forceFollow(sim, o, c); }
+      c.anim.pose = "auto";
+      if (!moveTo(c, b.door.x + 0.5, b.door.y + 0.5, sim, 0.7)) return g.stepTimer > 60 ? FAIL : RUN;
+      stop(c);
+      if (Math.hypot(o.x - c.x, o.y - c.y) > 2.5) return g.stepTimer > 80 ? FAIL : RUN;
+      const mins = s.minutes ?? 25;
+      enterBuilding(sim, c, b, mins); enterBuilding(sim, o, b, mins);
+      addLove(sim, c, o, 0.12); addLove(sim, o, c, 0.12);
+      remember(c, { t: sim.tick, kind: "dated", subj: c.id, obj: o.id, toy: null, area: b.area, val: 0.6, ev: -1, src: "did" });
+      remember(o, { t: sim.tick, kind: "dated", subj: o.id, obj: c.id, toy: null, area: b.area, val: 0.6, ev: -1, src: "did" });
+      const home = b.kind === "house" || b.kind === "apartments";
+      sim.bus.emit("fx", { kind: "heart", x: b.door.x + 0.5, y: b.door.y + 0.5, z: 1.8, n: home ? 8 : 4 });
+      sim.emit({ type: home ? "night_together" : "date", x: c.x, y: c.y, actors: [c.id, o.id], summary: home ? `${c.name} and ${o.name} went back to ${b.name} together` : `${c.name} took ${o.name} on a date at ${b.name}` });
+      return DONE;
+    }
+    case "follow": {
+      const o = sim.chars[s.target!];
+      if (!o || o.inside >= 0) return DONE;
+      c.anim.pose = "auto";
+      moveTo(c, o.x - Math.cos(o.facing) * 0.9, o.y - Math.sin(o.facing) * 0.9, sim, 0.6, 1.15);
+      return g.stepTimer > (s.time ?? 60) ? DONE : RUN;
+    }
+    case "book": {
+      const r = book(sim, c);
+      return r ? DONE : FAIL;
+    }
+    case "trade": {
+      const o = sim.chars[s.target!];
+      if (!o || o.inside >= 0 || o.inCar >= 0) return FAIL;
+      if (Math.hypot(o.x - c.x, o.y - c.y) > 1.5) { moveTo(c, o.x, o.y, sim, 1.1); return g.stepTimer > 20 ? FAIL : RUN; }
+      return sim.npcTrade(c, o) ? DONE : FAIL;
+    }
+  }
+  return null;
+}
+import { remember } from "../social/Social";
+import { bandage as lifeBandage, hospitalise as lifeHospital } from "../sim/Life";
+import { kiss as romanceKiss, addLove } from "../sim/Romance";
+import { forceGoal as _forceGoal } from "./brain";
+function forceFollow(sim: Simulation, o: Character, leader: Character): void { _forceGoal(o, sim, "follow", { u: 2, target: leader.id }); }
+void findWall;

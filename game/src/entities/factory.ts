@@ -27,6 +27,10 @@ export function makeCharacter(id: number, name: string, tier: Tier, x: number, y
     bio: "", style: "loose", likes: [], fears: [], catchphrase: "",
     stats: { hits: 0, hitsTaken: 0, throws: 0, gifts: 0, talks: 0, helps: 0, falls: 0 },
     prefs: {}, reputation: 0, dirty: true, seedPhase: rng.next() * 100,
+    role: "local", cash: Math.round(rng.range(20, 180)), hunger: rng.range(0.5, 1), inside: -1, insideUntil: 0, inCar: -1, workplace: -1, home: -1,
+    pursuing: -1, arrestedBy: -1, jailUntil: 0, wanted: 0, stunUntil: 0, nickname: "",
+    wounds: [], bleed: 0, blood: 1, partner: -1, affair: -1,
+    attractedTo: rng.chance(0.1) ? ["guy", "girl"] : rng.chance(0.12) ? [look.kind] : [look.kind === "guy" ? "girl" : "guy"],
   };
 }
 

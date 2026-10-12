@@ -18,4 +18,8 @@ export const GROUND: Record<number, [string, string]> = {
   10: ["#3a1c2a", "#3d1e2d"],  // stage
   13: ["#141110", "#161312"],  // street
   14: ["#45392b", "#483b2d"],  // sand
+  16: ["#1b1918", "#1c1a19"],  // road
+  17: ["#34302c", "#36322e"],  // sidewalk
+  18: ["#1b1918", "#1c1a19"],  // crosswalk (stripes drawn on top)
+  20: ["#222020", "#232121"],  // parking
 };

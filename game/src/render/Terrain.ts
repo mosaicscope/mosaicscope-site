@@ -2,6 +2,7 @@ import { World, T, TILE_HEIGHT, Poi } from "../world/World";
 import { TILE_W, TILE_H, Z_PX } from "../world/iso";
 import { GROUND } from "./palette";
 import type { Camera } from "./Camera";
+import { drawAd } from "./Ads";
 
 /**
  * Ground is pre-rendered into 16x16-tile chunk canvases (only rebuilt when tiles change).
@@ -65,7 +66,7 @@ function groundOf(w: World, tx: number, ty: number, t: number): number {
   if (GROUND[t] && t !== T.WATER) return t;
   if (t === T.WATER) return T.WATER;
   const a = w.areas[w.areaOf[ty * w.size + tx]];
-  switch (a?.kind) { case "studio": return T.FLOOR; case "court": return T.COURT; case "market": return T.PATH; case "alley": case "plaza": case "stage": return T.PAVE; default: return T.GRASS; }
+  switch (a?.kind) { case "studio": return T.FLOOR; case "court": return T.COURT; case "market": return T.PATH; case "park": case "residential": return T.GRASS; default: return T.PAVE; }
 }
 
 function detail(g: CanvasRenderingContext2D, t: number, sx: number, sy: number, n: number, w: World, tx: number, ty: number): void {
@@ -99,6 +100,45 @@ function detail(g: CanvasRenderingContext2D, t: number, sx: number, sy: number, 
       const S = w.size;
       if ((ty === 1 || ty === S - 2) && tx % 3 === 0) { g.strokeStyle = "rgba(246,182,44,.25)"; g.lineWidth = 2; g.beginPath(); g.moveTo(sx - hw * 0.5, sy + hh * 0.5); g.lineTo(sx + hw * 0.5, sy + hh * 1.5); g.stroke(); }
       if ((tx === 1 || tx === S - 2) && ty % 3 === 0) { g.strokeStyle = "rgba(246,182,44,.25)"; g.lineWidth = 2; g.beginPath(); g.moveTo(sx + hw * 0.5, sy + hh * 0.5); g.lineTo(sx - hw * 0.5, sy + hh * 1.5); g.stroke(); }
+      break;
+    }
+    case T.ROAD: {
+      const P = w.period;
+      const vertical = w.isRoadLine(tx) && !w.isRoadLine(ty), horizontal = w.isRoadLine(ty) && !w.isRoadLine(tx);
+      g.strokeStyle = "rgba(246,182,44,.55)"; g.lineWidth = 1.5; g.setLineDash([7, 7]);
+      g.beginPath();
+      // centre line sits between the two lanes
+      if (horizontal && ty % P === 0) { g.moveTo(sx - hw, sy + hh); g.lineTo(sx, sy + TILE_H); }
+      if (vertical && tx % P === 0) { g.moveTo(sx + hw, sy + hh); g.lineTo(sx, sy + TILE_H); }
+      g.stroke(); g.setLineDash([]);
+      break;
+    }
+    case T.CROSSWALK: {
+      // zebra stripes running along the direction of travel; (u, v) are tile-local 0..1 coords
+      const vertical = w.isRoadLine(tx);
+      const a = (u: number, v: number) => [sx + (u - v) * hw, sy + (u + v) * hh];
+      g.fillStyle = "rgba(238,228,211,.55)";
+      for (let i = 0; i < 4; i++) {
+        const t0 = 0.08 + i * 0.23, t1 = t0 + 0.12;
+        const q = vertical ? [a(t0, 0.15), a(t1, 0.15), a(t1, 0.85), a(t0, 0.85)] : [a(0.15, t0), a(0.15, t1), a(0.85, t1), a(0.85, t0)];
+        g.beginPath(); g.moveTo(q[0][0], q[0][1]); for (let k = 1; k < 4; k++) g.lineTo(q[k][0], q[k][1]); g.closePath(); g.fill();
+      }
+      break;
+    }
+    case T.SIDEWALK: {
+      g.strokeStyle = "rgba(0,0,0,.25)"; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(sx - hw * 0.5, sy + hh * 0.5); g.lineTo(sx + hw * 0.5, sy + hh * 1.5); g.stroke();
+      const kerb = (dx: number, dy: number) => { const t = w.tile(tx + dx, ty + dy); return t === T.ROAD || t === T.CROSSWALK; };
+      g.strokeStyle = "rgba(238,228,211,.28)"; g.lineWidth = 2; g.beginPath();
+      if (kerb(0, 1)) { g.moveTo(sx - hw, sy + hh); g.lineTo(sx, sy + TILE_H); }
+      if (kerb(1, 0)) { g.moveTo(sx, sy + TILE_H); g.lineTo(sx + hw, sy + hh); }
+      if (kerb(0, -1)) { g.moveTo(sx, sy); g.lineTo(sx + hw, sy + hh); }
+      if (kerb(-1, 0)) { g.moveTo(sx - hw, sy + hh); g.lineTo(sx, sy); }
+      g.stroke();
+      break;
+    }
+    case T.PARKING: {
+      if ((tx + ty) % 2 === 0) { g.strokeStyle = "rgba(238,228,211,.35)"; g.lineWidth = 1.2; g.beginPath(); g.moveTo(sx - hw * 0.8, sy + hh * 0.8); g.lineTo(sx - hw * 0.2, sy + hh * 0.2); g.stroke(); }
       break;
     }
     case T.STAGE: {
@@ -216,12 +256,74 @@ export function drawPoi(g: CanvasRenderingContext2D, p: Poi, sx: number, sy: num
       for (let i = 0; i < 3; i++) { g.beginPath(); g.ellipse(sx, sy - i * 2.5 * z, 12 * z, 6 * z, 0, 0, 6.283); g.stroke(); }
       break;
     }
+    case "busstop": {
+      g.strokeStyle = "#9a8d80"; g.lineWidth = 2 * z;
+      g.beginPath(); g.moveTo(sx - 12 * z, sy); g.lineTo(sx - 12 * z, sy - 34 * z); g.moveTo(sx + 12 * z, sy + 4 * z); g.lineTo(sx + 12 * z, sy - 30 * z); g.stroke();
+      g.fillStyle = "rgba(61,214,255,.25)"; g.beginPath(); g.moveTo(sx - 14 * z, sy - 34 * z); g.lineTo(sx + 14 * z, sy - 30 * z); g.lineTo(sx + 14 * z, sy - 26 * z); g.lineTo(sx - 14 * z, sy - 30 * z); g.closePath(); g.fill();
+      g.fillStyle = "#f6b62c"; g.fillRect(sx - 12 * z, sy - 44 * z, 8 * z, 10 * z);
+      g.fillStyle = "#0e0b0a"; g.font = `700 ${Math.max(5, Math.round(6 * z))}px monospace`; g.fillText("BUS", sx - 11.5 * z, sy - 37 * z);
+      break;
+    }
+    case "foodtruck": {
+      g.fillStyle = "#eee4d3"; g.fillRect(sx - 20 * z, sy - 26 * z, 40 * z, 20 * z);
+      g.fillStyle = "#ec2a1c"; g.fillRect(sx - 20 * z, sy - 30 * z, 40 * z, 5 * z);
+      g.fillStyle = "#0e0b0a"; g.fillRect(sx - 12 * z, sy - 22 * z, 18 * z, 8 * z);
+      g.fillStyle = "#0e0b0a"; g.beginPath(); g.arc(sx - 12 * z, sy - 4 * z, 4 * z, 0, 6.283); g.arc(sx + 12 * z, sy - 4 * z, 4 * z, 0, 6.283); g.fill();
+      if (p.name) { g.fillStyle = "#ec2a1c"; g.font = `700 ${Math.max(6, Math.round(7 * z))}px "IBM Plex Mono", monospace`; g.textAlign = "center"; g.fillText(p.name, sx, sy - 33 * z); g.textAlign = "start"; }
+      break;
+    }
+    case "atm": g.fillStyle = "#3a3430"; g.fillRect(sx - 6 * z, sy - 22 * z, 12 * z, 22 * z); g.fillStyle = "#c6ff3d"; g.fillRect(sx - 4 * z, sy - 19 * z, 8 * z, 5 * z); break;
+    case "hydrant": g.fillStyle = "#ec2a1c"; g.fillRect(sx - 3 * z, sy - 10 * z, 6 * z, 10 * z); g.beginPath(); g.arc(sx, sy - 10 * z, 3 * z, Math.PI, 0); g.fill(); break;
+    case "light": {
+      g.strokeStyle = "#9a8d80"; g.lineWidth = 1.5 * z;
+      g.beginPath(); g.moveTo(sx, sy); g.lineTo(sx, sy - 40 * z); g.moveTo(sx - 6 * z, sy); g.lineTo(sx, sy - 10 * z); g.lineTo(sx + 6 * z, sy); g.stroke();
+      g.fillStyle = "#eee4d3"; g.fillRect(sx - 7 * z, sy - 52 * z, 14 * z, 12 * z);
+      break;
+    }
+    case "billboard": {
+      g.strokeStyle = "#3a3430"; g.lineWidth = 3 * z; g.beginPath(); g.moveTo(sx, sy); g.lineTo(sx, sy - 40 * z); g.stroke();
+      drawAd(g, p.name === "cars" ? "cars" : "mosaic", sx, sy - 38 * z, 84 * z, 30 * z, p.id + Math.floor(time / 10), dark ? 1 : 0);
+      break;
+    }
+    case "plane": {
+      // a parked widebody on the apron, nose to the east; world x = (32, 16) px, world y = (-32, 16) px, up = 26 px
+      const W = (wx: number, wy: number, h: number) => [sx + (wx - wy) * 32 * z, sy + (wx + wy) * 16 * z - h * 26 * z];
+      const line = (pts: number[][], lw: number, col: string) => { g.strokeStyle = col; g.lineWidth = lw; g.lineCap = "round"; g.beginPath(); pts.forEach((q, i) => (i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]))); g.stroke(); g.lineCap = "butt"; };
+      const polyF = (pts: number[][], col: string) => { g.fillStyle = col; g.beginPath(); pts.forEach((q, i) => (i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]))); g.closePath(); g.fill(); };
+      // shadow
+      polyF([W(-3.6, -0.4, 0), W(3.6, -0.4, 0), W(3.6, 0.4, 0), W(-3.6, 0.4, 0)], "rgba(0,0,0,.25)");
+      polyF([W(-0.6, -3.4, 0), W(0.6, -0.3, 0), W(0.6, 0.3, 0), W(-0.6, 3.4, 0)], "rgba(0,0,0,.2)");
+      // far wing + engine
+      polyF([W(0.7, -0.3, 1.0), W(-0.7, -3.4, 0.95), W(-1.1, -3.4, 0.95), W(-0.4, -0.3, 1.0)], "#b8b0a4");
+      line([W(0.3, -1.4, 0.75), W(-0.3, -1.4, 0.75)], 7 * z, "#6a6560");
+      // gear
+      line([W(1.8, 0, 0), W(1.8, 0, 0.8)], 2 * z, "#3a3430"); line([W(-0.2, 0.3, 0), W(-0.2, 0.3, 0.8)], 2 * z, "#3a3430");
+      // fuselage
+      line([W(-3.4, 0, 1.25), W(3.2, 0, 1.25)], 20 * z, "#eee4d3");
+      line([W(-3.4, 0, 1.0), W(3.2, 0, 1.0)], 8 * z, "#d0c8bc");
+      line([W(-3.2, 0, 1.12), W(2.9, 0, 1.12)], 3 * z, "#1c4f6b");
+      // nose cone + cockpit
+      const n = W(3.55, 0, 1.25); g.fillStyle = "#eee4d3"; g.beginPath(); g.arc(n[0], n[1], 9 * z, 0, 6.283); g.fill();
+      polyF([W(3.3, -0.2, 1.45), W(3.55, -0.1, 1.42), W(3.55, 0.1, 1.42), W(3.3, 0.2, 1.45)], "#1c2a3e");
+      // windows
+      g.fillStyle = "#3a5068"; for (let i = 0; i < 18; i++) { const q = W(-2.8 + i * 0.32, 0.2, 1.38); g.fillRect(q[0] - 1.2 * z, q[1] - 1.2 * z, 2.4 * z, 2.4 * z); }
+      // near wing + engine
+      polyF([W(0.7, 0.3, 1.0), W(-0.7, 3.4, 0.95), W(-1.1, 3.4, 0.95), W(-0.4, 0.3, 1.0)], "#d8d0c4");
+      line([W(0.4, 1.5, 0.72), W(-0.3, 1.5, 0.72)], 8 * z, "#8a8580");
+      // tail fin with a koru-ish swoosh in the crew's neon
+      polyF([W(-2.6, 0, 1.6), W(-3.5, 0, 3.0), W(-3.9, 0, 3.0), W(-3.6, 0, 1.5)], "#0e0b0a");
+      line([W(-3.0, 0, 2.0), W(-3.5, 0, 2.6)], 2.5 * z, "#3dd6ff");
+      // tailplane
+      polyF([W(-3.2, -0.1, 1.5), W(-3.8, -1.1, 1.5), W(-3.9, 1.1, 1.5), W(-3.2, 0.1, 1.5)], "#c8c0b4");
+      break;
+    }
+    case "mural": break;
     case "door": {
-      {
+      if (p.building === -2) {
         g.font = `700 ${Math.round(11 * z)}px "Big Shoulders Display", Impact, sans-serif`;
         g.textAlign = "center";
         g.fillStyle = "#ff7ad9"; g.shadowColor = "#ff7ad9"; g.shadowBlur = dark ? 10 * z : 0;
-        g.fillText("THE STUDIO", sx, sy - 70 * z);
+        g.fillText("MOSAICSCOPE STUDIO", sx, sy - 70 * z);
         g.shadowBlur = 0; g.textAlign = "start";
       }
       break;

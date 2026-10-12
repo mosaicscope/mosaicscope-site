@@ -157,4 +157,6 @@ export const memoryVerb: Record<MemoryKind, string> = {
   hit_by: "got hit by", hit: "hit", helped_by: "got helped by", helped: "helped", gift_from: "got a gift from", gift_to: "gave a gift to",
   argued: "argued with", made_up: "made up with", insulted_by: "got roasted by", joked_with: "joked around with", saw_fight: "saw a toy fight involving",
   saw_break: "saw something get broken by", lost_item: "lost their", party: "partied with", talked: "talked with", rumour: "heard a rumour about", event: "saw", player_action: "saw the stranger do something",
+  saw_crime: "saw a crime by", robbed: "got robbed by", arrested: "saw the police arrest", shoot: "did a photoshoot with", car_hit: "got hit by a car driven by",
+  wounded: "got hurt by", kissed: "kissed", dated: "went on a date with", cheating: "caught cheating:", broke_up: "broke up with",
 };

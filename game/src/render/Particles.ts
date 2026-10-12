@@ -46,6 +46,12 @@ export class Particles {
         case "music": p.kind = K_TEXT; p.text = rand() < 0.5 ? "♪" : "♫"; p.color = color; p.vx = (rand() - 0.5) * 0.6; p.vy = (rand() - 0.5) * 0.6; p.vz = 0.9; p.max = 1.6; p.size = 13; p.g = 0; break;
         case "text": p.kind = K_TEXT; p.vx = 0; p.vy = 0; p.vz = 0.7; p.max = 1.2; p.size = 11; p.g = 0; break;
         case "zzz": p.kind = K_TEXT; p.text = "z"; p.vx = 0.2; p.vy = -0.2; p.vz = 0.5; p.max = 1.5; p.size = 10; p.g = 0; break;
+        case "blood": p.kind = K_DOT; p.color = rand() < 0.5 ? "#b3121b" : "#7a0d12"; p.vx = Math.cos(a) * (0.5 + s * 2.2); p.vy = Math.sin(a) * (0.5 + s * 2.2); p.vz = 1 + s * 3.5; p.max = 0.7; p.size = 1 + s * 1.6; p.g = 12; break;
+        case "spray": p.kind = K_DOT; p.color = color; p.vx = Math.cos(a) * 0.3; p.vy = Math.sin(a) * 0.3; p.vz = 0.2; p.max = 0.6; p.size = 1.5 + s * 2; p.g = 0; break;
+        case "flash": p.kind = K_RING; p.color = "#fff6c8"; p.vx = 0; p.vy = 0; p.vz = 0; p.max = 0.25; p.size = 3; p.g = 0; break;
+        case "paint": p.kind = K_SQ; p.color = color; p.vx = Math.cos(a) * 1.5 * s; p.vy = Math.sin(a) * 1.5 * s; p.vz = 1 + s * 2; p.max = 0.6; p.size = 2.5; p.g = 10; break;
+        case "water": p.kind = K_DOT; p.color = "rgba(61,214,255,.8)"; p.vx = Math.cos(a) * 1.2 * s; p.vy = Math.sin(a) * 1.2 * s; p.vz = 1 + s * 2; p.max = 0.5; p.size = 1.2; p.g = 10; break;
+        case "cash": p.kind = K_SQ; p.color = "#7bd36b"; p.vx = (rand() - 0.5) * 0.6; p.vy = (rand() - 0.5) * 0.6; p.vz = 1.5; p.max = 1.2; p.size = 3; p.g = 2; break;
         case "rain_splash": p.kind = K_RING; p.color = "rgba(160,190,230,.5)"; p.vx = 0; p.vy = 0; p.vz = 0; p.max = 0.3; p.size = 2; p.g = 0; break;
       }
     }

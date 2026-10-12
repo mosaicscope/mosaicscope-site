@@ -1,0 +1,366 @@
+import { World, Building, Graffiti } from "../world/World";
+import { TILE_W, TILE_H, Z_PX } from "../world/iso";
+import { drawAd } from "./Ads";
+import { GROUND_H, FLOOR_H } from "../content/buildings";
+
+/**
+ * Buildings are drawn tile by tile (so depth sorting with people stays correct), but each tile knows
+ * its place in the whole building: exposed walls get a facade (shopfront + awning at street level,
+ * windows per storey, ledges, glass curtain walls on towers, brick on flats), houses get pitched
+ * roofs with gable ends, flat roofs get a parapet and rooftop plant, and commercial buildings carry
+ * neon trim that glows at night. Everything is flat-shaded vector art to match the stick figures.
+ */
+const hash = (a: number, b: number) => { let h = (a * 73856093) ^ (b * 19349663); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+
+function shade(hex: string, k: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.min(255, Math.max(0, Math.round(((n >> 16) & 255) * k))), g = Math.min(255, Math.max(0, Math.round(((n >> 8) & 255) * k))), b = Math.min(255, Math.max(0, Math.round((n & 255) * k)));
+  return `rgb(${r},${g},${b})`;
+}
+function rgba(hex: string, a: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+type Style = "shop" | "tower" | "flats" | "house" | "civic" | "club" | "fuel";
+const STYLE: Record<string, Style> = {
+  office: "tower", hotel: "tower", bank: "tower", hospital: "civic", police: "civic", gallery: "civic", studio: "civic",
+  apartments: "flats", house: "house", nightclub: "club", casino: "club", garage: "fuel", gym: "civic",
+};
+const styleOf = (b: Building): Style => STYLE[b.kind] ?? "shop";
+/** Emissive paint jobs (neon, signs) replayed by the renderer after the night overlay. */
+export const GLOW: (() => void)[] = [];
+const NEON = new Set(["casino", "nightclub", "diner", "pizza", "sushi", "fishchips", "records", "toyshop", "barber", "hotel", "dealership", "gallery", "studio", "cafe", "pawn"]);
+
+/** Pitched roof height above the eaves at a world point (0 for flat roofs). */
+function roofRise(b: Building, wx: number, wy: number): number {
+  if (styleOf(b) !== "house") return 0;
+  const sx = b.x1 + 1 - b.x0, sy = b.y1 + 1 - b.y0;
+  if (sx >= sy) { const d = Math.min(wy - b.y0, b.y1 + 1 - wy); return Math.max(0, d) * (Math.min(1.3, sy * 0.45) / (sy / 2)); }
+  const d = Math.min(wx - b.x0, b.x1 + 1 - wx); return Math.max(0, d) * (Math.min(1.3, sx * 0.45) / (sx / 2));
+}
+
+export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Building, tx: number, ty: number, sx: number, sy: number, z: number, time: number, dark: number, alpha: number, graffiti: Map<string, Graffiti>): void {
+  const hw = (TILE_W / 2) * z, hh = (TILE_H / 2) * z, zp = Z_PX * z, H = b.height;
+  const same = (x: number, y: number) => w.buildingOf[y * w.size + x] === b.id;
+  // a wall is exposed unless the neighbour tile is this building, or a building at least as tall (fully hidden)
+  const blocked = (x: number, y: number) => { const o = w.buildingOf[y * w.size + x]; return o === b.id || o >= 0 && w.buildings[o].height >= b.height; };
+  const southOpen = !blocked(tx, ty + 1), eastOpen = !blocked(tx + 1, ty);
+  const southStreet = w.buildingOf[(ty + 1) * w.size + tx] < 0, eastStreet = w.buildingOf[ty * w.size + tx + 1] < 0;
+  const st = styleOf(b);
+  // screen point of a world position (wx, wy) at height h
+  const P = (wx: number, wy: number, h: number): [number, number] => [sx + ((wx - tx) - (wy - ty)) * hw, sy + ((wx - tx) + (wy - ty)) * hh - h * zp];
+  const top = (wx: number, wy: number) => H + roofRise(b, wx, wy);
+  g.globalAlpha = alpha;
+  const night = dark > 0.25;
+
+  // ---- walls ----
+  // facades read brighter by day; at night the neon and windows do the work
+  const day = Math.max(0, 1 - dark);
+  const kS = 1.15 + 0.45 * day, kE = 0.8 + 0.3 * day;
+  if (southOpen) wall(g, b, P, top, tx, ty + 1, tx + 1, ty + 1, kS, "s", tx, ty, z, dark, night, time);
+  if (eastOpen) wall(g, b, P, top, tx + 1, ty + 1, tx + 1, ty, kE, "e", tx, ty, z, dark, night, time);
+  if (southOpen) paintGraffiti(g, graffiti.get(`${tx},${ty},s`), P(tx, ty + 1, 0), P(tx + 1, ty + 1, 0), Math.min(H, GROUND_H) * zp, z);
+  if (southOpen && eastOpen) {
+    // the building's front corner: a crisp edge so blocks read as solid volumes
+    const A = P(tx + 1, ty + 1, 0), B = P(tx + 1, ty + 1, top(tx + 1, ty + 1));
+    g.strokeStyle = "rgba(238,228,211,.16)"; g.lineWidth = Math.max(1, z); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke();
+  }
+  if (eastOpen) paintGraffiti(g, graffiti.get(`${tx},${ty},e`), P(tx + 1, ty + 1, 0), P(tx + 1, ty, 0), Math.min(H, GROUND_H) * zp, z);
+
+  // ---- roof ----
+  if (st === "house") {
+    // split the tile along the ridge so each half is one flat plane
+    const sxN = b.x1 + 1 - b.x0, syN = b.y1 + 1 - b.y0;
+    const alongX = sxN >= syN, ridge = alongX ? (b.y0 + b.y1 + 1) / 2 : (b.x0 + b.x1 + 1) / 2;
+    const lo = alongX ? ty : tx, hi = lo + 1;
+    const parts: [number, number, boolean][] = ridge > lo && ridge < hi ? [[lo, ridge, true], [ridge, hi, false]] : [[lo, hi, (lo + hi) / 2 < ridge]];
+    for (const [a0, a1, rising] of parts) {
+      const pts = alongX ? [[tx, a0], [tx + 1, a0], [tx + 1, a1], [tx, a1]] : [[a0, ty], [a1, ty], [a1, ty + 1], [a0, ty + 1]];
+      // slope facing +y / +x (towards the camera) is lit; the far slope is in shade
+      g.fillStyle = shade(b.roof, rising ? 0.62 : alongX ? 0.95 : 0.8);
+      g.beginPath();
+      pts.forEach(([x, y], i) => { const p = P(x, y, top(x, y)); if (i) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); });
+      g.closePath(); g.fill();
+      // tile courses
+      g.strokeStyle = "rgba(14,11,10,.22)"; g.lineWidth = Math.max(1, 0.8 * z); g.beginPath();
+      for (let k = 1; k < 4; k++) {
+        const f = a0 + (a1 - a0) * (k / 4);
+        const [p, q] = alongX ? [[tx, f], [tx + 1, f]] : [[f, ty], [f, ty + 1]];
+        const A = P(p[0], p[1], top(p[0], p[1])), B = P(q[0], q[1], top(q[0], q[1]));
+        g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]);
+      }
+      g.stroke();
+    }
+    // ridge line + eaves
+    g.strokeStyle = shade(b.roof, 1.25); g.lineWidth = Math.max(1, 1.4 * z); g.beginPath();
+    if (ridge > (alongX ? ty : tx) && ridge < (alongX ? ty : tx) + 1) {
+      const A = alongX ? P(tx, ridge, top(tx, ridge)) : P(ridge, ty, top(ridge, ty)), B = alongX ? P(tx + 1, ridge, top(tx + 1, ridge)) : P(ridge, ty + 1, top(ridge, ty + 1));
+      g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]);
+    }
+    g.stroke();
+    // chimney on one tile
+    if (tx === b.x0 && ty === b.y0) prism(g, P, tx + 0.25, ty + 0.25, tx + 0.5, ty + 0.5, top(tx + 0.4, ty + 0.4) - 0.2, top(tx + 0.4, ty + 0.4) + 0.55, "#5a4034");
+  } else {
+    const R = [P(tx, ty, H), P(tx + 1, ty, H), P(tx + 1, ty + 1, H), P(tx, ty + 1, H)];
+    g.fillStyle = shade(b.roof, 0.42 + hash(tx, ty) * 0.05);
+    poly(g, R); g.fill();
+    // gravel speckle / roof membrane seams
+    g.strokeStyle = "rgba(255,255,255,.04)"; g.lineWidth = 1; g.beginPath(); g.moveTo(R[0][0], R[0][1]); g.lineTo(R[2][0], R[2][1]); g.stroke();
+    // parapet: inner faces on the far edges, outer cornice on the near edges
+    const pH = 0.22;
+    const lip = (x0: number, y0: number, x1: number, y1: number, col: string) => { g.fillStyle = col; poly(g, [P(x0, y0, H), P(x1, y1, H), P(x1, y1, H + pH), P(x0, y0, H + pH)]); g.fill(); };
+    if (!same(tx, ty - 1)) lip(tx, ty, tx + 1, ty, shade(b.color, 0.55));
+    if (!same(tx - 1, ty)) lip(tx, ty, tx, ty + 1, shade(b.color, 0.45));
+    if (southOpen) lip(tx, ty + 1, tx + 1, ty + 1, shade(b.color, 1.25));
+    if (eastOpen) lip(tx + 1, ty + 1, tx + 1, ty, shade(b.color, 0.9));
+    // rooftop plant: AC units, vents, water tanks on towers
+    const r = hash(tx * 3 + 1, ty * 5 + b.id);
+    const interior = same(tx, ty - 1) && same(tx - 1, ty);
+    if (interior && r < 0.07) prism(g, P, tx + 0.2, ty + 0.25, tx + 0.7, ty + 0.65, H, H + 0.35, "#8a8580");
+    else if (interior && r < 0.1) prism(g, P, tx + 0.35, ty + 0.35, tx + 0.6, ty + 0.6, H, H + 0.6, "#5a5550");
+    else if (interior && (st === "tower" || st === "flats") && r > 0.94) tank(g, P, tx + 0.5, ty + 0.5, H, z);
+    // antenna on the tallest towers
+    if (st === "tower" && b.floors >= 9 && tx === Math.floor((b.x0 + b.x1) / 2) && ty === b.y0 + 1) {
+      const A = P(tx + 0.5, ty + 0.5, H), B = P(tx + 0.5, ty + 0.5, H + 2.4);
+      g.strokeStyle = "#9a8d80"; g.lineWidth = Math.max(1, 1.5 * z); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke();
+      if (Math.floor(time * 1.2) % 2 === 0) { g.fillStyle = "#ff3b2f"; g.beginPath(); g.arc(B[0], B[1], 2.2 * z, 0, 6.283); g.fill(); }
+    }
+  }
+
+  // ---- neon trim along the roofline at night ----
+  if (night && NEON.has(b.kind) && st !== "house" && (southStreet || eastStreet)) {
+    const glowA = Math.min(1, (dark - 0.25) * 2.2), a0 = alpha;
+    const S0 = P(tx, ty + 1, H + 0.22), S1 = P(tx + 1, ty + 1, H + 0.22), E1 = P(tx + 1, ty, H + 0.22), C0 = P(tx + 1, ty + 1, 0.1);
+    const tube = southStreet && eastStreet && (b.kind === "casino" || b.kind === "nightclub" || b.kind === "hotel");
+    const paint = () => {
+      g.globalAlpha = a0; g.lineCap = "round";
+      for (const [lw, a] of [[6 * z, 0.2], [1.8 * z, 0.95]] as const) {
+        g.strokeStyle = rgba(b.sign, a * glowA); g.lineWidth = Math.max(1, lw); g.beginPath();
+        if (southStreet) { g.moveTo(S0[0], S0[1]); g.lineTo(S1[0], S1[1]); }
+        if (eastStreet) { g.moveTo(S1[0], S1[1]); g.lineTo(E1[0], E1[1]); }
+        if (tube) { g.moveTo(C0[0], C0[1]); g.lineTo(S1[0], S1[1]); }
+        g.stroke();
+      }
+      g.lineCap = "butt"; g.globalAlpha = 1;
+    };
+    paint(); GLOW.push(paint);
+  }
+
+  // sign over the centre of the building
+  const cx = Math.floor((b.x0 + b.x1) / 2), cy = Math.floor((b.y0 + b.y1) / 2);
+  if (tx === cx && ty === cy) {
+    const p = P(tx + 0.5, ty + 0.5, top(tx + 0.5, ty + 0.5) + (st === "house" ? 0 : 0.22)), a0 = alpha;
+    roofTop(g, b, p[0], p[1], z, time, dark);
+    // signs are lights: repaint them over the night overlay
+    if (dark > 0.3) GLOW.push(() => { g.globalAlpha = a0; roofTop(g, b, p[0], p[1], z, time, dark); g.globalAlpha = 1; });
+  }
+  g.globalAlpha = 1;
+}
+
+function poly(g: CanvasRenderingContext2D, pts: number[][]): void {
+  g.beginPath(); pts.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.closePath();
+}
+
+/** Small box on a roof (AC unit, vent, chimney): near faces + top. */
+function prism(g: CanvasRenderingContext2D, P: (x: number, y: number, h: number) => [number, number], x0: number, y0: number, x1: number, y1: number, h0: number, h1: number, col: string): void {
+  g.fillStyle = shade(col, 0.95); poly(g, [P(x0, y1, h0), P(x1, y1, h0), P(x1, y1, h1), P(x0, y1, h1)]); g.fill();
+  g.fillStyle = shade(col, 0.7); poly(g, [P(x1, y1, h0), P(x1, y0, h0), P(x1, y0, h1), P(x1, y1, h1)]); g.fill();
+  g.fillStyle = shade(col, 1.15); poly(g, [P(x0, y0, h1), P(x1, y0, h1), P(x1, y1, h1), P(x0, y1, h1)]); g.fill();
+}
+
+/** Classic rooftop water tank on legs. */
+function tank(g: CanvasRenderingContext2D, P: (x: number, y: number, h: number) => [number, number], x: number, y: number, h: number, z: number): void {
+  const base = P(x, y, h + 0.5), topP = P(x, y, h + 1.4), r = 11 * z;
+  g.strokeStyle = "#3a3430"; g.lineWidth = Math.max(1, 1.2 * z); g.beginPath();
+  for (const dx of [-0.6, 0.6]) { const a = P(x, y, h); g.moveTo(a[0] + dx * r, a[1]); g.lineTo(base[0] + dx * r, base[1]); }
+  g.stroke();
+  g.fillStyle = "#6b4a2e"; g.fillRect(base[0] - r, topP[1], r * 2, base[1] - topP[1]);
+  g.beginPath(); g.ellipse(base[0], base[1], r, r * 0.5, 0, 0, Math.PI); g.fill();
+  g.fillStyle = "#4a3020"; g.beginPath(); g.moveTo(topP[0] - r * 1.05, topP[1]); g.lineTo(topP[0], topP[1] - r * 0.9); g.lineTo(topP[0] + r * 1.05, topP[1]); g.closePath(); g.fill();
+  g.strokeStyle = "rgba(14,11,10,.35)"; g.beginPath(); for (let k = 1; k < 3; k++) { const yy = topP[1] + (base[1] - topP[1]) * k / 3; g.moveTo(base[0] - r, yy); g.lineTo(base[0] + r, yy); } g.stroke();
+}
+
+/**
+ * One exposed wall of one tile, from world point A to B along the ground. `lightK` dims the east face.
+ * Windows and ledges follow the building's storeys so neighbouring tiles line up seamlessly.
+ */
+function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number, h: number) => [number, number], top: (x: number, y: number) => number,
+  ax: number, ay: number, bx: number, by: number, lightK: number, face: "s" | "e", tx: number, ty: number, z: number, _dark: number, night: boolean, time: number): void {
+  const st = styleOf(b), H = b.height;
+  const at = (t: number, h: number) => P(ax + (bx - ax) * t, ay + (by - ay) * t, h);
+  // outline, following a gable if the roof rises along this edge
+  const steps = st === "house" ? 6 : 1;
+  const outline: number[][] = [P(ax, ay, 0), P(bx, by, 0)];
+  for (let k = steps; k >= 0; k--) { const t = k / steps; outline.push(at(t, top(ax + (bx - ax) * t, ay + (by - ay) * t))); }
+  g.fillStyle = shade(b.color, lightK);
+  poly(g, outline); g.fill();
+  // brick / siding texture on flats & houses (cheap: a few horizontal courses)
+  if (st === "flats" || st === "house") {
+    g.strokeStyle = `rgba(0,0,0,${st === "house" ? 0.12 : 0.1})`; g.lineWidth = 1; g.beginPath();
+    const n = Math.round(H * (st === "house" ? 5 : 4));
+    for (let k = 1; k < n; k++) { const h = (k / n) * H; const A = at(0, h), B = at(1, h); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); }
+    g.stroke();
+  }
+  const floors = b.floors;
+  const floorBase = (f: number) => (f === 0 ? 0 : GROUND_H + (f - 1) * FLOOR_H);
+  const floorH = (f: number) => (f === 0 ? GROUND_H : FLOOR_H);
+  const lit = (f: number, k: number) => night && hash(tx * 7 + ty * 13 + f * 3 + k + (face === "e" ? 50 : 0), b.id) < (st === "flats" || st === "tower" ? 0.55 : 0.45);
+  const litCol = (f: number, k: number) => { const r = hash(f * 11 + k, tx + ty * 3); return r < 0.15 ? "#9fe8ff" : r < 0.55 ? "#ffd27a" : "#fff0c0"; };
+  const quad = (t0: number, t1: number, h0: number, h1: number) => { const A = at(t0, h0), B = at(t1, h0), C = at(t1, h1), D = at(t0, h1); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.lineTo(C[0], C[1]); g.lineTo(D[0], D[1]); g.closePath(); };
+  const doorHere = b.door.face === face && (face === "s" ? b.door.x === tx && b.door.y === ty + 1 : b.door.x === tx + 1 && b.door.y === ty);
+
+  // ---------- ground floor ----------
+  if (st === "shop" || st === "club" || st === "fuel") {
+    // full-width shop window
+    const glow = night ? 1 : 0.35;
+    g.fillStyle = night ? shade(b.sign, 0.5) : "rgba(30,38,52,.92)";
+    g.beginPath(); quad(0.06, 0.94, 0.12, GROUND_H * 0.78); g.fill();
+    if (glow > 0.5) { g.fillStyle = "rgba(255,230,180,.35)"; g.beginPath(); quad(0.06, 0.94, 0.12, GROUND_H * 0.5); g.fill(); }
+    // sky reflection streak by day
+    if (!night) { g.fillStyle = "rgba(200,225,255,.18)"; g.beginPath(); quad(0.2, 0.34, 0.15, GROUND_H * 0.75); g.fill(); }
+    // mullions
+    g.strokeStyle = shade(b.color, 0.5 * lightK); g.lineWidth = Math.max(1, 1.2 * z); g.beginPath();
+    for (const t of [0.06, 0.5, 0.94]) { const A = at(t, 0.12), B = at(t, GROUND_H * 0.78); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); }
+    g.stroke();
+    // fascia band (where the shop name would be painted)
+    g.fillStyle = shade(b.color, 0.55 * lightK); g.beginPath(); quad(0, 1, GROUND_H * 0.82, GROUND_H); g.fill();
+    // striped awning sticking out over the footpath
+    if (st !== "fuel") awning(g, P, ax, ay, bx, by, face, b.sign, lightK, z);
+  } else if (st === "tower" || st === "civic") {
+    // lobby glass
+    g.fillStyle = night ? "rgba(255,226,170,.75)" : "rgba(40,52,70,.9)";
+    g.beginPath(); quad(0.1, 0.9, 0.1, GROUND_H * 0.82); g.fill();
+    g.strokeStyle = shade(b.color, 0.6 * lightK); g.lineWidth = Math.max(1, z); g.beginPath();
+    for (const t of [0.1, 0.36, 0.63, 0.9]) { const A = at(t, 0.1), B = at(t, GROUND_H * 0.82); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); }
+    g.stroke();
+    if (b.kind === "hospital") { g.fillStyle = "#ec2a1c"; g.beginPath(); quad(0.1, 0.9, GROUND_H * 0.86, GROUND_H * 0.98); g.fill(); }
+    if (b.kind === "police") { g.fillStyle = "#1c6bd6"; g.beginPath(); quad(0, 1, GROUND_H * 0.86, GROUND_H * 0.98); g.fill(); g.fillStyle = "#eee4d3"; g.beginPath(); for (let k = 0; k < 6; k += 2) quad(k / 6, (k + 1) / 6, GROUND_H * 0.86, GROUND_H * 0.98); g.fill(); }
+  } else {
+    // houses & flats: two windows on the ground floor
+    windows(g, quad, 0, GROUND_H * 0.25, GROUND_H * 0.72, lit(0, 0) || lit(0, 1), litCol(0, 0), night, 2);
+  }
+  // ---------- upper floors ----------
+  if (st === "tower") {
+    // glass curtain wall: dark glass with a sky gradient, mullion grid, scattered lit offices at night
+    const h0 = GROUND_H, h1 = H;
+    if (h1 > h0) {
+      const A = at(0, h1), C = at(0, h0);
+      const grd = g.createLinearGradient(A[0], A[1], C[0], C[1]);
+      grd.addColorStop(0, lightK > 1 ? "#6f94bf" : "#46668a"); grd.addColorStop(1, lightK > 1 ? "#24344c" : "#18233a");
+      g.fillStyle = grd; g.beginPath(); quad(0.03, 0.97, h0 + 0.05, h1 - 0.05); g.fill();
+      if (night) {
+        for (let f = 1; f < floors; f++) for (let k = 0; k < 3; k++) if (lit(f, k)) { g.fillStyle = litCol(f, k); g.beginPath(); quad(k / 3 + 0.03, (k + 1) / 3 - 0.03, floorBase(f) + 0.08, floorBase(f) + FLOOR_H - 0.12); g.fill(); }
+      }
+      g.strokeStyle = shade(b.color, 0.85 * lightK); g.lineWidth = Math.max(1, 0.9 * z); g.beginPath();
+      for (let f = 1; f <= floors; f++) { const h = Math.min(h1, floorBase(f)); const P0 = at(0, h), P1 = at(1, h); g.moveTo(P0[0], P0[1]); g.lineTo(P1[0], P1[1]); }
+      for (const t of [0, 1 / 3, 2 / 3]) { const P0 = at(t, h0), P1 = at(t, h1); g.moveTo(P0[0], P0[1]); g.lineTo(P1[0], P1[1]); }
+      g.stroke();
+    }
+  } else {
+    for (let f = 1; f < floors; f++) {
+      const base = floorBase(f), fh = floorH(f);
+      const n = st === "house" ? 1 : 2;
+      windows(g, quad, base, base + fh * 0.22, base + fh * 0.78, lit(f, 0) || lit(f, 1) && n === 2, litCol(f, 0), night, n);
+      // balconies on flats, ledges on everything else
+      if (st === "flats" && hash(f, tx + ty) < 0.5) {
+        g.fillStyle = shade(b.color, 1.35 * lightK); g.beginPath(); quad(0.15, 0.85, base, base + 0.08); g.fill();
+        g.strokeStyle = shade(b.color, 1.5 * lightK); g.lineWidth = Math.max(1, 0.8 * z); g.beginPath();
+        for (let k = 0; k <= 6; k++) { const t = 0.15 + (k / 6) * 0.7, A = at(t, base + 0.08), B = at(t, base + 0.35); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); }
+        const A = at(0.15, base + 0.35), B = at(0.85, base + 0.35); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]);
+        g.stroke();
+      } else if (st !== "house") {
+        g.fillStyle = shade(b.color, 1.3 * lightK); g.beginPath(); quad(0, 1, base - 0.04, base + 0.04); g.fill();
+      }
+    }
+  }
+  // nightclub: pulsing coloured windows
+  if (st === "club" && night) {
+    const hue = (time * 40 + tx * 30) % 360;
+    g.fillStyle = `hsla(${hue},90%,60%,.35)`; g.beginPath(); quad(0.06, 0.94, 0.12, GROUND_H * 0.78); g.fill();
+  }
+  // front door
+  if (doorHere) door(g, quad, b, night);
+  // street-level grime line
+  g.fillStyle = "rgba(14,11,10,.28)"; g.beginPath(); quad(0, 1, 0, 0.1); g.fill();
+}
+
+function windows(g: CanvasRenderingContext2D, quad: (t0: number, t1: number, h0: number, h1: number) => void, _base: number, h0: number, h1: number, lit: boolean, litCol: string, night: boolean, n: number): void {
+  const spans = n === 1 ? [[0.3, 0.7]] : [[0.14, 0.42], [0.58, 0.86]];
+  // frames
+  g.fillStyle = "rgba(238,228,211,.22)"; g.beginPath(); for (const [a, b] of spans) quad(a - 0.03, b + 0.03, h0 - 0.05, h1 + 0.05); g.fill();
+  g.fillStyle = lit ? litCol : night ? "rgba(10,12,20,.85)" : "rgba(28,38,56,.85)"; g.beginPath(); for (const [a, b] of spans) quad(a, b, h0, h1); g.fill();
+  if (!night) { g.fillStyle = "rgba(200,225,255,.16)"; g.beginPath(); for (const [a, b] of spans) quad(a, a + (b - a) * 0.35, h0 + (h1 - h0) * 0.4, h1); g.fill(); }
+  // sill
+  g.fillStyle = "rgba(238,228,211,.35)"; g.beginPath(); for (const [a, b] of spans) quad(a - 0.04, b + 0.04, h0 - 0.06, h0 - 0.01); g.fill();
+}
+
+function awning(g: CanvasRenderingContext2D, P: (x: number, y: number, h: number) => [number, number], ax: number, ay: number, bx: number, by: number, face: "s" | "e", col: string, lightK: number, z: number): void {
+  const ox = face === "e" ? 0.38 : 0, oy = face === "s" ? 0.38 : 0;
+  const hIn = GROUND_H * 0.95, hOut = GROUND_H * 0.7;
+  const stripes = 6;
+  for (let k = 0; k < stripes; k++) {
+    const t0 = k / stripes, t1 = (k + 1) / stripes;
+    const x0 = ax + (bx - ax) * t0, y0 = ay + (by - ay) * t0, x1 = ax + (bx - ax) * t1, y1 = ay + (by - ay) * t1;
+    g.fillStyle = k % 2 ? shade(col, 0.9 * lightK) : shade("#eee4d3", 0.92 * lightK);
+    poly(g, [P(x0, y0, hIn), P(x1, y1, hIn), P(x1 + ox, y1 + oy, hOut), P(x0 + ox, y0 + oy, hOut)]); g.fill();
+  }
+  // valance
+  g.fillStyle = shade(col, 0.7 * lightK);
+  poly(g, [P(ax + ox, ay + oy, hOut), P(bx + ox, by + oy, hOut), P(bx + ox, by + oy, hOut - 0.12), P(ax + ox, ay + oy, hOut - 0.12)]); g.fill();
+  void z;
+}
+
+function door(g: CanvasRenderingContext2D, quad: (t0: number, t1: number, h0: number, h1: number) => void, b: Building, night: boolean): void {
+  const frame = b.kind === "casino" ? "#f6b62c" : b.kind === "police" ? "#3dd6ff" : "#0e0b0a";
+  g.fillStyle = frame; g.beginPath(); quad(0.33, 0.67, 0, GROUND_H * 0.72); g.fill();
+  g.fillStyle = night ? "rgba(255,226,170,.9)" : "rgba(60,74,96,.95)"; g.beginPath(); quad(0.37, 0.63, 0.02, GROUND_H * 0.66); g.fill();
+  g.strokeStyle = frame; g.lineWidth = 1; g.beginPath(); quad(0.5, 0.5, 0.02, GROUND_H * 0.66); g.stroke();
+}
+
+function paintGraffiti(g: CanvasRenderingContext2D, gr: Graffiti | undefined, A: number[], B: number[], H: number, z: number): void {
+  if (!gr) return;
+  const mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2 - Math.min(H * 0.45, 20 * z);
+  const ang = Math.atan2(B[1] - A[1], B[0] - A[0]);
+  g.save();
+  g.translate(mx, my); g.rotate(ang);
+  const fs = Math.max(7, Math.min(16, 26 * z / Math.max(3, gr.text.length / 2)));
+  g.font = `${gr.style % 2 ? "900" : "700"} ${fs}px "Big Shoulders Display", Impact, sans-serif`;
+  g.textAlign = "center"; g.textBaseline = "middle";
+  if (gr.legal || gr.style === 2) { g.fillStyle = "rgba(14,11,10,.5)"; g.fillRect(-fs * gr.text.length * 0.32, -fs * 0.7, fs * gr.text.length * 0.64, fs * 1.4); }
+  g.lineWidth = Math.max(1, 2 * z); g.strokeStyle = "#0e0b0a"; g.strokeText(gr.text, 0, 0);
+  g.fillStyle = gr.color; g.fillText(gr.text, 0, 0);
+  if (gr.style === 3) { g.strokeStyle = gr.color; g.beginPath(); g.moveTo(-fs * 2, fs * 0.8); g.lineTo(fs * 2, fs * 0.6); g.stroke(); }
+  g.restore();
+}
+
+function roofTop(g: CanvasRenderingContext2D, b: Building, x: number, y: number, z: number, time: number, dark: number): void {
+  // neon name sign on a little frame
+  const fs = Math.max(8, Math.round(12 * z));
+  g.font = `800 ${fs}px "Big Shoulders Display", Impact, sans-serif`;
+  g.textAlign = "center"; g.textBaseline = "alphabetic";
+  const label = b.kind === "house" ? "" : b.name.toUpperCase();
+  if (label) {
+    const glow = dark > 0.3;
+    const w = g.measureText(label).width + 10;
+    g.strokeStyle = "#3a3430"; g.lineWidth = Math.max(1, 1.5 * z); g.beginPath();
+    g.moveTo(x - w * 0.3, y); g.lineTo(x - w * 0.3, y - 6 * z); g.moveTo(x + w * 0.3, y); g.lineTo(x + w * 0.3, y - 6 * z); g.stroke();
+    g.fillStyle = "rgba(14,11,10,.82)";
+    g.fillRect(x - w / 2, y - fs - 9 * z, w, fs + 5);
+    if (glow) { g.shadowColor = b.sign; g.shadowBlur = 10 * z; }
+    g.fillStyle = b.sign;
+    g.fillText(label, x, y - 8 * z);
+    g.shadowBlur = 0;
+  }
+  if (b.billboard || b.kind === "gallery" || b.kind === "casino") billboard(g, b, x, y - (label ? fs + 14 * z : 0), z, time, dark);
+  g.textAlign = "start";
+}
+
+/** Rooftop ads: MosaicScope (logo + one short line, clickable) or the casino's own board. */
+function billboard(g: CanvasRenderingContext2D, b: Building, x: number, y: number, z: number, time: number, dark: number): void {
+  const w = 100 * z, h = 34 * z;
+  g.strokeStyle = "#3a3430"; g.lineWidth = 2 * z;
+  g.beginPath(); g.moveTo(x - w * 0.3, y); g.lineTo(x - w * 0.3, y - 12 * z); g.moveTo(x + w * 0.3, y); g.lineTo(x + w * 0.3, y - 12 * z); g.stroke();
+  if (dark > 0.3) { g.fillStyle = "rgba(255,240,190,.12)"; g.beginPath(); g.moveTo(x - w * 0.3, y - 12 * z); g.lineTo(x - w / 2, y - 12 * z - h); g.lineTo(x + w / 2, y - 12 * z - h); g.lineTo(x + w * 0.3, y - 12 * z); g.closePath(); g.fill(); }
+  drawAd(g, b.kind === "casino" ? "casino" : "mosaic", x, y - 12 * z, w, h, b.id + Math.floor(time / 10), dark);
+}

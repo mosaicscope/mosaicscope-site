@@ -12,7 +12,7 @@ describe("world generator", () => {
       for (const p of w.pois) {
         if (p.kind === "fountain" || p.kind === "door") continue;
         const tx = Math.floor(p.x), ty = Math.floor(p.y);
-        expect(seen[ty * 64 + tx], `${p.kind} at ${tx},${ty}`).toBe(1);
+        expect(seen[ty * w.size + tx], `${p.kind} at ${tx},${ty}`).toBe(1);
       }
       for (const a of w.areas) expect(w.randomPointIn(a, { range: (lo: number, hi: number) => (lo + hi) / 2 } as any)).toBeTruthy();
     });
@@ -30,7 +30,7 @@ describe("world generator", () => {
 
 describe("navigation", () => {
   const w = generateWorld({ size: 64, seed: 11 });
-  const nav = new Navigation(w, 5000);
+  const nav = new Navigation(w, 9600);
   it("finds walkable paths between every district", () => {
     const plaza = w.areas.find((a) => a.kind === "plaza")!;
     const from = w.nearestWalkable(plaza.cx, plaza.cy);

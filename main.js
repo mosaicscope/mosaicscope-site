@@ -1701,7 +1701,7 @@
     { at: 120, prop: "lights" },
     { at: 180, prop: "disco" },
     { at: 300, prop: "banner" },
-    { at: 420, prop: "sign" },
+    { at: 0, prop: "sign" }, // the door to the Mosaics' world is there from the start
     { at: 600, prop: "neon" }
   ];
   var POSE_CLASSES = [];
@@ -2101,7 +2101,8 @@
         el = document.createElement("a");
         el.href = "/world/";
         el.className = "prop prop--sign mono";
-        el.innerHTML = "Our world<br>step inside";
+        el.innerHTML = "Our world<br>enter &rarr;";
+        el.setAttribute("aria-label", "Enter the Mosaics' world");
       } else if (name === "neon") {
         el = document.createElement("div");
         el.className = "prop prop--neon mono";

@@ -21,10 +21,17 @@ import { LodManager } from "../crowd/LodManager";
 import { EnvState, newEnv, updateEnvironment, TICKS_PER_HOUR, daylight } from "./Environment";
 import { spawnAll, streetSpot, spawnBackground } from "./Spawner";
 import { installRules } from "./Rules";
-import { pickUp, drop, transfer, craftable, detach, PickupResult } from "../inventory/Inventory";
+import { pickUp, drop, transfer, craftable, detach, PickupResult, carried } from "../inventory/Inventory";
+import { Vehicle } from "../entities/types";
+import { spawnVehicles, updateVehicles, unseat } from "./Traffic";
+import { Crime, Booking, exitBuilding, insideOutcome, updateCustody, commitCrime, evaluateTrade, executeTrade, fmtCash } from "./Society";
+import { NameBook } from "./Spawner";
+import { VEHICLES } from "../content/vehicles";
+import { forceGoal } from "../ai/brain";
+import { updateHealth, hospitalise, wound, useBandage, recomputeBleed } from "./Life";
 import { clamp } from "../core/math";
 
-export type FxKind = "dust" | "impact" | "spark" | "confetti" | "break" | "heart" | "rain_splash" | "text" | "spring" | "zzz" | "music" | "star";
+export type FxKind = "dust" | "impact" | "spark" | "confetti" | "break" | "heart" | "rain_splash" | "text" | "spring" | "zzz" | "music" | "star" | "blood" | "spray" | "flash" | "paint" | "water" | "cash";
 export interface SimSignals {
   fx: { kind: FxKind; x: number; y: number; z: number; color?: string; n?: number; text?: string };
   sound: { kind: string; x: number; y: number; vol: number };
@@ -57,6 +64,18 @@ export class Simulation {
   bus = new EventBus<SimSignals>();
   chars: Character[] = [];
   toys: Toy[] = [];
+  vehicles: Vehicle[] = [];
+  names?: NameBook;
+  usedLooks = new Set<string>();
+  /** money taken by each building's till */
+  tills: Record<number, number> = {};
+  crimes: Crime[] = [];
+  bookings: Booking[] = [];
+  /** tick a cop last had eyes on the wanted player */
+  lastSeenByCops = 0;
+  /** set when the player gets arrested (the UI shows the "busted" screen) */
+  bustedAt = -1;
+  bustedFine = 0;
   playerId = 0;
   charHash!: SpatialHash;
   tick = 0;
@@ -102,6 +121,7 @@ export class Simulation {
     const S = this.world.size;
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (this.world.shelter[y * S + x] && this.world.walkableTile(x, y)) this.shelterPts.push({ x: x + 0.5, y: y + 0.5 });
     spawnAll(this);
+    spawnVehicles(this);
     this.rebuildHash();
   }
 
@@ -117,7 +137,7 @@ export class Simulation {
   rebuildHash(): void {
     const h = this.charHash;
     h.clear();
-    for (const c of this.chars) if (c.lod !== Lod.SLEEP) h.insert(c.id, c.x, c.y);
+    for (const c of this.chars) if (c.lod !== Lod.SLEEP && c.inside < 0 && c.inCar < 0) h.insert(c.id, c.x, c.y);
   }
 
   // ------------------------------------------------------------------ tick
@@ -134,11 +154,28 @@ export class Simulation {
     let aiMs = 0;
     const tm = performance.now();
     for (const c of this.chars) {
+      if (c.inCar >= 0) continue; // the car carries them (updated in Traffic)
+      if (c.inside >= 0) {
+        // indoors: nothing to simulate until they come back out
+        if (this.tick >= c.insideUntil && this.tick % 15 === c.id % 15) {
+          const b = this.world.buildings[c.inside];
+          if (b && c.jailUntil === 0) insideOutcome(this, c, b);
+          if (c.jailUntil > 0) { if (this.tick >= c.jailUntil) { c.jailUntil = 0; exitBuilding(this, c); this.emit({ type: "released", x: c.x, y: c.y, actors: [c.id], summary: `${c.name} was released from the cells` }); } }
+          else exitBuilding(this, c);
+        }
+        continue;
+      }
       c.px = c.x; c.py = c.y;
+      if (updateCustody(this, c) || this.tick < c.stunUntil) {
+        if (this.tick < c.stunUntil) { c.vx = c.vy = 0; c.anim.pose = "stunned"; }
+        this.moveCharacter(c, dt);
+        continue;
+      }
       const interval = LOD_INTERVAL[c.lod];
       if (this.tick >= c.nextThink) {
         const ta = performance.now();
         const tdt = interval * dt;
+        updateHealth(this, c, tdt);
         if (c.tier === "background" && !c.promoted) thinkBackground(c, this, tdt);
         else think(c, this, tdt);
         c.nextThink = this.tick + interval + (c.lod >= Lod.GROUP ? (c.id % 3) : 0);
@@ -156,6 +193,7 @@ export class Simulation {
     this.metrics.moveMs = performance.now() - tm - aiMs;
     this.metrics.aiMs = aiMs;
 
+    updateVehicles(this, dt);
     const tp = performance.now();
     this.physics.step(dt, this.toys, this.chars, this.charHash, this.tick, this.hooks);
     for (const t of this.toys) if (t.state === "held") this.attachHeld(t);
@@ -169,6 +207,12 @@ export class Simulation {
     if (this.deferred.length) { const d = this.deferred; this.deferred = []; for (const fn of d) fn(); }
 
     if (this.tick % 120 === 0) this.groups.update(this.chars, this.tick);
+    if (this.tick % 30 === 0) this.policeTick();
+    if (this.tick % 60 === 0) for (const [id, at] of this.pendingAmbulance) {
+      const c = this.chars[id];
+      if (!c || c.blood >= 0.35 && c.phys !== Phys.DOWN) { this.pendingAmbulance.delete(id); continue; }
+      if (this.tick >= at) { this.pendingAmbulance.delete(id); hospitalise(this, c); }
+    }
     if (this.tick % 60 === 0) this.housekeeping();
     this.metrics.stepMs = performance.now() - t0;
   }
@@ -194,12 +238,17 @@ export class Simulation {
       }
       vx += sx * 1.8; vy += sy * 1.8;
     }
+    if ((vx !== 0 || vy !== 0) && c.tier !== "player" && this.trafficAhead(c, vx, vy)) { vx = 0; vy = 0; c.vx = 0; c.vy = 0; }
     if (vx !== 0 || vy !== 0) {
       const blocked = this.physics.moveCircle(c, vx * dt, vy * dt);
       if (c.vx !== 0 || c.vy !== 0) c.facing = Math.atan2(c.vy, c.vx);
       if (blocked) c.stuck += dt;
     }
     this.physics.stepCharacter(c, dt, this.hooks);
+    // the map has hard edges: knockbacks and car exits can't push anyone off it
+    const lim = this.world.size - 0.3;
+    if (c.x < 0.3) c.x = 0.3; else if (c.x > lim) c.x = lim;
+    if (c.y < 0.3) c.y = 0.3; else if (c.y > lim) c.y = lim;
     if (c.lod === Lod.FULL && c.tier !== "background") this.physics.pushHeavies(c, this.toys, this.tick, this.hooks);
     // stuck recovery: no progress while trying to move
     if (this.tick % 30 === c.id % 30) {
@@ -214,9 +263,28 @@ export class Simulation {
     }
   }
 
+  /** About to step onto the road with a car bearing down? Wait at the kerb. */
+  trafficAhead(c: Character, vx: number, vy: number): boolean {
+    const sp = Math.hypot(vx, vy) || 1;
+    const nx = c.x + (vx / sp) * 0.6, ny = c.y + (vy / sp) * 0.6;
+    const t = this.world.tile(Math.floor(nx), Math.floor(ny));
+    if (t !== 16 && t !== 18) return false; // road or crossing
+    const onRoad = this.world.tile(Math.floor(c.x), Math.floor(c.y));
+    if (onRoad === 16 || onRoad === 18) return false; // already crossing: keep going
+    for (const v of this.vehicles) {
+      if (Math.abs(v.speed) < 0.5) continue;
+      const dx = c.x - v.x, dy = c.y - v.y, d = Math.hypot(dx, dy);
+      if (d > 2 + Math.abs(v.speed) * 0.9) continue;
+      if ((dx * Math.cos(v.heading) + dy * Math.sin(v.heading)) / (d || 1) > 0.3) return true;
+    }
+    return false;
+  }
+
   private moveSimple(c: Character, dt: number): void {
     if (c.vx === 0 && c.vy === 0) return;
-    const nx = c.x + c.vx * dt, ny = c.y + c.vy * dt;
+    if (this.trafficAhead(c, c.vx, c.vy)) return;
+    const lim = this.world.size - 0.3;
+    const nx = Math.min(lim, Math.max(0.3, c.x + c.vx * dt)), ny = Math.min(lim, Math.max(0.3, c.y + c.vy * dt));
     if (this.world.walkable(nx, ny)) { c.x = nx; c.y = ny; c.facing = Math.atan2(c.vy, c.vx); }
     else { c.vx = 0; c.vy = 0; c.stuck += 1; }
   }
@@ -251,6 +319,168 @@ export class Simulation {
     this.hotspots = this.hotspots.filter((h) => tick - h.tick < 60 * 12);
     this.games = this.games.filter((g) => g.until > tick && this.toys[g.toy]?.state !== "broken");
     if (this.toasts.length > 40) this.toasts.splice(0, this.toasts.length - 40);
+  }
+
+  // ------------------------------------------------------------------ city: money, police, cars
+  wagePerHour(c: Character): number {
+    const w: Record<string, number> = { office: 32, cop: 38, medic: 40, dealer: 30, chef: 26, barista: 25, shopkeeper: 25, mechanic: 30, bouncer: 28, cleaner: 24, vendor: 24, taxi: 26, driver: 25, photographer: 35 };
+    return w[c.role] ?? 23;
+  }
+
+  /** Passers-by sometimes drop a coin in the busker's case. */
+  tipBusker(b: Character): void {
+    const n = this.charHash.query(b.x, b.y, 4, this.tmp);
+    for (let i = 0; i < n; i++) {
+      const c = this.chars[this.tmp[i]];
+      if (c === b || c.cash < 5 || c.tier === "player" || !this.rng.chance(0.15 + c.pers.kindness * 0.2)) continue;
+      const tip = this.rng.pick([1, 2, 2, 5]);
+      c.cash -= tip; b.cash += tip;
+      this.bus.emit("fx", { kind: "cash", x: b.x, y: b.y, z: 0.4, n: 1 });
+      applyInteraction(b, c, "gift", true, this.tick, 0.3);
+      if (this.rng.chance(0.3)) this.emit({ type: "tip", x: b.x, y: b.y, actors: [c.id, b.id], summary: `${c.name} tipped ${b.name} ${fmtCash(tip)} for the busking` });
+      return;
+    }
+  }
+
+  /** NPC barter: offer the least-loved item (plus cash if needed) for something liked. */
+  npcTrade(c: Character, o: Character): boolean {
+    const want = carried(o).map((id) => this.toys[id]).find((t) => t && c.likes.includes(t.def) && t.owner === o.id);
+    if (!want) return false;
+    const mine = carried(c).map((id) => this.toys[id]).filter((t) => t && t.id !== want.id && !c.likes.includes(t.def));
+    const offer = { items: mine.slice(0, 1).map((t) => t.id), cash: 0 };
+    let v = evaluateTrade(this, o, c, offer, { items: [want.id], cash: 0 });
+    if (!v.accept && v.counterCash > 0 && v.counterCash <= c.cash && v.counterCash < 200) { offer.cash = v.counterCash; v = evaluateTrade(this, o, c, offer, { items: [want.id], cash: 0 }); }
+    if (!v.accept) { this.say(o, this.dialogue.bark(o, "trade_no", c), "say", 1.8); return false; }
+    this.say(c, this.dialogue.bark(c, "trade_ask", o, { toy: TOYS[want.def].name }), "say", 1.8);
+    return executeTrade(this, c, o, offer, { items: [want.id], cash: 0 });
+  }
+
+  /** A moving car hits someone: knockback scaled by speed and mass, cartoon blood at speed. */
+  onCarHit(v: Vehicle, c: Character, speed: number): void {
+    if (c.lastHitTick > this.tick - 30 && c.lastHitBy === -100 - v.id) return;
+    c.lastHitTick = this.tick; c.lastHitBy = -100 - v.id;
+    const d = VEHICLES[v.cls];
+    const nx = Math.cos(v.heading), ny = Math.sin(v.heading);
+    const res = applyImpact(c, Math.min(this.cfg.maxImpulse * 1.5, speed * d.mass * 1.1), nx, ny, false, this.cfg.maxImpulse * 1.5);
+    c.vz = 2 + speed * 0.2;
+    v.speed *= 0.55; v.damage = Math.min(1, v.damage + 0.03);
+    this.bus.emit("sound", { kind: "carhit", x: c.x, y: c.y, vol: Math.min(1, speed / 8) });
+    if (speed > 3.5) { const part = speed > 7 && this.rng.chance(0.4) ? "head" : this.rng.chance(0.5) ? "leg" : "torso"; wound(this, c, part, speed > 7 ? 3 : 2, part === "head" ? "gash" : "cut", v.driver, v.x, v.y); }
+    const driver = v.driver >= 0 ? this.chars[v.driver] : null;
+    remember(c, { t: this.tick, kind: "car_hit", subj: driver?.id ?? -1, obj: c.id, toy: null, area: this.world.areaAt(c.x, c.y)?.id ?? 0, val: -0.8, ev: -1, src: "did" });
+    const e = this.emit({ type: "car_hit", x: c.x, y: c.y, actors: driver ? [driver.id, c.id] : [c.id], severity: res.down ? 4 : 3, summary: `${driver ? driver.name : "A car"} hit ${c.name} with a ${d.name.toLowerCase()}${res.down ? " and knocked them flat" : ""}` });
+    if (c.tier !== "player") this.say(c, this.dialogue.bark(c, res.down ? "down" : "hit"), "shout", 1.5);
+    if (driver) {
+      const rr = this.relate(c, driver.id); rr.grudge = Math.min(1, rr.grudge + 0.5);
+      if (driver.tier === "player" || driver.pers.honesty < 0.4) commitCrime(this, driver, "hit_and_run", c);
+      else if (e) { v.speed = 0; this.say(c, "Watch the road!", "shout", 1.5); }
+    }
+  }
+
+  onCarCrash(a: Vehicle, b: Vehicle, rel: number): void {
+    if (a.state === "crashed" && b.state === "crashed") return;
+    for (const v of [a, b]) { v.damage = Math.min(1, v.damage + rel * 0.03); if (v.state !== "parked") { v.state = "crashed"; v.crashedUntil = this.tick + 60 * (v.driver === this.playerId ? 1 : 6); } v.speed *= 0.2; }
+    this.bus.emit("sound", { kind: "crash", x: a.x, y: a.y, vol: Math.min(1, rel / 8) });
+    this.bus.emit("fx", { kind: "break", x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: 0.5, n: 14, color: "#9a8d80" });
+    const da = a.driver >= 0 ? this.chars[a.driver] : null, db = b.driver >= 0 ? this.chars[b.driver] : null;
+    const e = this.emit({ type: "car_crash", x: a.x, y: a.y, actors: [da?.id ?? -1, db?.id ?? -1].filter((x) => x >= 0), severity: 3, summary: `Crash: ${da ? da.name : "a parked car"}'s ${VEHICLES[a.cls].name} and ${db ? db.name : "a parked car"}'s ${VEHICLES[b.cls].name}` });
+    // both drivers get out and have words (road rage chain)
+    if (da && db && da.tier !== "player" && db.tier !== "player") {
+      unseat(this, a); unseat(this, b);
+      a.state = "parked"; b.state = "parked";
+      const ra = this.relate(da, db.id), rb = this.relate(db, da.id); ra.grudge = Math.min(1, ra.grudge + 0.3); rb.grudge = Math.min(1, rb.grudge + 0.3);
+      this.emitArgument(da, db, e);
+      this.carsToReclaim.push({ v: a.id, c: da.id, at: this.tick + 60 * 25 }, { v: b.id, c: db.id, at: this.tick + 60 * 25 });
+    } else if (da?.tier === "player" && b.driver >= 0 || db?.tier === "player" && a.driver >= 0) {
+      const p = this.player;
+      if (this.rng.chance(0.5)) commitCrime(this, p, "hit_and_run", da?.tier === "player" ? db : da);
+    }
+  }
+  /** drivers walk back to their car after an argument */
+  carsToReclaim: { v: number; c: number; at: number }[] = [];
+  private abandoned = new Map<number, number>();
+
+  /** Police dispatch for the wanted player, cops leaving cars to chase on foot, wanted-level decay. */
+  private policeTick(): void {
+    const p = this.player;
+    for (const r of this.carsToReclaim.splice(0)) {
+      if (this.tick < r.at) { this.carsToReclaim.push(r); continue; }
+      const v = this.vehicles[r.v], c = this.chars[r.c];
+      if (v && c && c.inCar < 0 && c.inside < 0 && c.phys === Phys.OK && c.arrestedBy < 0 && Math.hypot(v.x - c.x, v.y - c.y) < 6 && v.driver < 0) { v.driver = c.id; c.inCar = v.id; v.state = "free"; v.state = "crashed"; v.crashedUntil = this.tick + 30; c.goal = null; }
+    }
+    // abandoned cars left in the road get towed (and a new car joins traffic elsewhere)
+    for (const v of this.vehicles) {
+      if (v.driver >= 0 || v.state !== "parked" || !this.world.isRoadLine(Math.floor(v.x)) && !this.world.isRoadLine(Math.floor(v.y)) || this.world.tile(Math.floor(v.x), Math.floor(v.y)) === 20) { this.abandoned.delete(v.id); continue; }
+      const since = this.abandoned.get(v.id) ?? this.tick;
+      this.abandoned.set(v.id, since);
+      if (this.tick - since < 60 * 120 || this.player.inCar === v.id) continue;
+      this.abandoned.delete(v.id);
+      this.emit({ type: "towed", x: v.x, y: v.y, summary: `A tow truck took away the ${VEHICLES[v.cls].name.toLowerCase()} (${v.plate}) blocking the road` });
+      const drv = this.chars.find((c) => c.tier === "background" && c.inCar < 0 && c.inside < 0 && c.lod >= Lod.BACKGROUND);
+      // respawn it on a clear stretch of road far from the camera
+      for (let tries = 0; tries < 20; tries++) {
+        const dir = this.rng.int(0, 3), line = this.rng.int(0, 6), along = this.rng.range(4, this.world.size - 4);
+        if (this.world.isRoadLine(Math.floor(along))) continue;
+        const x = dir % 2 === 0 ? along : line * 16 + (dir === 1 ? 1.5 : 0.5), y = dir % 2 === 0 ? line * 16 + (dir === 0 ? 0.5 : 1.5) : along;
+        if (Math.hypot(x - this.focus.x, y - this.focus.y) < 25 || this.vehicles.some((o) => o !== v && Math.hypot(o.x - x, o.y - y) < 3)) continue;
+        v.x = v.px = x; v.y = v.py = y; v.dir = dir; v.heading = dir * Math.PI / 2; v.speed = 0; v.damage = 0; v.nextDir = -1; v.state = "drive";
+        if (drv) { drv.inCar = v.id; v.driver = drv.id; drv.goal = null; } else v.state = "parked";
+        break;
+      }
+    }
+    // cops in pursuing cars bail out near a suspect on foot
+    for (const v of this.vehicles) {
+      if (!v.siren || v.driver < 0) continue;
+      const cop = this.chars[v.driver];
+      const s = cop ? this.chars[cop.pursuing] : undefined;
+      if (!cop || !s || s.jailUntil > 0) { v.siren = false; if (cop) cop.pursuing = -1; continue; }
+      if (s.inCar < 0 && Math.hypot(s.x - v.x, s.y - v.y) < 7) { v.speed = 0; unseat(this, v); v.state = "parked"; forceGoal(cop, this, "pursue", { u: 1, target: s.id }); }
+    }
+    if (p.wanted > 0) {
+      // keep enough officers on the case
+      const on = this.chars.filter((c) => c.role === "cop" && c.pursuing === p.id).length;
+      if (on < Math.min(6, p.wanted + 1)) {
+        const free = this.chars.filter((c) => c.role === "cop" && c.pursuing < 0 && c.jailUntil === 0 && c.phys === Phys.OK).sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0];
+        if (free) {
+          free.pursuing = p.id;
+          if (free.inside >= 0) exitBuilding(this, free);
+          if (free.inCar >= 0) this.vehicles[free.inCar].siren = true; else forceGoal(free, this, "pursue", { u: 1, target: p.id });
+        }
+      }
+      // seen?
+      for (const c of this.chars) if (c.role === "cop" && c.inside < 0 && Math.hypot(c.x - p.x, c.y - p.y) < 14 && this.world.lineOfSight(c.x, c.y, p.x, p.y)) { this.lastSeenByCops = this.tick; break; }
+      if (this.tick - this.lastSeenByCops > 60 * 25) {
+        p.wanted = Math.max(0, p.wanted - 1); this.lastSeenByCops = this.tick;
+        this.emit({ type: "wanted", x: p.x, y: p.y, actors: [p.id], data: { stars: p.wanted }, summary: p.wanted ? `The police are losing your trail (${p.wanted}★)` : "The police lost you. Wanted level cleared." });
+        if (!p.wanted) for (const c of this.chars) if (c.pursuing === p.id) { c.pursuing = -1; c.goal = null; }
+      }
+    }
+  }
+
+  forceFollow(c: Character, leader: Character): void { forceGoal(c, this, "follow", { u: 2, target: leader.id }); }
+
+  /** Send the nearest paramedic; if nobody can come, the ambulance does it after a minute. */
+  callAmbulance(c: Character): void {
+    const medic = this.chars.filter((m) => m.role === "medic" && m.phys === Phys.OK && m.jailUntil === 0).sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y))[0];
+    if (medic) { if (medic.inside >= 0) exitBuilding(this, medic); if (medic.inCar >= 0) unseat(this, this.vehicles[medic.inCar]); forceGoal(medic, this, "treat", { u: 2, target: c.id }); }
+    // a second 111 call doesn't push the ambulance back
+    if (!this.pendingAmbulance.has(c.id)) this.pendingAmbulance.set(c.id, this.tick + 60 * 75);
+  }
+  pendingAmbulance = new Map<number, number>();
+
+  /** Player arrested: fine, weapons confiscated, released at the station. */
+  busted(cop: Character): void {
+    const p = this.player;
+    if (p.inCar >= 0) { const v = this.vehicles[p.inCar]; if (v) { v.driver = -1; v.state = "parked"; } p.inCar = -1; }
+    const fine = Math.min(p.cash, Math.max(20, Math.round(p.cash * 0.1) + p.wanted * 50));
+    p.cash -= fine; this.bustedFine = fine;
+    for (const id of carried(p)) { const t = this.toys[id]; if (t && TOYS[t.def].category === "weapon") { detach(p, id); t.state = "broken"; t.x = -100; t.holder = -1; } }
+    p.wanted = 0; p.arrestedBy = -1;
+    for (const c of this.chars) if (c.pursuing === p.id) { c.pursuing = -1; c.goal = null; }
+    const st = this.world.buildings.find((b) => b.kind === "police");
+    if (st) { const w = this.world.nearestWalkable(st.door.x + 0.5, st.door.y + 1.5); p.x = p.px = w.x; p.y = p.py = w.y; }
+    this.bustedAt = this.tick;
+    this.emit({ type: "busted", x: p.x, y: p.y, actors: [cop.id, p.id], summary: `BUSTED by ${cop.name}. Fined ${fmtCash(fine)}.` });
   }
 
   // ------------------------------------------------------------------ actions used by AI / player
@@ -312,10 +542,18 @@ export class Simulation {
     this.bus.emit("sound", { kind: "kick", x: t.x, y: t.y, vol: 0.4 });
   }
 
+  /** tick before which each character can't attack again (weapon rate of fire) */
+  nextAttack = new Map<number, number>();
+  /** cartoon blood on or off (settings) */
+  fakeBlood = true;
+
   swingHeld(c: Character): number {
     if (c.hand < 0) return 0;
     const t = this.toys[c.hand], d = TOYS[t.def];
-    const reach = 1.25 + (t.def === "noodle" ? 0.25 : 0);
+    const ws = d.weapon;
+    if ((this.nextAttack.get(c.id) ?? 0) > this.tick) return 0;
+    this.nextAttack.set(c.id, this.tick + Math.round((ws?.rate ?? 0.55) * 60));
+    const reach = ws?.reach ?? 1.25;
     const n = swingHits(c, reach, this.chars, this.charHash, this.tmp2, this.hits);
     this.bus.emit("sound", { kind: "swish", x: c.x, y: c.y, vol: 0.35 });
     this.lod.markHot(c.id, this.tick);
@@ -324,8 +562,9 @@ export class Simulation {
       if (v.lastHitBy === c.id && this.tick - v.lastHitTick < 20) continue; // per-pair hit cooldown
       const nx = (v.x - c.x) || 0.01, ny = (v.y - c.y) || 0.01, nl = Math.hypot(nx, ny);
       const blocked = shieldBlocks(v, this.toys, c.x, c.y);
-      const res = applyImpact(v, d.punch * (0.8 + c.pers.boldness * 0.4), nx / nl, ny / nl, blocked, this.cfg.maxImpulse);
+      const res = applyImpact(v, (ws?.knockback ?? d.punch) * (0.8 + c.pers.boldness * 0.4), nx / nl, ny / nl, blocked, this.cfg.maxImpulse, ws?.damage ?? 1);
       t.durability -= 2;
+      if (!blocked && ws && this.fakeBlood && this.rng.chance(ws.blood)) this.bus.emit("fx", { kind: "blood", x: v.x, y: v.y, z: 1.2, n: 8 + Math.round(ws.damage * 4), color: "#b3121b" });
       this.onImpact(c, v, t.def, res, true);
       if (t.durability <= 0) this.physics.breakToy(t, c.id, this.tick, this.hooks);
     }
@@ -336,15 +575,19 @@ export class Simulation {
   onImpact!: (attacker: Character, victim: Character, def: string, res: ReturnType<typeof applyImpact>, melee: boolean) => void;
 
   shootAt(c: Character, tx: number, ty: number, targetId: number): boolean {
-    const dart = this.spawnToy("dart", c.x + Math.cos(c.facing) * 0.4, c.y + Math.sin(c.facing) * 0.4, c.z + 1.2);
+    const weapon = c.hand >= 0 ? TOYS[this.toys[c.hand]?.def]?.weapon : undefined;
+    if ((this.nextAttack.get(c.id) ?? 0) > this.tick) return false;
+    this.nextAttack.set(c.id, this.tick + Math.round((weapon?.rate ?? 0.9) * 60));
+    const ammo = weapon?.ammo ?? "dart";
+    const dart = this.spawnToy(ammo, c.x + Math.cos(c.facing) * 0.4, c.y + Math.sin(c.facing) * 0.4, c.z + 1.2);
     if (!dart) return false;
-    const acc = 0.55 + c.emo.confidence * 0.3;
-    const a = Math.atan2(ty - c.y, tx - c.x) + this.rng.gauss() * (1 - acc) * 0.25;
-    const d = Math.hypot(tx - c.x, ty - c.y), s = 13, time = d / s;
+    const acc = (weapon?.accuracy ?? 0.7) * (c.tier === "player" ? 1.15 : 0.75 + c.emo.confidence * 0.3);
+    const a = Math.atan2(ty - c.y, tx - c.x) + this.rng.gauss() * (1 - Math.min(1, acc)) * 0.25;
+    const d = Math.min(weapon?.reach ?? 9, Math.hypot(tx - c.x, ty - c.y)), s = ammo === "droplet" ? 9 : 14, time = d / s;
     dart.vx = Math.cos(a) * s; dart.vy = Math.sin(a) * s; dart.vz = (1.0 - 1.2) / Math.max(0.1, time) + 0.5 * 14 * time;
     dart.state = "flying"; dart.thrower = c.id; dart.throwTick = this.tick; dart.angle = a;
     if (targetId >= 0) this.throwIntent.set(dart.id, targetId);
-    this.bus.emit("sound", { kind: "twang", x: c.x, y: c.y, vol: 0.35 });
+    this.bus.emit("sound", { kind: ammo === "pellet" ? "paintball" : ammo === "droplet" ? "squirt" : ammo === "probe" ? "taser" : "twang", x: c.x, y: c.y, vol: 0.35 });
     return true;
   }
 
@@ -353,6 +596,7 @@ export class Simulation {
   afterConversation(fn: () => void): void { this.deferred.push(fn); }
 
   comfort(c: Character, t: Character): void {
+    if (t.wounds.some((w) => !w.bandaged)) { if (!useBandage(this, c, t)) { for (const w of t.wounds) if (w.severity >= 2) w.bandaged = this.rng.chance(0.5); recomputeBleed(t); } }
     t.emo.fear = Math.max(0, t.emo.fear - 0.4);
     t.emo.composure = Math.min(1, t.emo.composure + 0.35);
     t.emo.mood = clamp(t.emo.mood + 0.2, -1, 1);
@@ -368,7 +612,8 @@ export class Simulation {
 
   giveTo(c: Character, t: Character): boolean {
     // give the toy the receiver would like most
-    const items = [c.hand, ...c.bag].filter((x) => x >= 0).map((x) => this.toys[x]);
+    const tools = ["camera", "taser", "spray_can"];
+    const items = [c.hand, ...c.bag].filter((x) => x >= 0).map((x) => this.toys[x]).filter((t) => !tools.includes(t.def) && TOYS[t.def].category !== "valuable");
     if (!items.length) return false;
     items.sort((a, b) => (t.likes.includes(b.def) ? 1 : 0) - (t.likes.includes(a.def) ? 1 : 0));
     const toy = items[0];

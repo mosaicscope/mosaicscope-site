@@ -1,5 +1,7 @@
 import { Simulation } from "../sim/Simulation";
-import { Character, Toy, Rel, Memory } from "../entities/types";
+import { Character, Toy, Rel, Memory, Vehicle } from "../entities/types";
+import { Graffiti } from "../world/World";
+import { Crime, Booking } from "../sim/Society";
 import { makeCharacter } from "../entities/factory";
 import { SimConfig } from "../core/config";
 import { EnvState } from "../sim/Environment";
@@ -10,10 +12,11 @@ import { StorageProvider, NS } from "./storage";
 /**
  * Versioned saves. The world layout is regenerated from the seed (deterministic), so a save stores
  * the seed/config plus everything dynamic: characters (needs, emotions, inventory, relationships,
- * memories), toys, environment, groups, routines and event history. Transient AI state (paths,
+ * memories), toys, cars, graffiti, tills, crime records, bookings, environment, groups, routines
+ * and event history. Transient AI state (paths,
  * current plans) is dropped and rebuilt by the AI on load.
  */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 /** v3 packs the two biggest structures into tuples (about half the size of objects). */
 type MemTuple = [number, Memory["kind"], number, number, string | null, number, number, Memory["src"], number, number, number];
@@ -39,6 +42,11 @@ export interface SaveData {
   groups: Group[];
   routines: [number, [number, string][]][];
   lamps: boolean[];
+  vehicles?: Vehicle[];
+  graffiti: Graffiti[];
+  tills: Record<number, number>;
+  crimes: Crime[];
+  bookings: Booking[];
 }
 
 /** Migrations from older versions, applied in order. */
@@ -47,6 +55,8 @@ export const MIGRATIONS: Record<number, (d: any) => any> = {
   1: (d) => ({ ...d, version: 2, lamps: d.lamps ?? [], chars: d.chars.map((c: any) => ({ reputation: 0, prefs: {}, ...c })) }),
   // v2 stored memories and relationships as objects; v3 packs them into tuples
   2: (d) => ({ ...d, version: 3, chars: d.chars.map((c: any) => ({ ...c, memories: (c.memories ?? []).map(packMem), rel: (c.rel ?? []).map(([id, r]: [number, Rel]) => packRel(id, r)) })) }),
+  // v3 predates the city: no cars, tags, tills, crime records or bookings (the city fills them in fresh)
+  3: (d) => ({ ...d, version: 4, graffiti: [], tills: {}, crimes: [], bookings: [] }),
 };
 
 export function serialize(sim: Simulation, label = "Save"): SaveData {
@@ -62,6 +72,11 @@ export function serialize(sim: Simulation, label = "Save"): SaveData {
     groups: [...sim.groups.groups.values()],
     routines: [...sim.routines.entries()],
     lamps: sim.world.pois.map((p) => !!p.on),
+    vehicles: sim.vehicles.map((v) => ({ ...v })),
+    graffiti: sim.world.graffiti.map((g) => ({ ...g })),
+    tills: { ...sim.tills },
+    crimes: sim.crimes.slice(-200).map((c) => ({ ...c, witnesses: [...c.witnesses] })),
+    bookings: sim.bookings.slice(-100).map((b) => ({ ...b })),
   };
 }
 
@@ -101,6 +116,12 @@ export function restore(d: SaveData): Simulation {
   sim.groups.restore(d.groups);
   sim.routines = new Map(d.routines);
   d.lamps.forEach((on, i) => { if (sim.world.pois[i]) sim.world.pois[i].on = on; });
+  if (d.vehicles) sim.vehicles = d.vehicles.map((v) => ({ ...v }));
+  else for (const v of sim.vehicles) if (v.driver >= 0 && sim.chars[v.driver]?.inCar !== v.id) { v.driver = -1; v.state = "parked"; v.speed = 0; } // old save: fresh traffic, nobody behind the wheel
+  sim.world.graffiti = d.graffiti.map((g) => ({ ...g }));
+  sim.tills = { ...d.tills };
+  sim.crimes = d.crimes.map((c) => ({ ...c, witnesses: [...c.witnesses] }));
+  sim.bookings = d.bookings.map((b) => ({ ...b }));
   sim.rebuildHash();
   sim.lod.update(sim);
   return sim;

@@ -22,7 +22,7 @@ export class ModalHost {
 
 export const KEY_HELP: [string, string][] = [
   ["WASD / arrows", "walk (or click the ground)"], ["Click a person", "inspect them"], ["T", "talk to the selected or nearest person"],
-  ["E", "pick up the nearest toy"], ["F / right-click", "throw your toy at the cursor"], ["Space", "swing a foam sword / noodle (or throw)"],
+  ["E", "pick up / enter a shop or car / get out"], ["R", "rob the nearest person (crime!)"], ["B", "bandage yourself or someone bleeding"], ["H", "horn (while driving)"], ["F / right-click", "throw your toy at the cursor"], ["Space", "swing a foam sword / noodle (or throw)"],
   ["Q", "drop what you're holding"], ["Wheel / pinch", "zoom"], ["Drag", "pan the camera (C re-centres on you)"], ["P", "pause"], ["1–4", "pick a reply in conversations"],
   ["L", "event log"], ["I", "inspect yourself"], ["`", "developer panel"], ["Esc", "close panels"],
 ];
@@ -52,6 +52,7 @@ export function settingsBody(s: Settings, onChange: (s: Settings, needsReset?: b
     sel("Reduced motion", s.reducedMotion === null ? "os" : s.reducedMotion ? "on" : "off", [["os", "Follow my device"], ["on", "On"], ["off", "Off"]], (v) => change(() => { s.reducedMotion = v === "os" ? null : v === "on"; })),
     rng("Text size", s.textScale, 0.85, 1.5, 0.05, (v) => change(() => { s.textScale = v; })),
     chk("Gentle toy fights (softer knockback)", s.gentle, (v) => change(() => { s.gentle = v; })),
+    chk("Fake blood and visible wounds (cartoon)", s.fakeBlood, (v) => change(() => { s.fakeBlood = v; })),
     chk("Show names above the Mosaics", s.showNames, (v) => change(() => { s.showNames = v; })),
     ...keyRows,
   ];

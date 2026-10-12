@@ -1,4 +1,4 @@
-import { World } from "./World";
+import { World, T } from "./World";
 
 /**
  * Grid A* (8-way, no corner cutting) with a node budget, plus a request queue so only a few searches
@@ -104,7 +104,7 @@ export class Navigation {
         if (dx && dy && (!w.walkableTile(cx + dx, cy) || !w.walkableTile(cx, cy + dy))) continue; // no corner cutting
         const ni = ny * S + nx;
         if (this.closed[ni] === run) continue;
-        const ng = this.g[cur] + (dx && dy ? 1.41421 : 1);
+        const ng = this.g[cur] + (dx && dy ? 1.41421 : 1) * w.walkCost(nx, ny);
         if (this.stamp[ni] !== run || ng < this.g[ni]) {
           this.stamp[ni] = run; this.g[ni] = ng; this.parent[ni] = cur;
           this.f[ni] = ng + this.h(nx, ny, gx, gy);
@@ -141,14 +141,19 @@ export class Navigation {
     return dx + dy + (1.41421 - 2) * Math.min(dx, dy);
   }
 
-  /** True when a body of radius ~0.3 can walk the straight segment (samples every 0.25 tiles). */
+  /**
+   * True when a body of radius ~0.3 can walk the straight segment (samples every 0.25 tiles).
+   * Straight lines may not run along/across open road (people use crossings), unless they start on it.
+   */
   walkLine(x0: number, y0: number, x1: number, y1: number): boolean {
     const dx = x1 - x0, dy = y1 - y0, d = Math.sqrt(dx * dx + dy * dy);
     const n = Math.ceil(d / 0.25);
     const w = this.world;
+    const startOnRoad = w.tile(Math.floor(x0), Math.floor(y0)) === T.ROAD;
     for (let i = 0; i <= n; i++) {
       const t = n ? i / n : 0, x = x0 + dx * t, y = y0 + dy * t;
       if (!w.walkable(x, y) || !w.walkable(x + 0.28, y) || !w.walkable(x - 0.28, y) || !w.walkable(x, y + 0.28) || !w.walkable(x, y - 0.28)) return false;
+      if (!startOnRoad && i > 0 && i < n && w.tile(Math.floor(x), Math.floor(y)) === T.ROAD) return false;
     }
     return true;
   }

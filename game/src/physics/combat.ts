@@ -25,13 +25,13 @@ export function shieldBlocks(def: Character, toys: Toy[], fromX: number, fromY: 
  * Apply knockback + composure loss. Physics gives the impulse; this decides stumble/fall.
  * Returns what happened so AI/social systems can react.
  */
-export function applyImpact(c: Character, impulse: number, nx: number, ny: number, blocked: boolean, maxImpulse: number): ImpactResult {
+export function applyImpact(c: Character, impulse: number, nx: number, ny: number, blocked: boolean, maxImpulse: number, damage = 1): ImpactResult {
   let imp = clamp(impulse * impactIntensity, 0, maxImpulse);
   if (blocked) imp *= 0.25;
   const massScale = c.tier === "background" ? 1.3 : 1;
   c.kx += nx * imp * 0.9 * massScale; c.ky += ny * imp * 0.9 * massScale;
   c.anim.flash = 0.18;
-  const loss = blocked ? 0.02 : clamp(imp * 0.075, 0.03, 0.45);
+  const loss = blocked ? 0.02 : clamp(imp * 0.075 * damage, 0.01, 0.6);
   c.emo.composure = clamp(c.emo.composure - loss, 0, 1);
   let down = false, stumble = false;
   if (!blocked) {

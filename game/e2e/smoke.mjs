@@ -7,7 +7,9 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || 
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 const errors = [];
 page.on("pageerror", (e) => errors.push("pageerror: " + e.message));
-page.on("console", (m) => { if (m.type() === "error") errors.push("console: " + m.text()); });
+// Network-level failures (no internet in a sandbox: Instagram feed, SoundCloud) are not game bugs;
+// HTTP errors such as a 404 still count.
+page.on("console", (m) => { if (m.type() === "error" && !/net::ERR_/.test(m.text())) errors.push("console: " + m.text()); });
 fs.mkdirSync("e2e/screenshots", { recursive: true });
 let passed = 0, failed = 0;
 const check = async (name, fn) => {
@@ -101,7 +103,7 @@ await check("event log opens, lists events, and is searchable", async () => {
   await page.keyboard.press("Escape");
 });
 await check("pause and 4x speed control the clock", async () => {
-  await page.getByRole("button", { name: "Pause" }).click();
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
   const a = await G(() => window.__mosaics.sim.tick); await page.waitForTimeout(400); const b = await G(() => window.__mosaics.sim.tick);
   assert(a === b, "ticked while paused");
   await page.getByRole("button", { name: "Speed 4x" }).click();
@@ -147,6 +149,74 @@ await check("developer panel shows real metrics and toggles overlays", async () 
   await page.screenshot({ path: "e2e/screenshots/smoke-dev.png" });
   await dev.getByLabel("Collision shapes").uncheck();
   await page.keyboard.press("`");
+});
+await check("HUD shows cash, wanted stars and health", async () => {
+  const txt = await page.locator(".hud").textContent();
+  assert(/\$/.test(txt) && /☆|★/.test(txt), "hud: " + txt);
+});
+const toDoor = (kind) => G((k) => {
+  const g = window.__mosaics, s = g.sim, p = s.player;
+  const want = k === "studio" ? -2 : s.world.buildings.find((b) => b.kind === k).id;
+  const d = s.world.pois.find((q) => q.kind === "door" && q.building === want);
+  p.x = p.px = d.x; p.y = p.py = d.y; p.vx = p.vy = 0; p.phys = 0; p.inCar = -1;
+  for (const id of [p.hand, ...p.bag]) if (id >= 0) s.dropHeld(p);
+  g.renderer.cam.follow = p.id;
+}, kind);
+await check("E at the casino door opens the casino; buying chips and leaving cashes out", async () => {
+  await toDoor("casino");
+  await page.keyboard.press("e");
+  const cas = page.getByRole("dialog", { name: "The Tessera Casino" });
+  await cas.waitFor({ timeout: 2000 });
+  await page.screenshot({ path: "e2e/screenshots/smoke-casino.png" });
+  const cash0 = await G(() => window.__mosaics.sim.player.cash);
+  await cas.getByRole("button", { name: /\$?20\b/ }).first().click().catch(() => {});
+  await page.keyboard.press("Escape");
+  assert(!(await cas.isVisible()), "casino still open");
+  const cash1 = await G(() => window.__mosaics.sim.player.cash);
+  assert(cash1 === cash0, `cash changed without playing: ${cash0} -> ${cash1}`);
+});
+await check("the studio door shows the real price list and booking links", async () => {
+  await toDoor("studio");
+  await page.keyboard.press("e");
+  const dlg = page.locator(".modal[role=dialog]");
+  await dlg.waitFor({ timeout: 2000 });
+  const txt = await dlg.textContent();
+  assert(/\$40/.test(txt) && /Instagram/.test(txt), "studio panel: " + txt.slice(0, 120));
+  await page.keyboard.press("Escape");
+});
+await check("the police station (open 24/7) opens its panel", async () => {
+  await toDoor("police");
+  await page.keyboard.press("e");
+  const dlg = page.locator(".modal[role=dialog]");
+  await dlg.waitFor({ timeout: 2000 });
+  await page.keyboard.press("Escape");
+});
+await check("get into a parked car, drive it, get out", async () => {
+  const id = await G(() => {
+    const g = window.__mosaics, s = g.sim, p = s.player;
+    const v = s.vehicles.find((x) => x.state === "parked" && x.driver < 0 && !x.forSale);
+    v.owner = p.id; // your own car: no theft, no cops
+    p.x = p.px = v.x + 1; p.y = p.py = v.y; p.wanted = 0; for (const c of s.chars) if (c.pursuing === p.id) c.pursuing = -1;
+    return v.id;
+  });
+  await page.keyboard.press("e");
+  assert(await G((id) => window.__mosaics.sim.player.inCar === id, id), "not in the car");
+  const a = await G((id) => ({ x: window.__mosaics.sim.vehicles[id].x, y: window.__mosaics.sim.vehicles[id].y }), id);
+  await page.keyboard.down("w"); await page.waitForTimeout(900); await page.keyboard.up("w");
+  const b = await G((id) => ({ x: window.__mosaics.sim.vehicles[id].x, y: window.__mosaics.sim.vehicles[id].y }), id);
+  assert(Math.hypot(b.x - a.x, b.y - a.y) > 0.5, "car didn't move");
+  assert(/km\/h/.test(await page.locator(".hud").textContent()), "no speedo");
+  await page.keyboard.down(" "); await page.waitForTimeout(1500); await page.keyboard.up(" ");
+  await page.keyboard.press("e");
+  await page.waitForTimeout(100);
+  assert(await G(() => window.__mosaics.sim.player.inCar === -1), "still in the car");
+  await G(() => { const p = window.__mosaics.sim.player; p.wanted = 0; });
+});
+await check("a bleeding player can bandage up with B", async () => {
+  await G(() => { const g = window.__mosaics, s = g.sim, p = s.player; p.wounds.push({ part: "arm", severity: 1, kind: "cut", bandaged: false, tick: s.tick }); p.bleed = 0.1; const t = s.spawnToy("bandage", p.x, p.y); s.pickupToy(p, t); });
+  await page.keyboard.press("b");
+  await page.waitForTimeout(100);
+  assert(await G(() => window.__mosaics.sim.player.bleed === 0), "still bleeding");
 });
 await check("no runtime errors during the run", async () => { assert(errors.length === 0, errors.join(" | ")); });
 await page.screenshot({ path: "e2e/screenshots/smoke-final.png" });

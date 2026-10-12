@@ -7,6 +7,7 @@ export interface Settings {
   reducedMotion: boolean | null; // null = follow the OS setting
   textScale: number;       // 0.85..1.5
   gentle: boolean;         // softer toy impacts
+  fakeBlood: boolean;      // cartoon blood, wounds and splatter
   density: number;         // background crowd count
   showNames: boolean;
   tutorialDone: boolean;
@@ -14,11 +15,11 @@ export interface Settings {
 }
 
 export const DEFAULT_KEYS: Record<string, string> = {
-  up: "w", down: "s", left: "a", right: "d", pickup: "e", drop: "q", throw: "f", swing: " ", talk: "t", pause: "p", inspect: "i", log: "l", dev: "`",
+  up: "w", down: "s", left: "a", right: "d", pickup: "e", drop: "q", throw: "f", swing: " ", talk: "t", pause: "p", inspect: "i", log: "l", dev: "`", rob: "r", bandage: "b", horn: "h",
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  quality: "auto", volume: 0.6, sound: false, reducedMotion: null, textScale: 1, gentle: false, density: 420, showNames: true, tutorialDone: false, keys: { ...DEFAULT_KEYS },
+  quality: "auto", volume: 0.6, sound: true, fakeBlood: true, reducedMotion: null, textScale: 1, gentle: false, density: 420, showNames: true, tutorialDone: false, keys: { ...DEFAULT_KEYS },
 };
 
 /** Load settings defensively: any missing or wrong-typed field falls back to its default. */
@@ -34,6 +35,7 @@ export function loadSettings(store: StorageProvider): Settings {
     if (d.reducedMotion === null || typeof d.reducedMotion === "boolean") s.reducedMotion = d.reducedMotion;
     if (typeof d.textScale === "number" && d.textScale >= 0.85 && d.textScale <= 1.5) s.textScale = d.textScale;
     if (typeof d.gentle === "boolean") s.gentle = d.gentle;
+    if (typeof d.fakeBlood === "boolean") s.fakeBlood = d.fakeBlood;
     if (typeof d.density === "number" && d.density >= 0 && d.density <= 5000) s.density = Math.round(d.density);
     if (typeof d.showNames === "boolean") s.showNames = d.showNames;
     if (typeof d.tutorialDone === "boolean") s.tutorialDone = d.tutorialDone;

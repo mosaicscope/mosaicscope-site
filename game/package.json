@@ -13,7 +13,8 @@
     "test": "vitest run",
     "bench": "vite-node scripts/bench.ts",
     "catalogue": "vite-node scripts/catalogue.ts",
-    "smoke": "node e2e/smoke.mjs"
+    "smoke": "node e2e/smoke.mjs",
+    "soak": "vite-node scripts/soak.ts"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",

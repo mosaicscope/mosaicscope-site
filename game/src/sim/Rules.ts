@@ -5,7 +5,9 @@ import { applyImpact, shieldBlocks } from "../physics/combat";
 import { applyInteraction, friendship, hostility, peek, remember } from "../social/Social";
 import { WorldEvent } from "../events/WorldEvents";
 import { forceGoal } from "../ai/brain";
+import { commitCrime } from "./Society";
 import { drop } from "../inventory/Inventory";
+import { wound, pickPart } from "./Life";
 
 /**
  * Causal rules: physical outcomes become world events; world events change minds, memories and goals;
@@ -30,8 +32,18 @@ export function installRules(sim: Simulation): void {
         return;
       }
       const blocked = thrower ? shieldBlocks(c, sim.toys, thrower.x, thrower.y) : false;
-      const res = applyImpact(c, impulse, nx, ny, blocked, sim.cfg.maxImpulse);
-      fx.emit("fx", { kind: "impact", x: t.x, y: t.y, z: t.z, color: t.color, n: 8 });
+      const ammo = TOYS[t.def];
+      const shooterWeapon = thrower && thrower.hand >= 0 ? TOYS[sim.toys[thrower.hand]?.def]?.weapon : undefined;
+      const res = applyImpact(c, impulse, nx, ny, blocked, sim.cfg.maxImpulse, t.def === "droplet" ? 0.15 : shooterWeapon?.damage ?? 1);
+      fx.emit("fx", { kind: t.def === "pellet" ? "paint" : t.def === "droplet" ? "water" : "impact", x: t.x, y: t.y, z: t.z, color: t.def === "pellet" ? thrower?.look.color ?? t.color : t.color, n: 8 });
+      // wounds: hard projectiles cut; a hit high up is a headshot
+      if (!blocked && (t.def === "pebble" || impulse > 5)) {
+        const part = pickPart(sim, t.z);
+        const sev = (t.def === "pebble" ? (part === "head" ? 2 : sim.rng.chance(0.4) ? 2 : 1) : impulse > 7 ? 2 : 1) as 1 | 2 | 3;
+        wound(sim, c, part, sev, part === "head" ? "gash" : sev >= 2 ? "cut" : "bruise", thrower?.id ?? -1, t.x, t.y);
+      }
+      if (t.def === "probe" && !blocked) { c.stunUntil = sim.tick + 60 * (shooterWeapon?.stun ?? 3); c.vx = c.vy = 0; fx.emit("fx", { kind: "spark", x: c.x, y: c.y, z: 1.2, n: 10, color: "#f6b62c" }); }
+      if (!blocked && sim.fakeBlood && (t.def === "pebble" || ammo.uses.includes("throw") && impulse > 4.5) && sim.rng.chance(shooterWeapon?.blood ?? 0.25)) fx.emit("fx", { kind: "blood", x: c.x, y: c.y, z: 1.2, n: 7, color: "#b3121b" });
       fx.emit("sound", { kind: "hit_" + TOYS[t.def].material, x: t.x, y: t.y, vol: Math.min(1, impulse / 6) });
       if (thrower && thrower !== c) {
         sim.onImpact(thrower, c, t.def, res, false);
@@ -119,6 +131,14 @@ export function installRules(sim: Simulation): void {
     remember(v, { t: tick, kind: "hit_by", subj: att.id, obj: v.id, toy: def, area, val: spar ? -0.1 : -0.5, ev: -1, src: "did" });
     remember(att, { t: tick, kind: "hit", subj: att.id, obj: v.id, toy: def, area, val: spar ? 0.2 : 0.1, ev: -1, src: "did" });
     const e = sim.emit({ type: melee ? "melee_hit" : "toy_hit", x: v.x, y: v.y, actors: [att.id, v.id], toy: def, summary: `${att.name} hit ${v.name} with a ${TOYS[def].name}` });
+    // melee wounds by weapon: knives stab, bats and pans gash (often the head), foam only bruises
+    const ws = TOYS[def].weapon;
+    if (melee && ws && ws.blood > 0 && sim.rng.chance(ws.blood)) {
+      const part = pickPart(sim, null);
+      const sev = (def === "knife" ? 3 : ws.damage >= 1.8 ? (part === "head" ? 2 : sim.rng.chance(0.5) ? 2 : 1) : 1) as 1 | 2 | 3;
+      wound(sim, v, part, sev, def === "knife" ? "stab" : part === "head" ? "gash" : sev >= 2 ? "cut" : "bruise", att.id, att.x, att.y);
+      if (def === "knife" || sev >= 2) commitCrime(sim, att, "assault", v);
+    } else if (melee && ws && ws.damage >= 1.5 && !spar && v.tier !== "player" && att.tier === "player") commitCrime(sim, att, "assault", v);
     if (res.down) {
       fx.emit("fx", { kind: "star", x: v.x, y: v.y, z: 1.6, n: 5 });
       if (v.hand >= 0) { const toy = sim.toys[v.hand]; drop(v, toy); toy.vx = -Math.cos(v.facing) * 2; toy.vy = -Math.sin(v.facing) * 2; toy.vz = 3; if (toy.owner === v.id) { toy.lostBy = v.id; remember(v, { t: tick, kind: "lost_item", subj: v.id, obj: -1, toy: toy.def, area, val: -0.4, ev: -1, src: "did" }); } }

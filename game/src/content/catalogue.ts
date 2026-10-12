@@ -5,6 +5,9 @@ import { GOALS } from "../ai/goals";
 import { LINES } from "../dialogue/lines";
 import { OPERATORS } from "../ai/planner";
 import { DEBUG_LABELS } from "../debug/flags";
+import { VEHICLES } from "./vehicles";
+import { BUILDINGS } from "./buildings";
+import { ROLE_LABEL, ROLE_COUNTS } from "./names";
 
 /**
  * Machine-readable feature catalogue. "implemented" entries are derived from the real registries in
@@ -41,7 +44,7 @@ export function buildCatalogue(): Feature[] {
       id: `F-${String(out.length + 1).padStart(5, "0")}`, name, description, category,
       dependencies: o.dependencies ?? [], requiredSystems: o.requiredSystems ?? [], status: o.status ?? "planned",
       complexity: o.complexity ?? 2, performance: o.performance ?? "low", testing: o.testing ?? "unit test + manual check in the dev panel",
-      unlock: o.unlock ?? "always available", compatibility: o.compatibility ?? "save schema v2",
+      unlock: o.unlock ?? "always available", compatibility: o.compatibility ?? "save schema v4",
     });
   };
   const impl = (o: Partial<Feature> = {}): Partial<Feature> => ({ status: "implemented", ...o });
@@ -58,14 +61,20 @@ export function buildCatalogue(): Feature[] {
   const topics = [...new Set(LINES.map((l) => l.topic))];
   for (const t of topics) add("Dialogue situations", `Dialogue: ${t}`, `${LINES.filter((l) => l.topic === t).reduce((n, l) => n + l.lines.length, 0)} lines with context conditions for "${t}".`, impl({ requiredSystems: ["dialogue"], testing: "tests/social.test.ts dialogue" }));
   for (const [k, v] of Object.entries(DEBUG_LABELS)) add("Debug tools", `Overlay: ${v}`, `Developer overlay "${k}".`, impl({ requiredSystems: ["render", "debug"], performance: "medium", testing: "e2e/smoke.mjs dev panel" }));
-  const poses = ["idle", "walk", "run", "throw", "swing", "kick", "shoot", "sit", "comfort", "craft", "search", "music", "phone", "stumble", "down", "recover", "panic", "cheer", "watch", "think", "talk"];
+  const poses = ["idle", "walk", "run", "throw", "swing", "kick", "shoot", "sit", "comfort", "craft", "search", "music", "phone", "stumble", "down", "recover", "panic", "cheer", "watch", "think", "talk", "eat", "spray", "camera", "posecool", "skate", "guitar", "cuffed", "stunned", "kiss", "threaten"];
   for (const p of poses) add("Animation variations", `Pose: ${p}`, `Procedural stick-figure pose "${p}".`, impl({ requiredSystems: ["render/StickFigure"], performance: "none", testing: "visual check" }));
   for (const s of ["swagger", "smooth", "bouncy", "loose", "sharp", "hype"]) add("Animation variations", `Dance style: ${s}`, `Personal dance style "${s}" from the site's crew.`, impl({ requiredSystems: ["render/StickFigure"], performance: "none", testing: "visual check" }));
   const implemented: [string, string, string, Partial<Feature>?][] = [
-    ["World locations", "The Plaza", "Central paved square with fountain, benches, lamps and a toy chest."], ["World locations", "Kodak Park", "Trees, pond and benches."],
+    ["World locations", "Cathedral Plaza", "Central square with fountain, benches, lamps and a toy chest."], ["World locations", "Kodak Park", "Trees, pond and benches (three parks across the city)."],
     ["World locations", "The Court", "Fenced ball court with hoops and gates."], ["World locations", "Flash Market", "Stalls with awnings that shelter from rain."],
-    ["World locations", "After Hours Yard", "Stage and boombox: parties happen here."], ["World locations", "The Studio", "Building with walls, doors and an interior partition."],
-    ["World locations", "Grain Playground", "Sand with spring pads."], ["World locations", "Bando Alley", "Crates and pushable heavy props."], ["World locations", "The Street", "Outer ring where the background crowd lives."],
+    ["World locations", "After Hours Yard", "Stage and boombox: parties happen here."], ["World locations", "MosaicScope Studio", "The crew's studio block: bookings, shoots, real price list."],
+    ["World locations", "Grain Skatepark", "Spring pads and ramps; skaters hang out here."], ["World locations", "Bando Alley", "Crates, pushable props and the city's one legal graffiti wall."],
+    ["World locations", "The Streets", "A 6x6 grid of city blocks with roads, footpaths, crosswalks and traffic lights."],
+    ["World locations", "CBD and Hotel District", "Office towers and hotels; office workers commute in and out."], ["World locations", "Food Street and Eat Street", "Diners, pizza, sushi, fish and chips, bakeries and cafes."],
+    ["World locations", "High Street, Riccarton and Z Corner shops", "Dairies, toy shops, sports, records, barber, pawn shop and garage."],
+    ["World locations", "Residential blocks and apartments", "Homes where regulars sleep and couples go home together."],
+    ["World locations", "Police & Justice", "Station with cells, incident board and fines."], ["World locations", "Hospital", "Where collapsed people are taken and patched up."],
+    ["World locations", "The Tessera Casino", "Blackjack, roulette, pokies and video poker."], ["World locations", "Riccarton Motors", "Dealership selling cars in every class."],
     ["Procedural generation rules", "Seeded district layout", "Districts jitter, trees, stalls and pond shape vary per seed.", { testing: "tests/world.test.ts" }],
     ["Procedural generation rules", "Connectivity guarantee", "Decoration that cuts off an area is removed; unreachable pockets sealed.", { testing: "tests/world.test.ts" }],
     ["Weather effects", "Rain", "Rain sends people to shelter, raises frustration, draws streaks and audio."], ["Weather effects", "Storm", "Darker sky, lightning flashes, fear for those afraid of storms, can cause blackouts."],
@@ -107,8 +116,39 @@ export function buildCatalogue(): Feature[] {
   ];
   for (const [c, n, d, o] of implemented) add(c, n, d, impl(o ?? {}));
 
+  // ---------------- the city (derived from registries) ----------------
+  for (const v of Object.values(VEHICLES)) add("Inventory items", `Car: ${v.name}`, `${v.tier} class "${v.cls}": top speed ${v.topSpeed}, accel ${v.accel}, grip ${v.grip}, $${v.price.toLocaleString("en-NZ")}. ${v.blurb}`, impl({ requiredSystems: ["sim/Traffic", "render/Cars"], testing: "tests/city.test.ts traffic", compatibility: "save schema v4" }));
+  for (const b of Object.values(BUILDINGS)) add("World locations", `Building: ${b.names[0]}`, `${b.kind}, ${b.floors[0]}-${b.floors[1]} floors, open ${b.open[0]}:00-${b.open[1] % 24}:00${b.menu ? `, sells ${b.menu.length} items` : ""}${b.job ? `, staffed by ${b.job}s` : ""}.`, impl({ requiredSystems: ["world/WorldGenerator", "render/Buildings", "sim/Society"], testing: "tests/city.test.ts" }));
+  for (const [r, label] of Object.entries(ROLE_LABEL)) add("Character archetypes", `Role: ${label}`, `Regulars with the "${r}" role get a workplace, home, tools and role goals${ROLE_COUNTS[r as keyof typeof ROLE_COUNTS] ? ` (${ROLE_COUNTS[r as keyof typeof ROLE_COUNTS]} in the city)` : ""}.`, impl({ requiredSystems: ["sim/Spawner", "ai/cityGoals"], testing: "tests/city.test.ts" }));
+  const city: [string, string, string, Partial<Feature>?][] = [
+    ["Mini-games", "Blackjack", "6-deck shoe with cut card, dealer stands on soft 17, 3:2 naturals, insurance, double, split to 4 hands, late surrender, dealer peek, basic-strategy hints.", { testing: "tests/casino.test.ts", complexity: 4 }],
+    ["Mini-games", "European roulette", "Single-zero wheel in real order; straight, split, street, corner, line, dozens, columns and even-money bets.", { testing: "tests/casino.test.ts", complexity: 3 }],
+    ["Mini-games", "Video poker (Jacks or Better 9/6)", "Full paytable, hold/draw, exact hand evaluation.", { testing: "tests/casino.test.ts", complexity: 3 }],
+    ["Mini-games", "Kiwi Gold pokie", "Weighted reels with an exactly computed 92.54% return to player.", { testing: "tests/casino.test.ts", complexity: 2 }],
+    ["Player tools", "Driving", "Get into parked cars (or carjack), drive with WASD, horn, crash and get out.", { testing: "tests/city.test.ts drivers" }],
+    ["Player tools", "Cash, shops and pawning", "Buy food, toys and weapons with NZD; pawn valuables at 45%.", { testing: "tests/city.test.ts money and barter" }],
+    ["Player tools", "Barter", "Trade items with NPCs who weigh value, likes, friendship and greed and can counter-offer.", { testing: "tests/city.test.ts money and barter" }],
+    ["Player tools", "Bandages", "Bandage yourself or others to stop bleeding.", { testing: "tests/city.test.ts injuries" }],
+    ["AI behaviours", "Lane traffic", "Left-hand lanes, traffic lights, braking for people and cars, turns and U-turns, towing of abandoned cars.", { testing: "tests/city.test.ts traffic", performance: "medium", complexity: 4 }],
+    ["AI behaviours", "Police response", "Witnessed crimes are called in; cops chase, taser, arrest, escort to the station and jail.", { testing: "tests/city.test.ts crime", complexity: 4 }],
+    ["Progression systems", "Wanted stars", "Up to 5 stars from witnessed crimes; they fade when cops lose sight of you; getting busted costs a fine.", { testing: "tests/city.test.ts crime" }],
+    ["Character interactions", "Muggings and theft", "Thieves pickpocket, shoplift, rob tills and mug at knifepoint.", { testing: "tests/city.test.ts crime" }],
+    ["Character interactions", "Graffiti and clean-up", "Taggers paint building faces; cleaners scrub illegal tags; Bando Alley wall is legal.", { testing: "tests/city.test.ts crime" }],
+    ["Visual effects", "Wounds and fake blood", "Wounds by body part at three levels; head shots spray, gashes drip, bandages show; cartoon only and can be turned off.", { testing: "tests/city.test.ts injuries" }],
+    ["Simulation modifiers", "Bleeding and collapse", "Open wounds drain blood; low blood causes collapse; paramedics or an ambulance take people to hospital. Nobody dies.", { testing: "tests/city.test.ts injuries", complexity: 3 }],
+    ["Relationship events", "Attraction, flirting and dating", "Characters have who they fancy, flirt, ask each other out, go on dates and go home together (off screen).", { testing: "tests/city.test.ts romance", complexity: 3 }],
+    ["Relationship events", "Affairs and getting caught", "Seen kisses become gossip; partners find out, argue, break up or fight.", { testing: "tests/city.test.ts romance", complexity: 4 }],
+    ["Narrative scenarios", "MosaicScope bookings", "Regulars book shoots at the real price list; the crew shoots them on location.", { testing: "tests/city.test.ts MosaicScope" }],
+    ["Narrative scenarios", "Crew plugs real posts", "The Mosaics bring up real Instagram posts and point you to follow and book.", { testing: "tests/social.test.ts dialogue" }],
+    ["Audio events", "MosaicScope FM", "The SoundCloud playlist plays as the city radio from your first click.", { testing: "e2e/smoke.mjs" }],
+    ["Procedural generation rules", "Unique faces", "Every character gets a distinct face, hair, hat, build and colour combination.", { testing: "tests/city.test.ts" }],
+    ["Procedural generation rules", "Sensible unique names", "Full names from a NZ name book, no repeats; nicknames for the crew.", { testing: "tests/city.test.ts" }],
+    ["Save and replay features", "City state in saves", "Cars, graffiti, tills, crime records and bookings are saved (schema v4, migrates older saves).", { testing: "tests/persistence.test.ts", compatibility: "save schema v4" }],
+  ];
+  for (const [c, n, d, o] of city) add(c, n, d, impl(o ?? {}));
+
   // ---------------- planned candidates (honestly labelled) ----------------
-  const places = ["the Plaza", "Kodak Park", "the Court", "Flash Market", "the After Hours Yard", "the Studio", "Grain Playground", "Bando Alley", "the Street"];
+  const places = ["Cathedral Plaza", "Kodak Park", "the Court", "Flash Market", "the After Hours Yard", "the Studio", "Grain Skatepark", "Bando Alley", "the Streets"];
   const moods = ["bored", "lonely", "furious", "scared", "buzzing", "exhausted"];
   const weathers = ["fog", "heatwave", "wind gusts", "hail", "rainbow after rain", "first frost", "drizzle", "thunder without rain"];
   const newToys = ["water balloon", "bubble wand", "kite", "skipping rope", "boomerang (foam)", "beach ball", "pogo stick", "toy drum", "squeaky hammer", "rubber duck", "slinky", "glow stick", "foam rocket", "paper plane", "kazoo", "toy camera", "frisbee golf disc", "hula hoop", "marbles", "trading cards"];

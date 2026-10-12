@@ -11,47 +11,47 @@ How to read it:
 - The generator deduplicates by category and name. `tests/catalogue.test.ts` checks that IDs are unique, every one of the 40 categories is covered, and every event and toy in the code appears as implemented.
 
 <!-- catalogue:start -->
-Generated 2026-10-12 · **1135 entries** · 257 implemented · 3 partial · 875 planned
+Generated 2026-10-12 · **2699 entries** · 470 implemented · 3 partial · 2226 planned
 
 | Category | Implemented | Partial | Planned |
 |---|---|---|---|
 | NPC personality variations | 11 | 0 | 0 |
-| Animation variations | 27 | 0 | 2 |
-| Toy types and physical properties | 13 | 0 | 20 |
-| Character interactions | 4 | 0 | 0 |
+| Animation variations | 37 | 0 | 2 |
+| Toy types and physical properties | 52 | 0 | 19 |
+| Character interactions | 6 | 0 | 0 |
 | Social relationships | 3 | 0 | 0 |
-| Dialogue situations | 48 | 0 | 54 |
-| Event types | 34 | 0 | 0 |
-| Event combinations | 0 | 0 | 364 |
+| Dialogue situations | 63 | 0 | 54 |
+| Event types | 66 | 0 | 0 |
+| Event combinations | 0 | 0 | 1404 |
 | Environmental conditions | 2 | 0 | 0 |
-| World locations | 9 | 0 | 0 |
+| World locations | 43 | 0 | 0 |
 | Collectibles | 1 | 0 | 2 |
-| Inventory items | 1 | 0 | 1 |
-| Mini-games | 0 | 1 | 90 |
+| Inventory items | 13 | 0 | 1 |
+| Mini-games | 4 | 1 | 90 |
 | Character goals | 2 | 0 | 10 |
 | Faction behaviours | 0 | 1 | 3 |
 | Group activities | 4 | 0 | 0 |
 | Physics interactions | 6 | 0 | 22 |
 | Object destruction | 2 | 0 | 0 |
-| Crafting recipes | 2 | 0 | 104 |
-| Progression systems | 0 | 1 | 2 |
+| Crafting recipes | 2 | 0 | 416 |
+| Progression systems | 1 | 1 | 2 |
 | World modifiers | 1 | 0 | 2 |
 | Weather effects | 2 | 0 | 72 |
-| Audio events | 2 | 0 | 2 |
-| Visual effects | 2 | 0 | 10 |
-| Character archetypes | 10 | 0 | 15 |
-| Narrative scenarios | 1 | 0 | 10 |
+| Audio events | 3 | 0 | 2 |
+| Visual effects | 3 | 0 | 10 |
+| Character archetypes | 34 | 0 | 15 |
+| Narrative scenarios | 3 | 0 | 10 |
 | Achievements | 0 | 0 | 10 |
 | Challenges | 0 | 0 | 10 |
-| Simulation modifiers | 2 | 0 | 1 |
-| Player tools | 4 | 0 | 2 |
+| Simulation modifiers | 3 | 0 | 1 |
+| Player tools | 8 | 0 | 2 |
 | Accessibility options | 6 | 0 | 2 |
 | Debug tools | 14 | 0 | 3 |
 | Modding extensions | 1 | 0 | 2 |
-| Save and replay features | 2 | 0 | 4 |
-| Procedural generation rules | 2 | 0 | 2 |
-| AI behaviours | 34 | 0 | 0 |
-| Relationship events | 2 | 0 | 48 |
+| Save and replay features | 3 | 0 | 4 |
+| Procedural generation rules | 4 | 0 | 2 |
+| AI behaviours | 60 | 0 | 0 |
+| Relationship events | 4 | 0 | 48 |
 | Emergent conflict patterns | 3 | 0 | 0 |
 | Environmental puzzles | 0 | 0 | 3 |
 | Experimental gameplay systems | 0 | 0 | 3 |

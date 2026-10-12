@@ -4,6 +4,7 @@ import { TOYS, canThrow, isMelee } from "../content/toys";
 import { friendship, hostility, peek } from "../social/Social";
 import { carried, craftable, findCarried } from "../inventory/Inventory";
 import { F, planSteps, PlanContext } from "./planner";
+import { CITY_GOALS } from "./cityGoals";
 
 /**
  * Utility-scored goals. Each goal scores itself from needs, personality, relationships and the
@@ -110,8 +111,9 @@ export const GOALS: GoalDef[] = [
     },
     build: (c, sim, ch) => {
       const t = sim.chars[ch.target];
-      if (c.tier === "principal") { const { facts, ctx } = planContext(c, sim, t); return planSteps(facts, F.TALKED, ctx)?.map((s) => (s.kind === "talk" ? { ...s, topic: "chat" } : s)) ?? null; }
-      return [{ kind: "talk", target: t.id, topic: "chat" }];
+      const topic = (c.tier === "principal" || c.role === "photographer") && sim.rng.chance(0.4) ? "plug" : "chat";
+      if (c.tier === "principal") { const { facts, ctx } = planContext(c, sim, t); return planSteps(facts, F.TALKED, ctx)?.map((s) => (s.kind === "talk" ? { ...s, topic } : s)) ?? null; }
+      return [{ kind: "talk", target: t.id, topic }];
     },
   },
   {
@@ -198,7 +200,7 @@ export const GOALS: GoalDef[] = [
       let best = -1, bs = 0;
       for (let i = 0; i < n; i++) {
         const o = sim.chars[tmp[i]];
-        if (o === c || !visibleTier(o) || (o.phys !== Phys.DOWN && o.mode !== "panic")) continue;
+        if (o === c || !visibleTier(o) || (o.phys !== Phys.DOWN && o.mode !== "panic" && o.bleed <= 0)) continue;
         if (o.talkWith >= 0 || o.tier === "player" && o.phys !== Phys.DOWN) continue;
         const helper = sim.helpers.get(o.id);
         if (helper !== undefined && helper !== c.id && sim.chars[helper]?.goal?.id === "help") continue;
@@ -246,7 +248,7 @@ export const GOALS: GoalDef[] = [
       const h = sim.hour;
       const evening = h >= 19 || h < 1;
       const djBonus = c.name === "Static" ? 0.4 : c.name === "Tiles" ? 0.15 : 0;
-      if (!evening && djBonus < 0.4) return null;
+      if (!evening && djBonus < 0.4 || djBonus === 0 && c.role !== "musician") return null;
       return { u: (evening ? 0.25 : 0.05) + djBonus, target: -1 };
     },
     build: (_c, sim) => { const p = sim.world.pois.find((x) => x.kind === "boombox"); return p ? [{ kind: "music", poi: p.id }] : null; },
@@ -337,4 +339,5 @@ export const GOALS: GoalDef[] = [
   },
 ];
 
+GOALS.push(...CITY_GOALS);
 export const GOAL_BY_ID = new Map(GOALS.map((g) => [g.id, g]));

@@ -20,20 +20,25 @@ describe("save / load", () => {
     expect(loaded.toys.map((t) => [t.def, t.holder, t.owner])).toEqual(sim.toys.map((t) => [t.def, t.holder, t.owner]));
     expect(loaded.toys.every((t, i) => Math.abs(t.x - sim.toys[i].x) < 0.01)).toBe(true);
     expect(loaded.events.history.length).toBe(Math.min(120, sim.events.history.length));
+    // the city: cars (and who is driving them), tags, tills, crimes, cash and wounds
+    expect(loaded.vehicles.map((v) => [v.cls, v.driver, v.state, v.plate])).toEqual(sim.vehicles.map((v) => [v.cls, v.driver, v.state, v.plate]));
+    expect(loaded.world.graffiti.length).toBe(sim.world.graffiti.length);
+    expect(loaded.crimes.length).toBe(Math.min(200, sim.crimes.length));
+    expect(loaded.chars.map((c) => [c.cash, c.inCar, c.inside, c.role, c.wounds.length])).toEqual(sim.chars.map((c) => [c.cash, c.inCar, c.inside, c.role, c.wounds.length]));
     // a second round trip is stable
     const again = restore(parseSave(toJSON(serialize(loaded))));
     expect(again.chars.map((c) => [c.name, Math.round(c.x * 100), c.hand, c.rel.size, c.memories.length])).toEqual(loaded.chars.map((c) => [c.name, Math.round(c.x * 100), c.hand, c.rel.size, c.memories.length]));
     for (let i = 0; i < 300; i++) loaded.step();
     expect(hashState(loaded)).toBeTruthy();
   });
-  it("migrates v1 and v2 saves step by step", () => {
+  it("migrates v1, v2 and v3 saves step by step", () => {
     const sim = small();
     for (let i = 0; i < 300; i++) sim.step();
     sim.chars[2].memories.push({ t: 5, kind: "argued", subj: 3, obj: 2, toy: null, area: 0, val: -0.4, src: "told", from: 4, cred: 0.6, ev: 9 });
     sim.relate(sim.chars[2], 3).grudge = 0.5;
     const d: any = serialize(sim);
     // rebuild what a v1 save looked like: object memories/relationships, no reputation/prefs/lamps
-    d.version = 1; delete d.lamps;
+    d.version = 1; delete d.lamps; delete d.vehicles; delete d.graffiti; delete d.tills; delete d.crimes; delete d.bookings;
     d.chars = sim.chars.map((c) => { const { rel, path, goal, bubble, goalCooldowns, reputation, prefs, ...rest } = c as any; return { ...rest, rel: [...rel.entries()] }; });
     const m = parseSave(JSON.stringify(d));
     expect(m.version).toBe(SAVE_VERSION);

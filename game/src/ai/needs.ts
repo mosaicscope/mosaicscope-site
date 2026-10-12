@@ -12,6 +12,8 @@ export function updateNeeds(c: Character, dt: number, ctx: { raining: boolean; d
   n.social = clamp(n.social - dt * 0.0025 * (0.5 + p.sociability), 0, 1);
   n.fun = clamp(n.fun - dt * 0.0025 * (0.5 + p.playfulness), 0, 1);
   n.curiosity = clamp(n.curiosity - dt * 0.003 * (0.4 + p.curiosity), 0, 1);
+  c.hunger = clamp(c.hunger - dt * 0.0011, 0, 1);
+  if (c.hunger < 0.2) e.frustration = clamp(e.frustration + dt * 0.006, 0, 1);
   e.fear = clamp(e.fear - dt * (0.04 + p.boldness * 0.05), 0, 1);
   e.frustration = clamp(e.frustration - dt * (0.015 + (1 - p.temper) * 0.02), 0, 1);
   if (ctx.raining && !ctx.sheltered) { e.frustration = clamp(e.frustration + dt * 0.01, 0, 1); n.fun = clamp(n.fun - dt * 0.004, 0, 1); }
@@ -30,6 +32,7 @@ export function moodWord(c: Character): string {
   if (e.frustration > 0.6) return "furious";
   if (e.frustration > 0.35) return "annoyed";
   if (c.needs.energy < 0.2) return "exhausted";
+  if (c.hunger < 0.2) return "starving";
   if (c.needs.fun < 0.2) return "bored";
   if (c.needs.social < 0.2) return "lonely";
   if (e.mood > 0.5) return "buzzing";

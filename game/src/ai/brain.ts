@@ -3,6 +3,7 @@ import { Character, Lod, Phys } from "../entities/types";
 import { GOALS, GOAL_BY_ID, Choice, GoalDef } from "./goals";
 import { runStep, RUN, DONE, FAIL, moveTo, stop } from "./steps";
 import { updateNeeds } from "./needs";
+import { enterBuilding } from "../sim/Society";
 
 /**
  * Top-level hierarchical state machine:
@@ -145,13 +146,33 @@ export function thinkBackground(c: Character, sim: Simulation, dt: number): void
   if (sim.env.party && Math.hypot(c.x - sim.stagePoint.x, c.y - sim.stagePoint.y) < 12) { stop(c); c.anim.pose = "dance"; return; }
   if (c.emo.fear > 0.5) { c.anim.pose = "panic"; } else if (c.anim.pose === "panic" || c.anim.pose === "dance") c.anim.pose = "auto";
   c.emo.fear = Math.max(0, c.emo.fear - dt * 0.08);
+  // commuting: work in the morning, home at night (real people, not wanderers)
+  const h = sim.hour;
+  const dest = (h >= 23 || h < 6) && c.home >= 0 ? sim.world.buildings[c.home] : h >= 8 && h < 16 && c.workplace >= 0 && c.id % 3 === 0 ? sim.world.buildings[c.workplace] : null;
+  if (dest && (c.goal === null) && sim.rng.chance(0.02)) {
+    c.goal = { id: "commute", target: dest.id, plan: [], stepIdx: 0, stepTimer: 0, started: sim.tick, replans: 0 };
+  }
+  if (c.goal?.id === "commute") {
+    const b = sim.world.buildings[c.goal.target];
+    if (!b || sim.tick - c.goal.started > 60 * 90) { c.goal = null; }
+    else if (moveTo(c, b.door.x + 0.5, b.door.y + 0.5, sim, 0.7)) {
+      c.goal = null;
+      enterBuilding(sim, c, b, h >= 23 || h < 6 ? ((7 - h + 24) % 24) * 60 : sim.rng.range(60, 200));
+    } else if (c.pathReq === -1) { c.pathReq = 0; c.goal = null; }
+    return;
+  }
   const d = Math.hypot(c.pathGoalX - c.x, c.pathGoalY - c.y);
   if (d < 0.6 || c.stuck > 1.5) {
     c.stuck = 0;
-    if (sim.rng.chance(0.35)) { stop(c); c.pathGoalX = c.x; c.pathGoalY = c.y; c.anim.pose = sim.rng.chance(0.3) ? "phone" : "auto"; return; }
+    const tileNow = sim.world.tile(Math.floor(c.x), Math.floor(c.y));
+    const onRoad = !sim.world.walkable(c.x, c.y) || tileNow === 16 || tileNow === 18;
+    if (!onRoad && sim.rng.chance(0.35)) { stop(c); c.pathGoalX = c.x; c.pathGoalY = c.y; c.anim.pose = sim.rng.chance(0.3) ? "phone" : "auto"; return; }
     const area = sim.world.areas[c.homeArea] ?? sim.world.areas[0];
-    const p = area.kind === "street" ? sim.streetPoint(c) : sim.world.randomPointIn(area, sim.rng);
-    if (!sim.nav.walkLine(c.x, c.y, p.x, p.y) && sim.rng.chance(0.7)) return;
+    let p = area.kind === "street" ? sim.streetPoint(c) : sim.world.randomPointIn(area, sim.rng);
+    // stay on the footpath: short hops along it (or off the road if somehow standing in it)
+    if (area.kind === "street") { const a = sim.rng.range(0, 6.28); const q = { x: c.x + Math.cos(a) * 4, y: c.y + Math.sin(a) * 4 }; if (sim.world.tile(Math.floor(q.x), Math.floor(q.y)) === 17) p = q; }
+    if (onRoad) p = sim.world.nearestWalkable(c.x + (sim.world.isRoadLine(Math.floor(c.x)) ? 2 : 0), c.y + (sim.world.isRoadLine(Math.floor(c.y)) ? 2 : 0));
+    else if (!sim.nav.walkLine(c.x, c.y, p.x, p.y)) return;
     c.pathGoalX = p.x; c.pathGoalY = p.y;
   }
   const dd = Math.hypot(c.pathGoalX - c.x, c.pathGoalY - c.y) || 1;

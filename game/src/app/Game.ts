@@ -17,6 +17,15 @@ import { canPickUp } from "../inventory/Inventory";
 import { TOYS, canThrow, isMelee } from "../content/toys";
 import { setImpactIntensity } from "../physics/combat";
 import { Phys } from "../entities/types";
+import { Casino } from "../ui/Casino";
+import { Places, Radio } from "../ui/Places";
+import { nearestCar, playerInput, seat, unseat } from "../sim/Traffic";
+import { useBandage } from "../sim/Life";
+import { commitCrime, fmtCash } from "../sim/Society";
+import { VEHICLES } from "../content/vehicles";
+import { MOSAIC } from "../content/mosaicscope";
+import { carried, detach } from "../inventory/Inventory";
+import { BUILDINGS } from "../content/buildings";
 
 /** Wires simulation, renderer, input, audio, UI and persistence together and runs the loop. */
 export class Game {
@@ -44,6 +53,10 @@ export class Game {
   private raf = 0;
   private reduceMotionOS = false;
   private touches = new Map<number, { x: number; y: number }>();
+  casino: Casino; places: Places; radio: Radio;
+  private hudEl: HTMLElement;
+  private areaEl: HTMLElement = h("div.areaname", { "aria-live": "polite" }); private lastArea = ""; private bustedEl: HTMLElement; private lastBusted = -1;
+  private gestured = false;
   private pinchDist = 0;
 
   constructor(private canvas: HTMLCanvasElement, root: HTMLElement) {
@@ -65,7 +78,21 @@ export class Game {
     this.toastEl = h("div.toasts", { "aria-live": "polite" });
     this.hintEl = h("div.hint");
     this.clockEl = h("span.clock");
-    root.append(this.buildBar(), this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.buildTouch(), this.modal.el);
+    this.casino = new Casino({
+      getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = Math.round(v * 100) / 100; },
+      onEvent: (t, big) => { this.toast(t, big ? "acid" : ""); if (big) this.sim.emit({ type: "casino", x: this.sim.player.x, y: this.sim.player.y, actors: [this.sim.playerId], data: { amount: 0, game: "player" }, summary: t }); },
+      patrons: () => this.sim.chars.filter((c) => c.inside >= 0 && this.sim.world.buildings[c.inside]?.kind === "casino").length + 3,
+    }, () => { this.clock.paused = this.pausedBefore; });
+    this.places = new Places(() => this.sim, (t, b, cls) => this.modal.show(t, b, cls), () => this.modal.close(), (t, k) => this.toast(t, k));
+    this.dialogue.onTrade = (id) => this.places.trade(this.sim.chars[id]);
+    this.radio = new Radio(MOSAIC.soundcloud);
+    this.hudEl = h("div.hud", { "aria-live": "polite" });
+    this.bustedEl = h("div.busted.hidden", { role: "alert" });
+    root.append(this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.modal.el, this.casino.el, this.bustedEl);
+    // browsers only allow sound after a gesture: the first click/key starts the playlist
+    const firstGesture = () => { if (this.gestured) return; this.gestured = true; if (this.settings.sound) { this.audio.setEnabled(true); this.radio.play(); } };
+    window.addEventListener("pointerdown", firstGesture, { once: false, capture: true });
+    window.addEventListener("keydown", firstGesture, { capture: true });
     this.applySettings();
     this.bindInput();
     this.bindSim();
@@ -94,6 +121,9 @@ export class Game {
     this.ticksThisSecond += steps; this.tickWindow += dt;
     if (this.tickWindow >= 1) { this.tickRate = this.ticksThisSecond / this.tickWindow; this.ticksThisSecond = 0; this.tickWindow = 0; }
     this.hovered = this.mouse.dragging ? -1 : this.renderer.pickCharacter(this.mouse.x, this.mouse.y);
+    const ad = this.hovered < 0 && !this.mouse.dragging ? this.renderer.pickAd(this.mouse.x, this.mouse.y) : null;
+    this.canvas.style.cursor = ad || this.hovered >= 0 ? "pointer" : "";
+    this.canvas.title = ad ? `${ad.label} (opens in a new tab)` : "";
     this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames });
     this.audio.update(this.sim);
     this.fpsAvg = this.fpsAvg * 0.95 + (1 / Math.max(dt, 0.001)) * 0.05;
@@ -103,16 +133,45 @@ export class Game {
   };
 
   private lastUi = 0;
+  private pausedBefore = false;
+
+  private updateHud(): void {
+    const sim = this.sim, p = sim.player;
+    const stars = "★".repeat(p.wanted) + "☆".repeat(5 - p.wanted);
+    const bar = (label: string, v: number, col: string) => [h("span", { text: label }), h("div.gauge", null, [h("i", { style: { width: Math.round(v * 100) + "%", background: col } })])];
+    const kids: HTMLElement[] = [h("div.cash", { text: fmtCash(p.cash) }), h("div.stars" + (p.wanted ? ".flash" : ""), { "aria-label": `Wanted level ${p.wanted}` }, [h("b", { text: stars.slice(0, p.wanted) }), stars.slice(p.wanted)]),
+      h("div.bars", null, [...bar("health", p.blood * p.emo.composure ** 0.3, p.bleed > 0 ? "#ec2a1c" : "#c6ff3d"), ...bar("hunger", p.hunger, "#f6b62c")])];
+    if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; kids.push(h("div.car", null, [h("b", { text: String(Math.round(Math.abs(v.speed) * 7.2)) }), " km/h · " + VEHICLES[v.cls].name])); }
+    if (p.bleed > 0) kids.push(h("div.car", { text: "You're bleeding. B to bandage." }));
+    this.hudEl.replaceChildren(...kids);
+    if (sim.bustedAt !== this.lastBusted && sim.bustedAt >= 0) {
+      this.lastBusted = sim.bustedAt;
+      this.bustedEl.replaceChildren(h("div", null, [h("h1", { text: "Busted" }), h("p", { text: `Fined ${fmtCash(sim.bustedFine)}. Your weapons were confiscated.` })]));
+      this.bustedEl.classList.remove("hidden");
+      setTimeout(() => this.bustedEl.classList.add("hidden"), 3200);
+    }
+  }
+
   private uiTick(now: number): void {
     if (now - this.lastUi < 250) return;
     this.lastUi = now;
     const sim = this.sim;
     const wx = { clear: "clear", cloudy: "cloudy", rain: "rain", storm: "storm" }[sim.env.weather];
-    this.clockEl.replaceChildren(h("b", { text: fmtHour(sim.hour) }), h("span.wx", { text: ` · ${wx}${sim.env.power ? "" : " · power out"}${sim.env.party ? " · party on" : ""} · ${sim.chars.length} people` }));
+    const pl = sim.player, area = sim.world.areaAt(pl.x, pl.y);
+    const where = [sim.world.streetName(pl.x, pl.y), area && area.kind !== "street" ? area.name : ""].filter(Boolean).join(" · ");
+    this.clockEl.replaceChildren(h("b", { text: fmtHour(sim.hour) }), h("span.wx", { text: ` · ${wx}${sim.env.power ? "" : " · power out"}${sim.env.party ? " · party on" : ""} · ${where}` }));
+    // GTA-style district title when you walk into a new place
+    const areaName = area && area.kind !== "street" ? area.name : "";
+    if (areaName && areaName !== this.lastArea) {
+      this.areaEl.textContent = areaName;
+      this.areaEl.classList.remove("show"); void this.areaEl.offsetWidth; this.areaEl.classList.add("show");
+    }
+    if (areaName) this.lastArea = areaName;
     this.inspector.update();
     this.log.update();
     this.dialogue.check();
     this.updateHint();
+    this.updateHud();
     this.speedEls.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.speed === (this.clock.paused ? "0" : String(this.clock.speed)))));
     // toasts for notable events near the player
     for (const t of sim.toasts.splice(0)) this.toast(t.text, t.kind);
@@ -129,7 +188,16 @@ export class Game {
   // ------------------------------------------------------------------ player
   private controlPlayer(): void {
     const sim = this.sim, p = sim.player, k = this.settings.keys;
-    if (p.phys !== Phys.OK) { stop(p); return; }
+    if (p.inCar >= 0) {
+      const up = this.keys.has(k.up) || this.keys.has("arrowup"), down = this.keys.has(k.down) || this.keys.has("arrowdown");
+      const left = this.keys.has(k.left) || this.keys.has("arrowleft"), right = this.keys.has(k.right) || this.keys.has("arrowright");
+      playerInput.throttle = up ? 1 : down ? -1 : 0;
+      playerInput.steer = (right ? 1 : 0) - (left ? 1 : 0);
+      playerInput.brake = this.keys.has(" ");
+      this.renderer.cam.follow = p.id;
+      return;
+    }
+    if (p.phys !== Phys.OK || sim.tick < p.stunUntil) { stop(p); return; }
     let ix = 0, iy = 0;
     if (this.keys.has(k.up) || this.keys.has("arrowup")) iy -= 1;
     if (this.keys.has(k.down) || this.keys.has("arrowdown")) iy += 1;
@@ -167,9 +235,75 @@ export class Game {
     return best;
   }
 
+  /** Door (POI) within reach of the player, if any. */
+  private nearDoor(): { building: number; studio: boolean } | null {
+    const sim = this.sim, p = sim.player;
+    let best: { building: number; studio: boolean } | null = null, bd = 1.5;
+    for (const poi of sim.world.pois) {
+      if (poi.kind !== "door") continue;
+      const d = Math.hypot(poi.x - p.x, poi.y - p.y);
+      if (d >= bd) continue;
+      if (poi.building === -2) { bd = d; best = { building: -1, studio: true }; continue; }
+      const b = sim.world.buildings[poi.building ?? -1];
+      if (b && BUILDINGS[b.kind].enterable) { bd = d; best = { building: b.id, studio: false }; }
+    }
+    return best;
+  }
+
+  private enterPlace(door: { building: number; studio: boolean }): void {
+    const sim = this.sim;
+    if (door.studio) { this.places.enter(null, true); return; }
+    const b = sim.world.buildings[door.building];
+    if (b.kind === "casino") { this.pausedBefore = this.clock.paused; this.casino.show(); return; }
+    this.places.enter(b);
+  }
+
+  /** E: get out of the car / go into a place / pick up / get into a car. */
+  private interact(): void {
+    const sim = this.sim, p = sim.player;
+    if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; if (Math.abs(v.speed) > 2) { this.toast("Slow down to get out"); return; } v.speed = 0; unseat(sim, v); v.state = "parked"; this.renderer.cam.follow = p.id; return; }
+    const door = this.nearDoor();
+    if (door) { this.enterPlace(door); return; }
+    if (this.nearestToy()) { this.act("pickup"); return; }
+    const car = nearestCar(sim, p.x, p.y, 2.2);
+    if (!car) { this.toast("Nothing to pick up here"); return; }
+    if (car.forSale) { this.toast(`For sale: ${fmtCash(car.price)}. Buy it inside the dealership.`); return; }
+    const mine = car.owner === p.id;
+    if (car.driver >= 0) {
+      // carjacking: drag the driver out
+      const d = unseat(sim, car);
+      if (d) { d.phys = Phys.STUMBLE; d.physTimer = 0.8; d.kx = Math.cos(car.heading + 1.5) * 3; d.ky = Math.sin(car.heading + 1.5) * 3; this.sim.say(d, "Hey! My car!", "shout", 2); const r = sim.relate(d, p.id); r.grudge = Math.min(1, r.grudge + 0.7); }
+      commitCrime(sim, p, "car_theft", d);
+    } else if (!mine) commitCrime(sim, p, "car_theft", car.owner >= 0 ? sim.chars[car.owner] : null);
+    seat(sim, p, car);
+    car.state = "free"; car.siren = false;
+    this.toast(`${mine ? "Your" : "Stolen"} ${VEHICLES[car.cls].name}: W/S drive, A/D steer, Space brake, H horn, E get out`);
+  }
+
+  private rob(): void {
+    const sim = this.sim, p = sim.player;
+    const id = this.nearestPerson(1.3);
+    if (id < 0) { this.toast("Nobody close enough to rob"); return; }
+    const v = sim.chars[id];
+    const caught = sim.rng.chance(0.3 + v.pers.curiosity * 0.3);
+    const loot = carried(v).map((tid) => sim.toys[tid]).find((t) => t && t.def !== "camera" && (t.def === "phone" || t.def === "watch" || t.def === "chain" || t.def === "headphones"));
+    if (!caught && loot && sim.rng.chance(0.5)) { detach(v, loot.id); loot.holder = p.id; loot.state = "held"; p.bag.push(loot.id); this.toast(`Lifted a ${loot.def}`); }
+    else { const take = Math.min(v.cash, 10 + Math.round(Math.random() * 50)); v.cash -= take; p.cash += take; this.toast(take ? `Lifted ${fmtCash(take)}` : "Empty pockets"); }
+    commitCrime(sim, p, "pickpocket", v);
+  }
+
+  private bandage(): void {
+    const sim = this.sim, p = sim.player;
+    const target = p.wounds.some((w) => !w.bandaged) ? p : (() => { const id = this.nearestPerson(1.6); return id >= 0 && sim.chars[id].wounds.some((w) => !w.bandaged) ? sim.chars[id] : null; })();
+    if (!target) { this.toast("Nobody here needs a bandage"); return; }
+    if (!useBandage(sim, p, target)) { this.toast("You need a bandage (dairies and the Z station sell them)"); return; }
+    if (target !== p) { const r = sim.relate(target, p.id); r.trust = Math.min(1, r.trust + 0.25); r.aff = Math.min(1, r.aff + 0.2); this.toast(`You bandaged ${target.name}`, "acid"); }
+    else this.toast("Bandaged up");
+  }
+
   private act(kind: "pickup" | "drop" | "throw" | "swing" | "talk"): void {
     const sim = this.sim, p = sim.player;
-    if (p.phys !== Phys.OK) return;
+    if (p.phys !== Phys.OK || p.inCar >= 0) return;
     const cursor = this.renderer.cam.toWorld(this.mouse.x, this.mouse.y);
     switch (kind) {
       case "pickup": {
@@ -219,17 +353,24 @@ export class Game {
   private bindInput(): void {
     const cv = this.canvas;
     window.addEventListener("keydown", (e) => {
-      const tag = (e.target as HTMLElement).tagName;
+      const el = e.target as HTMLElement, tag = el.tagName;
       const key = e.key.toLowerCase(), k = this.settings.keys;
-      if (key !== "escape" && (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA")) return;
+      // only fields you type into swallow keys; a ticked checkbox or slider shouldn't freeze the controls
+      const typing = tag === "SELECT" || tag === "TEXTAREA" || tag === "INPUT" && !["checkbox", "radio", "range", "button"].includes((el as HTMLInputElement).type);
+      if (key !== "escape" && typing) return;
+      if (key === "escape" && this.casino.open) { this.casino.close(); return; }
       if (key === "escape") { if (this.modal.open) this.modal.close(); else if (this.dialogue.open) this.dialogue.close(); else { this.select(-1); this.dev.toggle(false); this.log.toggle(false); } return; }
       if (this.modal.open) return;
       if (this.dialogue.open && /^[1-9]$/.test(key)) { if (this.dialogue.key(+key)) e.preventDefault(); return; }
-      if ((e.target as HTMLElement).tagName === "BUTTON" && (key === " " || key === "enter")) return;
+      if ((tag === "BUTTON" || tag === "INPUT") && (key === " " || key === "enter")) return;
       this.keys.add(key);
       if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(key)) e.preventDefault();
       if (e.repeat) return;
-      if (key === k.pickup) this.act("pickup");
+      if (this.casino.open) return;
+      if (this.sim.player.inCar >= 0 && key === k.horn) { const v = this.sim.vehicles[this.sim.player.inCar]; this.sim.bus.emit("sound", { kind: "horn", x: v.x, y: v.y, vol: 0.8 }); return; }
+      if (key === k.pickup) this.interact();
+      else if (key === k.rob) this.rob();
+      else if (key === k.bandage) this.bandage();
       else if (key === k.drop) this.act("drop");
       else if (key === k.throw) this.act("throw");
       else if (key === k.swing) this.act("swing");
@@ -283,6 +424,8 @@ export class Game {
     if (button === 2) { this.mouse.x = x; this.mouse.y = y; this.act("throw"); return; }
     const id = this.renderer.pickCharacter(x, y);
     if (id >= 0) { this.select(id === this.selected && id !== p.id ? -1 : id); if (id !== p.id && this.selected === id && Math.hypot(sim.chars[id].x - p.x, sim.chars[id].y - p.y) < 1.8) this.dialogue.start(id); return; }
+    const ad = this.renderer.pickAd(x, y);
+    if (ad) { window.open(ad.url, "_blank", "noopener"); this.toast("Opening the MosaicScope site in a new tab"); return; }
     const tid = this.renderer.pickToy(x, y);
     if (tid >= 0) {
       const t = sim.toys[tid];
@@ -297,6 +440,10 @@ export class Game {
     const sim = this.sim, p = sim.player, k = this.settings.keys;
     const parts: (HTMLElement | string)[] = [];
     const kb = (s: string) => h("kbd", { text: s === " " ? "Space" : s.toUpperCase() });
+    if (p.inCar >= 0) { this.hintEl.replaceChildren(kb("W"), "/", kb("S"), " drive · ", kb("A"), "/", kb("D"), " steer · ", kb(" "), " brake · ", kb("H"), " horn · ", kb(k.pickup), " get out"); return; }
+    const door = this.nearDoor();
+    if (door) parts.push(kb(k.pickup), " go into ", h("b", { text: door.studio ? "MosaicScope Studio" : sim.world.buildings[door.building].name }), " · ");
+    else { const car = nearestCar(sim, p.x, p.y, 2.2); if (car && !this.nearestToy()) parts.push(kb(k.pickup), car.forSale ? " (for sale) " : car.owner === p.id ? " get in your car · " : " steal the car · "); }
     if (p.hand >= 0) {
       const d = sim.toys[p.hand].def;
       parts.push("Holding ", h("b", { text: TOYS[d].name }), " · ");
@@ -357,6 +504,7 @@ export class Game {
     return h("div.touch", { "aria-label": "Touch actions" }, [
       b("Pick up", () => this.act("pickup")), b("Throw", () => { this.mouse.x = innerWidth / 2 + 60; this.mouse.y = innerHeight / 2 - 20; this.throwAtSelected(); }),
       b("Swing", () => this.act("swing")), b("Talk", () => this.act("talk")),
+      b("Use / Enter", () => this.interact()), b("Bandage", () => this.bandage()),
     ]);
   }
 
@@ -374,9 +522,11 @@ export class Game {
 
   private applySettings(): void {
     const s = this.settings;
+    this.renderer.fakeBlood = s.fakeBlood; this.sim.fakeBlood = s.fakeBlood;
+    if (this.radio) { if (!s.sound) this.radio.pause(); else if (this.gestured && !this.radio.playing) this.radio.play(); this.radio.setVolume(s.volume); }
     document.documentElement.style.setProperty("--ts", String(s.textScale));
     this.audio.setVolume(s.volume);
-    if (s.sound !== this.audio.enabled) this.audio.setEnabled(s.sound);
+    if (this.gestured && s.sound !== this.audio.enabled) this.audio.setEnabled(s.sound);
     this.soundBtn.textContent = s.sound ? "🔊" : "🔇";
     this.soundBtn.classList.toggle("on", s.sound);
     setImpactIntensity(s.gentle ? 0.55 : 1);
@@ -432,6 +582,7 @@ export class Game {
   }
 
   private swapSim(sim: Simulation): void {
+    sim.fakeBlood = this.settings.fakeBlood;
     this.dialogue.close();
     this.sim = sim;
     this.renderer.setSim(sim);

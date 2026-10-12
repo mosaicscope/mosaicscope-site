@@ -1,155 +1,341 @@
 import { Rng } from "../core/rng";
 import { World, T, Area, AreaKind, PoiKind, SOLID, DECOR } from "./World";
+import { BUILDINGS, BuildingKind, GROUND_H, FLOOR_H } from "../content/buildings";
 
 /**
- * Seeded generator for the Mosaics' block: a plaza in the middle, districts around it, a street ring
- * for the background crowd, and paths linking everything. After placement it validates connectivity
- * and removes any decoration that would cut an area off (see `ensureConnected`).
+ * Seeded city generator. A road grid (two lanes, left-hand traffic) divides the map into 6x6 blocks,
+ * each with a sidewalk ring. Blocks are zoned (plaza, MosaicScope studio, casino, food street, shops,
+ * police, homes, offices...) and filled with buildings, open spaces and street furniture. Afterwards
+ * connectivity is validated and anything that would cut an area off is removed.
  */
 export interface GenOptions { size: number; seed: number }
 
+type Plan = "houses" | "apartments" | "playground" | "office" | "bank" | "hotel" | "dealership" | "park" | "market" | "mosaicscope" | "stage" | "court"
+  | "police" | "plaza" | "food" | "food2" | "shops" | "shops2" | "alley" | "casino" | "hospital" | "garage" | "river" | "airport";
+
+/**
+ * Central Christchurch inside the Four Avenues, on the game's 6x6 block grid. Streets keep their
+ * real order (west to east: Deans Ave ... Madras St; north to south: Bealey Ave ... Moorhouse Ave)
+ * and landmarks sit in the block they really occupy: Hagley Park and the Botanic Gardens to the
+ * west, the hospital at Hagley's south-east corner, Cathedral Square on Colombo St between Worcester
+ * and Hereford, Victoria Square and the Avon, the casino on Victoria St, Cashel Mall, the Riverside
+ * Market, the car yards on Moorhouse Ave, the central police station on the south side and the
+ * SALT District laneways. Source: OpenStreetMap (c) OpenStreetMap contributors, ODbL; simplified to
+ * the grid. The airport (really 10 km north-west) is pulled in as the north-west block.
+ */
+export const STREETS_X = ["Deans Ave", "Rolleston Ave", "Montreal St", "Durham St", "Colombo St", "Manchester St", "Madras St"];
+export const STREETS_Y = ["Bealey Ave", "Kilmore St", "Armagh St", "Worcester St", "Hereford St", "Cashel St", "Moorhouse Ave"];
+
+const PLAN: Plan[][] = [
+  ["airport", "houses", "casino", "food2", "apartments", "houses"],
+  ["park", "court", "stage", "river", "office", "playground"],
+  ["park", "apartments", "hotel", "bank", "food", "apartments"],
+  ["river", "mosaicscope", "food", "plaza", "office", "houses"],
+  ["hospital", "houses", "market", "shops", "shops2", "apartments"],
+  ["houses", "dealership", "garage", "police", "alley", "houses"],
+];
+const NAMES: string[][] = [
+  ["Christchurch Airport", "Salisbury St", "The Tessera Casino", "Victoria St", "Kilmore Apartments", "Peterborough St"],
+  ["Hagley Park North", "Cranmer Square", "Town Hall", "Victoria Square", "Te Pae", "Margaret Mahy Playground"],
+  ["Botanic Gardens", "Montreal Apartments", "Worcester Boulevard", "Gloucester Bank Corner", "New Regent St", "Manchester Apartments"],
+  ["Hagley Park South", "Arts Centre", "The Terrace", "Cathedral Square", "Hereford Offices", "Madras St"],
+  ["Christchurch Hospital", "Lichfield St", "Riverside Market", "Cashel Mall", "High St", "Tuam Apartments"],
+  ["Addington", "Moorhouse Motors", "Moorhouse Fuel", "Central Police Station", "SALT District", "Sydenham"],
+];
+
+const AREA_KIND: Record<Plan, AreaKind> = {
+  houses: "residential", apartments: "residential", playground: "playground", office: "office", bank: "office", hotel: "office", dealership: "dealership",
+  park: "park", market: "market", mosaicscope: "studio", stage: "stage", court: "court", police: "police", plaza: "plaza", food: "food", food2: "food",
+  shops: "shops", shops2: "shops", alley: "alley", casino: "casino", hospital: "hospital", garage: "shops", river: "park", airport: "airport",
+};
+
 export function generateWorld(opts: GenOptions): World {
-  const S = Math.max(48, opts.size);
+  const P = 16, BLOCKS = 6;
+  const S = BLOCKS * P + 2; // 98: roads on every side
   const rng = new Rng(opts.seed);
   const w = new World(S);
-  const j = (n: number) => n + rng.int(-1, 1); // small seeded jitter
-  const k = S / 64; // scale layout to world size
+  const idx = (x: number, y: number) => y * S + x;
+  const set = (x: number, y: number, t: number) => { if (w.inBounds(x, y)) w.tiles[idx(x, y)] = t; };
+  const fill = (x0: number, y0: number, x1: number, y1: number, t: number) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) set(x, y, t); };
+  const poi = (kind: PoiKind, x: number, y: number, area: Area, extra: Partial<{ building: number; menu: string[]; name: string; dir: number }> = {}) =>
+    w.pois.push({ id: w.pois.length, kind, x: x + 0.5, y: y + 0.5, area: area.id, on: kind === "lamp", ...extra });
 
-  const fill = (x0: number, y0: number, x1: number, y1: number, t: number, area?: number) => {
-    for (let y = Math.max(0, y0); y <= Math.min(S - 1, y1); y++) for (let x = Math.max(0, x0); x <= Math.min(S - 1, x1); x++) {
-      w.tiles[y * S + x] = t;
-      if (area !== undefined) w.areaOf[y * S + x] = area;
-    }
+  // --- streets: every road and sidewalk tile belongs to area 0
+  const street: Area = { id: 0, name: "The Streets", kind: "street", x0: 0, y0: 0, x1: S - 1, y1: S - 1, cx: S / 2, cy: S / 2 };
+  w.areas.push(street);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const rx = w.isRoadLine(x), ry = w.isRoadLine(y);
+    if (rx || ry) {
+      const mx = x % P, my = y % P;
+      const cross = (rx && (my === 2 || my === 15) && !ry) || (ry && (mx === 2 || mx === 15) && !rx);
+      set(x, y, cross ? T.CROSSWALK : T.ROAD);
+    } else set(x, y, T.SIDEWALK);
+  }
+
+  // --- blocks
+  const usedNames = new Set<string>();
+  // Christchurch street names give second branches a real-sounding name ("Hereford Superette")
+  const STREETS = ["Hereford", "Worcester", "Gloucester", "Armagh", "Kilmore", "Salisbury", "Cashel", "Lichfield", "Tuam", "St Asaph", "Colombo", "Manchester", "Madras", "Durham", "Victoria", "Riccarton", "Papanui", "Lincoln", "Ferry", "Sumner"];
+  w.streetsX = STREETS_X; w.streetsY = STREETS_Y;
+  const nameFor = (k: BuildingKind) => {
+    const opts = BUILDINGS[k].names.filter((n) => !usedNames.has(n));
+    let n = opts.length ? rng.pick(opts) : "";
+    for (let i = 0; !n && i < 40; i++) { const c = `${rng.pick(STREETS)} ${rng.pick(BUILDINGS[k].names).replace(/^The /, "")}`; if (!usedNames.has(c)) n = c; }
+    if (!n) n = `${rng.pick(BUILDINGS[k].names)} on ${rng.pick(STREETS)}`;
+    usedNames.add(n);
+    return n;
   };
-  const addArea = (name: string, kind: AreaKind, x0: number, y0: number, x1: number, y1: number): Area => {
-    const a: Area = { id: w.areas.length, name, kind, x0, y0, x1, y1, cx: (x0 + x1 + 1) / 2, cy: (y0 + y1 + 1) / 2 };
+
+  const building = (kind: BuildingKind, x0: number, y0: number, x1: number, y1: number, area: Area, face?: "n" | "s" | "e" | "w") => {
+    const def = BUILDINGS[kind];
+    const floors = rng.int(def.floors[0], def.floors[1]);
+    const id = w.buildings.length;
+    // door on the side facing the closest block edge (or the requested face)
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    const dists = { n: y0 - area.y0, s: area.y1 - y1, w: x0 - area.x0, e: area.x1 - x1 } as const;
+    const f = face ?? (Object.entries(dists).sort((a, b) => a[1] - b[1])[0][0] as "n" | "s" | "e" | "w");
+    const door = f === "s" ? { x: Math.floor(cx), y: y1 + 1 } : f === "n" ? { x: Math.floor(cx), y: y0 - 1 } : f === "e" ? { x: x1 + 1, y: Math.floor(cy) } : { x: x0 - 1, y: Math.floor(cy) };
+    w.buildings.push({
+      id, kind, name: kind === "house" ? `${rng.int(1, 240)} ${rng.pick(["Hereford", "Worcester", "Gloucester", "Armagh", "Kilmore", "Salisbury", "Peterborough", "Durham", "Madras", "Barbadoes"])} St` : nameFor(kind),
+      x0, y0, x1, y1, floors, height: GROUND_H + (floors - 1) * FLOOR_H, color: rng.pick(def.colors), roof: def.roof, sign: def.sign,
+      door: { ...door, face: f }, area: area.id, billboard: floors >= 3 && rng.chance(0.35),
+    });
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { set(x, y, T.BUILDING); w.buildingOf[idx(x, y)] = id; }
+    if (w.tile(door.x, door.y) === T.BUILDING || SOLID.has(w.tile(door.x, door.y))) set(door.x, door.y, T.PAVE);
+    poi("door", door.x, door.y, area, { building: id, name: w.buildings[id].name, menu: def.menu });
+    return w.buildings[id];
+  };
+
+  for (let by = 0; by < BLOCKS; by++) for (let bx = 0; bx < BLOCKS; bx++) {
+    const plan = PLAN[by][bx];
+    const x0 = bx * P + 2, y0 = by * P + 2, x1 = x0 + 13, y1 = y0 + 13; // outer block incl. sidewalk ring
+    const a: Area = { id: w.areas.length, name: NAMES[by][bx], kind: AREA_KIND[plan], x0: x0 + 1, y0: y0 + 1, x1: x1 - 1, y1: y1 - 1, cx: (x0 + x1 + 1) / 2, cy: (y0 + y1 + 1) / 2 };
     w.areas.push(a);
-    return a;
-  };
-  const poi = (kind: PoiKind, x: number, y: number, area: Area) => w.pois.push({ id: w.pois.length, kind, x: x + 0.5, y: y + 0.5, area: area.id, on: kind === "lamp" });
+    const ix0 = x0 + 1, iy0 = y0 + 1, ix1 = x1 - 1, iy1 = y1 - 1; // 12x12 interior
+    for (let y = iy0; y <= iy1; y++) for (let x = ix0; x <= ix1; x++) w.areaOf[idx(x, y)] = a.id;
+    // street lamps on the sidewalk corners
+    poi("lamp", x0, y0, street); poi("lamp", x1, y1, street);
+    if (rng.chance(0.5)) poi("busstop", x0 + 6, y1, street);
+    if (rng.chance(0.4)) poi("hydrant", x1, y0 + 4, street);
 
-  // 0: the street ring (background crowd lives here)
-  const street = addArea("The Street", "street", 0, 0, S - 1, S - 1);
-  fill(0, 0, S - 1, S - 1, T.GRASS, street.id);
-  const ring = 3;
-  fill(0, 0, S - 1, ring - 1, T.STREET); fill(0, S - ring, S - 1, S - 1, T.STREET);
-  fill(0, 0, ring - 1, S - 1, T.STREET); fill(S - ring, 0, S - 1, S - 1, T.STREET);
-
-  const r = (n: number) => Math.round(n * k);
-
-  // Plaza
-  const plaza = addArea("The Plaza", "plaza", r(24), r(24), r(39), r(39));
-  fill(plaza.x0, plaza.y0, plaza.x1, plaza.y1, T.PAVE, plaza.id);
-  const fx = Math.floor(plaza.cx) - 1, fy = Math.floor(plaza.cy) - 1;
-  fill(fx, fy, fx + 1, fy + 1, T.FOUNTAIN);
-  poi("fountain", fx + 1, fy + 1, plaza);
-  for (const [bx, by] of [[plaza.x0 + 2, plaza.y0 + 2], [plaza.x1 - 2, plaza.y0 + 2], [plaza.x0 + 2, plaza.y1 - 2], [plaza.x1 - 2, plaza.y1 - 2]]) { poi("bench", bx, by, plaza); poi("lamp", bx + 1, by, plaza); }
-  poi("toychest", plaza.x0 + 4, Math.floor(plaza.cy), plaza);
-
-  // Park (west) with pond and trees
-  const park = addArea("Kodak Park", "park", ring + 1, r(6), r(21), r(40));
-  fill(park.x0, park.y0, park.x1, park.y1, T.GRASS, park.id);
-  const pcx = j(r(11)), pcy = j(r(16)), prx = rng.int(3, 4), pry = rng.int(2, 4);
-  for (let y = pcy - pry; y <= pcy + pry; y++) for (let x = pcx - prx; x <= pcx + prx; x++) {
-    const dx = (x - pcx) / prx, dy = (y - pcy) / pry;
-    if (dx * dx + dy * dy <= 1) w.tiles[y * S + x] = T.WATER;
-  }
-  for (let i = 0; i < r(26); i++) {
-    const x = rng.int(park.x0, park.x1), y = rng.int(park.y0, park.y1);
-    if (w.tiles[y * S + x] === T.GRASS) w.tiles[y * S + x] = T.TREE;
-  }
-  poi("bench", pcx + prx + 2, pcy, park); poi("bench", park.x0 + 3, r(30), park);
-  poi("toychest", r(14), r(30), park); poi("lamp", pcx, pcy + pry + 2, park);
-
-  // Court (NE): fenced ball court with two gates
-  const court = addArea("The Court", "court", r(43), ring + 1, S - ring - 2, r(21));
-  fill(court.x0, court.y0, court.x1, court.y1, T.COURT, court.id);
-  for (let x = court.x0; x <= court.x1; x++) { w.tiles[court.y0 * S + x] = T.FENCE; w.tiles[court.y1 * S + x] = T.FENCE; }
-  for (let y = court.y0; y <= court.y1; y++) { w.tiles[y * S + court.x0] = T.FENCE; w.tiles[y * S + court.x1] = T.FENCE; }
-  const gateY = j(Math.floor(court.cy)), gateX = j(Math.floor(court.cx));
-  fill(court.x0, gateY - 1, court.x0, gateY, T.COURT); fill(gateX - 1, court.y1, gateX, court.y1, T.COURT);
-  poi("hoop", court.x0 + 2, Math.floor(court.cy), court); poi("hoop", court.x1 - 2, Math.floor(court.cy), court);
-  poi("toychest", Math.floor(court.cx), court.y0 + 2, court); poi("lamp", gateX + 2, court.y1 - 1, court);
-
-  // Market (N): rows of stalls with awnings that shelter the tiles in front
-  const market = addArea("Flash Market", "market", r(23), ring + 1, r(40), r(20));
-  fill(market.x0, market.y0, market.x1, market.y1, T.PATH, market.id);
-  for (let row = market.y0 + 3; row <= market.y1 - 3; row += 5) {
-    for (let x = market.x0 + 2; x <= market.x1 - 2; x += rng.int(3, 4)) {
-      if (rng.chance(0.85)) {
-        w.tiles[row * S + x] = T.STALL;
-        for (const dy of [1, 2]) if (row + dy <= market.y1) w.shelter[(row + dy) * S + x] = 1;
+    switch (plan) {
+      case "plaza": {
+        fill(ix0, iy0, ix1, iy1, T.PAVE);
+        const fx = Math.floor(a.cx) - 1, fy = Math.floor(a.cy) - 1;
+        fill(fx, fy, fx + 1, fy + 1, T.FOUNTAIN); poi("fountain", fx + 1, fy + 1, a);
+        for (const [px, py] of [[ix0 + 1, iy0 + 1], [ix1 - 1, iy0 + 1], [ix0 + 1, iy1 - 1], [ix1 - 1, iy1 - 1]]) { poi("bench", px, py, a); poi("lamp", px + 1, py, a); }
+        poi("toychest", ix0 + 3, Math.floor(a.cy), a);
+        poi("foodtruck", ix1 - 2, iy0 + 3, a, { name: "Mr Whippee", menu: ["hokey_pokey", "lp", "donut"] });
+        poi("atm", ix0 + 1, iy1 - 3, a);
+        for (const [tx, ty] of [[ix0 + 4, iy0 + 1], [ix1 - 4, iy1 - 1], [ix0 + 1, iy0 + 6], [ix1 - 1, iy0 + 6]]) set(tx, ty, T.TREE);
+        break;
+      }
+      case "river": {
+        // the Avon / Ōtākaro winds through: grass banks, willows, a footbridge
+        fill(ix0, iy0, ix1, iy1, T.GRASS);
+        const wob = (t: number) => Math.sin(t * 0.55 + bx) * 2.2;
+        for (let x = ix0; x <= ix1; x++) {
+          const cyR = Math.round(iy0 + 2 + ((x - ix0) / (ix1 - ix0)) * (iy1 - iy0 - 4) + wob(x));
+          for (let y = cyR - 1; y <= cyR + 1; y++) if (y >= iy0 && y <= iy1) set(x, y, T.WATER);
+        }
+        // footbridge across the middle
+        const bxm = Math.floor(a.cx);
+        for (let y = iy0; y <= iy1; y++) if (w.tile(bxm, y) === T.WATER) set(bxm, y, T.PATH);
+        for (let y = iy0; y <= iy1; y++) if (w.tile(bxm, y) === T.GRASS) set(bxm, y, T.PATH);
+        for (let i = 0; i < 9; i++) { const x = rng.int(ix0, ix1), y = rng.int(iy0, iy1); if (w.tile(x, y) === T.GRASS && x !== bxm) set(x, y, T.TREE); }
+        poi("bench", bxm + 2, iy0 + 1, a); poi("bench", bxm - 2, iy1 - 1, a); poi("lamp", bxm + 1, Math.floor(a.cy), a);
+        if (by === 1) poi("foodtruck", ix0 + 1, iy1 - 1, a, { name: "Coffee Cart", menu: ["flat_white", "donut", "lp"] });
+        break;
+      }
+      case "airport": {
+        fill(ix0, iy0, ix1, iy1, T.PAVE);
+        building("airport", ix0, iy0, ix1 - 5, iy0 + 3, a, "s");
+        // apron with a parked jet beside the terminal, car park below
+        poi("plane", ix1 - 2, iy0 + 2, a, { name: "Aotearoa Air 787" });
+        fill(ix0, iy0 + 8, ix1, iy1, T.PARKING);
+        fill(ix0 - 1, iy0 + 9, ix0 - 1, iy0 + 10, T.PARKING);
+        poi("busstop", ix0 + 3, iy0 + 6, a, { name: "Airport shuttle" });
+        poi("lamp", ix1 - 1, iy0 + 7, a);
+        break;
+      }
+      case "park": {
+        fill(ix0, iy0, ix1, iy1, T.GRASS);
+        const pcx = Math.floor(a.cx) + rng.int(-2, 1), pcy = Math.floor(a.cy) + rng.int(-2, 1), prx = rng.int(2, 3), pry = rng.int(2, 3);
+        for (let y = pcy - pry; y <= pcy + pry; y++) for (let x = pcx - prx; x <= pcx + prx; x++) { const dx = (x - pcx) / prx, dy = (y - pcy) / pry; if (dx * dx + dy * dy <= 1) set(x, y, T.WATER); }
+        for (let i = 0; i < 14; i++) { const x = rng.int(ix0, ix1), y = rng.int(iy0, iy1); if (w.tile(x, y) === T.GRASS) set(x, y, T.TREE); }
+        for (let x = ix0; x <= ix1; x++) if (w.tile(x, Math.floor(a.cy) + 4) === T.GRASS || w.tile(x, Math.floor(a.cy) + 4) === T.TREE) set(x, Math.floor(a.cy) + 4, T.PATH);
+        poi("bench", ix0 + 2, Math.floor(a.cy) + 3, a); poi("bench", ix1 - 2, Math.floor(a.cy) + 5, a);
+        poi("toychest", ix0 + 4, Math.floor(a.cy) + 5, a); poi("lamp", Math.floor(a.cx), Math.floor(a.cy) + 5, a);
+        break;
+      }
+      case "court": {
+        fill(ix0, iy0, ix1, iy1, T.PAVE);
+        const cx0 = ix0, cx1 = ix1, cy0 = iy0, cy1 = iy0 + 8;
+        fill(cx0, cy0, cx1, cy1, T.COURT);
+        for (let x = cx0; x <= cx1; x++) { set(x, cy0, T.FENCE); set(x, cy1, T.FENCE); }
+        for (let y = cy0; y <= cy1; y++) { set(cx0, y, T.FENCE); set(cx1, y, T.FENCE); }
+        const gx = Math.floor((cx0 + cx1) / 2);
+        set(gx, cy1, T.COURT); set(gx + 1, cy1, T.COURT); set(cx0, cy0 + 4, T.COURT);
+        poi("hoop", cx0 + 2, cy0 + 4, a); poi("hoop", cx1 - 2, cy0 + 4, a); poi("toychest", gx, cy0 + 2, a); poi("lamp", gx + 3, cy1 - 1, a);
+        building("gym", ix0 + 1, iy1 - 2, ix0 + 6, iy1, a, "n");
+        break;
+      }
+      case "market": {
+        fill(ix0, iy0, ix1, iy1, T.PATH);
+        for (let row = iy0 + 2; row <= iy1 - 2; row += 4) for (let x = ix0 + 1; x <= ix1 - 1; x += rng.int(3, 4)) {
+          if (rng.chance(0.85)) { set(x, row, T.STALL); for (const dy of [1, 2]) if (row + dy <= iy1) w.shelter[idx(x, row + dy)] = 1; }
+        }
+        poi("bench", ix0, iy1, a); poi("lamp", Math.floor(a.cx), iy1, a);
+        poi("foodtruck", ix1 - 1, iy1 - 1, a, { name: "Bao Wow truck", menu: ["bao", "kebab", "lp"] });
+        break;
+      }
+      case "stage": {
+        fill(ix0, iy0, ix1, iy1, T.PAVE);
+        fill(ix0 + 5, iy0 + 2, ix1 - 1, iy0 + 7, T.STAGE);
+        poi("boombox", ix0 + 4, iy0 + 4, a);
+        poi("lamp", ix0 + 1, iy0 + 1, a); poi("lamp", ix0 + 1, iy0 + 8, a); poi("toychest", ix0 + 1, iy0 + 5, a);
+        building("nightclub", ix0 + 1, iy1 - 2, ix1 - 1, iy1, a, "n");
+        break;
+      }
+      case "playground": {
+        fill(ix0, iy0, ix1, iy1, T.SAND);
+        fill(ix0, iy0, ix1, iy0 + 4, T.PAVE); // skate bowl area
+        for (let i = 0; i < 3; i++) poi("springpad", rng.int(ix0 + 1, ix1 - 1), rng.int(iy0 + 6, iy1 - 1), a);
+        poi("toychest", Math.floor(a.cx), iy0 + 6, a); poi("lamp", ix1, iy0 + 5, a); poi("mural", ix0, iy0 + 2, a, { name: "skate wall" });
+        break;
+      }
+      case "alley": {
+        fill(ix0, iy0, ix1, iy1, T.PAVE);
+        for (let i = 0; i < 6; i++) { const x = rng.int(ix0 + 1, ix1 - 1), y = rng.int(iy0 + 5, iy1 - 1); set(x, y, T.CRATE); }
+        // the legal wall of fame: a long low wall for murals
+        for (let x = ix0 + 1; x <= ix1 - 1; x++) set(x, iy0 + 3, T.WALL);
+        set(Math.floor(a.cx), iy0 + 3, T.PAVE);
+        poi("mural", ix0 + 3, iy0 + 4, a, { name: "wall of fame" }); poi("lamp", ix0 + 1, iy0 + 5, a); poi("toychest", ix1 - 2, iy1 - 2, a);
+        building("records", ix0, iy0, ix0 + 4, iy0 + 2, a, "s");
+        building("barber", ix1 - 4, iy0, ix1, iy0 + 2, a, "s");
+        break;
+      }
+      case "mosaicscope": {
+        fill(ix0, iy0, ix1, iy1, T.PAVE);
+        // the walk-in studio (left half): walls, a door, lights inside
+        const sx0 = ix0, sx1 = ix0 + 7, sy0 = iy0, sy1 = iy1 - 1;
+        fill(sx0, sy0, sx1, sy1, T.FLOOR);
+        for (let x = sx0; x <= sx1; x++) { set(x, sy0, T.WALL); set(x, sy1, T.WALL); }
+        for (let y = sy0; y <= sy1; y++) { set(sx0, y, T.WALL); set(sx1, y, T.WALL); }
+        const dy = Math.floor((sy0 + sy1) / 2);
+        set(sx1, dy, T.FLOOR); set(sx1, dy + 1, T.FLOOR);
+        poi("door", sx1 + 1, dy, a, { name: "MosaicScope Studio", building: -2 });
+        for (let y = sy0 + 1; y < sy1; y++) for (let x = sx0 + 1; x < sx1; x++) w.shelter[idx(x, y)] = 1;
+        poi("light", sx0 + 2, sy0 + 2, a); poi("light", sx0 + 5, sy0 + 2, a); poi("bench", sx0 + 2, sy1 - 2, a);
+        const studioId = w.areas.length; // a sub-area so "studio" logic (shelter, shoots) has a tight rect
+        w.areas.push({ id: studioId, name: "MosaicScope Studio", kind: "studio", x0: sx0 + 1, y0: sy0 + 1, x1: sx1 - 1, y1: sy1 - 1, cx: (sx0 + sx1 + 1) / 2, cy: (sy0 + sy1 + 1) / 2 });
+        for (let y = sy0 + 1; y < sy1; y++) for (let x = sx0 + 1; x < sx1; x++) w.areaOf[idx(x, y)] = studioId;
+        a.kind = "gallery";
+        building("gallery", ix0 + 9, iy0 + 1, ix1, iy0 + 6, a, "w");
+        poi("billboard", ix0 + 10, iy1 - 2, a, { name: "mosaicscope" });
+        break;
+      }
+      case "casino": {
+        fill(ix0, iy0, ix1, iy1, T.PAVE);
+        building("casino", ix0 + 1, iy0, ix1 - 1, iy0 + 6, a, "s");
+        fill(ix0, iy0 + 9, ix1, iy1, T.PARKING);
+        fill(ix0, iy1 + 1, ix0 + 1, iy1 + 1, T.PARKING); // driveway
+        poi("lamp", ix0, iy0 + 8, a); poi("lamp", ix1, iy0 + 8, a); poi("atm", ix1 - 1, iy0 + 7, a);
+        break;
+      }
+      case "dealership": {
+        fill(ix0, iy0, ix1, iy1, T.PAVE);
+        building("dealership", ix0, iy0, ix0 + 6, iy0 + 4, a, "s");
+        fill(ix0, iy0 + 7, ix1, iy1, T.PARKING);
+        fill(ix1 + 1, iy1 - 1, ix1 + 1, iy1, T.PARKING);
+        poi("lamp", ix1, iy0 + 6, a); poi("billboard", ix1 - 2, iy0 + 2, a, { name: "cars" });
+        break;
+      }
+      case "police": {
+        fill(ix0, iy0, ix1, iy1, T.PAVE);
+        building("police", ix0, iy0, ix0 + 7, iy0 + 6, a, "s");
+        fill(ix0 + 9, iy0, ix1, iy0 + 6, T.PARKING);
+        fill(ix1 + 1, iy0 + 1, ix1 + 1, iy0 + 2, T.PARKING);
+        building("bakery", ix0, iy1 - 3, ix0 + 4, iy1, a, "n");
+        poi("lamp", ix0 + 8, iy0 + 8, a);
+        break;
+      }
+      case "hospital": {
+        fill(ix0, iy0, ix1, iy1, T.PAVE);
+        building("hospital", ix0, iy0, ix1 - 3, iy0 + 7, a, "s");
+        fill(ix1 - 2, iy0, ix1, iy0 + 7, T.PARKING);
+        fill(ix1 + 1, iy0 + 2, ix1 + 1, iy0 + 3, T.PARKING);
+        building("cafe", ix0, iy1 - 2, ix0 + 4, iy1, a, "n");
+        poi("bench", ix0 + 7, iy0 + 9, a);
+        break;
+      }
+      case "food": case "food2": {
+        fill(ix0, iy0, ix1, iy1, T.PAVE);
+        const kinds: BuildingKind[] = plan === "food" ? ["diner", "pizza", "sushi", "fishchips", "cafe", "dairy"] : ["bakery", "pizza", "diner", "sushi", "cafe", "dairy"];
+        let k = 0;
+        for (const ly of [iy0, iy0 + 7]) for (const lx of [ix0, ix0 + 4, ix0 + 8]) building(kinds[k++], lx, ly, lx + 3, ly + 4, a, ly === iy0 ? "s" : "n");
+        poi("foodtruck", Math.floor(a.cx), Math.floor(a.cy) + 0, a, { name: "Kebab Kingz", menu: ["kebab", "lp", "energy_drink"] });
+        poi("bench", ix0 + 2, iy0 + 6, a); poi("lamp", ix1 - 1, iy0 + 6, a);
+        break;
+      }
+      case "shops": case "shops2": {
+        fill(ix0, iy0, ix1, iy1, T.PAVE);
+        const kinds: BuildingKind[] = plan === "shops" ? ["toyshop", "sports", "pawn", "records", "dairy", "barber"] : ["toyshop", "sports", "pawn", "cafe", "dairy", "pizza"];
+        let k = 0;
+        for (const ly of [iy0, iy0 + 7]) for (const lx of [ix0, ix0 + 4, ix0 + 8]) building(kinds[k++], lx, ly, lx + 3, ly + 4, a, ly === iy0 ? "s" : "n");
+        poi("bench", ix0 + 5, iy0 + 6, a); poi("atm", ix1 - 1, iy0 + 6, a);
+        break;
+      }
+      case "garage": {
+        fill(ix0, iy0, ix1, iy1, T.PAVE);
+        building("garage", ix0, iy0, ix0 + 5, iy0 + 3, a, "s");
+        fill(ix0, iy0 + 5, ix1, iy0 + 8, T.PARKING);
+        fill(ix0 - 1, iy0 + 6, ix0 - 1, iy0 + 7, T.PARKING);
+        building("dairy", ix1 - 4, iy0, ix1, iy0 + 3, a, "s");
+        building("house", ix0, iy1 - 2, ix0 + 3, iy1, a, "n"); building("house", ix1 - 3, iy1 - 2, ix1, iy1, a, "n");
+        break;
+      }
+      case "office": case "bank": case "hotel": {
+        fill(ix0, iy0, ix1, iy1, T.PAVE);
+        const main: BuildingKind = plan === "bank" ? "bank" : plan === "hotel" ? "hotel" : "office";
+        building(main, ix0, iy0, ix0 + 5, iy0 + 5, a, "s");
+        building("office", ix1 - 5, iy0, ix1, iy0 + 5, a, "s");
+        building(plan === "bank" ? "cafe" : plan === "hotel" ? "sushi" : "office", ix0, iy1 - 4, ix0 + 5, iy1, a, "n");
+        set(ix1 - 2, iy1 - 2, T.TREE); set(ix1 - 4, iy1 - 3, T.TREE);
+        poi("bench", ix1 - 3, iy1 - 1, a); poi("lamp", ix1 - 1, iy0 + 7, a);
+        break;
+      }
+      case "apartments": {
+        fill(ix0, iy0, ix1, iy1, T.PAVE);
+        building("apartments", ix0, iy0, ix0 + 4, iy0 + 5, a, "s");
+        building("apartments", ix1 - 4, iy0, ix1, iy0 + 5, a, "s");
+        building("apartments", ix0, iy1 - 4, ix0 + 4, iy1, a, "n");
+        fill(ix1 - 4, iy1 - 4, ix1, iy1, T.GRASS);
+        poi("bench", ix1 - 2, iy1 - 2, a); set(ix1 - 1, iy1 - 4, T.TREE);
+        break;
+      }
+      case "houses": default: {
+        fill(ix0, iy0, ix1, iy1, T.GRASS);
+        for (const ly of [iy0, iy0 + 4, iy0 + 8]) for (const lx of [ix0, ix0 + 4, ix0 + 8]) {
+          if (lx === ix0 + 4 && ly === iy0 + 4) { fill(lx, ly, lx + 3, ly + 3, T.PATH); continue; }
+          building("house", lx, ly, lx + 2, ly + 2, a, lx === ix0 ? "w" : lx === ix0 + 8 ? "e" : ly === iy0 ? "n" : "s");
+        }
+        // paths so every front door is reachable
+        for (let x = ix0; x <= ix1; x++) { if (w.tile(x, iy0 + 3) === T.GRASS) set(x, iy0 + 3, T.PATH); if (w.tile(x, iy0 + 7) === T.GRASS) set(x, iy0 + 7, T.PATH); }
+        for (let y = iy0; y <= iy1; y++) { if (w.tile(ix0 + 3, y) === T.GRASS) set(ix0 + 3, y, T.PATH); if (w.tile(ix0 + 7, y) === T.GRASS) set(ix0 + 7, y, T.PATH); }
+        break;
       }
     }
   }
-  poi("bench", market.x0 + 1, market.y1 - 1, market); poi("lamp", Math.floor(market.cx), market.y1 - 1, market);
 
-  // Stage yard (E): the after-hours spot with the boombox
-  const stage = addArea("After Hours Yard", "stage", r(43), r(25), S - ring - 2, r(42));
-  fill(stage.x0, stage.y0, stage.x1, stage.y1, T.PAVE, stage.id);
-  fill(stage.x0 + 6, stage.y0 + 4, stage.x1 - 1, stage.y1 - 4, T.STAGE);
-  poi("boombox", stage.x0 + 5, Math.floor(stage.cy), stage);
-  poi("lamp", stage.x0 + 2, stage.y0 + 1, stage); poi("lamp", stage.x0 + 2, stage.y1 - 1, stage);
-  poi("toychest", stage.x0 + 2, Math.floor(stage.cy) + 3, stage);
-
-  // Studio (S): a building with walls, doors, an inner partition and couches (crates)
-  const studio = addArea("The Studio", "studio", r(23), r(44), r(41), S - ring - 2);
-  fill(studio.x0, studio.y0, studio.x1, studio.y1, T.FLOOR, studio.id);
-  for (let x = studio.x0; x <= studio.x1; x++) { w.tiles[studio.y0 * S + x] = T.WALL; w.tiles[studio.y1 * S + x] = T.WALL; }
-  for (let y = studio.y0; y <= studio.y1; y++) { w.tiles[y * S + studio.x0] = T.WALL; w.tiles[y * S + studio.x1] = T.WALL; }
-  const doorX = j(Math.floor(studio.cx));
-  fill(doorX - 1, studio.y0, doorX, studio.y0, T.FLOOR); poi("door", doorX, studio.y0, studio);
-  const sideDoorY = j(Math.floor(studio.cy));
-  fill(studio.x0, sideDoorY, studio.x0, sideDoorY, T.FLOOR);
-  const partX = Math.floor(studio.cx) + 3;
-  for (let y = studio.y0 + 1; y < studio.y1; y++) if (Math.abs(y - Math.floor(studio.cy)) > 1) w.tiles[y * S + partX] = T.WALL;
-  for (let y = studio.y0 + 1; y < studio.y1; y++) for (let x = studio.x0 + 1; x < studio.x1; x++) w.shelter[y * S + x] = 1;
-  poi("bench", studio.x0 + 3, studio.y1 - 2, studio); poi("toychest", studio.x1 - 3, studio.y0 + 3, studio); poi("lamp", studio.x0 + 2, studio.y0 + 2, studio);
-  w.tiles[(studio.y1 - 3) * S + studio.x1 - 4] = T.CRATE;
-
-  // Playground (SW): sand with spring pads
-  const play = addArea("Grain Playground", "playground", ring + 1, r(44), r(20), S - ring - 2);
-  fill(play.x0, play.y0, play.x1, play.y1, T.SAND, play.id);
-  for (let i = 0; i < 3; i++) poi("springpad", rng.int(play.x0 + 2, play.x1 - 2), rng.int(play.y0 + 2, play.y1 - 2), play);
-  poi("toychest", Math.floor(play.cx), play.y0 + 2, play); poi("lamp", play.x1 - 1, play.y0 + 1, play);
-
-  // Alley (SE): crates to push around
-  const alley = addArea("Bando Alley", "alley", r(44), r(46), S - ring - 2, S - ring - 2);
-  fill(alley.x0, alley.y0, alley.x1, alley.y1, T.PAVE, alley.id);
-  for (let i = 0; i < r(7); i++) { const x = rng.int(alley.x0 + 1, alley.x1 - 1), y = rng.int(alley.y0 + 1, alley.y1 - 1); w.tiles[y * S + x] = T.CRATE; }
-  poi("lamp", alley.x0 + 1, alley.y0 + 1, alley); poi("toychest", alley.x1 - 2, alley.y1 - 2, alley);
-
-  // Paths from the plaza to each district (2 wide, L-shaped)
-  const pathTo = (tx: number, ty: number) => {
-    const sx = Math.floor(plaza.cx), sy = Math.floor(plaza.cy);
-    const lay = (x: number, y: number) => {
-      for (const [ox, oy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
-        const xx = x + ox, yy = y + oy;
-        if (!w.inBounds(xx, yy)) continue;
-        const t = w.tiles[yy * S + xx];
-        if (t === T.GRASS || DECOR.has(t) || t === T.WATER) w.tiles[yy * S + xx] = T.PATH;
-        if (t === T.FENCE) w.tiles[yy * S + xx] = T.COURT;
-      }
-    };
-    for (let x = Math.min(sx, tx); x <= Math.max(sx, tx); x++) lay(x, sy);
-    for (let y = Math.min(sy, ty); y <= Math.max(sy, ty); y++) lay(tx, y);
-  };
-  pathTo(Math.floor(park.cx) + 4, Math.floor(park.y1) - 6);
-  pathTo(court.x0 - 2, gateY - 1);
-  pathTo(Math.floor(market.cx), market.y1 - 1);
-  pathTo(stage.x0 + 2, Math.floor(stage.cy));
-  pathTo(doorX - 1, studio.y0 - 1);
-  pathTo(Math.floor(play.cx), play.y0 - 1);
-  pathTo(Math.floor(alley.cx), alley.y0 - 1);
-  pathTo(ring + 1, Math.floor(plaza.cy)); // to the street
-  pathTo(Math.floor(plaza.cx), S - ring);
-
-  // POIs must stand on walkable ground
+  // POIs must stand on walkable ground (except decorative ones that sit on solids)
   for (const p of w.pois) {
+    if (p.kind === "fountain" || p.kind === "mural" || p.kind === "billboard") continue;
     const tx = Math.floor(p.x), ty = Math.floor(p.y);
-    if (p.kind === "door" || p.kind === "fountain") continue;
-    if (SOLID.has(w.tiles[ty * S + tx])) w.tiles[ty * S + tx] = w.areas[p.area].kind === "park" ? T.GRASS : T.PAVE;
+    if (SOLID.has(w.tile(tx, ty)) && w.tile(tx, ty) !== T.BUILDING && w.tile(tx, ty) !== T.WALL) set(tx, ty, T.PAVE);
   }
+  // shelter: awnings in front of shops and the area just inside doors
+  for (const b of w.buildings) if (w.inBounds(b.door.x, b.door.y)) w.shelter[idx(b.door.x, b.door.y)] = 1;
 
   ensureConnected(w);
   w.dirtyTiles.clear();
@@ -183,20 +369,19 @@ export function reachableMask(w: World): Uint8Array {
 export function ensureConnected(w: World): { removed: number; sealed: number } {
   const S = w.size;
   let removed = 0, sealed = 0;
-  for (let pass = 0; pass < 60; pass++) {
+  for (let pass = 0; pass < 200; pass++) {
     const seen = reachableMask(w);
     let fixed = false;
     for (let i = 0; i < S * S && !fixed; i++) {
       if (seen[i] || SOLID.has(w.tiles[i])) continue;
-      // unreachable walkable tile: find a decoration neighbour that touches the reachable set
       const x = i % S, y = (i - x) / S;
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const nx = x + dx, ny = y + dy;
         if (!w.inBounds(nx, ny)) continue;
         const ni = ny * S + nx;
-        if (!DECOR.has(w.tiles[ni])) continue;
+        if (!DECOR.has(w.tiles[ni]) && w.tiles[ni] !== 11 /* fence */) continue;
         const touches = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([ex, ey]) => w.inBounds(nx + ex, ny + ey) && seen[(ny + ey) * S + nx + ex]);
-        if (touches) { w.tiles[ni] = T.GRASS; removed++; fixed = true; break; }
+        if (touches) { w.tiles[ni] = w.tiles[ni] === 11 ? 4 : T.GRASS; removed++; fixed = true; break; }
       }
     }
     if (!fixed) break;
