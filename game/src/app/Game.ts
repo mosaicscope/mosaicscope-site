@@ -1,3 +1,4 @@
+import { TouchControls } from "../ui/Touch";
 import "../ui/casino.css";
 import { RoastBattle } from "../ui/minigames/Roast";
 import { BurgerShift } from "../ui/minigames/Burger";
@@ -124,7 +125,7 @@ export class Game {
     this.radio = new Radio(MOSAIC.soundcloud);
     this.hudEl = h("div.hud", { "aria-live": "polite" });
     this.bustedEl = h("div.busted.hidden", { role: "alert" });
-    root.append(this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.modal.el, this.casino.el, this.bustedEl);
+    root.append(this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.modal.el, this.casino.el, this.bustedEl);
     // browsers only allow sound after a gesture: the first click/key starts the playlist
     const firstGesture = () => { if (this.gestured) return; this.gestured = true; if (this.settings.sound) this.audio.setEnabled(true); }; // the radio only plays when you press ▶
     window.addEventListener("pointerdown", firstGesture, { once: false, capture: true });
@@ -192,6 +193,8 @@ export class Game {
 
   private uiTick(now: number): void {
     this.tickFocus(now);
+    this.touch.update();
+    this.touch.el.classList.toggle("hidden", this.casino.open || this.modal.open || this.dialogue.open || this.travel.open || this.minimap.bigOpen);
     this.tickStory(now);
     this.minimap.update(now);
     if (now - this.lastUi < 250) return;
@@ -236,7 +239,9 @@ export class Game {
       const left = this.keys.has(k.left) || this.keys.has("arrowleft"), right = this.keys.has(k.right) || this.keys.has("arrowright");
       playerInput.throttle = up ? 1 : down ? -1 : 0;
       playerInput.steer = (right ? 1 : 0) - (left ? 1 : 0);
-      playerInput.brake = this.keys.has(" ");
+      playerInput.brake = this.keys.has(" ") || this.touchBrake;
+      // touch: stick x steers, y is gas (up) / reverse (down)
+      if (this.touchMove.x || this.touchMove.y) { playerInput.steer = this.touchMove.x; playerInput.throttle = -this.touchMove.y; }
       this.renderer.cam.follow = p.id;
       return;
     }
@@ -246,6 +251,8 @@ export class Game {
     if (this.keys.has(k.down) || this.keys.has("arrowdown")) iy += 1;
     if (this.keys.has(k.left) || this.keys.has("arrowleft")) ix -= 1;
     if (this.keys.has(k.right) || this.keys.has("arrowright")) ix += 1;
+    // touch stick: analog, push past ~94% to sprint
+    if (this.touchMove.x || this.touchMove.y) { ix = this.touchMove.x; iy = this.touchMove.y; }
     if (ix || iy) {
       // screen directions -> world: screen up = (-1,-1), screen right = (1,-1)
       const wx = ix - iy, wy = -ix - iy, l = Math.hypot(wx, wy);
@@ -757,6 +764,37 @@ export class Game {
     cam.setZoom(cam.targetZoom > 3 ? 1.5 : 4);
     cam.follow = this.sim.playerId;
   }
+
+  // ------------------------------------------------------------------ touch controls
+  private touchMove = { x: 0, y: 0 }; private touchBrake = false;
+  private touch = new TouchControls({
+    move: (x, y) => { this.touchMove.x = x; this.touchMove.y = y; },
+    brake: (held: boolean) => { this.touchBrake = held; },
+    inCar: () => this.sim.player.inCar >= 0,
+    action: (n) => {
+      const sim = this.sim, p = sim.player;
+      if (n === "use") this.interact();
+      else if (n === "talk") { const id = this.nearestPerson(3); if (id >= 0) this.openTalk(id); else this.toast("Nobody close enough to talk to"); }
+      else if (n === "throw") this.throwAtSelected();
+      else if (n === "swing") this.act("swing");
+      else if (n === "rob") this.rob();
+      else if (n === "bandage") this.bandage();
+      else if (n === "horn") sim.bus.emit("sound", { kind: "horn", x: p.x, y: p.y, vol: 0.8 });
+      else if (n === "map") this.minimap.toggle();
+      else if (n === "view2d") this.toggle2D();
+      else if (n === "pickup") this.act("pickup");
+      else if (n === "drop") this.act("drop");
+      else if (n === "sprint") { p.speed = Math.min(3, p.speed * 1.35); setTimeout(() => { p.speed = Math.max(1.6, p.speed / 1.35); }, 2500); }
+    },
+    context: () => {
+      const sim = this.sim, p = sim.player;
+      if (p.inCar >= 0) return { label: "Get out", icon: "exit" };
+      const d = this.nearDoor(); if (d) return { label: d.studio ? "Enter Studio" : `Enter ${sim.world.buildings[d.building].name}`, icon: "use" };
+      if (this.nearestToy()) return { label: "Pick up", icon: "pickup" };
+      const id = this.nearestPerson(1.8); if (id >= 0) return { label: `Talk to ${sim.chars[id].name.split(" ")[0]}`, icon: "talk" };
+      return null;
+    },
+  });
 
   // ------------------------------------------------------------------ anonymous play-time stats
   /** One beacon when the visitor leaves: seconds played, whether they've been before, missions, casino. */
