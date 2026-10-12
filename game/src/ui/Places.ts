@@ -14,18 +14,39 @@ import type { Character } from "../entities/types";
 export class Places {
   constructor(private sim: () => Simulation, private show: (title: string, body: (HTMLElement | null)[], cls?: string) => void, private close: () => void, private toast: (t: string, k?: string) => void) {}
 
+  /** Set by Game: opens the walk-in interior scene. Without it (headless/tests) the old panels open directly. */
+  openInterior: ((b: Building) => void) | null = null;
+
   enter(b: Building | null, studio = false): void {
     const sim = this.sim();
     if (studio) return this.studio();
     if (!b) return;
     const def = BUILDINGS[b.kind];
     if (!isOpen(def, sim.hour)) { this.toast(`${b.name} is closed. Open ${def.open[0]}:00–${def.open[1] % 24}:00.`); return; }
+    if (this.openInterior) return this.openInterior(b);
+    this.enterLegacy(b);
+  }
+
+  /** The original panel for a building kind (what the counter inside the interior opens). */
+  enterLegacy(b: Building): void {
+    const def = BUILDINGS[b.kind];
     if (b.kind === "dealership") return this.dealership(b);
     if (b.kind === "gallery") return this.gallery();
+    if (b.kind === "studio") return this.studio();
     if (b.kind === "police") return this.police(b);
     if (b.kind === "mentalhealth") return this.putahi(b);
     if (def.menu) return this.shop(b);
-    this.toast(`${b.name}: nothing for you inside.`);
+    this.toast(`${b.name}: nothing for you at the counter.`);
+  }
+
+  /** Called from an interactable inside an interior. */
+  launch(what: import("../content/interiors").Launch, b: Building): void {
+    if (what === "police") return this.police(b);
+    if (what === "putahi") return this.putahi(b);
+    if (what === "shop") return this.shop(b);
+    if (what === "dealership") return this.dealership(b);
+    if (what === "gallery") return this.gallery();
+    this.enterLegacy(b);
   }
 
   /** Pūtahi: a calm, respectful walk-in space. Real NZ help lines are free: 1737 (call or text). */

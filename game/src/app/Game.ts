@@ -31,6 +31,7 @@ import { setImpactIntensity } from "../physics/combat";
 import { Phys } from "../entities/types";
 import { Casino } from "../ui/Casino";
 import { Places, Radio } from "../ui/Places";
+import { InteriorOverlay } from "../ui/InteriorOverlay";
 import { nearestCar, playerInput, seat, unseat } from "../sim/Traffic";
 import { useBandage } from "../sim/Life";
 import { commitCrime, fmtCash } from "../sim/Society";
@@ -93,7 +94,7 @@ export class Game {
   private raf = 0;
   private reduceMotionOS = false;
   private touches = new Map<number, { x: number; y: number }>();
-  casino: Casino; places: Places; radio: Radio;
+  casino: Casino; places: Places; radio: Radio; interior: InteriorOverlay;
   private hudEl: HTMLElement;
   private areaEl: HTMLElement = h("div.areaname", { "aria-live": "polite" }); private lastArea = ""; private bustedEl: HTMLElement; private lastBusted = -1;
   private gestured = false;
@@ -126,11 +127,16 @@ export class Game {
       patrons: () => this.sim.chars.filter((c) => c.inside >= 0 && this.sim.world.buildings[c.inside]?.kind === "casino").length + 3,
     }, () => { this.clock.paused = this.pausedBefore; });
     this.places = new Places(() => this.sim, (t, b, cls) => this.modal.show(t, b, cls), () => this.modal.close(), (t, k) => this.toast(t, k));
+    this.interior = new InteriorOverlay({
+      sim: () => this.sim, toast: (t, k) => this.toast(t, k), launch: (what, b) => this.places.launch(what, b), modalOpen: () => this.modal.open,
+      keys: () => ({ up: this.settings.keys.up, down: this.settings.keys.down, left: this.settings.keys.left, right: this.settings.keys.right, use: this.settings.keys.pickup }),
+    });
+    this.places.openInterior = (b) => this.interior.show(b);
     this.dialogue.onTrade = (id) => this.places.trade(this.sim.chars[id]);
     this.radio = new Radio(MOSAIC.soundcloud);
     this.hudEl = h("div.hud", { "aria-live": "polite" });
     this.bustedEl = h("div.busted.hidden", { role: "alert" });
-    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.modal.el, this.casino.el, this.bustedEl);
+    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.interior.el, this.modal.el, this.casino.el, this.bustedEl);
     // browsers only allow sound after a gesture: the first click/key starts the playlist
     const firstGesture = () => { if (this.gestured) return; this.gestured = true; if (this.settings.sound) this.audio.setEnabled(true); }; // the radio only plays when you press ▶
     window.addEventListener("pointerdown", firstGesture, { once: false, capture: true });
@@ -201,7 +207,7 @@ export class Game {
     const ad = this.hovered < 0 && !this.mouse.dragging ? this.renderer.pickAd(this.mouse.x, this.mouse.y) : null;
     this.canvas.style.cursor = ad || this.hovered >= 0 ? "pointer" : "";
     this.canvas.title = ad ? `${ad.label} (opens in a new tab)` : "";
-    this.guard("render", () => this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames }));
+    if (!this.interior.open) this.guard("render", () => this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames }));
     this.guard("audio", () => this.audio.update(this.sim));
     this.fpsAvg = this.fpsAvg * 0.95 + (1 / Math.max(dt, 0.001)) * 0.05;
     this.adaptQuality(dt);
@@ -235,7 +241,7 @@ export class Game {
     this.touch.update();
     if (now - this.clubTickAt > 1000) { const earned = this.club.tick(Math.min(5, (now - (this.clubTickAt || now)) / 1000)); this.clubTickAt = now; if (earned > 0) this.sim.player.cash += earned; }
     this.renderer.zooAnimals = this.luxury.empire.animals;
-    this.touch.el.classList.toggle("hidden", this.casino.open || this.modal.open || this.dialogue.open || this.travel.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
+    this.touch.el.classList.toggle("hidden", this.casino.open || this.interior.open || this.modal.open || this.dialogue.open || this.travel.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
     this.tickStory(now);
     this.minimap.update(now);
     if (now - this.lastUi < 250) return;
@@ -275,6 +281,7 @@ export class Game {
   // ------------------------------------------------------------------ player
   private controlPlayer(): void {
     const sim = this.sim, p = sim.player, k = this.settings.keys;
+    if (this.interior.open) { p.vx = p.vy = 0; return; } // you're indoors; the street body waits at the door
     if (p.inCar >= 0) {
       const up = this.keys.has(k.up) || this.keys.has("arrowup"), down = this.keys.has(k.down) || this.keys.has("arrowdown");
       const left = this.keys.has(k.left) || this.keys.has("arrowleft"), right = this.keys.has(k.right) || this.keys.has("arrowright");

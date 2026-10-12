@@ -1,0 +1,20 @@
+/* ===== Interiors: walk-in scenes (classes prefixed iv-) ===== */
+.iv { position: fixed; inset: 0; z-index: 4; background: #07050a; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; overscroll-behavior: none; }
+.iv-cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.iv-top { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 10px; padding: max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left)); background: linear-gradient(rgba(7,5,10,.92) 55%, rgba(7,5,10,0)); pointer-events: none; z-index: 2; }
+.iv-top > * { pointer-events: auto; }
+.iv-head { display: grid; min-width: 0; flex: 1; }
+.iv-title { font: 900 calc(20px * var(--ts, 1)) / 1.05 var(--display, Impact, sans-serif); text-transform: uppercase; letter-spacing: .03em; color: var(--paper, #eee4d3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.iv-zone-name { font-size: calc(12px * var(--ts, 1)); color: var(--acid, #c6ff3d); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.iv-meta { display: grid; justify-items: end; font-size: calc(12px * var(--ts, 1)); color: var(--dim, #9a8d80); white-space: nowrap; }
+.iv-leave { min-height: 44px; padding: 8px 16px; border-radius: 999px; border: 1px solid rgba(238,228,211,.3); background: rgba(26,22,20,.92); color: var(--paper, #eee4d3); font-weight: 700; letter-spacing: .04em; touch-action: manipulation; }
+.iv-leave:hover { border-color: var(--acid, #c6ff3d); }
+.iv-cap { position: absolute; left: 50%; transform: translateX(-50%); top: calc(max(8px, env(safe-area-inset-top)) + 58px); width: min(560px, calc(100% - 24px)); padding: 9px 14px; border-radius: 12px; background: rgba(10,8,12,.86); border: 1px solid rgba(238,228,211,.18); color: var(--paper, #eee4d3); font-size: calc(13px * var(--ts, 1)); line-height: 1.4; text-align: center; pointer-events: none; z-index: 2; }
+.iv-touch { position: absolute; left: 0; bottom: 0; width: 62%; height: 60%; touch-action: none; z-index: 1; }
+.iv-stick { position: absolute; width: 104px; height: 104px; margin: -52px 0 0 -52px; border-radius: 50%; border: 2px solid rgba(238,228,211,.35); background: rgba(238,228,211,.08); pointer-events: none; z-index: 3; }
+.iv-knob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(198,255,61,.55); border: 2px solid rgba(198,255,61,.9); }
+.iv-prompt { position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); min-height: 52px; max-width: min(70vw, 360px); padding: 10px 20px; border-radius: 14px; border: 2px solid var(--acid, #c6ff3d); background: rgba(14,11,10,.92); color: var(--acid, #c6ff3d); font: 700 calc(14px * var(--ts, 1)) / 1.2 var(--mono, monospace); letter-spacing: .03em; box-shadow: 0 0 18px rgba(198,255,61,.3); touch-action: manipulation; z-index: 3; }
+.iv-prompt:active { transform: translateY(2px); }
+.toasts { z-index: 7; }
+@media (max-height: 460px) { .iv-title { font-size: 16px; } .iv-cap { top: 52px; padding: 6px 10px; } .iv-touch { width: 55%; height: 80%; } }
+@media (prefers-reduced-motion: reduce) { .iv-prompt { transition: none; } }

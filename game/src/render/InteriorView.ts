@@ -93,7 +93,7 @@ export class InteriorView {
 
   /** Map a screen-space pixel offset (from stick or tap) to a world direction. */
   static screenToWorld(ix: number, iy: number): [number, number] {
-    const wx = ix - iy, wy = -ix - iy, l = Math.hypot(wx, wy) || 1;
+    const wx = ix + iy, wy = iy - ix, l = Math.hypot(wx, wy) || 1; // screen up = (-1,-1), right = (+1,-1)
     return [wx / l, wy / l];
   }
 
@@ -141,7 +141,7 @@ export class InteriorView {
     }
   }
 
-  private floorPattern(g: CanvasRenderingContext2D, P: Proj, m: FloorMat, x: number, y: number, w: number, h: number, color: string, seed: number): void {
+  private floorPattern(g: CanvasRenderingContext2D, P: Proj, m: FloorMat, x: number, y: number, w: number, h: number, _color: string, seed: number): void {
     const line = (x0: number, y0: number, x1: number, y1: number) => { const a = P(x0, y0), b = P(x1, y1); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); };
     const r = srand(seed);
     const grid = (step: number, col: string, lw = 1) => { g.beginPath(); for (let i = 0; i <= w + 1e-6; i += step) line(x + i, y, x + i, y + h); for (let j = 0; j <= h + 1e-6; j += step) line(x, y + j, x + w, y + j); g.strokeStyle = col; g.lineWidth = lw; g.stroke(); };
