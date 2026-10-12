@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "e2e:touch": "node e2e/touch.mjs",
     "bench": "vite-node scripts/bench.ts",
     "catalogue": "vite-node scripts/catalogue.ts",
     "smoke": "node e2e/smoke.mjs",
