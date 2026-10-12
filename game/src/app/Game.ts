@@ -190,7 +190,7 @@ export class Game {
 
   private uiTick(now: number): void {
     this.tickFocus(now);
-    this.tickMafia(now);
+    this.tickStory(now);
     this.minimap.update(now);
     if (now - this.lastUi < 250) return;
     this.maybeCall();
@@ -577,59 +577,98 @@ export class Game {
     });
   }
 
-  // ------------------------------------------------------------------ the Famiglia (mafia story)
-  private mafia = { ch: 0, step: 0, until: 0 };
-  /** Five chapters from errand runner to made: Don Vito hands out each job when you talk to him. */
-  private mafiaJob(): { title: string; brief: string; stops: [string, string][]; pay: number; heat: number; secs: number } | null {
-    return [
-      { title: "Chapter 1 · Pies for the Don", brief: "Take this box to Moorhouse Fuel. Don't open it. It's pies.", stops: [["garage", "Drop the box at Moorhouse Fuel"]], pay: 200, heat: 0, secs: 0 },
-      { title: "Chapter 2 · The Tomato Fund", brief: "Visit our friends. They 'donate' to my tomato garden.", stops: [["dairy", "Collect from the dairy"], ["pizza", "Collect from the pizza shop"], ["sushi", "Collect from the sushi bar"]], pay: 500, heat: 0, secs: 0 },
-      { title: "Chapter 3 · Moon Sherbet", brief: "SALT District has a parcel of Moon Sherbet. Casino. Ninety seconds.", stops: [["alley", "Pick up the Moon Sherbet in the SALT District"], ["casino", "Bring it to the Tessera, fast"]], pay: 1200, heat: 1, secs: 90 },
-      { title: "Chapter 4 · The Riccarton Boys", brief: "They're selling hubcaps on my street. Go to the car yards. Make an impression.", stops: [["dealership", "Make an impression at the car yards"]], pay: 2500, heat: 2, secs: 0 },
-      { title: "Chapter 5 · Made", brief: "Come back to the Tessera. Family dinner. Wear something nice.", stops: [["casino", "Family dinner at the Tessera"]], pay: 10000, heat: 0, secs: 0 },
-    ][this.mafia.ch] as { title: string; brief: string; stops: [string, string][]; pay: number; heat: number; secs: number } | undefined ?? null;
-  }
-  private mafiaTarget(): { x: number; y: number; label: string } | null {
-    const job = this.mafiaJob();
-    if (!job || this.mafia.step === 0) return null;
-    const [kind, label] = job.stops[this.mafia.step - 1] ?? [];
-    if (!kind) return null;
+  // ------------------------------------------------------------------ story contacts
+  /**
+   * Each contact has a chain of jobs. Talk to them for the next one; one job runs at a time. Stops are
+   * "b:<building kind>" (nearest door) or "a:<area name>". The chains cross over: the Don wants the
+   * Night Kiwi gone, Dr Quakenstein wants the Don's casino, Sir P bankrolls everyone, Mike moves the goods.
+   */
+  private story: Record<string, { ch: number }> = {};
+  private job: { who: string; step: number; until: number } | null = null;
+  private static STORY: Record<string, { title: string; brief: string; stops: [string, string][]; pay: number; heat?: number; secs?: number }[]> = {
+    "Vito Tessera": [
+      { title: "The Famiglia 1 · Pies for the Don", brief: "Take this box to Moorhouse Fuel. Don't open it. It's pies.", stops: [["b:garage", "Drop the box at Moorhouse Fuel"]], pay: 200 },
+      { title: "The Famiglia 2 · The Tomato Fund", brief: "Visit our friends. They 'donate' to my tomato garden.", stops: [["b:dairy", "Collect from the dairy"], ["b:pizza", "Collect from the pizza shop"], ["b:sushi", "Collect from the sushi bar"]], pay: 500 },
+      { title: "The Famiglia 3 · Moon Sherbet", brief: "SALT District has a parcel of Moon Sherbet. Casino. Ninety seconds.", stops: [["a:SALT District", "Pick up the Moon Sherbet"], ["b:casino", "Bring it to the Tessera, fast"]], pay: 1200, heat: 1, secs: 90 },
+      { title: "The Famiglia 4 · The Riccarton Boys", brief: "They're selling hubcaps on my street. Go to the car yards. Make an impression.", stops: [["b:dealership", "Make an impression at the car yards"]], pay: 2500, heat: 2 },
+      { title: "The Famiglia 5 · Made", brief: "Come back to the Tessera. Family dinner. Wear something nice.", stops: [["b:casino", "Family dinner at the Tessera"]], pay: 10000 },
+    ],
+    "Mike Dodd": [
+      { title: "Mannequin Mike 1 · Leg Day", brief: "Forty mannequin legs at the airport. Riverside Market. Two minutes. Don't ask.", stops: [["b:airport", "Collect the legs at the airport"], ["a:Riverside Market", "Deliver to Riverside Market"]], pay: 600, secs: 120 },
+      { title: "Mannequin Mike 2 · Gnome Run", brief: "The Botanic Gardens gnomes are 'retiring'. To the Tuam Laneways.", stops: [["a:Botanic Gardens", "Load the gnomes"], ["a:Tuam Laneways", "Drop them in the laneways"]], pay: 900, heat: 1 },
+    ],
+    "Sir Ponsonby Velvet": [
+      { title: "Velvet 1 · Kevin's Escape", brief: "Kevin the giraffe has left the zoo. Last seen in Hagley Park North. Bring him home.", stops: [["a:Hagley Park North", "Find Kevin in Hagley Park"], ["a:Botanic Gardens", "Walk Kevin back to the zoo"]], pay: 1500 },
+      { title: "Velvet 2 · The VELVET Cover", brief: "Book MosaicScope for my cover shoot, darling. Studio first, then the Hotel on Worcester.", stops: [["b:studio", "Book the shoot at MosaicScope Studio"], ["b:hotel", "Bring the crew to the hotel set"]], pay: 2000 },
+      { title: "Velvet 3 · A Whale Too Far", brief: "My whale arrives at the airport. It doesn't fit anywhere. Find it a pool. Victoria Square will do.", stops: [["b:airport", "Meet the whale at the airport"], ["a:Victoria Square", "Release it into the Avon (temporarily)"]], pay: 5000, secs: 150 },
+    ],
+    "Bryce Wainui": [
+      { title: "Night Kiwi 1 · The Kiwi-signal", brief: "*gravelly* Someone's lit the Kiwi-signal over Cathedral Square. Go. I'll... meet you there.", stops: [["a:Cathedral Square", "Answer the Kiwi-signal"]], pay: 300 },
+      { title: "Night Kiwi 2 · The Cone Bandit", brief: "Someone's stealing road cones. The trail leads to the SALT District, then the station.", stops: [["a:SALT District", "Catch the cone bandit"], ["b:police", "Hand them in at the station"]], pay: 800 },
+      { title: "Night Kiwi 3 · Secret Identity", brief: "My suit is at the dry cleaner's at the Arts Centre. Nobody can know. Bring it to Latimer Square.", stops: [["a:Arts Centre", "Collect the suit (discreetly)"], ["a:Latimer Square", "Deliver it to the Night Kiwi"]], pay: 1200, secs: 100 },
+    ],
+    "Hamish Quake": [
+      { title: "Dr Quakenstein 1 · Freeze the Avon", brief: "MWAHAHA. Fetch ice from a dairy. Victoria Square. The Avon will FREEZE. (Bring a lot of ice.)", stops: [["b:dairy", "Buy every bag of ice"], ["a:Victoria Square", "Dump it in the Avon"]], pay: 400 },
+      { title: "Dr Quakenstein 2 · The Spire Heist", brief: "The Cathedral spire! To my lair under the Arts Centre! Do not let the Night Kiwi see you.", stops: [["a:Cathedral Square", "'Borrow' the spire"], ["a:Arts Centre", "Into the lair"]], pay: 1500, heat: 2 },
+      { title: "Dr Quakenstein 3 · The Cone Ransom", brief: "Every road cone in High St. Then we hold the Don's casino to ransom. Christchurch will KNEEL.", stops: [["a:High St", "Collect the cones"], ["b:casino", "Deliver the ransom note to the Don"]], pay: 3000, heat: 1 },
+    ],
+    "Roastie Malone": [
+      { title: "Roastie 1 · Open Mic", brief: "Town Hall open mic tonight. You, me, a mic, and the entire Famiglia in the front row. Show up.", stops: [["a:Town Hall", "Play the Town Hall open mic"]], pay: 700 },
+    ],
+  };
+  private stopTarget(spec: string, label: string): { x: number; y: number; label: string } | null {
     const w = this.sim.world, p = this.sim.player;
-    const b = kind === "alley" ? null : w.buildings.filter((x) => x.kind === kind).sort((a, c) => Math.hypot(a.door.x - p.x, a.door.y - p.y) - Math.hypot(c.door.x - p.x, c.door.y - p.y))[0];
-    if (b) return { x: b.door.x + 0.5, y: b.door.y + 0.5, label };
-    const a = w.areas.find((x) => x.name === "SALT District") ?? w.areas.find((x) => x.kind === "alley");
+    if (spec.startsWith("b:")) {
+      const b = w.buildings.filter((x) => x.kind === spec.slice(2)).sort((a, c) => Math.hypot(a.door.x - p.x, a.door.y - p.y) - Math.hypot(c.door.x - p.x, c.door.y - p.y))[0];
+      return b ? { x: b.door.x + 0.5, y: b.door.y + 0.5, label } : null;
+    }
+    const a = w.areas.find((x) => x.name === spec.slice(2));
     return a ? { x: a.cx, y: a.cy, label } : null;
   }
-  private talkToDon(): void {
-    const job = this.mafiaJob();
-    if (!job) { this.focus("Capo", "\"You're family now. Go enjoy the city.\" (Don Vito)", 3.5); return; }
-    if (this.mafia.step > 0) { this.focus("Don Vito", `"${this.mafiaTarget()?.label ?? "Get it done"}. Capisce?"`, 3); return; }
-    this.mafia.step = 1; this.mafia.until = job.secs ? performance.now() + job.secs * 1000 : 0;
-    this.focus(job.title, `"${job.brief}"`, 4.5);
+  private currentJob() { return this.job ? Game.STORY[this.job.who]?.[this.story[this.job.who]?.ch ?? 0] ?? null : null; }
+  private storyTarget(): { x: number; y: number; label: string } | null {
+    const job = this.currentJob();
+    if (!job || !this.job) return null;
+    const st = job.stops[this.job.step - 1];
+    return st ? this.stopTarget(st[0], st[1]) : null;
   }
-  private tickMafia(now: number): void {
-    const job = this.mafiaJob(), t = this.mafiaTarget();
+  /** A story contact? (they get a marker in the world and on the radar) */
+  isContact(c: { name: string }): boolean { return !!Game.STORY[c.name]; }
+  hasJob(c: { name: string }): boolean { const ch = this.story[c.name]?.ch ?? 0; return !!Game.STORY[c.name]?.[ch]; }
+  private talkToContact(name: string): void {
+    const chain = Game.STORY[name], st = (this.story[name] ??= { ch: 0 }), job = chain[st.ch], first = name.split(" ")[0];
+    if (!job) { this.focus(first, "\"Nothing for you right now. Legend.\"", 3); return; }
+    if (this.job && this.job.who !== name) { this.focus(first, "\"Finish what you're doing first.\"", 3); return; }
+    if (this.job) { this.focus(first, `"${this.storyTarget()?.label ?? "Get it done"}."`, 3); return; }
+    this.job = { who: name, step: 1, until: job.secs ? performance.now() + job.secs * 1000 : 0 };
+    this.focus(job.title, `"${job.brief}"`, 5);
+  }
+  private tickStory(now: number): void {
+    const job = this.currentJob(), t = this.storyTarget();
     this.minimap.target = t;
-    if (!job || !t) return;
+    const live = this.sim.chars.filter((c) => this.isContact(c) && this.hasJob(c) && c.inside < 0);
+    this.minimap.contacts = live.map((c) => ({ x: c.x, y: c.y }));
+    this.renderer.markers = new Set(live.map((c) => c.id));
+    if (!job || !t || !this.job) return;
     const p = this.sim.player, px = p.inCar >= 0 ? this.sim.vehicles[p.inCar].x : p.x, py = p.inCar >= 0 ? this.sim.vehicles[p.inCar].y : p.y;
-    if (this.mafia.until && now > this.mafia.until) { this.mafia.step = 0; this.mafia.until = 0; this.focus("Too slow", "The Don is disappointed. Talk to him again.", 3); return; }
-    if (Math.hypot(px - t.x, py - t.y) > 2.2) return;
-    if (this.mafia.step < job.stops.length) { this.mafia.step++; this.toast(`✓ ${t.label}`, "acid"); return; }
-    p.cash += job.pay; p.wanted = Math.max(p.wanted, job.heat);
-    this.mafia.ch++; this.mafia.step = 0; this.mafia.until = 0;
-    this.focus(job.title.split(" · ")[1] + " · done", `The Famiglia paid you ${fmtCash(job.pay)}${job.heat ? ` · the cops noticed (${job.heat}★)` : ""}`, 4);
+    if (this.job.until && now > this.job.until) { this.job = null; this.focus("Too slow", "Talk to them again to retry.", 3); return; }
+    if (Math.hypot(px - t.x, py - t.y) > 2.6) return;
+    if (this.job.step < job.stops.length) { this.job.step++; this.toast(`✓ ${t.label}`, "acid"); return; }
+    p.cash += job.pay; if (job.heat) p.wanted = Math.max(p.wanted, job.heat);
+    this.story[this.job.who].ch++; this.job = null;
+    this.focus(job.title.split(" · ")[1] + " · done", `+${fmtCash(job.pay)}${job.heat ? ` · the cops noticed (${job.heat}★)` : ""}`, 4);
   }
   objective(): string {
-    const t = this.mafiaTarget();
-    if (!t) return "";
-    const left = this.mafia.until ? Math.max(0, Math.ceil((this.mafia.until - performance.now()) / 1000)) : 0;
-    return `🌹 ${t.label}${left ? ` · ${left}s` : ""}`;
+    const t = this.storyTarget();
+    if (!t || !this.job) return "";
+    const left = this.job.until ? Math.max(0, Math.ceil((this.job.until - performance.now()) / 1000)) : 0;
+    return `★ ${t.label}${left ? ` · ${left}s` : ""}`;
   }
 
   /** Open a conversation with the camera on the two of you. */
   private openTalk(id: number): void {
     const don = this.sim.chars[id];
-    if (don && don.role === "mobster" && don.nickname === "The Don") { this.talkToDon(); return; }
+    if (don && this.isContact(don) && (this.hasJob(don) || this.job?.who === don.name) && !(don.role === "comic" && !this.job && (this.story[don.name]?.ch ?? 0) > 0)) { this.talkToContact(don.name); return; }
     if (don && don.role === "comic") { this.roast.start(); return; } // Roastie Malone: roast battle
     this.dialogue.start(id);
     const c = this.sim.chars[id];

@@ -31,6 +31,8 @@ export class Minimap {
   private osmTried = false;
   /** current story objective (gold blip) */
   target: { x: number; y: number } | null = null;
+  /** story contacts with a job for you (purple blips) */
+  contacts: { x: number; y: number }[] = [];
   constructor(private sim: () => Simulation) {
     this.el = h("canvas.minimap", { width: 168, height: 168, "aria-label": "Minimap" }) as HTMLCanvasElement;
     this.el.addEventListener("click", () => this.toggle());
@@ -74,6 +76,7 @@ export class Minimap {
     }
     if (p.wanted > 0) for (const c of sim.chars) if (c.role === "cop" && c.inside < 0) dot(c.x, c.y, 1.1, Math.floor(now / 250) % 2 ? "#ec2a1c" : "#3d7bff");
     for (const v of sim.vehicles) if (v.owner === p.id) dot(v.x, v.y, 1.3, "#c6ff3d");
+    for (const c of this.contacts) dot(c.x, c.y, 2.2, "#b48cff");
     if (this.target) { dot(this.target.x, this.target.y, 2.6, Math.floor(now / 300) % 2 ? "#f6b62c" : "#fff0c0"); }
     g.restore();
     // you: an arrow in the middle (facing), plus north marker and ring
