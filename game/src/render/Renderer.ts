@@ -116,6 +116,8 @@ export class Renderer {
     const time = this.time;
     // camera follow
     if (cam.follow >= 0 && sim.chars[cam.follow]) { const f = sim.chars[cam.follow]; cam.lookAt(f.x, f.y); }
+    // zoomed right in: the camera drops to street level for a flat 2D side view; zoom out to go back to 3D
+    if (z > 3) { cam.update(dt, o.reduceMotion); this.render2D(dt, o); this.stats.frameMs = performance.now() - t0; return; }
     cam.update(dt, o.reduceMotion);
     sim.focus.x = cam.x; sim.focus.y = cam.y;
 
@@ -568,6 +570,85 @@ export class Renderer {
     // beacon
     if (Math.floor(time * 3) % 2) { g.fillStyle = "#ff3b2f"; g.beginPath(); g.arc(0, 10 * k, 2.4 * k, 0, 6.283); g.fill(); }
     g.restore();
+  }
+
+  /** Street-level 2D view: sky, skyline (buildings behind you), the pavement, people side-on. */
+  private render2D(dt: number, o: RenderOptions): void {
+    const sim = this.sim, g = this.g, cam = this.cam, W = cam.viewW, H = cam.viewH, time = this.time;
+    g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    const f = sim.chars[cam.follow >= 0 ? cam.follow : sim.playerId] ?? sim.player;
+    const pu = (f.x - f.y) / 1.414, pv = f.x + f.y;
+    const S = 18 * (cam.zoom - 1.2), ground = H * 0.7, day = sim.daylight;
+    // sky: deep gradient, warm at dusk, stars at night
+    const sky = g.createLinearGradient(0, 0, 0, ground);
+    if (day > 0.6) { sky.addColorStop(0, "#2d4a7a"); sky.addColorStop(1, "#d9a07a"); }
+    else if (day > 0.2) { sky.addColorStop(0, "#1c1838"); sky.addColorStop(1, "#c4584a"); }
+    else { sky.addColorStop(0, "#05040c"); sky.addColorStop(1, "#2a1630"); }
+    g.fillStyle = sky; g.fillRect(0, 0, W, ground);
+    if (day < 0.4) { g.fillStyle = "rgba(238,228,211,.7)"; for (let i = 0; i < 70; i++) { const x = (i * 97.3 + pu * 2) % W, y = (i * 53.1) % (ground * 0.55); g.fillRect((x + W) % W, y, 1.4, 1.4); } }
+    // skyline in three parallax layers (far = dark silhouettes, near = detailed), with haze between
+    const bs = sim.world.buildings.map((b) => { const cx = (b.x0 + b.x1 + 1) / 2, cy = (b.y0 + b.y1 + 1) / 2; return { b, u: (cx - cy) / 1.414, v: cx + cy, w: (b.x1 - b.x0 + b.y1 - b.y0 + 2) / 1.6 }; })
+      .filter((q) => q.v < pv - 1 && q.v > pv - 60).sort((a, c) => a.v - c.v);
+    const haze = day > 0.4 ? "rgba(217,160,122," : "rgba(42,22,48,";
+    let layer = -1;
+    for (const q of bs) {
+      const depth = (pv - q.v) / 60, k = 1 - depth * 0.6, par = 0.35 + 0.65 * k; // farther = moves slower
+      const x = W / 2 + (q.u - pu) * S * par, w = q.w * S * k, h = q.b.height * S * 0.85 * k;
+      if (x + w / 2 < 0 || x - w / 2 > W) continue;
+      const L = depth > 0.6 ? 0 : depth > 0.3 ? 1 : 2;
+      if (L !== layer) { if (layer >= 0) { g.fillStyle = haze + "0.16)"; g.fillRect(0, 0, W, ground); } layer = L; }
+      const base = parseInt(q.b.color.slice(1), 16), dim = L === 0 ? 0.35 : L === 1 ? 0.6 : 0.9;
+      g.fillStyle = `rgb(${((base >> 16) & 255) * dim | 0},${((base >> 8) & 255) * dim | 0},${(base & 255) * dim | 0})`;
+      g.fillRect(x - w / 2, ground - h, w, h);
+      // rim light on the roofline
+      g.fillStyle = day > 0.4 ? "rgba(255,220,180,.35)" : `rgba(${q.b.sign === "#3dd6ff" ? "61,214,255" : "255,122,217"},.35)`; g.fillRect(x - w / 2, ground - h, w, 2);
+      if (L > 0) {
+        const cols = Math.max(2, Math.floor(w / (12 * k))), rows = Math.max(1, Math.floor((h - 10 * k) / (16 * k)));
+        for (let r = 0; r < rows; r++) for (let cI = 0; cI < cols; cI++) {
+          const on = ((q.b.id * 31 + r * 7 + cI * 13) % 5) < (day < 0.4 ? 3 : 1);
+          g.fillStyle = on ? (day < 0.4 ? "rgba(255,214,130,.9)" : "rgba(255,236,200,.5)") : "rgba(12,14,24,.55)";
+          g.fillRect(x - w / 2 + 4 * k + cI * (w - 8 * k) / cols, ground - h + 8 * k + r * 16 * k, Math.max(2, (w - 8 * k) / cols - 4 * k), 9 * k);
+        }
+      }
+      if (L === 2 && q.b.kind !== "house") {
+        g.font = `800 ${Math.max(10, 15 * k)}px "Big Shoulders Display", Impact, sans-serif`; g.textAlign = "center";
+        g.strokeStyle = q.b.sign; g.globalAlpha = 0.35; g.lineWidth = 4; g.strokeText(q.b.name.toUpperCase(), x, ground - h - 8 * k); g.globalAlpha = 1;
+        g.fillStyle = q.b.sign; g.fillText(q.b.name.toUpperCase(), x, ground - h - 8 * k);
+      }
+    }
+    g.fillStyle = haze + "0.1)"; g.fillRect(0, ground * 0.55, W, ground * 0.45);
+    // pavement with joints, kerb, road with lane dashes
+    g.fillStyle = "#3a3430"; g.fillRect(0, ground, W, H * 0.11);
+    g.strokeStyle = "rgba(0,0,0,.25)"; g.lineWidth = 1; g.beginPath(); for (let x = -((pu * S) % 60); x < W; x += 60) { g.moveTo(x, ground); g.lineTo(x - 20, ground + H * 0.11); } g.stroke();
+    g.fillStyle = "#8a8278"; g.fillRect(0, ground + H * 0.11 - 5, W, 5);
+    g.fillStyle = "#14110f"; g.fillRect(0, ground + H * 0.11, W, H);
+    g.fillStyle = "rgba(246,182,44,.55)"; for (let x = -((pu * S) % 120); x < W; x += 120) g.fillRect(x, ground + H * 0.19, 60, 4);
+    // street lamps every few metres, glowing after dark
+    for (let x = -((pu * S) % 340) + 170; x < W + 40; x += 340) {
+      g.strokeStyle = "#2a2622"; g.lineWidth = 4; g.beginPath(); g.moveTo(x, ground + 4); g.lineTo(x, ground - 150); g.lineTo(x + 26, ground - 156); g.stroke();
+      g.fillStyle = day < 0.5 ? "#fff0c0" : "#c8c0b0"; g.fillRect(x + 18, ground - 158, 16, 6);
+      if (day < 0.5) { const grd = g.createRadialGradient(x + 26, ground, 0, x + 26, ground, 120); grd.addColorStop(0, "rgba(255,230,160,.22)"); grd.addColorStop(1, "rgba(255,230,160,0)"); g.fillStyle = grd; g.fillRect(x - 100, ground - 120, 250, 160); }
+    }
+    // people near you, side-on, nearer ones lower and bigger
+    const near = sim.chars.filter((c) => c.inside < 0 && c.inCar < 0 && Math.abs((c.x + c.y) - pv) < 3 && Math.abs((c.x - c.y) / 1.414 - pu) * S < W * 0.6).sort((a, c) => (a.x + a.y) - (c.x + c.y));
+    for (const c of near) {
+      const dv = (c.x + c.y) - pv, k = (1 + (cam.zoom - 3) * 0.3) * c.look.scale * (1 + dv * 0.06);
+      const sx = W / 2 + ((c.x - c.y) / 1.414 - pu) * S, sy = ground + 6 + dv * 6;
+      const moving = Math.abs(c.x - c.px) + Math.abs(c.y - c.py) > 0.0005, spd = Math.hypot(c.x - c.px, c.y - c.py) * 60;
+      c.anim.phase += spd * dt * 5.5;
+      const dir = (Math.cos(c.facing) - Math.sin(c.facing)) >= 0 ? 1 : -1;
+      g.fillStyle = "rgba(0,0,0,.3)"; g.beginPath(); g.ellipse(sx, sy, 16 * k, 4 * k, 0, 0, 6.283); g.fill();
+      const a = pose(this.poseName(c, moving, spd), c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT);
+      solve(a, sx, sy, k, dir);
+      drawFigure(g, c, sx, sy, k, dir, time, c.anim.flash, 1);
+      if (c.bubble && c.bubble.until > sim.tick && Math.abs(dv) < 1.5) { g.font = "500 13px 'IBM Plex Mono', monospace"; g.textAlign = "center"; const tw = Math.min(260, g.measureText(c.bubble.text).width + 14); g.fillStyle = "rgba(238,228,211,.94)"; g.fillRect(sx - tw / 2, sy - 120 * k - 26, tw, 22); g.fillStyle = "#0e0b0a"; g.fillText(c.bubble.text.slice(0, 40), sx, sy - 120 * k - 10); }
+      if (c.id === sim.playerId) { g.fillStyle = "#ec2a1c"; g.font = "700 12px 'IBM Plex Mono', monospace"; g.textAlign = "center"; g.fillText("You", sx, sy + 18); }
+    }
+    g.textAlign = "start";
+    // soft vignette to frame the scene
+    const vg = g.createRadialGradient(W / 2, H * 0.55, H * 0.3, W / 2, H * 0.55, H * 0.95); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.5)"); g.fillStyle = vg; g.fillRect(0, 0, W, H);
+    g.fillStyle = "rgba(238,228,211,.7)"; g.font = "600 12px 'IBM Plex Mono', monospace"; g.fillText(`2D street view · ${sim.world.streetName(f.x, f.y)} · scroll out for 3D`, 16, 66);
+    void o;
   }
 
   /** Buildings on screen this frame, and how much each is cut away (0..1, eased). */
