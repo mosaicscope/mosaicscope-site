@@ -393,7 +393,7 @@ export class Renderer {
     // speech is only "heard" near you: bubbles fade in as you approach and out as you leave
     const me = sim.player, mx = me.inCar >= 0 ? sim.vehicles[me.inCar].x : me.x, my = me.inCar >= 0 ? sim.vehicles[me.inCar].y : me.y;
     // conversations carry a little further than muttering to yourself; shouts carry furthest
-    const HEAR_TALK = 5.5, HEAR_SOLO = 3.2;
+    const HEAR_TALK = 4.2, HEAR_SOLO = 2.4;
     const cands: Item[] = [];
     for (const it of view) {
       if (it.kind !== 0) continue;
@@ -432,20 +432,45 @@ export class Renderer {
       const ba = this.bubbleAlpha.get(c.id) ?? 0;
       if (!c.bubble || ba < 0.02 || shown >= maxB) continue;
       shown++;
-      const txt = c.bubble.text;
-      const fs = small ? 10 : Math.round(Math.max(10, Math.min(13, 11 * z)));
-      g.font = `${c.bubble.kind === "shout" ? "700 " : "500 "}${fs}px "IBM Plex Mono", ui-monospace, monospace`;
-      const lines = wrap(g, txt, small ? 120 : 170);
-      const w = Math.min(small ? 130 : 180, Math.max(...lines.map((l) => g.measureText(l).width))) + 12, h = lines.length * (fs + 3) + 8;
-      const bx = Math.max(4, Math.min(cam.viewW - w - 4, it.sx - w / 2)), by = Math.max(4, headY - h - 10);
+      const txt = c.bubble.text, kind = c.bubble.kind;
+      const fs = small ? 11 : Math.round(Math.max(11, Math.min(14, 12 * z)));
+      g.font = `${kind === "shout" ? "700 " : "600 "}${fs}px ui-rounded, "SF Pro Rounded", "Nunito", "Trebuchet MS", system-ui, sans-serif`;
+      const lines = wrap(g, txt, small ? 124 : 168);
+      const padX = 10, padY = 7;
+      const w = Math.min(small ? 150 : 196, Math.max(...lines.map((l) => g.measureText(l).width))) + padX * 2, h = lines.length * (fs + 3) + padY * 2 - 3;
       const fade = Math.min(1, Math.max(0, (c.bubble.until - sim.tick) / 20)) * ba;
       if (fade < 0.02) continue;
-      g.globalAlpha = fade * 0.94;
-      g.fillStyle = c.bubble.kind === "shout" ? "#ec2a1c" : "#eee4d3";
-      roundRect(g, bx, by, w, h, 6); g.fill();
-      g.beginPath(); g.moveTo(it.sx - 5, by + h); g.lineTo(it.sx + 5, by + h); g.lineTo(it.sx, by + h + 7); g.closePath(); g.fill();
-      g.fillStyle = c.bubble.kind === "shout" ? "#eee4d3" : "#0e0b0a";
-      lines.forEach((l, i) => g.fillText(l, bx + 6, by + 4 + (i + 1) * (fs + 3) - 3));
+      // gentle pop-in: grows from the speaker's head as it fades up
+      const pop = 0.82 + 0.18 * Math.min(1, ba * 1.4);
+      const tipX = it.sx, tipY = headY - 6;
+      const bx = Math.max(6, Math.min(cam.viewW - w - 6, tipX - w / 2)), by = Math.max(6, tipY - h - 12);
+      const body = kind === "shout" ? "#ff4d3d" : kind === "think" ? "#efe9ff" : "#fff8ee", ink = kind === "shout" ? "#fff" : "#2a2430", edge = c.look.color;
+      g.save();
+      g.globalAlpha = fade;
+      g.translate(tipX, tipY); g.scale(pop, pop); g.translate(-tipX, -tipY);
+      // soft drop shadow
+      g.fillStyle = "rgba(0,0,0,.22)"; roundRect(g, bx + 1.5, by + 3, w, h, 13); g.fill();
+      // body + curved tail in one fill
+      g.fillStyle = body; g.strokeStyle = edge; g.lineWidth = 2;
+      roundRect(g, bx, by, w, h, 13); g.fill(); g.stroke();
+      if (kind === "think") { for (const [r, dy, dx] of [[3.2, 6, 2], [2.2, 12, -1]] as const) { g.beginPath(); g.arc(tipX + dx, by + h + dy, r, 0, 6.283); g.fill(); g.stroke(); } }
+      else {
+        const tx = Math.max(bx + 14, Math.min(bx + w - 14, tipX));
+        g.beginPath(); g.moveTo(tx - 6, by + h - 1); g.quadraticCurveTo(tx - 1, by + h + 4, tipX, tipY + 2); g.quadraticCurveTo(tx + 3, by + h + 2, tx + 6, by + h - 1); g.closePath(); g.fill();
+        g.beginPath(); g.moveTo(tx - 6, by + h); g.quadraticCurveTo(tx - 1, by + h + 4, tipX, tipY + 2); g.quadraticCurveTo(tx + 3, by + h + 2, tx + 6, by + h); g.stroke();
+        g.fillStyle = body; g.fillRect(tx - 5, by + h - 3, 10, 4); // hide the seam under the body edge
+      }
+      // speaker tag in their colour
+      if (ba > 0.6 && c.tier !== "background") {
+        const nm = c.name.split(" ")[0]; g.font = `700 ${Math.max(9, fs - 3)}px ui-rounded, "Trebuchet MS", system-ui, sans-serif`;
+        const tw = g.measureText(nm).width + 10;
+        g.fillStyle = edge; roundRect(g, bx + 8, by - 8, tw, 14, 7); g.fill();
+        g.fillStyle = "#0e0b0a"; g.textBaseline = "middle"; g.fillText(nm, bx + 13, by - 1); g.textBaseline = "alphabetic";
+        g.font = `${kind === "shout" ? "700 " : "600 "}${fs}px ui-rounded, "SF Pro Rounded", "Nunito", "Trebuchet MS", system-ui, sans-serif`;
+      }
+      g.fillStyle = ink; g.textBaseline = "alphabetic";
+      lines.forEach((l, i) => g.fillText(l, bx + padX, by + padY + (i + 1) * (fs + 3) - 5));
+      g.restore();
       g.globalAlpha = 1;
     }
   }
