@@ -1,7 +1,7 @@
 import { DEFAULT_CONFIG, DEFAULT_FLAGS, FeatureFlags, SimConfig } from "../core/config";
 import { Rng } from "../core/rng";
 import { EventBus } from "../core/eventBus";
-import { World, Area } from "../world/World";
+import { World, Area, ROAD_W, CROSS_W } from "../world/World";
 import { generateWorld } from "../world/WorldGenerator";
 import { Navigation } from "../world/Navigation";
 import { SpatialHash } from "../world/SpatialHash";
@@ -23,7 +23,7 @@ import { spawnAll, streetSpot, spawnBackground } from "./Spawner";
 import { installRules } from "./Rules";
 import { pickUp, drop, transfer, craftable, detach, PickupResult, carried } from "../inventory/Inventory";
 import { Vehicle } from "../entities/types";
-import { spawnVehicles, updateVehicles, unseat } from "./Traffic";
+import { spawnVehicles, updateVehicles, unseat, laneCoord, clearLaneState, walkSignal } from "./Traffic";
 import { Crime, Booking, exitBuilding, insideOutcome, updateCustody, commitCrime, evaluateTrade, executeTrade, fmtCash } from "./Society";
 import { NameBook } from "./Spawner";
 import { VEHICLES } from "../content/vehicles";
@@ -288,14 +288,20 @@ export class Simulation {
     }
   }
 
-  /** About to step onto the road with a car bearing down? Wait at the kerb. */
-  trafficAhead(c: Character, vx: number, vy: number): boolean {
+  /**
+   * About to step off the kerb? Wait there. People start across a crossing only on the green man
+   * (whoever is already on it when it changes keeps going), and never step out in front of a moving
+   * car. Cops on a chase and people on the run ignore the signal, not the cars.
+   */
+  trafficAhead(c: Character, vx: number, vy: number, reach = 0.6): boolean {
     const sp = Math.hypot(vx, vy) || 1;
-    const nx = c.x + (vx / sp) * 0.6, ny = c.y + (vy / sp) * 0.6;
-    const t = this.world.tile(Math.floor(nx), Math.floor(ny));
+    const nx = c.x + (vx / sp) * reach, ny = c.y + (vy / sp) * reach;
+    const ntx = Math.floor(nx), nty = Math.floor(ny);
+    const t = this.world.tile(ntx, nty);
     if (t !== 16 && t !== 18) return false; // road or crossing
     const onRoad = this.world.tile(Math.floor(c.x), Math.floor(c.y));
     if (onRoad === 16 || onRoad === 18) return false; // already crossing: keep going
+    if (t === 18 && c.pursuing < 0 && !(c.wanted > 0) && walkSignal(this.world, ntx, nty, this.tick) !== "walk") return true;
     for (const v of this.vehicles) {
       if (Math.abs(v.speed) < 0.5) continue;
       const dx = c.x - v.x, dy = c.y - v.y, d = Math.hypot(dx, dy);
@@ -307,7 +313,7 @@ export class Simulation {
 
   private moveSimple(c: Character, dt: number): void {
     if (c.vx === 0 && c.vy === 0) return;
-    if (this.trafficAhead(c, c.vx, c.vy)) return;
+    if (this.trafficAhead(c, c.vx, c.vy, Math.max(0.6, Math.hypot(c.vx, c.vy) * dt + 0.3))) return;
     const lim = this.world.size - 0.3;
     const nx = Math.min(lim, Math.max(0.3, c.x + c.vx * dt)), ny = Math.min(lim, Math.max(0.3, c.y + c.vy * dt));
     if (this.world.walkable(nx, ny)) { c.x = nx; c.y = ny; c.facing = Math.atan2(c.vy, c.vx); }
@@ -427,14 +433,17 @@ export class Simulation {
 
   /** Move a car to a clear stretch of road far from the camera (towing, gridlock). */
   relocateCar(v: Vehicle, drv: Character | null): void {
-    const lines = Math.floor((this.world.size - 2) / this.world.period);
+    const lines = this.world.maxLine, P = this.world.period;
     for (let tries = 0; tries < 30; tries++) {
-      const dir = this.rng.int(0, 3), line = this.rng.int(0, lines), along = this.rng.range(4, this.world.size - 4);
-      if (this.world.isRoadLine(Math.floor(along))) continue;
-      const P = this.world.period;
-      const x = dir % 2 === 0 ? along : line * P + (dir === 1 ? 1.5 : 0.5), y = dir % 2 === 0 ? line * P + (dir === 0 ? 0.5 : 1.5) : along;
+      const dir = this.rng.int(0, 3), line = this.rng.int(0, lines), along = this.rng.range(4, this.world.size - 4), lane = this.rng.int(0, 1);
+      const m = along % P;
+      if (m < ROAD_W + CROSS_W + 1.5 || m > P - CROSS_W - 1.5) continue; // mid-block: clear of junctions and crossings
+      const lc = laneCoord(dir, line, lane);
+      const x = dir % 2 === 0 ? along : lc, y = dir % 2 === 0 ? lc : along;
+      if (this.world.tile(Math.floor(x), Math.floor(y)) !== 16) continue; // plain road, not a crossing
       if (Math.hypot(x - this.focus.x, y - this.focus.y) < 25 || this.vehicles.some((o) => o !== v && Math.hypot(o.x - x, o.y - y) < 3)) continue;
       v.x = v.px = x; v.y = v.py = y; v.dir = dir; v.heading = dir * Math.PI / 2; v.speed = 0; v.damage = 0; v.nextDir = -1; v.state = "drive"; v.stuck = 0;
+      clearLaneState(v);
       if (drv) { if (drv.inCar >= 0 && drv.inCar !== v.id) continue; drv.inCar = v.id; v.driver = drv.id; drv.goal = null; } else v.state = "parked";
       return;
     }

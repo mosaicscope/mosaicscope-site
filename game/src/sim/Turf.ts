@@ -60,7 +60,7 @@ export function ensureGangs(sim: Simulation): void {
   for (const c of sim.chars) if (c.role === "mobster" && !c.crew) c.crew = "famiglia";
   for (const c of sim.chars) if (c.role === "cop" && c.tier !== "player" && !hasCarried(sim, c, "pistol")) issue(sim, c, "pistol", false);
   if (sim.chars.some((c) => c.crew === "riccarton")) return;
-  const pool = sim.chars.filter((c) => c.tier === "mid" && (c.role === "local" || c.role === "student" || c.role === "office") && c.partner < 0 && !c.nickname && !c.crew);
+  const pool = sim.chars.filter((c) => c.tier === "mid" && (c.role === "local" || c.role === "student" || c.role === "office" || c.role === "car_enthusiast") && c.partner < 0 && !c.nickname && !c.crew);
   if (pool.length < 7) return; // tiny test worlds: leave the locals alone
   const yard = sim.world.areas.find((a) => a.kind === "dealership");
   const work = sim.world.buildings.find((b) => b.kind === "dealership" && b.name.startsWith("Riccarton")) ?? sim.world.buildings.find((b) => b.kind === "dealership");

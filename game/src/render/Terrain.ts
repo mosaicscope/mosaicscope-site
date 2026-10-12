@@ -1,4 +1,4 @@
-import { World, T, TILE_HEIGHT, Poi } from "../world/World";
+import { World, T, TILE_HEIGHT, Poi, ROAD_W, CROSS_W } from "../world/World";
 import { TILE_W, TILE_H, Z_PX } from "../world/iso";
 import { GROUND } from "./palette";
 import type { Camera } from "./Camera";
@@ -103,28 +103,50 @@ function detail(g: CanvasRenderingContext2D, t: number, sx: number, sy: number, 
       break;
     }
     case T.ROAD: {
-      const P = w.period;
+      // four-lane road: kerb edge lines, dashed lane dividers, a solid centre line, stop lines before
+      // each crossing and lane arrows. (u, v) are tile-local 0..1 coords; mx/my the offset in the road.
+      const P = w.period, RW = ROAD_W;
       const vertical = w.isRoadLine(tx) && !w.isRoadLine(ty), horizontal = w.isRoadLine(ty) && !w.isRoadLine(tx);
-      g.strokeStyle = "rgba(246,182,44,.55)"; g.lineWidth = 1.5; g.setLineDash([7, 7]);
-      g.beginPath();
-      // centre line sits between the two lanes
-      if (horizontal && ty % P === 0) { g.moveTo(sx - hw, sy + hh); g.lineTo(sx, sy + TILE_H); }
-      if (vertical && tx % P === 0) { g.moveTo(sx + hw, sy + hh); g.lineTo(sx, sy + TILE_H); }
-      g.stroke(); g.setLineDash([]);
       const a = (u: number, v: number) => [sx + (u - v) * hw, sy + (u + v) * hh];
+      const line = (u0: number, v0: number, u1: number, v1: number) => { const A = a(u0, v0), B = a(u1, v1); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); };
       const quad = (q: number[][], col: string) => { g.fillStyle = col; g.beginPath(); g.moveTo(q[0][0], q[0][1]); for (let k = 1; k < q.length; k++) g.lineTo(q[k][0], q[k][1]); g.closePath(); g.fill(); };
       // worn patches and repairs, manhole covers
       if (n < 0.12) quad([a(0.1, 0.2), a(0.7, 0.15), a(0.8, 0.7), a(0.2, 0.8)], n < 0.06 ? "rgba(0,0,0,.14)" : "rgba(255,255,255,.035)");
       else if (n < 0.16) { const c = a(0.5, 0.5); g.fillStyle = "rgba(90,85,80,.5)"; g.beginPath(); g.ellipse(c[0], c[1], hw * 0.22, hh * 0.22, 0, 0, 6.283); g.fill(); g.strokeStyle = "rgba(0,0,0,.35)"; g.lineWidth = 1; g.stroke(); }
-      // solid white edge line along the kerb side of each lane
-      g.strokeStyle = "rgba(238,228,211,.35)"; g.lineWidth = 1.2; g.beginPath();
-      if (horizontal) { const v = ty % P === 0 ? 0.08 : 0.92; const A = a(0, v), B = a(1, v); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); }
-      if (vertical) { const u = tx % P === 0 ? 0.08 : 0.92; const A = a(u, 0), B = a(u, 1); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); }
-      g.stroke();
-      // painted arrows a few tiles before each intersection, in the direction of travel (left-hand traffic)
-      const along = horizontal ? tx % P : ty % P;
-      if ((horizontal || vertical) && (along === 5 || along === 12)) {
-        const dx = horizontal ? (ty % P === 0 ? 1 : -1) : 0, dy = vertical ? (tx % P === 0 ? -1 : 1) : 0;
+      if (!horizontal && !vertical) break; // intersection box: no markings
+      const lane = horizontal ? ty % P : tx % P;     // 0..3 across the road
+      const along = horizontal ? tx % P : ty % P;    // position along the block
+      // the across-road coordinate is v for an east-west road, u for a north-south one
+      const across = (t: number) => (horizontal ? [0, t, 1, t] : [t, 0, t, 1]) as [number, number, number, number];
+      // solid white edge line along the kerb
+      if (lane === 0 || lane === RW - 1) {
+        g.strokeStyle = "rgba(238,228,211,.35)"; g.lineWidth = 1.2; g.beginPath();
+        const e = across(lane === 0 ? 0.08 : 0.92); line(e[0], e[1], e[2], e[3]); g.stroke();
+      }
+      // dashed lane dividers between the two lanes of each carriageway
+      if (lane === 0 || lane === RW - 2) {
+        g.strokeStyle = "rgba(238,228,211,.5)"; g.lineWidth = 1.3; g.setLineDash([6, 8]); g.beginPath();
+        const e = across(1); line(e[0], e[1], e[2], e[3]); g.stroke(); g.setLineDash([]);
+      }
+      // solid centre line (no crossing it) between the two carriageways
+      if (lane === RW / 2 - 1) {
+        g.strokeStyle = "rgba(246,182,44,.7)"; g.lineWidth = 2; g.beginPath();
+        const e = across(1); line(e[0], e[1], e[2], e[3]); g.stroke();
+      }
+      // stop lines just before the crossings, across the lanes heading into the intersection
+      // (eastbound/northbound use lanes 0-1 and approach the intersection at lower coordinates)
+      const toLow = lane >= RW / 2 ? horizontal : !horizontal; // lane carries traffic toward the lower intersection
+      const firstRoad = RW + CROSS_W, lastRoad = P - CROSS_W - 1;
+      if ((along === firstRoad && toLow) || (along === lastRoad && !toLow)) {
+        g.strokeStyle = "rgba(238,228,211,.75)"; g.lineWidth = 2.6; g.beginPath();
+        const t = along === firstRoad ? 0.06 : 0.94;
+        if (horizontal) line(t, 0, t, 1); else line(0, t, 1, t);
+        g.stroke();
+      }
+      // painted arrows in each lane, in the direction of travel (left-hand traffic)
+      if (along === firstRoad + 3 || along === lastRoad - 3) {
+        const fwd = toLow ? -1 : 1;
+        const dx = horizontal ? fwd : 0, dy = vertical ? fwd : 0;
         const c = [0.5, 0.5], tip = [c[0] + dx * 0.32, c[1] + dy * 0.32], tail = [c[0] - dx * 0.32, c[1] - dy * 0.32];
         const px = -dy * 0.14, py = dx * 0.14;
         g.strokeStyle = "rgba(238,228,211,.5)"; g.lineWidth = 2; g.beginPath();

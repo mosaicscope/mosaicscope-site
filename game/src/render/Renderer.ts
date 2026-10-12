@@ -1,7 +1,7 @@
 import type { Simulation } from "../sim/Simulation";
 import { Character, Lod, Phys, Toy } from "../entities/types";
 import { TOYS } from "../content/toys";
-import { T, TILE_HEIGHT } from "../world/World";
+import { T, TILE_HEIGHT, ROAD_W } from "../world/World";
 import { Camera } from "./Camera";
 import { Terrain, drawTallTile, drawPoi } from "./Terrain";
 import { Particles } from "./Particles";
@@ -14,7 +14,7 @@ import { ZooRenderer } from "./Zoo";
 import { resetHdBudget } from "./StickFigure";
 import { AD_BOXES, AdBox } from "./Ads";
 import { drawCar, headlights } from "./Cars";
-import { lightGreenFor } from "../sim/Traffic";
+import { lightGreenFor, Light } from "../sim/Traffic";
 import type { Graffiti } from "../world/World";
 import type { DebugFlags } from "../debug/flags";
 import { friendship, hostility } from "../social/Social";
@@ -197,13 +197,14 @@ export class Renderer {
       if (!inView(pt.x, pt.y, 80 * z)) continue;
       this.push(this.behind(v.x, v.y, v.x + v.y + 0.03), 4, v.id, pt.x, pt.y);
     }
-    const nl = Math.floor((S - 2) / 16);
+    // one signal pole per intersection, on the kerb at its south-east corner (ref = r * 64 + c)
+    const LP = sim.world.period, nl = sim.world.maxLine;
     for (let r = 0; r <= nl; r++) for (let cc = 0; cc <= nl; cc++) {
-      const lx = cc * 16 + 2.15, ly = r * 16 + 2.15;
+      const lx = cc * LP + ROAD_W + 0.15, ly = r * LP + ROAD_W + 0.15;
       if (lx > S || ly > S) continue;
       cam.toScreen(lx, ly, 0, pt);
       if (!inView(pt.x, pt.y, 80 * z)) continue;
-      this.push(lx + ly, 5, r * 16 + cc, pt.x, pt.y);
+      this.push(lx + ly, 5, r * 64 + cc, pt.x, pt.y);
     }
     for (const c of sim.chars) {
       if (c.lod === Lod.SLEEP || c.inside >= 0 || c.inCar >= 0) continue;
@@ -299,7 +300,7 @@ export class Renderer {
         drawCar(g, cam, sim.vehicles[it.ref], alpha, time, 1 - sim.daylight, it.ref === this.selectedCar);
       } else if (it.kind === 5) {
         flush();
-        this.drawLight(it.ref % 16, Math.floor(it.ref / 16), it.sx, it.sy, z);
+        this.drawLight(it.ref % 64, Math.floor(it.ref / 64), it.sx, it.sy, z);
       } else {
         flush();
         drawPoi(g, sim.world.pois[it.ref], it.sx, it.sy, z, time, party, isDark);
@@ -516,10 +517,20 @@ export class Renderer {
     g.strokeStyle = "#3a3430"; g.lineWidth = 2 * z;
     g.beginPath(); g.moveTo(sx, sy); g.lineTo(sx, sy - 40 * z); g.stroke();
     g.fillStyle = "#0e0b0a"; g.fillRect(sx - 3 * z, sy - 52 * z, 6 * z, 13 * z);
-    const ew = lightGreenFor(0, c, r, this.sim.tick), ns = lightGreenFor(1, c, r, this.sim.tick);
-    const col = (l: { green: boolean; amber: boolean }) => (l.green ? (l.amber ? "#f6b62c" : "#3dff7a") : "#ff3b2f");
+    const tick = this.sim.tick;
+    const ew = lightGreenFor(0, c, r, tick), ns = lightGreenFor(1, c, r, tick);
+    const col = (l: Light) => (l.green ? (l.amber ? "#f6b62c" : "#3dff7a") : "#ff3b2f");
     g.fillStyle = col(ew); g.beginPath(); g.arc(sx, sy - 48 * z, 2 * z, 0, 6.283); g.fill();
     g.fillStyle = col(ns); g.beginPath(); g.arc(sx, sy - 43 * z, 2 * z, 0, 6.283); g.fill();
+    // pedestrian heads lower down the pole: green man to cross the road whose traffic is held,
+    // flashing red man at the end of the phase, steady red man otherwise (one per road)
+    const blink = Math.floor(tick / 20) % 2 === 0;
+    const man = (l: Light, x: number) => {
+      g.fillStyle = "#0e0b0a"; g.fillRect(x - 2.6 * z, sy - 32 * z, 5.2 * z, 6 * z);
+      if (l.flash && !blink) return;
+      g.fillStyle = l.walk ? "#3dff7a" : "#ff3b2f"; g.fillRect(x - 1.2 * z, sy - 31 * z, 2.4 * z, 4 * z);
+    };
+    man(ns, sx - 3.2 * z); man(ew, sx + 3.2 * z);
   }
 
   /** Bandages and visible wounds on the figure (positions come from the solved skeleton). */
@@ -733,9 +744,9 @@ export class Renderer {
     g.fillStyle = "rgba(238,228,211,.42)";
     g.textAlign = "center"; g.textBaseline = "middle";
     g.font = `800 16px "Big Shoulders Display", Impact, sans-serif`;
-    const n = Math.floor((w.size - 2) / P);
+    const n = w.maxLine;
     for (let line = 0; line <= n; line++) for (let blk = 0; blk < n; blk++) {
-      const c = line * P + 1, m = blk * P + 9;
+      const c = line * P + ROAD_W / 2, m = blk * P + ROAD_W + (P - ROAD_W) / 2; // on the centre line, mid-block
       // north-south road (x = c): text runs up-screen along -y
       cam.toScreen(c, m, 0, pt);
       if (inView(pt.x, pt.y, 60)) {

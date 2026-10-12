@@ -30,8 +30,11 @@ describe("city layout", () => {
 
 describe("traffic", () => {
   it("drives on the left: lane coordinates per direction", () => {
-    expect(laneCoord(0, 1)).toBe(16.5); expect(laneCoord(2, 1)).toBe(17.5); // E north lane, W south lane
-    expect(laneCoord(1, 2)).toBe(33.5); expect(laneCoord(3, 2)).toBe(32.5);
+    // four lanes per road (period 20): E uses the north half, W the south half; kerb lane 0, inner lane 1
+    expect(laneCoord(0, 1)).toBe(20.5); expect(laneCoord(0, 1, 1)).toBe(21.5);
+    expect(laneCoord(2, 1)).toBe(23.5); expect(laneCoord(2, 1, 1)).toBe(22.5);
+    expect(laneCoord(1, 2)).toBe(43.5); expect(laneCoord(1, 2, 1)).toBe(42.5);
+    expect(laneCoord(3, 2)).toBe(40.5); expect(laneCoord(3, 2, 1)).toBe(41.5);
   });
   it("traffic lights alternate between the two axes", () => {
     for (let t = 0; t < 60 * 40; t += 60) expect(lightGreenFor(0, 2, 3, t).green).not.toBe(lightGreenFor(1, 2, 3, t).green);
@@ -43,15 +46,17 @@ describe("traffic", () => {
       expect(v.x).toBeGreaterThan(0); expect(v.x).toBeLessThan(sim.world.size); expect(Number.isFinite(v.y)).toBe(true);
       if (v.state === "drive" && !(sim.world.isRoadLine(Math.floor(v.x)) && sim.world.isRoadLine(Math.floor(v.y)))) {
         const cross = v.dir % 2 === 0 ? v.y : v.x;
-        expect(Math.abs(cross - laneCoord(v.dir, Math.floor(cross / 16)))).toBeLessThan(0.4);
+        const line = Math.floor(cross / sim.world.period);
+        // in one of its two lanes, or part-way through a lane change between them
+        expect(Math.min(Math.abs(cross - laneCoord(v.dir, line, 0)), Math.abs(cross - laneCoord(v.dir, line, 1)))).toBeLessThan(0.55);
       }
     }
   });
   it("a car brakes for someone standing in its lane", () => {
     const sim = small(9);
     for (const v of sim.vehicles) if (v.state === "drive") { v.state = "parked"; v.x = -50; v.y = -50; }
-    const v = makeVehicle(sim, "sedan", 20, laneCoord(0, 2), 0, "drive"); v.speed = 7;
-    const p = byName(sim, "Nova"); p.x = 27; p.y = laneCoord(0, 2); p.nextThink = 1e9;
+    const v = makeVehicle(sim, "sedan", 27, laneCoord(0, 2), 0, "drive"); v.speed = 7;
+    const p = byName(sim, "Nova"); p.x = 34; p.y = laneCoord(0, 2); p.nextThink = 1e9;
     for (let i = 0; i < 120; i++) sim.step();
     expect(v.x).toBeLessThan(p.x - 1);
     expect(Math.abs(v.speed)).toBeLessThan(0.5);

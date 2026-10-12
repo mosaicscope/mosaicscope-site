@@ -19,6 +19,8 @@ export const CITY_SPEED = 7.2; // ≈ 50 km/h
 const TURN_SPEED = 3.4;
 
 const lineOf = (c: number) => Math.floor(c / P);
+/** The road line whose carriageway a cross-road coordinate is nearest (robust to being nudged off it). */
+const roadOf = (c: number) => Math.max(0, Math.round((c - ROAD_W / 2) / P));
 /**
  * Lane centre coordinate (the fixed coordinate) for a direction on a road line. Lane 0 is the kerb
  * lane, lane 1 the inner lane next to the centre line. Eastbound and northbound traffic use offsets
@@ -113,7 +115,7 @@ export function spawnVehicles(sim: Simulation): void {
     const horizontal = dir % 2 === 0;
     const line = rng.int(0, w.maxLine), along = rng.range(3, w.size - 3), lane = rng.int(0, 1);
     // keep spawns out of intersections and off the crossings
-    const a = w.isRoadLine(Math.floor(along)) ? along + ROAD_W + CROSS_W : along;
+    const m = along % P, a = along - m + clamp(m, ROAD_W + CROSS_W + 4, P - CROSS_W - 4); // mid-block, room to brake
     if (a > w.size - 3) continue;
     const x = horizontal ? a : laneCoord(dir, line, lane), y = horizontal ? laneCoord(dir, line, lane) : a;
     if (sim.vehicles.some((o) => Math.hypot(o.x - x, o.y - y) < 3)) continue;
@@ -213,7 +215,7 @@ function snapToLane(sim: Simulation, v: Vehicle): boolean {
   // find a lane through a nearby road tile, aligned to the closest cardinal heading
   const dir = ((Math.round(v.heading / (Math.PI / 2)) % 4) + 4) % 4;
   const horizontal = dir % 2 === 0;
-  const lineC = horizontal ? lineOf(v.y) : lineOf(v.x);
+  const lineC = horizontal ? roadOf(v.y) : roadOf(v.x);
   const cross = horizontal ? v.y : v.x;
   const lane = laneCoord(dir, lineC, laneAt(dir, cross));
   if (Math.abs(cross - lane) > 2) return false;
@@ -266,7 +268,7 @@ function crosswalkBusy(sim: Simulation, c: number, r: number, arm: number): bool
 /** Room to move into `lane` beside us (nobody alongside or just behind/ahead in it)? */
 function laneClear(sim: Simulation, v: Vehicle, lane: number): boolean {
   const [ux, uy] = DIRS[v.dir], d = VEHICLES[v.cls];
-  const tc = laneCoord(v.dir, lineOf(crossCoord(v)), lane);
+  const tc = laneCoord(v.dir, roadOf(crossCoord(v)), lane);
   for (const o of sim.vehicles) {
     if (o === v || o.state === "parked" && sim.world.tile(Math.floor(o.x), Math.floor(o.y)) === T.PARKING) continue;
     if (Math.abs((v.dir % 2 === 0 ? o.y : o.x) - tc) > 0.75) continue;
@@ -310,7 +312,7 @@ function laneDrive(sim: Simulation, v: Vehicle, dt: number): void {
     const L = pos ? Math.ceil(along / P) : Math.floor((along - ROAD_W) / P);
     if (L >= 0 && L <= maxL) {
       dist = (pos ? L * P - along : along - (L * P + ROAD_W)) - d.length / 2;
-      const other = lineOf(crossCoord(v));
+      const other = roadOf(crossCoord(v));
       if (v.dir % 2 === 0) { ic = L; ir = other; } else { ic = other; ir = L; }
     }
   }
@@ -359,11 +361,14 @@ function laneDrive(sim: Simulation, v: Vehicle, dt: number): void {
 
   let holdPed = false;
   if (ic >= 0 && !pursuing) {
-    if (!inX && distStop > -0.4) {
+    // (a car that has crept onto the crossing but not into the junction still waits for green)
+    if (!inX && (distStop > -0.4 || (v.speed < 1.5 && dist > -0.2))) {
       // traffic lights: stop at the line on red, and on amber when there is room to stop
       const l = lightGreenFor(v.dir, ic, ir, sim.tick);
-      const canStop = (v.speed * v.speed) / (2 * d.brake) < distStop + 0.3;
-      if (!l.green || (l.amber && canStop)) target = Math.min(target, stopFor(distStop - 0.15));
+      // amber or red: stop at the line if we still can; a car too close to stop (it committed on
+      // amber) clears the junction instead of stopping on the crossing
+      const brakeDist = (v.speed * v.speed) / (2 * d.brake * 0.85);
+      if ((l.amber || !l.green) && (brakeDist < distStop + 0.2 || v.speed < 1.5)) target = Math.min(target, stopFor(distStop - 0.15));
       // give way to anyone on the crossing in front, or on the far crossing when going straight on
       else if (distStop < 12 && (crosswalkBusy(sim, ic, ir, (v.dir + 2) % 4) || (!turning && crosswalkBusy(sim, ic, ir, v.dir)))) {
         target = Math.min(target, stopFor(distStop - 0.15)); holdPed = true;
@@ -441,7 +446,7 @@ function laneDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const [nux, nuy] = DIRS[v.dir];
   const cc = crossCoord(v);
   const lw = laneWant.get(v) ?? laneAt(v.dir, cc);
-  const off = laneCoord(v.dir, lineOf(cc), lw) - cc;
+  const off = laneCoord(v.dir, roadOf(cc), lw) - cc;
   const latMax = dt * (Math.abs(off) > 0.3 ? 0.3 + 0.2 * v.speed : 3);
   const lat = clamp(off * Math.min(1, dt * 6), -latMax, latMax);
   if (nux) v.y += lat; else v.x += lat;
@@ -455,7 +460,7 @@ function laneDrive(sim: Simulation, v: Vehicle, dt: number): void {
     // should never happen (turns are forced at the edge), but if it does: U-turn into the correct lane
     v.dir = (v.dir + 2) % 4; v.nextDir = -1; clearLaneState(v);
     v.x = clamp(v.x, 0.5, w.size - 0.5); v.y = clamp(v.y, 0.5, w.size - 0.5);
-    if (v.dir % 2 === 0) v.y = laneCoord(v.dir, lineOf(v.y)); else v.x = laneCoord(v.dir, lineOf(v.x));
+    if (v.dir % 2 === 0) v.y = laneCoord(v.dir, roadOf(v.y)); else v.x = laneCoord(v.dir, roadOf(v.x));
     v.heading = v.dir * Math.PI / 2;
   }
 }

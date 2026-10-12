@@ -26,7 +26,7 @@ import { ModalHost, settingsBody, keysList } from "../ui/Modals";
 import { h, fmtHour } from "../ui/dom";
 import { moveTo, stop } from "../ai/steps";
 import { canPickUp } from "../inventory/Inventory";
-import { TOYS, canThrow, isMelee } from "../content/toys";
+import { TOYS, canThrow, isMelee, BLACK_MARKET } from "../content/toys";
 import { setImpactIntensity } from "../physics/combat";
 import { Phys } from "../entities/types";
 import { Casino } from "../ui/Casino";
@@ -758,6 +758,7 @@ export class Game {
     if (don && this.isContact(don) && (this.hasJob(don) || this.job?.who === don.name) && !(don.role === "comic" && !this.job && (this.story[don.name]?.ch ?? 0) > 0)) { this.talkToContact(don.name); return; }
     if (don && don.role === "comic") { this.roast.start(); return; } // Roastie Malone: roast battle
     if (don && don.role === "mogul") { this.luxury.show(); return; } // Sir P shows you his catalogue
+    if (don && don.role === "smuggler" && !this.isContact(don)) { this.blackMarket(don.name.split(" ")[0]); return; }
     if (don && don.role === "mobster" && !this.isContact(don)) { this.offerContract(don); return; }
     this.dialogue.start(id);
     const c = this.sim.chars[id];
@@ -778,6 +779,17 @@ export class Game {
   private luxury = new Luxury({ getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; this.saveEmpire(); }, toast: (t) => this.toast(t, "acid") });
   private saveEmpire(): void { try { localStorage.setItem("mosaics-world:empire", JSON.stringify(this.luxury.empire)); } catch { /* private mode */ } }
   private loadEmpire(): void { try { const e = JSON.parse(localStorage.getItem("mosaics-world:empire") ?? "null"); if (e && Array.isArray(e.items)) this.luxury.load(e); } catch { /* ignore */ } }
+
+  // ------------------------------------------------------------------ black market (Dodge sells guns out of a boot)
+  private blackMarket(who: string): void {
+    const sim = this.sim, p = sim.player;
+    const rows = BLACK_MARKET.map((id) => {
+      const d = TOYS[id];
+      return h("li.item", null, [h("div", null, [h("b", { text: d.name }), h("small", { text: d.blurb ?? "" })]), h("span.price", { text: fmtCash(d.value) }),
+        h("button.btn", { disabled: p.cash < d.value, onclick: () => { if (p.cash < d.value) return; p.cash -= d.value; const t = sim.spawnToy(id, p.x, p.y); if (t) sim.pickupToy(p, t); this.toast(`${who}: "Never saw you."`, "acid"); this.modal.close(); }, text: "Buy" })]);
+    });
+    this.modal.show(`${who}'s boot`, [h("p", { text: `"Cash only. No refunds. If anyone asks, you bought a hubcap."` }), h("ul.items", null, rows)]);
+  }
 
   // ------------------------------------------------------------------ the clubs
   private owned = new Set<string>((() => { try { return JSON.parse(localStorage.getItem("mosaics-world:owned") ?? "[]") as string[]; } catch { return []; } })());
