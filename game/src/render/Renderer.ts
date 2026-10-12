@@ -116,6 +116,8 @@ export class Renderer {
     const time = this.time;
     // camera follow
     if (cam.follow >= 0 && sim.chars[cam.follow]) { const f = sim.chars[cam.follow]; cam.lookAt(f.x, f.y); }
+    // zoomed right in: the camera drops to street level for a flat 2D side view; zoom out to go back to 3D
+    if (z > 3) { cam.update(dt, o.reduceMotion); this.render2D(dt, o); this.stats.frameMs = performance.now() - t0; return; }
     cam.update(dt, o.reduceMotion);
     sim.focus.x = cam.x; sim.focus.y = cam.y;
 
@@ -568,6 +570,54 @@ export class Renderer {
     // beacon
     if (Math.floor(time * 3) % 2) { g.fillStyle = "#ff3b2f"; g.beginPath(); g.arc(0, 10 * k, 2.4 * k, 0, 6.283); g.fill(); }
     g.restore();
+  }
+
+  /** Street-level 2D view: sky, skyline (buildings behind you), the pavement, people side-on. */
+  private render2D(dt: number, o: RenderOptions): void {
+    const sim = this.sim, g = this.g, cam = this.cam, W = cam.viewW, H = cam.viewH, time = this.time;
+    g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    const f = sim.chars[cam.follow >= 0 ? cam.follow : sim.playerId] ?? sim.player;
+    const pu = (f.x - f.y) / 1.414, pv = f.x + f.y;
+    const S = 26 * (cam.zoom - 1.5), ground = H * 0.72, day = sim.daylight;
+    // sky
+    g.fillStyle = day > 0.5 ? "#7fb3d9" : day > 0.2 ? "#5a4a6a" : "#0e0b1e"; g.fillRect(0, 0, W, ground);
+    g.fillStyle = day > 0.5 ? "#b9d6ea" : day > 0.2 ? "#c46a5a" : "#1c1830"; g.fillRect(0, ground * 0.6, W, ground * 0.4);
+    // skyline: buildings behind you, farthest first, fading with distance
+    const bs = sim.world.buildings.map((b) => { const cx = (b.x0 + b.x1 + 1) / 2, cy = (b.y0 + b.y1 + 1) / 2; return { b, u: (cx - cy) / 1.414, v: cx + cy, w: (b.x1 - b.x0 + b.y1 - b.y0 + 2) / 1.6 }; })
+      .filter((q) => q.v < pv - 1 && q.v > pv - 50 && Math.abs(q.u - pu) * S < W).sort((a, c) => a.v - c.v);
+    for (const q of bs) {
+      const depth = (pv - q.v) / 50, k = 1 - depth * 0.55, x = W / 2 + (q.u - pu) * S * k, w = q.w * S * k, h = q.b.height * S * 0.9 * k;
+      g.globalAlpha = 1 - depth * 0.6;
+      g.fillStyle = q.b.color; g.fillRect(x - w / 2, ground - h, w, h);
+      g.fillStyle = day > 0.3 ? "rgba(28,38,56,.7)" : "rgba(255,214,130,.75)";
+      for (let fy = ground - h + 8 * k; fy < ground - 14 * k; fy += 18 * k) for (let fx = x - w / 2 + 6 * k; fx < x + w / 2 - 8 * k; fx += 14 * k) if ((Math.floor(fx * 7 + fy * 3) & 3) !== 0) g.fillRect(fx, fy, 6 * k, 9 * k);
+      g.fillStyle = q.b.sign; g.font = `800 ${Math.max(9, 13 * k)}px "Big Shoulders Display", Impact, sans-serif`; g.textAlign = "center";
+      if (depth < 0.35) g.fillText(q.b.name.toUpperCase(), x, ground - h - 6 * k);
+    }
+    g.globalAlpha = 1;
+    // pavement, kerb, road
+    g.fillStyle = "#5a524a"; g.fillRect(0, ground, W, H * 0.1);
+    g.fillStyle = "#8a8278"; g.fillRect(0, ground, W, 4);
+    g.fillStyle = "#1c1916"; g.fillRect(0, ground + H * 0.1, W, H);
+    g.fillStyle = "rgba(246,182,44,.6)"; for (let x = -((pu * S) % 80); x < W; x += 80) g.fillRect(x, ground + H * 0.17, 40, 4);
+    // people near you, side-on, nearer ones lower and bigger
+    const near = sim.chars.filter((c) => c.inside < 0 && c.inCar < 0 && Math.abs((c.x + c.y) - pv) < 3 && Math.abs((c.x - c.y) / 1.414 - pu) * S < W * 0.6).sort((a, c) => (a.x + a.y) - (c.x + c.y));
+    for (const c of near) {
+      const dv = (c.x + c.y) - pv, k = S / 26 * 0.9 * c.look.scale * (1 + dv * 0.06);
+      const sx = W / 2 + ((c.x - c.y) / 1.414 - pu) * S, sy = ground + 6 + dv * 6;
+      const moving = Math.abs(c.x - c.px) + Math.abs(c.y - c.py) > 0.0005, spd = Math.hypot(c.x - c.px, c.y - c.py) * 60;
+      c.anim.phase += spd * dt * 5.5;
+      const dir = (Math.cos(c.facing) - Math.sin(c.facing)) >= 0 ? 1 : -1;
+      g.fillStyle = "rgba(0,0,0,.3)"; g.beginPath(); g.ellipse(sx, sy, 16 * k, 4 * k, 0, 0, 6.283); g.fill();
+      const a = pose(this.poseName(c, moving, spd), c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT);
+      solve(a, sx, sy, k, dir);
+      drawFigure(g, c, sx, sy, k, dir, time, c.anim.flash, 1);
+      if (c.bubble && c.bubble.until > sim.tick && Math.abs(dv) < 1.5) { g.font = "500 13px 'IBM Plex Mono', monospace"; g.textAlign = "center"; const tw = Math.min(260, g.measureText(c.bubble.text).width + 14); g.fillStyle = "rgba(238,228,211,.94)"; g.fillRect(sx - tw / 2, sy - 120 * k - 26, tw, 22); g.fillStyle = "#0e0b0a"; g.fillText(c.bubble.text.slice(0, 40), sx, sy - 120 * k - 10); }
+      if (c.id === sim.playerId) { g.fillStyle = "#ec2a1c"; g.font = "700 12px 'IBM Plex Mono', monospace"; g.textAlign = "center"; g.fillText("You", sx, sy + 18); }
+    }
+    g.textAlign = "start";
+    g.fillStyle = "rgba(238,228,211,.7)"; g.font = "600 12px 'IBM Plex Mono', monospace"; g.fillText(`2D street view · ${sim.world.streetName(f.x, f.y)} · scroll out for 3D`, 16, 66);
+    void o;
   }
 
   /** Buildings on screen this frame, and how much each is cut away (0..1, eased). */
