@@ -214,6 +214,9 @@ export class Simulation {
       if (this.tick >= at) { this.pendingAmbulance.delete(id); hospitalise(this, c); }
     }
     if (this.tick % 60 === 0) this.housekeeping();
+    // nothing (car exits, knockbacks, doors on the edge) may leave anyone outside the map
+    const lim = this.world.size - 0.3;
+    for (const c of this.chars) { if (c.x < 0.3) c.x = 0.3; else if (c.x > lim) c.x = lim; if (c.y < 0.3) c.y = 0.3; else if (c.y > lim) c.y = lim; }
     this.metrics.stepMs = performance.now() - t0;
   }
 
@@ -225,18 +228,20 @@ export class Simulation {
     let vx = c.vx, vy = c.vy;
     if (c.phys === Phys.STUMBLE) { vx *= 0.2; vy *= 0.2; }
     // local avoidance: separation from neighbours (full/reduced only)
-    if (c.lod <= Lod.REDUCED && c.tier !== "background") {
+    if (c.lod <= Lod.REDUCED) {
       const n = this.charHash.query(c.x, c.y, 0.75, this.tmp);
       let sx = 0, sy = 0;
       for (let i = 0; i < n; i++) {
         const o = this.chars[this.tmp[i]];
-        if (o === c || o.tier === "background" && !o.promoted) continue;
+        if (o === c || o.inside >= 0 || o.inCar >= 0) continue;
         const dx = c.x - o.x, dy = c.y - o.y, d2 = dx * dx + dy * dy;
         if (d2 < 0.0001 || d2 > 0.5) continue;
         const d = Math.sqrt(d2), push = (0.72 - d) / 0.72;
         sx += (dx / d) * push; sy += (dy / d) * push;
       }
-      vx += sx * 1.8; vy += sy * 1.8;
+      // capped, gentle push: people step round each other instead of jittering
+      const m = Math.hypot(sx, sy); if (m > 1) { sx /= m; sy /= m; }
+      vx += sx * 1.2; vy += sy * 1.2;
     }
     if ((vx !== 0 || vy !== 0) && c.tier !== "player" && this.trafficAhead(c, vx, vy)) { vx = 0; vy = 0; c.vx = 0; c.vy = 0; }
     if (vx !== 0 || vy !== 0) {
