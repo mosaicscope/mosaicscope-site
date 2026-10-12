@@ -340,16 +340,43 @@ export class Game {
     this.toast(`${mine ? "Your" : "Stolen"} ${VEHICLES[car.cls].name}: W/S drive, A/D steer, Space brake, H horn, E get out`);
   }
 
+  /**
+   * R: at a shop door with a weapon in hand you hold up the till; otherwise you pickpocket the nearest
+   * person. Lifting is easier from behind and when they're distracted (talking, on a phone, busy), and
+   * harder face to face or from someone nervous. Witnesses report it (wanted stars).
+   */
   private rob(): void {
     const sim = this.sim, p = sim.player;
-    const id = this.nearestPerson(1.3);
+    const held = p.hand >= 0 ? sim.toys[p.hand] : null, armed = !!held && TOYS[held.def].category === "weapon";
+    const door = this.nearDoor();
+    if (door && !door.studio && armed) {
+      const b = sim.world.buildings[door.building];
+      const take = Math.round((sim.tills[b.id] ?? 0) + 120 + Math.random() * 380);
+      sim.tills[b.id] = 0; p.cash += take;
+      commitCrime(sim, p, "armed_robbery", null);
+      p.wanted = Math.max(p.wanted, 3);
+      this.focus("Hold-up", `${b.name} · ${fmtCash(take)} from the till · RUN`, 3);
+      return;
+    }
+    if (door && !door.studio && !armed) { this.toast("You'd need something scarier in your hand to rob a till", "red"); return; }
+    const id = this.nearestPerson(1.4);
     if (id < 0) { this.toast("Nobody close enough to rob"); return; }
     const v = sim.chars[id];
-    const caught = sim.rng.chance(0.3 + v.pers.curiosity * 0.3);
-    const loot = carried(v).map((tid) => sim.toys[tid]).find((t) => t && t.def !== "camera" && (t.def === "phone" || t.def === "watch" || t.def === "chain" || t.def === "headphones"));
-    if (!caught && loot && sim.rng.chance(0.5)) { detach(v, loot.id); loot.holder = p.id; loot.state = "held"; p.bag.push(loot.id); this.toast(`Lifted a ${loot.def}`); }
-    else { const take = Math.min(v.cash, 10 + Math.round(Math.random() * 50)); v.cash -= take; p.cash += take; this.toast(take ? `Lifted ${fmtCash(take)}` : "Empty pockets"); }
-    commitCrime(sim, p, "pickpocket", v);
+    const behind = Math.cos(Math.atan2(p.y - v.y, p.x - v.x) - v.facing) < -0.2; // you're behind their back
+    const distracted = v.talkWith >= 0 || v.anim.pose === "phone" || v.goal?.id === "eat" || v.goal?.id === "shop";
+    const notice = Math.max(0.05, Math.min(0.95, 0.55 - (behind ? 0.3 : 0) - (distracted ? 0.2 : 0) + v.emo.fear * 0.3 + v.pers.curiosity * 0.2));
+    if (Math.random() < notice) {
+      this.sim.say(v, "Oi! Hands off!", "shout", 1.6);
+      const r = sim.relate(v, p.id); r.grudge = Math.min(1, r.grudge + 0.5); r.trust = Math.max(-1, r.trust - 0.5);
+      commitCrime(sim, p, "pickpocket", v);
+      this.toast(`${v.name.split(" ")[0]} caught you${behind ? "" : " (try from behind)"}`, "red");
+      return;
+    }
+    const loot = carried(v).map((tid) => sim.toys[tid]).find((t) => t && ["phone", "watch", "chain", "headphones", "camera"].includes(t.def));
+    if (loot && Math.random() < 0.5) { detach(v, loot.id); loot.holder = p.id; loot.state = "held"; p.bag.push(loot.id); this.toast(`Lifted ${v.name.split(" ")[0]}'s ${TOYS[loot.def].name} · pawn it for cash`, "acid"); }
+    else { const take = Math.min(v.cash, 15 + Math.round(Math.random() * 70)); v.cash -= take; p.cash += take; this.toast(take ? `Lifted ${fmtCash(take)} clean` : "Empty pockets", take ? "acid" : ""); }
+    // a clean lift can still be seen by someone else
+    if (Math.random() < 0.35) commitCrime(sim, p, "pickpocket", v);
   }
 
   private bandage(): void {

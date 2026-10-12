@@ -47,6 +47,8 @@ export class Particles {
         case "text": p.kind = K_TEXT; p.vx = 0; p.vy = 0; p.vz = 0.7; p.max = 1.2; p.size = 11; p.g = 0; break;
         case "zzz": p.kind = K_TEXT; p.text = "z"; p.vx = 0.2; p.vy = -0.2; p.vz = 0.5; p.max = 1.5; p.size = 10; p.g = 0; break;
         case "blood": p.kind = K_DOT; p.color = rand() < 0.5 ? "#b3121b" : "#7a0d12"; p.vx = Math.cos(a) * (0.5 + s * 2.2); p.vy = Math.sin(a) * (0.5 + s * 2.2); p.vz = 1 + s * 3.5; p.max = 0.7; p.size = 1 + s * 1.6; p.g = 12; break;
+        // cartoon gore for stick figures: a bone, a tooth, a wiggly bit of noodle, a few dizzy stars
+        case "gib": p.kind = K_TEXT; p.text = ["🦴", "🦷", "〰️", "💫", "🌭", "⭐"][Math.floor(rand() * 6)]; p.color = "#eee4d3"; p.vx = Math.cos(a) * (1 + s * 2.5); p.vy = Math.sin(a) * (1 + s * 2.5); p.vz = 2 + s * 3; p.max = 1.3; p.size = 1; p.g = 9; break;
         case "spray": p.kind = K_DOT; p.color = color; p.vx = Math.cos(a) * 0.3; p.vy = Math.sin(a) * 0.3; p.vz = 0.2; p.max = 0.6; p.size = 1.5 + s * 2; p.g = 0; break;
         case "flash": p.kind = K_RING; p.color = "#fff6c8"; p.vx = 0; p.vy = 0; p.vz = 0; p.max = 0.25; p.size = 3; p.g = 0; break;
         case "paint": p.kind = K_SQ; p.color = color; p.vx = Math.cos(a) * 1.5 * s; p.vy = Math.sin(a) * 1.5 * s; p.vz = 1 + s * 2; p.max = 0.6; p.size = 2.5; p.g = 10; break;
