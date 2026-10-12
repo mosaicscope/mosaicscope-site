@@ -103,6 +103,9 @@ function dance(style: string, t: number): void {
 
 /** Absolute joint positions (screen px). Layout: hip, neck, head, shoulder, elbowL, handL, elbowR, handR, kneeL, footL, kneeR, footR. */
 export const J = new Float32Array(24);
+/** How many figures may get the HD pass this frame (the renderer resets it; nearest first). */
+export let hdBudget = 0;
+export function resetHdBudget(n: number): void { hdBudget = n; }
 export const HEAD_R = 10.5;
 
 export function solve(a: Angles, sx: number, sy: number, k: number, dir: number): void {
@@ -139,7 +142,7 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
   g.lineCap = "round"; g.lineJoin = "round";
   const col = flash > 0 ? "#ffffff" : L.color;
   // HD pass when you're close: soft neon glow, a crisp ink outline under every limb, then the line
-  const hd = k >= 1.05;
+  const hd = k >= 1.05 && hdBudget-- > 0;
   const skel = () => {
     g.beginPath();
     g.moveTo(J[0], J[1]); g.lineTo(J[16], J[17]); g.lineTo(J[18], J[19]);

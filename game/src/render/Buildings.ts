@@ -70,9 +70,10 @@ export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Build
   // ambient occlusion: soft contact shadow where the walls meet the pavement
   const ao = (x0: number, y0: number, x1: number, y1: number, ox: number, oy: number) => {
     const A = P(x0, y0, 0), B = P(x1, y1, 0), C = P(x1 + ox, y1 + oy, 0), D = P(x0 + ox, y0 + oy, 0);
-    const grd = g.createLinearGradient((A[0] + B[0]) / 2, (A[1] + B[1]) / 2, (C[0] + D[0]) / 2, (C[1] + D[1]) / 2);
-    grd.addColorStop(0, `rgba(0,0,0,${0.42 * (1 - dark * 0.5)})`); grd.addColorStop(1, "rgba(0,0,0,0)");
-    g.fillStyle = grd; poly(g, [A, B, C, D]); g.fill();
+    // two flat bands (no per-frame gradient objects): darker near the wall, lighter further out
+    const k = 1 - dark * 0.5, M1 = [A[0] + (D[0] - A[0]) * 0.45, A[1] + (D[1] - A[1]) * 0.45], M2 = [B[0] + (C[0] - B[0]) * 0.45, B[1] + (C[1] - B[1]) * 0.45];
+    g.fillStyle = `rgba(0,0,0,${0.16 * k})`; poly(g, [A, B, C, D]); g.fill();
+    g.fillStyle = `rgba(0,0,0,${0.2 * k})`; poly(g, [A, B, M2, M1]); g.fill();
   };
   if (southOpen) ao(tx, ty + 1, tx + 1, ty + 1, 0, 0.55);
   if (eastOpen) ao(tx + 1, ty, tx + 1, ty + 1, 0.55, 0);
@@ -263,10 +264,10 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
     // glass curtain wall: dark glass with a sky gradient, mullion grid, scattered lit offices at night
     const h0 = GROUND_H, h1 = H;
     if (h1 > h0) {
-      const A = at(0, h1), C = at(0, h0);
-      const grd = g.createLinearGradient(A[0], A[1], C[0], C[1]);
-      grd.addColorStop(0, lightK > 1 ? "#6f94bf" : "#46668a"); grd.addColorStop(1, lightK > 1 ? "#24344c" : "#18233a");
-      g.fillStyle = grd; g.beginPath(); quad(0.03, 0.97, h0 + 0.05, h1 - 0.05); g.fill();
+      // sky reflected in the glass: lighter towards the top (two flat fills, no gradient object)
+      const mid = h0 + (h1 - h0) * 0.55;
+      g.fillStyle = lightK > 1 ? "#2c4060" : "#1c2a42"; g.beginPath(); quad(0.03, 0.97, h0 + 0.05, mid); g.fill();
+      g.fillStyle = lightK > 1 ? "#4f7099" : "#33507a"; g.beginPath(); quad(0.03, 0.97, mid, h1 - 0.05); g.fill();
       if (night) {
         for (let f = 1; f < floors; f++) for (let k = 0; k < 3; k++) if (lit(f, k)) { g.fillStyle = litCol(f, k); g.beginPath(); quad(k / 3 + 0.03, (k + 1) / 3 - 0.03, floorBase(f) + 0.08, floorBase(f) + FLOOR_H - 0.12); g.fill(); }
       }
@@ -276,21 +277,34 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
       g.stroke();
     }
   } else {
+    // every storey's windows, sills and ledges go into a handful of batched paths (one fill each)
+    type R = [number, number, number, number];
+    const frames: R[] = [], dark: R[] = [], refl: R[] = [], sills: R[] = [], ledges: R[] = [], litBy = new Map<string, R[]>();
+    const n = st === "house" ? 1 : 2, spans = n === 1 ? [[0.3, 0.7]] : [[0.14, 0.42], [0.58, 0.86]];
     for (let f = 1; f < floors; f++) {
-      const base = floorBase(f), fh = floorH(f);
-      const n = st === "house" ? 1 : 2;
-      windows(g, quad, base, base + fh * 0.22, base + fh * 0.78, lit(f, 0) || lit(f, 1) && n === 2, litCol(f, 0), night, n);
-      // balconies on flats, ledges on everything else
+      const base = floorBase(f), fh = floorH(f), h0 = base + fh * 0.22, h1 = base + fh * 0.78;
+      const on = lit(f, 0) || (lit(f, 1) && n === 2), col = litCol(f, 0);
+      for (const [a0, a1] of spans) {
+        frames.push([a0 - 0.03, a1 + 0.03, h0 - 0.05, h1 + 0.05]);
+        if (on) { const arr = litBy.get(col) ?? []; arr.push([a0, a1, h0, h1]); litBy.set(col, arr); } else dark.push([a0, a1, h0, h1]);
+        if (!night) refl.push([a0, a0 + (a1 - a0) * 0.35, h0 + (h1 - h0) * 0.4, h1]);
+        sills.push([a0 - 0.04, a1 + 0.04, h0 - 0.06, h0 - 0.01]);
+      }
       if (st === "flats" && hash(f, tx + ty) < 0.5) {
         g.fillStyle = shade(b.color, 1.35 * lightK); g.beginPath(); quad(0.15, 0.85, base, base + 0.08); g.fill();
         g.strokeStyle = shade(b.color, 1.5 * lightK); g.lineWidth = Math.max(1, 0.8 * z); g.beginPath();
         for (let k = 0; k <= 6; k++) { const t = 0.15 + (k / 6) * 0.7, A = at(t, base + 0.08), B = at(t, base + 0.35); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); }
         const A = at(0.15, base + 0.35), B = at(0.85, base + 0.35); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]);
         g.stroke();
-      } else if (st !== "house") {
-        g.fillStyle = shade(b.color, 1.3 * lightK); g.beginPath(); quad(0, 1, base - 0.04, base + 0.04); g.fill();
-      }
+      } else if (st !== "house") ledges.push([0, 1, base - 0.04, base + 0.04]);
     }
+    const batch = (rs: R[], col: string) => { if (!rs.length) return; g.fillStyle = col; g.beginPath(); for (const r of rs) quad(r[0], r[1], r[2], r[3]); g.fill(); };
+    batch(ledges, shade(b.color, 1.3 * lightK));
+    batch(frames, "rgba(238,228,211,.22)");
+    batch(dark, night ? "rgba(10,12,20,.85)" : "rgba(28,38,56,.85)");
+    for (const [col, rs] of litBy) batch(rs, col);
+    batch(refl, "rgba(200,225,255,.16)");
+    batch(sills, "rgba(238,228,211,.35)");
   }
   // nightclub: pulsing coloured windows
   if (st === "club" && night) {
@@ -366,10 +380,9 @@ function roofTop(g: CanvasRenderingContext2D, b: Building, x: number, y: number,
     g.moveTo(x - w * 0.3, y); g.lineTo(x - w * 0.3, y - 6 * z); g.moveTo(x + w * 0.3, y); g.lineTo(x + w * 0.3, y - 6 * z); g.stroke();
     g.fillStyle = "rgba(14,11,10,.82)";
     g.fillRect(x - w / 2, y - fs - 9 * z, w, fs + 5);
-    if (glow) { g.shadowColor = b.sign; g.shadowBlur = 10 * z; }
+    if (glow) { g.strokeStyle = b.sign; g.globalAlpha *= 0.35; g.lineWidth = 4 * z; g.strokeText(label, x, y - 8 * z); g.globalAlpha /= 0.35; }
     g.fillStyle = b.sign;
     g.fillText(label, x, y - 8 * z);
-    g.shadowBlur = 0;
   }
   if (b.billboard || b.kind === "gallery" || b.kind === "casino") billboard(g, b, x, y - (label ? fs + 14 * z : 0), z, time, dark);
   g.textAlign = "start";
