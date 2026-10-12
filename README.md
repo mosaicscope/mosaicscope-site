@@ -87,7 +87,14 @@ A little record player appears in the corner, and the Sound button plays your pi
 
 ---
 
-## Part 6: Your own domain
+## Part 6: YouTube
+
+Already connected to your channel. New uploads show up in the work gallery by themselves (within a few hours).
+Want a video from somewhere else? Pages CMS → **Basics** → **Extra YouTube video links** → paste the link → Save.
+
+---
+
+## Part 7: Your own domain
 
 1. Buy `mosaicscope.co.nz`.
 2. In Cloudflare → your Pages project → **Custom domains** → add it → follow the steps.

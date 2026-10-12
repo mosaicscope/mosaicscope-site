@@ -159,13 +159,14 @@
       }
       var vid = p.videoFile ? '<video class="tile__vid" muted loop playsinline preload="none" src="' + esc(p.videoFile) + '"></video>' : "";
       if (p.videoFile) b.classList.add("has-video");
+      if (p.fromYouTube) b.classList.add("is-yt");
       b.innerHTML =
         '<span class="tile__media">' + frags + vid +
         '<span class="slate"><span>FR ' + String(i + 1).padStart(2, "0") + '</span><span class="cat-' + esc(p.category) + '">' + esc(CAT_LABEL[p.category] || p.category) + "</span></span>" +
-        (p.placeholder ? '<span class="tag-ph">Placeholder</span>' : "") +
+        (p.placeholder ? '<span class="tag-ph">Placeholder</span>' : "") + (p.fromYouTube ? '<span class="tag-yt">YouTube</span>' : "") +
         "</span>" +
         '<span class="tile__cap"><strong>' + esc(p.title || "Untitled") + "</strong><em>" + esc(p.year || "") + "</em></span>" +
-        (p.mentions && p.mentions.length ? '<span class="tile__tags mono">In frame: ' + esc(p.mentions.map(function (m) { return "@" + m; }).join(" ")) + "</span>" : "");
+        "";
       gal.appendChild(b);
     });
     observeTiles($$(".tile", gal));
@@ -267,14 +268,15 @@
     " float c=floor(uv.x*cols+shift); vec2 cell=vec2(c,r); float rnd=h(cell);",
     " vec2 center=vec2((c+0.5-shift)/cols,(r+0.5)/rows);",
     " vec2 off=(vec2(h(cell+1.3),h(cell+4.1))-0.5)*0.01;",
-    " vec2 dm=(center-mouse)*vec2(res.x/res.y,1.0); float md=exp(-dot(dm,dm)*9.0)*hover;",
-    " vec2 suv=(uv-center)/(1.0+(rnd-0.5)*0.03+md*0.035)+center+off;",
+    " vec2 dm=(center-mouse)*vec2(res.x/res.y,1.0); float md=exp(-dot(dm,dm)*5.0)*hover;",
+    " vec2 away=normalize(dm+vec2(0.0001))*md*0.045;",
+    " vec2 suv=(uv-center)/(1.0+(rnd-0.5)*0.03+md*0.06)+center+off-away*(0.6+rnd*0.8);",
     " vec3 a=tap(t,suv,img,0.0015); vec3 b=tap(t2,suv,img2,0.0015);",
     " float m=clamp(mixv*1.8-rnd*0.8,0.0,1.0); m=m*m*(3.0-2.0*m);",
     " vec3 col=mix(a,b,m);",
     " vec2 f=vec2(fract(uv.x*cols+shift),fract(uv.y*rows));",
     " float e=smoothstep(0.0,0.008,f.x)*smoothstep(0.0,0.008,1.0-f.x)*smoothstep(0.0,0.014,f.y)*smoothstep(0.0,0.014,1.0-f.y);",
-    " col*=mix(0.12,1.0,e); col*=0.9+0.16*rnd+md*0.14;",
+    " col*=mix(0.12,1.0,e+md*0.4); col*=0.9+0.16*rnd+md*0.16;",
     " col+=(h(uv*res+grain)-0.5)*0.05;",
     " vec2 q=uv-0.5; col*=1.0-dot(q,q)*1.2;",
     " gl_FragColor=vec4(col,1.0);",
@@ -770,6 +772,8 @@
       var media = "";
       if (p.videoFile) {
         media += '<video class="v-hero" controls playsinline preload="metadata"' + (p.cover ? ' poster="' + esc(p.cover) + '"' : "") + ' src="' + esc(p.videoFile) + '"></video>';
+      } else if (p.videoLink && embedUrl(p.videoLink)) {
+        media += "";
       } else if (p.cover) {
         media += '<img class="v-hero" src="' + esc(p.cover) + '" alt="' + esc(p.title) + '">';
       } else {
@@ -780,7 +784,7 @@
       if (p.videoLink) {
         var eu = embedUrl(p.videoLink);
         if (eu) extra += '<div class="v-embed"><iframe src="' + esc(eu) + '" title="' + esc(p.title) + ' video" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>';
-        extra += '<a class="v-link" href="' + esc(p.videoLink) + '" target="_blank" rel="noopener">Watch the film ↗</a>';
+        extra += '<a class="v-link" href="' + esc(p.videoLink) + '" target="_blank" rel="noopener">' + (/youtu/.test(p.videoLink) ? "Watch on YouTube ↗" : "Watch the film ↗") + '</a>';
       }
       if (p.igLink) extra += '<a class="v-link" href="' + esc(p.igLink) + '" target="_blank" rel="noopener">View on Instagram ↗</a>';
       if (p.audioFile) extra += '<audio controls preload="none" src="' + esc(p.audioFile) + '"></audio>';
@@ -843,26 +847,35 @@
   }
 
   /* ---------------- Cursor ---------------- */
+  // Invert lens: a white circle that flips the colours under it. Swells over photos, shrinks over links.
   function initCursor() {
     if (!finePointer || reduceMotion) return;
-    var c = $("#cursor"), gal = $("#gallery");
-    if (!c || !gal) return;
-    var x = 0, y = 0, cx = 0, cy = 0, running = false;
-    function tick() {
-      cx += (x - cx) * 0.14; cy += (y - cy) * 0.14;
-      c.style.transform = "translate3d(" + cx + "px," + cy + "px,0)";
-      if (c.classList.contains("is-view") || Math.abs(x - cx) + Math.abs(y - cy) > 0.5) requestAnimationFrame(tick); else running = false;
+    var lens = $("#lens");
+    if (!lens) return;
+    document.documentElement.classList.add("has-lens");
+    var x = innerWidth / 2, y = innerHeight / 2, cx = x, cy = y, size = 18, target = 18, shown = false, running = false;
+    function want(el) {
+      if (!el || !el.closest) return 18;
+      if (el.closest("input, textarea, select, .scp, .board")) return 0;
+      if (el.closest(".tile, .hero, .v-hero, .v-grid img")) return 120;
+      if (el.closest("a, button, [role=slider]")) return 46;
+      return 18;
     }
-    gal.addEventListener("pointermove", function (e) {
+    function tick() {
+      cx += (x - cx) * 0.18; cy += (y - cy) * 0.18;
+      size += (target - size) * 0.14;
+      lens.style.transform = "translate3d(" + (cx - size / 2).toFixed(1) + "px," + (cy - size / 2).toFixed(1) + "px,0)";
+      lens.style.width = lens.style.height = size.toFixed(1) + "px";
+      if (Math.abs(x - cx) + Math.abs(y - cy) + Math.abs(target - size) > 0.3) requestAnimationFrame(tick); else running = false;
+    }
+    document.addEventListener("pointermove", function (e) {
       x = e.clientX; y = e.clientY;
-      var t = e.target.closest && e.target.closest(".tile");
-      if (t && !c.classList.contains("is-view")) { cx = x; cy = y; }
-      c.classList.toggle("is-view", !!t);
+      target = want(e.target);
+      if (!shown) { shown = true; cx = x; cy = y; lens.classList.add("is-on"); }
+      lens.classList.toggle("is-off", target === 0);
       if (!running) { running = true; requestAnimationFrame(tick); }
     });
-    gal.addEventListener("pointerleave", function () { c.classList.remove("is-view"); });
-    window.addEventListener("scroll", function () { c.classList.remove("is-view"); }, { passive: true });
-    $("#gallery").addEventListener("click", function () { c.classList.remove("is-view"); });
+    document.addEventListener("pointerleave", function () { lens.classList.remove("is-on"); shown = false; });
   }
 
   /* ---------------- Optional sound ----------------
@@ -1012,26 +1025,55 @@
   var sc = null;
   function initSoundCloud(site) {
     var url = site.soundcloudUrl;
-    var box = $("#sc");
-    if (!url || !box) return false;
+    var box = $("#sc"), panel = $("#scp");
+    if (!url || !box || !panel) return false;
     box.hidden = false;
+    $("#sound").hidden = true;
+    $("#scp-out").href = url;
     var frame = document.createElement("iframe");
     frame.allow = "autoplay";
     frame.title = "SoundCloud player";
-    frame.src = "https://w.soundcloud.com/player/?url=" + encodeURIComponent(url) + "&auto_play=false&visual=false&show_artwork=false&buying=false&sharing=false";
+    frame.src = "https://w.soundcloud.com/player/?url=" + encodeURIComponent(url) + "&auto_play=false&visual=false&show_artwork=true&buying=false&sharing=false";
     $("#sc-frame").appendChild(frame);
-    var title = $("#sc-title"), playBtn = $("#sc-play"), soundBtn = $("#sound"), soundLabel = $(".sound__label", soundBtn);
-    var state = { playing: false };
+
+    var barTitle = $("#sc-title"), disc = $("#sc-play"), toggleBtn = $("#scp-toggle");
+    var nameEl = $("#scp-name"), artistEl = $("#scp-artist"), art = $("#scp-art"), list = $("#scp-list");
+    var fill = $("#scp-fill"), bar = $("#scp-bar"), posEl = $("#scp-pos"), durEl = $("#scp-dur");
+    var duration = 0, current = -1, playing = false;
+    function mmss(ms) { var t = Math.max(0, Math.round(ms / 1000)); return Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0"); }
     function setPlaying(on) {
-      state.playing = on;
+      playing = on;
       box.classList.toggle("is-playing", on);
-      playBtn.setAttribute("aria-label", on ? "Pause" : "Play");
-      title.classList.toggle("is-live", on);
+      panel.classList.toggle("is-playing", on);
+      toggleBtn.textContent = on ? "Pause" : "Play";
+      disc.setAttribute("aria-label", on ? "Pause music" : "Play music");
     }
-    function showTitle() {
+    function showCurrent() {
       if (!sc) return;
       sc.getCurrentSound(function (snd) {
-        if (snd) title.textContent = snd.title + (snd.user && snd.user.username ? " · " + snd.user.username : "");
+        if (!snd) return;
+        var who = snd.user && snd.user.username || "";
+        nameEl.textContent = snd.title || "Untitled";
+        artistEl.textContent = who;
+        barTitle.textContent = (snd.title || "Untitled") + (who ? " · " + who : "");
+        var img = snd.artwork_url || (snd.user && snd.user.avatar_url) || "";
+        art.style.backgroundImage = img ? "url('" + img.replace("-large", "-t300x300") + "')" : "";
+        duration = snd.duration || duration;
+        durEl.textContent = mmss(duration);
+      });
+      sc.getCurrentSoundIndex(function (i) {
+        current = i;
+        $$("li", list).forEach(function (li, n) { li.classList.toggle("is-current", n === i); });
+      });
+    }
+    function buildList() {
+      sc.getSounds(function (sounds) {
+        list.innerHTML = (sounds || []).map(function (snd, i) {
+          var t = snd && snd.title ? snd.title : "Track " + (i + 1);
+          var who = snd && snd.user && snd.user.username ? snd.user.username : "";
+          return '<li><button type="button" data-i="' + i + '"><span class="mono">' + String(i + 1).padStart(2, "0") + "</span><span>" + esc(t) + (who ? ' <em>' + esc(who) + "</em>" : "") + "</span></button></li>";
+        }).join("");
+        showCurrent();
       });
     }
     var api = document.createElement("script");
@@ -1040,18 +1082,48 @@
       if (!window.SC || !window.SC.Widget) return;
       sc = window.SC.Widget(frame);
       var E = window.SC.Widget.Events;
-      sc.bind(E.READY, showTitle);
-      sc.bind(E.PLAY, function () { setPlaying(true); showTitle(); });
+      sc.bind(E.READY, function () { buildList(); });
+      sc.bind(E.PLAY, function () { setPlaying(true); showCurrent(); });
       sc.bind(E.PAUSE, function () { setPlaying(false); });
       sc.bind(E.FINISH, function () { setPlaying(false); });
+      sc.bind(E.PLAY_PROGRESS, function (e) {
+        fill.style.width = (e.relativePosition * 100).toFixed(2) + "%";
+        bar.setAttribute("aria-valuenow", Math.round(e.relativePosition * 100));
+        posEl.textContent = mmss(e.currentPosition);
+      });
     };
-    api.onerror = function () { title.textContent = "Open on SoundCloud"; };
+    api.onerror = function () { nameEl.textContent = "Player couldn't load. Open it on SoundCloud."; };
     document.head.appendChild(api);
-    function toggle() { if (sc) sc.toggle(); else window.open(url, "_blank", "noopener"); }
-    title.addEventListener("click", toggle);
-    playBtn.addEventListener("click", toggle);
-    $("#sc-next").addEventListener("click", function () { if (sc) { sc.next(); sc.play(); } });
-    soundBtn.hidden = true;
+
+    function toggle() { if (sc) sc.toggle(); }
+    function openPanel(on) {
+      panel.hidden = !on;
+      barTitle.setAttribute("aria-expanded", on);
+      if (on && sc) showCurrent();
+    }
+    disc.addEventListener("click", toggle);
+    toggleBtn.addEventListener("click", toggle);
+    barTitle.addEventListener("click", function (e) { e.stopPropagation(); openPanel(panel.hidden); });
+    $("#scp-next").addEventListener("click", function () { if (sc) { sc.next(); sc.play(); } });
+    $("#scp-prev").addEventListener("click", function () { if (sc) { sc.prev(); sc.play(); } });
+    list.addEventListener("click", function (e) {
+      var b = e.target.closest("button[data-i]");
+      if (b && sc) { sc.skip(+b.getAttribute("data-i")); sc.play(); }
+    });
+    function seek(clientX) {
+      var r = bar.getBoundingClientRect();
+      var ratio = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+      if (sc && duration) sc.seekTo(duration * ratio);
+    }
+    bar.addEventListener("click", function (e) { seek(e.clientX); });
+    bar.addEventListener("keydown", function (e) {
+      if (!sc || !duration) return;
+      if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+        sc.getPosition(function (p) { sc.seekTo(Math.max(0, p + (e.key === "ArrowRight" ? 5000 : -5000))); });
+      }
+    });
+    document.addEventListener("click", function (e) { if (!panel.hidden && !panel.contains(e.target) && !box.contains(e.target)) openPanel(false); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !panel.hidden) openPanel(false); });
     return true;
   }
 
@@ -1223,6 +1295,93 @@
     });
   }
 
+  /* ---------------- Ambient drift ----------------
+     A few faint mosaic pieces float very slowly behind the dark sections. */
+  function initAmbient() {
+    var c = $("#ambient");
+    if (!c || reduceMotion) { if (c) c.hidden = true; return; }
+    var g = c.getContext("2d"), dpr = Math.min(1.5, window.devicePixelRatio || 1);
+    var cols = ["#ec2a1c", "#c6ff3d", "#f6b62c", "#eee4d3"];
+    var pieces = [];
+    function size() { c.width = innerWidth * dpr; c.height = innerHeight * dpr; c.style.width = innerWidth + "px"; c.style.height = innerHeight + "px"; }
+    size(); window.addEventListener("resize", size);
+    var n = innerWidth < 720 ? 7 : 14;
+    for (var i = 0; i < n; i++) {
+      pieces.push({
+        x: Math.random() * innerWidth, y: Math.random() * innerHeight,
+        w: 20 + Math.random() * 90, h: 12 + Math.random() * 60,
+        vx: (Math.random() - 0.5) * 0.12, vy: -0.04 - Math.random() * 0.1,
+        c: cols[i % cols.length], a: 0.035 + Math.random() * 0.05, par: 0.2 + Math.random() * 0.5
+      });
+    }
+    var lastY = window.scrollY;
+    (function loop() {
+      if (!document.hidden) {
+        var dy = window.scrollY - lastY; lastY = window.scrollY;
+        g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        g.clearRect(0, 0, innerWidth, innerHeight);
+        pieces.forEach(function (p) {
+          p.x += p.vx; p.y += p.vy - dy * p.par * 0.15;
+          if (p.y < -p.h) p.y = innerHeight + p.h; if (p.y > innerHeight + p.h) p.y = -p.h;
+          if (p.x < -p.w) p.x = innerWidth; if (p.x > innerWidth) p.x = -p.w;
+          g.globalAlpha = p.a; g.fillStyle = p.c;
+          g.fillRect(p.x, p.y, p.w, p.h);
+        });
+      }
+      requestAnimationFrame(loop);
+    })();
+  }
+
+  /* ---------------- YouTube ----------------
+     Set youtubeChannelId in content.json. The site asks /api/youtube (a free Cloudflare function in the
+     functions folder) for the latest videos, and adds them to the work gallery like Instagram posts.
+     You can also list video links by hand in youtubeVideos. */
+  function ytId(link) {
+    var m = String(link || "").match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([\w-]{11})/);
+    return m ? m[1] : "";
+  }
+  function loadYouTube(site) {
+    var manual = (site.youtubeVideos || []).map(function (l) { var id = ytId(l); return id ? { id: id, title: "", url: "https://www.youtube.com/watch?v=" + id, thumb: "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg" } : null; }).filter(Boolean);
+    if (!site.youtubeChannelId) return Promise.resolve(manual);
+    var KEY = "ms-yt:" + site.youtubeChannelId, TTL = 6 * 3600 * 1000;
+    try {
+      var c = JSON.parse(localStorage.getItem(KEY) || "null");
+      if (c && Date.now() - c.t < TTL) return Promise.resolve(mergeVideos(c.videos, manual));
+    } catch (e) { /* fetch */ }
+    return fetch("/api/youtube?channel=" + encodeURIComponent(site.youtubeChannelId)).then(function (r) {
+      if (!r.ok) throw new Error("yt");
+      return r.json();
+    }).then(function (j) {
+      var vids = (j && j.videos) || [];
+      try { localStorage.setItem(KEY, JSON.stringify({ t: Date.now(), videos: vids })); } catch (e) { /* ignore */ }
+      return mergeVideos(vids, manual);
+    }).catch(function () { return manual; });
+  }
+  function mergeVideos(a, b) {
+    var seen = {}, out = [];
+    (a || []).concat(b || []).forEach(function (v) { if (v && v.id && !seen[v.id]) { seen[v.id] = 1; out.push(v); } });
+    return out;
+  }
+  function addYouTubeToWork(data, videos) {
+    if (!videos || !videos.length) return false;
+    var have = {};
+    (data.projects || []).forEach(function (p) { if (p.ytId) have[p.ytId] = 1; });
+    var added = false;
+    videos.forEach(function (v) {
+      if (have[v.id]) return;
+      data.projects.push({
+        title: v.title || "Film", category: "film", shape: "wide",
+        year: v.published ? String(new Date(v.published).getFullYear()) : "",
+        summary: "", cover: v.thumb, images: [], videoFile: "", videoLink: v.url, audioFile: "",
+        placeholder: false, fromYouTube: true, ytId: v.id
+      });
+      added = true;
+    });
+    // real work first: drop leftover placeholders once there is real content
+    data.projects = data.projects.filter(function (p) { return !p.placeholder; });
+    return added;
+  }
+
   /* ---------------- Bar ---------------- */
   function initBar() {
     var bar = $("#bar");
@@ -1249,18 +1408,23 @@
     initScramble();
     initInkFill();
     initFootWeight();
-    initTrail();
     initMagnetic();
     initTileFX();
+    initAmbient();
     var leader = runLeader();
     leader.then(function () { initWordmark(); hero.restart(); });
-    loadInstagram(site).then(function (res) {
+    var igP = loadInstagram(site), ytP = loadYouTube(site);
+    igP.then(function (res) {
       if (res === null) return;
       renderInstagram(res, data);
-      if (fillWorkFromInstagram(data, res)) renderGallery(data);
       if (!site.heroImage && Array.isArray(res) && res.length) {
         leader.then(function () { hero.setSlides(res.map(function (p) { return { img: p.img, link: p.link }; })); });
       }
+    });
+    Promise.all([igP, ytP]).then(function (r) {
+      var changed = fillWorkFromInstagram(data, r[0]);
+      changed = addYouTubeToWork(data, r[1]) || changed;
+      if (changed) renderGallery(data);
     });
   }).catch(function (err) {
     console.error(err);

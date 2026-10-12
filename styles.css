@@ -619,3 +619,76 @@ audio { width: 100%; max-width: 640px; }
 /* Top bar gets a quiet frosted backing once you scroll, so nothing runs underneath the text */
 .bar { transition: background .5s var(--ease), backdrop-filter .5s var(--ease); }
 .bar.is-scrolled { mix-blend-mode: normal; background: rgba(14, 11, 10, 0.72); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+
+/* ================= Round 7 ================= */
+
+/* Ambient drift sits behind everything */
+.ambient { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+main, .foot { position: relative; z-index: 1; }
+.work, .services, .intro, .marquee { background: transparent; }
+
+/* Invert lens cursor */
+html.has-lens, html.has-lens * { cursor: none !important; }
+html.has-lens input, html.has-lens textarea, html.has-lens select, html.has-lens .scp, html.has-lens .scp * { cursor: auto !important; }
+html.has-lens .board, html.has-lens .board * { cursor: none !important; }
+.lens {
+  position: fixed; left: 0; top: 0; z-index: 85; pointer-events: none; width: 18px; height: 18px;
+  border-radius: 50%; background: #fff; mix-blend-mode: difference; opacity: 0; transition: opacity .3s;
+}
+.lens.is-on { opacity: 1; }
+.lens.is-off { opacity: 0; }
+@media (hover: none), (pointer: coarse) { .lens { display: none; } }
+
+/* Colour-grade hover: photos slowly cycle through the house grades */
+.tile__media::before {
+  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: var(--red); mix-blend-mode: color; opacity: 0; transition: opacity .8s var(--ease);
+}
+.tile:hover .tile__media::before, .tile:focus-visible .tile__media::before { opacity: 0.55; animation: grade 7s ease-in-out infinite; }
+@keyframes grade {
+  0%, 100% { background: var(--red); }
+  33% { background: var(--acid); }
+  66% { background: var(--sodium); }
+}
+.tile .tile__vid { z-index: 1; }
+
+/* YouTube tiles */
+.tile.is-yt .frag { background-size: 134% auto; }
+.tag-yt { position: absolute; right: 10px; bottom: 10px; z-index: 4; font: 500 10px/1 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; background: var(--red); color: #fff; padding: 5px 6px; }
+
+/* Music: bar button + player panel */
+.sc__title { background: none; border: 0; color: inherit; padding: 4px 0; text-align: left; }
+.sc__title:hover { text-decoration: underline; text-underline-offset: 3px; }
+.scp {
+  position: fixed; z-index: 50; right: var(--gut); top: calc(env(safe-area-inset-top, 0px) + 68px);
+  width: min(360px, calc(100vw - 2 * var(--gut))); max-height: calc(100vh - 100px); overflow: auto;
+  background: rgba(14, 11, 10, 0.92); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--line); padding: 16px; display: grid; gap: 12px; color: var(--paper);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+}
+.scp[hidden] { display: none !important; }
+.scp__top { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 14px; align-items: center; }
+.scp__art { width: 84px; aspect-ratio: 1; background: var(--ink-2) center / cover no-repeat; position: relative; }
+.scp.is-playing .scp__art { box-shadow: 0 0 0 1px var(--acid); }
+.scp__meta { min-width: 0; display: grid; gap: 3px; }
+.scp__now { margin: 0; color: var(--dim); font-size: 10px; }
+.scp__name { margin: 0; font: 900 1.35rem/1.05 var(--f-display); text-transform: uppercase; overflow-wrap: anywhere; }
+.scp__artist { margin: 0; color: var(--dim); text-transform: none; }
+.scp__bar { position: relative; height: 4px; background: rgba(238, 228, 211, 0.15); cursor: pointer; }
+.scp__bar::after { content: ""; position: absolute; inset: -8px 0; }
+.scp__fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--acid); }
+.scp__time { display: flex; justify-content: space-between; color: var(--dim); font-size: 10px; margin-top: -6px; }
+.scp__ctrl { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.scp__ctrl button { background: none; border: 1px solid var(--line); color: var(--paper); padding: 9px 12px; cursor: pointer; font-size: 11px; }
+.scp__ctrl button:hover { border-color: var(--paper); }
+.scp__toggle { flex: 1; font: 900 1rem/1 var(--f-display) !important; text-transform: uppercase; letter-spacing: 0.04em; background: var(--paper) !important; color: var(--ink) !important; border-color: var(--paper) !important; }
+.scp__list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); max-height: 220px; overflow: auto; }
+.scp__list button { width: 100%; display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 8px; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line); color: var(--paper); padding: 9px 0; cursor: pointer; font: 400 0.85rem/1.3 var(--f-body); }
+.scp__list button .mono { color: var(--dim); font-size: 10px; padding-top: 3px; }
+.scp__list button em { font-style: normal; color: var(--dim); }
+.scp__list li.is-current button { color: var(--acid); }
+.scp__list button:hover { color: var(--sodium); }
+.scp__out { color: var(--dim); text-decoration: none; font-size: 10px; justify-self: start; }
+.scp__out:hover { color: var(--paper); }
+@media (max-width: 900px) { .sc__title { display: inline-block; max-width: 12ch; } }
+@media (max-width: 520px) { .sc__title { max-width: 7ch; } }

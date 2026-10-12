@@ -4,13 +4,15 @@
     "owner": "Chris Jacob",
     "roles": "Photographer / Filmmaker / Cinematographer",
     "location": "Aotearoa New Zealand",
-    "availability": "Taking photo and film commissions",
-    "intro": "I photograph and film artists, crews, cars, skaters and the nights they fill. Portraits, music videos, events and street work, graded loud and cut close.",
+    "availability": "Booking shoots now",
+    "intro": "Shooting the scene from the inside. Rap shows, raves, car meets, skate spots, whatever's going on that night. If you're making something, I'll come shoot it.",
     "heroImage": "",
     "email": "mosiacscope@gmail.com",
     "web3formsKey": "",
     "beholdFeed": "https://feeds.behold.so/BTTwoWiBb9xHhr96wOcE",
     "soundcloudUrl": "https://soundcloud.com/orqrackcity/sets/mosaicscope",
+    "youtubeChannelId": "UCkh7k-Y10zSssfwoAWZbl-g",
+    "youtubeVideos": [],
     "instagramFillsWork": true
   },
   "social": [
@@ -18,6 +20,11 @@
       "label": "Instagram",
       "handle": "@mosaicscope",
       "url": "https://www.instagram.com/mosaicscope/"
+    },
+    {
+      "label": "YouTube",
+      "handle": "@mosaicscope",
+      "url": "https://www.youtube.com/@mosaicscope"
     },
     {
       "label": "Threads",
@@ -178,5 +185,5 @@
       ]
     }
   ],
-  "servicesNote": "Rates depend on the job. Tell me what you have in mind and I'll get back to you."
+  "servicesNote": "Every job's different. Send me what you've got and we'll work it out."
 }

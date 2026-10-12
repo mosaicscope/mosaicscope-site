@@ -20,6 +20,7 @@
 </head>
 <body>
 <!--BODY-START-->
+<canvas class="ambient" id="ambient" aria-hidden="true"></canvas>
 <div class="leader" id="leader" aria-hidden="true" hidden>
   <div class="leader__frame">
     <svg class="leader__ring" viewBox="0 0 200 200"><circle cx="100" cy="100" r="86"/><circle class="leader__sweep" cx="100" cy="100" r="43"/></svg>
@@ -41,8 +42,7 @@
     <span class="tc mono" id="tc" aria-hidden="true">00:00:00:00</span>
     <div class="sc" id="sc" hidden>
       <button class="sc__play" id="sc-play" type="button" aria-label="Play music"><span class="sc__disc" aria-hidden="true"></span></button>
-      <span class="sc__title mono" id="sc-title">MosaicScope radio</span>
-      <button class="sc__next mono" id="sc-next" type="button" aria-label="Next track">Next</button>
+      <button class="sc__title mono" id="sc-title" type="button" aria-expanded="false" aria-controls="scp">MosaicScope radio</button>
     </div>
     <button class="sound" id="sound" type="button" aria-pressed="false"><span class="sound__bars" aria-hidden="true"><i></i><i></i><i></i></span><span class="sound__label">Sound off</span></button>
     <a class="enquire" href="#contact">Enquire</a>
@@ -106,13 +106,6 @@
       <span class="ig-cta__big">Follow <i>@mosaicscope</i></span>
       <span class="ig-cta__meta mono" id="ig-count">Everything new lands there first</span>
     </a>
-  </section>
-
-  <section class="credits" id="credits" aria-labelledby="credits-h" hidden>
-    <div class="sechead">
-      <h2 id="credits-h"><span class="mono sechead__no">✶</span><span class="scramble">In frame</span> <em>everyone tagged on the feed</em></h2>
-    </div>
-    <ol class="credits__list" id="credits-list"></ol>
   </section>
 
   <section class="services" id="services" aria-labelledby="services-h">
@@ -181,10 +174,27 @@
 </div>
 
 <div class="sc-frame" id="sc-frame" aria-hidden="true"></div>
+<div class="scp" id="scp" role="dialog" aria-label="Music player" hidden>
+  <div class="scp__top">
+    <div class="scp__art" id="scp-art"></div>
+    <div class="scp__meta">
+      <p class="scp__now mono">Now playing</p>
+      <p class="scp__name" id="scp-name">Loading the playlist…</p>
+      <p class="scp__artist mono" id="scp-artist"></p>
+    </div>
+  </div>
+  <div class="scp__bar" id="scp-bar" role="slider" aria-label="Track position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0"><span class="scp__fill" id="scp-fill"></span></div>
+  <div class="scp__time mono"><span id="scp-pos">0:00</span><span id="scp-dur">0:00</span></div>
+  <div class="scp__ctrl">
+    <button type="button" class="mono" id="scp-prev">Prev</button>
+    <button type="button" class="scp__toggle" id="scp-toggle">Play</button>
+    <button type="button" class="mono" id="scp-next">Next</button>
+  </div>
+  <ol class="scp__list" id="scp-list"></ol>
+  <a class="scp__out mono" id="scp-out" href="#" target="_blank" rel="noopener">Open on SoundCloud ↗</a>
+</div>
 <div class="loupe" id="loupe" aria-hidden="true"></div>
-<div class="cursor" id="cursor" aria-hidden="true"><span>View</span></div>
-<canvas class="trail" id="trail" aria-hidden="true"></canvas>
-<div class="peek" id="peek" aria-hidden="true"></div>
+<div class="lens" id="lens" aria-hidden="true"></div>
 <svg class="fx-defs" aria-hidden="true" width="0" height="0">
   <filter id="liquid" x="-10%" y="-10%" width="120%" height="120%">
     <feTurbulence id="liquid-turb" type="fractalNoise" baseFrequency="0.012 0.03" numOctaves="2" seed="7"/>

@@ -27,6 +27,8 @@ content:
           - { name: beholdFeed, label: Behold feed link (shows your Instagram), type: string }
           - { name: instagramFillsWork, label: Fill empty work slots with Instagram posts, type: boolean }
           - { name: soundcloudUrl, label: SoundCloud track or playlist link (plays on the site), type: string }
+          - { name: youtubeChannelId, label: YouTube channel id (starts with UC), type: string }
+          - { name: youtubeVideos, label: Extra YouTube video links (optional), type: string, list: true }
       - name: social
         label: Social links
         type: object
