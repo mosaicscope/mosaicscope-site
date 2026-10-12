@@ -77,7 +77,17 @@ What happens:
 
 ---
 
-## Part 5: Your own domain
+## Part 5: Your music (SoundCloud)
+
+1. Make a playlist on SoundCloud with the tracks you want.
+2. Copy its link (e.g. `https://soundcloud.com/you/sets/site-vibes`).
+3. Pages CMS → **Basics** → paste into **SoundCloud track or playlist link** → Save.
+
+A little record player appears in the corner, and the Sound button plays your picks.
+
+---
+
+## Part 6: Your own domain
 
 1. Buy `mosaicscope.co.nz`.
 2. In Cloudflare → your Pages project → **Custom domains** → add it → follow the steps.

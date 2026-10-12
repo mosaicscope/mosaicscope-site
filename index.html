@@ -15,7 +15,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Person","name":"Chris Jacob","jobTitle":"Photographer, filmmaker and cinematographer","brand":{"@type":"Brand","name":"MosaicScope"},"url":"https://mosaicscope.pages.dev/","sameAs":["https://www.instagram.com/mosaicscope/","https://www.threads.net/@mosaicscope"],"address":{"@type":"PostalAddress","addressCountry":"NZ"}}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=Instrument+Serif:ital@0;1&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@100..900&family=Instrument+Serif:ital@0;1&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -35,7 +35,6 @@
   <nav class="bar__nav" aria-label="Main">
     <a href="#work">Work</a>
     <a href="#instagram">Instagram</a>
-    <a href="#journal">Journal</a>
     <a href="#services">Commissions</a>
   </nav>
   <div class="bar__end">
@@ -63,7 +62,7 @@
       </h1>
       <div class="hero__foot">
         <p class="hero__who"><strong data-bind="owner">Chris Jacob</strong><span data-bind="roles">Photographer / Filmmaker / Cinematographer</span></p>
-        <p class="hero__where mono"><span data-bind="location">Aotearoa New Zealand</span><a href="#work" class="scrollcue">Scroll to the work <span aria-hidden="true">↓</span></a></p>
+        <p class="hero__where mono"><a class="hero__plate" id="hero-plate" href="#" target="_blank" rel="noopener" hidden></a><span data-bind="location">Aotearoa New Zealand</span><a href="#work" class="scrollcue">Scroll to the work <span aria-hidden="true">↓</span></a></p>
       </div>
     </div>
     <p class="hero__note mono" id="hero-note" hidden>Placeholder plate. Add your own hero photo as <code>heroImage</code> in content.json.</p>
@@ -73,9 +72,11 @@
     <p class="intro__text" data-bind="intro">I photograph and film artists, crews, cars, skaters and the nights they fill.</p>
   </section>
 
+  <div class="marquee" aria-hidden="true"><div class="marquee__track" id="marquee"></div></div>
+
   <section class="work" id="work" aria-labelledby="work-h">
     <div class="sechead">
-      <h2 id="work-h"><span class="mono sechead__no">A</span>Selected work</h2>
+      <h2 id="work-h"><span class="mono sechead__no">A</span><span class="scramble">Selected work</span></h2>
       <div class="filters" role="group" aria-label="Filter work">
         <button type="button" class="filter is-on" data-filter="all" aria-pressed="true">All</button>
         <button type="button" class="filter" data-filter="photo" aria-pressed="false">Photo</button>
@@ -90,30 +91,27 @@
 
   <section class="lightbox" id="instagram" aria-labelledby="ig-h">
     <div class="sechead">
-      <h2 id="ig-h"><span class="mono sechead__no">B</span>On the light table <em>latest from Instagram</em></h2>
+      <h2 id="ig-h"><span class="mono sechead__no">B</span><span class="scramble">On the light table</span> <em>straight from Instagram</em></h2>
       <a class="follow mono" href="https://www.instagram.com/mosaicscope/" target="_blank" rel="noopener">@mosaicscope ↗</a>
     </div>
     <p class="ig-note mono" id="ig-note" hidden></p>
     <div class="board" id="ig-board"></div>
-  </section>
-
-  <section class="journal" id="journal" aria-labelledby="journal-h">
-    <div class="sechead">
-      <h2 id="journal-h"><span class="mono sechead__no">C</span>Journal <em>tests, edits, in progress</em></h2>
-    </div>
-    <div class="strip" id="strip" tabindex="0" aria-label="Journal entries, scroll sideways"></div>
+    <a class="ig-cta" id="ig-cta" href="https://www.instagram.com/mosaicscope/" target="_blank" rel="noopener">
+      <span class="ig-cta__big">Follow <i>@mosaicscope</i></span>
+      <span class="ig-cta__meta mono" id="ig-count">Everything new lands there first</span>
+    </a>
   </section>
 
   <section class="services" id="services" aria-labelledby="services-h">
     <div class="sechead">
-      <h2 id="services-h"><span class="mono sechead__no">D</span>Commissions</h2>
+      <h2 id="services-h"><span class="mono sechead__no">C</span><span class="scramble">Commissions</span></h2>
     </div>
     <div class="services__grid" id="services-grid"></div>
     <p class="services__note" data-bind="servicesNote"></p>
   </section>
 
   <section class="contact" id="contact" aria-labelledby="contact-h">
-    <h2 class="contact__h" id="contact-h">Book a shoot<br><em>or a film.</em></h2>
+    <h2 class="contact__h" id="contact-h"><span class="ink-fill" data-text="Book a shoot">Book a shoot</span><br><em>or a film.</em></h2>
     <div class="contact__grid">
       <form class="form" id="form" novalidate>
         <div class="field">
@@ -158,7 +156,7 @@
 </main>
 
 <footer class="foot">
-  <p class="foot__mark">Mosaic<i>scope</i></p>
+  <p class="foot__mark" id="foot-mark" aria-label="MosaicScope"><span class="vf" aria-hidden="true">Mosaic</span><i>scope</i></p>
   <p class="mono foot__meta"><span>© <span id="year"></span> <span data-bind="owner">Chris Jacob</span></span><span>All work shown is my own unless marked placeholder.</span></p>
 </footer>
 
@@ -169,6 +167,16 @@
   </div>
 </div>
 
+<div class="sc" id="sc" hidden>
+  <button class="sc__play" id="sc-play" type="button" aria-label="Play"><span class="sc__disc" aria-hidden="true"></span></button>
+  <div class="sc__info">
+    <p class="sc__label mono">Now spinning</p>
+    <p class="sc__title" id="sc-title">SoundCloud</p>
+  </div>
+  <button class="sc__next mono" id="sc-next" type="button" aria-label="Next track">Next</button>
+  <a class="sc__link mono" id="sc-link" href="#" target="_blank" rel="noopener">SoundCloud ↗</a>
+  <div class="sc__frame" id="sc-frame" aria-hidden="true"></div>
+</div>
 <div class="loupe" id="loupe" aria-hidden="true"></div>
 <div class="cursor" id="cursor" aria-hidden="true"><span>View</span></div>
 <div class="grain" aria-hidden="true"></div>

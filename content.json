@@ -10,6 +10,7 @@
     "email": "mosiacscope@gmail.com",
     "web3formsKey": "",
     "beholdFeed": "https://feeds.behold.so/BTTwoWiBb9xHhr96wOcE",
+    "soundcloudUrl": "",
     "instagramFillsWork": true
   },
   "social": [
@@ -149,36 +150,6 @@
       "videoFile": "",
       "videoLink": "",
       "audioFile": ""
-    }
-  ],
-  "journal": [
-    {
-      "placeholder": true,
-      "date": "",
-      "title": "Journal entry",
-      "note": "PLACEHOLDER. Short notes, tests and edits go here.",
-      "image": ""
-    },
-    {
-      "placeholder": true,
-      "date": "",
-      "title": "Journal entry",
-      "note": "PLACEHOLDER. A frame you like, a grade you tried.",
-      "image": ""
-    },
-    {
-      "placeholder": true,
-      "date": "",
-      "title": "Journal entry",
-      "note": "PLACEHOLDER. Behind the scenes from a shoot.",
-      "image": ""
-    },
-    {
-      "placeholder": true,
-      "date": "",
-      "title": "Journal entry",
-      "note": "PLACEHOLDER. Anything in progress.",
-      "image": ""
     }
   ],
   "services": [

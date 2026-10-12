@@ -25,7 +25,8 @@ content:
           - { name: email, label: Email for enquiries, type: string }
           - { name: web3formsKey, label: Web3Forms access key (makes the form send), type: string }
           - { name: beholdFeed, label: Behold feed link (shows your Instagram), type: string }
-          - { name: instagramFillsWork, label: Fill empty work slots with Instagram photos, type: boolean }
+          - { name: instagramFillsWork, label: Fill empty work slots with Instagram posts, type: boolean }
+          - { name: soundcloudUrl, label: SoundCloud track or playlist link (plays on the site), type: string }
       - name: social
         label: Social links
         type: object
@@ -60,16 +61,6 @@ content:
           - { name: videoLink, label: YouTube or Vimeo link (optional), type: string }
           - { name: audioFile, label: Audio file (MP3, optional), type: file }
           - { name: placeholder, label: Is this a placeholder? (switch off for real work), type: boolean }
-      - name: journal
-        label: Journal
-        type: object
-        list: true
-        fields:
-          - { name: date, label: Date, type: string }
-          - { name: title, label: Title, type: string }
-          - { name: note, label: Note, type: text }
-          - { name: image, label: Image, type: image }
-          - { name: placeholder, label: Is this a placeholder?, type: boolean }
       - name: services
         label: Commissions
         type: object

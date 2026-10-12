@@ -433,3 +433,97 @@ audio { width: 100%; max-width: 640px; }
   .develop { filter: none !important; }
   .slide { transform: none !important; }
 }
+
+
+/* ================= Round 3 ================= */
+
+/* Hero slideshow plate counter */
+.hero__plate { color: var(--paper); text-decoration: none; display: inline-flex; gap: 8px; align-items: center; }
+.hero__plate:hover { color: var(--acid); }
+.hero__plate b { font-weight: 500; color: var(--acid); }
+
+/* Text 1: velocity marquee */
+.marquee { overflow: hidden; border-block: 1px solid var(--line); padding-block: 14px; background: var(--ink); }
+.marquee__track { display: flex; width: max-content; will-change: transform; }
+.marquee__item { display: inline-flex; align-items: center; gap: 0.5em; padding-right: 0.5em; font: 900 clamp(2rem, 5vw, 4.2rem)/1 var(--f-display); text-transform: uppercase; white-space: nowrap; }
+.marquee__item i { font: italic 400 0.9em/1 var(--f-serif); text-transform: none; color: var(--sodium); }
+.marquee__item .star { color: var(--red); font-size: 0.6em; }
+
+/* Text 2: scroll-lit intro, word by word */
+.intro__text .w { opacity: 0.16; transition: opacity .25s linear, color .25s linear; }
+.intro__text .w.is-lit { opacity: 1; }
+.intro__text .w.is-hot { color: var(--sodium); }
+
+/* Text 3: scramble headings (handled in script) */
+.scramble { display: inline-block; }
+
+/* Text 4: letter wave on commission lines */
+.svc li .lt { display: inline-block; transition: transform .35s var(--ease); transition-delay: calc(var(--i) * 18ms); }
+.svc li:hover .lt { transform: translateY(-0.18em); }
+.svc li:hover .lt:nth-child(odd) { transform: translateY(0.1em) rotate(-2deg); }
+
+/* Text 5: contact headline inks in from an outline */
+.ink-fill {
+  color: transparent; -webkit-text-stroke: 2px var(--ink);
+  background: linear-gradient(90deg, var(--ink) 0 50%, transparent 50% 100%);
+  background-size: 200% 100%; background-position: 100% 0;
+  -webkit-background-clip: text; background-clip: text;
+  transition: background-position 1.6s var(--ease);
+}
+.ink-fill.is-filled { background-position: 0 0; }
+
+/* Text 6: footer wordmark weight follows the cursor */
+.foot__mark .vf span { display: inline-block; font-weight: var(--wt, 900); transition: font-weight .25s ease-out; }
+
+/* Instagram follow call to action */
+.ig-cta {
+  margin-top: clamp(32px, 5vw, 64px); display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px;
+  text-decoration: none; color: var(--ink); border-top: 2px solid var(--ink); padding-top: 18px;
+}
+.ig-cta__big { font: 900 var(--step-3)/0.95 var(--f-display); text-transform: uppercase; }
+.ig-cta__big i { font: italic 400 1em/1 var(--f-serif); text-transform: none; color: var(--red); }
+.ig-cta:hover .ig-cta__big i { text-decoration: underline; text-underline-offset: 6px; }
+.ig-cta__meta { color: #6d6157; }
+
+/* Video in tiles and slides */
+.tile__vid { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .5s var(--ease); z-index: 1; }
+.tile.is-playing .tile__vid { opacity: 1; }
+.slide__img video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.slide__img.is-video { position: relative; }
+.reel-tag { position: absolute; left: 8px; top: 8px; z-index: 2; font: 500 10px/1 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; background: var(--red); color: #fff; padding: 4px 5px; }
+.v-hero { aspect-ratio: auto; }
+
+/* SoundCloud mini player */
+.sc {
+  position: fixed; left: var(--gut); bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); z-index: 45;
+  display: flex; align-items: center; gap: 12px; max-width: min(420px, calc(100vw - 2 * var(--gut)));
+  background: rgba(14, 11, 10, 0.88); border: 1px solid var(--line); padding: 8px 14px 8px 8px; border-radius: 999px;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  transform: translateY(0); transition: transform .5s var(--ease), opacity .5s;
+}
+.sc[hidden] { display: none !important; }
+.sc__play { width: 44px; height: 44px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; flex: none; background: none; }
+.sc__disc {
+  display: block; width: 100%; height: 100%; border-radius: 50%;
+  background: radial-gradient(circle, var(--paper) 0 9%, var(--red) 10% 30%, #111 31% 100%),
+              repeating-radial-gradient(circle, rgba(255,255,255,0.06) 0 1px, transparent 1px 3px);
+  background-blend-mode: normal;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+}
+.sc.is-playing .sc__disc { animation: spin 1.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.sc__info { min-width: 0; display: grid; gap: 2px; }
+.sc__label { margin: 0; font-size: 10px; color: var(--dim); }
+.sc__title { margin: 0; font: 500 0.9rem/1.2 var(--f-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc__next, .sc__link { background: none; border: 0; color: var(--paper); font-size: 10px; cursor: pointer; text-decoration: none; padding: 6px 2px; flex: none; }
+.sc__next:hover, .sc__link:hover { color: var(--acid); }
+.sc__frame { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; left: 0; top: 0; }
+@media (max-width: 520px) { .sc__link { display: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .intro__text .w { opacity: 1 !important; }
+  .ink-fill { background-position: 0 0 !important; }
+  .marquee__track { transform: none !important; }
+}
+
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
