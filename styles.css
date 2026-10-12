@@ -1471,3 +1471,56 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
   .prop--sign::after { display: none; }
   .prop--boombox { left: 4px; transform: scale(.85); transform-origin: left bottom; }
 }
+
+/* ================= Round 16: couples moves ================= */
+/* grind: she leans forward, hips rolling back into him */
+.raver.d-grind .rv { animation: cp-grind .84s ease-in-out infinite; }
+.raver.d-grind .rv__top { transform: rotate(32deg); }
+.raver.d-grind .rv__legL { transform: rotate(16deg); }
+.raver.d-grind .rv__legR { transform: rotate(-14deg); }
+.raver.d-grind .rv__armL { transform: rotate(-30deg); }
+.raver.d-grind .rv__armR { transform: rotate(10deg); }
+.raver.d-grind .rv__head { animation: cp-look .84s ease-in-out infinite; }
+@keyframes cp-grind { 0%, 100% { transform: translate(-4px, 5px) rotate(-3deg); } 50% { transform: translate(1px, 3px) rotate(3deg); } }
+@keyframes cp-look { 0%, 100% { transform: rotate(-30deg); } 50% { transform: rotate(-20deg); } }
+/* grind: him behind, hands out, moving with her */
+.raver.d-grindguy .rv { animation: cp-grindguy .84s ease-in-out infinite; }
+.raver.d-grindguy .rv__top { transform: rotate(8deg); }
+.raver.d-grindguy .rv__armL { transform: rotate(-78deg); }
+.raver.d-grindguy .rv__armR { transform: rotate(-62deg); }
+.raver.d-grindguy .rv__legL { transform: rotate(-8deg); }
+@keyframes cp-grindguy { 0%, 100% { transform: translate(2px, 2px); } 50% { transform: translate(-2px, 0); } }
+/* lean: cool lean back, one arm out */
+.raver.d-lean .rv__top { animation: cp-lean 1.68s ease-in-out infinite; }
+.raver.d-lean .rv__armR { transform: rotate(-70deg); }
+.raver.d-lean .rv__armL { transform: rotate(20deg); }
+.raver.d-lean .rv { animation: mv-knees .84s ease-in-out infinite; }
+@keyframes cp-lean { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(-4deg); } }
+/* drop it low */
+.raver.d-drop .rv { animation: cp-drop 1.68s cubic-bezier(.5,0,.3,1) infinite; }
+.raver.d-drop .rv__legL { animation: cp-dropL 1.68s cubic-bezier(.5,0,.3,1) infinite; }
+.raver.d-drop .rv__legR { animation: cp-dropR 1.68s cubic-bezier(.5,0,.3,1) infinite; }
+.raver.d-drop .rv__armL { animation: cp-dropA 1.68s ease-in-out infinite; }
+.raver.d-drop .rv__armR { transform: rotate(-150deg); }
+@keyframes cp-drop { 0%, 100% { transform: translateY(0); } 40%, 60% { transform: translateY(14px); } }
+@keyframes cp-dropL { 0%, 100% { transform: rotate(0); } 40%, 60% { transform: rotate(42deg); } }
+@keyframes cp-dropR { 0%, 100% { transform: rotate(0); } 40%, 60% { transform: rotate(-42deg); } }
+@keyframes cp-dropA { 0%, 100% { transform: rotate(10deg); } 50% { transform: rotate(-40deg); } }
+/* wine: slow hip circles */
+.raver.d-wine .rv { animation: cp-wine 1.26s linear infinite; }
+.raver.d-wine .rv__top { animation: cp-wineT 1.26s linear infinite; }
+.raver.d-wine .rv__armL { transform: rotate(-40deg); }
+.raver.d-wine .rv__armR { transform: rotate(-140deg); }
+.raver.d-wine .rv__legL { transform: rotate(10deg); }
+.raver.d-wine .rv__legR { transform: rotate(-10deg); }
+@keyframes cp-wine { 0% { transform: translate(-3px, 2px) rotate(-4deg); } 25% { transform: translate(0, 4px); } 50% { transform: translate(3px, 2px) rotate(4deg); } 75% { transform: translate(0, 0); } 100% { transform: translate(-3px, 2px) rotate(-4deg); } }
+@keyframes cp-wineT { 0%, 100% { transform: rotate(6deg); } 50% { transform: rotate(-6deg); } }
+/* booty pop: quick pops, leaning in */
+.raver.d-bootypop .rv { transform: translateY(4px); }
+.raver.d-bootypop .rv__top { animation: cp-pop .42s steps(2) infinite; }
+.raver.d-bootypop .rv__legL { transform: rotate(20deg); }
+.raver.d-bootypop .rv__legR { transform: rotate(-20deg); }
+.raver.d-bootypop .rv__armL { transform: rotate(-20deg); }
+.raver.d-bootypop .rv__armR { transform: rotate(20deg); }
+.raver.d-bootypop .rv__head { transform: rotate(-24deg); }
+@keyframes cp-pop { 0% { transform: rotate(30deg); } 50% { transform: rotate(22deg) translateX(-2px); } }

@@ -1667,22 +1667,24 @@
      - Tiles is the main guy. Glitter is his girl. Eight friends arrive over time.
      - Music off: they live their lives. The longer someone stays, the more the scene builds
        (boombox, string lights, disco ball, a banner, and a sign for their world, coming soon).
-     - Music on: they gather round Tiles. When he throws cash the girls hype him up and the
+     - Music on: each crew (a guy and a girl, or two guys and a girl) gets its own patch. Tiles' crew makes it rain,
+       every other crew does a different set (money gun, grind, drop it low, booty pop, wine). Then the
        boys put their hands up, two of them spray money guns.
      - They react to the page: open a photo and they do a mock photoshoot, build a quote and
        Tiles counts his cash, open the FAQ and someone has a think, send an enquiry and it rains.
      ===================================================================== */
+  // crews (g): each is a guy and a girl, or two guys and a girl
   var CAST = [
-    { name: "Tiles", kind: "guy", color: "#c6ff3d", accent: "#ec2a1c", hat: "bandana", main: true },
-    { name: "Glitter", kind: "girl", color: "#ff7ad9", accent: "#f6b62c", hair: "big", glam: true },
-    { name: "Kodak", kind: "guy", color: "#f6b62c", accent: "#eee4d3", hat: "cap", gun: true },
-    { name: "Nova", kind: "girl", color: "#3dd6ff", accent: "#ff7ad9", hair: "bun" },
-    { name: "Grain", kind: "guy", color: "#eee4d3", accent: "#ec2a1c", hat: "none" },
-    { name: "Ruby", kind: "girl", color: "#ec2a1c", accent: "#c6ff3d", hair: "big" },
-    { name: "Flash", kind: "guy", color: "#b48cff", accent: "#f6b62c", hat: "cap" },
-    { name: "Lux", kind: "girl", color: "#c6ff3d", accent: "#3dd6ff", hair: "bun" },
-    { name: "Bando", kind: "guy", color: "#ff9a3d", accent: "#3dd6ff", hat: "bandana", gun: true },
-    { name: "Honey", kind: "girl", color: "#f6b62c", accent: "#b48cff", hair: "big" }
+    { name: "Tiles", kind: "guy", color: "#c6ff3d", accent: "#ec2a1c", hat: "bandana", main: true, g: 0 },
+    { name: "Glitter", kind: "girl", color: "#ff7ad9", accent: "#f6b62c", hair: "big", glam: true, g: 0 },
+    { name: "Kodak", kind: "guy", color: "#f6b62c", accent: "#eee4d3", hat: "cap", g: 1 },
+    { name: "Nova", kind: "girl", color: "#3dd6ff", accent: "#ff7ad9", hair: "bun", g: 1 },
+    { name: "Grain", kind: "guy", color: "#eee4d3", accent: "#ec2a1c", hat: "none", g: 1 },
+    { name: "Flash", kind: "guy", color: "#b48cff", accent: "#f6b62c", hat: "cap", g: 2 },
+    { name: "Ruby", kind: "girl", color: "#ec2a1c", accent: "#c6ff3d", hair: "big", g: 2 },
+    { name: "Bando", kind: "guy", color: "#ff9a3d", accent: "#3dd6ff", hat: "bandana", g: 3 },
+    { name: "Lux", kind: "girl", color: "#c6ff3d", accent: "#3dd6ff", hair: "bun", g: 3 },
+    { name: "Static", kind: "guy", color: "#8fe3c0", accent: "#ff7ad9", hat: "cap", g: 3 }
   ];
   var IDLE = ["walk", "walk", "walk", "chill", "chill", "smoke", "sit", "drink", "wave", "phone", "selfie", "stretch", "look", "crouch", "pushup", "sleep", "box", "flip"];
   var GLAM_IDLE = ["walk", "flip", "selfie", "phone", "flip", "chill", "drink", "wave", "walk", "selfie"];
@@ -1690,7 +1692,7 @@
   // dance pools: everyday party moves first, showy moves rarer
   var DANCE_POOL = ["twostep", "bounce", "bodyroll", "shimmy", "tutting", "popping", "jerk", "dougie", "naenae", "whip", "millyrock", "hitdemfolks", "sway", "clap", "sidestep", "bop", "heeltoe", "krump",
     "twostep", "bounce", "sway", "bop", "clap", "goff", "robot", "shuffle", "sprinkler", "dab", "floss", "runman", "moon", "jacks", "spin"];
-  var GIRL_HYPE = ["hipshake", "hipshake", "bodyroll", "shimmy", "dougie", "sway", "bop"];
+  var GIRL_HYPE = ["hipshake", "bootypop", "drop", "wine", "bodyroll"];
   var GUY_HYPE = ["handsup", "handsup", "bounce", "clap", "jerk", "naenae"];
   var STAGES = [
     { at: 60, prop: "boombox" },
@@ -1701,7 +1703,7 @@
   ];
   var POSE_CLASSES = [];
   IDLE.concat(["rave", "throw", "count", "think", "posecool", "posegirl", "shoot", "camera", "cheer"]).forEach(function (p) { POSE_CLASSES.push("is-" + p); });
-  DANCE_POOL.concat(GIRL_HYPE, GUY_HYPE, ["worm", "throw", "shoot"]).forEach(function (d) { if (POSE_CLASSES.indexOf("d-" + d) < 0) POSE_CLASSES.push("d-" + d); });
+  DANCE_POOL.concat(GIRL_HYPE, GUY_HYPE, ["worm", "throw", "shoot", "grind", "grindguy", "lean"]).forEach(function (d) { if (POSE_CLASSES.indexOf("d-" + d) < 0) POSE_CLASSES.push("d-" + d); });
 
   function figSVG(c) {
     var C = c.color, A = c.accent, girl = c.kind === "girl";
@@ -1751,9 +1753,9 @@
     var stage = $("#stage"), cash = $("#cash");
     if (!stage) return;
     var hasMusic = !$("#sc").hidden;
-    var max = innerWidth < 420 ? 6 : innerWidth < 900 ? 8 : 10;
+    var max = innerWidth < 420 ? 5 : innerWidth < 900 ? 7 : 10;
     var raving = false, visible = false, crew = [], pending = null, busy = false;
-    var cycleTimer = null, gunTimer = null;
+    var cycleTimer = null, partyTimers = [];
 
     // how long this visitor has hung out with the crew, across visits
     var hung = 0;
@@ -1799,7 +1801,7 @@
         var act = rnd(pool);
         // the crew drifts towards Tiles now and then
         if (act === "walk") {
-          var to = Math.random() < 0.35 && crew[0] && !cfg.main ? crew[0].x + (Math.random() < 0.5 ? -1 : 1) * (50 + Math.random() * 120) : Math.random() * me.maxX();
+          var to = Math.random() < 0.6 ? home(cfg.g) + (Math.random() - 0.5) * 120 : Math.random() * me.maxX();
           me.walkTo(to, function () { me.timer = setTimeout(me.next, 700 + Math.random() * 1400); });
           return;
         }
@@ -1825,7 +1827,7 @@
         var fromLeft = Math.random() < 0.5;
         p.place(fromLeft ? -70 : stageW() + 10);
         requestAnimationFrame(function () {
-          p.walkTo(crew[0] ? crew[0].x + (Math.random() - 0.5) * 300 : Math.random() * p.maxX(), function () {
+          p.walkTo(home(p.cfg.g) + (Math.random() - 0.5) * 60, function () {
             p.timer = setTimeout(p.next, 1200);
             if (p.cfg.name && visible && !raving) wave(p);
           });
@@ -1915,61 +1917,122 @@
       }
     }
 
-    /* ---- the party ---- */
-    function gather() {
-      // the party happens under the disco ball: Tiles in the middle, the girls closest, the boys round the outside
-      var main = crew[0], w = stageW();
-      var cx = w / 2 - main.el.offsetWidth / 2;
-      main.walkTo(cx, null, 110);
-      var ring = crew.slice(1).filter(function (m) { return m.cfg.kind === "girl"; }).concat(crew.slice(1).filter(function (m) { return m.cfg.kind !== "girl"; }));
-      var per = Math.ceil(ring.length / 2) || 1;
-      var gap = Math.max(26, Math.min(70, (w / 2 - 40) / per));
-      ring.forEach(function (m, k) {
-        var side = k % 2 ? 1 : -1;
-        var to = cx + side * gap * (Math.floor(k / 2) + 1);
-        m.walkTo(to, function () { m.face(cx); }, 120);
-      });
+    /* ---- crews: each has its own patch of the strip, so sets never overlap ---- */
+    function groups() {
+      var gs = [];
+      crew.forEach(function (m) { (gs[m.cfg.g] = gs[m.cfg.g] || []).push(m); });
+      return gs.filter(Boolean);
     }
-    function freeDance() {
-      crew.forEach(function (m, i) {
-        setTimeout(function () {
-          if (!raving) return;
-          m.dance(m.cfg.main ? rnd(["goff", "bounce", "twostep", "jerk", "millyrock", "krump"]) : rnd(DANCE_POOL));
-        }, i * 90);
-      });
+    function home(g) {
+      var n = Math.max(1, groups().length), w = stageW();
+      // the main crew (0) gets the middle, under the disco ball
+      var order = [0]; for (var k = 1; k < 4; k++) order.push(k);
+      var slots = [];
+      for (var i = 0; i < n; i++) slots.push(w * (i + 0.5) / n);
+      slots.sort(function (a, b) { return Math.abs(a - w / 2) - Math.abs(b - w / 2); });
+      var idx = groups().map(function (gr) { return gr[0].cfg.g; }).sort().indexOf(g);
+      return Math.max(56, Math.min(w - 70, (slots[idx < 0 ? 0 : idx] || w / 2) - 25));
     }
+    function shuffle(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = (Math.random() * (i + 1)) | 0; var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+    function later(fn, ms) { partyTimers.push(setTimeout(fn, ms)); }
+    function every(fn, ms) { var t = setInterval(fn, ms); partyTimers.push(t); return t; }
+    function stopParty() { partyTimers.forEach(function (t) { clearTimeout(t); clearInterval(t); }); partyTimers = []; }
+    // put one person somewhere, then do something when they get there
+    function go(m, x, face, act) {
+      m.walkTo(x, function () { if (face) m.face(face === "L" ? -1e4 : face === "R" ? 1e4 : face); act(); }, 140);
+    }
+
+    // one crew, one set. dir = which way the set faces
+    function doSet(gr, set) {
+      var c = home(gr[0].cfg.g), dir = Math.random() < 0.5 ? 1 : -1;
+      var girl = gr.filter(function (m) { return m.cfg.kind === "girl"; })[0];
+      var guys = gr.filter(function (m) { return m.cfg.kind !== "girl"; });
+      var g1 = guys[0], g2 = guys[1];
+      var D = function (m, d) { return function () { if (raving) m.dance(d); }; };
+      if (set === "throw" && g1) {
+        go(g1, c - 22 * dir, c, D(g1, "throw"));
+        if (girl) go(girl, c + 18 * dir, dir > 0 ? "R" : "L", D(girl, rnd(["hipshake", "bootypop"])));
+        if (g2) go(g2, c + 60 * dir, c, D(g2, "handsup"));
+        var t = every(function () { if (!raving) return; if (g1.el.classList.contains("d-throw")) bills(g1.el, 3, { high: Math.random() < 0.12 }); }, 420);
+        later(function () { clearInterval(t); }, 3000);
+        egg.throws++;
+      } else if (set === "spray" && g1) {
+        go(g1, c - 34 * dir, c, D(g1, "shoot"));
+        if (girl) go(girl, c + 14 * dir, c - 400 * dir, D(girl, rnd(["drop", "hipshake"])));
+        if (g2) go(g2, c + 56 * dir, c, D(g2, "handsup"));
+        var t2 = every(function () { if (!raving) return; if (g1.el.classList.contains("d-shoot")) bills(g1.el, 3, { spray: true, high: Math.random() < 0.15 }); }, 300);
+        later(function () { clearInterval(t2); }, 2600);
+      } else if (set === "grind" && g1 && girl) {
+        // she's in front with her back to him, both facing the same way
+        go(girl, c + 9 * dir, dir > 0 ? "R" : "L", D(girl, "grind"));
+        go(g1, c - 9 * dir, dir > 0 ? "R" : "L", D(g1, "grindguy"));
+        if (g2) go(g2, c - 60 * dir, c, D(g2, "lean"));
+      } else if (set === "wine" && girl) {
+        go(girl, c, g1 ? c - 400 * dir : null, D(girl, "wine"));
+        if (g1) go(g1, c - 30 * dir, c, D(g1, "lean"));
+        if (g2) go(g2, c + 34 * dir, c, D(g2, "clap"));
+      } else if (set === "drop" && girl) {
+        go(girl, c, null, D(girl, "drop"));
+        guys.forEach(function (m, k) { go(m, c + (k ? 1 : -1) * 34, c, D(m, rnd(["clap", "handsup"]))); });
+      } else if (set === "bootypop" && girl) {
+        // she faces away from the boys
+        go(girl, c + 16 * dir, dir > 0 ? "R" : "L", D(girl, "bootypop"));
+        guys.forEach(function (m, k) { go(m, c - (24 + k * 32) * dir, c, D(m, "handsup")); });
+      } else {
+        // the crew does one move in sync
+        var mv = rnd(DANCE_POOL);
+        gr.forEach(function (m, k) { go(m, c + (k - (gr.length - 1) / 2) * 30, c + 400 * dir, D(m, mv)); });
+      }
+    }
+    var MONEY_SETS = ["spray", "grind", "drop", "bootypop", "wine"];
+    var FREE_SETS = ["grind", "wine", "drop", "bootypop", "sync", "sync"];
     function moneyMoment() {
       if (!raving) return;
-      var main = crew[0];
-      main.dance("throw");
-      var throws = 0;
-      var t = setInterval(function () {
-        if (!raving || throws++ > 4) { clearInterval(t); return; }
-        bills(main.el, 4, { high: throws === 3 && Math.random() < 0.5 });
-      }, 420);
-      egg.throws++;
-      crew.slice(1).forEach(function (m, i) {
-        setTimeout(function () {
-          if (!raving) return;
-          if (m.cfg.gun) { m.dance("shoot"); return; }
-          m.dance(m.cfg.kind === "girl" ? rnd(GIRL_HYPE) : rnd(GUY_HYPE));
-        }, 60 * i);
+      stopParty();
+      var gs = groups(), sets = shuffle(MONEY_SETS);
+      // Tiles' crew always makes it rain; every other crew does something different
+      gs.forEach(function (gr, i) { doSet(gr, gr[0].cfg.main ? "throw" : sets[i % sets.length]); });
+    }
+    function freeDance() {
+      if (!raving) return;
+      stopParty();
+      var gs = groups(), sets = shuffle(FREE_SETS);
+      var used = {};
+      gs.forEach(function (gr, i) {
+        var set = sets[i % sets.length];
+        if (set !== "sync" && used[set]) set = "sync";
+        used[set] = 1;
+        doSet(gr, set);
       });
-      clearInterval(gunTimer);
-      gunTimer = setInterval(function () {
-        if (!raving) { clearInterval(gunTimer); return; }
-        crew.forEach(function (m) { if (m.cfg.gun && m.el.classList.contains("d-shoot")) bills(m.el, 3, { spray: true, high: Math.random() < 0.18 }); });
-      }, 300);
-      setTimeout(function () { clearInterval(gunTimer); }, 2600);
     }
     function partyLoop() {
       if (!raving) return;
       moneyMoment();
       cycleTimer = setTimeout(function () {
-        if (!raving) return;
         freeDance();
-        cycleTimer = setTimeout(function () { freeDance(); cycleTimer = setTimeout(partyLoop, 3600); }, 3600);
-      }, 3000);
+        cycleTimer = setTimeout(function () { freeDance(); cycleTimer = setTimeout(partyLoop, 4200); }, 4200);
+      }, 3800);
+    }
+
+    /* ---- photoshoot: every crew runs its own set, no two the same ---- */
+    function photoSet(gr, set) {
+      var c = home(gr[0].cfg.g);
+      var girl = gr.filter(function (m) { return m.cfg.kind === "girl"; })[0];
+      var guys = gr.filter(function (m) { return m.cfg.kind !== "girl"; });
+      var P = function (m, p) { return function () { m.pose(p); }; };
+      var model = function (m) { return m.cfg.kind === "girl" ? "is-posegirl" : "is-posecool"; };
+      if (set === "guyshoots" && guys[0]) {
+        go(guys[0], c + 44, c, P(guys[0], "is-camera"));
+        gr.filter(function (m) { return m !== guys[0]; }).forEach(function (m, k) { go(m, c - 20 - k * 30, c + 400, P(m, model(m))); });
+      } else if (set === "girlshoots" && girl) {
+        go(girl, c - 44, c, P(girl, "is-camera"));
+        guys.forEach(function (m, k) { go(m, c + 20 + k * 30, c - 400, P(m, "is-posecool")); });
+      } else if (set === "selfie") {
+        gr.forEach(function (m, k) { go(m, c + (k - (gr.length - 1) / 2) * 22, "R", P(m, k === 0 ? "is-selfie" : model(m))); });
+      } else {
+        // posing for you, front on
+        gr.forEach(function (m, k) { go(m, c + (k - (gr.length - 1) / 2) * 26, k % 2 ? "L" : "R", P(m, model(m))); });
+      }
     }
 
     /* ---- reacting to the page ---- */
@@ -1981,15 +2044,9 @@
       var done = function (ms) { setTimeout(function () { busy = false; crew.forEach(function (m) { m.next(); }); }, ms); };
       if (kind === "photo") {
         egg.photos++;
-        var sw = stageW(), sp = sw < 520 ? 34 : 52;
-        var cx = Math.max(20, sw / 2 - (sw < 520 ? 110 : 160));
-        var models = crew.filter(function (m) { return !m.cfg.gun; }).slice(0, 4);
-        var shooters = crew.filter(function (m) { return models.indexOf(m) < 0; }).slice(0, 2);
-        if (!shooters.length && crew.length > 1) { shooters = [models.pop()]; }
-        models.forEach(function (m, k) { m.walkTo(cx + k * sp, function () { m.face(cx + 400); m.pose(m.cfg.kind === "girl" ? "is-posegirl" : "is-posecool"); }, 120); });
-        shooters.forEach(function (m, k) { m.walkTo(cx + sp * models.length + (sw < 520 ? 40 : 110) + k * sp, function () { m.face(cx - 400); m.pose("is-camera"); }, 120); });
-        crew.forEach(function (m) { if (models.indexOf(m) < 0 && shooters.indexOf(m) < 0) { m.face(cx); m.pose(rnd(["is-look", "is-phone", "is-chill"])); } });
-        done(7000);
+        var ps = shuffle(["guyshoots", "girlshoots", "selfie", "front"]);
+        groups().forEach(function (gr, i) { photoSet(gr, ps[i % ps.length]); });
+        done(7500);
       } else if (kind === "quote") {
         var main = crew[0];
         main.pose("is-count");
@@ -2011,14 +2068,14 @@
     window.hype = {
       set: function (on) {
         raving = on;
-        clearTimeout(cycleTimer); clearInterval(gunTimer);
+        clearTimeout(cycleTimer); stopParty();
         busy = false;
         crew.forEach(function (m) { clearTimeout(m.timer); m.el.setAttribute("aria-label", m.cfg.name + (on ? ", pause music" : ", play music")); });
         stage.classList.toggle("is-party", on);
         if (on) {
           if (reduceMotion) { crew.forEach(function (m) { m.dance("bounce"); }); return; }
-          gather();
-          cycleTimer = setTimeout(partyLoop, 2200);
+          freeDance();
+          cycleTimer = setTimeout(partyLoop, 3000);
         } else {
           crew.forEach(function (m, i) { m.pose("is-chill"); m.timer = setTimeout(m.next, 800 + i * 350); });
         }
