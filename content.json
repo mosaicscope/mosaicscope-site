@@ -12,7 +12,8 @@
     "soundcloudUrl": "https://soundcloud.com/orqrackcity/sets/mosaicscope",
     "youtubeChannelId": "UCkh7k-Y10zSssfwoAWZbl-g",
     "youtubeVideos": [],
-    "instagramFillsWork": true
+    "instagramFillsWork": true,
+    "instagramDm": "https://ig.me/m/mosaicscope"
   },
   "social": [
     {
@@ -232,38 +233,50 @@
       "Prices in NZD."
     ]
   },
-  "gear": [
-    {
-      "group": "Cameras",
-      "items": [
-        "Panasonic GH5",
-        "Nikon D750",
-        "Nikon D700",
-        "Nikon D5100"
-      ]
-    },
-    {
-      "group": "On the move",
-      "items": [
-        "iPhone 17 Pro Max",
-        "Phone gimbal"
-      ]
-    },
-    {
-      "group": "Glass",
-      "items": [
-        "A bag of lenses for whatever the shoot needs"
-      ]
-    },
-    {
-      "group": "Support & light",
-      "items": [
-        "Tripods",
-        "Lighting"
-      ]
-    }
-  ],
-  "gearNote": "Nothing crazy. Just the stuff that gets it done.",
   "beforeAfter": [],
-  "featuredPosts": []
+  "featuredPosts": [],
+  "availability": {
+    "dates": [],
+    "note": "Dates fill up fast. Message me to check yours."
+  },
+  "quote": {
+    "photoshoot": 40,
+    "photoshootEdits": 80,
+    "videoShoot": 100,
+    "videoEdit": 220
+  },
+  "faq": [
+    {
+      "q": "How fast do I get my photos?",
+      "a": "Within a week. Music video edits take up to two weeks."
+    },
+    {
+      "q": "Do I need to pay upfront?",
+      "a": "Yes. Full payment locks in your date. Bank transfer, PayPal or cash all work."
+    },
+    {
+      "q": "Where do you shoot?",
+      "a": "Christchurch and around Canterbury. Further out can be sorted, just ask."
+    },
+    {
+      "q": "What's the difference between the two photo options?",
+      "a": "The $40 shoot is unedited, straight off the camera. The $80 shoot is picked and edited in Lightroom."
+    },
+    {
+      "q": "Can I post the photos?",
+      "a": "Yeah, post them anywhere. Just tag @mosaicscope."
+    },
+    {
+      "q": "What should I send before the shoot?",
+      "a": "A few reference pics or links so I know the vibe you're going for, plus the date and location."
+    },
+    {
+      "q": "What should I wear?",
+      "a": "Whatever feels most like you. Bring a second fit if you want options."
+    },
+    {
+      "q": "What resolution are the videos?",
+      "a": "Filmed in 4K or 1080p, and edits are exported in 1080p or 4K."
+    }
+  ]
 }

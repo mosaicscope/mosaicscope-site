@@ -10,7 +10,8 @@
 
 - **Raw vs edited slider**: Pages CMS → *Raw vs edited* → upload a raw shot + your Lightroom version. The section appears by itself.
 - **Pin your best Insta posts first**: Pages CMS → *Instagram posts to pin first* → paste post links.
-- **Rates, booking steps, gear**: all editable in Pages CMS.
+- **Rates, booking steps, FAQ, quote prices**: all editable in Pages CMS.
+- **Next free dates**: Pages CMS → *Next free dates* → add a few (e.g. "Sat 18 Oct"). Leave empty and it says "Ask me".
 - **Visitor stats**: Cloudflare → Workers & Pages → mosaicscope → Metrics → Web Analytics.
 
 ---

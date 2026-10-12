@@ -28,6 +28,7 @@ content:
           - { name: soundcloudUrl, label: SoundCloud track or playlist link (plays on the site), type: string }
           - { name: youtubeChannelId, label: YouTube channel id (starts with UC), type: string }
           - { name: youtubeVideos, label: Extra YouTube video links (optional), type: string, list: true }
+          - { name: instagramDm, label: Instagram DM link, type: string }
       - name: social
         label: Social links
         type: object
@@ -84,14 +85,6 @@ content:
               - { name: title, label: Step, type: string }
               - { name: text, label: What happens, type: string }
           - { name: terms, label: Fine print lines, type: string, list: true }
-      - name: gear
-        label: Gear
-        type: object
-        list: true
-        fields:
-          - { name: group, label: Group (e.g. Cameras), type: string }
-          - { name: items, label: Items, type: string, list: true }
-      - { name: gearNote, label: Line under the gear, type: string }
       - name: beforeAfter
         label: Raw vs edited (slider)
         type: object
@@ -101,6 +94,27 @@ content:
           - { name: after, label: Edited photo, type: image }
           - { name: caption, label: Caption, type: string }
       - { name: featuredPosts, label: Instagram posts to pin first (paste post links), type: string, list: true }
+      - name: availability
+        label: Next free dates
+        type: object
+        fields:
+          - { name: dates, label: Free dates (e.g. Sat 18 Oct), type: string, list: true }
+          - { name: note, label: Line under the dates, type: string }
+      - name: quote
+        label: Quote builder prices (numbers only)
+        type: object
+        fields:
+          - { name: photoshoot, label: Photoshoot no edits, type: number }
+          - { name: photoshootEdits, label: Photoshoot with edits, type: number }
+          - { name: videoShoot, label: Music video shoot, type: number }
+          - { name: videoEdit, label: Music video edit, type: number }
+      - name: faq
+        label: FAQ
+        type: object
+        list: true
+        fields:
+          - { name: q, label: Question, type: string }
+          - { name: a, label: Answer, type: text }
       - name: services
         label: Commissions
         type: object

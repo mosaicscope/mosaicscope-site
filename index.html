@@ -3,9 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>MosaicScope</title>
+<title>MosaicScope · Photographer &amp; Music Video Shooter, Christchurch</title>
 <meta name="description" content="MosaicScope: photography and music videos by Chris Jacob in Christchurch. Artists, raves, car meets, skate. Rates from $40.">
 <meta name="theme-color" content="#0e0b0a">
+<link rel="canonical" href="https://mosaicscope.pages.dev/">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://behold.pictures">
+<link rel="preconnect" href="https://feeds.behold.so">
+<link rel="dns-prefetch" href="https://i.ytimg.com">
 <meta property="og:type" content="website">
 <meta property="og:title" content="MosaicScope · Chris Jacob">
 <meta property="og:description" content="Photography, film and cinematography by Chris Jacob. Artists, music videos, events, cars, skate and street. Aotearoa New Zealand.">
@@ -13,8 +21,8 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta property="og:image" content="https://mosaicscope.pages.dev/og.jpg">
 <meta name="twitter:image" content="https://mosaicscope.pages.dev/og.jpg">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Crect width='30' height='30' fill='%230e0b0a'/%3E%3Crect x='3' y='3' width='14' height='9' fill='%23ec2a1c'/%3E%3Crect x='19' y='3' width='8' height='14' fill='%23f6b62c'/%3E%3Crect x='3' y='14' width='9' height='13' fill='%23eee4d3'/%3E%3Crect x='14' y='19' width='13' height='8' fill='%23c6ff3d'/%3E%3C/svg%3E">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"Person","name":"Chris Jacob","jobTitle":"Photographer, filmmaker and cinematographer","brand":{"@type":"Brand","name":"MosaicScope"},"url":"https://mosaicscope.pages.dev/","sameAs":["https://www.instagram.com/mosaicscope/","https://www.youtube.com/@mosaicscope","https://www.threads.net/@mosaicscope"],"address":{"@type":"PostalAddress","addressLocality":"Christchurch","addressRegion":"Canterbury","addressCountry":"NZ"},"areaServed":"Canterbury, New Zealand"}</script>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"ProfessionalService","priceRange":"$40-$220","image":"https://mosaicscope.pages.dev/og.jpg","founder":{"@type":"Person","name":"Chris Jacob"},"name":"MosaicScope","description":"Photography and music videos in Christchurch: artists, raves, car meets, skate.","url":"https://mosaicscope.pages.dev/","sameAs":["https://www.instagram.com/mosaicscope/","https://www.youtube.com/@mosaicscope","https://www.threads.net/@mosaicscope"],"address":{"@type":"PostalAddress","addressLocality":"Christchurch","addressRegion":"Canterbury","addressCountry":"NZ"},"areaServed":"Canterbury, New Zealand"}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@100..900&family=Instrument+Serif:ital@0;1&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -23,23 +31,22 @@
 <body>
 <!--BODY-START-->
 <canvas class="ambient" id="ambient" aria-hidden="true"></canvas>
-<div class="leader" id="leader" aria-hidden="true" hidden>
-  <div class="leader__frame">
-    <svg class="leader__ring" viewBox="0 0 200 200"><circle cx="100" cy="100" r="86"/><circle class="leader__sweep" cx="100" cy="100" r="43"/></svg>
-    <span class="leader__cross leader__cross--h"></span><span class="leader__cross leader__cross--v"></span>
-    <span class="leader__num" id="leader-num">3</span>
+<div class="loader" id="leader" aria-hidden="true" hidden>
+  <div class="loader__stage">
+    <div class="loader__tiles" id="loader-tiles"></div>
+    <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><path class="mark__frame" d="M2 9V2h7M23 2h7v7M30 23v7h-7M9 30H2v-7" fill="none" stroke="currentColor" stroke-width="2.6"/><rect class="mark__tile" x="10" y="12" width="10" height="10" fill="#ec2a1c"/><rect class="mark__chip" x="21.5" y="7.5" width="4.5" height="4.5" fill="#f6b62c"/></svg>
   </div>
-  <p class="leader__skip mono">Click to skip</p>
+  <p class="loader__word">Mosaic<i>scope</i></p>
 </div>
 <a class="skip" href="#work">Skip to the work</a>
 
 <header class="bar" id="bar">
-  <a class="bar__mark" href="#top" aria-label="MosaicScope, back to top">Mosaic<i>scope</i></a>
+  <a class="bar__mark" href="#top" aria-label="MosaicScope, back to top"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><path class="mark__frame" d="M2 9V2h7M23 2h7v7M30 23v7h-7M9 30H2v-7" fill="none" stroke="currentColor" stroke-width="2.6"/><rect class="mark__tile" x="10" y="12" width="10" height="10" fill="#ec2a1c"/><rect class="mark__chip" x="21.5" y="7.5" width="4.5" height="4.5" fill="#f6b62c"/></svg><span>Mosaic<i>scope</i></span></a>
   <nav class="bar__nav" aria-label="Main">
     <a href="#work">Work</a>
     <a href="#rates">Rates</a>
     <a href="#instagram">Instagram</a>
-    <a href="#kit">Kit</a>
+    <a href="#faq">FAQ</a>
   </nav>
   <div class="bar__end">
     <span class="tc mono" id="tc" aria-hidden="true">00:00:00:00</span>
@@ -58,7 +65,7 @@
     <div class="hero__fallback" id="hero-fallback" aria-hidden="true"></div>
     <div class="hero__inner">
       <p class="kicker mono"><span class="dot" aria-hidden="true"></span><span data-bind="availability">Taking photo and film commissions</span></p>
-      <h1 class="wordmark" id="wordmark" aria-label="MosaicScope">
+      <h1 class="wordmark" id="wordmark"><span class="sr">MosaicScope: photographer and music video shooter in Christchurch</span>
         <span class="wm" aria-hidden="true">
           <span class="wm__slice"><span class="wm__a">Mosaic</span><span class="wm__b">scope</span></span>
           <span class="wm__slice"><span class="wm__a">Mosaic</span><span class="wm__b">scope</span></span>
@@ -86,11 +93,35 @@
     </div>
     <ul class="rates__list" id="rates-list"></ul>
     <div class="rates__foot">
-      <p class="rates__kit mono"><a href="#kit">What I shoot with ↓</a></p>
+      <p class="rates__kit mono"><a href="#quote">Build your quote ↓</a></p>
       <p class="rates__note"><span data-bind="ratesNote">Booking? Send a few reference pics so I know the vibe.</span> <a href="#contact">Book a shoot ↓</a></p>
     </div>
   </section>
 
+
+  <section class="quote" id="quote" aria-labelledby="quote-h">
+    <div class="sechead">
+      <h2 id="quote-h"><span class="mono sechead__no">+</span><span class="scramble">Build your quote</span></h2>
+    </div>
+    <form class="qb" id="qb" novalidate>
+      <fieldset class="qb__group">
+        <legend class="mono">Photos</legend>
+        <label class="qb__opt"><input type="radio" name="photo" value="none" checked><span>No photos</span></label>
+        <label class="qb__opt"><input type="radio" name="photo" value="raw"><span>Unedited <b data-q="photoshoot"></b></span></label>
+        <label class="qb__opt"><input type="radio" name="photo" value="edits"><span>Lightroom edits <b data-q="photoshootEdits"></b></span></label>
+      </fieldset>
+      <fieldset class="qb__group">
+        <legend class="mono">Music video</legend>
+        <label class="qb__opt"><input type="checkbox" name="vshoot"><span>I shoot it <b data-q="videoShoot"></b></span></label>
+        <label class="qb__opt"><input type="checkbox" name="vedit"><span>I edit it <b data-q="videoEdit"></b></span></label>
+      </fieldset>
+      <div class="qb__total">
+        <p class="mono">Estimate</p>
+        <p class="qb__sum" id="qb-sum" aria-live="polite">$0</p>
+        <button class="cta cta--solid" type="submit" id="qb-go">Request this</button>
+      </div>
+    </form>
+  </section>
 
   <section class="booking" id="booking" aria-labelledby="booking-h">
     <div class="sechead">
@@ -145,12 +176,11 @@
     <p class="services__note" data-bind="servicesNote"></p>
   </section>
 
-  <section class="kit" id="kit" aria-labelledby="kit-h">
+  <section class="faq" id="faq" aria-labelledby="faq-h">
     <div class="sechead">
-      <h2 id="kit-h"><span class="mono sechead__no">D</span><span class="scramble">What I shoot with</span></h2>
+      <h2 id="faq-h"><span class="mono sechead__no">?</span><span class="scramble">Questions</span></h2>
     </div>
-    <div class="kit__grid" id="kit-grid"></div>
-    <p class="kit__note" data-bind="gearNote">Nothing crazy. Just the stuff that gets it done.</p>
+    <div class="faq__list" id="faq-list"></div>
   </section>
 
   <section class="contact" id="contact" aria-labelledby="contact-h">
@@ -187,12 +217,22 @@
           <label for="f-msg">Tell me about it</label>
           <textarea id="f-msg" name="message" rows="5" required></textarea>
         </div>
+        <div class="hp" aria-hidden="true">
+          <label for="f-botcheck">Leave this empty</label>
+          <input id="f-botcheck" name="botcheck" type="checkbox" tabindex="-1" autocomplete="off">
+        </div>
         <div class="form__row">
           <button class="send" type="submit" id="f-send">Send enquiry</button>
           <p class="form__status" id="f-status" role="status" aria-live="polite"></p>
         </div>
       </form>
       <aside class="direct">
+        <div class="dates" id="dates">
+          <p class="mono direct__label">Next free dates</p>
+          <ul class="dates__list" id="dates-list"></ul>
+          <p class="dates__note" data-bind="availNote"></p>
+        </div>
+        <a class="dm" id="dm" href="https://ig.me/m/mosaicscope" target="_blank" rel="noopener">Message me on Instagram ↗</a>
         <p class="mono direct__label">Or email directly</p>
         <p class="direct__email"><span id="email-text">mosiacscope@gmail.com</span></p>
         <button type="button" class="copy" id="copy-email">Copy email</button>
@@ -203,7 +243,7 @@
 </main>
 
 <footer class="foot">
-  <p class="foot__mark" id="foot-mark" aria-label="MosaicScope"><span class="vf" aria-hidden="true">Mosaic</span><i>scope</i></p>
+  <p class="foot__mark" id="foot-mark" aria-label="MosaicScope"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><path class="mark__frame" d="M2 9V2h7M23 2h7v7M30 23v7h-7M9 30H2v-7" fill="none" stroke="currentColor" stroke-width="2.6"/><rect class="mark__tile" x="10" y="12" width="10" height="10" fill="#ec2a1c"/><rect class="mark__chip" x="21.5" y="7.5" width="4.5" height="4.5" fill="#f6b62c"/></svg><span class="vf" aria-hidden="true">Mosaic</span><i aria-hidden="true">scope</i></p>
   <p class="mono foot__meta"><span>© <span id="year"></span> <span data-bind="owner">Chris Jacob</span></span><span>All work shown is my own unless marked placeholder.</span></p>
 </footer>
 
@@ -236,6 +276,13 @@
 </div>
 <div class="loupe" id="loupe" aria-hidden="true"></div>
 <div class="lens" id="lens" aria-hidden="true"></div>
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Photo viewer" hidden>
+  <div class="lb__track" id="lb-track"></div>
+  <p class="lb__count mono" id="lb-count"></p>
+  <button class="lb__btn lb__prev" id="lb-prev" type="button" aria-label="Previous photo">←</button>
+  <button class="lb__btn lb__next" id="lb-next" type="button" aria-label="Next photo">→</button>
+  <button class="lb__close mono" id="lb-close" type="button">Close ×</button>
+</div>
 <svg class="fx-defs" aria-hidden="true" width="0" height="0">
   <filter id="liquid" x="-10%" y="-10%" width="120%" height="120%">
     <feTurbulence id="liquid-turb" type="fractalNoise" baseFrequency="0.012 0.03" numOctaves="2" seed="7"/>

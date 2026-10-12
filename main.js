@@ -260,7 +260,7 @@
     var site = data.site || {};
     $$("[data-bind]").forEach(function (el) {
       var k = el.getAttribute("data-bind");
-      var v = (k === "servicesNote" || k === "ratesNote" || k === "gearNote") ? data[k] : site[k];
+      var v = k === "availNote" ? (data.availability || {}).note : (k === "servicesNote" || k === "ratesNote") ? data[k] : site[k];
       if (v) el.textContent = v;
     });
     if (site.name) document.title = site.name;
@@ -291,15 +291,37 @@
       $("#booking").hidden = !(b.steps || []).length;
     }
 
-    // gear
-    var kg = $("#kit-grid");
-    if (kg) {
-      kg.innerHTML = (data.gear || []).map(function (g) {
-        return '<div class="kit__group"><p class="kit__label mono">' + esc(g.group) + "</p><ul>" +
-          (g.items || []).map(function (it) { return "<li>" + esc(it) + "</li>"; }).join("") + "</ul></div>";
+    // FAQ (also tells Google the answers)
+    var fl = $("#faq-list");
+    if (fl) {
+      var faq = data.faq || [];
+      fl.innerHTML = faq.map(function (f, i) {
+        return '<details class="qa"' + (i === 0 ? " open" : "") + '><summary><span class="qa__q">' + esc(f.q) + '</span><span class="qa__icon" aria-hidden="true">+</span></summary><p>' + esc(f.a) + "</p></details>";
       }).join("");
-      $("#kit").hidden = !(data.gear || []).length;
+      $("#faq").hidden = !faq.length;
+      if (faq.length) {
+        var ld = document.createElement("script");
+        ld.type = "application/ld+json";
+        ld.textContent = JSON.stringify({ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: faq.map(function (f) { return { "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } }; }) });
+        document.head.appendChild(ld);
+      }
     }
+
+    // next free dates
+    var dl = $("#dates-list");
+    if (dl) {
+      var dates = ((data.availability || {}).dates || []).filter(Boolean);
+      dl.innerHTML = dates.length
+        ? dates.map(function (d) { return '<li><span class="dot" aria-hidden="true"></span>' + esc(d) + "</li>"; }).join("")
+        : '<li class="dates__none">Ask me. I\'ll tell you straight.</li>';
+    }
+
+    // Instagram DM button
+    if (site.instagramDm && $("#dm")) $("#dm").href = site.instagramDm;
+
+    // quote builder prices
+    var q = data.quote || {};
+    $$("[data-q]").forEach(function (el) { var n = q[el.getAttribute("data-q")]; el.textContent = n ? "$" + n : ""; });
 
     // raw vs edited sliders
     var gl = $("#grade-list");
@@ -412,7 +434,7 @@
     var canvas = $("#hero-gl");
     var fallback = $("#hero-fallback");
     var hasReal = !!site.heroImage;
-    var plate = makePlate(7, 1280, 800, "hero", false, true);
+    var plate = makePlate(7, 800, 500, "hero", false, true);
     if (!hasReal) $("#hero-note").hidden = false;
 
     function useFallback(src) {
@@ -1016,10 +1038,16 @@
      Without one it opens the visitor's email app with the message filled in. It never fakes a success. */
   function initForm(site) {
     var form = $("#form"), status = $("#f-status"), send = $("#f-send");
+    var opened = Date.now();
     var email = site.email || "";
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       var fd = new FormData(form);
+      // bots fill hidden boxes and submit instantly; people don't
+      if (fd.get("botcheck") || Date.now() - opened < 3000) {
+        status.textContent = "Give it a second and try again.";
+        return;
+      }
       var name = (fd.get("name") || "").trim(), from = (fd.get("email") || "").trim(), msg = (fd.get("message") || "").trim();
       if (!name || !from || !msg || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(from)) {
         status.textContent = "Add your name, a valid email and a message, then send again.";
@@ -1074,27 +1102,27 @@
     try { seen = sessionStorage.getItem("ms-leader") === "1"; } catch (e) { seen = false; }
     if (!el || reduceMotion || seen) return Promise.resolve();
     try { sessionStorage.setItem("ms-leader", "1"); } catch (e) { /* ignore */ }
+    var wrap = $("#loader-tiles");
+    var cols = ["#ec2a1c", "#c6ff3d", "#f6b62c", "#eee4d3"];
+    var html = "";
+    for (var i = 0; i < 25; i++) {
+      var a = Math.random() * Math.PI * 2, r = 120 + Math.random() * 220;
+      html += '<span style="--x:' + Math.round(Math.cos(a) * r) + "px;--y:" + Math.round(Math.sin(a) * r) + "px;--r:" + Math.round((Math.random() - 0.5) * 180) + "deg;--c:" + cols[i % 4] + ";--d:" + (i * 22) + 'ms"></span>';
+    }
+    wrap.innerHTML = html;
     el.hidden = false;
-    var num = $("#leader-num");
+    requestAnimationFrame(function () { requestAnimationFrame(function () { el.classList.add("is-go"); }); });
     return new Promise(function (resolve) {
-      var n = 3, timer = null, done = false;
+      var done = false, timer = setTimeout(finish, 1900);
       function finish() {
         if (done) return; done = true;
         clearTimeout(timer);
         el.classList.add("is-out");
-        setTimeout(function () { el.hidden = true; }, 600);
+        setTimeout(function () { el.hidden = true; }, 650);
         ["click", "keydown", "wheel", "touchstart"].forEach(function (ev) { window.removeEventListener(ev, finish); });
         resolve();
       }
-      function tick() {
-        if (n === 0) return finish();
-        num.textContent = n;
-        el.classList.remove("is-tick"); void el.offsetWidth; el.classList.add("is-tick");
-        n--;
-        timer = setTimeout(tick, 450);
-      }
       ["click", "keydown", "wheel", "touchstart"].forEach(function (ev) { window.addEventListener(ev, finish, { passive: true }); });
-      tick();
     });
   }
 
@@ -1478,6 +1506,104 @@
     return added;
   }
 
+  /* ---------------- Quote builder ----------------
+     Visitors tick what they want, see the estimate, and the booking form fills itself in. */
+  function initQuote(data) {
+    var form = $("#qb"), sumEl = $("#qb-sum");
+    if (!form) return;
+    var q = data.quote || {};
+    function picked() {
+      var photo = (form.querySelector("input[name=photo]:checked") || {}).value;
+      var items = [], total = 0;
+      if (photo === "raw") { items.push("Photoshoot (unedited)"); total += +q.photoshoot || 0; }
+      if (photo === "edits") { items.push("Photoshoot with Lightroom edits"); total += +q.photoshootEdits || 0; }
+      if (form.vshoot.checked) { items.push("Music video shoot"); total += +q.videoShoot || 0; }
+      if (form.vedit.checked) { items.push("Music video edit"); total += +q.videoEdit || 0; }
+      return { items: items, total: total };
+    }
+    function update() {
+      var p = picked();
+      sumEl.textContent = "$" + p.total;
+      $("#qb-go").disabled = !p.items.length;
+    }
+    form.addEventListener("change", update);
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var p = picked();
+      if (!p.items.length) return;
+      var type = $("#f-type");
+      if (type) type.value = p.items.some(function (x) { return /video/i.test(x); }) ? (p.items.some(function (x) { return /Photo/.test(x); }) ? "Something else" : "Music video") : "Photography";
+      var msg = $("#f-msg");
+      if (msg) msg.value = "Quote: " + p.items.join(" + ") + " (estimate $" + p.total + " NZD).\n\n" + (msg.value || "");
+      var c = $("#contact");
+      c.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
+      setTimeout(function () { var n = $("#f-name"); if (n) n.focus({ preventScroll: true }); }, reduceMotion ? 0 : 700);
+    });
+    update();
+  }
+
+  /* ---------------- Swipe gallery ----------------
+     Photos inside a project open full screen. Swipe on phones, arrows or keys on desktop. */
+  function initLightbox() {
+    var lb = $("#lb"), track = $("#lb-track"), count = $("#lb-count");
+    if (!lb) return;
+    var lastFocus = null, total = 0;
+    function current() { return Math.round(track.scrollLeft / Math.max(1, track.clientWidth)); }
+    function label() { count.textContent = (current() + 1) + " / " + total; }
+    window.openLightbox = function (srcs, start, alt) {
+      total = srcs.length;
+      track.innerHTML = srcs.map(function (src, i) {
+        return '<figure class="lb__slide"><img src="' + esc(src) + '" alt="' + esc((alt || "Photo") + " " + (i + 1) + " of " + srcs.length) + '"' + (Math.abs(i - start) > 1 ? ' loading="lazy"' : "") + "></figure>";
+      }).join("");
+      lastFocus = document.activeElement;
+      lb.hidden = false;
+      document.documentElement.classList.add("lb-open");
+      requestAnimationFrame(function () { track.scrollLeft = start * track.clientWidth; label(); });
+      $("#lb-close").focus();
+    };
+    function close() {
+      lb.hidden = true; track.innerHTML = "";
+      document.documentElement.classList.remove("lb-open");
+      if (lastFocus) lastFocus.focus();
+    }
+    function go(d) { track.scrollBy({ left: d * track.clientWidth, behavior: reduceMotion ? "auto" : "smooth" }); }
+    track.addEventListener("scroll", function () { label(); }, { passive: true });
+    $("#lb-prev").addEventListener("click", function () { go(-1); });
+    $("#lb-next").addEventListener("click", function () { go(1); });
+    $("#lb-close").addEventListener("click", close);
+    document.addEventListener("keydown", function (e) {
+      if (lb.hidden) return;
+      if (e.key === "Escape") { e.stopPropagation(); close(); }
+      if (e.key === "ArrowRight") go(1);
+      if (e.key === "ArrowLeft") go(-1);
+    }, true);
+    // open from any photo inside the project viewer
+    $("#viewer-body").addEventListener("click", function (e) {
+      var img = e.target.closest("img.v-hero, .v-grid img");
+      if (!img) return;
+      var imgs = $$("img.v-hero, .v-grid img", $("#viewer-body"));
+      var srcs = imgs.map(function (i) { return i.getAttribute("src"); });
+      window.openLightbox(srcs, imgs.indexOf(img), $("#viewer-title") ? $("#viewer-title").textContent : "Photo");
+    });
+  }
+
+  /* ---------------- Gentle section reveals ---------------- */
+  function initReveals() {
+    if (reduceMotion || !("IntersectionObserver" in window)) return;
+    var secs = $$("main > section:not(.hero), main > .marquee");
+    document.documentElement.classList.add("reveal-on");
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("is-shown"); io.unobserve(e.target); } });
+    }, { rootMargin: "0px 0px -8% 0px" });
+    secs.forEach(function (s) { s.classList.add("reveal"); io.observe(s); });
+  }
+
+  /* ---------------- Install as an app ---------------- */
+  function initPWA() {
+    if (!("serviceWorker" in navigator) || location.protocol !== "https:") return;
+    window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+  }
+
   /* ---------------- Bar ---------------- */
   function initBar() {
     var bar = $("#bar");
@@ -1507,6 +1633,10 @@
     initMagnetic();
     initTileFX();
     initAmbient();
+    initQuote(data);
+    initLightbox();
+    initReveals();
+    initPWA();
     var leader = runLeader();
     leader.then(function () { initWordmark(); hero.restart(); });
     var igP = loadInstagram(site), ytP = loadYouTube(site);
