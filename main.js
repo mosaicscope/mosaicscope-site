@@ -1065,6 +1065,7 @@
         }).then(function (r) { return r.json(); }).then(function (res) {
           if (res && res.success) {
             status.textContent = "Sent. I'll reply to " + from + " soon.";
+            if (window.hype) window.hype.rain();
             form.reset();
           } else { throw new Error("rejected"); }
         }).catch(function () {
@@ -1077,6 +1078,7 @@
       var a = document.createElement("a");
       a.href = href; a.rel = "noopener";
       document.body.appendChild(a); a.click(); a.remove();
+      if (window.hype) window.hype.rain();
       status.innerHTML = "Your email app should open with this filled in. If nothing opened, email <strong>" + esc(email) + "</strong> directly.";
     });
 
@@ -1166,6 +1168,7 @@
     function mmss(ms) { var t = Math.max(0, Math.round(ms / 1000)); return Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0"); }
     function setPlaying(on) {
       playing = on;
+      if (window.hype) window.hype.set(on);
       box.classList.toggle("is-playing", on);
       panel.classList.toggle("is-playing", on);
       toggleBtn.textContent = on ? "Pause" : "Play";
@@ -1205,7 +1208,7 @@
       if (!window.SC || !window.SC.Widget) return;
       sc = window.SC.Widget(frame);
       var E = window.SC.Widget.Events;
-      sc.bind(E.READY, function () { buildList(); });
+      sc.bind(E.READY, function () { buildList(); setInitialVol(); });
       sc.bind(E.PLAY, function () { setPlaying(true); showCurrent(); });
       sc.bind(E.PAUSE, function () { setPlaying(false); });
       sc.bind(E.FINISH, function () { setPlaying(false); });
@@ -1225,6 +1228,22 @@
       if (on && sc) showCurrent();
     }
     disc.addEventListener("click", toggle);
+    // volume
+    var vol = $("#scp-vol"), volNum = $("#scp-volnum"), mute = $("#scp-mute"), lastVol = 80;
+    try { var sv = parseInt(localStorage.getItem("ms-vol"), 10); if (!isNaN(sv)) lastVol = sv; } catch (e) { /* ignore */ }
+    function setVol(v, remember) {
+      v = Math.max(0, Math.min(100, Math.round(v)));
+      vol.value = v; volNum.textContent = v;
+      vol.style.setProperty("--v", v + "%");
+      mute.textContent = v === 0 ? "Muted" : "Vol";
+      mute.setAttribute("aria-label", v === 0 ? "Unmute" : "Mute");
+      if (sc) sc.setVolume(v);
+      if (remember && v > 0) { lastVol = v; try { localStorage.setItem("ms-vol", v); } catch (e) { /* ignore */ } }
+    }
+    vol.addEventListener("input", function () { setVol(+vol.value, true); });
+    mute.addEventListener("click", function () { setVol(+vol.value === 0 ? (lastVol || 80) : 0, false); });
+    var setInitialVol = function () { setVol(lastVol, false); };
+    window.hypeToggle = toggle;
     toggleBtn.addEventListener("click", toggle);
     barTitle.addEventListener("click", function (e) { e.stopPropagation(); openPanel(panel.hidden); });
     $("#scp-next").addEventListener("click", function () { if (sc) { sc.next(); sc.play(); } });
@@ -1616,6 +1635,65 @@
     window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
   }
 
+  /* ---------------- Easter egg: the hype girl ----------------
+     Asleep at the bottom of the page until the music plays. Then she dances, throws finger guns
+     and drops $ signs. Click her to play or pause. She makes it rain when someone sends an enquiry. */
+  function initHype() {
+    var el = $("#hype"), cash = $("#cash");
+    if (!el || $("#sc").hidden) return;
+    el.hidden = false;
+    el.classList.add("is-asleep");
+    var timer = null;
+    function drop() {
+      if (reduceMotion || document.hidden) return;
+      var r = el.getBoundingClientRect();
+      var d = document.createElement("span");
+      d.className = "cash__bill";
+      d.textContent = "$";
+      d.style.left = (r.left + r.width * (0.55 + Math.random() * 0.4)) + "px";
+      d.style.top = (r.top + r.height * 0.3) + "px";
+      d.style.setProperty("--dx", ((Math.random() - 0.2) * 80).toFixed(0) + "px");
+      d.style.setProperty("--rot", ((Math.random() - 0.5) * 60).toFixed(0) + "deg");
+      cash.appendChild(d);
+      setTimeout(function () { d.remove(); }, 2200);
+    }
+    window.hype = {
+      set: function (on) {
+        el.classList.toggle("is-asleep", !on);
+        el.classList.toggle("is-dancing", on);
+        el.setAttribute("aria-label", on ? "Pause music" : "Play music");
+        clearInterval(timer);
+        if (on && !reduceMotion) timer = setInterval(drop, 650);
+      },
+      rain: function () {
+        if (reduceMotion) return;
+        el.classList.add("is-hyped");
+        setTimeout(function () { el.classList.remove("is-hyped"); }, 3200);
+        for (var i = 0; i < 46; i++) {
+          (function (i) {
+            setTimeout(function () {
+              var d = document.createElement("span");
+              d.className = "cash__bill cash__bill--rain";
+              d.textContent = "$";
+              d.style.left = (Math.random() * 100) + "vw";
+              d.style.setProperty("--rot", ((Math.random() - 0.5) * 120).toFixed(0) + "deg");
+              d.style.setProperty("--dur", (1.8 + Math.random() * 1.4).toFixed(2) + "s");
+              d.style.fontSize = (18 + Math.random() * 26).toFixed(0) + "px";
+              cash.appendChild(d);
+              setTimeout(function () { d.remove(); }, 3400);
+            }, i * 45);
+          })(i);
+        }
+      }
+    };
+    el.addEventListener("click", function () { if (window.hypeToggle) window.hypeToggle(); });
+    // tucked away while the opening screen is in view, so she never sits on the name
+    var hero = $(".hero");
+    if (hero && "IntersectionObserver" in window) {
+      new IntersectionObserver(function (es) { el.classList.toggle("is-tucked", es[0].intersectionRatio > 0.35); }, { threshold: [0, 0.35, 1] }).observe(hero);
+    }
+  }
+
   /* ---------------- Bar ---------------- */
   function initBar() {
     var bar = $("#bar");
@@ -1633,6 +1711,7 @@
     initLoupe();
     initViewer(data);
     if (!initSoundCloud(site)) initSound();
+    initHype();
     initForm(site);
     initBar();
     initTimecode();

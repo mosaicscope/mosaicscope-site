@@ -6,6 +6,10 @@
 2. **Get your domain** (~$30 NZD/yr): buy `mosaicscope.co.nz`, then Cloudflare → Workers & Pages → mosaicscope → Custom domains → add it.
 3. **Google Business Profile** (free): business.google.com → "MosaicScope", photographer, Christchurch, add the website link. This is how locals find you on Google Maps.
 
+## 🤫 Easter egg
+
+The little bandana girl at the bottom left sleeps until the music plays, then dances and drops cash. Click her to play/pause. She makes it rain when someone sends an enquiry.
+
 ## 🔧 Things you can fill in whenever
 
 - **Raw vs edited slider**: Pages CMS → *Raw vs edited* → upload a raw shot + your Lightroom version. The section appears by itself.

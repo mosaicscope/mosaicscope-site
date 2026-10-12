@@ -902,3 +902,84 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 /* Three-item rate card: unit sits above the price ("from") */
 .rate__price { grid-auto-flow: row; }
 .rate__price small { order: -1; }
+
+/* ================= Round 12: volume + hype girl ================= */
+
+/* Volume */
+.scp__vol { display: grid; grid-template-columns: auto minmax(0, 1fr) 2.4em; align-items: center; gap: 10px; }
+.scp__mute { background: none; border: 0; color: var(--dim); padding: 4px 0; cursor: pointer; font-size: 10px; min-width: 44px; text-align: left; }
+.scp__mute:hover { color: var(--paper); }
+.scp__volnum { color: var(--dim); font-size: 10px; text-align: right; }
+.scp__range { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; background: transparent; cursor: pointer; --v: 80%; }
+.scp__range::-webkit-slider-runnable-track { height: 4px; background: linear-gradient(90deg, var(--sodium) 0 var(--v), rgba(238, 228, 211, 0.15) var(--v) 100%); }
+.scp__range::-moz-range-track { height: 4px; background: rgba(238, 228, 211, 0.15); }
+.scp__range::-moz-range-progress { height: 4px; background: var(--sodium); }
+.scp__range::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; margin-top: -4px; background: var(--paper); border: 0; border-radius: 0; }
+.scp__range::-moz-range-thumb { width: 12px; height: 12px; background: var(--paper); border: 0; border-radius: 0; }
+.scp__range:focus-visible { outline: 2px solid var(--acid); outline-offset: 4px; }
+
+/* Hype girl */
+.hype {
+  position: fixed; left: max(10px, env(safe-area-inset-left, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 6px); z-index: 44;
+  width: 74px; height: 104px; padding: 0; border: 0; background: none; cursor: pointer; color: var(--acid);
+  filter: drop-shadow(0 0 10px rgba(198, 255, 61, 0.15));
+}
+.hype[hidden] { display: none !important; }
+.hype:focus-visible { outline: 2px solid var(--acid); outline-offset: 4px; }
+.hype__fig { width: 100%; height: 100%; overflow: visible; }
+.hype .hg__top, .hype .hg__head, .hype .hg__armL, .hype .hg__armR, .hype .hg__legL, .hype .hg__legR, .hype .hg { transform-box: view-box; }
+.hype .hg { transform-origin: 50px 124px; }
+.hype .hg__top { transform-origin: 50px 82px; }
+.hype .hg__head { transform-origin: 50px 38px; }
+.hype .hg__armL, .hype .hg__armR { transform-origin: 50px 47px; }
+.hype .hg__legL { transform-origin: 50px 82px; }
+.hype .hg__legR { transform-origin: 50px 82px; }
+
+/* asleep: slumped, slow breathing, zzz */
+.hype.is-asleep .hg__head { transform: rotate(22deg) translateY(2px); }
+.hype.is-asleep .hg__top { transform: rotate(6deg); animation: hg-breathe 3.6s ease-in-out infinite; }
+.hype.is-asleep .hg__armL { transform: rotate(-58deg); }
+.hype.is-asleep .hg__armR { transform: rotate(48deg); }
+.hype.is-asleep .hg__mouth { d: path("M47 34 L53 34"); }
+.hype__zz { position: absolute; left: 52px; top: -6px; display: none; color: var(--acid); font-size: 11px; pointer-events: none; }
+.hype.is-asleep .hype__zz { display: block; }
+.hype__zz i { position: absolute; font-style: normal; opacity: 0; animation: hg-z 3s ease-in-out infinite; }
+.hype__zz i:nth-child(2) { animation-delay: 1s; font-size: 13px; }
+.hype__zz i:nth-child(3) { animation-delay: 2s; font-size: 15px; }
+@keyframes hg-breathe { 50% { transform: rotate(6deg) translateY(1.5px); } }
+@keyframes hg-z { 0% { opacity: 0; transform: translate(0, 0); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(14px, -26px); } }
+.hype.is-asleep:hover .hg__head { transform: rotate(10deg); }
+
+/* dancing: bounce, hip sway, head nod, finger guns */
+.hype.is-dancing .hg { animation: hg-bounce .5s ease-in-out infinite; }
+.hype.is-dancing .hg__top { animation: hg-sway 1s ease-in-out infinite; }
+.hype.is-dancing .hg__head { animation: hg-nod .5s ease-in-out infinite; }
+.hype.is-dancing .hg__armR { animation: hg-guns 2s steps(1) infinite, hg-pump .5s ease-in-out infinite; }
+.hype.is-dancing .hg__armL { animation: hg-mic 1s ease-in-out infinite; }
+.hype.is-dancing .hg__legL { animation: hg-step 1s ease-in-out infinite; }
+.hype.is-dancing .hg__legR { animation: hg-step 1s ease-in-out infinite reverse; }
+@keyframes hg-bounce { 50% { transform: translateY(-4px); } }
+@keyframes hg-sway { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+@keyframes hg-nod { 50% { transform: rotate(-8deg) translateY(1px); } }
+@keyframes hg-guns { 0% { rotate: 0deg; } 25% { rotate: -38deg; } 50% { rotate: -70deg; } 75% { rotate: -20deg; } }
+@keyframes hg-pump { 50% { translate: 2px -2px; } }
+@keyframes hg-mic { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-12deg); } }
+@keyframes hg-step { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
+.hype.is-hyped .hg { animation-duration: .3s; }
+
+/* money */
+.cash { position: fixed; inset: 0; z-index: 46; pointer-events: none; overflow: hidden; }
+.cash__bill { position: fixed; font: 900 20px/1 var(--f-display); color: var(--sodium); text-shadow: 0 0 8px rgba(246, 182, 44, 0.4); animation: cash-up 2.1s cubic-bezier(.2,.7,.3,1) forwards; }
+.cash__bill:nth-child(3n) { color: var(--acid); }
+@keyframes cash-up { 0% { opacity: 0; transform: translate(0, 0) rotate(0) scale(.6); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx, 20px), -110px) rotate(var(--rot, 20deg)) scale(1.1); } }
+.cash__bill--rain { top: -40px; animation: cash-rain var(--dur, 2.4s) linear forwards; }
+@keyframes cash-rain { 0% { transform: translateY(0) rotate(0); opacity: 1; } 100% { transform: translateY(110vh) rotate(var(--rot, 90deg)); opacity: .9; } }
+
+@media (max-width: 520px) { .hype { width: 54px; height: 76px; } }
+@media (prefers-reduced-motion: reduce) {
+  .hype .hg, .hype .hg__top, .hype .hg__head, .hype .hg__armL, .hype .hg__armR, .hype .hg__legL, .hype .hg__legR, .hype__zz i { animation: none !important; }
+  .hype.is-dancing .hg__armR { rotate: -38deg; }
+}
+
+.hype { transition: transform .7s var(--ease), opacity .5s; }
+.hype.is-tucked { transform: translateY(120%); opacity: 0; pointer-events: none; }

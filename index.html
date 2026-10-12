@@ -281,10 +281,49 @@
     <button type="button" class="scp__toggle" id="scp-toggle">Play</button>
     <button type="button" class="mono" id="scp-next">Next</button>
   </div>
+  <div class="scp__vol">
+    <button type="button" class="scp__mute mono" id="scp-mute" aria-label="Mute">Vol</button>
+    <input class="scp__range" id="scp-vol" type="range" min="0" max="100" value="80" aria-label="Volume">
+    <span class="scp__volnum mono" id="scp-volnum">80</span>
+  </div>
   <ol class="scp__list" id="scp-list"></ol>
   <a class="scp__out mono" id="scp-out" href="#" target="_blank" rel="noopener">Open on SoundCloud ↗</a>
 </div>
 <div class="loupe" id="loupe" aria-hidden="true"></div>
+<button class="hype" id="hype" type="button" aria-label="Play music" hidden>
+  <span class="hype__zz mono" aria-hidden="true"><i>z</i><i>z</i><i>z</i></span>
+  <svg class="hype__fig" viewBox="0 0 100 140" aria-hidden="true">
+    <g class="hg" fill="none" stroke="#c6ff3d" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+      <g class="hg__legs">
+        <path class="hg__legL" d="M50 82 L41 103 L39 122"/>
+        <path class="hg__legR" d="M50 82 L59 103 L63 122"/>
+        <path class="hg__boot hg__legL" d="M33 124 h10" stroke="#ec2a1c" stroke-width="6"/>
+        <path class="hg__boot hg__legR" d="M60 124 h10" stroke="#ec2a1c" stroke-width="6"/>
+      </g>
+      <g class="hg__top">
+        <path d="M50 40 L50 82"/>
+        <path d="M43 58 L57 58 L60 82 L40 82 Z" stroke-width="2.6"/>
+        <g class="hg__armL">
+          <path d="M50 47 L37 60 L40 46"/>
+          <path d="M40 46 L44 38" stroke="#ec2a1c" stroke-width="3"/>
+          <circle cx="45" cy="36" r="2.6" fill="#ec2a1c" stroke="#ec2a1c"/>
+        </g>
+        <g class="hg__armR">
+          <path d="M50 47 L64 57 L77 49"/>
+          <path d="M77 49 L85 47 M77 49 L78 44" stroke-width="2.6"/>
+        </g>
+        <g class="hg__head">
+          <circle cx="50" cy="27" r="10.5"/>
+          <path d="M39.6 23 Q50 12 60.4 23 Z" fill="#ec2a1c" stroke="#ec2a1c" stroke-width="2"/>
+          <path d="M60 22 l7 -4 M60 22 l7 2" stroke="#ec2a1c" stroke-width="2.4"/>
+          <rect class="hg__shades" x="41.5" y="26" width="17" height="4.6" rx="1.5" fill="#c6ff3d" stroke="none"/>
+          <path class="hg__mouth" d="M46 33.5 Q50 36 54 33.5" stroke-width="2"/>
+        </g>
+      </g>
+    </g>
+  </svg>
+</button>
+<div class="cash" id="cash" aria-hidden="true"></div>
 <div class="lens" id="lens" aria-hidden="true"></div>
 <div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Photo viewer" hidden>
   <div class="lb__track" id="lb-track"></div>
