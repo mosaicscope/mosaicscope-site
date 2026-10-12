@@ -723,3 +723,15 @@ html.has-lens .board, html.has-lens .board * { cursor: none !important; }
 /* YouTube preview inside tiles */
 .tile__yt { position: absolute; top: 0; left: -9.3%; width: 118.6%; height: 100%; border: 0; z-index: 1; pointer-events: none; opacity: 0; transition: opacity .8s var(--ease); }
 .tile__yt.is-on { opacity: 1; }
+
+/* Rates: units, kit line, phone layout */
+.rate__price { display: grid; justify-items: end; gap: 4px; }
+.rate__price small { font-size: 10px; color: var(--dim); letter-spacing: 0.08em; font-style: normal; }
+.rates__foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 12px 32px; margin-top: clamp(20px, 3vw, 32px); }
+.rates__foot .rates__note { margin: 0; }
+.rates__kit { margin: 0; color: var(--paper); }
+.rates__kit-label { color: var(--ink); background: var(--paper); padding: 2px 5px; margin-right: 6px; }
+@media (max-width: 560px) {
+  .rate { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .rate__price { justify-items: start; grid-auto-flow: column; align-items: baseline; gap: 10px; font-size: 2.4rem; }
+}

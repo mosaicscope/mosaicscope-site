@@ -189,23 +189,28 @@
     {
       "title": "Photoshoot",
       "price": "$20",
-      "detail": "Straight off the card. Your pick of the best frames, no edits."
+      "unit": "per shoot",
+      "detail": "Unedited. The best frames straight off the camera, full resolution."
     },
     {
       "title": "Photoshoot + edits",
       "price": "$40",
-      "detail": "Picked, graded and finished in the MosaicScope look."
+      "unit": "per shoot",
+      "detail": "Picked and edited in Lightroom, delivered full resolution."
     },
     {
       "title": "Music video shoot",
       "price": "$50",
-      "detail": "I shoot it, you take the footage."
+      "unit": "per shoot",
+      "detail": "Filmed in 4K or 1080p. All the raw footage handed over."
     },
     {
       "title": "Music video edit",
       "price": "$120",
-      "detail": "Full cut and colour grade, up to 3 minutes."
+      "unit": "per video",
+      "detail": "Full edit and colour grade, up to 3 minutes. Exported in 1080p or 4K."
     }
   ],
-  "ratesNote": "Bigger job or something different?"
+  "ratesNote": "Booking? Send a few reference pics so I know the vibe.",
+  "kit": "Panasonic GH5 · Nikon D750 · Nikon D5100 · Tripods · Lighting"
 }

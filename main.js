@@ -260,7 +260,7 @@
     var site = data.site || {};
     $$("[data-bind]").forEach(function (el) {
       var k = el.getAttribute("data-bind");
-      var v = (k === "servicesNote" || k === "ratesNote") ? data[k] : site[k];
+      var v = (k === "servicesNote" || k === "ratesNote" || k === "kit") ? data[k] : site[k];
       if (v) el.textContent = v;
     });
     if (site.name) document.title = site.name;
@@ -275,7 +275,7 @@
       rl.innerHTML = (data.rates || []).map(function (r, i) {
         return '<li class="rate"><span class="rate__no mono">' + String(i + 1).padStart(2, "0") + '</span>' +
           '<span class="rate__what"><strong>' + esc(r.title) + '</strong><em>' + esc(r.detail || "") + "</em></span>" +
-          '<span class="rate__price">' + esc(r.price) + "</span></li>";
+          '<span class="rate__price">' + esc(r.price) + (r.unit ? '<small class="mono">' + esc(r.unit) + "</small>" : "") + "</span></li>";
       }).join("");
       $("#rates").hidden = !(data.rates || []).length;
     }
@@ -982,7 +982,7 @@
         return;
       }
       var subject = "Enquiry: " + fd.get("type") + " from " + name;
-      var text = "Name: " + name + "\nEmail: " + from + "\nType: " + fd.get("type") + "\nDate: " + (fd.get("date") || "-") + "\n\n" + msg;
+      var text = "Name: " + name + "\nEmail: " + from + "\nType: " + fd.get("type") + "\nDate: " + (fd.get("date") || "-") + "\nReference pics: " + (fd.get("refs") || "-") + "\n\n" + msg;
 
       if (site.web3formsKey) {
         send.disabled = true;

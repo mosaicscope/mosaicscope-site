@@ -69,8 +69,10 @@ content:
         fields:
           - { name: title, label: What it is, type: string }
           - { name: price, label: Price, type: string }
+          - { name: unit, label: Per (e.g. per shoot), type: string }
           - { name: detail, label: One line about it, type: string }
       - { name: ratesNote, label: Line under the rates, type: string }
+      - { name: kit, label: Your gear (one line), type: string }
       - name: services
         label: Commissions
         type: object
