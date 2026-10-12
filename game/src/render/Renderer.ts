@@ -10,6 +10,7 @@ import { pose, solve, drawFigure, pathSilhouette, J } from "./StickFigure";
 import { drawToy, drawIsoBox } from "./ToyArt";
 import { INK } from "./palette";
 import { drawBuildingTile, GLOW } from "./Buildings";
+import { ZooRenderer } from "./Zoo";
 import { resetHdBudget } from "./StickFigure";
 import { AD_BOXES, AdBox } from "./Ads";
 import { drawCar, headlights } from "./Cars";
@@ -313,6 +314,11 @@ export class Renderer {
     this.lighting.draw(g, sim, cam, time, o.quality, o.reduceMotion);
     for (const f of GLOW) f();
     GLOW.length = 0;
+    // the player's private zoo
+    if (this.zooAnimals.length) {
+      const a = sim.world.areas.find((x) => x.name === "Velvet Zoo") ?? sim.world.areas.find((x) => x.name === "Botanic Gardens");
+      if (a) this.zoo.draw(g, cam, a, this.zooAnimals, time, dt);
+    }
     this.drawHeli(g, sim, time, z);
     const darkness = 1 - sim.daylight;
     if (darkness > 0.3 && o.quality > 0) {
@@ -659,6 +665,10 @@ export class Renderer {
     g.fillStyle = "rgba(238,228,211,.7)"; g.font = "600 12px 'IBM Plex Mono', monospace"; g.fillText(`2D street view · ${sim.world.streetName(f.x, f.y)} · press V or scroll out for 3D`, 16, 66);
     void o;
   }
+
+  /** Animals the player has bought (drawn in the Velvet Zoo). */
+  zooAnimals: { kind: import("./Animals").AnimalKind; name: string }[] = [];
+  private zoo = new ZooRenderer();
 
   /** Buildings on screen this frame, and how much each is cut away (0..1, eased). */
   private viewB = new Set<number>();

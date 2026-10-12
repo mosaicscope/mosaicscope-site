@@ -1,3 +1,4 @@
+import { Luxury } from "../ui/Luxury";
 import { TouchControls } from "../ui/Touch";
 import "../ui/casino.css";
 import { RoastBattle } from "../ui/minigames/Roast";
@@ -125,7 +126,7 @@ export class Game {
     this.radio = new Radio(MOSAIC.soundcloud);
     this.hudEl = h("div.hud", { "aria-live": "polite" });
     this.bustedEl = h("div.busted.hidden", { role: "alert" });
-    root.append(this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.modal.el, this.casino.el, this.bustedEl);
+    root.append(this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.modal.el, this.casino.el, this.bustedEl);
     // browsers only allow sound after a gesture: the first click/key starts the playlist
     const firstGesture = () => { if (this.gestured) return; this.gestured = true; if (this.settings.sound) this.audio.setEnabled(true); }; // the radio only plays when you press ▶
     window.addEventListener("pointerdown", firstGesture, { once: false, capture: true });
@@ -134,6 +135,7 @@ export class Game {
     this.bindInput();
     this.bindSim();
     this.bindStats();
+    this.loadEmpire();
     const mq = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     this.reduceMotionOS = !!mq?.matches;
     mq?.addEventListener?.("change", (e) => { this.reduceMotionOS = e.matches; });
@@ -194,7 +196,8 @@ export class Game {
   private uiTick(now: number): void {
     this.tickFocus(now);
     this.touch.update();
-    this.touch.el.classList.toggle("hidden", this.casino.open || this.modal.open || this.dialogue.open || this.travel.open || this.minimap.bigOpen);
+    this.renderer.zooAnimals = this.luxury.empire.animals;
+    this.touch.el.classList.toggle("hidden", this.casino.open || this.modal.open || this.dialogue.open || this.travel.open || this.minimap.bigOpen || this.luxury.open);
     this.tickStory(now);
     this.minimap.update(now);
     if (now - this.lastUi < 250) return;
@@ -749,6 +752,7 @@ export class Game {
     const don = this.sim.chars[id];
     if (don && this.isContact(don) && (this.hasJob(don) || this.job?.who === don.name) && !(don.role === "comic" && !this.job && (this.story[don.name]?.ch ?? 0) > 0)) { this.talkToContact(don.name); return; }
     if (don && don.role === "comic") { this.roast.start(); return; } // Roastie Malone: roast battle
+    if (don && don.role === "mogul") { this.luxury.show(); return; } // Sir P shows you his catalogue
     if (don && don.role === "mobster" && !this.isContact(don)) { this.offerContract(don); return; }
     this.dialogue.start(id);
     const c = this.sim.chars[id];
@@ -764,6 +768,11 @@ export class Game {
     cam.setZoom(cam.targetZoom > 3 ? 1.5 : 4);
     cam.follow = this.sim.playerId;
   }
+
+  // ------------------------------------------------------------------ luxury & the zoo
+  private luxury = new Luxury({ getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; this.saveEmpire(); }, toast: (t) => this.toast(t, "acid") });
+  private saveEmpire(): void { try { localStorage.setItem("mosaics-world:empire", JSON.stringify(this.luxury.empire)); } catch { /* private mode */ } }
+  private loadEmpire(): void { try { const e = JSON.parse(localStorage.getItem("mosaics-world:empire") ?? "null"); if (e && Array.isArray(e.items)) this.luxury.load(e); } catch { /* ignore */ } }
 
   // ------------------------------------------------------------------ touch controls
   private touchMove = { x: 0, y: 0 }; private touchBrake = false;
@@ -894,6 +903,7 @@ export class Game {
       this.clockEl, h("div.spacer"),
       h("div.seg", { role: "group", "aria-label": "Simulation speed" }, this.speedEls),
       this.soundBtn,
+      h("button.btn", { onclick: () => this.luxury.show(), text: "Luxury", title: "Velvet & Co. Luxury: property, rides, animals" }),
       h("button.btn", { onclick: () => this.toggle2D(), text: "2D/3D", title: "Street view (V)" }),
       h("button.btn", { onclick: () => this.log.toggle(), text: "Log" }),
       h("button.btn", { onclick: () => this.select(this.selected === this.sim.playerId ? -1 : this.sim.playerId), text: "Me", class: "btn wide" }),
