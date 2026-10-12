@@ -331,7 +331,8 @@
     }
     function kick() { if (!running && !reduceMotion) { running = true; requestAnimationFrame(loop); } }
 
-    if (reduceMotion) draw(performance.now()); else kick();
+    draw(performance.now()); // always paint one frame, even in a background tab
+    if (!reduceMotion) kick();
     window.addEventListener("resize", function () { if (reduceMotion || !running) draw(performance.now()); });
     document.addEventListener("visibilitychange", kick);
     if ("IntersectionObserver" in window) {
