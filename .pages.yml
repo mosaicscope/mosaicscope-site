@@ -72,7 +72,35 @@ content:
           - { name: unit, label: Per (e.g. per shoot), type: string }
           - { name: detail, label: One line about it, type: string }
       - { name: ratesNote, label: Line under the rates, type: string }
-      - { name: kit, label: Your gear (one line), type: string }
+      - name: booking
+        label: How booking works
+        type: object
+        fields:
+          - name: steps
+            label: Steps
+            type: object
+            list: true
+            fields:
+              - { name: title, label: Step, type: string }
+              - { name: text, label: What happens, type: string }
+          - { name: terms, label: Fine print lines, type: string, list: true }
+      - name: gear
+        label: Gear
+        type: object
+        list: true
+        fields:
+          - { name: group, label: Group (e.g. Cameras), type: string }
+          - { name: items, label: Items, type: string, list: true }
+      - { name: gearNote, label: Line under the gear, type: string }
+      - name: beforeAfter
+        label: Raw vs edited (slider)
+        type: object
+        list: true
+        fields:
+          - { name: before, label: Raw photo, type: image }
+          - { name: after, label: Edited photo, type: image }
+          - { name: caption, label: Caption, type: string }
+      - { name: featuredPosts, label: Instagram posts to pin first (paste post links), type: string, list: true }
       - name: services
         label: Commissions
         type: object

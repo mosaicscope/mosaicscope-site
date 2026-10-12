@@ -3,7 +3,7 @@
     "name": "MosaicScope",
     "owner": "Chris Jacob",
     "roles": "Photographer / Filmmaker / Cinematographer",
-    "location": "Aotearoa New Zealand",
+    "location": "Christchurch · Aotearoa NZ",
     "availability": "Booking shoots now",
     "heroImage": "",
     "email": "mosiacscope@gmail.com",
@@ -29,11 +29,6 @@
       "label": "Threads",
       "handle": "@mosaicscope",
       "url": "https://www.threads.net/@mosaicscope"
-    },
-    {
-      "label": "Zora",
-      "handle": "@mscope",
-      "url": "https://zora.co/@mscope"
     },
     {
       "label": "SoundCloud",
@@ -188,29 +183,87 @@
   "rates": [
     {
       "title": "Photoshoot",
-      "price": "$20",
+      "price": "$40",
       "unit": "per shoot",
       "detail": "Unedited. The best frames straight off the camera, full resolution."
     },
     {
       "title": "Photoshoot + edits",
-      "price": "$40",
+      "price": "$80",
       "unit": "per shoot",
       "detail": "Picked and edited in Lightroom, delivered full resolution."
     },
     {
       "title": "Music video shoot",
-      "price": "$50",
+      "price": "$100",
       "unit": "per shoot",
       "detail": "Filmed in 4K or 1080p. All the raw footage handed over."
     },
     {
       "title": "Music video edit",
-      "price": "$120",
+      "price": "$220",
       "unit": "per video",
       "detail": "Full edit and colour grade, up to 3 minutes. Exported in 1080p or 4K."
     }
   ],
   "ratesNote": "Booking? Send a few reference pics so I know the vibe.",
-  "kit": "Panasonic GH5 · Nikon D750 · Nikon D5100 · Tripods · Lighting"
+  "booking": {
+    "steps": [
+      {
+        "title": "Hit me up",
+        "text": "Use the form or email. Tell me the idea, the date and send a few reference pics."
+      },
+      {
+        "title": "Lock it in",
+        "text": "Full payment secures your date. Bank transfer, PayPal or cash."
+      },
+      {
+        "title": "Shoot day",
+        "text": "I bring the camera, tripods and lights. You bring the vibe."
+      },
+      {
+        "title": "Delivery",
+        "text": "Photos within a week. Music video edits within two weeks."
+      }
+    ],
+    "terms": [
+      "Based in Christchurch, shooting across Canterbury. Further out by arrangement.",
+      "Free to post anywhere. Just tag @mosaicscope.",
+      "Prices in NZD."
+    ]
+  },
+  "gear": [
+    {
+      "group": "Cameras",
+      "items": [
+        "Panasonic GH5",
+        "Nikon D750",
+        "Nikon D700",
+        "Nikon D5100"
+      ]
+    },
+    {
+      "group": "On the move",
+      "items": [
+        "iPhone 17 Pro Max",
+        "Phone gimbal"
+      ]
+    },
+    {
+      "group": "Glass",
+      "items": [
+        "A bag of lenses for whatever the shoot needs"
+      ]
+    },
+    {
+      "group": "Support & light",
+      "items": [
+        "Tripods",
+        "Lighting"
+      ]
+    }
+  ],
+  "gearNote": "Nothing crazy. Just the stuff that gets it done.",
+  "beforeAfter": [],
+  "featuredPosts": []
 }

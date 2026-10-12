@@ -260,7 +260,7 @@
     var site = data.site || {};
     $$("[data-bind]").forEach(function (el) {
       var k = el.getAttribute("data-bind");
-      var v = (k === "servicesNote" || k === "ratesNote" || k === "kit") ? data[k] : site[k];
+      var v = (k === "servicesNote" || k === "ratesNote" || k === "gearNote") ? data[k] : site[k];
       if (v) el.textContent = v;
     });
     if (site.name) document.title = site.name;
@@ -278,6 +278,46 @@
           '<span class="rate__price">' + esc(r.price) + (r.unit ? '<small class="mono">' + esc(r.unit) + "</small>" : "") + "</span></li>";
       }).join("");
       $("#rates").hidden = !(data.rates || []).length;
+    }
+
+    // booking steps + fine print
+    var st = $("#steps");
+    if (st) {
+      var b = data.booking || {};
+      st.innerHTML = (b.steps || []).map(function (x, i) {
+        return '<li class="step"><span class="step__no mono">' + String(i + 1).padStart(2, "0") + '</span><strong>' + esc(x.title) + "</strong><p>" + esc(x.text) + "</p></li>";
+      }).join("");
+      $("#terms").innerHTML = (b.terms || []).map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("");
+      $("#booking").hidden = !(b.steps || []).length;
+    }
+
+    // gear
+    var kg = $("#kit-grid");
+    if (kg) {
+      kg.innerHTML = (data.gear || []).map(function (g) {
+        return '<div class="kit__group"><p class="kit__label mono">' + esc(g.group) + "</p><ul>" +
+          (g.items || []).map(function (it) { return "<li>" + esc(it) + "</li>"; }).join("") + "</ul></div>";
+      }).join("");
+      $("#kit").hidden = !(data.gear || []).length;
+    }
+
+    // raw vs edited sliders
+    var gl = $("#grade-list");
+    var pairs = (data.beforeAfter || []).filter(function (p) { return p && p.before && p.after; });
+    if (gl && pairs.length) {
+      $("#grade").hidden = false;
+      gl.innerHTML = pairs.map(function (p, i) {
+        return '<figure class="ba" style="--pos:50%">' +
+          '<img class="ba__after" src="' + esc(p.after) + '" alt="Edited: ' + esc(p.caption || "") + '" loading="lazy">' +
+          '<img class="ba__before" src="' + esc(p.before) + '" alt="Raw: ' + esc(p.caption || "") + '" loading="lazy">' +
+          '<span class="ba__tag ba__tag--l mono">Raw</span><span class="ba__tag ba__tag--r mono">Lightroom</span>' +
+          '<span class="ba__handle" aria-hidden="true"></span>' +
+          '<input class="ba__range" type="range" min="0" max="100" value="50" aria-label="Compare raw and edited photo ' + (i + 1) + '">' +
+          (p.caption ? '<figcaption class="mono">' + esc(p.caption) + "</figcaption>" : "") + "</figure>";
+      }).join("");
+      $$(".ba__range", gl).forEach(function (r) {
+        r.addEventListener("input", function () { r.parentNode.style.setProperty("--pos", r.value + "%"); });
+      });
     }
 
     // services
@@ -676,7 +716,11 @@
   // Fill empty "Selected work" placeholders with real Instagram photos until real projects are added.
   function fillWorkFromInstagram(data, posts) {
     if (!Array.isArray(posts) || (data.site || {}).instagramFillsWork === false) return false;
-    var pool = posts.slice();
+    var featured = ((data.site && data.featuredPosts) || data.featuredPosts || []).map(function (l) { return String(l).split("?")[0].replace(/\/$/, ""); });
+    var pool = posts.slice().sort(function (a, b) {
+      var fa = featured.indexOf(String(a.link || "").split("?")[0].replace(/\/$/, "")), fb = featured.indexOf(String(b.link || "").split("?")[0].replace(/\/$/, ""));
+      return (fa < 0 ? 999 : fa) - (fb < 0 ? 999 : fb);
+    });
     var k = pool.length >= 16 ? 8 : 0, changed = false;
     var shapes = ["tall", "wide", "square", "tall", "wide", "tall", "square", "tall"];
     var projects = data.projects || [];

@@ -735,3 +735,53 @@ html.has-lens .board, html.has-lens .board * { cursor: none !important; }
   .rate { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .rate__price { justify-items: start; grid-auto-flow: column; align-items: baseline; gap: 10px; font-size: 2.4rem; }
 }
+
+/* ================= Round 9: finish ================= */
+
+/* Hero calls to action */
+.hero__cta { display: flex; flex-wrap: wrap; gap: 10px; }
+.cta {
+  display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+  font: 900 1rem/1 var(--f-display); text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 14px 20px; border: 1px solid rgba(238, 228, 211, 0.6); color: var(--paper);
+  background: rgba(14, 11, 10, 0.35); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  transition: background .4s var(--ease), color .4s var(--ease), border-color .4s var(--ease);
+}
+.cta:hover { border-color: var(--paper); background: rgba(238, 228, 211, 0.12); }
+.cta--solid { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.cta--solid:hover { background: var(--acid); border-color: var(--acid); color: var(--ink); }
+
+/* How booking works */
+.booking { padding: clamp(32px, 5vw, 72px) var(--gut) clamp(48px, 7vw, 96px); }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.step { background: var(--ink); padding: clamp(18px, 2.4vw, 28px); display: grid; gap: 10px; align-content: start; min-width: 0; }
+.step__no { color: var(--sodium); }
+.step strong { font: 900 clamp(1.3rem, 2.4vw, 1.8rem)/1 var(--f-display); text-transform: uppercase; }
+.step p { margin: 0; color: var(--dim); max-width: 34ch; }
+.terms { list-style: none; margin: clamp(18px, 2.4vw, 28px) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 28px; color: var(--dim); text-transform: none; letter-spacing: 0.01em; }
+.terms li::before { content: "— "; color: var(--red); }
+
+/* Raw vs edited slider */
+.grade { padding: clamp(32px, 5vw, 72px) var(--gut); }
+.grade__list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 24px; }
+.ba { position: relative; margin: 0; overflow: hidden; background: var(--ink-2); user-select: none; }
+.ba img { display: block; width: 100%; height: auto; }
+.ba__before { position: absolute; inset: 0; height: 100%; object-fit: cover; clip-path: inset(0 calc(100% - var(--pos)) 0 0); }
+.ba__handle { position: absolute; top: 0; bottom: 0; left: var(--pos); width: 2px; margin-left: -1px; background: var(--paper); pointer-events: none; }
+.ba__handle::after { content: "⇄"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 36px; height: 36px; border-radius: 50%; background: var(--paper); color: var(--ink); display: grid; place-items: center; font-size: 14px; }
+.ba__range { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: ew-resize; margin: 0; }
+.ba__tag { position: absolute; top: 10px; padding: 4px 6px; background: rgba(14, 11, 10, 0.72); color: var(--paper); font-size: 10px; pointer-events: none; }
+.ba__tag--l { left: 10px; } .ba__tag--r { right: 10px; }
+.ba figcaption { padding-top: 8px; color: var(--dim); text-transform: none; }
+
+/* Gear */
+.kit { padding: clamp(48px, 7vw, 96px) var(--gut); }
+.kit__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: clamp(20px, 3vw, 40px); }
+.kit__group { border-top: 1px solid var(--line); padding-top: 14px; min-width: 0; }
+.kit__label { margin: 0 0 10px; color: var(--dim); }
+.kit__group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.kit__group li { font: italic 400 clamp(1.3rem, 2.2vw, 1.8rem)/1.15 var(--f-serif); }
+.kit__group:first-child li { font: 900 clamp(1.3rem, 2.2vw, 1.8rem)/1.1 var(--f-display); text-transform: uppercase; font-style: normal; }
+.kit__note { margin: clamp(20px, 3vw, 32px) 0 0; color: var(--dim); }
+.rates__kit a { color: var(--paper); text-underline-offset: 4px; }
+.rates__kit a:hover { color: var(--acid); }

@@ -4,15 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>MosaicScope</title>
-<meta name="description" content="MosaicScope: photography, film and cinematography by Chris Jacob, Aotearoa New Zealand.">
+<meta name="description" content="MosaicScope: photography and music videos by Chris Jacob in Christchurch. Artists, raves, car meets, skate. Rates from $40.">
 <meta name="theme-color" content="#0e0b0a">
 <meta property="og:type" content="website">
 <meta property="og:title" content="MosaicScope · Chris Jacob">
 <meta property="og:description" content="Photography, film and cinematography by Chris Jacob. Artists, music videos, events, cars, skate and street. Aotearoa New Zealand.">
 <meta property="og:url" content="https://mosaicscope.pages.dev/">
 <meta name="twitter:card" content="summary_large_image">
+<meta property="og:image" content="https://mosaicscope.pages.dev/og.jpg">
+<meta name="twitter:image" content="https://mosaicscope.pages.dev/og.jpg">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Crect width='30' height='30' fill='%230e0b0a'/%3E%3Crect x='3' y='3' width='14' height='9' fill='%23ec2a1c'/%3E%3Crect x='19' y='3' width='8' height='14' fill='%23f6b62c'/%3E%3Crect x='3' y='14' width='9' height='13' fill='%23eee4d3'/%3E%3Crect x='14' y='19' width='13' height='8' fill='%23c6ff3d'/%3E%3C/svg%3E">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"Person","name":"Chris Jacob","jobTitle":"Photographer, filmmaker and cinematographer","brand":{"@type":"Brand","name":"MosaicScope"},"url":"https://mosaicscope.pages.dev/","sameAs":["https://www.instagram.com/mosaicscope/","https://www.threads.net/@mosaicscope"],"address":{"@type":"PostalAddress","addressCountry":"NZ"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Person","name":"Chris Jacob","jobTitle":"Photographer, filmmaker and cinematographer","brand":{"@type":"Brand","name":"MosaicScope"},"url":"https://mosaicscope.pages.dev/","sameAs":["https://www.instagram.com/mosaicscope/","https://www.youtube.com/@mosaicscope","https://www.threads.net/@mosaicscope"],"address":{"@type":"PostalAddress","addressLocality":"Christchurch","addressRegion":"Canterbury","addressCountry":"NZ"},"areaServed":"Canterbury, New Zealand"}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@100..900&family=Instrument+Serif:ital@0;1&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -37,7 +39,7 @@
     <a href="#work">Work</a>
     <a href="#rates">Rates</a>
     <a href="#instagram">Instagram</a>
-    <a href="#services">Commissions</a>
+    <a href="#kit">Kit</a>
   </nav>
   <div class="bar__end">
     <span class="tc mono" id="tc" aria-hidden="true">00:00:00:00</span>
@@ -66,6 +68,10 @@
           <span class="wm__slice"><span class="wm__a">Mosaic</span><span class="wm__b">scope</span></span>
         </span>
       </h1>
+      <div class="hero__cta">
+        <a class="cta cta--solid" href="#contact">Book a shoot</a>
+        <a class="cta" href="#rates">See rates</a>
+      </div>
       <div class="hero__foot">
         <p class="hero__who"><strong data-bind="owner">Chris Jacob</strong><span data-bind="roles">Photographer / Filmmaker / Cinematographer</span></p>
         <p class="hero__where mono"><a class="hero__plate" id="hero-plate" href="#" target="_blank" rel="noopener" hidden></a><span data-bind="location">Aotearoa New Zealand</span><a href="#work" class="scrollcue">Scroll to the work <span aria-hidden="true">↓</span></a></p>
@@ -80,11 +86,26 @@
     </div>
     <ul class="rates__list" id="rates-list"></ul>
     <div class="rates__foot">
-      <p class="rates__kit mono"><span class="rates__kit-label">Kit</span> <span data-bind="kit">Panasonic GH5 · Nikon D750 · Nikon D5100 · Tripods · Lighting</span></p>
+      <p class="rates__kit mono"><a href="#kit">What I shoot with ↓</a></p>
       <p class="rates__note"><span data-bind="ratesNote">Booking? Send a few reference pics so I know the vibe.</span> <a href="#contact">Book a shoot ↓</a></p>
     </div>
   </section>
 
+
+  <section class="booking" id="booking" aria-labelledby="booking-h">
+    <div class="sechead">
+      <h2 id="booking-h"><span class="mono sechead__no">→</span><span class="scramble">How booking works</span></h2>
+    </div>
+    <ol class="steps" id="steps"></ol>
+    <ul class="terms mono" id="terms"></ul>
+  </section>
+
+  <section class="grade" id="grade" aria-labelledby="grade-h" hidden>
+    <div class="sechead">
+      <h2 id="grade-h"><span class="mono sechead__no">⇄</span><span class="scramble">Raw vs edited</span> <em>drag to compare</em></h2>
+    </div>
+    <div class="grade__list" id="grade-list"></div>
+  </section>
 
   <div class="marquee" aria-hidden="true"><div class="marquee__track" id="marquee"></div></div>
 
@@ -122,6 +143,14 @@
     </div>
     <div class="services__grid" id="services-grid"></div>
     <p class="services__note" data-bind="servicesNote"></p>
+  </section>
+
+  <section class="kit" id="kit" aria-labelledby="kit-h">
+    <div class="sechead">
+      <h2 id="kit-h"><span class="mono sechead__no">D</span><span class="scramble">What I shoot with</span></h2>
+    </div>
+    <div class="kit__grid" id="kit-grid"></div>
+    <p class="kit__note" data-bind="gearNote">Nothing crazy. Just the stuff that gets it done.</p>
   </section>
 
   <section class="contact" id="contact" aria-labelledby="contact-h">
