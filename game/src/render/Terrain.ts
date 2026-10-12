@@ -111,6 +111,26 @@ function detail(g: CanvasRenderingContext2D, t: number, sx: number, sy: number, 
       if (horizontal && ty % P === 0) { g.moveTo(sx - hw, sy + hh); g.lineTo(sx, sy + TILE_H); }
       if (vertical && tx % P === 0) { g.moveTo(sx + hw, sy + hh); g.lineTo(sx, sy + TILE_H); }
       g.stroke(); g.setLineDash([]);
+      const a = (u: number, v: number) => [sx + (u - v) * hw, sy + (u + v) * hh];
+      const quad = (q: number[][], col: string) => { g.fillStyle = col; g.beginPath(); g.moveTo(q[0][0], q[0][1]); for (let k = 1; k < q.length; k++) g.lineTo(q[k][0], q[k][1]); g.closePath(); g.fill(); };
+      // worn patches and repairs, manhole covers
+      if (n < 0.12) quad([a(0.1, 0.2), a(0.7, 0.15), a(0.8, 0.7), a(0.2, 0.8)], n < 0.06 ? "rgba(0,0,0,.14)" : "rgba(255,255,255,.035)");
+      else if (n < 0.16) { const c = a(0.5, 0.5); g.fillStyle = "rgba(90,85,80,.5)"; g.beginPath(); g.ellipse(c[0], c[1], hw * 0.22, hh * 0.22, 0, 0, 6.283); g.fill(); g.strokeStyle = "rgba(0,0,0,.35)"; g.lineWidth = 1; g.stroke(); }
+      // solid white edge line along the kerb side of each lane
+      g.strokeStyle = "rgba(238,228,211,.35)"; g.lineWidth = 1.2; g.beginPath();
+      if (horizontal) { const v = ty % P === 0 ? 0.08 : 0.92; const A = a(0, v), B = a(1, v); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); }
+      if (vertical) { const u = tx % P === 0 ? 0.08 : 0.92; const A = a(u, 0), B = a(u, 1); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); }
+      g.stroke();
+      // painted arrows a few tiles before each intersection, in the direction of travel (left-hand traffic)
+      const along = horizontal ? tx % P : ty % P;
+      if ((horizontal || vertical) && (along === 5 || along === 12)) {
+        const dx = horizontal ? (ty % P === 0 ? 1 : -1) : 0, dy = vertical ? (tx % P === 0 ? -1 : 1) : 0;
+        const c = [0.5, 0.5], tip = [c[0] + dx * 0.32, c[1] + dy * 0.32], tail = [c[0] - dx * 0.32, c[1] - dy * 0.32];
+        const px = -dy * 0.14, py = dx * 0.14;
+        g.strokeStyle = "rgba(238,228,211,.5)"; g.lineWidth = 2; g.beginPath();
+        const T0 = a(tail[0], tail[1]), T1 = a(tip[0], tip[1]), L = a(tip[0] - dx * 0.16 + px, tip[1] - dy * 0.16 + py), R = a(tip[0] - dx * 0.16 - px, tip[1] - dy * 0.16 - py);
+        g.moveTo(T0[0], T0[1]); g.lineTo(T1[0], T1[1]); g.moveTo(L[0], L[1]); g.lineTo(T1[0], T1[1]); g.lineTo(R[0], R[1]); g.stroke();
+      }
       break;
     }
     case T.CROSSWALK: {

@@ -400,6 +400,21 @@ export class Simulation {
   carsToReclaim: { v: number; c: number; at: number }[] = [];
   private abandoned = new Map<number, number>();
 
+  /** Move a car to a clear stretch of road far from the camera (towing, gridlock). */
+  relocateCar(v: Vehicle, drv: Character | null): void {
+    const lines = Math.floor((this.world.size - 2) / this.world.period);
+    for (let tries = 0; tries < 30; tries++) {
+      const dir = this.rng.int(0, 3), line = this.rng.int(0, lines), along = this.rng.range(4, this.world.size - 4);
+      if (this.world.isRoadLine(Math.floor(along))) continue;
+      const P = this.world.period;
+      const x = dir % 2 === 0 ? along : line * P + (dir === 1 ? 1.5 : 0.5), y = dir % 2 === 0 ? line * P + (dir === 0 ? 0.5 : 1.5) : along;
+      if (Math.hypot(x - this.focus.x, y - this.focus.y) < 25 || this.vehicles.some((o) => o !== v && Math.hypot(o.x - x, o.y - y) < 3)) continue;
+      v.x = v.px = x; v.y = v.py = y; v.dir = dir; v.heading = dir * Math.PI / 2; v.speed = 0; v.damage = 0; v.nextDir = -1; v.state = "drive"; v.stuck = 0;
+      if (drv) { if (drv.inCar >= 0 && drv.inCar !== v.id) continue; drv.inCar = v.id; v.driver = drv.id; drv.goal = null; } else v.state = "parked";
+      return;
+    }
+  }
+
   /** Police dispatch for the wanted player, cops leaving cars to chase on foot, wanted-level decay. */
   private policeTick(): void {
     const p = this.player;
@@ -417,16 +432,13 @@ export class Simulation {
       this.abandoned.delete(v.id);
       this.emit({ type: "towed", x: v.x, y: v.y, summary: `A tow truck took away the ${VEHICLES[v.cls].name.toLowerCase()} (${v.plate}) blocking the road` });
       const drv = this.chars.find((c) => c.tier === "background" && c.inCar < 0 && c.inside < 0 && c.lod >= Lod.BACKGROUND);
-      // respawn it on a clear stretch of road far from the camera
-      for (let tries = 0; tries < 20; tries++) {
-        const dir = this.rng.int(0, 3), line = this.rng.int(0, 6), along = this.rng.range(4, this.world.size - 4);
-        if (this.world.isRoadLine(Math.floor(along))) continue;
-        const x = dir % 2 === 0 ? along : line * 16 + (dir === 1 ? 1.5 : 0.5), y = dir % 2 === 0 ? line * 16 + (dir === 0 ? 0.5 : 1.5) : along;
-        if (Math.hypot(x - this.focus.x, y - this.focus.y) < 25 || this.vehicles.some((o) => o !== v && Math.hypot(o.x - x, o.y - y) < 3)) continue;
-        v.x = v.px = x; v.y = v.py = y; v.dir = dir; v.heading = dir * Math.PI / 2; v.speed = 0; v.damage = 0; v.nextDir = -1; v.state = "drive";
-        if (drv) { drv.inCar = v.id; v.driver = drv.id; drv.goal = null; } else v.state = "parked";
-        break;
-      }
+      this.relocateCar(v, drv ?? null);
+    }
+    // gridlock breaker: a stuck traffic car quietly rejoins traffic somewhere else (off-camera first)
+    for (const v of this.vehicles) {
+      if (v.state !== "drive" || v.siren || this.player.inCar === v.id || v.driver < 0) continue;
+      const far = Math.hypot(v.x - this.focus.x, v.y - this.focus.y) > 18;
+      if (v.stuck > (far ? 6 : 18)) this.relocateCar(v, this.chars[v.driver]);
     }
     // cops in pursuing cars bail out near a suspect on foot
     for (const v of this.vehicles) {
@@ -439,7 +451,7 @@ export class Simulation {
     if (p.wanted > 0) {
       // keep enough officers on the case
       const on = this.chars.filter((c) => c.role === "cop" && c.pursuing === p.id).length;
-      if (on < Math.min(6, p.wanted + 1)) {
+      if (on < Math.min(4, p.wanted)) {
         const free = this.chars.filter((c) => c.role === "cop" && c.pursuing < 0 && c.jailUntil === 0 && c.phys === Phys.OK).sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0];
         if (free) {
           free.pursuing = p.id;
@@ -448,8 +460,8 @@ export class Simulation {
         }
       }
       // seen?
-      for (const c of this.chars) if (c.role === "cop" && c.inside < 0 && Math.hypot(c.x - p.x, c.y - p.y) < 14 && this.world.lineOfSight(c.x, c.y, p.x, p.y)) { this.lastSeenByCops = this.tick; break; }
-      if (this.tick - this.lastSeenByCops > 60 * 25) {
+      for (const c of this.chars) if (c.role === "cop" && c.inside < 0 && Math.hypot(c.x - p.x, c.y - p.y) < 10 && this.world.lineOfSight(c.x, c.y, p.x, p.y)) { this.lastSeenByCops = this.tick; break; }
+      if (this.tick - this.lastSeenByCops > 60 * 12) {
         p.wanted = Math.max(0, p.wanted - 1); this.lastSeenByCops = this.tick;
         this.emit({ type: "wanted", x: p.x, y: p.y, actors: [p.id], data: { stars: p.wanted }, summary: p.wanted ? `The police are losing your trail (${p.wanted}★)` : "The police lost you. Wanted level cleared." });
         if (!p.wanted) for (const c of this.chars) if (c.pursuing === p.id) { c.pursuing = -1; c.goal = null; }

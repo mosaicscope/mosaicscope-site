@@ -11,8 +11,8 @@ import { h } from "./dom";
 const COL: Record<number, string> = { [T.GRASS]: "#24341f", [T.WATER]: "#1d4a63", [T.TREE]: "#1d2a18", [T.PARKING]: "#2a2826", [T.BUILDING]: "#4a4440", [T.ROAD]: "#14110f", [T.CROSSWALK]: "#14110f", [T.SIDEWALK]: "#6a625a", [T.PATH]: "#3a3428", [T.SAND]: "#4a4030", [T.COURT]: "#2a3a4a" };
 
 /** Real longitudes / latitudes of the game's street lines (west->east, north->south). */
-const LON = [172.6155, 172.6262, 172.6305, 172.6337, 172.6372, 172.6407, 172.6440];
-const LAT = [-43.5225, -43.5275, -43.5296, -43.5310, -43.5325, -43.5338, -43.5410];
+const LON = [172.6155, 172.6262, 172.6305, 172.6337, 172.6372, 172.6407, 172.6440, 172.6478, 172.6520];
+const LAT = [-43.5225, -43.5250, -43.5275, -43.5296, -43.5310, -43.5325, -43.5338, -43.5360, -43.5410];
 function lerpLine(arr: number[], c: number): number {
   const i = Math.max(0, Math.min(arr.length - 2, Math.floor(c / 16)));
   return arr[i] + (arr[i + 1] - arr[i]) * ((c - i * 16) / 16);
@@ -108,7 +108,7 @@ export class Minimap {
     const foot = this.big.querySelector(".bigmap-foot") as HTMLElement;
     if (this.osm) {
       // project the real lat/lon box of the Four Avenues onto the canvas
-      const lon0 = LON[0] - 0.002, lon1 = LON[6] + 0.004, lat0 = LAT[0] + 0.002, lat1 = LAT[6] - 0.002;
+      const lon0 = LON[0] - 0.002, lon1 = LON[LON.length - 1] + 0.003, lat0 = LAT[0] + 0.002, lat1 = LAT[LAT.length - 1] - 0.002;
       const kx = W / (lon1 - lon0), ky = W / (lat1 - lat0) * 0.72;
       const P = (lat: number, lon: number) => [(lon - lon0) * kx, (lat - lat0) * ky + W * 0.12];
       for (const way of this.osm.ways) {

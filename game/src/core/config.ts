@@ -28,14 +28,14 @@ export interface SimConfig {
 
 export const DEFAULT_CONFIG: SimConfig = {
   seed: 20251012,
-  worldSize: 98,
-  midCount: 110,
-  backgroundCount: 440,
+  worldSize: 130,
+  midCount: 150,
+  backgroundCount: 620,
   eventsPerTick: 12,
   eventQueueCap: 256,
   maxCausalDepth: 5,
   pathsPerTick: 6,
-  pathNodeBudget: 9000,
+  pathNodeBudget: 14000,
   maxImpulse: 9,
   lodFull: 16,
   lodReduced: 28,
@@ -44,7 +44,7 @@ export const DEFAULT_CONFIG: SimConfig = {
   maxParticles: 700,
   maxToys: 320,
   /** cars driving around the city */
-  trafficCars: 34,
+  trafficCars: 40,
 };
 
 export interface FeatureFlags {

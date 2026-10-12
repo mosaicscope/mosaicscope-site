@@ -15,7 +15,7 @@ export const OPAQUE = new Set<number>([T.WALL, T.TREE, T.STALL, T.BUILDING]);
 /** Tiles cars may drive on. */
 export const DRIVABLE = new Set<number>([T.ROAD, T.CROSSWALK, T.PARKING]);
 /** Pathfinding cost per tile (people prefer sidewalks and crossings to walking down the road). */
-export const WALK_COST: Record<number, number> = { [T.ROAD]: 8, [T.PARKING]: 1.5 };
+export const WALK_COST: Record<number, number> = { [T.ROAD]: 30, [T.PARKING]: 1.5 }; // jaywalking is a last resort: crosswalks are cheap
 /** Decoration that the generator may remove to keep the world connected. */
 export const DECOR = new Set<number>([T.TREE, T.HEDGE, T.STALL, T.CRATE]);
 /** Visual heights for rendering blocks. */

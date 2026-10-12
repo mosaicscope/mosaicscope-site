@@ -4,7 +4,7 @@
 // The Mosaics' world (/world/) draws its full-screen map (M) from this. No key needed.
 // Data © OpenStreetMap contributors, available under the Open Database Licence (ODbL).
 
-const BBOX = "-43.5440,172.6100,-43.5190,172.6480"; // south,west,north,east
+const BBOX = "-43.5440,172.6100,-43.5190,172.6560"; // south,west,north,east
 const QUERY = `[out:json][timeout:25];(
   way["highway"~"^(primary|secondary|tertiary|residential|unclassified|pedestrian)$"](${BBOX});
   way["waterway"="river"](${BBOX});
