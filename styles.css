@@ -78,6 +78,30 @@ h1, h2, h3 { text-wrap: balance; margin: 0; }
 }
 .enquire:hover { background: #fff; color: #000; }
 
+
+/* ---------- Film leader intro (first visit per session) ---------- */
+.leader {
+  position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; align-content: center; gap: 24px;
+  background: radial-gradient(70% 70% at 50% 50%, #2a2320 0%, var(--ink) 70%);
+  color: var(--paper); cursor: pointer;
+  transition: opacity .5s var(--ease), transform .6s var(--ease);
+}
+.leader.is-out { opacity: 0; transform: scale(1.08); pointer-events: none; }
+.leader__frame { position: relative; width: min(56vmin, 340px); aspect-ratio: 1; display: grid; place-items: center; }
+.leader__ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.leader__ring circle { fill: none; stroke: rgba(238, 228, 211, 0.25); stroke-width: 2; }
+.leader__ring .leader__sweep { stroke: var(--red); stroke-width: 86; stroke-dasharray: 271; stroke-dashoffset: 271; opacity: 0.35; }
+.leader.is-tick .leader__sweep { animation: sweep .45s linear forwards; }
+@keyframes sweep { to { stroke-dashoffset: 0; } }
+.leader__cross { position: absolute; background: rgba(238, 228, 211, 0.35); }
+.leader__cross--h { left: -12%; right: -12%; height: 1px; top: 50%; }
+.leader__cross--v { top: -12%; bottom: -12%; width: 1px; left: 50%; }
+.leader__num { position: relative; font: 900 clamp(7rem, 30vmin, 14rem)/1 var(--f-display); }
+.leader__skip { margin: 0; color: var(--dim); }
+
+/* ---------- Timecode ---------- */
+.tc { font-variant-numeric: tabular-nums; opacity: 0.85; }
+
 /* ---------- Hero ---------- */
 .hero {
   position: relative; min-height: min(100svh, 980px);
@@ -393,6 +417,7 @@ audio { width: 100%; max-width: 640px; }
 
 /* ---------- Small screens ---------- */
 @media (max-width: 720px) {
+  .tc { display: none; }
   .slide__mount { padding: 10%; }
   .bar__nav { display: none; }
   .sound__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

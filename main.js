@@ -244,11 +244,15 @@
     function useFallback(src) {
       canvas.style.display = "none";
       fallback.style.backgroundImage = "url('" + src + "')";
+      return {
+        setImage: function (u) { fallback.style.backgroundImage = "url('" + u + "')"; $("#hero-note").hidden = true; },
+        restart: function () {}
+      };
     }
 
     var gl = null;
     try { gl = canvas.getContext("webgl", { antialias: false, alpha: false }) || canvas.getContext("experimental-webgl"); } catch (e) { gl = null; }
-    if (!gl) { useFallback(hasReal ? site.heroImage : plate.toDataURL("image/jpeg", 0.85)); return; }
+    if (!gl) return useFallback(hasReal ? site.heroImage : plate.toDataURL("image/jpeg", 0.85));
 
     function sh(type, src) {
       var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
@@ -262,7 +266,7 @@
       gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
       gl.linkProgram(prog);
       if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error("link");
-    } catch (e) { useFallback(hasReal ? site.heroImage : plate.toDataURL("image/jpeg", 0.85)); return; }
+    } catch (e) { return useFallback(hasReal ? site.heroImage : plate.toDataURL("image/jpeg", 0.85)); }
     gl.useProgram(prog);
 
     var buf = gl.createBuffer();
@@ -284,14 +288,21 @@
       imgSize = [src.naturalWidth || src.width, src.naturalHeight || src.height];
     }
     upload(plate);
-    if (hasReal) {
+    // Load a real photo into the mosaic. Images from other sites need CORS; if refused, the plate stays.
+    function setImage(src, reassemble) {
       var im = new Image();
+      im.crossOrigin = "anonymous";
       im.onload = function () {
-        try { upload(im); $("#hero-note").hidden = true; } catch (e) { /* keep plate */ }
+        try {
+          upload(im);
+          $("#hero-note").hidden = true;
+          if (reassemble && !reduceMotion) start = performance.now();
+        } catch (e) { upload(plate); }
         if (!running) draw(performance.now());
       };
-      im.src = site.heroImage;
+      im.src = src;
     }
+    if (hasReal) setImage(site.heroImage);
 
     var U = {};
     ["res", "img", "time", "assemble", "scroll", "mouse", "t"].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
@@ -344,6 +355,10 @@
       target = [(e.clientX - r.left) / r.width, 1 - (e.clientY - r.top) / r.height];
     });
     hero.addEventListener("pointerleave", function () { target = [0.5, 0.45]; });
+    return {
+      setImage: setImage,
+      restart: function () { start = performance.now(); if (!running) draw(start); kick(); }
+    };
   }
 
   /* ---------------- Wordmark ---------------- */
@@ -443,12 +458,22 @@
     }).filter(function (p) { return p.img; });
   }
 
+  // Each visitor's browser keeps the feed for 6 hours, so repeat visits don't use up Behold's free monthly views.
   function loadInstagram(site) {
     if (!site.beholdFeed) return Promise.resolve(null);
+    var KEY = "ms-ig:" + site.beholdFeed, TTL = 6 * 3600 * 1000;
+    try {
+      var cached = JSON.parse(localStorage.getItem(KEY) || "null");
+      if (cached && Date.now() - cached.t < TTL && Array.isArray(cached.posts)) return Promise.resolve(cached.posts);
+    } catch (e) { /* no storage, fetch instead */ }
     return fetch(site.beholdFeed).then(function (r) {
       if (!r.ok) throw new Error("feed");
       return r.json();
-    }).then(normalizePosts).catch(function () { return "error"; });
+    }).then(function (json) {
+      var posts = normalizePosts(json);
+      try { localStorage.setItem(KEY, JSON.stringify({ t: Date.now(), posts: posts })); } catch (e) { /* ignore */ }
+      return posts;
+    }).catch(function () { return "error"; });
   }
 
   function firstLine(cap) {
@@ -777,6 +802,55 @@
     }
   }
 
+  /* ---------------- Film leader intro ----------------
+     A 3-2-1 countdown on the first visit of a session. Click, key or scroll skips it. */
+  function runLeader() {
+    var el = $("#leader");
+    var seen = false;
+    try { seen = sessionStorage.getItem("ms-leader") === "1"; } catch (e) { seen = false; }
+    if (!el || reduceMotion || seen) return Promise.resolve();
+    try { sessionStorage.setItem("ms-leader", "1"); } catch (e) { /* ignore */ }
+    el.hidden = false;
+    var num = $("#leader-num");
+    return new Promise(function (resolve) {
+      var n = 3, timer = null, done = false;
+      function finish() {
+        if (done) return; done = true;
+        clearTimeout(timer);
+        el.classList.add("is-out");
+        setTimeout(function () { el.hidden = true; }, 600);
+        ["click", "keydown", "wheel", "touchstart"].forEach(function (ev) { window.removeEventListener(ev, finish); });
+        resolve();
+      }
+      function tick() {
+        if (n === 0) return finish();
+        num.textContent = n;
+        el.classList.remove("is-tick"); void el.offsetWidth; el.classList.add("is-tick");
+        n--;
+        timer = setTimeout(tick, 450);
+      }
+      ["click", "keydown", "wheel", "touchstart"].forEach(function (ev) { window.addEventListener(ev, finish, { passive: true }); });
+      tick();
+    });
+  }
+
+  /* ---------------- Timecode ----------------
+     The bar shows a film timecode that runs with the scroll: hours:minutes:seconds:frames at 24 fps. */
+  function initTimecode() {
+    var tc = $("#tc");
+    if (!tc) return;
+    var pad = function (v) { return String(v).padStart(2, "0"); };
+    var raf = 0;
+    function update() {
+      raf = 0;
+      var f = Math.round(window.scrollY / 6);
+      var ff = f % 24, s = Math.floor(f / 24), mm = Math.floor(s / 60), hh = Math.floor(mm / 60);
+      tc.textContent = pad(hh) + ":" + pad(mm % 60) + ":" + pad(s % 60) + ":" + pad(ff);
+    }
+    window.addEventListener("scroll", function () { if (!raf) raf = requestAnimationFrame(update); }, { passive: true });
+    update();
+  }
+
   /* ---------------- Bar ---------------- */
   function initBar() {
     var bar = $("#bar");
@@ -786,22 +860,29 @@
 
   /* ---------------- Boot ---------------- */
   loadContent().then(function (data) {
+    var site = data.site || {};
     render(data);
-    initHero(data.site || {});
-    initWordmark();
+    var hero = initHero(site) || { setImage: function () {}, restart: function () {} };
     initFilters();
     renderInstagram(null, data);
     initLoupe();
-    loadInstagram(data.site || {}).then(function (res) {
-      if (res === null) return;
-      renderInstagram(res, data);
-      if (fillWorkFromInstagram(data, res)) renderGallery(data);
-    });
     initViewer(data);
     initCursor();
     initSound();
-    initForm(data.site || {});
+    initForm(site);
     initBar();
+    initTimecode();
+    var leader = runLeader();
+    leader.then(function () { initWordmark(); hero.restart(); });
+    loadInstagram(site).then(function (res) {
+      if (res === null) return;
+      renderInstagram(res, data);
+      if (fillWorkFromInstagram(data, res)) renderGallery(data);
+      if (!site.heroImage && Array.isArray(res)) {
+        var firstPhoto = res.filter(function (p) { return !p.video; })[0];
+        if (firstPhoto) leader.then(function () { hero.setImage(firstPhoto.img, true); });
+      }
+    });
   }).catch(function (err) {
     console.error(err);
     var g = document.getElementById("gallery");

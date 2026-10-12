@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>MosaicScope</title>
 <meta name="description" content="MosaicScope: photography, film and cinematography by Chris Jacob, Aotearoa New Zealand.">
+<meta name="theme-color" content="#0e0b0a">
+<meta property="og:type" content="website">
+<meta property="og:title" content="MosaicScope · Chris Jacob">
+<meta property="og:description" content="Photography, film and cinematography by Chris Jacob. Artists, music videos, events, cars, skate and street. Aotearoa New Zealand.">
+<meta property="og:url" content="https://mosaicscope.pages.dev/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Crect width='30' height='30' fill='%230e0b0a'/%3E%3Crect x='3' y='3' width='14' height='9' fill='%23ec2a1c'/%3E%3Crect x='19' y='3' width='8' height='14' fill='%23f6b62c'/%3E%3Crect x='3' y='14' width='9' height='13' fill='%23eee4d3'/%3E%3Crect x='14' y='19' width='13' height='8' fill='%23c6ff3d'/%3E%3C/svg%3E">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Person","name":"Chris Jacob","jobTitle":"Photographer, filmmaker and cinematographer","brand":{"@type":"Brand","name":"MosaicScope"},"url":"https://mosaicscope.pages.dev/","sameAs":["https://www.instagram.com/mosaicscope/","https://www.threads.net/@mosaicscope"],"address":{"@type":"PostalAddress","addressCountry":"NZ"}}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=Instrument+Serif:ital@0;1&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -12,6 +20,14 @@
 </head>
 <body>
 <!--BODY-START-->
+<div class="leader" id="leader" aria-hidden="true" hidden>
+  <div class="leader__frame">
+    <svg class="leader__ring" viewBox="0 0 200 200"><circle cx="100" cy="100" r="86"/><circle class="leader__sweep" cx="100" cy="100" r="43"/></svg>
+    <span class="leader__cross leader__cross--h"></span><span class="leader__cross leader__cross--v"></span>
+    <span class="leader__num" id="leader-num">3</span>
+  </div>
+  <p class="leader__skip mono">Click to skip</p>
+</div>
 <a class="skip" href="#work">Skip to the work</a>
 
 <header class="bar" id="bar">
@@ -23,6 +39,7 @@
     <a href="#services">Commissions</a>
   </nav>
   <div class="bar__end">
+    <span class="tc mono" id="tc" aria-hidden="true">00:00:00:00</span>
     <button class="sound" id="sound" type="button" aria-pressed="false"><span class="sound__bars" aria-hidden="true"><i></i><i></i><i></i></span><span class="sound__label">Sound off</span></button>
     <a class="enquire" href="#contact">Enquire</a>
   </div>
