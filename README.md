@@ -8,7 +8,9 @@
 
 ## 🤫 Easter egg
 
-A little bandana raver lives in the black strip at the very bottom. Music off: he walks around, smokes, sits on his chair, cracks a beer. Music on: he goes off and drops cash. Click him to play/pause. He makes it rain when someone sends an enquiry.
+A crew of ten lives in the black strip at the very bottom: the bandana guy, his glam girl and eight friends. Music off: they walk, smoke, sit with a beer, scroll phones, take selfies, nap, do push-ups and more. Music on: they all rave (the worm, robot, shuffle, floss, moonwalk...). Click anyone to play/pause. They make it rain when someone sends an enquiry.
+
+**Easter egg stats:** open https://mosaicscope.pages.dev/api/egg to see how many people found the crew, how long they watched, how many clicked them, and how often they started the music (last 30 days).
 
 ## 🔧 Things you can fill in whenever
 
