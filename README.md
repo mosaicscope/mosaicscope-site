@@ -8,7 +8,7 @@
 
 ## 🤫 Easter egg
 
-The little bandana girl at the bottom left sleeps until the music plays, then dances and drops cash. Click her to play/pause. She makes it rain when someone sends an enquiry.
+A little bandana raver lives in the black strip at the very bottom. Music off: he walks around, smokes, sits on his chair, cracks a beer. Music on: he goes off and drops cash. Click him to play/pause. He makes it rain when someone sends an enquiry.
 
 ## 🔧 Things you can fill in whenever
 

@@ -254,6 +254,41 @@
 
 <footer class="foot">
   <p class="foot__mark" id="foot-mark" aria-label="MosaicScope"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><path class="mark__frame" d="M2 9V2h7M23 2h7v7M30 23v7h-7M9 30H2v-7" fill="none" stroke="currentColor" stroke-width="2.6"/><path class="mark__tile" d="M10.5 23V15.5M10.5 18.2c0-4.4 6-4.4 6 0V23M16.5 18.2c0-4.4 6-4.4 6 0V23" fill="none" stroke="#ec2a1c" stroke-width="2.8" stroke-linecap="square"/><rect class="mark__chip" x="23.6" y="8" width="3.6" height="3.6" fill="#f6b62c"/></svg><span class="vf" aria-hidden="true">Mosaic</span><i aria-hidden="true">scope</i></p>
+  <div class="stage" id="stage" aria-hidden="false">
+    <button class="raver is-chill" id="hype" type="button" aria-label="Play music" style="--x:40px">
+      <span class="raver__smoke" aria-hidden="true"><i></i><i></i><i></i></span>
+      <svg class="raver__fig" viewBox="0 0 100 140" aria-hidden="true">
+        <g class="rv__chair" fill="none" stroke="#9a8d80" stroke-width="3" stroke-linecap="round">
+          <path d="M28 104 H58 M30 104 L28 132 M56 104 L58 132 M30 104 L26 70"/>
+        </g>
+        <g class="rv" fill="none" stroke="#c6ff3d" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+          <g class="rv__legL"><path d="M50 82 L42 104 L40 124"/><path d="M34 126 h10" stroke="#ec2a1c" stroke-width="6"/></g>
+          <g class="rv__legR"><path d="M50 82 L58 104 L62 124"/><path d="M59 126 h10" stroke="#ec2a1c" stroke-width="6"/></g>
+          <g class="rv__top">
+            <path d="M50 40 L50 82"/>
+            <path d="M43 56 L57 56 L59 76 L41 76 Z" stroke-width="2.4"/>
+            <g class="rv__armL">
+              <path d="M50 47 L38 60 L34 72"/>
+              <rect class="rv__beer" x="30" y="70" width="7" height="11" rx="1.5" fill="#f6b62c" stroke="#f6b62c" stroke-width="1"/>
+            </g>
+            <g class="rv__armR">
+              <path d="M50 47 L62 60 L66 72"/>
+              <path class="rv__cig" d="M66 72 L73 70" stroke="#eee4d3" stroke-width="2"/>
+              <circle class="rv__cig" cx="73.5" cy="69.8" r="1.4" fill="#ec2a1c" stroke="none"/>
+              <path class="rv__gun" d="M66 72 L73 70 M66 72 L66 66" stroke-width="2.6"/>
+            </g>
+            <g class="rv__head">
+              <circle cx="50" cy="27" r="10.5"/>
+              <path d="M39.6 23 Q50 12 60.4 23 Z" fill="#ec2a1c" stroke="#ec2a1c" stroke-width="2"/>
+              <path d="M60 22 l7 -4 M60 22 l7 2" stroke="#ec2a1c" stroke-width="2.4"/>
+              <rect x="41.5" y="26" width="17" height="4.6" rx="1.5" fill="#c6ff3d" stroke="none"/>
+              <path d="M46 33.5 Q50 36 54 33.5" stroke-width="2"/>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </button>
+  </div>
   <p class="mono foot__meta"><span>© <span id="year"></span> <span data-bind="owner">Chris Jacob</span></span><span>All work shown is my own unless marked placeholder.</span></p>
 </footer>
 
@@ -290,39 +325,6 @@
   <a class="scp__out mono" id="scp-out" href="#" target="_blank" rel="noopener">Open on SoundCloud ↗</a>
 </div>
 <div class="loupe" id="loupe" aria-hidden="true"></div>
-<button class="hype" id="hype" type="button" aria-label="Play music" hidden>
-  <span class="hype__zz mono" aria-hidden="true"><i>z</i><i>z</i><i>z</i></span>
-  <svg class="hype__fig" viewBox="0 0 100 140" aria-hidden="true">
-    <g class="hg" fill="none" stroke="#c6ff3d" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
-      <g class="hg__legs">
-        <path class="hg__legL" d="M50 82 L41 103 L39 122"/>
-        <path class="hg__legR" d="M50 82 L59 103 L63 122"/>
-        <path class="hg__boot hg__legL" d="M33 124 h10" stroke="#ec2a1c" stroke-width="6"/>
-        <path class="hg__boot hg__legR" d="M60 124 h10" stroke="#ec2a1c" stroke-width="6"/>
-      </g>
-      <g class="hg__top">
-        <path d="M50 40 L50 82"/>
-        <path d="M43 58 L57 58 L60 82 L40 82 Z" stroke-width="2.6"/>
-        <g class="hg__armL">
-          <path d="M50 47 L37 60 L40 46"/>
-          <path d="M40 46 L44 38" stroke="#ec2a1c" stroke-width="3"/>
-          <circle cx="45" cy="36" r="2.6" fill="#ec2a1c" stroke="#ec2a1c"/>
-        </g>
-        <g class="hg__armR">
-          <path d="M50 47 L64 57 L77 49"/>
-          <path d="M77 49 L85 47 M77 49 L78 44" stroke-width="2.6"/>
-        </g>
-        <g class="hg__head">
-          <circle cx="50" cy="27" r="10.5"/>
-          <path d="M39.6 23 Q50 12 60.4 23 Z" fill="#ec2a1c" stroke="#ec2a1c" stroke-width="2"/>
-          <path d="M60 22 l7 -4 M60 22 l7 2" stroke="#ec2a1c" stroke-width="2.4"/>
-          <rect class="hg__shades" x="41.5" y="26" width="17" height="4.6" rx="1.5" fill="#c6ff3d" stroke="none"/>
-          <path class="hg__mouth" d="M46 33.5 Q50 36 54 33.5" stroke-width="2"/>
-        </g>
-      </g>
-    </g>
-  </svg>
-</button>
 <div class="cash" id="cash" aria-hidden="true"></div>
 <div class="lens" id="lens" aria-hidden="true"></div>
 <div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Photo viewer" hidden>

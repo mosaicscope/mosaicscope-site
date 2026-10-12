@@ -918,55 +918,6 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 .scp__range::-moz-range-thumb { width: 12px; height: 12px; background: var(--paper); border: 0; border-radius: 0; }
 .scp__range:focus-visible { outline: 2px solid var(--acid); outline-offset: 4px; }
 
-/* Hype girl */
-.hype {
-  position: fixed; left: max(10px, env(safe-area-inset-left, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 6px); z-index: 44;
-  width: 74px; height: 104px; padding: 0; border: 0; background: none; cursor: pointer; color: var(--acid);
-  filter: drop-shadow(0 0 10px rgba(198, 255, 61, 0.15));
-}
-.hype[hidden] { display: none !important; }
-.hype:focus-visible { outline: 2px solid var(--acid); outline-offset: 4px; }
-.hype__fig { width: 100%; height: 100%; overflow: visible; }
-.hype .hg__top, .hype .hg__head, .hype .hg__armL, .hype .hg__armR, .hype .hg__legL, .hype .hg__legR, .hype .hg { transform-box: view-box; }
-.hype .hg { transform-origin: 50px 124px; }
-.hype .hg__top { transform-origin: 50px 82px; }
-.hype .hg__head { transform-origin: 50px 38px; }
-.hype .hg__armL, .hype .hg__armR { transform-origin: 50px 47px; }
-.hype .hg__legL { transform-origin: 50px 82px; }
-.hype .hg__legR { transform-origin: 50px 82px; }
-
-/* asleep: slumped, slow breathing, zzz */
-.hype.is-asleep .hg__head { transform: rotate(22deg) translateY(2px); }
-.hype.is-asleep .hg__top { transform: rotate(6deg); animation: hg-breathe 3.6s ease-in-out infinite; }
-.hype.is-asleep .hg__armL { transform: rotate(-58deg); }
-.hype.is-asleep .hg__armR { transform: rotate(48deg); }
-.hype.is-asleep .hg__mouth { d: path("M47 34 L53 34"); }
-.hype__zz { position: absolute; left: 52px; top: -6px; display: none; color: var(--acid); font-size: 11px; pointer-events: none; }
-.hype.is-asleep .hype__zz { display: block; }
-.hype__zz i { position: absolute; font-style: normal; opacity: 0; animation: hg-z 3s ease-in-out infinite; }
-.hype__zz i:nth-child(2) { animation-delay: 1s; font-size: 13px; }
-.hype__zz i:nth-child(3) { animation-delay: 2s; font-size: 15px; }
-@keyframes hg-breathe { 50% { transform: rotate(6deg) translateY(1.5px); } }
-@keyframes hg-z { 0% { opacity: 0; transform: translate(0, 0); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(14px, -26px); } }
-.hype.is-asleep:hover .hg__head { transform: rotate(10deg); }
-
-/* dancing: bounce, hip sway, head nod, finger guns */
-.hype.is-dancing .hg { animation: hg-bounce .5s ease-in-out infinite; }
-.hype.is-dancing .hg__top { animation: hg-sway 1s ease-in-out infinite; }
-.hype.is-dancing .hg__head { animation: hg-nod .5s ease-in-out infinite; }
-.hype.is-dancing .hg__armR { animation: hg-guns 2s steps(1) infinite, hg-pump .5s ease-in-out infinite; }
-.hype.is-dancing .hg__armL { animation: hg-mic 1s ease-in-out infinite; }
-.hype.is-dancing .hg__legL { animation: hg-step 1s ease-in-out infinite; }
-.hype.is-dancing .hg__legR { animation: hg-step 1s ease-in-out infinite reverse; }
-@keyframes hg-bounce { 50% { transform: translateY(-4px); } }
-@keyframes hg-sway { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
-@keyframes hg-nod { 50% { transform: rotate(-8deg) translateY(1px); } }
-@keyframes hg-guns { 0% { rotate: 0deg; } 25% { rotate: -38deg; } 50% { rotate: -70deg; } 75% { rotate: -20deg; } }
-@keyframes hg-pump { 50% { translate: 2px -2px; } }
-@keyframes hg-mic { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-12deg); } }
-@keyframes hg-step { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
-.hype.is-hyped .hg { animation-duration: .3s; }
-
 /* money */
 .cash { position: fixed; inset: 0; z-index: 46; pointer-events: none; overflow: hidden; }
 .cash__bill { position: fixed; font: 900 20px/1 var(--f-display); color: var(--sodium); text-shadow: 0 0 8px rgba(246, 182, 44, 0.4); animation: cash-up 2.1s cubic-bezier(.2,.7,.3,1) forwards; }
@@ -975,11 +926,96 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
 .cash__bill--rain { top: -40px; animation: cash-rain var(--dur, 2.4s) linear forwards; }
 @keyframes cash-rain { 0% { transform: translateY(0) rotate(0); opacity: 1; } 100% { transform: translateY(110vh) rotate(var(--rot, 90deg)); opacity: .9; } }
 
-@media (max-width: 520px) { .hype { width: 54px; height: 76px; } }
-@media (prefers-reduced-motion: reduce) {
-  .hype .hg, .hype .hg__top, .hype .hg__head, .hype .hg__armL, .hype .hg__armR, .hype .hg__legL, .hype .hg__legR, .hype__zz i { animation: none !important; }
-  .hype.is-dancing .hg__armR { rotate: -38deg; }
-}
 
-.hype { transition: transform .7s var(--ease), opacity .5s; }
-.hype.is-tucked { transform: translateY(120%); opacity: 0; pointer-events: none; }
+
+
+
+
+/* ================= Round 13: the raver lives in the footer ================= */
+.foot { position: relative; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0px); }
+.stage { order: 3; flex: 1 0 100%; position: relative; height: 128px; margin-top: 8px; border-top: 1px dashed rgba(238, 228, 211, 0.07); }
+.foot__meta { order: 2; }
+.raver {
+  position: absolute; bottom: 4px; left: 0; width: 80px; height: 112px; padding: 0; border: 0; background: none; cursor: pointer;
+  transform: translateX(var(--x, 40px)); transition: transform 0s linear;
+}
+.raver:focus-visible { outline: 2px solid var(--acid); outline-offset: 4px; }
+.raver__fig { width: 100%; height: 100%; overflow: visible; transition: transform .25s; }
+.raver.is-left .raver__fig { transform: scaleX(-1); }
+.raver.is-paused * { animation-play-state: paused !important; }
+.raver [class^="rv"] { transform-box: view-box; }
+.rv { transform-origin: 50px 126px; transition: transform .5s var(--ease); }
+.rv__top { transform-origin: 50px 82px; transition: transform .5s var(--ease); }
+.rv__head { transform-origin: 50px 38px; transition: transform .5s var(--ease); }
+.rv__armL, .rv__armR { transform-origin: 50px 47px; transition: transform .5s var(--ease); }
+.rv__legL, .rv__legR { transform-origin: 50px 82px; transition: transform .5s var(--ease); }
+.rv__chair, .rv__beer, .rv__cig, .rv__gun { opacity: 0; transition: opacity .4s; }
+
+/* chill: weight on one leg, little head bob */
+.raver.is-chill .rv__legR { transform: rotate(6deg); }
+.raver.is-chill .rv__head { animation: rv-nod 2.4s ease-in-out infinite; }
+.raver.is-chill .rv__armL { transform: rotate(8deg); }
+
+/* walk */
+.raver.is-walk .rv { animation: rv-bob .5s ease-in-out infinite; }
+.raver.is-walk .rv__legL { animation: rv-step .5s ease-in-out infinite alternate; }
+.raver.is-walk .rv__legR { animation: rv-step .5s ease-in-out infinite alternate-reverse; }
+.raver.is-walk .rv__armL { animation: rv-swing .5s ease-in-out infinite alternate-reverse; }
+.raver.is-walk .rv__armR { animation: rv-swing .5s ease-in-out infinite alternate; }
+
+/* smoke: hand up to mouth, puffs */
+.raver.is-smoke .rv__cig { opacity: 1; }
+.raver.is-smoke .rv__armR { animation: rv-drag 4s ease-in-out infinite; }
+.raver.is-smoke .rv__legL { transform: rotate(-5deg); }
+.raver__smoke { position: absolute; left: 62%; top: 4px; width: 20px; height: 40px; pointer-events: none; display: none; }
+.raver.is-left .raver__smoke { left: 18%; }
+.raver.is-smoke .raver__smoke { display: block; }
+.raver__smoke i { position: absolute; bottom: 0; left: 4px; width: 8px; height: 8px; border-radius: 50%; background: rgba(238, 228, 211, 0.35); opacity: 0; animation: rv-puff 4s ease-out infinite; }
+.raver__smoke i:nth-child(2) { animation-delay: .35s; left: 8px; }
+.raver__smoke i:nth-child(3) { animation-delay: .7s; left: 2px; }
+
+/* sit on the chair with a beer */
+.raver.is-sit .rv__chair { opacity: 1; }
+.raver.is-sit .rv__beer { opacity: 1; }
+.raver.is-sit .rv { transform: translateY(20px); }
+.raver.is-sit .rv__legL { transform: rotate(-62deg); }
+.raver.is-sit .rv__legR { transform: rotate(-48deg); }
+.raver.is-sit .rv__top { transform: rotate(-6deg); }
+.raver.is-sit .rv__armL { animation: rv-sip 6s ease-in-out infinite; }
+.raver.is-sit .rv__armR { transform: rotate(28deg); }
+.raver.is-sit .rv__head { transform: rotate(-6deg); }
+
+/* drink standing */
+.raver.is-drink .rv__beer { opacity: 1; }
+.raver.is-drink .rv__armL { animation: rv-sip 3s ease-in-out infinite; }
+.raver.is-drink .rv__head { animation: rv-tilt 3s ease-in-out infinite; }
+
+/* rave: goes off */
+.raver.is-rave .rv { animation: rv-jump .42s cubic-bezier(.3,0,.3,1) infinite, rv-spin 3.36s cubic-bezier(.6,0,.3,1) infinite; }
+.raver.is-rave .rv__top { animation: rv-whip .84s ease-in-out infinite; }
+.raver.is-rave .rv__head { animation: rv-bang .42s ease-in-out infinite; }
+.raver.is-rave .rv__armL { animation: rv-flailL .84s ease-in-out infinite; }
+.raver.is-rave .rv__armR { animation: rv-flailR .84s ease-in-out infinite; }
+.raver.is-rave .rv__gun { opacity: 1; }
+.raver.is-rave .rv__legL { animation: rv-kickL .84s ease-in-out infinite; }
+.raver.is-rave .rv__legR { animation: rv-kickR .84s ease-in-out infinite; }
+
+@keyframes rv-nod { 50% { transform: rotate(-5deg); } }
+@keyframes rv-bob { 50% { transform: translateY(-2px); } }
+@keyframes rv-step { from { transform: rotate(-18deg); } to { transform: rotate(18deg); } }
+@keyframes rv-swing { from { transform: rotate(-16deg); } to { transform: rotate(16deg); } }
+@keyframes rv-drag { 0%, 55%, 100% { transform: rotate(10deg); } 20%, 40% { transform: rotate(-112deg); } }
+@keyframes rv-puff { 0%, 45% { opacity: 0; transform: translate(0, 0) scale(.5); } 55% { opacity: .9; } 100% { opacity: 0; transform: translate(6px, -32px) scale(2.2); } }
+@keyframes rv-sip { 0%, 60%, 100% { transform: rotate(8deg); } 20%, 45% { transform: rotate(118deg); } }
+@keyframes rv-tilt { 0%, 60%, 100% { transform: rotate(0); } 20%, 45% { transform: rotate(-14deg); } }
+@keyframes rv-jump { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-9px); } }
+@keyframes rv-spin { 0%, 80% { rotate: y 0deg; } 100% { rotate: y 360deg; } }
+@keyframes rv-whip { 0%, 100% { transform: rotate(-12deg); } 50% { transform: rotate(12deg); } }
+@keyframes rv-bang { 50% { transform: rotate(14deg) translateY(2px); } }
+@keyframes rv-flailL { 0%, 100% { transform: rotate(150deg); } 25% { transform: rotate(60deg); } 50% { transform: rotate(170deg); } 75% { transform: rotate(-20deg); } }
+@keyframes rv-flailR { 0%, 100% { transform: rotate(-30deg); } 25% { transform: rotate(-150deg); } 50% { transform: rotate(-90deg); } 75% { transform: rotate(-170deg); } }
+@keyframes rv-kickL { 0%, 100% { transform: rotate(-8deg); } 25% { transform: rotate(-38deg); } 50% { transform: rotate(4deg); } }
+@keyframes rv-kickR { 0%, 100% { transform: rotate(8deg); } 50% { transform: rotate(40deg); } 75% { transform: rotate(-4deg); } }
+
+@media (max-width: 520px) { .raver { width: 60px; height: 84px; } .stage { height: 100px; } }
+@media (prefers-reduced-motion: reduce) { .raver *, .raver { animation: none !important; transition: none !important; } }

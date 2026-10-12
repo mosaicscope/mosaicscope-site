@@ -1635,40 +1635,73 @@
     window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
   }
 
-  /* ---------------- Easter egg: the hype girl ----------------
-     Asleep at the bottom of the page until the music plays. Then she dances, throws finger guns
-     and drops $ signs. Click her to play or pause. She makes it rain when someone sends an enquiry. */
+  /* ---------------- Easter egg: the raver in the footer ----------------
+     Lives in the empty black strip at the very bottom. With the music off he just lives his life:
+     walks about, has a smoke, sits on his chair, cracks a beer. Music on and he goes off.
+     Click him to play or pause. He makes it rain when someone sends an enquiry. */
   function initHype() {
-    var el = $("#hype"), cash = $("#cash");
-    if (!el || $("#sc").hidden) return;
-    el.hidden = false;
-    el.classList.add("is-asleep");
-    var timer = null;
+    var el = $("#hype"), stage = $("#stage"), cash = $("#cash");
+    if (!el || !stage) return;
+    var hasMusic = !$("#sc").hidden;
+    if (!hasMusic) el.setAttribute("aria-label", "Raver");
+    var x = 40, raving = false, timer = null, moneyTimer = null;
+    var ACTS = ["walk", "smoke", "walk", "sit", "walk", "drink", "chill"];
+    var POSES = ["is-walk", "is-smoke", "is-sit", "is-drink", "is-chill", "is-rave"];
+    function pose(p) { POSES.forEach(function (c) { el.classList.remove(c); }); el.classList.add(p); }
+    function maxX() { return Math.max(0, stage.clientWidth - el.offsetWidth); }
+    function next() {
+      clearTimeout(timer);
+      if (raving) return;
+      var act = ACTS[(Math.random() * ACTS.length) | 0];
+      if (reduceMotion) { pose("is-chill"); return; }
+      if (act === "walk") {
+        var to = Math.round(Math.random() * maxX());
+        var dist = Math.abs(to - x);
+        if (dist < 40) { timer = setTimeout(next, 400); return; }
+        el.classList.toggle("is-left", to < x);
+        var dur = dist / 45;
+        el.style.transitionDuration = dur + "s";
+        pose("is-walk");
+        x = to; el.style.setProperty("--x", x + "px");
+        timer = setTimeout(function () { pose("is-chill"); timer = setTimeout(next, 900); }, dur * 1000);
+      } else {
+        pose("is-" + act);
+        timer = setTimeout(next, act === "sit" ? 11000 : act === "smoke" ? 8000 : act === "drink" ? 6000 : 4000);
+      }
+    }
     function drop() {
       if (reduceMotion || document.hidden) return;
       var r = el.getBoundingClientRect();
       var d = document.createElement("span");
       d.className = "cash__bill";
       d.textContent = "$";
-      d.style.left = (r.left + r.width * (0.55 + Math.random() * 0.4)) + "px";
-      d.style.top = (r.top + r.height * 0.3) + "px";
-      d.style.setProperty("--dx", ((Math.random() - 0.2) * 80).toFixed(0) + "px");
+      d.style.left = (r.left + r.width * (0.2 + Math.random() * 0.6)) + "px";
+      d.style.top = (r.top + r.height * 0.15) + "px";
+      d.style.setProperty("--dx", ((Math.random() - 0.5) * 90).toFixed(0) + "px");
       d.style.setProperty("--rot", ((Math.random() - 0.5) * 60).toFixed(0) + "deg");
       cash.appendChild(d);
       setTimeout(function () { d.remove(); }, 2200);
     }
     window.hype = {
       set: function (on) {
-        el.classList.toggle("is-asleep", !on);
-        el.classList.toggle("is-dancing", on);
+        raving = on;
+        clearInterval(moneyTimer);
         el.setAttribute("aria-label", on ? "Pause music" : "Play music");
-        clearInterval(timer);
-        if (on && !reduceMotion) timer = setInterval(drop, 650);
+        if (on) {
+          clearTimeout(timer);
+          el.style.transitionDuration = "0s";
+          var r = el.getBoundingClientRect();
+          x = Math.round(r.left - stage.getBoundingClientRect().left);
+          el.style.setProperty("--x", x + "px");
+          pose("is-rave");
+          if (!reduceMotion) moneyTimer = setInterval(drop, 700);
+        } else {
+          pose("is-chill");
+          timer = setTimeout(next, 1500);
+        }
       },
       rain: function () {
         if (reduceMotion) return;
-        el.classList.add("is-hyped");
-        setTimeout(function () { el.classList.remove("is-hyped"); }, 3200);
         for (var i = 0; i < 46; i++) {
           (function (i) {
             setTimeout(function () {
@@ -1687,11 +1720,16 @@
       }
     };
     el.addEventListener("click", function () { if (window.hypeToggle) window.hypeToggle(); });
-    // tucked away while the opening screen is in view, so she never sits on the name
-    var hero = $(".hero");
-    if (hero && "IntersectionObserver" in window) {
-      new IntersectionObserver(function (es) { el.classList.toggle("is-tucked", es[0].intersectionRatio > 0.35); }, { threshold: [0, 0.35, 1] }).observe(hero);
+    window.addEventListener("resize", function () { if (x > maxX()) { x = maxX(); el.style.setProperty("--x", x + "px"); } });
+    // only bother animating when the footer is on screen
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (es) {
+        var vis = es[0].isIntersecting;
+        el.classList.toggle("is-paused", !vis);
+        if (vis && !raving && !timer) next();
+      }).observe(stage);
     }
+    next();
   }
 
   /* ---------------- Bar ---------------- */
