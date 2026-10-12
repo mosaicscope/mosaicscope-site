@@ -45,7 +45,7 @@ export function settingsBody(s: Settings, onChange: (s: Settings, needsReset?: b
   const change = (fn: () => void, reset = false) => { fn(); onChange(s, reset); };
   const keyRows = (["pickup", "drop", "throw", "talk"] as const).map((k) => h("label", null, [`Key: ${k}`, h("input", { type: "text", maxlength: 1, size: 2, value: s.keys[k] === " " ? "space" : s.keys[k], onchange: (e: Event) => change(() => { const v = (e.target as HTMLInputElement).value.toLowerCase(); s.keys[k] = v === "space" ? " " : v.slice(0, 1) || DEFAULT_KEYS[k]; }) })]));
   return [
-    sel("Graphics quality", s.quality, [["auto", "Auto (adapts to your device)"], ["low", "Low"], ["medium", "Medium"], ["high", "High"]], (v) => change(() => { s.quality = v as Settings["quality"]; })),
+    sel("Graphics quality", s.quality, [["auto", "Auto (adapts to your device)"], ["low", "Low"], ["medium", "Medium"], ["high", "High"], ["ultra", "Ultra (best textures, needs a strong device)"]], (v) => change(() => { s.quality = v as Settings["quality"]; })),
     rng(`Crowd size (${s.density} background people, applies on reset)`, s.density, 0, 2000, 50, (v) => change(() => { s.density = v; }, true)),
     chk("Sound", s.sound, (v) => change(() => { s.sound = v; })),
     rng("Volume", s.volume, 0, 1, 0.05, (v) => change(() => { s.volume = v; })),

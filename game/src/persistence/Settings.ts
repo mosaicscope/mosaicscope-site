@@ -1,7 +1,7 @@
 import { StorageProvider, NS } from "./storage";
 
 export interface Settings {
-  quality: "auto" | "low" | "medium" | "high";
+  quality: "auto" | "low" | "medium" | "high" | "ultra";
   volume: number;          // 0..1
   sound: boolean;
   reducedMotion: boolean | null; // null = follow the OS setting
@@ -29,7 +29,7 @@ export function loadSettings(store: StorageProvider): Settings {
   if (!raw) return s;
   try {
     const d = JSON.parse(raw);
-    if (["auto", "low", "medium", "high"].includes(d.quality)) s.quality = d.quality;
+    if (["auto", "low", "medium", "high", "ultra"].includes(d.quality)) s.quality = d.quality;
     if (typeof d.volume === "number" && d.volume >= 0 && d.volume <= 1) s.volume = d.volume;
     if (typeof d.sound === "boolean") s.sound = d.sound;
     if (d.reducedMotion === null || typeof d.reducedMotion === "boolean") s.reducedMotion = d.reducedMotion;

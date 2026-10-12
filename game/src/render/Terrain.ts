@@ -16,6 +16,9 @@ const CH = 16;
 
 export class Terrain {
   private chunks = new Map<number, { cv: HTMLCanvasElement; ox: number; oy: number }>();
+  /** Ultra: chunks are baked at 2x so ground stays razor sharp when zoomed in. */
+  private sc = 1;
+  setUltra(on: boolean): void { const n = on ? 2 : 1; if (n !== this.sc) { this.sc = n; this.chunks.clear(); } }
   chunksBuilt = 0;
   constructor(private world: World) {}
 
@@ -28,8 +31,10 @@ export class Terrain {
     const x0 = cx * CH, y0 = cy * CH;
     const ox = (x0 - (y0 + CH)) * (TILE_W / 2), oy = (x0 + y0) * (TILE_H / 2);
     const cv = document.createElement("canvas");
-    cv.width = CH * TILE_W + 2; cv.height = CH * TILE_H + 2;
+    const SC = this.sc;
+    cv.width = (CH * TILE_W + 2) * SC; cv.height = (CH * TILE_H + 2) * SC;
     const g = cv.getContext("2d")!;
+    g.scale(SC, SC);
     for (let ty = y0; ty < Math.min(S, y0 + CH); ty++) for (let tx = x0; tx < Math.min(S, x0 + CH); tx++) {
       const t = w.tiles[ty * S + tx];
       const base = groundOf(w, tx, ty, t);
@@ -63,7 +68,7 @@ export class Terrain {
       const key = cy * n + cx;
       let ch = this.chunks.get(key);
       if (!ch) { ch = this.build(cx, cy); this.chunks.set(key, ch); }
-      g.drawImage(ch.cv, left, top, ch.cv.width * z, ch.cv.height * z);
+      g.drawImage(ch.cv, left, top, (ch.cv.width / this.sc) * z, (ch.cv.height / this.sc) * z);
     }
   }
 }

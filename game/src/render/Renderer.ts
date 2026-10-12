@@ -12,6 +12,7 @@ import { INK } from "./palette";
 import { drawBuildingTile, GLOW } from "./Buildings";
 import { ZooRenderer } from "./Zoo";
 import { resetHdBudget } from "./StickFigure";
+import { setTextureTier } from "./Textures";
 import { AD_BOXES, AdBox } from "./Ads";
 import { drawCar, headlights } from "./Cars";
 import { lightGreenFor, Light } from "../sim/Traffic";
@@ -20,7 +21,7 @@ import type { DebugFlags } from "../debug/flags";
 import { friendship, hostility } from "../social/Social";
 import { LOD_NAMES } from "../entities/types";
 
-export type Quality = 0 | 1 | 2; // low, medium, high
+export type Quality = 0 | 1 | 2 | 3; // low, medium, high, ultra
 interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light
 interface Decal { x: number; y: number; r: number; color: string; born: number; life: number; rot: number }
 
@@ -71,7 +72,7 @@ export class Renderer {
   }
 
   setSim(sim: Simulation): void {
-    this.sim = sim; this.terrain = new Terrain(sim.world); this.particles.clear(); this.lastPose.clear();
+    this.sim = sim; this.terrain = new Terrain(sim.world); this.terrain.setUltra(this.qualityNow === 3); this.particles.clear(); this.lastPose.clear();
     this.cam.worldSize = sim.world.size; this.cam.lookAt(sim.player.x, sim.player.y, true); this.cam.follow = sim.playerId;
     sim.bus.on("fx", (f) => this.onFx(f));
   }
@@ -97,10 +98,13 @@ export class Renderer {
   resize(quality: Quality): void {
     const w = this.canvas.clientWidth || window.innerWidth, h = this.canvas.clientHeight || window.innerHeight;
     const native = window.devicePixelRatio || 1;
-    this.dpr = quality === 0 ? Math.min(1, native) * 0.75 : quality === 1 ? Math.min(1.25, native) : Math.min(1.5, native); // fill-rate is the real cost: keep pixels in check, auto steps down further
+    this.dpr = quality === 0 ? Math.min(1, native) * 0.75 : quality === 1 ? Math.min(1.25, native) : quality === 2 ? Math.min(1.5, native) : Math.min(3, native); // fill-rate is the real cost: ultra goes to full native sharpness
     this.canvas.width = Math.round(w * this.dpr); this.canvas.height = Math.round(h * this.dpr);
     this.cam.resize(w, h);
-    this.particles.scale = quality === 0 ? 0.35 : quality === 1 ? 0.7 : 1;
+    this.particles.scale = quality === 0 ? 0.35 : quality === 1 ? 0.7 : quality === 2 ? 1 : 1.4;
+    // Ultra: richer textures (2x density, weathering, baked bump light) and supersampled ground
+    setTextureTier(quality === 3); this.terrain.setUltra(quality === 3);
+    this.qualityNow = quality;
   }
 
   private push(d: number, kind: Item["kind"], ref: number, sx: number, sy: number): void {
@@ -121,7 +125,7 @@ export class Renderer {
     // (hysteresis stops it flickering at the boundary mid-pinch; a quick crossfade hides the switch)
     const want2D = this.in2D ? z > 2.8 : z > 3.4;
     if (want2D !== this.in2D) { this.in2D = want2D; this.crossfade(); }
-    if (want2D) { cam.update(dt, o.reduceMotion); this.render2D(dt, o); this.stats.frameMs = performance.now() - t0; return; }
+    if (want2D) { cam.update(dt, o.reduceMotion); this.render2D(dt, o); if (o.quality === 3) this.cinematic(sim); this.stats.frameMs = performance.now() - t0; return; }
     cam.update(dt, o.reduceMotion);
     sim.focus.x = cam.x; sim.focus.y = cam.y;
 
@@ -152,7 +156,7 @@ export class Renderer {
 
     this.nItems = 0;
     this.viewB.clear();
-    resetHdBudget(o.quality === 2 ? 40 : o.quality === 1 ? 20 : 0);
+    resetHdBudget(o.quality === 3 ? 400 : o.quality === 2 ? 40 : o.quality === 1 ? 20 : 0);
     const pt = this.pt;
     for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
       const t = sim.world.tiles[ty * S + tx];
@@ -334,6 +338,7 @@ export class Renderer {
 
     this.drawBubbles(view, o);
     this.drawDebug(o.debug, alpha);
+    if (o.quality === 3) this.cinematic(sim);
     this.stats.frameMs = performance.now() - t0;
   }
 
@@ -705,6 +710,32 @@ export class Renderer {
     void o;
   }
 
+  private grain: HTMLCanvasElement | null = null; private vig: CanvasGradient | null = null; private vigKey = "";
+  /**
+   * Ultra finish: soft vignette, a warm/cool colour grade, fine film grain (animated, tiny) and a
+   * wet-road sheen when it rains. All cached gradients/patterns, a handful of full-screen fills.
+   */
+  private cinematic(sim: Simulation): void {
+    const g = this.g, W = this.cam.viewW, H = this.cam.viewH;
+    g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    const key = `${W}x${H}`;
+    if (this.vigKey !== key || !this.vig) { this.vig = g.createRadialGradient(W / 2, H * 0.52, Math.min(W, H) * 0.35, W / 2, H * 0.52, Math.max(W, H) * 0.78); this.vig.addColorStop(0, "rgba(0,0,0,0)"); this.vig.addColorStop(1, "rgba(4,3,10,.55)"); this.vigKey = key; }
+    g.fillStyle = this.vig; g.fillRect(0, 0, W, H);
+    // colour grade: warm highlights by day, cool shadows at night (soft-light so it never crushes the neon)
+    g.globalCompositeOperation = "soft-light";
+    g.fillStyle = sim.daylight > 0.5 ? "rgba(255,196,120,.10)" : "rgba(70,110,255,.12)"; g.fillRect(0, 0, W, H);
+    g.globalCompositeOperation = "source-over";
+    if (sim.env.raining) { g.fillStyle = "rgba(150,180,220,.045)"; g.fillRect(0, 0, W, H); }
+    if (!this.grain) {
+      const c = document.createElement("canvas"); c.width = c.height = 128; const x = c.getContext("2d")!, im = x.createImageData(128, 128);
+      for (let i = 0; i < 128 * 128; i++) { const v = 118 + Math.random() * 20 | 0; im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; }
+      x.putImageData(im, 0, 0); this.grain = c;
+    }
+    const p = g.createPattern(this.grain, "repeat");
+    if (p) { g.save(); g.translate((Math.random() * 128) | 0, (Math.random() * 128) | 0); g.globalCompositeOperation = "overlay"; g.globalAlpha = 0.07; g.fillStyle = p; g.fillRect(-128, -128, W + 256, H + 256); g.restore(); }
+  }
+
+  private qualityNow: Quality = 1;
   private in2D = false;
   private fadeEl: HTMLCanvasElement | null = null;
   /** Freeze the last frame on top of the canvas and fade it out, so 3D <-> 2D dissolves instead of cutting. */

@@ -113,7 +113,7 @@ export class Game {
     this.log = new EventLog(S, (x, y) => { this.renderer.cam.follow = -1; this.renderer.cam.lookAt(x, y); });
     this.dialogue = new DialogueUI(S);
     this.dev = new DevPanel(S, this.renderer, this.debug, {
-      quality: () => (this.settings.quality === "auto" ? "auto→" : "") + ["low", "medium", "high"][this.quality], speed: () => (this.clock.paused ? 0 : this.clock.speed),
+      quality: () => (this.settings.quality === "auto" ? "auto→" : "") + ["low", "medium", "high", "ultra"][this.quality], speed: () => (this.clock.paused ? 0 : this.clock.speed),
       fps: () => this.fpsAvg, tickRate: () => this.tickRate, reset: (seed) => this.reset(seed), toast: (t) => this.toast(t),
       teleport: () => { const p = this.renderer.cam.toWorld(this.mouse.x, this.mouse.y); const w = this.sim.world.nearestWalkable(p.x, p.y); this.sim.player.x = w.x; this.sim.player.y = w.y; },
     });
@@ -1033,7 +1033,7 @@ export class Game {
     this.soundBtn.textContent = s.sound ? "🔊" : "🔇";
     this.soundBtn.classList.toggle("on", s.sound);
     setImpactIntensity(s.gentle ? 0.55 : 1);
-    const q = s.quality === "low" ? 0 : s.quality === "medium" ? 1 : s.quality === "high" ? 2 : this.quality;
+    const q = s.quality === "low" ? 0 : s.quality === "medium" ? 1 : s.quality === "high" ? 2 : s.quality === "ultra" ? 3 : this.quality;
     if (q !== this.quality || s.quality !== "auto") { this.quality = q as Quality; this.renderer.resize(this.quality); }
   }
 
