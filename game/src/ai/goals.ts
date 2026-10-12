@@ -161,7 +161,7 @@ export const GOALS: GoalDef[] = [
     build: (_c, _s, ch) => [{ kind: "pickup", toy: ch.toy }],
   },
   {
-    id: "fight", cooldown: 20, interruptible: false,
+    id: "fight", cooldown: 180, interruptible: false,
     score: (c, sim) => {
       if (c.emo.fear > 0.5 || c.emo.composure < 0.35 || !hasWeaponAccess(c, sim)) return null;
       const n = sim.charHash.query(c.x, c.y, 10, tmp);
@@ -310,7 +310,7 @@ export const GOALS: GoalDef[] = [
     build: () => [{ kind: "craft" }],
   },
   {
-    id: "prank", cooldown: 240, interruptible: true,
+    id: "prank", cooldown: 1200, interruptible: true,
     score: (c, sim) => {
       if (c.pers.playfulness < 0.75 || c.pers.kindness > 0.6) return null;
       const spring = findCarried(c, sim.toys, (d) => d === "spring") ?? null;

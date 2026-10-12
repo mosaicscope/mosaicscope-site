@@ -67,6 +67,15 @@ export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Build
     g.globalAlpha = 1;
     return;
   }
+  // ambient occlusion: soft contact shadow where the walls meet the pavement
+  const ao = (x0: number, y0: number, x1: number, y1: number, ox: number, oy: number) => {
+    const A = P(x0, y0, 0), B = P(x1, y1, 0), C = P(x1 + ox, y1 + oy, 0), D = P(x0 + ox, y0 + oy, 0);
+    const grd = g.createLinearGradient((A[0] + B[0]) / 2, (A[1] + B[1]) / 2, (C[0] + D[0]) / 2, (C[1] + D[1]) / 2);
+    grd.addColorStop(0, `rgba(0,0,0,${0.42 * (1 - dark * 0.5)})`); grd.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = grd; poly(g, [A, B, C, D]); g.fill();
+  };
+  if (southOpen) ao(tx, ty + 1, tx + 1, ty + 1, 0, 0.55);
+  if (eastOpen) ao(tx + 1, ty, tx + 1, ty + 1, 0.55, 0);
   if (southOpen) wall(g, b, P, top, tx, ty + 1, tx + 1, ty + 1, kS, "s", tx, ty, z, dark, night, time);
   if (eastOpen) wall(g, b, P, top, tx + 1, ty + 1, tx + 1, ty, kE, "e", tx, ty, z, dark, night, time);
   if (southOpen) paintGraffiti(g, graffiti.get(`${tx},${ty},s`), P(tx, ty + 1, 0), P(tx + 1, ty + 1, 0), Math.min(H, GROUND_H) * zp, z);
@@ -290,8 +299,9 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
   }
   // front door
   if (doorHere) door(g, quad, b, night);
-  // street-level grime line
+  // street-level grime + occlusion gradient up the bottom of the wall
   g.fillStyle = "rgba(14,11,10,.28)"; g.beginPath(); quad(0, 1, 0, 0.1); g.fill();
+  g.fillStyle = "rgba(0,0,0,.14)"; g.beginPath(); quad(0, 1, 0.1, 0.45); g.fill();
 }
 
 function windows(g: CanvasRenderingContext2D, quad: (t0: number, t1: number, h0: number, h1: number) => void, _base: number, h0: number, h1: number, lit: boolean, litCol: string, night: boolean, n: number): void {
