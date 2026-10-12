@@ -692,3 +692,34 @@ html.has-lens .board, html.has-lens .board * { cursor: none !important; }
 .scp__out:hover { color: var(--paper); }
 @media (max-width: 900px) { .sc__title { display: inline-block; max-width: 12ch; } }
 @media (max-width: 520px) { .sc__title { max-width: 7ch; } }
+
+/* ================= Round 8 ================= */
+
+/* Rates */
+.rates { padding: clamp(56px, 8vw, 120px) var(--gut) clamp(32px, 5vw, 72px); }
+.rates__list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.rate {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px clamp(16px, 3vw, 40px);
+  padding: clamp(16px, 2.4vw, 28px) 0; border-bottom: 1px solid var(--line);
+  transition: background .5s var(--ease);
+}
+.rate:hover { background: rgba(238, 228, 211, 0.03); }
+.rate__no { color: var(--dim); }
+.rate__what { display: grid; gap: 4px; min-width: 0; }
+.rate__what strong { font: 900 clamp(1.4rem, 3.4vw, 2.6rem)/1 var(--f-display); text-transform: uppercase; letter-spacing: 0.01em; }
+.rate__what em { font: italic 400 clamp(1rem, 1.6vw, 1.25rem)/1.3 var(--f-serif); color: var(--dim); }
+.rate__price { font: italic 400 clamp(2.4rem, 6vw, 5rem)/1 var(--f-serif); color: var(--sodium); white-space: nowrap; }
+.rate:nth-child(2) .rate__price { color: var(--acid); }
+.rate:nth-child(3) .rate__price { color: var(--paper); }
+.rate:nth-child(4) .rate__price { color: var(--red); }
+.rates__note { margin: clamp(20px, 3vw, 32px) 0 0; color: var(--dim); font-size: 1.05rem; }
+.rates__note a { color: var(--paper); text-underline-offset: 4px; }
+.rates__note a:hover { color: var(--acid); }
+@media (max-width: 560px) {
+  .rate { grid-template-columns: minmax(0, 1fr) auto; }
+  .rate__no { display: none; }
+}
+
+/* YouTube preview inside tiles */
+.tile__yt { position: absolute; top: 0; left: -9.3%; width: 118.6%; height: 100%; border: 0; z-index: 1; pointer-events: none; opacity: 0; transition: opacity .8s var(--ease); }
+.tile__yt.is-on { opacity: 1; }

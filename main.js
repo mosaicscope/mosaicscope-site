@@ -159,7 +159,7 @@
       }
       var vid = p.videoFile ? '<video class="tile__vid" muted loop playsinline preload="none" src="' + esc(p.videoFile) + '"></video>' : "";
       if (p.videoFile) b.classList.add("has-video");
-      if (p.fromYouTube) b.classList.add("is-yt");
+      if (p.fromYouTube) { b.classList.add("is-yt"); b.setAttribute("data-yt", p.ytId); }
       b.innerHTML =
         '<span class="tile__media">' + frags + vid +
         '<span class="slate"><span>FR ' + String(i + 1).padStart(2, "0") + '</span><span class="cat-' + esc(p.category) + '">' + esc(CAT_LABEL[p.category] || p.category) + "</span></span>" +
@@ -179,6 +179,48 @@
     });
     applyFilter();
     initTileVideo();
+    initYouTubePreviews();
+  }
+
+  // YouTube tiles play a few silent seconds, like a short, when they scroll into view (and again on hover).
+  function playYouTubePreview(t) {
+    if (reduceMotion || t.querySelector(".tile__yt")) return;
+    var id = t.getAttribute("data-yt");
+    if (!/^[\w-]{11}$/.test(id)) return;
+    var f = document.createElement("iframe");
+    f.className = "tile__yt";
+    f.setAttribute("aria-hidden", "true");
+    f.tabIndex = -1;
+    f.allow = "autoplay; encrypted-media";
+    f.src = "https://www.youtube-nocookie.com/embed/" + id + "?autoplay=1&mute=1&controls=0&playsinline=1&modestbranding=1&rel=0&disablekb=1&iv_load_policy=3&fs=0&loop=1&playlist=" + id;
+    t.querySelector(".tile__media").appendChild(f);
+    setTimeout(function () { f.classList.add("is-on"); }, 900);
+    setTimeout(function () { stopYouTubePreview(t); }, 9000);
+  }
+  function stopYouTubePreview(t) {
+    var f = t.querySelector(".tile__yt");
+    if (!f) return;
+    f.classList.remove("is-on");
+    setTimeout(function () { if (f.parentNode) f.parentNode.removeChild(f); }, 600);
+  }
+  var ytIO = null;
+  function initYouTubePreviews() {
+    var tiles = $$(".tile.is-yt");
+    if (reduceMotion || !tiles.length) return;
+    if (!ytIO && "IntersectionObserver" in window) {
+      ytIO = new IntersectionObserver(function (es) {
+        es.forEach(function (en) {
+          if (en.isIntersecting) playYouTubePreview(en.target); else stopYouTubePreview(en.target);
+        });
+      }, { threshold: 0.6 });
+    }
+    tiles.forEach(function (t) {
+      if (ytIO) ytIO.observe(t);
+      if (finePointer && !t.getAttribute("data-yt-bound")) {
+        t.setAttribute("data-yt-bound", "1");
+        t.addEventListener("pointerenter", function () { playYouTubePreview(t); });
+      }
+    });
   }
 
   // Reels in the gallery play silently on hover (or when scrolled into view on phones).
@@ -218,7 +260,7 @@
     var site = data.site || {};
     $$("[data-bind]").forEach(function (el) {
       var k = el.getAttribute("data-bind");
-      var v = k === "servicesNote" ? data.servicesNote : site[k];
+      var v = (k === "servicesNote" || k === "ratesNote") ? data[k] : site[k];
       if (v) el.textContent = v;
     });
     if (site.name) document.title = site.name;
@@ -226,6 +268,17 @@
     $("#email-text").textContent = site.email || "";
 
     renderGallery(data);
+
+    // rates
+    var rl = $("#rates-list");
+    if (rl) {
+      rl.innerHTML = (data.rates || []).map(function (r, i) {
+        return '<li class="rate"><span class="rate__no mono">' + String(i + 1).padStart(2, "0") + '</span>' +
+          '<span class="rate__what"><strong>' + esc(r.title) + '</strong><em>' + esc(r.detail || "") + "</em></span>" +
+          '<span class="rate__price">' + esc(r.price) + "</span></li>";
+      }).join("");
+      $("#rates").hidden = !(data.rates || []).length;
+    }
 
     // services
     var sg = $("#services-grid");
@@ -731,7 +784,6 @@
       var x = e.clientX - r.left, y = e.clientY - r.top;
       loupe.style.transform = "translate3d(" + (e.clientX - L / 2) + "px," + (e.clientY - L / 2) + "px,0)";
       loupe.classList.add("is-on");
-      $("#cursor").classList.remove("is-on");
       natural(src, function (n) {
         var s = Math.max(r.width / n[0], r.height / n[1]);
         var dw = n[0] * s, dh = n[1] * s, ox = (r.width - dw) / 2, oy = (r.height - dh) / 2;
@@ -740,7 +792,7 @@
         loupe.style.backgroundPosition = -((x - ox) * Z - L / 2) + "px " + -((y - oy) * Z - L / 2) + "px";
       });
     });
-    board.addEventListener("pointerleave", function () { loupe.classList.remove("is-on"); $("#cursor").classList.add("is-on"); });
+    board.addEventListener("pointerleave", function () { loupe.classList.remove("is-on"); });
   }
 
   /* ---------------- Project viewer ---------------- */
@@ -856,7 +908,7 @@
     var x = innerWidth / 2, y = innerHeight / 2, cx = x, cy = y, size = 18, target = 18, shown = false, running = false;
     function want(el) {
       if (!el || !el.closest) return 18;
-      if (el.closest("input, textarea, select, .scp, .board")) return 0;
+      if (el.closest("input, textarea, select, .scp, .board .slide__img")) return 0;
       if (el.closest(".tile, .hero, .v-hero, .v-grid img")) return 120;
       if (el.closest("a, button, [role=slider]")) return 46;
       return 18;
