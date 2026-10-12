@@ -148,6 +148,11 @@ export class Game {
     this.bindStats();
     // phones: stop the browser's own pinch/double-tap page zoom from fighting the game's camera
     for (const ev of ["gesturestart", "gesturechange", "gestureend"]) document.addEventListener(ev, (e) => e.preventDefault());
+    // iOS Safari ignores user-scalable=no: stop double-tap zoom, pinch-zoom of the page and long-press selection ourselves
+    let lastTouchEnd = 0;
+    document.addEventListener("touchend", (e) => { const n = Date.now(); if (n - lastTouchEnd < 350 && (e.target as HTMLElement | null)?.closest?.("input,textarea,button,.tc") == null) e.preventDefault(); lastTouchEnd = n; }, { passive: false });
+    document.addEventListener("touchmove", (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+    document.addEventListener("selectstart", (e) => { if (!(e.target as HTMLElement | null)?.closest?.("input,textarea")) e.preventDefault(); });
     addEventListener("orientationchange", () => setTimeout(() => this.rescueZoom(), 350));
     addEventListener("error", (e) => this.fault("window", e.error ?? e.message));
     addEventListener("unhandledrejection", (e) => this.fault("promise", e.reason));
