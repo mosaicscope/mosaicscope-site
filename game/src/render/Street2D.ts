@@ -456,7 +456,7 @@ export class StreetView {
     g.restore();
   }
 
-  private personOutlined(g: CanvasRenderingContext2D, c: Character, k: number, dir: number, flash: boolean, pix: number, night: number): void {
+  personOutlined(g: CanvasRenderingContext2D, c: Character, k: number, _dir: number, flash: boolean, _pix: number, night: number): void {
     const L = c.look, D = dressOf(c), skin = flash ? "#fff" : NOIR.skin[c.id % NOIR.skin.length], build = L.build ?? 1;
     const coat = flash ? "#fff" : muted(L.color, 0.5), pants = flash ? "#fff" : shade(muted(L.accent, 0.4), 0.7), lamp = night > 0.3 ? 1.25 : 1.1;
     const lw = 8 * k * build, ol = pix * 0.9;
