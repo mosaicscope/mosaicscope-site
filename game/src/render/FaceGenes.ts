@@ -1,3 +1,4 @@
+import { ISSUES } from "./FaceIssues";
 /**
  * Procedural face "genes": ~107 tiny part variants (x8 tones) in 14 slots (iris, liner, glasses, brow pierce, nose bit, cheek,
  * forehead, face paint, mouth bit, ear, chin, scar, tattoo, age) plus continuous jitter, combined by one integer
@@ -5,9 +6,12 @@
  * The product of the tables is ~10^15 faces; the seed gives 2^31 of them.
  */
 export interface FaceCtx { x: number; y: number; k: number; dir: number; lw: number; col: string; alpha: number; fx: number; ey: number; my: number; rx: number; ry: number; covered: boolean }
-type Draw = (g: CanvasRenderingContext2D, c: FaceCtx, t: string) => void;
+export type Draw = (g: CanvasRenderingContext2D, c: FaceCtx, t: string) => void;
 
-const TONES = ["#3dd6ff", "#ff4fa3", "#f6b62c", "#7be34a", "#a35bff", "#ff6a3d", "#f4f1ea", "#1fd1b8"];
+// 24 bright markings colours: paint, ink, glitter and tattoo tones, picked per slot per face
+const TONES = ["#3dd6ff", "#ff4fa3", "#f6b62c", "#7be34a", "#a35bff", "#ff6a3d", "#f4f1ea", "#1fd1b8",
+  "#ff2e63", "#00e5ff", "#ffe600", "#b8ff3d", "#ff8c00", "#7b2cff", "#ff9ad5", "#2ee6a6", "#0077ff", "#ffffff",
+  "#ff3838", "#c6ff3d", "#ff00c8", "#00ffa3", "#8a5a2b", "#1a1a1a"];
 export const FACE_SLOT_COUNT = 14;
 
 const ln = (g: CanvasRenderingContext2D, pts: number[]): void => { g.beginPath(); g.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]); g.stroke(); };
@@ -39,7 +43,14 @@ const SLOTS: Draw[][] = [
     (g, c, t) => { g.strokeStyle = t; g.lineWidth = c.lw * 0.9; g.fillStyle = "#9ee7ff"; g.globalAlpha = c.alpha * 0.55; g.beginPath(); g.rect(c.fx - 10 * c.k, c.ey - 3 * c.k, 20 * c.k, 6.4 * c.k); g.fill(); g.globalAlpha = c.alpha; g.stroke(); },
     (g, c, t) => { g.strokeStyle = t; g.lineWidth = c.lw * 0.7; g.beginPath(); g.rect(c.fx - 10 * c.k, c.ey - 3.4 * c.k, 20 * c.k, 1.6 * c.k); g.stroke(); },
     (g, c, t) => { if (c.covered) return; g.strokeStyle = t; for (const s of sides(c, 4.6)) { ring(g, c.fx + s, c.ey + 0.8 * c.k, 3.8 * c.k); ring(g, c.fx + s, c.ey + 0.8 * c.k, 2.2 * c.k); } },
-    (g, c, t) => { if (c.covered) return; g.strokeStyle = t; for (const s of sides(c, 4.6)) { g.beginPath(); g.moveTo(c.fx + s - 3.6 * c.k, c.ey - 1.8 * c.k); g.lineTo(c.fx + s + 3.6 * c.k, c.ey - 2.4 * c.k); g.lineTo(c.fx + s + 2.4 * c.k, c.ey + 3 * c.k); g.lineTo(c.fx + s - 2.4 * c.k, c.ey + 3 * c.k); g.closePath(); g.stroke(); } }],
+    (g, c, t) => { if (c.covered) return; g.strokeStyle = t; for (const s of sides(c, 4.6)) { g.beginPath(); g.moveTo(c.fx + s - 3.6 * c.k, c.ey - 1.8 * c.k); g.lineTo(c.fx + s + 3.6 * c.k, c.ey - 2.4 * c.k); g.lineTo(c.fx + s + 2.4 * c.k, c.ey + 3 * c.k); g.lineTo(c.fx + s - 2.4 * c.k, c.ey + 3 * c.k); g.closePath(); g.stroke(); } },
+    // an eye patch over one eye, with its strap
+    (g, c) => { if (c.covered) return; g.fillStyle = "#0e0b0a"; g.beginPath(); g.ellipse(c.fx + 4.6 * c.k, c.ey + 0.8 * c.k, 3.4 * c.k, 2.8 * c.k, 0, 0, 6.283); g.fill(); g.strokeStyle = "#0e0b0a"; g.lineWidth = Math.max(0.7, c.lw * 0.45); ln(g, [c.fx + 1 * c.k, c.ey - 2 * c.k, c.fx - 9 * c.k, c.ey - 4 * c.k]); },
+    // a broken eye: cracked lines over the eye
+    (g, c) => { if (c.covered) return; g.strokeStyle = "#ff3838"; g.lineWidth = Math.max(0.6, c.lw * 0.3); ln(g, [c.fx + 4.6 * c.k - 3 * c.k, c.ey + 0.8 * c.k - 2 * c.k, c.fx + 4.6 * c.k + 1 * c.k, c.ey + 0.8 * c.k + 0.5 * c.k, c.fx + 4.6 * c.k + 3 * c.k, c.ey + 0.8 * c.k - 2.5 * c.k]); ln(g, [c.fx + 4.6 * c.k + 1 * c.k, c.ey + 0.8 * c.k + 0.5 * c.k, c.fx + 4.6 * c.k + 0.5 * c.k, c.ey + 0.8 * c.k + 3 * c.k]); },
+    // a bleeding eye: a red streak running down from the eye
+    (g, c) => { if (c.covered) return; g.fillStyle = "#b0101a"; g.globalAlpha = c.alpha * 0.9; g.beginPath(); g.ellipse(c.fx + 4.6 * c.k, c.ey + 0.8 * c.k, 2.2 * c.k, 1.4 * c.k, 0, 0, 6.283); g.fill(); g.fillRect(c.fx + 4.6 * c.k - 0.6 * c.k, c.ey + 2 * c.k, 1.2 * c.k, 5 * c.k); dot(g, c.fx + 4.6 * c.k, c.ey + 7.4 * c.k, 1 * c.k); g.globalAlpha = c.alpha; },
+],
   // 3 brow piercing / slit / scar
   [() => {}, (g, c, t) => { g.fillStyle = t; dot(g, c.fx + 6 * c.k, c.ey - 3.8 * c.k, 0.7 * c.k); dot(g, c.fx + 6 * c.k, c.ey - 1.8 * c.k, 0.7 * c.k); },
     (g, c, t) => { g.strokeStyle = t; ln(g, [c.fx - 5 * c.k, c.ey - 4.6 * c.k, c.fx - 4 * c.k, c.ey - 2.4 * c.k]); ln(g, [c.fx - 4 * c.k, c.ey - 4.6 * c.k, c.fx - 3 * c.k, c.ey - 2.4 * c.k]); },
@@ -100,7 +111,15 @@ const SLOTS: Draw[][] = [
     (g, c, t) => { g.strokeStyle = t; ln(g, [c.fx + 2 * c.k, c.my + 0.6 * c.k, c.fx + 6.5 * c.k * c.dir, c.my - 0.6 * c.k]); },
     (g, c, t) => { g.strokeStyle = t; ring(g, c.fx + 5.5 * c.k * c.dir, c.my - 2.4 * c.k, 1.3 * c.k); },
     (g, c, t) => { g.fillStyle = t; g.globalAlpha = c.alpha * 0.55; g.beginPath(); g.arc(c.fx + 4 * c.k * c.dir, c.my - 1 * c.k, 2.2 * c.k, 0, 6.283); g.fill(); g.globalAlpha = c.alpha; },
-    (g, c, t) => { g.strokeStyle = t; ln(g, [c.fx - 4 * c.k, c.my + 3.6 * c.k, c.fx + 4 * c.k, c.my + 3.6 * c.k]); }],
+    (g, c, t) => { g.strokeStyle = t; ln(g, [c.fx - 4 * c.k, c.my + 3.6 * c.k, c.fx + 4 * c.k, c.my + 3.6 * c.k]); },
+    // a cigarette hanging from the mouth corner: white stick, orange lit tip, a thin smoke thread
+    (g, c) => { const x0 = c.fx + 2 * c.k, y0 = c.my + 0.6 * c.k, x1 = c.fx + 9 * c.k * c.dir, y1 = c.my + 1.8 * c.k; g.strokeStyle = "#f4f1ea"; g.lineWidth = Math.max(1, c.lw * 0.8); ln(g, [x0, y0, x1, y1]); g.strokeStyle = "#ff7a1a"; ln(g, [x1 - 1 * c.k * c.dir, y1 - 0.2 * c.k, x1, y1]); g.strokeStyle = "rgba(230,230,235,.5)"; g.lineWidth = Math.max(0.6, c.lw * 0.3); ln(g, [x1 + 1 * c.k * c.dir, y1 - 1 * c.k, x1 + 3 * c.k * c.dir, y1 - 4 * c.k]); },
+    // a cold sore: a small red-pink blister on the lip edge
+    (g, c) => { g.fillStyle = "#e0607a"; g.globalAlpha = c.alpha * 0.9; dot(g, c.fx + 3.2 * c.k * c.dir, c.my + 0.4 * c.k, 1.3 * c.k); g.fillStyle = "#ffd0d8"; dot(g, c.fx + 3.2 * c.k * c.dir, c.my + 0.1 * c.k, 0.5 * c.k); g.globalAlpha = c.alpha; },
+    // buck teeth: two big front teeth over the lip
+    (g, c) => { g.fillStyle = "#f4f1ea"; g.strokeStyle = "#0e0b0a"; g.lineWidth = Math.max(0.6, c.lw * 0.35); for (const s of [-0.9, 0.9]) { g.beginPath(); g.rect(c.fx + s * c.k - 1 * c.k, c.my - 0.2 * c.k, 2 * c.k, 3.4 * c.k); g.fill(); g.stroke(); } },
+    // a broken front tooth: one tooth with a jagged chip
+    (g, c) => { g.fillStyle = "#f4f1ea"; g.strokeStyle = "#0e0b0a"; g.lineWidth = Math.max(0.6, c.lw * 0.35); g.beginPath(); g.moveTo(c.fx + 0.2 * c.k, c.my); g.lineTo(c.fx + 1.8 * c.k, c.my); g.lineTo(c.fx + 1.6 * c.k, c.my + 1 * c.k); g.lineTo(c.fx + 1.2 * c.k, c.my + 0.6 * c.k); g.lineTo(c.fx + 1 * c.k, c.my + 1.8 * c.k); g.lineTo(c.fx + 0.2 * c.k, c.my + 1.8 * c.k); g.closePath(); g.fill(); g.stroke(); }],
   // 9 ear bits
   [() => {}, (g, c, t) => { g.fillStyle = t; for (const s of [-1, 1]) dot(g, c.x + s * c.rx * 1.02, c.y + 3 * c.k, 0.8 * c.k); },
     (g, c, t) => { g.strokeStyle = t; for (const s of [-1, 1]) ring(g, c.x + s * c.rx * 1.02, c.y + 4.4 * c.k, 1.9 * c.k); },
@@ -121,7 +140,11 @@ const SLOTS: Draw[][] = [
     const a = [[-4, -4, -7, 3], [4, -4, 7, 3], [-7, 3, 7, 4], [-6, 6, -2, 9], [3, 5, 8, 6], [-2, -6, 3, -3], [-7, 0, -5, 8], [5, -1, 6, 8]][v];
     ln(g, [c.fx + a[0] * c.k, c.y + a[1] * c.k, c.fx + a[2] * c.k, c.y + a[3] * c.k]);
     for (let i = 1; i <= 2; i++) { const m = i / 3, mx = a[0] + (a[2] - a[0]) * m, my = a[1] + (a[3] - a[1]) * m; ln(g, [c.fx + (mx - 0.9) * c.k, c.y + (my - 0.4) * c.k, c.fx + (mx + 0.9) * c.k, c.y + (my + 0.4) * c.k]); }
-  })],
+  }),
+    // a sticking plaster over a cut
+    (g, c) => { g.fillStyle = "#e9d9b8"; g.save(); g.translate(c.fx - 3 * c.k, c.y - 2 * c.k); g.rotate(-0.4); g.fillRect(-4 * c.k, -1.4 * c.k, 8 * c.k, 2.8 * c.k); g.fillStyle = "#c9a878"; g.fillRect(-1.2 * c.k, -1.4 * c.k, 2.4 * c.k, 2.8 * c.k); g.restore(); },
+    // a fresh cut with a bead of dried blood
+    (g, c) => { g.strokeStyle = "#b0101a"; g.lineWidth = Math.max(1, c.lw * 0.7); ln(g, [c.fx + 1 * c.k, c.y - 6 * c.k, c.fx + 4 * c.k, c.y - 3 * c.k]); g.fillStyle = "#7a0a14"; dot(g, c.fx + 4 * c.k, c.y - 2.6 * c.k, 0.9 * c.k); }],
   // 12 small tattoos
   [() => {}, ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((v): Draw => (g, c, t) => {
     g.strokeStyle = t; g.fillStyle = t; const bx = c.fx + (v % 2 ? 6.4 : -6.4) * c.k, by = c.y + 3.4 * c.k;
@@ -147,8 +170,47 @@ export const FACE_PART_COUNT = FACE_SLOT_SIZES.reduce((a, b) => a + b - 1, 0);
 /** Raw combination space of the tables: the product of every slot size, times the tone palette per toned slot. */
 export const FACE_COMBINATIONS = FACE_SLOT_SIZES.reduce((a, b) => a * b, 1) * TONES.length ** 4;
 
+/** Extra abstract parts added to the slots above: simple shapes in the face's own tone, no real faces as reference. */
+const EXTRA: [number, Draw[]][] = [
+  [0, [
+    (g, c, t) => { if (c.covered) return; g.fillStyle = t; for (const s of sides(c, 4)) { g.beginPath(); g.moveTo(c.fx + s, c.ey - 2 * c.k); g.lineTo(c.fx + s + 1.4 * c.k, c.ey + 0.8 * c.k); g.lineTo(c.fx + s, c.ey + 3.4 * c.k); g.lineTo(c.fx + s - 1.4 * c.k, c.ey + 0.8 * c.k); g.closePath(); g.fill(); } },
+    (g, c, t) => { if (c.covered) return; g.strokeStyle = t; for (const s of sides(c, 4)) ring(g, c.fx + s, c.ey + 0.8 * c.k, 2.1 * c.k); },
+    (g, c, t) => { if (c.covered) return; g.fillStyle = t; for (const s of sides(c, 4)) dot(g, c.fx + s, c.ey + 0.8 * c.k, 1.8 * c.k); },
+    (g, c, t) => { if (c.covered) return; g.strokeStyle = t; for (const s of sides(c, 4)) ln(g, [c.fx + s, c.ey - 2 * c.k, c.fx + s, c.ey + 3.4 * c.k]); },
+  ]],
+  [3, [
+    (g, c, t) => { g.strokeStyle = t; g.lineWidth = c.lw * 1.2; for (const s of sides(c, 4.2)) ln(g, [c.fx + s - 3 * c.k, c.ey - 4.5 * c.k, c.fx + s + 3 * c.k, c.ey - 5.5 * c.k]); },
+    (g, c, t) => { g.strokeStyle = t; for (const s of sides(c, 4.2)) { g.beginPath(); g.arc(c.fx + s, c.ey - 4.6 * c.k, 3 * c.k, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); } },
+    (g, c, t) => { g.fillStyle = t; g.globalAlpha = c.alpha * 0.9; for (const s of sides(c, 4.2)) { g.beginPath(); g.ellipse(c.fx + s, c.ey - 4.8 * c.k, 3.2 * c.k, 1 * c.k, 0, 0, 6.283); g.fill(); } g.globalAlpha = c.alpha; },
+  ]],
+  [5, [
+    (g, c, t) => { g.fillStyle = t; g.globalAlpha = c.alpha * 0.45; for (const s of sides(c, 6)) { g.beginPath(); g.ellipse(c.fx + s, c.my - 2 * c.k, 2.4 * c.k, 2.4 * c.k, 0, 0, 6.283); g.fill(); } g.globalAlpha = c.alpha; },
+    (g, c, t) => { g.fillStyle = t; for (const s of sides(c, 6)) for (let i = 0; i < 3; i++) dot(g, c.fx + s + (i - 1) * 1.6 * c.k, c.my - 2 * c.k + (i % 2) * 1.2 * c.k, 0.6 * c.k); },
+  ]],
+  [6, [
+    (g, c, t) => { g.strokeStyle = t; g.lineWidth = c.lw * 0.6; for (let i = -1; i <= 1; i++) ln(g, [c.fx + i * 2.4 * c.k, c.y - 9 * c.k, c.fx + i * 2.4 * c.k, c.y - 11 * c.k]); },
+    (g, c, t) => { g.fillStyle = t; g.globalAlpha = c.alpha * 0.8; g.beginPath(); g.moveTo(c.fx - 3 * c.k, c.y - 10 * c.k); g.lineTo(c.fx, c.y - 13 * c.k); g.lineTo(c.fx + 3 * c.k, c.y - 10 * c.k); g.closePath(); g.fill(); g.globalAlpha = c.alpha; },
+  ]],
+  [9, [
+    (g, c, t) => { g.fillStyle = t; for (const s of [-1, 1]) dot(g, c.fx + s * 7.4 * c.k, c.ey + 1 * c.k, 1.1 * c.k); },
+    (g, c, t) => { g.strokeStyle = t; g.lineWidth = c.lw * 0.6; for (const s of [-1, 1]) ring(g, c.fx + s * 7.6 * c.k, c.ey + 3 * c.k, 1.2 * c.k); },
+  ]],
+  [10, [
+    (g, c, t) => { g.fillStyle = t; dot(g, c.fx, c.my + 6.5 * c.k, 1 * c.k); },
+    (g, c, t) => { g.fillStyle = t; g.globalAlpha = c.alpha * 0.6; g.beginPath(); g.ellipse(c.fx, c.my + 5.6 * c.k, 2.6 * c.k, 1.2 * c.k, 0, 0, 6.283); g.fill(); g.globalAlpha = c.alpha; },
+  ]],
+  [12, [
+    (g, c, t) => { g.strokeStyle = t; g.lineWidth = Math.max(0.6, c.lw * 0.35); ring(g, c.fx - 5 * c.k, c.y - 2 * c.k, 1.8 * c.k); ring(g, c.fx - 5 * c.k, c.y - 2 * c.k, 0.8 * c.k); },
+    (g, c, t) => { g.strokeStyle = t; g.lineWidth = Math.max(0.6, c.lw * 0.35); ln(g, [c.fx + 4 * c.k, c.y - 9 * c.k, c.fx + 6 * c.k, c.y - 7 * c.k, c.fx + 4 * c.k, c.y - 5 * c.k, c.fx + 6 * c.k, c.y - 3 * c.k]); },
+  ]],
+];
+for (const [i, parts] of EXTRA) SLOTS[i].push(...parts);
+// the everyday issues (acne, bags, braces, nosebleeds...) join the same slots
+for (const [i, parts] of ISSUES) SLOTS[i].push(...parts);
+
 /** Odds that a slot is used at all (so most faces stay readable at 100px). */
-const USE: number[] = [0.7, 0.35, 0.3, 0.14, 0.12, 0.3, 0.16, 0.18, 0.22, 0.28, 0.2, 0.14, 0.12, 0.3];
+// more of the faces get markings now: about 1.6x the old odds, capped so faces stay readable
+const USE: number[] = [0.85, 0.55, 0.5, 0.3, 0.28, 0.5, 0.3, 0.32, 0.4, 0.5, 0.36, 0.3, 0.3, 0.5];
 
 function mix(a: number): number { a = (a ^ 61) ^ (a >>> 16); a = (a + (a << 3)) | 0; a ^= a >>> 4; a = Math.imul(a, 0x27d4eb2d); return (a ^ (a >>> 15)) >>> 0; }
 
@@ -184,7 +246,12 @@ export function drawFaceGenes(g: CanvasRenderingContext2D, seed: number, c: Face
   g.lineCap = "round"; g.lineWidth = Math.max(0.7, c.lw * 0.45);
   for (let i = 0; i < SLOTS.length; i++) {
     const p = G.parts[i];
-    if (p) { g.strokeStyle = G.tones[i]; g.fillStyle = G.tones[i]; SLOTS[i][p](g, c, G.tones[i]); }
+    if (!p) continue;
+    // seeded variety: each slot's part is scaled and nudged by its own seed, so one part shows up in many versions
+    const h = mix(seed + i * 977);
+    const jit: FaceCtx = { ...c, k: c.k * (0.78 + (h % 50) / 100), fx: c.fx + (((h >>> 6) % 9) - 4) * 0.3 * c.k, my: c.my + (((h >>> 12) % 7) - 3) * 0.3 * c.k };
+    g.strokeStyle = G.tones[i]; g.fillStyle = G.tones[i];
+    SLOTS[i][p](g, jit, G.tones[i]);
   }
   g.restore();
 }

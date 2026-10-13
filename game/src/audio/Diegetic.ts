@@ -44,6 +44,8 @@ export const clamp01Pan = (v: number): number => (v < -1 ? -1 : v > 1 ? 1 : v);
 
 /** Footstep sounds are switched off (they sounded bad). Set to true to bring them back. */
 export const FOOTSTEPS = false;
+/** Main's name for the same switch, kept so both footstep paths read one value. */
+const FOOTSTEPS_ON = FOOTSTEPS;
 
 /** Which ground a footstep lands on. */
 export function surfaceOf(tile: number): Surface {
@@ -984,7 +986,7 @@ export class Diegetic {
       if (m > 3 || c.phys !== 0) continue;
       f.acc += m;
       const dt = this.lite ? 0.09 : 0.05, spd = m / dt;
-      if (f.acc >= strideFor(spd) && spd > 0.5) {
+      if (FOOTSTEPS_ON && f.acc >= strideFor(spd) && spd > 0.5) {
         f.acc = 0; f.side ^= 1;
         due.push({ id: c.id, dist: Math.hypot(dx, dy), player: c.id === pid });
         dueC.set(c.id, c);

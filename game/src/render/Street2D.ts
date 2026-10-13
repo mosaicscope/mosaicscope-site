@@ -30,7 +30,7 @@ export interface CastSlot { id: number; x: number; dv: number; alpha: number }
 export const BAND_FULL = 2.6;
 export const BAND_OUT = 5;
 const HYST = 1.6;   // a person already on screen counts this much closer than they are, so the cap never flickers
-const MIN_GAP_K = 56;
+const MIN_GAP_K = 84;   // people stand a clear body-and-a-bit apart, so no two ever overlap or flicker past each other
 /** px per lateral unit used to place people. Fixed (the zoom-3 value) so zooming never slides people across the screen. */
 const LAYOUT_S = 18 * (3 - 1.2);
 /** How much closer the side-on street view sits: 1 is the layout as drawn, bigger is closer. */
@@ -59,18 +59,23 @@ export class StreetCast {
     // keep everyone at least a body-width apart (the focus stays put)
     take.sort((a, b) => a.tx - b.tx || a.c.id - b.c.id);
     const gapMin = MIN_GAP_K * k;
-    const fi = take.findIndex((t) => t.c.id === focus.id);
-    for (let i = (fi < 0 ? 1 : fi + 1); i < take.length; i++) take[i].tx = Math.max(take[i].tx, take[i - 1].tx + gapMin);
-    for (let i = (fi < 0 ? -1 : fi - 1); i >= 0; i--) take[i].tx = Math.min(take[i].tx, take[i + 1].tx - gapMin);
     const ease = 1 - Math.exp(-dt * 12);
-    const out: CastSlot[] = [], now = new Set<number>();
-    for (const t of take) {
+    // ease every person toward their wanted spot first, so the spacing below acts on what is on screen (smooth), not on jumpy targets
+    const cur = take.map((t) => {
       const id = t.c.id, prev = this.sx.get(id);
-      const x = prev === undefined || Math.abs(prev - t.tx) > W ? t.tx : prev + (t.tx - prev) * ease;
+      return prev === undefined || Math.abs(prev - t.tx) > W ? t.tx : prev + (t.tx - prev) * ease;
+    });
+    // keep everyone at least a body-width apart, pushing outward from the focus; the focus stays put
+    const fi = take.findIndex((t) => t.c.id === focus.id);
+    for (let i = fi + 1; i < take.length; i++) cur[i] = Math.max(cur[i], cur[i - 1] + gapMin);
+    for (let i = fi - 1; i >= 0; i--) cur[i] = Math.min(cur[i], cur[i + 1] - gapMin);
+    const out: CastSlot[] = [], now = new Set<number>();
+    take.forEach((t, i) => {
+      const id = t.c.id, x = cur[i];
       this.sx.set(id, x); now.add(id);
       const a = Math.abs(t.dv);
       out.push({ id, x, dv: t.dv, alpha: a <= BAND_FULL ? 1 : Math.max(0.15, (BAND_OUT - a) / (BAND_OUT - BAND_FULL)) });
-    }
+    });
     for (const id of [...this.sx.keys()]) if (!now.has(id)) this.sx.delete(id);
     this.shown = now;
     return out.sort((a, b) => a.dv - b.dv || a.id - b.id); // far to near, so nearer people overdraw
@@ -83,6 +88,8 @@ export class StreetCast {
 const INK = NOIR.ink;
 const hash = hash01;
 const GLOWS = 48;
+/** 0 at the normal street zoom, 1 when zoomed right in (the camera's max is 6, its start 1.5). */
+const closeness = (zoom: number): number => Math.max(0, Math.min(1, (zoom - 1.5) / 3));
 
 /** Draw a rect with a 1-unit ink outline: the whole style in one helper. */
 const box = (g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, fill: string, o = 1.5): void => { g.fillStyle = INK; g.fillRect(x - o, y - o, w + o * 2, h + o * 2); g.fillStyle = fill; g.fillRect(x, y, w, h); };
@@ -94,7 +101,7 @@ export class StreetView {
   private nGlow = 0;
 
   /** Returns true when it drew; `dest` is the visible canvas context (already scaled to CSS px). */
-  draw(dest: CanvasRenderingContext2D, dpr: number, sim: Simulation, f: Character, W: number, H: number, _zoom: number, dt: number, time: number, poseName: (c: Character, moving: boolean, spd: number) => string): void {
+  draw(dest: CanvasRenderingContext2D, dpr: number, sim: Simulation, f: Character, W: number, H: number, zoom: number, dt: number, time: number, poseName: (c: Character, moving: boolean, spd: number) => string, alpha = 1): void {
     // full device resolution (capped at 2x for phones): figures and houses are drawn sharp, not as a chunky pixel grid
     const res = Math.min(dpr, 2);
     const lw = Math.ceil(W * res), lh = Math.ceil(H * res);
@@ -102,25 +109,22 @@ export class StreetView {
     const g = this.lo.getContext("2d")!;
     g.setTransform(res, 0, 0, res, 0, 0);               // draw in CSS px
     g.globalAlpha = 1; g.globalCompositeOperation = "source-over"; g.lineCap = "round"; g.lineJoin = "round";
-    const pu = (f.x - f.y) / 1.414, pv = f.x + f.y;
+    // the sim steps at a fixed 60 Hz; blend each walker between their last and next step so motion stays smooth on any display
+    const at = (c: Character) => ({ x: c.px + (c.x - c.px) * alpha, y: c.py + (c.y - c.py) * alpha });
+    const fp = at(f), pu = (fp.x - fp.y) / 1.414, pv = fp.x + fp.y;
     // the street's scale is fixed (the same as the people's layout), so zooming never moves the scenery: only walking does
     const S = LAYOUT_S, ground = H * 0.62, day = sim.daylight, night = 1 - Math.min(1, day * 1.3);
     const rain = sim.env.raining, off = pu * S;
     this.nGlow = 0;
     this.backdrop(g, sim, W, pu, pv, S, ground, day, time);
     this.facades(g, sim, W, H, off, pv, S, ground, day, time);
-    this.street(g, W, H, off, ground, night, rain, time);
+    this.street(g, W, H, off, ground, night, rain, time, sim, pu, pv, S);
     // kerb bushes are fixed to the world: they slide only when you walk, never when you zoom or pan
     const BUSH_P = 2720;
     for (let i = 0; i < 16; i++) {
       const bx = ((((hash(i + 700) * BUSH_P) - off) % BUSH_P) + BUSH_P) % BUSH_P - 40, by = ground + 2 + hash(i + 710) * 6, br = 14 + hash(i + 720) * 16;
       g.fillStyle = "#14321f"; g.beginPath(); g.ellipse(bx, by, br, br * 0.7, 0, 0, 6.283); g.fill();
       g.fillStyle = "#2c5a36"; g.beginPath(); g.ellipse(bx - br * 0.2, by - br * 0.2, br * 0.6, br * 0.4, 0, 0, 6.283); g.fill();
-    }
-    for (let i = 0; i < 6; i++) {
-      const px = ((hash(i + 800) * W + time * (6 + hash(i + 810) * 6)) % (W + 40)) - 20, py = ground + 14 + hash(i + 820) * 8;
-      g.strokeStyle = NEON[(i + 3) % NEON.length]; g.lineWidth = 1.4; g.beginPath(); g.ellipse(px, py, 5, 3, 0, 0, 6.283); g.stroke();
-      g.beginPath(); g.moveTo(px + 4, py - 1); g.lineTo(px + 8, py - 3); g.stroke();
     }
     // dusk settles over the set; the lamps and lit windows then burn through it
     if (night > 0.05) { g.fillStyle = `rgba(14,10,36,${0.55 * night})`; g.fillRect(0, 0, W, H); }
@@ -129,24 +133,37 @@ export class StreetView {
     // figure size is fixed: zooming in and out does not change how big people are drawn
     const kk = 0.62;
     // who is on the street and their spacing come from the world, not the zoom: zoom does not change figure size or spacing
-    const slots = this.cast.pick(sim.chars, f, W, LAYOUT_S, 1, dt, W < 700 ? 8 : 11);
+    const live = sim.chars.map((c) => ({ id: c.id, ...at(c), inside: c.inside, inCar: c.inCar }));
+    const slots = this.cast.pick(live, { id: f.id, ...fp, inside: f.inside, inCar: f.inCar }, W, LAYOUT_S, 1, dt, W < 700 ? 8 : 11);
     const drawn: { c: Character; x: number; y: number; k: number; dv: number }[] = [];
     for (const s of slots) {
       const c = sim.chars[s.id]; if (!c) continue;
-      // no depth perspective: everyone stands on the same line at the same size, so walking never shifts them
-      const k = kk * c.look.scale, sy = ground + H * 0.1;
+      // a little depth: someone nearer the viewer (larger x+y) is a touch bigger and sits a touch lower on the pavement
+      const near = Math.max(-1, Math.min(1, s.dv / BAND_OUT));
+      // zoomed in, people grow so faces read: the nearer someone is to you, the more they grow
+      const close = closeness(zoom) * Math.max(0, 1 - Math.abs(s.dv) / 4);
+      const k = kk * c.look.scale * (1 + 0.12 * near) * (1 + 2.6 * close), sy = ground + H * 0.1 + 6 * near;
       const moving = Math.abs(c.x - c.px) + Math.abs(c.y - c.py) > 0.0005, spd = Math.hypot(c.x - c.px, c.y - c.py) * 60;
       c.anim.phase += spd * dt * 5.5;
       const dir = (Math.cos(c.facing) - Math.sin(c.facing)) >= 0 ? 1 : -1;
       g.globalAlpha = s.alpha * 0.45; g.fillStyle = NOIR.night; g.beginPath(); g.ellipse(s.x, sy, 22 * k, 4.5 * k, 0, 0, 6.283); g.fill();
       g.globalAlpha = s.alpha;
       // mood-based animation: a happy figure swings its arms wider and leans forward; a low one slumps
-      const A = pose(poseName(c, moving, spd), c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT);
+      // each walker has their own stride: the seed keeps neighbours from stepping in lockstep
+      const A = pose(poseName(c, moving, spd), c.style, time + c.seedPhase, c.anim.phase + c.seedPhase * 0.7, spd, c.anim.poseT);
       const mood = c.emo ? c.emo.mood : 0;
       A.armL *= 1 + 0.25 * mood; A.armR *= 1 + 0.25 * mood;
       A.lean += 0.06 * mood;
       // inverse kinematics: someone close to you reaches a hand toward you (in front, waist high)
-      if (c.phys === Phys.OK && Math.hypot(c.x - f.x, c.y - f.y) < 6) reachArm(A, 1, A.hipX + 0.83 * 42 * Math.sin(A.lean), -44 - 0.83 * 42 * Math.cos(A.lean), 20 * dir, -66);
+      // close to you, they reach out, but eased in with distance and by their own amount, so nobody snaps or lunges in unison
+      const dist = Math.hypot(c.x - f.x, c.y - f.y), w = c.phys === Phys.OK ? Math.max(0, Math.min(1, (6 - dist) / 2.5)) : 0;
+      if (w > 0) {
+        const reach = hash(c.id * 7 + 3), shx = A.hipX + 0.83 * 42 * Math.sin(A.lean), shy = -44 - 0.83 * 42 * Math.cos(A.lean);
+        const R: Angles = { ...A };
+        reachArm(R, 1, shx, shy, dir * (14 + reach * 10), -58 - reach * 14);
+        const k2 = w * (0.55 + 0.45 * reach);
+        A.armR += (R.armR - A.armR) * k2; A.foreR += (R.foreR - A.foreR) * k2;
+      }
       // ragdoll blend: ease toward limp while knocked down, back to the pose when recovered
       const target = c.phys === Phys.DOWN ? 1 : 0, r0 = ragdoll.get(c.id) ?? 0;
       const r = r0 + (target - r0) * 0.15;
@@ -339,7 +356,6 @@ export class StreetView {
     if (r < 0.55) { g.fillStyle = "#ff4fb8"; g.fillRect(ax + aw - 40, fy + 190, 4, 60); g.fillStyle = "rgba(255,79,184,.5)"; g.fillRect(ax + aw - 44, fy + 190, 12, 60); }
     g.fillStyle = "#0e0a18"; g.fillRect(ax, ground - 36, aw, 36);
     box(g, ax + 28, ground - 54, 30, 54, "#3a4250", 1.5); box(g, ax + 66, ground - 40, 26, 40, "#4a3a2a", 1.5); box(g, ax + 100, ground - 28, 34, 28, "#5a4430", 1.5);
-    g.fillStyle = "rgba(255,70,60,.9)"; if (r < 0.5) { g.fillRect(ax + 150, ground - 30, 3, 3); g.fillRect(ax + 164, ground - 30, 3, 3); }   // eyes in the dark
     this.fireEscape(g, ax + aw - 80, fy + 20, ground - fy - 50);
   }
 
@@ -378,7 +394,7 @@ export class StreetView {
   }
 
   /** Pavement, kerb, road with a worn lane line, and the things that live on it. */
-  private street(g: CanvasRenderingContext2D, W: number, H: number, off: number, ground: number, night: number, rain: boolean, time: number): void {
+  private street(g: CanvasRenderingContext2D, W: number, H: number, off: number, ground: number, night: number, rain: boolean, time: number, sim: Simulation, pu: number, pv: number, S: number): void {
     const padH = H * 0.1, roadY = ground + padH;
     g.fillStyle = NOIR.pave; g.fillRect(0, ground, W, padH);
     g.fillStyle = NOIR.paveJoint; for (let x = -(off % 90) - 90; x < W; x += 90) g.fillRect(x, ground, 2, padH);
@@ -394,12 +410,21 @@ export class StreetView {
       if (h < 0.18 || rain) { g.fillStyle = NOIR.puddle; g.globalAlpha = 0.6; g.beginPath(); g.ellipse(x + h2 * 120, ly + 34 + h2 * 30, 36 + h * 80, 5 + h2 * 4, 0, 0, 6.283); g.fill(); g.globalAlpha = 1; }
       g.fillStyle = "rgba(10,6,20,.5)"; g.fillRect(x + 20 + h2 * 100, ly + 22 + h * 40, 40 + h * 60, 2); g.fillRect(x + 70 + h * 80, ly + 25 + h2 * 40, 24, 2);   // cracks
       if (h2 > 0.55) { g.fillStyle = "#171424"; g.beginPath(); g.ellipse(x + 160, ly + 46, 20, 5, 0, 0, 6.283); g.fill(); g.fillStyle = "#3a3450"; g.fillRect(x + 142, ly + 45, 36, 1); }   // manhole
-      if (h < 0.34) this.parked(g, x + 40, roadY + (H - roadY) * 0.34, pickOf(NOIR.cars, i * 5), h2 < 0.5 ? 1 : -1, night);
       if (h2 < 0.28) this.mailbox(g, x + 220, ground + padH * 0.8);
       else if (h2 < 0.5) this.bin(g, x + 200, ground + padH * 0.8, i);
       if (hash(i * 3 + 8) < 0.3) this.bench(g, x + 120, ground + padH * 0.7);
       else if (hash(i * 3 + 9) < 0.4) this.tree(g, x + 100, ground + padH * 0.85, i, night);
       if (h2 > 0.4 && h2 < 0.62) this.vent(g, x + 90, roadY + (H - roadY) * 0.5, time, i);
+    }
+    // the real traffic and parked cars, each where it is on the map: lateral position across the road, depth from the focus
+    const carY = roadY + (H - roadY) * 0.34;
+    for (const v of sim.vehicles) {
+      const dv = (v.x + v.y) - pv;
+      if (Math.abs(dv) >= BAND_OUT) continue;
+      const cx = W / 2 + ((v.x - v.y) / 1.414 - pu) * S;
+      if (cx < -120 || cx > W + 120) continue;
+      const dir = Math.cos(v.heading) - Math.sin(v.heading) >= 0 ? 1 : -1;
+      this.parked(g, cx - 95, carY, v.color, dir, night);
     }
     if (night > 0.3) {                                                                          // lamp light on the wet road
       const LS = 420, j0 = Math.floor((off - W / 2) / LS) - 1;

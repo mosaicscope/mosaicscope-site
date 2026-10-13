@@ -598,6 +598,23 @@ export class Simulation {
   /** cartoon blood on or off (settings) */
   fakeBlood = true;
 
+  /** Bare-fisted punch: lands on whoever is in front, with a light knock and small damage. No toy involved. */
+  punchHeld(c: Character): number {
+    if ((this.nextAttack.get(c.id) ?? 0) > this.tick) return 0;
+    this.nextAttack.set(c.id, this.tick + Math.round(0.45 * 60));
+    const n = swingHits(c, 1.1, this.chars, this.charHash, this.tmp2, this.hits);
+    this.lod.markHot(c.id, this.tick);
+    for (let i = 0; i < n; i++) {
+      const v = this.hits[i];
+      if (v.lastHitBy === c.id && this.tick - v.lastHitTick < 20) continue; // per-pair hit cooldown
+      const nx = (v.x - c.x) || 0.01, ny = (v.y - c.y) || 0.01, nl = Math.hypot(nx, ny);
+      applyImpact(v, 0.6 * (0.8 + c.pers.boldness * 0.4), nx / nl, ny / nl, shieldBlocks(v, this.toys, c.x, c.y), this.cfg.maxImpulse, 0.5);
+      v.lastHitBy = c.id; v.lastHitTick = this.tick;
+    }
+    if (n) this.bus.emit("sound", { kind: "swish", x: c.x, y: c.y, vol: 0.2 });
+    return n;
+  }
+
   swingHeld(c: Character): number {
     if (c.hand < 0) return 0;
     const t = this.toys[c.hand], d = TOYS[t.def];
