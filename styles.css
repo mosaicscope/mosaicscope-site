@@ -419,7 +419,16 @@ audio { width: 100%; max-width: 640px; }
 @media (max-width: 720px) {
   .tc { display: none; }
   .slide__mount { padding: 10%; }
-  .bar__nav { display: none; }
+  /* Phones: keep section links reachable as a slim scrollable row under the mark */
+  .bar { flex-wrap: wrap; row-gap: 6px; }
+  .bar__nav {
+    order: 3; width: 100%; gap: 22px;
+    overflow-x: auto; scrollbar-width: none; padding-bottom: 2px;
+  }
+  .bar__nav::-webkit-scrollbar { display: none; }
+  .bar__nav a { white-space: nowrap; }
+  /* Jumps to a section land below the fixed bar instead of under it */
+  main section[id] { scroll-margin-top: 96px; }
   .sound__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .hero__note { left: var(--gut); right: var(--gut); max-width: none; }
   .foot__meta { text-align: left; }

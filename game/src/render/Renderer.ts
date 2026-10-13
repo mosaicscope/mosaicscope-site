@@ -26,6 +26,9 @@ import { friendship, hostility } from "../social/Social";
 import { LOD_NAMES } from "../entities/types";
 import { StreetView } from "./Street2D";
 
+/** The side-on 2D street is switched off: the 3D city is the only view. Flip to true to bring it back. */
+const STREET_2D = false;
+
 export type Quality = 0 | 1 | 2 | 3; // low, medium, high, ultra
 interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter, 7 street decor
 interface Decal { x: number; y: number; r: number; color: string; born: number; life: number; rot: number }
@@ -133,7 +136,7 @@ export class Renderer {
     if (cam.follow >= 0 && sim.chars[cam.follow]) { const f = sim.chars[cam.follow]; cam.lookAt(f.x, f.y); }
     // zoomed right in: the camera drops to street level for a flat 2D side view; zoom out to go back to 3D
     // (hysteresis stops it flickering at the boundary mid-pinch; a quick crossfade hides the switch)
-    const want2D = this.in2D ? z > 2.8 : z > 3.4;
+    const want2D = STREET_2D && (this.in2D ? z > 2.8 : z > 3.4);
     if (want2D !== this.in2D) { this.in2D = want2D; this.crossfade(); }
     if (want2D) { cam.update(dt, o.reduceMotion); this.render2D(dt, o); if (o.quality === 3) this.cinematic(sim); this.stats.frameMs = performance.now() - t0; return; }
     cam.update(dt, o.reduceMotion);
