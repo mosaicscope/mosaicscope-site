@@ -15,6 +15,9 @@ import { pose, solve, J } from "./StickFigure";
  * soft fade at its edge, hysteresis on the cap and smoothed positions.
  */
 
+// neon line colours from LOOK.md, one per person (same set as the zoomed-out figures)
+const NEON = ["#c6ff3d", "#ff7ad9", "#3dd6ff", "#f6b62c", "#ec2a1c", "#eee4d3", "#b48cff"] as const;
+
 // ------------------------------------------------------------------ who is on screen (pure)
 export interface CastChar { id: number; x: number; y: number; inside: number; inCar: number }
 export interface CastSlot { id: number; x: number; dv: number; alpha: number }
@@ -435,6 +438,25 @@ export class StreetView {
 
   /** A small noir figure: muted coat, fedora or flat cap, one-unit outline, flat two-tone shading. Joints come from `solve`. */
   private person(g: CanvasRenderingContext2D, c: Character, k: number, dir: number, flash: boolean, pix: number, night: number): void {
+    this.neonPerson(g, c, k, flash, night);
+  }
+
+  /** LOOK.md: people are neon stick figures, one colour each, same as the zoomed-out view. Joints come from `solve`. */
+  private neonPerson(g: CanvasRenderingContext2D, c: Character, k: number, flash: boolean, night: number): void {
+    const col = flash ? "#ffffff" : NEON[c.id % NEON.length];
+    const w = Math.max(1.6, 2.2 * k);
+    g.save();
+    g.strokeStyle = col; g.fillStyle = col; g.lineWidth = w; g.lineCap = "round"; g.lineJoin = "round";
+    if (night > 0.3) { g.shadowColor = col; g.shadowBlur = 6 * k; }
+    const seg = (a: number, b: number) => { g.beginPath(); g.moveTo(J[a], J[a + 1]); g.lineTo(J[b], J[b + 1]); g.stroke(); };
+    seg(0, 2);                              // torso
+    seg(6, 8); seg(8, 10); seg(6, 12); seg(12, 14);   // arms
+    seg(0, 16); seg(16, 18); seg(0, 20); seg(20, 22); // legs
+    g.beginPath(); g.arc(J[4], J[5], 4 * k, 0, 6.283); g.fill();   // head
+    g.restore();
+  }
+
+  private personOutlined(g: CanvasRenderingContext2D, c: Character, k: number, dir: number, flash: boolean, pix: number, night: number): void {
     const L = c.look, D = dressOf(c), skin = flash ? "#fff" : NOIR.skin[c.id % NOIR.skin.length], build = L.build ?? 1;
     const coat = flash ? "#fff" : muted(L.color, 0.5), pants = flash ? "#fff" : shade(muted(L.accent, 0.4), 0.7), lamp = night > 0.3 ? 1.25 : 1.1;
     const lw = 8 * k * build, ol = pix * 0.9;
