@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Interiors: 16 more places get their own floor plan so each feels like what it is: cafe, bakery, pizza, sushi, fish and chips, dairy, toy shop, sports shop, pawn shop, record shop, fuel station, barber, gym, nightclub, gallery and car dealership. Shop counters open the shop panel; the gallery and dealership desks open theirs. Only the Studio still uses the generic shopfront.
+
 ## 0.4.0
 
 - Clinical layer: 249 evidence-tagged studies (`mind/Evidence.ts`), stress, anxiety, depression, trauma and a rare psychosis spectrum with genetic liability from families (`Psychopathology.ts`, `Kin.ts`), whanau support and stigma (`Whanau.ts`), care pathways, Putahi Mental Health Unit. Saves are now v6 (v5 migrates).
