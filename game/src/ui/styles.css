@@ -352,3 +352,12 @@ body { overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
 /* a game, not a document: no text selection, no iOS copy/paste callout, no tap flash (inputs stay editable) */
 html, body, #ui, #ui *:not(input):not(textarea):not([contenteditable]) { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 input, textarea { -webkit-user-select: text; user-select: text; }
+
+/* neon skyline title card: purely cosmetic, never blocks play */
+.title { position: fixed; inset: 0; z-index: 50; background: var(--ink); pointer-events: none; transition: opacity .45s ease; }
+.title.out { opacity: 0; }
+.title-cv { position: absolute; inset: 0; width: 100%; height: 100%; }
+.title-tag { position: absolute; left: 50%; top: 74%; transform: translateX(-50%) rotate(-2deg); padding: 8px 16px; border: 1px solid var(--pink, #ff7ad9); color: #ff7ad9; box-shadow: 0 0 18px rgba(255,122,217,.45), inset 0 0 12px rgba(255,122,217,.2); font: 600 clamp(11px, 2.4vw, 15px) / 1 "IBM Plex Mono", monospace; letter-spacing: .24em; white-space: nowrap; opacity: 0; }
+.title-tag i { font: italic clamp(15px, 3vw, 22px) / 1 "Instrument Serif", serif; letter-spacing: 0; color: var(--paper); text-transform: none; }
+.title-skip { position: absolute; left: 0; right: 0; bottom: max(18px, env(safe-area-inset-bottom)); text-align: center; font: 500 10px / 1 "IBM Plex Mono", monospace; letter-spacing: .2em; text-transform: uppercase; color: var(--dim); opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .title { transition: none; } }

@@ -1,5 +1,6 @@
 import "./ui/styles.css";
 import { Game } from "./app/Game";
+import { showTitle } from "./ui/Title";
 import { setMosaicData, MOSAIC } from "./content/mosaicscope";
 
 /**
@@ -45,6 +46,7 @@ try {
   if (!canvas.getContext("2d")) throw new Error("Your browser can't draw the world (canvas is unavailable).");
   const game = new Game(canvas, ui);
   game.start();
+  try { showTitle(document.body, game.sim.world.buildings, { reduceMotion: game.reduceMotion }); } catch (e) { console.error("[mosaics:title]", e); }
   loadMosaicScope();
   (window as any).__mosaics = game; // handy for debugging and the smoke test
   window.addEventListener("error", (e) => console.error("[mosaics]", e.message));
