@@ -30,8 +30,8 @@ export class AudioSystem {
   private walked = 0; private lastX = NaN; private lastY = NaN; private lastT = 0;
   /** 0..1 how deep into the dream the walk has taken the player; the renderer drifts the colours by it */
   dream = 0;
-  /** the generative soundtrack; N toggles it, the sound setting still gates everything */
-  musicOn = true;
+  /** the generative soundtrack; off by default, N toggles it, the sound setting still gates everything */
+  musicOn = false;
   /** Hunter's in-world sound layer: footsteps, cars, weather, doors, machines (own bus, own mute: J) */
   private dg: Diegetic | null = null;
   private sim: Simulation | null = null;
