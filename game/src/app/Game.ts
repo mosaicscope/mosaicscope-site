@@ -134,6 +134,7 @@ export class Game {
       gravity: (v: number) => { setGravityScale(v); return `gravity ${gravityScale}`; },
       toast: (text: string) => this.toast(text),
       saveSlots: () => ["1", "2", "3"].map((s) => ({ slot: s, info: this.saves.info(s) })),
+      repairToys: () => { let n = 0; for (const t of this.sim.toys) if (this.sim.physics.repairToy(t)) n++; return `repaired ${n} toy(s)`; },
       colourBlind: (on: boolean) => { try { localStorage.setItem("ms-colourblind", on ? "1" : "0"); } catch { /* storage blocked */ } document.documentElement.classList.toggle("cb", on); return `colour-blind ${on ? "on" : "off"}`; },
     };
     try { if (localStorage.getItem("ms-colourblind") === "1") document.documentElement.classList.add("cb"); } catch { /* storage blocked: default palette */ }

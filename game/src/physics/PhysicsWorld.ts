@@ -215,6 +215,13 @@ export class PhysicsWorld {
     }
   }
 
+  /** Toy repair: a broken toy goes back to rest with full durability. Returns false if it was not broken. */
+  repairToy(t: Toy): boolean {
+    if (t.state !== "broken") return false;
+    t.state = "rest"; t.durability = t.maxDurability; t.brokenAt = -1;
+    return true;
+  }
+
   breakToy(t: Toy, by: number, tick: number, hooks: PhysicsHooks): void {
     if (t.state === "broken") return;
     t.state = "broken"; t.brokenAt = tick; t.vx = t.vy = t.vz = 0;
