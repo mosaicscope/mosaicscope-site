@@ -34,11 +34,11 @@ export const mtof = (m: number): number => 440 * 2 ** ((m - 69) / 12);
 
 const SCALES: Record<Flavour, Scale> = {
   // D major pentatonic-ish, bright and lazy
-  day: { name: "day", root: 50, steps: [0, 2, 4, 7, 9, 12], chords: [[0, 4, 7, 11], [5, 9, 12, 16], [7, 11, 14, 17], [2, 5, 9, 12]], bpm: 88 },
+  day: { name: "day", root: 50, steps: [0, 2, 4, 7, 9, 12], chords: [[0, 4, 7, 11], [5, 9, 12, 16], [7, 11, 14, 17], [2, 5, 9, 12]], bpm: 72 },
   // A mixolydian, golden hour wobble
-  dusk: { name: "dusk", root: 45, steps: [0, 2, 4, 7, 9, 10, 12], chords: [[0, 4, 7, 10], [5, 9, 12, 16], [10, 14, 17, 21], [0, 4, 7, 10]], bpm: 80 },
+  dusk: { name: "dusk", root: 45, steps: [0, 2, 4, 7, 9, 10, 12], chords: [[0, 4, 7, 10], [5, 9, 12, 16], [10, 14, 17, 21], [0, 4, 7, 10]], bpm: 68 },
   // E dorian, minor and a bit lonely
-  night: { name: "night", root: 40, steps: [0, 2, 3, 7, 9, 10, 12], chords: [[0, 3, 7, 10], [5, 8, 12, 15], [3, 7, 10, 14], [10, 14, 17, 20]], bpm: 72 },
+  night: { name: "night", root: 40, steps: [0, 2, 3, 7, 9, 10, 12], chords: [[0, 3, 7, 10], [5, 8, 12, 15], [3, 7, 10, 14], [10, 14, 17, 20]], bpm: 60 },
   // C phrygian with a tritone in it, slow and wrong
   dread: { name: "dread", root: 36, steps: [0, 1, 3, 6, 7, 8, 12], chords: [[0, 3, 7, 8], [1, 5, 8, 12], [0, 3, 6, 10], [6, 9, 12, 15]], bpm: 64 },
 };
@@ -78,7 +78,7 @@ export function planStep(m: Mood, f: Flavour, bar: number, step: number, rand: (
     case "none": break;
   }
   const bass = beat && (step === 0 || rand() < 0.45) ? sc.root - 12 + chord[0] + (step === 8 && rand() < 0.5 ? 7 : 0) : null;
-  const density = (dread ? 0.12 : f === "night" ? 0.2 : 0.3) * theme.density * (1 - m.rain * 0.5);
+  const density = (dread ? 0.12 : f === "night" ? 0.3 : 0.42) * theme.density * (1 - m.rain * 0.5);
   const mo = motifNote(theme.motif, bar, step);
   const motif = mo === null ? null : sc.root + chord[0] + 12 + mo;
   let lead: number | null = null;
@@ -90,7 +90,7 @@ export function planStep(m: Mood, f: Flavour, bar: number, step: number, rand: (
 }
 
 /** Peak levels of each voice. Soft by design (lofi): the critique's loudness proxy reads these too. */
-export const LEVELS = { kick: 0.26, snare: 0.07, hatLo: 0.018, hatHi: 0.032, bass: 0.24, lead: 0.08, motif: 0.11, pad: 0.09 };
+export const LEVELS = { kick: 0.13, snare: 0.035, hatLo: 0.008, hatHi: 0.014, bass: 0.22, lead: 0.12, motif: 0.14, pad: 0.13 };
 
 export const stepSeconds = (bpm: number): number => 60 / bpm / 4;
 
