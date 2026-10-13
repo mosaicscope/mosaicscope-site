@@ -19,7 +19,8 @@ import type { VehicleClass } from "../content/vehicles";
 import type { Simulation } from "../sim/Simulation";
 import type { Camera } from "../render/Camera";
 import { DEFAULT_VOICE, DEFAULT_FOOT, DEFAULT_AMBIENCE, voiceAllowed, voicePitch, voiceDuration, voiceTone, footGain, shoePitch, ambienceGain } from "./Prefs";
-import type { VoicePrefs, FootPrefs, AmbiencePrefs } from "./Prefs";
+import { UI_TONES, uiGain } from "./Prefs";
+import type { VoicePrefs, FootPrefs, AmbiencePrefs, UiTone } from "./Prefs";
 
 // ------------------------------------------------------------------ pure planning
 
@@ -541,6 +542,13 @@ export class Diegetic {
   setFoot(p: FootPrefs): void { this.footPrefs = p; }
   /** Whether the player is sneaking right now; the game calls this when it knows. */
   setSneaking(on: boolean): void { this.sneaking = on; }
+  /** A UI tone (button, tab, error, save, level-up and so on): not spatial, so it always plays centred. */
+  uiTone(tone: UiTone): void {
+    if (!this.on) return;
+    const spec = UI_TONES[tone], o = this.flat(uiGain(tone, this.vol));
+    if (!this.begin("event")) return;
+    this.end(this.blip(o, spec.shape, spec.freq, spec.freqEnd, spec.dur, 1));
+  }
   /** Quiet mode: mutes ambience and speech blips, keeping footsteps and one-shot effects. */
   setQuiet(on: boolean): void {
     this.setAmbience({ ...this.ambPrefs, muted: on });
