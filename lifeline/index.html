@@ -2,6 +2,10 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lifeline</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#0E9F8E">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#EDF1F4;--card:#fff;--ink:#17212B;--mute:#5B6673;--line:#DCE3E9;--accent:#0E9F8E;--sun:#F4B63F;--plum:#6B4FD8;--red:#E5484D;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -22,6 +26,7 @@ h1{font-size:26px;font-weight:800;margin:0;letter-spacing:-.5px;color:var(--acce
 .cash{font-weight:800;font-size:22px;text-align:right}.neg{color:var(--red)}
 #snd{padding:4px 8px;font-size:14px;margin-top:4px}
 .bars{padding:0 18px 8px;display:grid;gap:7px}
+.lab{display:flex;align-items:center;gap:6px}.lab img{flex:none}
 .row{display:grid;grid-template-columns:62px 1fr 30px;gap:8px;align-items:center;font-size:14px}
 .tr{height:10px;background:var(--line);border-radius:6px;overflow:hidden}
 .tr i{display:block;height:100%;border-radius:6px;transition:width .35s}
@@ -192,7 +197,7 @@ tweenCash(S.cash);
 $('ca').className='cash'+(S.cash<0?' neg':'');
 $('nw').textContent='Net worth '+fmt(nw());
 $('acts').textContent='Actions left this year: '+S.acts+' of '+MAX_ACTS;
-$('bars').innerHTML=[['Health','health','--red'],['Happy','happy','--sun'],['Smarts','smarts','--plum'],['Looks','looks','--accent']].map(([n,k,col])=>'<div class="row"><span>'+n+'</span><div class="tr"><i style="width:'+S[k]+'%;background:var('+col+')"></i></div><span>'+Math.round(S[k])+'</span></div>').join('');
+$('bars').innerHTML=[['Health','health','--red'],['Happy','happy','--sun'],['Smarts','smarts','--plum'],['Looks','looks','--accent']].map(([n,k,col])=>'<div class="row"><span class="lab"><img src="assets/icons/'+k+'.svg" alt="" width="16" height="16">'+n+'</span><div class="tr"><i style="width:'+S[k]+'%;background:var('+col+')"></i></div><span>'+Math.round(S[k])+'</span></div>').join('');
 $('feed').innerHTML=S.log.map(e=>'<div class="e"><b>'+e.a+'</b><span>'+e.t+'</span></div>').join('');
 if(S.alive){G.slots[SL]=S;sv()}}
 
