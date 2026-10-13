@@ -6,6 +6,7 @@ import { updateNeeds } from "./needs";
 import { enterBuilding } from "../sim/Society";
 import { goalBias, onGoalDone, updateMind } from "../mind/Mind";
 import { violentBlocked, setForceGoal } from "../mind/Psychopathology";
+import { getLlm } from "./llm";
 
 /**
  * Top-level hierarchical state machine:
@@ -82,6 +83,14 @@ export function chooseGoal(c: Character, sim: Simulation): void {
   candidates.sort((a, b) => b.ch.u - a.ch.u);
   // weighted pick among the top three keeps behaviour varied but sensible (seeded rng)
   const top = candidates.slice(0, 3);
+  // optional model brain (principals only): use its last fresh pick if it is still valid, then ask for the next one
+  const llm = getLlm();
+  if (llm && c.tier === "principal") {
+    const said = llm.take(c.id, now, new Set(candidates.map((x) => x.g.id)));
+    const hit = said && candidates.find((x) => x.g.id === said);
+    if (hit && startGoal(c, sim, hit.g, hit.ch)) return;
+    llm.request(c.id, top.map((x) => ({ id: x.g.id, label: x.g.id })), now);
+  }
   const w = top.map((x, i) => Math.max(0.001, x.ch.u) ** 3 * (i === 0 ? 1.5 : 1));
   const pick = top[Math.max(0, sim.rng.weighted(w))];
   startGoal(c, sim, pick.g, pick.ch);
