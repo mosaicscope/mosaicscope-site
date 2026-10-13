@@ -93,7 +93,8 @@ export class Game {
   private moveTarget: { x: number; y: number } | null = null;
   private pendingTalk = -1;
   private pendingEnter: { building: number; studio: boolean } | null = null;
-  private quality: Quality = 1; // auto starts at medium and steps up only if frames stay fast
+  // auto starts at medium on desktop and high on phones (full detail, more battery), and steps down only if frames drop
+  private quality: Quality = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches ? 2 : 1;
   private fpsAvg = 60; private slowFor = 0; private fastFor = 0;
   private ticksThisSecond = 0; private tickRate = 0; private tickWindow = 0;
   private toastEl: HTMLElement; private hintEl: HTMLElement; private clockEl: HTMLElement; private speedEls: HTMLButtonElement[] = [];
