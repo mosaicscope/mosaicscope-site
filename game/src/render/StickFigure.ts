@@ -140,14 +140,14 @@ export function solve(a: Angles, sx: number, sy: number, k: number, dir: number)
 export interface ItemDraw { (g: CanvasRenderingContext2D, x: number, y: number, k: number, dir: number, angle: number): void }
 
 /** Full-detail figure (principal, mid, player). */
-export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: number, _sy: number, k: number, dir: number, t: number, flash: number, alpha: number): void {
+export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: number, _sy: number, k: number, dir: number, t: number, flash: number, alpha: number, hdOverride?: boolean): void {
   const L = c.look, girl = L.kind === "girl";
   const lw = Math.max(1.1, 3.2 * k * (L.build ?? 1));
   g.globalAlpha = alpha;
   g.lineCap = "round"; g.lineJoin = "round";
   const col = flash > 0 ? "#ffffff" : L.color;
   // HD pass when you're close: soft neon glow, a crisp ink outline under every limb, then the line
-  const hd = k >= 1.05 && hdBudget-- > 0;
+  const hd = hdOverride ?? (k >= 1.05 && hdBudget-- > 0);
   if (isResident(c)) {   // the everyday local: egg belly, long neck, big nose (see Residents.ts)
     drawResident(g, J, c, k, dir, alpha, hd, flash > 0, lw);
     if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 18 * k, k, t);

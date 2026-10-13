@@ -441,7 +441,7 @@ export class StreetView {
   private person(g: CanvasRenderingContext2D, c: Character, k: number, dir: number, flash: boolean, pix: number, night: number): void {
     // the same figure as the zoomed-out view: drawn from the joints `solve` already placed
     void pix; void night;
-    drawFigure(g, c, 0, 0, k, dir, 0, flash ? 1 : 0, 1);
+    drawFigure(g, c, 0, 0, k, dir, 0, flash ? 1 : 0, 1, true);   // street people always get the HD pass (glow and ink outline)
   }
 
   /** LOOK.md: people are neon stick figures, one colour each, same as the zoomed-out view. Joints come from `solve`. */
