@@ -323,7 +323,7 @@ const gallery: InteriorDef = {
     p("stanchion", 10, 3, 0.4, 0.4, "#d4af37"), p("stanchion", 11.4, 3, 0.4, 0.4, "#d4af37"), p("table", 10, 6.4, 2.6, 1.8, "#eee4d3", "Sculpture plinth"),
     p("shelf", 15, 0.4, 1.6, 0.8, "#6b4a2a", "Prints for sale"), p("table", 16.4, 4.4, 2.4, 1.2, "#eee4d3", "Guest book"), p("plant", 18.2, 9.8, 1, 1, "#3f8f4a"),
     wp("sign", "n", 4, 6, "#ec2a1c", "MosaicScope Gallery"), wp("poster", "n", 8, 2.4, "#6fe3b0", "Canterbury light, in colour"), wp("poster", "n", 11.5, 2.2, "#ff7ad9", "Portraits of strangers"),
-    wp("poster", "n", 15, 2, "#3dd6ff", "Port Hills at dawn"), wp("poster", "w", 3, 1.6, "#f6b62c", "Local artists, local light"), wp("poster", "w", 8, 1.4, "#eee4d3", "Prints, framed or not"),
+    wp("poster", "n", 15, 2, "#3dd6ff", "Port Hills at dawn"), wp("poster", "w", 3, 1.6, "#f6b62c", "Local artists, local light"), wp("poster", "w", 8, 1.4, "#eee4d3", "Prints, framed or not"), wp("painting", "w", 9.8, 2.2, "#c9a24a", "Painting of the week"),
     p("mat", 15.2, 8.6, 2.4, 2.2, "#ec2a1c", "Polaroid spot"), p("lamp", 18, 8.4, 0.4, 0.4, "#f6e8a8"), wp("sign", "n", 17.4, 2, "#f6b62c", "Say cheese"), wp("board", "n", 12.4, 1.6, "#d4af37", "Your best moments"),
   ],
   interactables: [
@@ -331,6 +331,7 @@ const gallery: InteriorDef = {
     { id: "spot", label: "Polaroid spot", x: 16.4, y: 9.7, launch: "photospot", text: "A red mat, a good lamp and a camera on a tripod." },
     { id: "bestwall", label: "Best moments", x: 13, y: 2.6, launch: "gallerywall", text: "The wall where your best moments hang." },
     { id: "plinth", label: "Sculpture", x: 11.2, y: 9.2, text: "A twisted brass thing titled 'Untitled (Tuesday)'. It is either a lung or a mug." },
+    { id: "weekly", label: "Painting of the week", x: 1.4, y: 10.9, text: "A small gilt frame and a card in a very small font. The card changes every week." },
     { id: "guest", label: "Guest book", x: 17.6, y: 6.2, text: "'Beautiful.' 'Lovely light.' 'My nephew paints better.' (That last one is crossed out.)" },
   ],
   spots: [spot(2.6, 2.9, "work", "s"), spot(6.2, 4.4, "browse", "n"), spot(8.8, 4.6, "stand", "n"), spot(6.6, 7.3, "browse", "n"), spot(8.8, 7.3, "talk", "e"), spot(12.6, 4.7, "browse", "w"), spot(15.8, 6.6, "browse", "e"), spot(7, 9.9, "browse", "s")],

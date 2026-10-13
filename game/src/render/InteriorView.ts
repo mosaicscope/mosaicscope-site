@@ -13,6 +13,7 @@ import { PROP_INFO, type InteriorDef, type Prop, type FloorMat } from "../conten
 import { fillTextured } from "./Textures";
 import { wallSconces, wallPictures } from "./interiorDecor";
 import { pose, solve, drawFigure } from "./StickFigure";
+import { paintingOfWeek, paintPainting } from "./ArtSecrets";
 import type { Character, Look } from "../entities/types";
 
 export interface ViewActor {
@@ -77,6 +78,9 @@ export class InteriorView {
   private stub = { look: null as unknown as Look, phys: 0 } as unknown as Character;
 
   constructor(readonly canvas: HTMLCanvasElement) { this.g = canvas.getContext("2d")!; }
+
+  /** In-game week, for the gallery's painting of the week. Set before setDef. */
+  week = 0;
 
   setDef(def: InteriorDef): void {
     this.def = def; this.staticLayer = null; this.sprites.clear();
@@ -296,6 +300,14 @@ export class InteriorView {
       g.fillText(line, x, -yy);
     };
     switch (p.type) {
+      case "painting": {
+        const art = paintingOfWeek(this.week), fh = 40, fw = Math.min(L, 62);
+        const fx = (L - fw) / 2, ix = fx + 3, iw = fw - 6, ih = fh - 6;
+        rect(fx, 0, fw, fh, "#0b0908"); rect(fx + 1.5, 1.5, fw - 3, fh - 3, p.color);                              // gilt frame
+        g.save(); g.translate(0, -(fh - 3)); paintPainting(g, art, ix, 0, iw, ih); g.restore();
+        rect(L / 2 - 9, -5, 18, 4, "#0b0908"); rect(L / 2 - 8, -4, 16, 2, "#d8cdb8");                              // brass card
+        break;
+      }
       case "poster": { const h = 40; rect(0, 0, L, h, "#0b0908"); rect(2, 2, L - 4, h - 4, p.color); rect(2, 2, L - 4, 9, "rgba(0,0,0,.18)"); wrap(p.label ?? "", L / 2, h - 12, 7, "#0e0b0a", L - 8, 4); break; }
       case "sign": { const h = 17; rect(0, 0, L, h, "#0b0908"); g.shadowColor = p.color; g.shadowBlur = 10; rect(1.5, 1.5, L - 3, h - 3, shade(p.color, 0.22)); g.shadowBlur = 0; g.strokeStyle = p.color; g.lineWidth = 1.2; g.strokeRect(1.5, -h + 1.5, L - 3, h - 3); text(p.label ?? "", L / 2, 5.5, 8.5, p.color, "center", L - 8); break; }
       case "clock": { const R = Math.min(L, 40) / 2; g.fillStyle = "#eee4d3"; g.beginPath(); g.arc(L / 2, -R, R, 0, 6.283); g.fill(); g.strokeStyle = "#222"; g.lineWidth = 1.5; g.stroke(); g.beginPath(); g.moveTo(L / 2, -R); g.lineTo(L / 2, -R * 1.7); g.moveTo(L / 2, -R); g.lineTo(L / 2 + R * 0.55, -R); g.stroke(); break; }

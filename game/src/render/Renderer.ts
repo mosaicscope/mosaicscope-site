@@ -777,13 +777,13 @@ export class Renderer {
     g.restore();
   }
 
-  private street = new StreetView();
+  readonly street = new StreetView();
   /** Street-level 2D view: a gritty pixel-art alley, people side-on (see Street2D.ts). */
   private render2D(dt: number, o: RenderOptions): void {
     const sim = this.sim, cam = this.cam;
     const f = sim.chars[cam.follow >= 0 ? cam.follow : sim.playerId] ?? sim.player;
+    this.street.reduceMotion = o.reduceMotion;
     this.street.draw(this.g, this.dpr, sim, f, cam.viewW, cam.viewH, cam.zoom, dt, this.time, (c, m, s) => this.poseName(c, m, s));
-    void o;
   }
 
   private grain: HTMLCanvasElement | null = null; private vig: CanvasGradient | null = null; private vigKey = "";

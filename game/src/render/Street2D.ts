@@ -3,6 +3,8 @@ import { dressOf } from "../mind/Dress";
 import { NOIR, SHOP_NAMES, hash01, pickOf, shade, muted, worldWall } from "./noir";
 import type { Simulation } from "../sim/Simulation";
 import { pose, solve, J, drawFigure, reachArm, type Angles } from "./StickFigure";
+import { ComicView } from "./ComicView";
+import { MURALS, MURAL_W, MURAL_H, MURAL_WALL, MURAL_GROUT, goldenHour, muralAt } from "./ArtSecrets";
 
 // ragdoll: a fallen figure goes limp, and blends back to its normal pose when it recovers
 const LIMP: Partial<Angles> = { lean: 0.9, lying: 1, tilt: 0.6, armL: 2.4, armR: 2.7, foreL: 0.6, foreR: 0.6, thighL: 0.5, thighR: -0.4, bendL: 0.3, bendR: 0.2, bob: -2, hipX: 0 };
@@ -90,6 +92,12 @@ export class StreetView {
   private lo = document.createElement("canvas");
   private glow = new Float32Array(GLOWS * 4);
   private nGlow = 0;
+  /** Comic strip for big moments (see ComicView). */
+  readonly comic = new ComicView();
+  /** Golden-hour murals found so far (ids); the game persists this and hears about each new one. */
+  seen = new Set<string>();
+  onMural?: (id: string, name: string) => void;
+  reduceMotion = false;
 
   /** Returns true when it drew; `dest` is the visible canvas context (already scaled to CSS px). */
   draw(dest: CanvasRenderingContext2D, dpr: number, sim: Simulation, f: Character, W: number, H: number, zoom: number, dt: number, time: number, poseName: (c: Character, moving: boolean, spd: number) => string): void {
@@ -103,8 +111,9 @@ export class StreetView {
     const S = 18 * (zoom - 1.2), ground = H * 0.62, day = sim.daylight, night = 1 - Math.min(1, day * 1.3);
     const rain = sim.env.raining, off = pu * S;
     this.nGlow = 0;
+    this.comic.watch(sim, f, W, pu, S, dt);
     this.backdrop(g, sim, W, pu, pv, S, ground, day, time);
-    this.facades(g, sim, W, H, off, pv, S, ground, day, time);
+    this.facades(g, sim, W, H, off, pv, S, ground, day, time, goldenHour(sim.hour));
     this.street(g, W, H, off, ground, night, rain, time);
     // kerb bushes, and pigeons pecking along the pavement (LOOK.md neon line for the animals)
     for (let i = 0; i < 16; i++) {
@@ -158,6 +167,8 @@ export class StreetView {
     g.globalCompositeOperation = "soft-light"; g.fillStyle = night > 0.4 ? "rgba(90,70,170,.28)" : "rgba(150,120,200,.18)"; g.fillRect(0, 0, W, H); g.globalCompositeOperation = "source-over";
     if (rain) { g.strokeStyle = "rgba(170,190,230,.4)"; g.lineWidth = 1.5; g.beginPath(); for (let i = 0; i < 90; i++) { const x = (hash(i) * W + time * 60) % W, y = (hash(i + 500) * H + time * 520) % H; g.moveTo(x, y); g.lineTo(x - 5, y + 16); } g.stroke(); }
 
+    this.comic.capture(this.lo);
+
     // blow it up, crisp
     dest.setTransform(1, 0, 0, 1, 0, 0);
     dest.imageSmoothingEnabled = false;
@@ -178,6 +189,7 @@ export class StreetView {
     }
     dest.textAlign = "start"; dest.fillStyle = "rgba(239,228,204,.75)"; dest.font = "600 12px 'IBM Plex Mono', monospace";
     dest.fillText(`${sim.world.streetName(f.x, f.y)} · V or scroll out for 3D`, 16, 66);
+    this.comic.draw(dest, W, H, dt, this.reduceMotion);
   }
 
   /** A soft shadow band: four stacked strips that deepen downward. No checker patterns anywhere: they read as a criss-cross lattice. */
@@ -238,7 +250,7 @@ export class StreetView {
   }
 
   /** The long street wall: tenements, shopfronts, a stone bank, alley mouths with fire escapes. */
-  private facades(g: CanvasRenderingContext2D, sim: Simulation, W: number, H: number, off: number, pv: number, S: number, ground: number, day: number, time: number): void {
+  private facades(g: CanvasRenderingContext2D, sim: Simulation, W: number, H: number, off: number, pv: number, S: number, ground: number, day: number, time: number, gold: number): void {
     const SEG = 280, i0 = Math.floor((off - W / 2) / SEG) - 1, n = Math.ceil(W / SEG) + 3;
     const wallH = H * 0.54, dim = day > 0.4 ? 1 : 0.85;
     for (let i = i0; i < i0 + n; i++) {
@@ -258,7 +270,9 @@ export class StreetView {
       box(g, x - 3, top - 5, SEG + 6, 8, shade(col, 0.7), 1.5); g.fillStyle = NOIR.sill; g.fillRect(x - 2, top - 3, SEG + 4, 2);
       this.roofKit(g, x, top, SEG, col, i, day, time);
       const floors = hh > wallH * 1.22 ? 4 : hh > wallH * 0.95 ? 3 : 2, fh = (hh - H * 0.17) / floors;
-      for (let fl = 0; fl < floors; fl++) {
+      const mural = kind === 1 ? -1 : muralAt(i);
+      if (mural >= 0) this.gableMural(g, x, SEG, top + 14, ground - H * 0.17 - 8, mural, gold, W);
+      else for (let fl = 0; fl < floors; fl++) {
         for (let w = 0; w < 3; w++) {
           const wx = x + 30 + w * 80, wy = top + 16 + fl * fh, ww = 34, wh = Math.min(fh - 22, 54);
           this.window(g, wx, wy, ww, wh, hash(i * 11 + fl * 3 + w), day);
@@ -267,7 +281,7 @@ export class StreetView {
       const dy = ground - H * 0.17;                                   // ground floor
       if (kind === 1) { this.shop(g, x, dy, SEG, ground, i, col, wb?.sign); this.bladeSign(g, x + SEG - 34, dy - 74, i, day); }
       else this.entry(g, x, dy, ground, i, col);
-      if (kind === 0 && hash(i * 17) < 0.5) this.fireEscape(g, x + SEG - 70, top + 20, ground - H * 0.17 - top - 20);
+      if (kind === 0 && mural < 0 && hash(i * 17) < 0.5) this.fireEscape(g, x + SEG - 70, top + 20, ground - H * 0.17 - top - 20);
       // drainpipe and the dark foot of the wall
       box(g, x + SEG - 12, top, 6, hh, shade(col, 0.6), 1);
       this.band(g, x, ground - H * 0.06, SEG, H * 0.06, 0.3);
@@ -282,6 +296,28 @@ export class StreetView {
       if (b) return b;
     }
     return undefined;
+  }
+
+  /**
+   * A blank gable end. By day it is a dark panel with a faint patch of fresh pointing; as the light turns gold a neon tile
+   * mosaic (the site's own bulb colours on ink) glows up out of it, then sinks back as the light goes. The game remembers each find.
+   */
+  private gableMural(g: CanvasRenderingContext2D, x: number, SEG: number, y0: number, y1: number, which: number, gold: number, W: number): void {
+    const d = MURALS[which], tile = Math.floor(Math.min((SEG - 40) / MURAL_W, (y1 - y0) / MURAL_H));
+    if (tile < 4) return;
+    const mw = tile * MURAL_W, mh = tile * MURAL_H, mx = x + Math.floor((SEG - 12 - mw) / 2), my = y0 + Math.floor((y1 - y0 - mh) / 2);
+    g.fillStyle = MURAL_WALL; g.globalAlpha = 0.55; g.fillRect(mx - 8, my - 8, mw + 16, mh + 16); g.globalAlpha = 1;       // the panel: the only daytime clue
+    if (gold < 0.03) return;
+    g.fillStyle = `rgba(246,182,44,${(0.14 * gold).toFixed(3)})`; g.fillRect(x, y0 - 14, SEG, y1 - y0 + 22);               // sodium light raking the wall
+    g.globalAlpha = gold;
+    for (let ty = 0; ty < MURAL_H; ty++) for (let tx = 0; tx < MURAL_W; tx++) {
+      const c = d.tile(tx, ty); if (c < 0) continue;
+      g.fillStyle = MURAL_GROUT; g.fillRect(mx + tx * tile, my + ty * tile, tile, tile);
+      g.fillStyle = d.palette[c]; g.fillRect(mx + tx * tile + 1, my + ty * tile + 1, tile - 2, tile - 2);
+    }
+    g.globalAlpha = 1;
+    const cx = mx + mw / 2;
+    if (gold > 0.6 && cx > 0 && cx < W && !this.seen.has(d.id)) { this.seen.add(d.id); this.onMural?.(d.id, d.name); }
   }
 
   private window(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number, day: number): void {

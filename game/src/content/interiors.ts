@@ -36,7 +36,7 @@ export type PropType =
   | "partition" | "counter" | "desk" | "chair" | "sofa" | "bed" | "curtain" | "table" | "cabinet" | "shelf" | "plant"
   | "vending" | "machine" | "locker" | "bars" | "bench" | "lift" | "stairs" | "bath" | "fridge" | "tree" | "fountain"
   | "rug" | "mat" | "trolley" | "bin" | "lamp" | "pillar" | "stanchion" | "vault" | "rack" | "flower"
-  | "poster" | "sign" | "clock" | "screen" | "board" | "window" | "vent";
+  | "poster" | "sign" | "clock" | "screen" | "board" | "window" | "vent" | "painting";
 
 export interface PropInfo { ht: number; solid: boolean; flat?: boolean; wall?: boolean; elev?: number }
 /** Shared by renderer, collision and tests. `ht` is height in tiles. Flat props are walkable floor art. */
@@ -51,7 +51,7 @@ export const PROP_INFO: Record<PropType, PropInfo> = {
   stanchion: { ht: 0.85, solid: true }, vault: { ht: 1.9, solid: true }, rack: { ht: 0.8, solid: true }, flower: { ht: 0.5, solid: false, flat: true },
   poster: { ht: 0, solid: false, wall: true, elev: 0.75 }, sign: { ht: 0, solid: false, wall: true, elev: 1.45 }, clock: { ht: 0, solid: false, wall: true, elev: 1.5 },
   screen: { ht: 0, solid: false, wall: true, elev: 0.95 }, board: { ht: 0, solid: false, wall: true, elev: 0.7 }, window: { ht: 0, solid: false, wall: true, elev: 0.55 },
-  vent: { ht: 0, solid: false, wall: true, elev: 1.25 },
+  vent: { ht: 0, solid: false, wall: true, elev: 1.25 }, painting: { ht: 0, solid: false, wall: true, elev: 0.6 },
 };
 
 export interface Prop { type: PropType; x: number; y: number; w: number; h: number; color: string; material?: FloorMat | "metal" | "glass" | "fabric" | "wood"; label?: string }
