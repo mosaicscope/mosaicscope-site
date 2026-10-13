@@ -116,7 +116,7 @@ export class StreetView {
     this.nGlow = 0;
     this.backdrop(g, sim, W, pu, pv, S, ground, day, time);
     this.facades(g, sim, W, H, off, pv, S, ground, day, time);
-    this.street(g, W, H, off, ground, night, rain, time);
+    this.street(g, W, H, off, ground, night, rain, time, sim, pu, pv, S);
     // kerb bushes are fixed to the world: they slide only when you walk, never when you zoom or pan
     const BUSH_P = 2720;
     for (let i = 0; i < 16; i++) {
@@ -391,7 +391,7 @@ export class StreetView {
   }
 
   /** Pavement, kerb, road with a worn lane line, and the things that live on it. */
-  private street(g: CanvasRenderingContext2D, W: number, H: number, off: number, ground: number, night: number, rain: boolean, time: number): void {
+  private street(g: CanvasRenderingContext2D, W: number, H: number, off: number, ground: number, night: number, rain: boolean, time: number, sim: Simulation, pu: number, pv: number, S: number): void {
     const padH = H * 0.1, roadY = ground + padH;
     g.fillStyle = NOIR.pave; g.fillRect(0, ground, W, padH);
     g.fillStyle = NOIR.paveJoint; for (let x = -(off % 90) - 90; x < W; x += 90) g.fillRect(x, ground, 2, padH);
@@ -407,12 +407,21 @@ export class StreetView {
       if (h < 0.18 || rain) { g.fillStyle = NOIR.puddle; g.globalAlpha = 0.6; g.beginPath(); g.ellipse(x + h2 * 120, ly + 34 + h2 * 30, 36 + h * 80, 5 + h2 * 4, 0, 0, 6.283); g.fill(); g.globalAlpha = 1; }
       g.fillStyle = "rgba(10,6,20,.5)"; g.fillRect(x + 20 + h2 * 100, ly + 22 + h * 40, 40 + h * 60, 2); g.fillRect(x + 70 + h * 80, ly + 25 + h2 * 40, 24, 2);   // cracks
       if (h2 > 0.55) { g.fillStyle = "#171424"; g.beginPath(); g.ellipse(x + 160, ly + 46, 20, 5, 0, 0, 6.283); g.fill(); g.fillStyle = "#3a3450"; g.fillRect(x + 142, ly + 45, 36, 1); }   // manhole
-      if (h < 0.34) this.parked(g, x + 40, roadY + (H - roadY) * 0.34, pickOf(NOIR.cars, i * 5), h2 < 0.5 ? 1 : -1, night);
       if (h2 < 0.28) this.mailbox(g, x + 220, ground + padH * 0.8);
       else if (h2 < 0.5) this.bin(g, x + 200, ground + padH * 0.8, i);
       if (hash(i * 3 + 8) < 0.3) this.bench(g, x + 120, ground + padH * 0.7);
       else if (hash(i * 3 + 9) < 0.4) this.tree(g, x + 100, ground + padH * 0.85, i, night);
       if (h2 > 0.4 && h2 < 0.62) this.vent(g, x + 90, roadY + (H - roadY) * 0.5, time, i);
+    }
+    // the real traffic and parked cars, each where it is on the map: lateral position across the road, depth from the focus
+    const carY = roadY + (H - roadY) * 0.34;
+    for (const v of sim.vehicles) {
+      const dv = (v.x + v.y) - pv;
+      if (Math.abs(dv) >= BAND_OUT) continue;
+      const cx = W / 2 + ((v.x - v.y) / 1.414 - pu) * S;
+      if (cx < -120 || cx > W + 120) continue;
+      const dir = Math.cos(v.heading) - Math.sin(v.heading) >= 0 ? 1 : -1;
+      this.parked(g, cx - 95, carY, v.color, dir, night);
     }
     if (night > 0.3) {                                                                          // lamp light on the wet road
       const LS = 420, j0 = Math.floor((off - W / 2) / LS) - 1;
