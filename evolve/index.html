@@ -79,8 +79,15 @@
   .bar i.neg { background: var(--red); }
   @media (prefers-reduced-motion: no-preference) { .pulse { animation: p 2s ease-in-out infinite; } @keyframes p { 50% { opacity: .45; } } }
   .lock { position: fixed; inset: 0; z-index: 50; background: var(--ink); display: grid; place-items: center; padding: 16px; }
-  .lock form { display: flex; flex-wrap: wrap; gap: 10px; width: min(360px, 100%); }
-  .lock h1 { flex-basis: 100%; margin: 0 0 6px; }
+  .pad-wrap { width: min(300px, 100%); text-align: center; }
+  .pad-wrap h1 { margin: 0 0 6px; }
+  .dots { display: flex; justify-content: center; gap: 14px; margin: 18px 0 22px; }
+  .dots span { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--paper); }
+  .dots span.on { background: var(--paper); }
+  .dots.bad { animation: shake .35s; }
+  @keyframes shake { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+  .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .pad button { aspect-ratio: 1; border-radius: 50%; font: 500 26px var(--f-mono); padding: 0; min-height: 64px; }
   html.locked main { visibility: hidden; }
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin: 0; }
   .stats div { border: 1px solid var(--line); padding: 10px; }
@@ -91,31 +98,64 @@
 </head>
 <body>
 <div class="lock" id="lock" hidden>
-  <form id="lock-f" autocomplete="off">
+  <div class="pad-wrap">
     <h1>Evolution <span>engine</span></h1>
-    <label class="mono dim" for="pw" style="flex-basis:100%">Password</label>
-    <input type="password" id="pw" autofocus>
-    <button type="submit">Unlock</button>
-    <p class="mono dim" id="pw-msg" aria-live="polite" style="flex-basis:100%;margin:0"></p>
-  </form>
+    <p class="mono dim" id="pin-title" aria-live="polite">Enter PIN</p>
+    <div class="dots" id="dots" aria-hidden="true"></div>
+    <div class="pad" id="pad" role="group" aria-label="Number pad">
+      <button type="button">1</button><button type="button">2</button><button type="button">3</button>
+      <button type="button">4</button><button type="button">5</button><button type="button">6</button>
+      <button type="button">7</button><button type="button">8</button><button type="button">9</button>
+      <button type="button" data-k="clr" aria-label="Clear">C</button><button type="button">0</button><button type="button" data-k="del" aria-label="Delete">⌫</button>
+    </div>
+    <p class="mono dim" id="pin-msg" aria-live="polite">Forgot it? Enter 0000 to set a new PIN.</p>
+  </div>
 </div>
 <script>
-// View lock only: hides the page. Data at /api/evolve stays public; controls still need the admin token.
+// View lock only: hides the page on this device. Data at /api/evolve stays public; controls still need the admin token.
 (function () {
-  var root = document.documentElement, lock = document.getElementById("lock"), pw = document.getElementById("pw"), msg = document.getElementById("pw-msg");
+  var root = document.documentElement, lock = document.getElementById("lock"), dots = document.getElementById("dots"),
+      title = document.getElementById("pin-title"), msg = document.getElementById("pin-msg"), LEN = 4, KEY = "evo-pin";
+  var get = function () { try { return localStorage.getItem(KEY) || ""; } catch (e) { return ""; } };
+  var put = function (v) { try { localStorage.setItem(KEY, v); } catch (e) { /* storage blocked */ } };
+  var mode = get() ? "enter" : "set", entry = "", first = "";
+  function draw() {
+    title.textContent = { enter: "Enter PIN", set: "Set a new 4-digit PIN", confirm: "Type the new PIN again" }[mode];
+    var h = ""; for (var i = 0; i < LEN; i++) h += '<span class="' + (i < entry.length ? "on" : "") + '"></span>'; dots.innerHTML = h;
+  }
   function open() {
     root.classList.remove("locked"); lock.hidden = true;
     try { sessionStorage.setItem("evo-unlocked", "1"); } catch (e) { /* storage blocked */ }
-    var tok = document.getElementById("tok"); if (tok && !tok.value) tok.value = "chris";
   }
-  function check(e) {
-    if (e) e.preventDefault();
-    if (String(pw.value).replace(/\s+/g, "").toLowerCase() === "chris") open();
-    else { msg.textContent = "Wrong password."; pw.select(); }
+  function shake(text) { msg.textContent = text; dots.classList.remove("bad"); void dots.offsetWidth; dots.classList.add("bad"); }
+  function done() {
+    var v = entry; entry = "";
+    if (mode === "enter") {
+      if (v === "0000") { mode = "set"; msg.textContent = "Reset: choose a new PIN."; }
+      else if (v === get()) { open(); return; }
+      else shake("Wrong PIN. Forgot it? Enter 0000.");
+    } else if (mode === "set") {
+      if (v === "0000") shake("0000 is the reset code. Pick another.");
+      else { first = v; mode = "confirm"; msg.textContent = ""; }
+    } else {
+      if (v === first) { put(v); msg.textContent = "PIN saved."; mode = "enter"; draw(); open(); return; }
+      mode = "set"; shake("Didn't match. Try again.");
+    }
+    draw();
   }
+  function press(k) {
+    if (k === "clr") entry = ""; else if (k === "del") entry = entry.slice(0, -1);
+    else if (/^\d$/.test(k) && entry.length < LEN) entry += k;
+    draw();
+    if (entry.length === LEN) setTimeout(done, 120);
+  }
+  document.getElementById("pad").addEventListener("click", function (e) { var b = e.target.closest("button"); if (b) press(b.dataset.k || b.textContent); });
+  document.addEventListener("keydown", function (e) {
+    if (lock.hidden) return;
+    if (/^\d$/.test(e.key)) press(e.key); else if (e.key === "Backspace") press("del"); else if (e.key === "Escape") press("clr");
+  });
   if (root.classList.contains("locked")) lock.hidden = false;
-  document.getElementById("lock-f").addEventListener("submit", check);
-  pw.addEventListener("keydown", function (e) { if (e.key === "Enter") check(e); });
+  draw();
 })();
 </script>
 <main>
