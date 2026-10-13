@@ -1,0 +1,187 @@
+{
+ "at": 1791907481455,
+ "totals": {
+  "duplicate-code": 2,
+  "long-function": 12,
+  "oversized-module": 7,
+  "unused-css": 1
+ },
+ "findings": [
+  {
+   "kind": "duplicate-code",
+   "severity": "low",
+   "where": "game/src/audio/Diegetic.ts:844 = game/tests/diegetic.test.ts:106",
+   "detail": "8+ identical lines in 2 places",
+   "fix": "extract a shared helper",
+   "fp": "duplicate-code|1cngf4z"
+  },
+  {
+   "kind": "duplicate-code",
+   "severity": "low",
+   "where": "game/src/ui/minigames/Burger.ts:224 = game/src/ui/minigames/Roast.ts:351",
+   "detail": "8+ identical lines in 2 places",
+   "fix": "extract a shared helper",
+   "fp": "duplicate-code|10yri85"
+  },
+  {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "evolve/core/cycle.js:88",
+   "detail": "183 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|uaqs63"
+  },
+  {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "game/src/ai/steps.ts:46",
+   "detail": "183 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|3416i5"
+  },
+  {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "game/src/ai/steps.ts:240",
+   "detail": "245 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|1ausdyq"
+  },
+  {
+   "kind": "oversized-module",
+   "severity": "low",
+   "where": "game/src/app/Game.ts",
+   "detail": "1293 lines",
+   "fix": "consider splitting",
+   "fp": "oversized-module|1sxtnw"
+  },
+  {
+   "kind": "oversized-module",
+   "severity": "low",
+   "where": "game/src/audio/Diegetic.ts",
+   "detail": "1138 lines",
+   "fix": "consider splitting",
+   "fp": "oversized-module|10o9ynb"
+  },
+  {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "game/src/content/catalogue.ts:36",
+   "detail": "168 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|njiqh6"
+  },
+  {
+   "kind": "oversized-module",
+   "severity": "medium",
+   "where": "game/src/dialogue/packs/life.ts",
+   "detail": "3339 lines",
+   "fix": "split by feature into modules",
+   "fp": "oversized-module|16yhsf7"
+  },
+  {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "game/src/render/Buildings.ts:45",
+   "detail": "151 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|1he8p6t"
+  },
+  {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "game/src/render/Buildings.ts:225",
+   "detail": "153 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|10p82f7"
+  },
+  {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "game/src/render/Cars.ts:199",
+   "detail": "338 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|himwpi"
+  },
+  {
+   "kind": "oversized-module",
+   "severity": "low",
+   "where": "game/src/render/Renderer.ts",
+   "detail": "968 lines",
+   "fix": "consider splitting",
+   "fp": "oversized-module|tl27ks"
+  },
+  {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "game/src/sim/Rules.ts:18",
+   "detail": "345 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|qgw46t"
+  },
+  {
+   "kind": "oversized-module",
+   "severity": "low",
+   "where": "game/src/sim/Simulation.ts",
+   "detail": "849 lines",
+   "fix": "consider splitting",
+   "fp": "oversized-module|1u6dmh"
+  },
+  {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "game/src/sim/Spawner.ts:64",
+   "detail": "172 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|17dcczp"
+  },
+  {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "game/src/sim/Traffic.ts:297",
+   "detail": "169 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|q16oy4"
+  },
+  {
+   "kind": "oversized-module",
+   "severity": "low",
+   "where": "game/src/ui/minigames/Burger.ts",
+   "detail": "828 lines",
+   "fix": "consider splitting",
+   "fp": "oversized-module|1kvrijw"
+  },
+  {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "game/src/world/WorldGenerator.ts:58",
+   "detail": "349 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|svxeru"
+  },
+  {
+   "kind": "oversized-module",
+   "severity": "medium",
+   "where": "main.js",
+   "detail": "2633 lines",
+   "fix": "split by feature into modules",
+   "fp": "oversized-module|q8tq5k"
+  },
+  {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "main.js:1923",
+   "detail": "624 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|bf19ef"
+  },
+  {
+   "kind": "unused-css",
+   "severity": "medium",
+   "where": "styles.css",
+   "detail": "81 classes never referenced (e.g. leader__frame, leader__ring, leader__sweep, is-tick)",
+   "fix": "remove after checking content.json-driven markup",
+   "fp": "unused-css|5yda7r"
+  }
+ ]
+}
