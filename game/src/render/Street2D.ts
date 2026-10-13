@@ -31,6 +31,8 @@ export const BAND_FULL = 2.6;
 export const BAND_OUT = 5;
 const HYST = 1.6;   // a person already on screen counts this much closer than they are, so the cap never flickers
 const MIN_GAP_K = 56;
+/** px per lateral unit used to place people. Fixed (the zoom-3 value) so zooming never slides people across the screen. */
+const LAYOUT_S = 18 * (3 - 1.2);
 
 export class StreetCast {
   private shown = new Set<number>();
@@ -121,7 +123,8 @@ export class StreetView {
     // people
     const kk = (1 + (zoom - 3) * 0.3) * 0.62;
     // who is on the street and their spacing come from the world, not the zoom: zoom only changes figure size
-    const slots = this.cast.pick(sim.chars, f, W, S, 1, dt, W < 700 ? 8 : 11);
+    // layout uses a fixed scale, so zooming never moves people sideways; zoom only changes figure size
+    const slots = this.cast.pick(sim.chars, f, W, LAYOUT_S, 1, dt, W < 700 ? 8 : 11);
     const drawn: { c: Character; x: number; y: number; k: number; dv: number }[] = [];
     for (const s of slots) {
       const c = sim.chars[s.id]; if (!c) continue;
