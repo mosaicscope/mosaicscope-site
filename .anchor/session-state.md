@@ -1,6 +1,6 @@
 # Session state (auto-saved — last known reality)
 
-_Updated: 2026-10-13 15:01:02_  ·  branch: `claude/pensive-mccarthy-bkv5ql`
+_Updated: 2026-10-13 15:01:19_  ·  branch: `claude/pensive-mccarthy-bkv5ql`
 
 ## Uncommitted changes
 ```
@@ -15,6 +15,7 @@ Diff stat:
 
 ## Recent commits
 ```
+81436f2 Update session-state snapshot from anchor-memory
 7ccae96 Update session-state snapshot from anchor-memory
 7081dd2 Update session-state snapshot from anchor-memory
 f290ec2 Update session-state snapshot from anchor-memory
@@ -22,7 +23,6 @@ a520ee8 Add session-state snapshot from anchor-memory
 cd20481 Merge main into claude/pensive-mccarthy-bkv5ql
 47f0d38 Merge pull request #114 from mosaicscope/claude/drop-2d-street
 3e2384e World: drop the 2D street view, zoom much closer, HD faces up close
-3f0f0ee Replace site tree with upgraded build from zip
 ```
 
 ## Resume
