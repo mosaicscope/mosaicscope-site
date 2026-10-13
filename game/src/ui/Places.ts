@@ -6,6 +6,8 @@ import { VEHICLES, FOR_SALE } from "../content/vehicles";
 import { MOSAIC, captionLine } from "../content/mosaicscope";
 import { buy, pawnPrice, fmtCash, evaluateTrade, executeTrade, book, commitCrime } from "../sim/Society";
 import { carried, detach } from "../inventory/Inventory";
+import { cashIn, scrapCount, scrapValue } from "../sim/Litter";
+import { LITTER, BULK_MIN, BULK_BONUS } from "../content/litter";
 import { makeVehicle } from "../sim/Traffic";
 import type { Building } from "../world/World";
 import type { Character } from "../entities/types";
@@ -35,6 +37,7 @@ export class Places {
     if (b.kind === "studio") return this.studio();
     if (b.kind === "police") return this.police(b);
     if (b.kind === "mentalhealth") return this.putahi(b);
+    if (b.kind === "recycling") return this.recycling(b);
     if (def.menu) return this.shop(b);
     this.toast(`${b.name}: nothing for you at the counter.`);
   }
@@ -47,6 +50,26 @@ export class Places {
     if (what === "dealership") return this.dealership(b);
     if (what === "gallery") return this.gallery();
     this.enterLegacy(b);
+  }
+
+  /** The recycling centre: swap the cans and bottles in your sack for cash. */
+  recycling(b: Building): void {
+    const sim = this.sim(), p = sim.player;
+    const render = () => {
+      const can = p.scrap?.can ?? 0, bottle = p.scrap?.bottle ?? 0, n = scrapCount(p), worth = scrapValue(p);
+      const bonus = n >= BULK_MIN ? worth * BULK_BONUS : 0;
+      this.show(b.name, [
+        h("p", { style: { color: "var(--dim)" }, text: `Cans ${fmtCash(LITTER.can.value)}, bottles ${fmtCash(LITTER.bottle.value)}. Bring ${BULK_MIN} or more in one go and we add ${Math.round(BULK_BONUS * 100)}%.` }),
+        this.wallet(),
+        h("ul.items", null, [
+          h("li.item", null, [h("div", null, [h("b", { text: "Your sack" }), h("small", { text: n ? `${can} can${can === 1 ? "" : "s"}, ${bottle} bottle${bottle === 1 ? "" : "s"}${bonus ? ` · bulk bonus ${fmtCash(bonus)}` : ""}` : "Empty. Cans and bottles are on every street; bins hide a few more." })]),
+            h("span.price", { text: fmtCash(worth + bonus) }),
+            h("button.btn", { disabled: n === 0, onclick: () => { const r = cashIn(sim, p); this.toast(`Returned ${r.n} for ${fmtCash(r.total)}${r.bonus ? ` (incl. ${fmtCash(r.bonus)} bonus)` : ""}`, "acid"); render(); }, text: "Cash in" })]),
+        ]),
+        h("p", { style: { color: "var(--dim)" }, text: sim.litter.recycled ? `You've returned ${sim.litter.recycled} so far. The street thanks you.` : "First return? Welcome to the cleanest side hustle in town." }),
+      ], "shop");
+    };
+    render();
   }
 
   /** Pūtahi: a calm, respectful walk-in space. Real NZ help lines are free: 1737 (call or text). */

@@ -1,3 +1,5 @@
+import { nearestRecyclable, nearestBin, collectPiece, rummageBin, scrapCount, scrapValue } from "../sim/Litter";
+import { LITTER, SACK_CAP } from "../content/litter";
 import { Club } from "../ui/Club";
 import "../ui/club.css";
 import { Luxury } from "../ui/Luxury";
@@ -340,6 +342,29 @@ export class Game {
     return best;
   }
 
+  private nearestLitter() { const p = this.sim.player; return p.phys === Phys.OK ? nearestRecyclable(this.sim.litter, p.x, p.y, 1.1) : null; }
+  private nearestBin() { const p = this.sim.player; return p.phys === Phys.OK ? nearestBin(this.sim.world, p.x, p.y, 1.5) : null; }
+
+  /** Pick a can or bottle off the street, or rummage a bin for the ones people left in it. */
+  private scavenge(): boolean {
+    const sim = this.sim, p = sim.player;
+    const piece = this.nearestLitter();
+    if (piece) {
+      const what = LITTER[piece.kind].name, r = collectPiece(sim, p, piece);
+      if (r === "full") this.toast(`Sack's full (${SACK_CAP}). Cash in at the recycling centre.`);
+      else if (r === "ok") { p.anim.pose = "kick"; p.anim.poseT = 0.15; this.toast(`Picked up a ${what} · ${scrapCount(p)} in your sack (${fmtCash(scrapValue(p))})`); }
+      return true;
+    }
+    const bin = this.nearestBin();
+    if (bin) {
+      const got = rummageBin(sim, p, bin);
+      if (got.can + got.bottle) this.toast(`Rummaged the bin: ${[got.can && `${got.can} can${got.can > 1 ? "s" : ""}`, got.bottle && `${got.bottle} bottle${got.bottle > 1 ? "s" : ""}`].filter(Boolean).join(" and ")} · ${scrapCount(p)} in your sack`);
+      else this.toast(got.full ? `Sack's full (${SACK_CAP}). Cash in at the recycling centre.` : "Nothing in this bin but regret.");
+      return true;
+    }
+    return false;
+  }
+
   private nearestPerson(maxD = 2.5): number {
     const p = this.sim.player;
     let best = -1, bd = maxD;
@@ -395,6 +420,7 @@ export class Game {
     const door = this.nearDoor();
     if (door) { this.enterPlace(door); return; }
     if (this.nearestToy()) { this.act("pickup"); return; }
+    if (this.scavenge()) return;
     const car = nearestCar(sim, p.x, p.y, 2.2);
     if (!car) { this.toast("Nothing to pick up here"); return; }
     if (car.forSale) { this.toast(`For sale: ${fmtCash(car.price)}. Buy it inside the dealership.`); return; }
@@ -640,7 +666,13 @@ export class Game {
     } else {
       const t = this.nearestToy();
       if (t) parts.push(kb(k.pickup), " pick up ", h("b", { text: TOYS[t.def].name }), " · ");
+      else if (!door) {
+        const lit = this.nearestLitter(), bin = lit ? null : this.nearestBin();
+        if (lit) parts.push(kb(k.pickup), " pick up ", h("b", { text: LITTER[lit.kind].name }), " · ");
+        else if (bin) parts.push(kb(k.pickup), " rummage ", h("b", { text: "the bin" }), " · ");
+      }
     }
+    if (scrapCount(p) > 0) parts.push("Sack ", h("b", { text: `${scrapCount(p)} (${fmtCash(scrapValue(p))})` }), " · ");
     const n = this.nearestPerson();
     if (n >= 0) parts.push(kb(k.talk), " talk to ", h("b", { text: sim.chars[n].name }), " · ");
     parts.push("click people to inspect · ", kb("?"), " help");
@@ -899,6 +931,8 @@ export class Game {
       if (p.inCar >= 0) return { label: "Get out", icon: "exit" };
       const d = this.nearDoor(); if (d) return { label: d.studio ? "Enter Studio" : `Enter ${sim.world.buildings[d.building].name}`, icon: "use" };
       if (this.nearestToy()) return { label: "Pick up", icon: "pickup" };
+      if (this.nearestLitter()) return { label: "Pick up litter", icon: "use" };
+      if (this.nearestBin()) return { label: "Rummage bin", icon: "use" };
       const id = this.nearestPerson(1.8); if (id >= 0) return { label: `Talk to ${sim.chars[id].name.split(" ")[0]}`, icon: "talk" };
       return null;
     },
