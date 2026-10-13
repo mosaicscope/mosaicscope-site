@@ -65,7 +65,11 @@ export async function llmFromQuery(search: string): Promise<LlmBrain | null> {
   const kind = q.get("llm");
   if (!kind) return null;
   try {
-    if (kind === "hf") return new LlmBrain(hfWorkerChooser(q.get("llmUrl") ?? "/llm/pick"));
+    // hf needs the Worker's own URL: it is deployed separately from the Pages site, so there is no safe default
+    if (kind === "hf") {
+      const url = q.get("llmUrl");
+      return url ? new LlmBrain(hfWorkerChooser(url)) : null;
+    }
     if (kind === "local") return new LlmBrain(localGgufChooser(q.get("llmUrl") ?? undefined));
     if (kind === "webllm") return new LlmBrain(await webLlmChooser(q.get("llmModel") ?? undefined));
   } catch {
