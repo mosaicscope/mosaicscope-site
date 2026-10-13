@@ -84,9 +84,16 @@ export class TouchControls {
     this.base = el("div", "tc-base"); this.knob = el("div", "tc-knob");
     this.base.append(this.knob);
     this.zone.append(this.base);
-    this.zone.addEventListener("pointerdown", (e) => this.stickDown(e));
-    this.zone.addEventListener("pointermove", (e) => this.stickMove(e));
-    for (const t of ["pointerup", "pointercancel", "lostpointercapture"] as const) this.zone.addEventListener(t, (e) => { if (e.pointerId === this.stickId) this.stickUp(); });
+    // the stick starts from a touch anywhere on the left half that isn't a button, so it works wherever the thumb lands
+    window.addEventListener("pointerdown", (e) => {
+      if (e.pointerType !== "touch" || this.stickId >= 0 || e.clientX > innerWidth * 0.5) return;
+      const t = e.target;
+      if (!(t instanceof Element) || t.closest("button, .tc-btn, .tc-sheet, .tc-cluster, .tc-sheet *")) return;
+      if (this.el.classList.contains("hidden") || !this.el.classList.contains("on")) return;
+      this.stickDown(e);
+    }, { capture: true });
+    window.addEventListener("pointermove", (e) => this.stickMove(e), { capture: true, passive: false });
+    for (const t of ["pointerup", "pointercancel"] as const) window.addEventListener(t, (e) => { if (e.pointerId === this.stickId) this.stickUp(); }, { capture: true });
 
     // ---- right cluster
     const cluster = el("div", "tc-cluster");
@@ -230,7 +237,7 @@ export class TouchControls {
     if (this.stickId >= 0) return;
     e.preventDefault(); e.stopPropagation();
     this.stickId = e.pointerId;
-    try { this.zone.setPointerCapture(e.pointerId); } catch { /* fine */ }
+    try { (e.target as Element).setPointerCapture?.(e.pointerId); } catch { /* fine */ }
     const r = this.radius();
     // keep the whole base on screen
     this.ox = Math.max(r + 8, Math.min(innerWidth - r - 8, e.clientX));
