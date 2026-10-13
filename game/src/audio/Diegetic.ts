@@ -640,9 +640,9 @@ export class Diegetic {
   /** A footstep on a surface. wet: rain on hard ground adds a splashy edge. */
   private step(o: Out | null, surface: Surface, wet: number, jitter: number, soft = false, rain = wet / 1.6): void {
     if (!o || !this.begin("foley")) return;
-    const r = FOOT[surface], [f, q, d, v, type] = r.noise, k = 1 + jitter, vol = 0.6;
-    // everyone else's steps are a muted tap (low-passed, no squeak); only yours has the full detail
-    const n = soft ? this.hit(o, "lowpass", Math.min(1100, f) * k, 0.5, d * 1.2, v * vol * 0.8) : this.hit(o, type, f * k * (1 + wet * 0.3), q, d * (1 + wet * 0.8), v * vol * (1 + wet * 0.35));
+    const r = FOOT[surface], [f, q, d, v, type] = r.noise, k = 1 + jitter, vol = 1.0;
+    // everyone else's steps are a soft tap (low-passed, no squeak); only yours has the full detail
+    const n = soft ? this.hit(o, "lowpass", Math.min(2400, f) * k, 0.5, d * 1.2, v * vol * 1.4) : this.hit(o, type, f * k * (1 + wet * 0.3), q, d * (1 + wet * 0.8), v * vol * (1 + wet * 0.35));
     if (r.thud) this.blip(o, r.thud[4], r.thud[0] * k, r.thud[1] * k, r.thud[2], r.thud[3] * vol);
     if (!soft && r.squeak && Math.random() < r.squeak) this.blip(o, "sine", 1100 + Math.random() * 300, 1700, 0.07, 0.05, 0.01);
     const parts: AudioScheduledSourceNode[] = [n];
