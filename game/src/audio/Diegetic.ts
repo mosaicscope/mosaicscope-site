@@ -539,6 +539,10 @@ export class Diegetic {
   setFoot(p: FootPrefs): void { this.footPrefs = p; }
   /** Whether the player is sneaking right now; the game calls this when it knows. */
   setSneaking(on: boolean): void { this.sneaking = on; }
+  /** Audio debug read-out: live one-shot voices by priority, the ambience gain now, and recent blips in the last second. */
+  debugStats(): { live: Record<Prio, number>; ambient: number; recentBlips: number } {
+    return { live: { ...this.liveBy }, ambient: this.amb.gain.value, recentBlips: this.voiceRecent.length };
+  }
   /** For the older effects in Audio.ts (impacts, gunfire): the same cap and spacing, with the slot freed after a short while. */
   allow(prio: Prio = "event"): boolean {
     if (!this.on || !this.begin(prio)) return false;
