@@ -7,6 +7,8 @@ import { STREET } from "./packs/street";
 import { SCENE } from "./packs/scene";
 import { CARETAKER } from "./packs/caretaker";
 import { SATIRE } from "./packs/satire";
+import { HOURS } from "./packs/after";
+import { ATMOSPHERE } from "../content/atmosphere";
 import { peek, friendship, hostility } from "../social/Social";
 import { loveOf } from "../sim/Romance";
 import { MOSAIC, captionLine } from "../content/mosaicscope";
@@ -20,7 +22,7 @@ import { cultureWeight, regionalise, toneOfExchange, Tone } from "../mind/Cultur
  * win more often; nobody repeats an exchange they've already had with the same person, and the town
  * as a whole avoids recently heard ones. Placeholders are filled from the real situation.
  */
-export const EXCHANGES: Exchange[] = [...CITY, ...HEARTS, ...STREET, ...SCENE, ...CARETAKER, ...SATIRE];
+export const EXCHANGES: Exchange[] = [...CITY, ...HEARTS, ...STREET, ...SCENE, ...CARETAKER, ...SATIRE, ...(ATMOSPHERE ? HOURS : [])];
 
 /** Recent world events that make an "after:*" tag true (within this many ticks and tiles). */
 const AFTER: Record<string, string[]> = {
