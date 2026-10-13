@@ -69,6 +69,8 @@ export class InteriorOverlay {
     for (const ev of ["wheel", "contextmenu", "dblclick", "gesturestart"]) this.el.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
   }
 
+  /** the kind of building you are in, or null outside (the score reads this) */
+  get kind(): string | null { return this.open && this.b ? this.b.kind : null; }
   get open(): boolean { return !this.el.classList.contains("hidden"); }
   /** the building you are standing in, while its interior is open (audio muffles the street and plays the room) */
   get building(): Building | null { return this.open ? this.b : null; }
