@@ -1,3 +1,4 @@
+import { paintWindows, paintSpill, type Win } from "./NightGlow";
 import { World, Building, Graffiti } from "../world/World";
 import { TILE_W, TILE_H, Z_PX } from "../world/iso";
 import { drawAd } from "./Ads";
@@ -30,7 +31,7 @@ const STYLE: Record<string, Style> = {
 };
 const styleOf = (b: Building): Style => STYLE[b.kind] ?? "shop";
 /** Emissive paint jobs (neon, signs) replayed by the renderer after the night overlay. */
-export const GLOW: (() => void)[] = [];
+export const GLOW: ((layer: CanvasRenderingContext2D) => void)[] = [];
 const NEON = new Set(["casino", "nightclub", "diner", "pizza", "sushi", "fishchips", "records", "toyshop", "barber", "hotel", "dealership", "gallery", "studio", "cafe", "pawn"]);
 
 /** Pitched roof height above the eaves at a world point (0 for flat roofs). */
@@ -56,6 +57,12 @@ export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Build
   const night = dark > 0.25;
   // textures are pinned to the world origin so they travel with the building as the camera moves
   const anchor: TexAnchor = { x: sx - (tx - ty) * hw, y: sy - (tx + ty) * hh, zoom: z };
+
+  // nearer buildings hide the glow of the ones behind: this tile's silhouette wipes the glow layer before its own windows go on
+  if (night && z >= 0.8 && dark > 0.27) {
+    const T = H + (st === "house" ? 1.3 : 0.3), hull = [P(tx, ty + 1, 0), P(tx + 1, ty + 1, 0), P(tx + 1, ty, 0), P(tx + 1, ty, T), P(tx, ty, T), P(tx, ty + 1, T)];
+    GLOW.push((c) => { c.globalCompositeOperation = "destination-out"; c.globalAlpha = 1; c.fillStyle = "#000"; poly(c, hull); c.fill(); c.globalCompositeOperation = "source-over"; });
+  }
 
   // ---- walls ----
   // facades read brighter by day; at night the neon and windows do the work
@@ -210,8 +217,10 @@ function tank(g: CanvasRenderingContext2D, P: (x: number, y: number, h: number) 
  * Windows and ledges follow the building's storeys so neighbouring tiles line up seamlessly.
  */
 function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number, h: number) => [number, number], top: (x: number, y: number) => number,
-  ax: number, ay: number, bx: number, by: number, lightK: number, face: "s" | "e", tx: number, ty: number, z: number, _dark: number, night: boolean, time: number): void {
+  ax: number, ay: number, bx: number, by: number, lightK: number, face: "s" | "e", tx: number, ty: number, z: number, dark: number, night: boolean, time: number): void {
   const st = styleOf(b), H = b.height;
+  const glowA = night ? Math.min(1, (dark - 0.25) * 2.2) : 0, a0 = g.globalAlpha, wins: Win[] = [];
+  const winAt = (a0_: number, a1: number, h0: number, h1: number, col: string, f: number, k: number) => { const A = at(a0_, h0), B = at(a1, h0), C = at(a1, h1), D = at(a0_, h1); wins.push({ A, B, C, D, col, seed: (tx * 131 + ty * 17 + f * 7 + k * 3 + b.id * 977 + (face === "e" ? 1 : 0)) | 0 }); };
   const o0 = P(0, 0, 0), anchor: TexAnchor = { x: o0[0], y: o0[1], zoom: z };
   const at = (t: number, h: number) => P(ax + (bx - ax) * t, ay + (by - ay) * t, h);
   // outline, following a gable if the roof rises along this edge
@@ -277,7 +286,7 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
       g.fillStyle = lightK > 1 ? "#2c4060" : "#1c2a42"; g.beginPath(); quad(0.03, 0.97, h0 + 0.05, mid); g.fill();
       g.fillStyle = lightK > 1 ? "#4f7099" : "#33507a"; g.beginPath(); quad(0.03, 0.97, mid, h1 - 0.05); g.fill();
       if (night) {
-        for (let f = 1; f < floors; f++) for (let k = 0; k < 3; k++) if (lit(f, k)) { g.fillStyle = litCol(f, k); g.beginPath(); quad(k / 3 + 0.03, (k + 1) / 3 - 0.03, floorBase(f) + 0.08, floorBase(f) + FLOOR_H - 0.12); g.fill(); }
+        for (let f = 1; f < floors; f++) for (let k = 0; k < 3; k++) if (lit(f, k)) { g.fillStyle = litCol(f, k); g.beginPath(); quad(k / 3 + 0.03, (k + 1) / 3 - 0.03, floorBase(f) + 0.08, floorBase(f) + FLOOR_H - 0.12); g.fill(); if (z >= 0.8) winAt(k / 3 + 0.03, (k + 1) / 3 - 0.03, floorBase(f) + 0.08, floorBase(f) + FLOOR_H - 0.12, litCol(f, k), f, k); }
       }
       g.strokeStyle = shade(b.color, 0.85 * lightK); g.lineWidth = Math.max(1, 0.9 * z); g.beginPath();
       for (let f = 1; f <= floors; f++) { const h = Math.min(h1, floorBase(f)); const P0 = at(0, h), P1 = at(1, h); g.moveTo(P0[0], P0[1]); g.lineTo(P1[0], P1[1]); }
@@ -294,7 +303,7 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
       const on = lit(f, 0) || (lit(f, 1) && n === 2), col = litCol(f, 0);
       for (const [a0, a1] of spans) {
         frames.push([a0 - 0.03, a1 + 0.03, h0 - 0.05, h1 + 0.05]);
-        if (on) { const arr = litBy.get(col) ?? []; arr.push([a0, a1, h0, h1]); litBy.set(col, arr); } else dark.push([a0, a1, h0, h1]);
+        if (on) { const arr = litBy.get(col) ?? []; arr.push([a0, a1, h0, h1]); litBy.set(col, arr); if (z >= 0.8) winAt(a0, a1, h0, h1, col, f, a0 > 0.5 ? 1 : 0); } else dark.push([a0, a1, h0, h1]);
         if (!night) refl.push([a0, a0 + (a1 - a0) * 0.35, h0 + (h1 - h0) * 0.4, h1]);
         sills.push([a0 - 0.04, a1 + 0.04, h0 - 0.06, h0 - 0.01]);
       }
@@ -313,6 +322,14 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
     for (const [col, rs] of litBy) batch(rs, col);
     batch(refl, "rgba(200,225,255,.16)");
     batch(sills, "rgba(238,228,211,.35)");
+  }
+  // lit windows glow past the night overlay, with a household behind some of them
+  if (wins.length && glowA > 0.02) { const own = wins.slice(), stories = z >= 1.1; GLOW.push((c) => { c.globalAlpha = a0; paintWindows(c, own, glowA, time, stories); c.globalAlpha = 1; }); }
+  // shop fronts and lobbies throw warm light onto the footpath
+  if (glowA > 0.02 && z >= 0.8 && (st === "shop" || st === "club" || st === "fuel" || st === "tower" || st === "civic")) {
+    const ox = face === "e" ? 0.9 : 0, oy = face === "s" ? 0.9 : 0, n0 = P(ax, ay, 0), n1 = P(bx, by, 0), f0 = P(ax + ox, ay + oy, 0), f1 = P(bx + ox, by + oy, 0);
+    const col = st === "tower" || st === "civic" ? "#ffe6b0" : "#ffd27a";
+    GLOW.push((c) => { c.globalAlpha = a0; paintSpill(c, n0, n1, f0, f1, col, glowA); c.globalAlpha = 1; });
   }
   // nightclub: pulsing coloured windows
   if (st === "club" && night) {
