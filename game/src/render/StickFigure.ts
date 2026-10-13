@@ -2,6 +2,7 @@ import type { Character } from "../entities/types";
 import { Phys } from "../entities/types";
 import { dressOf } from "../mind/Dress";
 import type { Dress } from "../mind/Dress";
+import { isResident, drawResident } from "./Residents";
 
 /**
  * Procedural stick figures in the style of the MosaicScope footer crew (same proportions as the
@@ -145,6 +146,11 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
   const col = flash > 0 ? "#ffffff" : L.color;
   // HD pass when you're close: soft neon glow, a crisp ink outline under every limb, then the line
   const hd = k >= 1.05 && hdBudget-- > 0;
+  if (isResident(c)) {   // the everyday local: egg belly, long neck, big nose (see Residents.ts)
+    drawResident(g, J, c, k, dir, alpha, hd, flash > 0, lw);
+    if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 18 * k, k, t);
+    return;
+  }
   const skel = () => {
     g.beginPath();
     g.moveTo(J[0], J[1]); g.lineTo(J[16], J[17]); g.lineTo(J[18], J[19]);
