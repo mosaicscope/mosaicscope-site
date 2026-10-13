@@ -612,6 +612,8 @@ export class Diegetic {
   onSound(kind: string, x: number, y: number, vol: number, cam: Camera, scene: Scene): void {
     if (!this.on || !this.sim) return;
     if (scene.interior && !(kind === "till")) vol *= 0.35;
+    this.soundLog.push({ kind, t: this.ctx.currentTime, vol });
+    if (this.soundLog.length > 50) this.soundLog.shift();
     const o0 = () => this.route(x, y, vol, cam, scene.in2D);
     switch (kind) {
       case "horn": return this.horn(o0(), this.nearestClass(x, y));
@@ -631,6 +633,9 @@ export class Diegetic {
   }
   /** Sound kinds the sim sent that no effect plays for yet (a missing-sound report for the debug console). */
   private unheard = new Set<string>();
+  /** The last fifty sound events from the sim, newest last: a sound log for the debug console. */
+  private soundLog: { kind: string; t: number; vol: number }[] = [];
+  soundHistory(): { kind: string; t: number; vol: number }[] { return this.soundLog.slice(); }
 
   /** Entity and combat one-shots: hinges, glass, fire, sparks, dodges, parries, loot and breakages. */
   private tone(o: Out | null, kind: string): void {
