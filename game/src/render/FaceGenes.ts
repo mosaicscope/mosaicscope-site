@@ -169,6 +169,42 @@ export const FACE_PART_COUNT = FACE_SLOT_SIZES.reduce((a, b) => a + b - 1, 0);
 /** Raw combination space of the tables: the product of every slot size, times the tone palette per toned slot. */
 export const FACE_COMBINATIONS = FACE_SLOT_SIZES.reduce((a, b) => a * b, 1) * TONES.length ** 4;
 
+/** Extra abstract parts added to the slots above: simple shapes in the face's own tone, no real faces as reference. */
+const EXTRA: [number, Draw[]][] = [
+  [0, [
+    (g, c, t) => { if (c.covered) return; g.fillStyle = t; for (const s of sides(c, 4)) { g.beginPath(); g.moveTo(c.fx + s, c.ey - 2 * c.k); g.lineTo(c.fx + s + 1.4 * c.k, c.ey + 0.8 * c.k); g.lineTo(c.fx + s, c.ey + 3.4 * c.k); g.lineTo(c.fx + s - 1.4 * c.k, c.ey + 0.8 * c.k); g.closePath(); g.fill(); } },
+    (g, c, t) => { if (c.covered) return; g.strokeStyle = t; for (const s of sides(c, 4)) ring(g, c.fx + s, c.ey + 0.8 * c.k, 2.1 * c.k); },
+    (g, c, t) => { if (c.covered) return; g.fillStyle = t; for (const s of sides(c, 4)) dot(g, c.fx + s, c.ey + 0.8 * c.k, 1.8 * c.k); },
+    (g, c, t) => { if (c.covered) return; g.strokeStyle = t; for (const s of sides(c, 4)) ln(g, [c.fx + s, c.ey - 2 * c.k, c.fx + s, c.ey + 3.4 * c.k]); },
+  ]],
+  [3, [
+    (g, c, t) => { g.strokeStyle = t; g.lineWidth = c.lw * 1.2; for (const s of sides(c, 4.2)) ln(g, [c.fx + s - 3 * c.k, c.ey - 4.5 * c.k, c.fx + s + 3 * c.k, c.ey - 5.5 * c.k]); },
+    (g, c, t) => { g.strokeStyle = t; for (const s of sides(c, 4.2)) { g.beginPath(); g.arc(c.fx + s, c.ey - 4.6 * c.k, 3 * c.k, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); } },
+    (g, c, t) => { g.fillStyle = t; g.globalAlpha = c.alpha * 0.9; for (const s of sides(c, 4.2)) { g.beginPath(); g.ellipse(c.fx + s, c.ey - 4.8 * c.k, 3.2 * c.k, 1 * c.k, 0, 0, 6.283); g.fill(); } g.globalAlpha = c.alpha; },
+  ]],
+  [5, [
+    (g, c, t) => { g.fillStyle = t; g.globalAlpha = c.alpha * 0.45; for (const s of sides(c, 6)) { g.beginPath(); g.ellipse(c.fx + s, c.my - 2 * c.k, 2.4 * c.k, 2.4 * c.k, 0, 0, 6.283); g.fill(); } g.globalAlpha = c.alpha; },
+    (g, c, t) => { g.fillStyle = t; for (const s of sides(c, 6)) for (let i = 0; i < 3; i++) dot(g, c.fx + s + (i - 1) * 1.6 * c.k, c.my - 2 * c.k + (i % 2) * 1.2 * c.k, 0.6 * c.k); },
+  ]],
+  [6, [
+    (g, c, t) => { g.strokeStyle = t; g.lineWidth = c.lw * 0.6; for (let i = -1; i <= 1; i++) ln(g, [c.fx + i * 2.4 * c.k, c.y - 9 * c.k, c.fx + i * 2.4 * c.k, c.y - 11 * c.k]); },
+    (g, c, t) => { g.fillStyle = t; g.globalAlpha = c.alpha * 0.8; g.beginPath(); g.moveTo(c.fx - 3 * c.k, c.y - 10 * c.k); g.lineTo(c.fx, c.y - 13 * c.k); g.lineTo(c.fx + 3 * c.k, c.y - 10 * c.k); g.closePath(); g.fill(); g.globalAlpha = c.alpha; },
+  ]],
+  [9, [
+    (g, c, t) => { g.fillStyle = t; for (const s of [-1, 1]) dot(g, c.fx + s * 7.4 * c.k, c.ey + 1 * c.k, 1.1 * c.k); },
+    (g, c, t) => { g.strokeStyle = t; g.lineWidth = c.lw * 0.6; for (const s of [-1, 1]) ring(g, c.fx + s * 7.6 * c.k, c.ey + 3 * c.k, 1.2 * c.k); },
+  ]],
+  [10, [
+    (g, c, t) => { g.fillStyle = t; dot(g, c.fx, c.my + 6.5 * c.k, 1 * c.k); },
+    (g, c, t) => { g.fillStyle = t; g.globalAlpha = c.alpha * 0.6; g.beginPath(); g.ellipse(c.fx, c.my + 5.6 * c.k, 2.6 * c.k, 1.2 * c.k, 0, 0, 6.283); g.fill(); g.globalAlpha = c.alpha; },
+  ]],
+  [12, [
+    (g, c, t) => { g.strokeStyle = t; g.lineWidth = Math.max(0.6, c.lw * 0.35); ring(g, c.fx - 5 * c.k, c.y - 2 * c.k, 1.8 * c.k); ring(g, c.fx - 5 * c.k, c.y - 2 * c.k, 0.8 * c.k); },
+    (g, c, t) => { g.strokeStyle = t; g.lineWidth = Math.max(0.6, c.lw * 0.35); ln(g, [c.fx + 4 * c.k, c.y - 9 * c.k, c.fx + 6 * c.k, c.y - 7 * c.k, c.fx + 4 * c.k, c.y - 5 * c.k, c.fx + 6 * c.k, c.y - 3 * c.k]); },
+  ]],
+];
+for (const [i, parts] of EXTRA) SLOTS[i].push(...parts);
+
 /** Odds that a slot is used at all (so most faces stay readable at 100px). */
 // more of the faces get markings now: about 1.6x the old odds, capped so faces stay readable
 const USE: number[] = [0.85, 0.55, 0.5, 0.3, 0.28, 0.5, 0.3, 0.32, 0.4, 0.5, 0.36, 0.3, 0.3, 0.5];
