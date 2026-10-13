@@ -4,6 +4,8 @@ import { TOYS } from "../content/toys";
 import { peek } from "../social/Social";
 import { appraise, ocean } from "./Affect";
 import { newLog } from "./Mind";
+import { comfortPull } from "./Comfort";
+import type { Weather } from "../sim/Environment";
 
 /**
  * Learning rules.
@@ -87,8 +89,8 @@ export function scaldRoll(tick: number, c: Character, def: string): boolean {
   return HOT_DRINKS.includes(def) && h01(tick * 7919 + c.id, strHash(def)) < MIND_TUNING.scaldChance;
 }
 
-/** Appetite-for-this-item utility: needs + taste + learned value - aversion + novelty + cooler-substitute coping. */
-export function foodUtility(c: Character, def: string, tick: number): number {
+/** Appetite-for-this-item utility: needs + taste + learned value - aversion + novelty + cooler-substitute coping + weather comfort. */
+export function foodUtility(c: Character, def: string, tick: number, weather?: Weather): number {
   const f = TOYS[def]?.food;
   if (!f) return -9;
   const m = c.mind, b = ocean(c.pers);
@@ -100,6 +102,7 @@ export function foodUtility(c: Character, def: string, tick: number): number {
   // avoidance coping: while a heat aversion is fresh, anything cooler on the menu feels safer
   const hotAv = aversion(c, "trait:hot_drink", tick);
   if (hotAv > 0.1) u += 0.35 * hotAv * (1 - (HEAT[def] ?? 0));
+  u += comfortPull(def, weather);                                          // comfort food in the rain, cold treats in the sun
   return u;
 }
 
@@ -113,7 +116,7 @@ export function chooseFood(sim: Simulation, c: Character, options: readonly stri
     const ok = options.filter((d) => aversion(c, "item:" + d, sim.tick) < 0.3 && (!traitOf(d) || aversion(c, traitOf(d)!, sim.tick) < 0.3));
     return sim.rng.pick(ok.length ? ok : options);
   }
-  const us = options.map((d) => foodUtility(c, d, sim.tick));
+  const us = options.map((d) => foodUtility(c, d, sim.tick, sim.env.weather));
   const mx = Math.max(...us);
   const w = us.map((u) => Math.exp((u - mx) / 0.22));
   return options[Math.max(0, sim.rng.weighted(w))];
