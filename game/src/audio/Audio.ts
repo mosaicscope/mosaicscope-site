@@ -184,6 +184,7 @@ export class AudioSystem {
     else if (kind === "whoosh" || kind === "swish") this.noise(o, 0.12, kind === "swish" ? 2500 : 1600);
     else if (kind === "twang") this.tone(o, "triangle", 440, 220, 0.15);
     else if (kind === "boing") this.tone(o, "sine", 180, 720, 0.25);
+    else if (kind === "ding") { this.tone(o, "sine", 1175, 1170, 0.18); this.tone({ gain: o.gain, at: o.at + 0.09 }, "sine", 1760, 1750, 0.3); }
     else if (kind === "pickup") this.tone(o, "square", 660, 880, 0.04);
     else if (kind === "kick") this.tone(o, "sine", 150, 80, 0.08);
   }

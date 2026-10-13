@@ -24,7 +24,7 @@ export const TILE_HEIGHT: Record<number, number> = { [T.WALL]: 1.25, [T.FENCE]: 
 export type AreaKind = "street" | "plaza" | "park" | "court" | "studio" | "stage" | "market" | "playground" | "alley"
   | "casino" | "police" | "food" | "shops" | "residential" | "office" | "dealership" | "hospital" | "gallery" | "airport" | "nightlife";
 export interface Area { id: number; name: string; kind: AreaKind; x0: number; y0: number; x1: number; y1: number; cx: number; cy: number }
-export type PoiKind = "bench" | "boombox" | "toychest" | "lamp" | "hoop" | "door" | "springpad" | "fountain" | "busstop" | "foodtruck" | "atm" | "mural" | "hydrant" | "billboard" | "light" | "plane" | "bin";
+export type PoiKind = "bench" | "boombox" | "toychest" | "lamp" | "hoop" | "door" | "springpad" | "fountain" | "busstop" | "foodtruck" | "atm" | "mural" | "hydrant" | "billboard" | "light" | "plane" | "bin" | "compost";
 export interface Poi { id: number; kind: PoiKind; x: number; y: number; area: number; on?: boolean; building?: number; menu?: string[]; name?: string; dir?: number }
 
 export interface Building {
@@ -38,6 +38,8 @@ export interface Building {
   door: { x: number; y: number; face: "n" | "s" | "e" | "w" };
   area: number;
   billboard: boolean;
+  /** how spotless the streets around it are, 0..1 (set by the sim's tidy layer; the renderer brightens windows with it) */
+  shine?: number;
 }
 
 /** One painted tag or mural on a building face. */
@@ -66,6 +68,8 @@ export class World {
   /** building id per tile (-1 none) */
   readonly buildingOf: Int16Array;
   graffiti: Graffiti[] = [];
+  /** park area id -> how much its flowers are blooming, 0..1 (set by the sim's compost bins) */
+  bloom = new Map<number, number>();
   /** road grid: roads at coordinates where c % period < ROAD_W */
   readonly period = PERIOD;
   /** real street names per road line (index = coordinate / period), west->east and north->south */

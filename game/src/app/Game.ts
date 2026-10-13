@@ -1,5 +1,6 @@
 import { nearestRecyclable, nearestBin, collectPiece, rummageBin, scrapCount, scrapValue } from "../sim/Litter";
 import { LITTER, SACK_CAP } from "../content/litter";
+import { nearestCompostable, collectCompostable, nearestCompost, feedCompost, compostCount, COMPOST_CAP } from "../sim/Tidy";
 import { Club } from "../ui/Club";
 import "../ui/club.css";
 import { Luxury } from "../ui/Luxury";
@@ -348,6 +349,9 @@ export class Game {
   }
 
   private nearestLitter() { const p = this.sim.player; return p.phys === Phys.OK ? nearestRecyclable(this.sim.litter, p.x, p.y, 1.1) : null; }
+  private nearestScrap() { const p = this.sim.player; return p.phys === Phys.OK ? nearestCompostable(this.sim.litter, p.x, p.y, 1.1) : null; }
+  private nearestCompost() { const p = this.sim.player; return p.phys === Phys.OK ? nearestCompost(this.sim.world, p.x, p.y, 1.6) : null; }
+  private streakNote(): string { const t = this.sim.tidy; return t.streak >= 3 && t.active(this.sim.tick) ? ` · tidy streak x${t.streak}` : ""; }
   private nearestBin() { const p = this.sim.player; return p.phys === Phys.OK ? nearestBin(this.sim.world, p.x, p.y, 1.5) : null; }
 
   /** Pick a can or bottle off the street, or rummage a bin for the ones people left in it. */
@@ -357,7 +361,20 @@ export class Game {
     if (piece) {
       const what = LITTER[piece.kind].name, r = collectPiece(sim, p, piece);
       if (r === "full") this.toast(`Sack's full (${SACK_CAP}). Cash in at the recycling centre.`);
-      else if (r === "ok") { p.anim.pose = "kick"; p.anim.poseT = 0.15; this.toast(`Picked up a ${what} · ${scrapCount(p)} in your sack (${fmtCash(scrapValue(p))})`); }
+      else if (r === "ok") { p.anim.pose = "kick"; p.anim.poseT = 0.15; this.toast(`Picked up a ${what} · ${scrapCount(p)} in your sack (${fmtCash(scrapValue(p))})${this.streakNote()}`); }
+      return true;
+    }
+    const scrap = this.nearestScrap();
+    if (scrap) {
+      const what = LITTER[scrap.kind].name, r = collectCompostable(sim, p, scrap);
+      if (r === "full") this.toast(`Compost bag's full (${COMPOST_CAP}). Tip it in a park compost bin.`);
+      else if (r === "ok") { p.anim.pose = "kick"; p.anim.poseT = 0.15; this.toast(`Picked up a ${what} for the compost · ${compostCount(p)} in the bag${this.streakNote()}`); }
+      return true;
+    }
+    const comp = this.nearestCompost();
+    if (comp) {
+      const n = feedCompost(sim, p, comp);
+      this.toast(n ? `Tipped ${n} scrap${n > 1 ? "s" : ""} into the compost. The park flowers are blooming${this.streakNote()}` : "Community compost. Bring wrappers and cups and the park flowers will bloom.", n ? "acid" : undefined);
       return true;
     }
     const bin = this.nearestBin();
@@ -675,7 +692,9 @@ export class Game {
       else if (!door) {
         const lit = this.nearestLitter(), bin = lit ? null : this.nearestBin();
         if (lit) parts.push(kb(k.pickup), " pick up ", h("b", { text: LITTER[lit.kind].name }), " · ");
+        else if (this.nearestScrap()) parts.push(kb(k.pickup), " pick up ", h("b", { text: LITTER[this.nearestScrap()!.kind].name }), " for compost · ");
         else if (bin) parts.push(kb(k.pickup), " rummage ", h("b", { text: "the bin" }), " · ");
+        else if (this.nearestCompost()) parts.push(kb(k.pickup), compostCount(p) ? " tip the compost into " : " check ", h("b", { text: "the compost bin" }), " · ");
       }
     }
     if (scrapCount(p) > 0) parts.push("Sack ", h("b", { text: `${scrapCount(p)} (${fmtCash(scrapValue(p))})` }), " · ");
@@ -937,7 +956,8 @@ export class Game {
       if (p.inCar >= 0) return { label: "Get out", icon: "exit" };
       const d = this.nearDoor(); if (d) return { label: d.studio ? "Enter Studio" : `Enter ${sim.world.buildings[d.building].name}`, icon: "use" };
       if (this.nearestToy()) return { label: "Pick up", icon: "pickup" };
-      if (this.nearestLitter()) return { label: "Pick up litter", icon: "use" };
+      if (this.nearestLitter() || this.nearestScrap()) return { label: "Pick up litter", icon: "use" };
+      if (this.nearestCompost()) return { label: compostCount(p) ? "Feed compost" : "Compost bin", icon: "use" };
       if (this.nearestBin()) return { label: "Rummage bin", icon: "use" };
       const id = this.nearestPerson(1.8); if (id >= 0) return { label: `Talk to ${sim.chars[id].name.split(" ")[0]}`, icon: "talk" };
       return null;

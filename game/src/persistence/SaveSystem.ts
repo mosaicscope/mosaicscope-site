@@ -10,6 +10,7 @@ import { Group } from "../social/Groups";
 import { StorageProvider, NS } from "./storage";
 import { ensureMind, newMind } from "../mind/Mind";
 import { SavedLitter, serializeLitter, restoreLitter } from "../sim/Litter";
+import { SavedTidy, serializeTidy, restoreTidy } from "../sim/Tidy";
 
 /**
  * Versioned saves. The world layout is regenerated from the seed (deterministic), so a save stores
@@ -52,6 +53,8 @@ export interface SaveData {
   bookings: Booking[];
   /** street litter and bins; absent in older saves (the street regenerates from the seed) */
   litter?: SavedLitter;
+  /** reuse stall, trinkets, compost bloom; absent in older saves */
+  tidy?: SavedTidy;
 }
 
 /** Migrations from older versions, applied in order. */
@@ -87,6 +90,7 @@ export function serialize(sim: Simulation, label = "Save"): SaveData {
     crimes: sim.crimes.slice(-200).map((c) => ({ ...c, witnesses: [...c.witnesses] })),
     bookings: sim.bookings.slice(-100).map((b) => ({ ...b })),
     litter: serializeLitter(sim.litter),
+    tidy: serializeTidy(sim.tidy, sim.world),
   };
 }
 
@@ -134,6 +138,7 @@ export function restore(d: SaveData): Simulation {
   sim.crimes = d.crimes.map((c) => ({ ...c, witnesses: [...c.witnesses] }));
   sim.bookings = d.bookings.map((b) => ({ ...b }));
   if (d.litter) restoreLitter(sim.litter, d.litter);
+  if (d.tidy) restoreTidy(sim.tidy, sim.world, d.tidy);
   sim.rebuildHash();
   sim.lod.update(sim);
   return sim;
