@@ -86,6 +86,8 @@ export class StreetCast {
 const INK = NOIR.ink;
 const hash = hash01;
 const GLOWS = 48;
+/** 0 at the normal street zoom, 1 when zoomed right in (the camera's max is 6, its start 1.5). */
+const closeness = (zoom: number): number => Math.max(0, Math.min(1, (zoom - 1.5) / 3));
 
 /** Draw a rect with a 1-unit ink outline: the whole style in one helper. */
 const box = (g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, fill: string, o = 1.5): void => { g.fillStyle = INK; g.fillRect(x - o, y - o, w + o * 2, h + o * 2); g.fillStyle = fill; g.fillRect(x, y, w, h); };
@@ -97,7 +99,7 @@ export class StreetView {
   private nGlow = 0;
 
   /** Returns true when it drew; `dest` is the visible canvas context (already scaled to CSS px). */
-  draw(dest: CanvasRenderingContext2D, dpr: number, sim: Simulation, f: Character, W: number, H: number, _zoom: number, dt: number, time: number, poseName: (c: Character, moving: boolean, spd: number) => string, alpha = 1): void {
+  draw(dest: CanvasRenderingContext2D, dpr: number, sim: Simulation, f: Character, W: number, H: number, zoom: number, dt: number, time: number, poseName: (c: Character, moving: boolean, spd: number) => string, alpha = 1): void {
     // full device resolution (capped at 2x for phones): figures and houses are drawn sharp, not as a chunky pixel grid
     const res = Math.min(dpr, 2);
     const lw = Math.ceil(W * res), lh = Math.ceil(H * res);
@@ -122,11 +124,6 @@ export class StreetView {
       g.fillStyle = "#14321f"; g.beginPath(); g.ellipse(bx, by, br, br * 0.7, 0, 0, 6.283); g.fill();
       g.fillStyle = "#2c5a36"; g.beginPath(); g.ellipse(bx - br * 0.2, by - br * 0.2, br * 0.6, br * 0.4, 0, 0, 6.283); g.fill();
     }
-    for (let i = 0; i < 6; i++) {
-      const px = ((hash(i + 800) * W + time * (6 + hash(i + 810) * 6)) % (W + 40)) - 20, py = ground + 14 + hash(i + 820) * 8;
-      g.strokeStyle = NEON[(i + 3) % NEON.length]; g.lineWidth = 1.4; g.beginPath(); g.ellipse(px, py, 5, 3, 0, 0, 6.283); g.stroke();
-      g.beginPath(); g.moveTo(px + 4, py - 1); g.lineTo(px + 8, py - 3); g.stroke();
-    }
     // dusk settles over the set; the lamps and lit windows then burn through it
     if (night > 0.05) { g.fillStyle = `rgba(14,10,36,${0.55 * night})`; g.fillRect(0, 0, W, H); }
     this.lights(g, W, H, off, ground, night, time);
@@ -141,7 +138,9 @@ export class StreetView {
       const c = sim.chars[s.id]; if (!c) continue;
       // a little depth: someone nearer the viewer (larger x+y) is a touch bigger and sits a touch lower on the pavement
       const near = Math.max(-1, Math.min(1, s.dv / BAND_OUT));
-      const k = kk * c.look.scale * (1 + 0.12 * near), sy = ground + H * 0.1 + 6 * near;
+      // zoomed in, people grow so faces read: the nearer someone is to you, the more they grow
+      const close = closeness(zoom) * Math.max(0, 1 - Math.abs(s.dv) / 4);
+      const k = kk * c.look.scale * (1 + 0.12 * near) * (1 + 2.6 * close), sy = ground + H * 0.1 + 6 * near;
       const moving = Math.abs(c.x - c.px) + Math.abs(c.y - c.py) > 0.0005, spd = Math.hypot(c.x - c.px, c.y - c.py) * 60;
       c.anim.phase += spd * dt * 5.5;
       const dir = (Math.cos(c.facing) - Math.sin(c.facing)) >= 0 ? 1 : -1;
