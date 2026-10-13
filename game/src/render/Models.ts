@@ -39,7 +39,7 @@ const M = (id: string, label: string, kind: ModelSpec["kind"], skin: string, top
   ({ id, label, kind, skin, top, topColor, trim, bottom, bottomColor, shoes, shoeColor, sw, belly, limb, hair, hairColor, hat, hatColor, face, prop, gear });
 
 export const MODELS: readonly ModelSpec[] = [
-  M("wrap-brawler", "Wrap Brawler", "guy", SK.fair, "tank", "#d9553f", "trackies", "#9fb4c8", "sneakers", "#e8e0cf", 10.5, 1, 1.25, "sidepart", "#c9c9c9", "none", { eyes: "dots", brows: "angry", mouth: "teeth", nose: "line", facial: "mustache", extra: "none", head: "wide" }, ["wraps"]),
+  M("wrap-brawler", "Wrap Brawler", "guy", SK.fair, "tee", "#f4f1ea", "trackies", "#9fb4c8", "sneakers", "#e8e0cf", 10.5, 1, 1.25, "spiky", "#2a2018", "none", { eyes: "wide", brows: "raised", mouth: "o", nose: "dot", facial: "none", extra: "blush", head: "round" }, ["wraps"]),
   M("singlet-slugger", "Singlet Slugger", "guy", SK.ruddy, "tank", "#efe6d2", "ripped", "#d96a3a", "bare", "#000", 10, 2, 1.2, "spiky", "#3a2a22", "none", { eyes: "dots", brows: "angry", mouth: "grin", nose: "hook", facial: "beard", extra: "scar", head: "wide" }, ["wraps"]),
   M("pub-regular", "Pub Regular", "guy", SK.fair, "long", "#a33b2f", "jeans", "#3b4f73", "jandals", "#2b7bd6", 9, 3.5, 1.1, "buzz", "#6b5a45", "none", { eyes: "sleepy", brows: "worried", mouth: "smirk", nose: "dot", facial: "stubble", extra: "none", head: "round" }, [], "bottle"),
   M("can-collector", "Can Collector", "guy", SK.tan, "vest", "#f08a1c", "jeans", "#55657a", "workboots", "#3a2a1e", 8.5, 0, 1.05, "none", "#000", "cap", { eyes: "round", brows: "straight", mouth: "flat", nose: "dot", facial: "stubble", extra: "none", head: "round" }, ["backpack"], "bag", "#e8f2f0"),
@@ -71,7 +71,7 @@ export const MODELS: readonly ModelSpec[] = [
  * tests/models.test.ts checks every model has one and that no two are the same.
  */
 export const EYE_SHAPES: Record<string, EyeShape> = {
-  "wrap-brawler": { kind: "heavy", w: 1.0, h: 0.7, tilt: -0.2, pupil: 0, lid: 0.4, lash: false },
+  "wrap-brawler": { kind: "ring", w: 1.0, h: 1.15, tilt: 0, pupil: 0, lid: 0, lash: false },
   "singlet-slugger": { kind: "slit", w: 1.0, h: 1.0, tilt: 0, pupil: 0.2, lid: 0, lash: false },
   "pub-regular": { kind: "heavy", w: 1.1, h: 0.6, tilt: 0.1, pupil: 0.6, lid: 0.55, lash: false },
   "can-collector": { kind: "ring", w: 1.0, h: 1.0, tilt: 0, pupil: 0, lid: 0, lash: false },
@@ -141,7 +141,7 @@ const P = (g: Ctx, pts: number[]) => { g.beginPath(); g.moveTo(pts[0], pts[1]); 
  */
 export function drawModelBody(g: Ctx, J: Float32Array, _c: Character, M_: ModelSpec, k: number, dir: number, alpha: number, hd: boolean, flash: boolean): void {
   const top = flash ? "#ffffff" : M_.topColor, bot = flash ? "#ffffff" : M_.bottomColor, skin = flash ? "#ffffff" : M_.skin;
-  const lb = Math.max(1.3, 3.2 * k * M_.limb); // slim limbs: a stick figure, not a chunky one
+  const lb = Math.max(1.1, 2.4 * k * M_.limb); // slim limbs: a stick figure, not a chunky one
   const neon = NEON[[...M_.id].reduce((a, ch) => a + ch.charCodeAt(0), 0) % NEON.length]; // each model's glow colour
   const ink = (w: number) => { g.strokeStyle = INK; g.lineWidth = w; };
   const limb = (a: number, b: number, cc: number, col: string, w: number) => {
@@ -209,7 +209,7 @@ export function drawModelBody(g: Ctx, J: Float32Array, _c: Character, M_: ModelS
   }
   // Line-drawn torso: the outfit is a thick coloured stroke along the spine (shoulder to hip), not a filled shape.
   // Width is the average of shoulder and hip width, so the silhouette keeps the shoulder-to-hip taper.
-  const tw = (sw + hw) * 0.8, tEndX = hx + fx * 0.3, tEndY = hy;
+  const tw = (sw + hw) * 0.5, tEndX = hx + fx * 0.3, tEndY = hy;
   const torsoStroke = (col: string, w: number) => { g.strokeStyle = col; g.lineWidth = w; g.lineCap = "round"; g.beginPath(); g.moveTo(sx, sy); g.lineTo(tEndX, tEndY); g.stroke(); };
   if (hd) { g.shadowColor = neon; g.shadowBlur = 10 * k; torsoStroke(neon, tw + 2.2 * k); g.shadowBlur = 0; } // neon outline underneath
   torsoStroke(M_.top === "bare" ? skin : top, tw);

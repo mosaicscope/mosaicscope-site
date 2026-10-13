@@ -165,6 +165,8 @@ export const HEAD_R = 8;
 /** The face art (eyes, brows, mouth, hair, hats) was drawn for a 10.5 head; drawHead gets k * HEAD_SCALE. */
 const HEAD_DESIGN = 10.5;
 export const HEAD_SCALE = HEAD_R / HEAD_DESIGN;
+/** Street models wear a bigger, rounder head, as in the cartoon reference (big head, big expressive eyes). */
+export const MODEL_HEAD = 1.45;
 
 /**
  * Inverse kinematics for one arm: aim the hand at a point (tx, ty) in figure space (before solve's screen transform,
@@ -244,8 +246,8 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
     // chunky street model: filled body over the solved skeleton, skin-tone head with thick ink outline
     drawModelBody(g, J, c, M, k, dir, alpha, hd, flash > 0);
     const ML = modelLook(L, M);
-    drawHead(g, ML, J[4], J[5], k * HEAD_SCALE, dir, Math.max(1.4, lw * 1.05), MODEL_INK, alpha, M.hat, flash > 0 ? "#ffffff" : M.skin, hd);
-    drawModelHeadGear(g, M, J[4], J[5], k * HEAD_SCALE, dir, hd);
+    drawHead(g, ML, J[4], J[5], k * HEAD_SCALE * MODEL_HEAD, dir, Math.max(1.4, lw * 1.05), MODEL_INK, alpha, M.hat, flash > 0 ? "#ffffff" : M.skin, hd);
+    drawModelHeadGear(g, M, J[4], J[5], k * HEAD_SCALE * MODEL_HEAD, dir, hd);
     if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 14 * k, k, t);
     return;
   }
@@ -473,7 +475,7 @@ function drawEyeShape(g: CanvasRenderingContext2D, s: EyeShape, fx: number, ey: 
   const SCLERA = "#f6f1e6", INK = "#0e0b0a";
   g.globalAlpha = alpha; g.strokeStyle = col; g.lineWidth = Math.max(0.8, lw * 0.5);
   for (const side of [-1, 1]) {
-    const ex = fx + side * 4.6 * k, hw = 2.3 * k * s.w * 1.35, hh = 2.0 * k * s.h * 1.35; // 1.35: bigger eyes read at street size
+    const ex = fx + side * 4.6 * k, hw = 2.3 * k * s.w * 1.6, hh = 2.0 * k * s.h * 1.6; // 1.35: bigger eyes read at street size
     const pr = Math.max(0.9 * k, hh * 0.42), px = ex + s.pupil * hw * 0.35 * dir;
     const dot = (x: number, y: number, rr: number, c: string) => { g.fillStyle = c; g.beginPath(); g.arc(x, y, rr, 0, 6.283); g.fill(); };
     const outer = ex + side * hw, outerY = ey - s.tilt * hw, innerX = ex - side * hw, innerY = ey + s.tilt * hw * 0.3;
@@ -501,8 +503,8 @@ function drawEyeShape(g: CanvasRenderingContext2D, s: EyeShape, fx: number, ey: 
         dot(ex - hw * 0.12, ey - hh * 0.5, Math.max(0.6, 0.6 * k), SCLERA);
         break;
       }
-      case "ring": { // open ring with a dot pupil
-        g.beginPath(); g.arc(ex, ey, hh * 0.85, 0, 6.283); g.stroke();
+      case "ring": { // big round eye: white sclera, ink ring, dot pupil
+        g.fillStyle = SCLERA; g.beginPath(); g.arc(ex, ey, hh * 0.85, 0, 6.283); g.fill(); g.stroke();
         dot(px, ey, pr * 0.8, INK);
         break;
       }
