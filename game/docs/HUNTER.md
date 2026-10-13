@@ -12,6 +12,7 @@ Code: `src/audio/Diegetic.ts` (pure planning functions at the top, Web Audio bel
 - Positional: `spatialize()` gives distance falloff and pan; the 2D street view uses a flatter side-on mix.
 - **The mix rule (tact):** every one-shot asks `begin(prio)` first, and the older effects in `Audio.ts` ask `allow(prio)`. Priorities: `critical` (crashes, horns, gunfire) beats `event` (doors, tills, clinks) beats `foley` (footsteps, birds, pops). `admit()` caps the total at 8 live (5 on phones), events at 5, foley at 3, with headroom for critical, and `MIX_GAP` spaces starts so nothing fires in a burst. Anything refused is simply skipped. Critical sounds duck the ambience bus for under half a second. New sounds must go through `begin()` or `allow()`; do not create sources outside it.
 - Footsteps: `pickSteps()` plays yours always, plus only the nearest one or two others inside 9 tiles (1 in 2D and on phones), and those as muted taps.
+- The city hum (`cityHumLevel`) is a near-inaudible drone on the ambience bus that follows the neon: up at night, gone in a blackout, quieter on busy streets.
 - Levels: the bus sits at `BUS_LEVEL` (0.6) under the soundtrack and the ambient beds at `AMBIENT_LEVEL`. 2 engine voices and 1 siren (1 engine on phones), scans every 50 ms (90 ms on phones).
 - Paused sim means silence for engines and footsteps (positions stop changing).
 

@@ -3,7 +3,7 @@ import { T } from "../src/world/World";
 import {
   surfaceOf, strideFor, FOOT, spatialize, dopplerRate, ENGINE, engineFreq, sirenFreq, sirenKindFor, busyness, birdRate, cricketLevel, windLevel,
   voiceBlips, doorKind, JINGLES, jingleFor, jingleFreqs, puddleChance, dripEchoes, dripRate, trainSwell, trainReach, trainClack, roomFor, interiorSurface, isOpenNow, Diegetic, STREET, type Surface,
-  admit, mixCaps, pickSteps, MIX_GAP, BUS_LEVEL, type Prio,
+  admit, mixCaps, pickSteps, MIX_GAP, BUS_LEVEL, cityHumLevel, CITY_HUM_GAIN, type Prio,
 } from "../src/audio/Diegetic";
 import type { VehicleClass } from "../src/content/vehicles";
 import { Camera } from "../src/render/Camera";
@@ -95,6 +95,20 @@ describe("Hunter's sound design (pure parts)", () => {
     expect(interiorSurface("diner")).toBe("tile"); expect(interiorSurface("house")).toBe("wood");
     expect(isOpenNow([7, 19], 8)).toBe(true); expect(isOpenNow([7, 19], 21)).toBe(false);
     expect(isOpenNow([20, 4], 23)).toBe(true); expect(isOpenNow([20, 4], 12)).toBe(false);
+  });
+});
+
+describe("the city hum", () => {
+  it("rises with the neon at night, gives way to busy streets, and dies in a blackout", () => {
+    expect(cityHumLevel(23, true, 0)).toBeGreaterThan(cityHumLevel(12, true, 0));
+    expect(cityHumLevel(18.5, true, 0)).toBeGreaterThan(cityHumLevel(12, true, 0));
+    expect(cityHumLevel(18.5, true, 0)).toBeLessThan(cityHumLevel(22, true, 0));
+    expect(cityHumLevel(5, true, 0)).toBeLessThan(cityHumLevel(2, true, 0));
+    expect(cityHumLevel(23, true, 1)).toBeLessThan(cityHumLevel(23, true, 0) * 0.4);
+    expect(cityHumLevel(23, false, 0)).toBe(0);
+    for (let h = 0; h < 24; h += 0.25) { const v = cityHumLevel(h, true, 0); expect(v).toBeGreaterThan(0); expect(v).toBeLessThanOrEqual(1); }
+    // near-inaudible by construction: far below the world bus
+    expect(CITY_HUM_GAIN * BUS_LEVEL).toBeLessThan(0.02);
   });
 });
 
