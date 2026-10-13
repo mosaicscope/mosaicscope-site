@@ -7,7 +7,7 @@ export class Camera {
   targetX = 32; targetY = 32; targetZoom = 1.1;
   follow = -1;           // character id to follow (-1 = free)
   viewW = 800; viewH = 600;
-  minZoom = 0.35; maxZoom = 6;
+  minZoom = 0.35; maxZoom = 12;
   worldSize = 64;
   private s: Pt = { x: 0, y: 0 };
   private c: Pt = { x: 0, y: 0 };
