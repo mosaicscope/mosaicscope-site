@@ -64,7 +64,7 @@ export class Places {
         h("ul.items", null, [
           h("li.item", null, [h("div", null, [h("b", { text: "Your sack" }), h("small", { text: n ? `${can} can${can === 1 ? "" : "s"}, ${bottle} bottle${bottle === 1 ? "" : "s"}${bonus ? ` · bulk bonus ${fmtCash(bonus)}` : ""}` : "Empty. Cans and bottles are on every street; bins hide a few more." })]),
             h("span.price", { text: fmtCash(worth + bonus) }),
-            h("button.btn", { disabled: n === 0, onclick: () => { const r = cashIn(sim, p); this.toast(`Returned ${r.n} for ${fmtCash(r.total)}${r.bonus ? ` (incl. ${fmtCash(r.bonus)} bonus)` : ""}`, "acid"); render(); }, text: "Cash in" })]),
+            h("button.btn", { disabled: n === 0, onclick: () => { const before = sim.litter.recycled, r = cashIn(sim, p); this.toast(`Returned ${r.n} for ${fmtCash(r.total)}${r.bonus ? ` (incl. ${fmtCash(r.bonus)} bonus)` : ""}`, "acid.spark"); if (Math.floor(sim.litter.recycled / 25) > Math.floor(before / 25)) this.toast(`${Math.floor(sim.litter.recycled / 25) * 25} returned. The street is noticeably tidier.`, "acid.spark"); render(); document.querySelector(".wallet")?.classList.add("bump"); }, text: "Cash in" })]),
         ]),
         h("p", { style: { color: "var(--dim)" }, text: sim.litter.recycled ? `You've returned ${sim.litter.recycled} so far. The street thanks you.` : "First return? Welcome to the cleanest side hustle in town." }),
       ], "shop");
