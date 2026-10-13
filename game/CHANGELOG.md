@@ -3,6 +3,8 @@
 ## Unreleased
 
 - 2D street view: restyled as a gritty pixel-art brick alley (cobbles, bins, cans, puddles, lamp pools, chunky outlined people). Fixed people vanishing: the old filter was a hard +/-1.6 depth band plus a nearest-7 cut; now a wide band with a soft fade, hysteresis on the cap and smoothed positions (`render/Street2D.ts`, `tests/street2d.test.ts`).
+- Interiors: 16 more places get their own floor plan so each feels like what it is: cafe, bakery, pizza, sushi, fish and chips, dairy, toy shop, sports shop, pawn shop, record shop, fuel station, barber, gym, nightclub, gallery and car dealership. Shop counters open the shop panel; the gallery and dealership desks open theirs. Only the Studio still uses the generic shopfront.
+- Terrance the overcoder: a completely red NPC who always stands in front of the Studio. Talk to him for the latest changes and any team drama, read from `src/content/terrance-feed.json` (refresh with `npm run terrance`). He never wanders.
 
 ## 0.4.0
 
