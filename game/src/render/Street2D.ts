@@ -33,6 +33,8 @@ const HYST = 1.6;   // a person already on screen counts this much closer than t
 const MIN_GAP_K = 56;
 /** px per lateral unit used to place people. Fixed (the zoom-3 value) so zooming never slides people across the screen. */
 const LAYOUT_S = 18 * (3 - 1.2);
+/** How much closer the side-on street view sits: 1 is the layout as drawn, bigger is closer. */
+const CLOSE = 1.2;
 
 export class StreetCast {
   private shown = new Set<number>();
@@ -161,22 +163,23 @@ export class StreetView {
     g.globalCompositeOperation = "soft-light"; g.fillStyle = night > 0.4 ? "rgba(90,70,170,.28)" : "rgba(150,120,200,.18)"; g.fillRect(0, 0, W, H); g.globalCompositeOperation = "source-over";
     if (rain) { g.strokeStyle = "rgba(170,190,230,.4)"; g.lineWidth = 1.5; g.beginPath(); for (let i = 0; i < 90; i++) { const x = (hash(i) * W + time * 60) % W, y = (hash(i + 500) * H + time * 520) % H; g.moveTo(x, y); g.lineTo(x - 5, y + 16); } g.stroke(); }
 
-    // blow it up, crisp
+    // blow it up, crisp, a little closer than the raw layout (scaled about the middle of the view)
+    const cx = W / 2, cy = H / 2, zx = (x: number) => cx + (x - cx) * CLOSE, zy = (y: number) => cy + (y - cy) * CLOSE;
     dest.setTransform(1, 0, 0, 1, 0, 0);
     dest.imageSmoothingEnabled = true;
-    dest.drawImage(this.lo, 0, 0, lw, lh, 0, 0, W * dpr, H * dpr);
+    dest.drawImage(this.lo, 0, 0, lw, lh, (W - W * CLOSE) / 2 * dpr, (H - H * CLOSE) / 2 * dpr, W * dpr * CLOSE, H * dpr * CLOSE);
     dest.setTransform(dpr, 0, 0, dpr, 0, 0);
     // text stays sharp: bubbles, your marker, the street name
     for (const d of drawn) {
-      const c = d.c;
+      const c = d.c, x = zx(d.x), y = zy(d.y);
       if (c.bubble && c.bubble.until > sim.tick && Math.abs(d.dv) < 3) {
         dest.font = "600 13px 'IBM Plex Mono', monospace"; dest.textAlign = "center";
-        const txt = c.bubble.text.slice(0, 44), tw = Math.min(280, dest.measureText(txt).width + 16), by = d.y - 125 * d.k - 28;
-        dest.fillStyle = INK; dest.fillRect(d.x - tw / 2 - 2, by - 2, tw + 4, 26);
-        dest.fillStyle = "#efe4cc"; dest.fillRect(d.x - tw / 2, by, tw, 22);
-        dest.fillStyle = INK; dest.fillText(txt, d.x, by + 15);
+        const txt = c.bubble.text.slice(0, 44), tw = Math.min(280, dest.measureText(txt).width + 16), by = y - 125 * d.k * CLOSE - 28;
+        dest.fillStyle = INK; dest.fillRect(x - tw / 2 - 2, by - 2, tw + 4, 26);
+        dest.fillStyle = "#efe4cc"; dest.fillRect(x - tw / 2, by, tw, 22);
+        dest.fillStyle = INK; dest.fillText(txt, x, by + 15);
       }
-      if (c.id === f.id) { dest.fillStyle = "#e8483a"; dest.strokeStyle = INK; dest.lineWidth = 3; dest.font = "800 13px 'IBM Plex Mono', monospace"; dest.textAlign = "center"; dest.strokeText("YOU", d.x, d.y + 22); dest.fillText("YOU", d.x, d.y + 22); }
+      if (c.id === f.id) { dest.fillStyle = "#e8483a"; dest.strokeStyle = INK; dest.lineWidth = 3; dest.font = "800 13px 'IBM Plex Mono', monospace"; dest.textAlign = "center"; dest.strokeText("YOU", x, y + 22); dest.fillText("YOU", x, y + 22); }
     }
     dest.textAlign = "start"; dest.fillStyle = "rgba(239,228,204,.75)"; dest.font = "600 12px 'IBM Plex Mono', monospace";
     dest.fillText(`${sim.world.streetName(f.x, f.y)} · V or scroll out for 3D`, 16, 66);
