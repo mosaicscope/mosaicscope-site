@@ -537,6 +537,16 @@ export class Diegetic {
     if (pan) { pan.pan.value = sp.pan; gain.connect(pan); pan.connect(this.input); } else gain.connect(this.input);
     return { node: gain, t: ctx.currentTime };
   }
+  /** A short speech blip for someone talking: pitch set by who they are, so each person sounds a little different. */
+  voice(id: number, indoors: boolean): void {
+    if (indoors) return;
+    const o = this.flat(0.2);
+    if (!this.begin("event")) return;
+    const f = 220 + ((id * 37) % 260);
+    this.blip(o, "triangle", f, f * 1.25, 0.07, 0.12);
+    this.end();
+  }
+
   private flat(vol: number): Out { const g = this.ctx.createGain(); g.gain.value = vol; g.connect(this.input); return { node: g, t: this.ctx.currentTime }; }
 
   private blip(o: Out, type: OscillatorType, f0: number, f1: number, dur: number, vol = 0.5, at = 0): OscillatorNode {
