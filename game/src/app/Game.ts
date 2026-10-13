@@ -288,7 +288,7 @@ export class Game {
     this.touch.update();
     if (now - this.clubTickAt > 1000) { const earned = this.club.tick(Math.min(5, (now - (this.clubTickAt || now)) / 1000)); this.clubTickAt = now; if (earned > 0) this.sim.player.cash += earned; }
     this.renderer.zooAnimals = this.luxury.empire.animals; zooState.animals = this.luxury.empire.animals.length;
-    this.touch.el.classList.toggle("hidden", this.casino.open || this.interior.open || this.modal.open || this.dialogue.open || this.terrance.open || this.travel.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
+    this.touch.el.classList.toggle("hidden", this.casino.open || this.interior.open || (this.modal.open && !this.modal.el.classList.contains("touch-tut")) || this.dialogue.open || this.terrance.open || this.travel.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
     this.tickStory(now);
     this.minimap.update(now);
     if (now - this.lastUi < 250) return;
@@ -1256,9 +1256,10 @@ export class Game {
   }
 
   private tutorial(step: number): void {
+    const touchUI = TouchControls.wanted();
     const steps: [string, string][] = [
       ["Welcome to <i>our world</i>", "You're the stranger in white and red. Tiles, Glitter and the rest of the Mosaics live here with a few hundred locals. Nothing is scripted."],
-      ["Move & look", "WASD or arrow keys to walk, or click the ground. Drag to pan, scroll or pinch to zoom. Click anyone to see what they're feeling, what they remember and who they can't stand."],
+      ["Move & look", touchUI ? "Drag the stick at the bottom left to walk. Tap the ground to walk there. Pinch to zoom. Tap anyone to see what they're feeling, what they remember and who they can't stand." : "WASD or arrow keys to walk, or click the ground. Drag to pan, scroll or pinch to zoom. Click anyone to see what they're feeling, what they remember and who they can't stand."],
       ["Toys", "E picks up the nearest toy. F (or right-click) throws it at your cursor, Space swings a foam sword. Hits have consequences: people remember who threw what."],
       ["Talk", "T talks to the nearest person. They only know what they've seen or heard, and they'll tell you where they heard it. Press L for the event log, and ? for all controls."],
     ];
@@ -1272,5 +1273,7 @@ export class Game {
         h("button.btn", { onclick: () => { this.settings.tutorialDone = true; this.persistSettings(); this.modal.close(); }, text: "Skip" }),
       ]),
     ], "tut");
+    // on a phone the tutorial floats at the top and lets taps through, so the joystick works under it
+    this.modal.el.classList.toggle("touch-tut", touchUI);
   }
 }
