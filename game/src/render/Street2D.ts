@@ -105,7 +105,8 @@ export class StreetView {
     this.lights(g, W, H, off, ground, night, time);
     // people
     const kk = (1 + (zoom - 3) * 0.3) * 0.62;
-    const slots = this.cast.pick(sim.chars, f, W, S, kk / 0.62, dt, W < 700 ? 8 : 11);
+    // who is on the street and their spacing come from the world, not the zoom: zoom only changes figure size
+    const slots = this.cast.pick(sim.chars, f, W, S, 1, dt, W < 700 ? 8 : 11);
     const drawn: { c: Character; x: number; y: number; k: number; dv: number }[] = [];
     for (const s of slots) {
       const c = sim.chars[s.id]; if (!c) continue;
