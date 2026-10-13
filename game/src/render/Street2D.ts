@@ -3,6 +3,7 @@ import { dressOf } from "../mind/Dress";
 import { NOIR, SHOP_NAMES, hash01, pickOf, shade, muted, worldWall } from "./noir";
 import type { Simulation } from "../sim/Simulation";
 import { pose, solve, J } from "./StickFigure";
+import { smooth } from "./FigureRig";
 
 /**
  * The 2D street view, in Louis's noir pixel style (render/noir.ts): a dusk-blue city street with brick tenements,
@@ -112,7 +113,8 @@ export class StreetView {
       const dir = (Math.cos(c.facing) - Math.sin(c.facing)) >= 0 ? 1 : -1;
       g.globalAlpha = s.alpha * 0.45; g.fillStyle = NOIR.night; g.beginPath(); g.ellipse(s.x, sy, 22 * k, 4.5 * k, 0, 0, 6.283); g.fill();
       g.globalAlpha = s.alpha;
-      solve(pose(poseName(c, moving, spd), c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT), s.x, sy, k, dir);
+      const pn = poseName(c, moving, spd);
+      solve(smooth(c.anim, pose(pn, c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT), time, pn), s.x, sy, k, dir);
       this.person(g, c, k, dir, c.anim.flash > 0, pix, night);
       g.globalAlpha = 1;
       drawn.push({ c, x: s.x, y: sy, k, dv: s.dv });

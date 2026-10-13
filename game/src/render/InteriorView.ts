@@ -13,6 +13,7 @@ import { PROP_INFO, type InteriorDef, type Prop, type FloorMat } from "../conten
 import { fillTextured } from "./Textures";
 import { wallSconces, wallPictures } from "./interiorDecor";
 import { pose, solve, drawFigure } from "./StickFigure";
+import { smooth } from "./FigureRig";
 import type { Character, Look } from "../entities/types";
 
 export interface ViewActor {
@@ -576,10 +577,10 @@ export class InteriorView {
     const [sx, sy] = P(a.x, a.y, a.lying ? 0.5 : 0);
     const k = this.s * 0.0172 * (a.look.scale || 1);
     g.fillStyle = "rgba(0,0,0,.34)"; g.beginPath(); g.ellipse(sx, sy, 15 * k, 4.2 * k, 0, 0, 6.283); g.fill();
-    const A = pose(a.pose, a.style, st.t + a.seed, a.phase, a.speed, a.poseT);
+    const A = smooth(a, pose(a.pose, a.style, st.t + a.seed, a.phase, a.speed, a.poseT), st.t, a.pose);
     solve(A, sx, sy, k, a.dir);
     (this.stub as { look: Look }).look = a.look;
-    drawFigure(g, this.stub, sx, sy, k, a.dir, st.t, 0, 1);
+    drawFigure(g, this.stub, sx, sy, k, a.dir, st.t, 0, 1, a);
     if (a.isPlayer) { g.fillStyle = "#ec2a1c"; g.font = "700 10px 'IBM Plex Mono', monospace"; g.textAlign = "center"; g.fillText("You", sx, sy + 13); }
     else if (st.nearActor === a.id && a.name) this.tag(g, a.name, sx, sy - 122 * k - 6, "#eee4d3");
   }

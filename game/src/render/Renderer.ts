@@ -10,6 +10,7 @@ import { Particles } from "./Particles";
 import { Lighting, Rain } from "./Lighting";
 import { NightFX } from "./NightFX";
 import { pose, solve, drawFigure, pathSilhouette, J } from "./StickFigure";
+import { smooth } from "./FigureRig";
 import { drawToy, drawIsoBox } from "./ToyArt";
 import { INK } from "./palette";
 import { drawBuildingTile, GLOW } from "./Buildings";
@@ -288,7 +289,7 @@ export class Renderer {
           continue;
         }
         flush();
-        const a = pose(name, c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT);
+        const a = smooth(c.anim, pose(name, c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT), time, name);
         solve(a, it.sx, it.sy - zOff, k, dir);
         // held toy behind or in front depending on hand
         drawFigure(g, c, it.sx, it.sy - zOff, k, dir, time, c.anim.flash, 1);
