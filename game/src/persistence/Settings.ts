@@ -14,20 +14,25 @@ export interface Settings {
   showNames: boolean;
   tutorialDone: boolean;
   keys: Record<string, string>;
+  /** Optional model brains for the Mosaics, keyed by backend id. Keys/tokens stay in this browser only. */
+  brains: Record<string, BrainConf>;
 }
+
+export interface BrainConf { on: boolean; url: string; model: string; key: string }
+export const BRAIN_IDS = ["ollama", "claude", "openai", "gemini", "openrouter", "hfdirect", "gguf", "webllm", "local", "hf"] as const;
 
 export const DEFAULT_KEYS: Record<string, string> = {
   up: "w", down: "s", left: "a", right: "d", pickup: "e", drop: "q", throw: "f", swing: " ", talk: "t", pause: "p", inspect: "i", log: "l", dev: "`", rob: "r", bandage: "b", horn: "h",
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  quality: "auto", volume: 0.6, sound: false, sfx: false, sfxVolume: 0.8, fakeBlood: true, reducedMotion: null, textScale: 1, gentle: false, density: 150, showNames: true, tutorialDone: false, keys: { ...DEFAULT_KEYS },
+  quality: "auto", volume: 0.6, sound: false, sfx: false, sfxVolume: 0.8, fakeBlood: true, reducedMotion: null, textScale: 1, gentle: false, density: 150, showNames: true, tutorialDone: false, keys: { ...DEFAULT_KEYS }, brains: {},
 };
 
 /** Load settings defensively: any missing or wrong-typed field falls back to its default. */
 export function loadSettings(store: StorageProvider): Settings {
   const raw = store.get(NS + "settings");
-  const s: Settings = { ...DEFAULT_SETTINGS, keys: { ...DEFAULT_KEYS } };
+  const s: Settings = { ...DEFAULT_SETTINGS, keys: { ...DEFAULT_KEYS }, brains: {} };
   if (!raw) return s;
   try {
     const d = JSON.parse(raw);
@@ -43,6 +48,12 @@ export function loadSettings(store: StorageProvider): Settings {
     if (typeof d.density === "number" && d.density >= 0 && d.density <= 5000) s.density = Math.round(d.density);
     if (typeof d.showNames === "boolean") s.showNames = d.showNames;
     if (typeof d.tutorialDone === "boolean") s.tutorialDone = d.tutorialDone;
+    if (d.brains && typeof d.brains === "object") for (const id of BRAIN_IDS) {
+      const b = d.brains[id];
+      if (!b || typeof b !== "object") continue;
+      const str = (v: unknown, max: number) => (typeof v === "string" && v.length <= max ? v : "");
+      s.brains[id] = { on: b.on === true, url: str(b.url, 500), model: str(b.model, 200), key: str(b.key, 300) };
+    }
     if (d.keys && typeof d.keys === "object") for (const k of Object.keys(DEFAULT_KEYS)) if (typeof d.keys[k] === "string" && d.keys[k].length >= 1) s.keys[k] = d.keys[k];
   } catch { /* corrupted settings: defaults */ }
   return s;
