@@ -1,3 +1,4 @@
+import { sway, windowOn, setClock, clockHour } from "./Ambient";
 import type { Character } from "../entities/types";
 import { dressOf } from "../mind/Dress";
 import { NOIR, SHOP_NAMES, hash01, pickOf, shade, muted, worldWall } from "./noir";
@@ -94,6 +95,7 @@ export class StreetView {
     const S = 18 * (zoom - 1.2), ground = H * 0.62, day = sim.daylight, night = 1 - Math.min(1, day * 1.3);
     const rain = sim.env.raining, off = pu * S;
     this.nGlow = 0;
+    setClock(sim.hour);
     this.backdrop(g, sim, W, pu, pv, S, ground, day, time);
     this.facades(g, sim, W, H, off, pv, S, ground, day, time);
     this.street(g, W, H, off, ground, night, rain, time);
@@ -194,7 +196,7 @@ export class StreetView {
     for (let i = Math.floor(o / sp) - 1; i < Math.floor(o / sp) + Math.ceil(W / sp) + 2; i++) {
       const x = i * sp - o + W / 2, ty = ground * 0.28;
       g.fillStyle = INK; g.fillRect(x - 3, ty, 6, ground - ty); g.fillRect(x - 22, ty + 6, 44, 4);
-      g.beginPath(); g.moveTo(x - 20, ty + 8); g.quadraticCurveTo(x + sp / 2, ty + 42 + Math.sin(time * 0.5 + i) * 1.5, x - 20 + sp, ty + 8); g.stroke();
+      g.beginPath(); g.moveTo(x - 20, ty + 8); g.quadraticCurveTo(x + sp / 2, ty + 42 + sway(time, i * 0.31) * 2.2, x - 20 + sp, ty + 8); g.stroke();
     }
     // pixel cloud streaks drifting slowly, tinted by the hour
     const cl = day > 0.6 ? "255,230,210" : day > 0.2 ? "230,150,140" : "120,110,170";
@@ -213,7 +215,7 @@ export class StreetView {
       if (x > W + SEG || x < -SEG) continue;
       const kind = h < 0.32 ? 0 : h < 0.58 ? 1 : h < 0.74 ? 2 : h < 0.86 ? 3 : 4;
       const hh = wallH * (0.7 + hash(i * 5) * 0.68), top = ground - hh;
-      if (kind === 3) { this.alley(g, x, SEG, top, ground, i); continue; }
+      if (kind === 3) { this.alley(g, x, SEG, top, ground, i, time); continue; }
       const mat = kind === 2 ? NOIR.wallStone : kind === 4 ? NOIR.wallPlaster : NOIR.wallBrick;
       const wb = this.neighbour(sim, (i + 0.5) * SEG / S, pv);                // the real building this stretch of wall stands for
       const col = shade(worldWall(pickOf(mat, i * 31), wb?.color), dim);
@@ -232,7 +234,7 @@ export class StreetView {
         }
       }
       const dy = ground - H * 0.17;                                   // ground floor
-      if (kind === 1) { this.shop(g, x, dy, SEG, ground, i, col, wb?.sign); this.bladeSign(g, x + SEG - 34, dy - 74, i, day); }
+      if (kind === 1) { this.shop(g, x, dy, SEG, ground, i, col, wb?.sign); this.bladeSign(g, x + SEG - 34, dy - 74, i, day, time); }
       else this.entry(g, x, dy, ground, i, col);
       if (kind === 0 && hash(i * 17) < 0.5) this.fireEscape(g, x + SEG - 70, top + 20, ground - H * 0.17 - top - 20);
       // drainpipe and the dark foot of the wall
@@ -253,7 +255,7 @@ export class StreetView {
 
   private window(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number, day: number): void {
     box(g, x - 3, y - 6, w + 6, 5, NOIR.sill, 1.5);                                 // lintel
-    const on = r < 0.4, noon = day > 0.5;
+    const noon = day > 0.5, on = r < 0.4 && (noon || windowOn(Math.round(r * 1e6), clockHour()));   // at night each household keeps its own hours
     box(g, x, y, w, h, on ? (noon ? "#a89a88" : NOIR.glassLit) : NOIR.glassDark, 1.5);
     if (on) { if (!noon) this.lit(x, y, w, h); g.fillStyle = "rgba(60,20,20,.35)"; g.fillRect(x, y, 6, h); g.fillRect(x + w - 6, y, 6, h); if (r < 0.15) { g.fillStyle = INK; g.fillRect(x + w / 2 - 3, y + h * 0.4, 6, h * 0.6); g.fillRect(x + w / 2 - 2, y + h * 0.28, 4, 4); } }  // curtains, a figure behind the glass
     else { g.fillStyle = "rgba(160,170,220,.18)"; g.beginPath(); g.moveTo(x + 4, y + h - 4); g.lineTo(x + w * 0.5, y + 4); g.lineTo(x + w * 0.7, y + 4); g.lineTo(x + 12, y + h - 4); g.fill(); if (r > 0.88) { g.fillStyle = "#6a4a2c"; g.fillRect(x, y + 6, w, 6); g.fillRect(x, y + h * 0.55, w, 6); } }
@@ -286,7 +288,7 @@ export class StreetView {
     void col;
   }
 
-  private alley(g: CanvasRenderingContext2D, x: number, SEG: number, top: number, ground: number, i: number): void {
+  private alley(g: CanvasRenderingContext2D, x: number, SEG: number, top: number, ground: number, i: number, time: number): void {
     // the mouth of an alley: the back of the next street, a long way off, with a life of its own
     const ax = x + 14, aw = SEG - 28, ah = ground - top - 10, ay = top + 10, r = hash(i * 3), fy = Math.max(ay, ground - 470);   // fy: the lived-in part of the wall, within sight of the pavement
     const wall = g.createLinearGradient(0, ay, 0, ground); wall.addColorStop(0, "#2e2630"); wall.addColorStop(0.6, "#3c3038"); wall.addColorStop(1, "#1a1418");
@@ -296,7 +298,7 @@ export class StreetView {
     for (let k = 0; k < 2; k++) { const wx = ax + 54 + k * 92, wy = fy + 24 + hash(i * 5 + k) * 60, on = hash(i * 7 + k) < 0.65; box(g, wx, wy, 28, 38, on ? NOIR.glassLit : NOIR.glassDark, 1.5); if (on) this.lit(wx, wy, 28, 38); g.fillStyle = INK; g.fillRect(wx + 13, wy, 2, 38); }
     // washing strung across, a lantern, a neon blade, bins and crates
     const ly = fy + 150 + r * 14; g.strokeStyle = INK; g.lineWidth = 2; g.beginPath(); g.moveTo(ax + 6, ly); g.quadraticCurveTo(ax + aw / 2, ly + 22, ax + aw - 6, ly - 4); g.stroke();
-    const cl = ["#eee4d3", "#3d7ad9", "#ec2a1c", "#f6b62c"]; for (let k = 0; k < 4; k++) { g.fillStyle = cl[(i + k) % 4]; g.fillRect(ax + 40 + k * 44, ly + 10 + Math.sin(k) * 4, 14, 20); }
+    const cl = ["#eee4d3", "#3d7ad9", "#ec2a1c", "#f6b62c"]; for (let k = 0; k < 4; k++) { g.fillStyle = cl[(i + k) % 4]; g.fillRect(ax + 40 + k * 44 + sway(time, k * 0.2 + i * 0.1, 1.8) * 3, ly + 10 + Math.sin(k) * 4, 14, 20); }
     g.fillStyle = "#ffd27a"; g.fillRect(ax + aw / 2 - 3, fy + 4, 6, 8); this.lit(ax + aw / 2 - 3, fy + 4, 6, 8);
     if (r < 0.55) { g.fillStyle = "#ff4fb8"; g.fillRect(ax + aw - 40, fy + 190, 4, 60); g.fillStyle = "rgba(255,79,184,.5)"; g.fillRect(ax + aw - 44, fy + 190, 12, 60); }
     g.fillStyle = "#0e0a18"; g.fillRect(ax, ground - 36, aw, 36);
@@ -326,8 +328,10 @@ export class StreetView {
   }
 
   /** A blade sign on an iron bracket over a shop door. */
-  private bladeSign(g: CanvasRenderingContext2D, x: number, y: number, i: number, day: number): void {
+  private bladeSign(g: CanvasRenderingContext2D, x: number, y: number, i: number, day: number, time: number): void {
     g.fillStyle = INK; g.fillRect(x - 16, y, 18, 3); g.fillRect(x, y, 2, 10);
+    const sw = sway(time, i * 0.17, 1.6) * 2.5;                                    // the board swings on its bracket in the shared wind
+    x += sw;
     const cols = ["#c0503a", "#3a6a8a", "#e8c42c", "#4a8a5a"];
     box(g, x - 10, y + 10, 26, 24, cols[i % cols.length], 1.5);
     g.fillStyle = day > 0.4 ? "#efe4cc" : "#ffe9a8"; g.fillRect(x - 6, y + 16, 18, 3); g.fillRect(x - 6, y + 23, 12, 3);

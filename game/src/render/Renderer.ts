@@ -13,6 +13,7 @@ import { pose, solve, drawFigure, pathSilhouette, J } from "./StickFigure";
 import { drawToy, drawIsoBox } from "./ToyArt";
 import { INK } from "./palette";
 import { drawBuildingTile, GLOW } from "./Buildings";
+import { setClock } from "./Ambient";
 import { ZooRenderer } from "./Zoo";
 import { resetHdBudget } from "./StickFigure";
 import { setTextureTier } from "./Textures";
@@ -126,6 +127,7 @@ export class Renderer {
     const sim = this.sim, g = this.g, cam = this.cam, z = cam.zoom;
     this.time += o.reduceMotion ? dt * 0.4 : dt;
     const time = this.time;
+    setClock(sim.hour);
     // camera follow
     if (cam.follow >= 0 && sim.chars[cam.follow]) { const f = sim.chars[cam.follow]; cam.lookAt(f.x, f.y); }
     // zoomed right in: the camera drops to street level for a flat 2D side view; zoom out to go back to 3D

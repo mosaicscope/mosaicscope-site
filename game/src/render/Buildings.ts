@@ -1,4 +1,5 @@
 import { paintWindows, paintSpill, type Win } from "./NightGlow";
+import { sway, windowOn, clockHour } from "./Ambient";
 import { World, Building, Graffiti } from "../world/World";
 import { TILE_W, TILE_H, Z_PX } from "../world/iso";
 import { drawAd } from "./Ads";
@@ -247,7 +248,9 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
   const floors = b.floors;
   const floorBase = (f: number) => (f === 0 ? 0 : GROUND_H + (f - 1) * FLOOR_H);
   const floorH = (f: number) => (f === 0 ? GROUND_H : FLOOR_H);
-  const lit = (f: number, k: number) => night && hash(tx * 7 + ty * 13 + f * 3 + k + (face === "e" ? 50 : 0), b.id) < (st === "flats" || st === "tower" ? 0.55 : 0.45);
+  const hr = clockHour();
+  const lit = (f: number, k: number) => night && hash(tx * 7 + ty * 13 + f * 3 + k + (face === "e" ? 50 : 0), b.id) < (st === "flats" || st === "tower" ? 0.55 : 0.45)
+    && windowOn(tx * 7 + ty * 13 + f * 3 + k + (face === "e" ? 50 : 0) + b.id * 977, hr);   // window life: each household keeps its own evening hours
   const litCol = (f: number, k: number) => { const r = hash(f * 11 + k, tx + ty * 3); return r < 0.15 ? "#9fe8ff" : r < 0.55 ? "#ffd27a" : "#fff0c0"; };
   const quad = (t0: number, t1: number, h0: number, h1: number) => { const A = at(t0, h0), B = at(t1, h0), C = at(t1, h1), D = at(t0, h1); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.lineTo(C[0], C[1]); g.lineTo(D[0], D[1]); g.closePath(); };
   const doorHere = b.door.face === face && (face === "s" ? b.door.x === tx && b.door.y === ty + 1 : b.door.x === tx + 1 && b.door.y === ty);
@@ -269,7 +272,7 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
     g.fillStyle = shade(b.color, 0.55 * lightK); g.beginPath(); quad(0, 1, GROUND_H * 0.82, GROUND_H); g.fill();
     // striped awning sticking out over the footpath
     if (st !== "fuel") awning(g, P, ax, ay, bx, by, face, b.sign, lightK, z);
-    if (st !== "fuel" && z >= 1) bladeSign(g, P, ax, ay, bx, by, face, b.sign, lightK, z, night, tx * 31 + ty * 17 + b.id);
+    if (st !== "fuel" && z >= 1) bladeSign(g, P, ax, ay, bx, by, face, b.sign, lightK, z, night, tx * 31 + ty * 17 + b.id, time);
   } else if (st === "tower" || st === "civic") {
     // lobby glass
     g.fillStyle = night ? "rgba(255,226,170,.75)" : "rgba(40,52,70,.9)";
@@ -353,7 +356,7 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
         const cols = ["#eee4d3", "#3d7ad9", "#ec2a1c", "#f6b62c", "#ff7ad9"];
         g.beginPath(); const parts: [number, string][] = [];
         for (let k = 0; k < 4; k++) { const t = 0.2 + k * 0.17, yy = y - 0.05 * ((t - 0.04) / 0.92); parts.push([t, cols[Math.floor(hash(k * 7 + f, tx + ty + b.id) * cols.length)]]); void yy; }
-        for (const [t, col] of parts) { const yy = y - 0.05 * ((t - 0.04) / 0.92); g.fillStyle = night ? shade(col, 0.55) : col; g.beginPath(); quad(t, t + 0.1, yy - 0.3, yy); g.fill(); }
+        for (const [t, col] of parts) { const yy = y - 0.05 * ((t - 0.04) / 0.92), fl = sway(time, t * 3 + tx * 0.7 + ty * 0.3, 2.2) * 0.012; g.fillStyle = night ? shade(col, 0.55) : col; g.beginPath(); quad(t + fl, t + 0.1 + fl, yy - 0.3, yy); g.fill(); }
       }
     }
   }
@@ -393,14 +396,16 @@ function windows(g: CanvasRenderingContext2D, quad: (t0: number, t1: number, h0:
 }
 
 /** A blade sign hanging from a bracket at the end of the shop front: a small board in the shop's sign colour. */
-function bladeSign(g: CanvasRenderingContext2D, P: (x: number, y: number, h: number) => [number, number], ax: number, ay: number, bx: number, by: number, face: "s" | "e", col: string, lightK: number, z: number, night: boolean, seed: number): void {
+function bladeSign(g: CanvasRenderingContext2D, P: (x: number, y: number, h: number) => [number, number], ax: number, ay: number, bx: number, by: number, face: "s" | "e", col: string, lightK: number, z: number, night: boolean, seed: number, time: number): void {
   const t = hash(seed, 5) < 0.5 ? 0.88 : 0.12, ox = face === "e" ? 0.3 : 0, oy = face === "s" ? 0.3 : 0;
   const x = ax + (bx - ax) * t, y = ay + (by - ay) * t;
   const wall = P(x, y, GROUND_H * 1.02), tip = P(x + ox, y + oy, GROUND_H * 1.02), top = P(x + ox, y + oy, GROUND_H * 0.99), bot = P(x + ox, y + oy, GROUND_H * 0.74);
   g.strokeStyle = "#0e0b0a"; g.lineWidth = Math.max(1, 1.4 * z); g.beginPath(); g.moveTo(wall[0], wall[1]); g.lineTo(tip[0], tip[1]); g.stroke();
+  // the board swings on its bracket in the shared wind, wider at the bottom than where it hangs
+  const sw = sway(time, (seed % 97) / 97, 1.4) * 1.3 * z, sx = tip[0] + sw * 0.3;
   g.fillStyle = night ? shade(col, 0.85) : shade(col, 0.95 * lightK);
-  g.fillRect(tip[0] - 4 * z, top[1] + 1 * z, 8 * z, bot[1] - top[1]);
-  g.fillStyle = "rgba(238,228,211,.7)"; g.fillRect(tip[0] - 2.4 * z, top[1] + 4 * z, 4.8 * z, 1.4 * z);
+  g.beginPath(); g.moveTo(sx - 4 * z, top[1] + 1 * z); g.lineTo(sx + 4 * z, top[1] + 1 * z); g.lineTo(sx + 4 * z + sw, bot[1]); g.lineTo(sx - 4 * z + sw, bot[1]); g.closePath(); g.fill();
+  g.fillStyle = "rgba(238,228,211,.7)"; g.fillRect(sx - 2.4 * z + sw * 0.5, top[1] + 4 * z, 4.8 * z, 1.4 * z);
 }
 
 function awning(g: CanvasRenderingContext2D, P: (x: number, y: number, h: number) => [number, number], ax: number, ay: number, bx: number, by: number, face: "s" | "e", col: string, lightK: number, z: number): void {
