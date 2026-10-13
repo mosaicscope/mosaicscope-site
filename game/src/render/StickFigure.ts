@@ -184,6 +184,20 @@ export function reachArm(a: Angles, side: 0 | 1, shx: number, shy: number, tx: n
   if (side === 0) { a.armL = a1 - a.lean; a.foreL = a2; } else { a.armR = a1 - a.lean; a.foreR = a2; }
 }
 
+/** A personal way of moving, from the character id: each person gets their own stride, swing, cadence and carriage. */
+export interface Gait { cadence: number; stride: number; swing: number; lean: number; bob: number; tilt: number }
+export function gaitOf(id: number): Gait {
+  let h = Math.imul(id + 1, 0x9e3779b1) ^ 0x5bd1e995;
+  const r = () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return (h >>> 0) / 4294967296; };
+  return { cadence: 0.85 + r() * 0.3, stride: 0.8 + r() * 0.4, swing: 0.7 + r() * 0.6, lean: (r() - 0.5) * 0.16, bob: 0.6 + r() * 0.8, tilt: (r() - 0.5) * 0.12 };
+}
+/** Apply a personal gait to a pose. Lying poses keep their own geometry. */
+export function applyGait(A: Angles, G: Gait): void {
+  if (A.lying > 0) return;
+  A.thighL *= G.stride; A.thighR *= G.stride; A.armL *= G.swing; A.armR *= G.swing;
+  A.lean += G.lean; A.bob *= G.bob; A.tilt += G.tilt;
+}
+
 export function solve(a: Angles, sx: number, sy: number, k: number, dir: number): void {
   const { HIP: T, TORSO, NECK, UP, FORE, TH, SH } = BONES;
   let hx = a.hipX, hy = -T + a.bob;

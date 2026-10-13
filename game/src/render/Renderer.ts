@@ -9,7 +9,7 @@ import { decorGrid, drawDecor } from "./StreetDecor";
 import { Particles } from "./Particles";
 import { Lighting, Rain } from "./Lighting";
 import { NightFX } from "./NightFX";
-import { pose, solve, drawFigure, pathSilhouette, J, HEAD_R } from "./StickFigure";
+import { pose, solve, drawFigure, pathSilhouette, J, HEAD_R, gaitOf, applyGait } from "./StickFigure";
 import { drawToy, drawIsoBox } from "./ToyArt";
 import { INK } from "./palette";
 import { drawBuildingTile, GLOW } from "./Buildings";
@@ -278,7 +278,8 @@ export class Renderer {
         const k = 0.44 * z * c.look.scale;
         const moving = Math.abs(c.x - c.px) + Math.abs(c.y - c.py) > 0.0005;
         const spd = Math.hypot(c.x - c.px, c.y - c.py) * 60;
-        c.anim.phase += spd * dt * 5.5;
+        const G = gaitOf(c.id);
+        c.anim.phase += spd * dt * 5.5 * G.cadence;
         const name = this.poseName(c, moving, spd);
         if (this.lastPose.get(c.id) !== name) { this.lastPose.set(c.id, name); c.anim.poseT = 0; } else c.anim.poseT += dt;
         if (c.anim.flash > 0) c.anim.flash -= dt;
@@ -287,6 +288,7 @@ export class Renderer {
         if (bg) {
           // background: cheap animation (sine idle, simple walk), batched strokes
           const a = pose(moving ? "walk" : c.anim.pose === "dance" ? "dance" : c.anim.pose === "panic" ? "panic" : "idle", "loose", time + c.seedPhase, c.anim.phase, spd, 0);
+          applyGait(a, G);
           solve(a, it.sx, it.sy - zOff, k, dir);
           const col = c.look.color;
           if (!batching || col !== batchColor) { flush(); g.strokeStyle = col; g.globalAlpha = 0.42; g.lineWidth = Math.max(0.9, 2.6 * k); g.lineCap = "round"; g.beginPath(); batching = true; batchColor = col; }
@@ -297,6 +299,7 @@ export class Renderer {
         }
         flush();
         const a = pose(name, c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT);
+        applyGait(a, G);
         solve(a, it.sx, it.sy - zOff, k, dir);
         // held toy behind or in front depending on hand
         drawFigure(g, c, it.sx, it.sy - zOff, k, dir, time, c.anim.flash, 1);
