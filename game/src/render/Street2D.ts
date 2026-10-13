@@ -57,18 +57,23 @@ export class StreetCast {
     // keep everyone at least a body-width apart (the focus stays put)
     take.sort((a, b) => a.tx - b.tx || a.c.id - b.c.id);
     const gapMin = MIN_GAP_K * k;
-    const fi = take.findIndex((t) => t.c.id === focus.id);
-    for (let i = (fi < 0 ? 1 : fi + 1); i < take.length; i++) take[i].tx = Math.max(take[i].tx, take[i - 1].tx + gapMin);
-    for (let i = (fi < 0 ? -1 : fi - 1); i >= 0; i--) take[i].tx = Math.min(take[i].tx, take[i + 1].tx - gapMin);
     const ease = 1 - Math.exp(-dt * 12);
-    const out: CastSlot[] = [], now = new Set<number>();
-    for (const t of take) {
+    // ease every person toward their wanted spot first, so the spacing below acts on what is on screen (smooth), not on jumpy targets
+    const cur = take.map((t) => {
       const id = t.c.id, prev = this.sx.get(id);
-      const x = prev === undefined || Math.abs(prev - t.tx) > W ? t.tx : prev + (t.tx - prev) * ease;
+      return prev === undefined || Math.abs(prev - t.tx) > W ? t.tx : prev + (t.tx - prev) * ease;
+    });
+    // keep everyone at least a body-width apart, pushing outward from the focus; the focus stays put
+    const fi = take.findIndex((t) => t.c.id === focus.id);
+    for (let i = fi + 1; i < take.length; i++) cur[i] = Math.max(cur[i], cur[i - 1] + gapMin);
+    for (let i = fi - 1; i >= 0; i--) cur[i] = Math.min(cur[i], cur[i + 1] - gapMin);
+    const out: CastSlot[] = [], now = new Set<number>();
+    take.forEach((t, i) => {
+      const id = t.c.id, x = cur[i];
       this.sx.set(id, x); now.add(id);
       const a = Math.abs(t.dv);
       out.push({ id, x, dv: t.dv, alpha: a <= BAND_FULL ? 1 : Math.max(0.15, (BAND_OUT - a) / (BAND_OUT - BAND_FULL)) });
-    }
+    });
     for (const id of [...this.sx.keys()]) if (!now.has(id)) this.sx.delete(id);
     this.shown = now;
     return out.sort((a, b) => a.dv - b.dv || a.id - b.id); // far to near, so nearer people overdraw
