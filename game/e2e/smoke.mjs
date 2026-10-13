@@ -19,6 +19,9 @@ const check = async (name, fn) => {
 const assert = (c, m) => { if (!c) throw new Error(m); };
 const G = (fn, arg) => page.evaluate(fn, arg);
 
+// The Pages Functions (/api/*) do not exist under `vite preview`; answer the score's weather call like the real one would.
+await page.route("**/api/vibe", (r) => r.fulfill({ json: { weather: "clear", isDay: true, temp: 14, wind: 10, hour: 12, source: "open-meteo" } }));
+
 console.log("Smoke test:", url);
 await page.goto(url);
 await page.waitForTimeout(1500);
