@@ -30,7 +30,7 @@ export interface CastSlot { id: number; x: number; dv: number; alpha: number }
 export const BAND_FULL = 2.6;
 export const BAND_OUT = 5;
 const HYST = 1.6;   // a person already on screen counts this much closer than they are, so the cap never flickers
-const MIN_GAP_K = 56;
+const MIN_GAP_K = 84;   // people stand a clear body-and-a-bit apart, so no two ever overlap or flicker past each other
 /** px per lateral unit used to place people. Fixed (the zoom-3 value) so zooming never slides people across the screen. */
 const LAYOUT_S = 18 * (3 - 1.2);
 
@@ -131,8 +131,9 @@ export class StreetView {
     const drawn: { c: Character; x: number; y: number; k: number; dv: number }[] = [];
     for (const s of slots) {
       const c = sim.chars[s.id]; if (!c) continue;
-      // no depth perspective: everyone stands on the same line at the same size, so walking never shifts them
-      const k = kk * c.look.scale, sy = ground + H * 0.1;
+      // a little depth: someone nearer the viewer (larger x+y) is a touch bigger and sits a touch lower on the pavement
+      const near = Math.max(-1, Math.min(1, s.dv / BAND_OUT));
+      const k = kk * c.look.scale * (1 + 0.12 * near), sy = ground + H * 0.1 + 6 * near;
       const moving = Math.abs(c.x - c.px) + Math.abs(c.y - c.py) > 0.0005, spd = Math.hypot(c.x - c.px, c.y - c.py) * 60;
       c.anim.phase += spd * dt * 5.5;
       const dir = (Math.cos(c.facing) - Math.sin(c.facing)) >= 0 ? 1 : -1;
