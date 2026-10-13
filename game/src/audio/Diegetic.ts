@@ -360,7 +360,7 @@ export class Diegetic {
   private prevInterior: BuildingKind | null | undefined;
   private stop: (() => void)[] = [];
   private voicePrefs: VoicePrefs = DEFAULT_VOICE; private voiceRecent: number[] = [];
-  private footPrefs: FootPrefs = DEFAULT_FOOT; private sneaking = false;
+  private footPrefs: FootPrefs = DEFAULT_FOOT; private sneaking = false; private positional = true;
   private ambPrefs: AmbiencePrefs = DEFAULT_AMBIENCE;
 
   constructor(private ctx: AudioContext, master: AudioNode, private lite: boolean) {
@@ -539,6 +539,8 @@ export class Diegetic {
   setFoot(p: FootPrefs): void { this.footPrefs = p; }
   /** Whether the player is sneaking right now; the game calls this when it knows. */
   setSneaking(on: boolean): void { this.sneaking = on; }
+  /** 3D audio: when off, every effect plays centred (no left/right panning from where it is). */
+  setPositional(on: boolean): void { this.positional = on; }
   /** Audio debug read-out: live one-shot voices by priority, the ambience gain now, and recent blips in the last second. */
   debugStats(): { live: Record<Prio, number>; ambient: number; recentBlips: number } {
     return { live: { ...this.liveBy }, ambient: this.amb.gain.value, recentBlips: this.voiceRecent.length };
@@ -556,7 +558,7 @@ export class Diegetic {
     if (g < 0.01) return null;
     const ctx = this.ctx, gain = ctx.createGain(); gain.gain.value = g;
     const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-    if (pan) { pan.pan.value = sp.pan; gain.connect(pan); pan.connect(this.input); } else gain.connect(this.input);
+    if (pan) { pan.pan.value = this.positional ? sp.pan : 0; gain.connect(pan); pan.connect(this.input); } else gain.connect(this.input);
     return { node: gain, t: ctx.currentTime };
   }
   /** A short speech blip for someone talking: pitch set by who they are, so each person sounds a little different. */
