@@ -33,7 +33,23 @@ function fit(g: CanvasRenderingContext2D, text: string, w: number, max: number, 
 const DISPLAY = (wt: number) => (px: number) => `${wt} ${px}px "Big Shoulders Display", Impact, sans-serif`;
 const MONO = (px: number) => `600 ${px}px "IBM Plex Mono", ui-monospace, monospace`;
 
-export type AdKind = "mosaic" | "casino" | "cars";
+export type AdKind = "mosaic" | "casino" | "cars" | "kiwi";
+
+/**
+ * Local, fictional Kiwi brands for the boards around town. Each is one glance: a name and one
+ * short line. They match the shopfronts and interiors (Kiwibanc, Kiwi Bakehouse, Kiwi Gold).
+ */
+export const KIWI_ADS: { title: string; sub: string; bg: string; fg: string; ink: string }[] = [
+  { title: "KIWIBANC", sub: "Banking for a bit of a kiwi", bg: "#2a2a33", fg: "#c6ff3d", ink: "#eee4d3" },
+  { title: "KIWI BAKEHOUSE", sub: "Pies, pasties, flat whites", bg: "#4a3a2e", fg: "#f6b62c", ink: "#eee4d3" },
+  { title: "JANDAL KING", sub: "Summer sorted. Jandals.", bg: "#1c4f6b", fg: "#eee4d3", ink: "#eee4d3" },
+  { title: "HOKEY POKEY CO", sub: "Scoops since '52", bg: "#ec2a1c", fg: "#eee4d3", ink: "#eee4d3" },
+  { title: "KIWI GOLD", sub: "Pokies, ka pai", bg: "#2a1630", fg: "#f6b62c", ink: "#eee4d3" },
+  { title: "SHEARWELL WOOL", sub: "Warm as a woolly jersey", bg: "#eee4d3", fg: "#1c4f6b", ink: "#0e0b0a" },
+  { title: "KAURI HARDWARE", sub: "Ute loads, tradie prices", bg: "#3a3430", fg: "#f6b62c", ink: "#eee4d3" },
+  { title: "PAVLOVA PARLOUR", sub: "Pav. The only dessert.", bg: "#f6b62c", fg: "#0e0b0a", ink: "#0e0b0a" },
+  { title: "NORWESTER LAGER", sub: "Cold ones, mate", bg: "#0e0b0a", fg: "#c6ff3d", ink: "#eee4d3" },
+];
 
 /** Taglines rotate; all short enough to read from a moving car. */
 function mosaicLine(variant: number): string {
@@ -64,17 +80,19 @@ export function drawAd(g: CanvasRenderingContext2D, kind: AdKind, cx: number, by
     fit(g, mosaicLine(variant), tw, h * 0.24, MONO);
     g.fillStyle = "#3a3430"; g.fillText(mosaicLine(variant), tx, y0 + h * 0.72);
   } else {
-    const bg = kind === "casino" ? "#2a1630" : "#0e0b0a", fg = kind === "casino" ? "#f6b62c" : "#c6ff3d";
+    const ad = kind === "kiwi" ? KIWI_ADS[((variant % KIWI_ADS.length) + KIWI_ADS.length) % KIWI_ADS.length] : null;
+    const bg = ad ? ad.bg : kind === "casino" ? "#2a1630" : "#0e0b0a", fg = ad ? ad.fg : kind === "casino" ? "#f6b62c" : "#c6ff3d";
     g.fillStyle = bg; g.fillRect(x0, y0, w, h);
     const pad = h * 0.14, tw = w - pad * 2;
-    const title = kind === "casino" ? "THE TESSERA" : "MOORHOUSE MOTORS", sub = kind === "casino" ? "Blackjack · Roulette · Pokies" : "JDM · Muscle · Super";
+    const title = ad ? ad.title : kind === "casino" ? "THE TESSERA" : "MOORHOUSE MOTORS";
+    const sub = ad ? ad.sub : kind === "casino" ? "Blackjack · Roulette · Pokies" : "JDM · Muscle · Super";
     g.textAlign = "center";
     fit(g, title, tw, h * 0.44, DISPLAY(900));
     if (night) { g.shadowColor = fg; g.shadowBlur = h * 0.25; }
     g.fillStyle = fg; g.fillText(title, cx, y0 + h * 0.38);
     g.shadowBlur = 0;
     fit(g, sub, tw, h * 0.22, MONO);
-    g.fillStyle = "#eee4d3"; g.fillText(sub, cx, y0 + h * 0.74);
+    g.fillStyle = ad ? ad.ink : "#eee4d3"; g.fillText(sub, cx, y0 + h * 0.74);
   }
   g.restore();
   if (kind === "mosaic") AD_BOXES.push({ x0, y0, x1: x0 + w, y1: by, url: MOSAIC.site, label: "Visit MosaicScope" });
