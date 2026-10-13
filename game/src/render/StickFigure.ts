@@ -353,7 +353,7 @@ function drawHead(g: CanvasRenderingContext2D, L: Character["look"], x: number, 
   if (H === "pigtails") { g.globalAlpha = alpha * 0.5; for (const sx of [-1, 1]) { g.beginPath(); g.arc(x + rx * 1.25 * sx, y - ry * 0.1, r * 0.45, 0, 6.283); g.fill(); } g.globalAlpha = alpha; }
   // ---- head
   g.fillStyle = skin ?? "#0e0b0a"; g.strokeStyle = col; g.lineWidth = lw;
-  if (inkRing) { g.lineWidth = lw + 2.2 * k; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 6.283); g.stroke(); g.lineWidth = lw; }
+  if (inkRing) { g.lineWidth = lw + 1.1 * k; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 6.283); g.stroke(); g.lineWidth = lw; }
   g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 6.283); g.fill(); g.stroke();
   if (skin && inkRing) { g.fillStyle = "rgba(0,0,0,.16)"; g.beginPath(); g.ellipse(x, y, rx * 0.98, ry * 0.98, 0, -0.6, 1.9); g.lineTo(x, y); g.fill(); g.fillStyle = skin; }
   // ---- hair on top
@@ -459,7 +459,7 @@ function drawEyeShape(g: CanvasRenderingContext2D, s: EyeShape, fx: number, ey: 
   const SCLERA = "#f6f1e6", INK = "#0e0b0a";
   g.globalAlpha = alpha; g.strokeStyle = col; g.lineWidth = Math.max(0.8, lw * 0.5);
   for (const side of [-1, 1]) {
-    const ex = fx + side * 4.6 * k, hw = 2.3 * k * s.w, hh = 2.0 * k * s.h;
+    const ex = fx + side * 4.6 * k, hw = 2.3 * k * s.w * 1.35, hh = 2.0 * k * s.h * 1.35; // 1.35: bigger eyes read at street size
     const pr = Math.max(0.9 * k, hh * 0.42), px = ex + s.pupil * hw * 0.35 * dir;
     const dot = (x: number, y: number, rr: number, c: string) => { g.fillStyle = c; g.beginPath(); g.arc(x, y, rr, 0, 6.283); g.fill(); };
     const outer = ex + side * hw, outerY = ey - s.tilt * hw, innerX = ex - side * hw, innerY = ey + s.tilt * hw * 0.3;

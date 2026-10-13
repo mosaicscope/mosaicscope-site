@@ -31,6 +31,8 @@ export interface ModelSpec {
 }
 
 const INK = "#150f0d";
+/** Neon glow colours: the same palette as the footer crew's lines (docs/LOOK.md). */
+const NEON = ["#c6ff3d", "#ff7ad9", "#3dd6ff", "#f6b62c", "#b48cff"];
 const SK = { fair: "#f1c9a5", tan: "#d9a173", olive: "#c78d5f", brown: "#a06a43", dark: "#6e452b", pale: "#efe3d6", ruddy: "#dd9a7c" };
 
 const M = (id: string, label: string, kind: ModelSpec["kind"], skin: string, top: TopStyle, topColor: string, bottom: BottomStyle, bottomColor: string, shoes: ShoeStyle, shoeColor: string, sw: number, belly: number, limb: number, hair: HairStyle, hairColor: string, hat: HatStyle, face: Partial<Face>, gear: Gear[], prop?: Prop, trim = "#f2ead8", hatColor?: string): ModelSpec =>
@@ -140,9 +142,10 @@ const P = (g: Ctx, pts: number[]) => { g.beginPath(); g.moveTo(pts[0], pts[1]); 
 export function drawModelBody(g: Ctx, J: Float32Array, _c: Character, M_: ModelSpec, k: number, dir: number, alpha: number, hd: boolean, flash: boolean): void {
   const top = flash ? "#ffffff" : M_.topColor, bot = flash ? "#ffffff" : M_.bottomColor, skin = flash ? "#ffffff" : M_.skin;
   const lb = Math.max(1.3, 3.2 * k * M_.limb); // slim limbs: a stick figure, not a chunky one
+  const neon = NEON[[...M_.id].reduce((a, ch) => a + ch.charCodeAt(0), 0) % NEON.length]; // each model's glow colour
   const ink = (w: number) => { g.strokeStyle = INK; g.lineWidth = w; };
   const limb = (a: number, b: number, cc: number, col: string, w: number) => {
-    if (hd) { g.strokeStyle = INK; g.lineWidth = w + 2.6 * k; g.beginPath(); g.moveTo(J[a], J[a + 1]); g.lineTo(J[b], J[b + 1]); if (cc >= 0) g.lineTo(J[cc], J[cc + 1]); g.stroke(); }
+    if (hd) { g.strokeStyle = neon; g.shadowColor = neon; g.shadowBlur = 8 * k; g.lineWidth = w + 2.6 * k; g.beginPath(); g.moveTo(J[a], J[a + 1]); g.lineTo(J[b], J[b + 1]); if (cc >= 0) g.lineTo(J[cc], J[cc + 1]); g.stroke(); g.shadowBlur = 0; }
     g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(J[a], J[a + 1]); g.lineTo(J[b], J[b + 1]); if (cc >= 0) g.lineTo(J[cc], J[cc + 1]); g.stroke();
   };
   g.globalAlpha = alpha; g.lineCap = "round"; g.lineJoin = "round";
@@ -186,7 +189,7 @@ export function drawModelBody(g: Ctx, J: Float32Array, _c: Character, M_: ModelS
     if (sleeve === 2) limb(6, e, h, top, lb * 1.15);
     else if (sleeve === 1) { const mx = J[6] + (J[e] - J[6]) * 0.85, my = J[7] + (J[e + 1] - J[7]) * 0.85; g.strokeStyle = top; g.lineWidth = lb * 1.25; g.beginPath(); g.moveTo(J[6], J[7]); g.lineTo(mx, my); g.stroke(); }
     // fist / hand
-    const r = lb * (M_.gear.includes("wraps") ? 0.95 : 0.78);
+    const r = lb * (M_.gear.includes("wraps") ? 1.25 : 1.15); // big cartoon fists
     g.fillStyle = skin; g.beginPath(); g.arc(J[h], J[h + 1], r, 0, 6.283); g.fill(); if (hd) { ink(1.3 * k); g.stroke(); }
     if (M_.gear.includes("wraps")) { // the white hand wraps
       g.strokeStyle = "#f2ead8"; g.lineWidth = lb * 1.35; g.beginPath(); const bx = J[e] + (J[h] - J[e]) * 0.35, by = J[e + 1] + (J[h + 1] - J[e + 1]) * 0.35; g.moveTo(bx, by); g.lineTo(J[h] + (J[e] - J[h]) * 0.1, J[h + 1] + (J[e + 1] - J[h + 1]) * 0.1); g.stroke();
@@ -204,15 +207,13 @@ export function drawModelBody(g: Ctx, J: Float32Array, _c: Character, M_: ModelS
     const flare = M_.top === "poncho" ? 1.5 : M_.top === "dress" ? 1.35 : 1.1, drop = M_.top === "coat" ? 15 : 10;
     pts[6] = hx - px * hw * flare; pts[8] = hx - px * hw * flare * 1.1; pts[9] = hy - py * hw * flare * 1.1 + drop * k; pts[10] = hx + px * hw * flare * 1.1; pts[11] = hy + py * hw * flare * 1.1 + drop * k;
   }
-  // skin behind the bare/tank neckline
-  if (M_.top === "tank" || M_.top === "bare" || M_.top === "vest") { g.fillStyle = skin; P(g, pts); g.fill(); }
-  g.fillStyle = M_.top === "bare" ? skin : top;
-  if (M_.top === "tank" || M_.top === "vest") { // straps and a scooped front only
-    P(g, [sx + px * sw * 0.7, sy + py * sw * 0.7, sx + px * sw * 0.2 + ux * -0.1, sy + py * sw * 0.2 - 3 * k, sx - px * sw * 0.2, sy - py * sw * 0.2 - 3 * k, sx - px * sw * 0.7, sy - py * sw * 0.7, pts[4], pts[5], pts[6], pts[7], pts[8], pts[9], pts[10], pts[11]]); g.fill();
-    g.fillStyle = skin; g.beginPath(); g.ellipse(sx - ux * 0.08, sy - uy * 0.08, sw * 0.32, sw * 0.28, Math.atan2(uy, ux), 0, 6.283); g.fill(); g.fillStyle = top;
-  } else { P(g, pts); g.fill(); }
+  // Line-drawn torso: the outfit is a thick coloured stroke along the spine (shoulder to hip), not a filled shape.
+  // Width is the average of shoulder and hip width, so the silhouette keeps the shoulder-to-hip taper.
+  const tw = (sw + hw) * 0.8, tEndX = hx + fx * 0.3, tEndY = hy;
+  const torsoStroke = (col: string, w: number) => { g.strokeStyle = col; g.lineWidth = w; g.lineCap = "round"; g.beginPath(); g.moveTo(sx, sy); g.lineTo(tEndX, tEndY); g.stroke(); };
+  if (hd) { g.shadowColor = neon; g.shadowBlur = 10 * k; torsoStroke(neon, tw + 2.2 * k); g.shadowBlur = 0; } // neon outline underneath
+  torsoStroke(M_.top === "bare" ? skin : top, tw);
   if (hd) {
-    g.strokeStyle = INK; g.lineWidth = 2 * k; P(g, pts); g.stroke();
     // shading down the back side, a hem line, and a collar
     g.fillStyle = "rgba(0,0,0,.22)"; P(g, [sx - px * sw, sy - py * sw, sx - px * sw * 0.35, sy - py * sw * 0.35, hx - px * hw * 0.35 + fx * 0.3, hy - py * hw * 0.35, hx - px * hw + fx * 0.3, hy - py * hw]); g.fill();
     g.strokeStyle = "rgba(0,0,0,.35)"; g.lineWidth = 1 * k; g.beginPath(); g.moveTo(hx - px * hw + fx * 0.3, hy - py * hw + 3 * k); g.lineTo(hx + px * hw + fx * 0.3, hy + py * hw + 3 * k); g.stroke();
