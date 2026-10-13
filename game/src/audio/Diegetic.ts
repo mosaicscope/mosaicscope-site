@@ -104,6 +104,32 @@ export const ENGINE: Record<VehicleClass, EngineProfile> = {
   muscle: E(38, 150, 800, 0.38, 0.8, true), // V8 burble
   sports: E(66, 285, 1900, 0.08, 0.3, true),
   super: E(82, 350, 2500, 0.06, 0.25, true),
+  // the rest of the street
+  mini: E(80, 210, 900, 0.04, 0.4),       // tiny two-pot buzz
+  wagon: E(58, 160, 800),
+  hothatch: E(72, 250, 1500, 0.1, 0.35, true),
+  coupe: E(64, 250, 1500, 0.08, 0.35, true),
+  roadster: E(66, 240, 1400, 0.08, 0.3, true),
+  limo: E(40, 140, 600, 0.12, 0.7),
+  hearse: E(44, 140, 600, 0.1, 0.6),
+  minivan: E(52, 140, 650),
+  camper: E(70, 110, 500, 0.2, 0.6),      // air-cooled rattle
+  dcute: E(46, 140, 650, 0.18, 0.7),
+  flatdeck: E(40, 120, 550, 0.22, 0.8),
+  tradie: E(50, 130, 650, 0.12),
+  icecream: E(50, 120, 600, 0.1),
+  post: E(78, 130, 700, 0.08, 0.4),       // little two-stroke-ish delivery van
+  bus: E(36, 110, 500, 0.2, 0.9),
+  tow: E(42, 130, 600, 0.2, 0.8),
+  fire: E(34, 120, 520, 0.22, 0.9),
+  bin: E(36, 105, 480, 0.2, 0.9),
+  banger: E(70, 150, 700, 0.3, 0.5),      // misfiring
+  retro: E(90, 150, 600, 0.15, 0.3),      // air-cooled flat-four
+  lowrider: E(36, 130, 700, 0.3, 0.8, true),
+  fourby: E(46, 140, 650, 0.18, 0.7),
+  ev: E(180, 420, 2600, 0, 0.1),         // electric whine
+  rally: E(70, 260, 1700, 0.1, 0.35, true),
+  hotrod: E(34, 160, 900, 0.4, 0.8, true),
 };
 
 /** Engine note for a car: five "gears", pitch climbing inside each and dropping at the shift. */
