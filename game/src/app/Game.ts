@@ -188,7 +188,16 @@ export class Game {
     // iOS Safari ignores user-scalable=no: stop double-tap zoom, pinch-zoom of the page and long-press selection ourselves
     let lastTouchEnd = 0;
     document.addEventListener("touchend", (e) => { const n = Date.now(); if (n - lastTouchEnd < 350 && (e.target as HTMLElement | null)?.closest?.("input,textarea,button,.tc") == null) e.preventDefault(); lastTouchEnd = n; }, { passive: false });
-    document.addEventListener("touchmove", (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+    // block iPhone's page-scroll on every drag (one finger too), so the stick is not cancelled mid-drag; panels that scroll keep working
+    document.addEventListener("touchmove", (e) => {
+      let el = e.target as HTMLElement | null;
+      while (el && el !== document.body) {
+        const cs = getComputedStyle(el);
+        if ((cs.overflowY === "auto" || cs.overflowY === "scroll") && el.scrollHeight > el.clientHeight + 1) return;
+        el = el.parentElement;
+      }
+      e.preventDefault();
+    }, { passive: false });
     document.addEventListener("selectstart", (e) => { if (!(e.target as HTMLElement | null)?.closest?.("input,textarea")) e.preventDefault(); });
     addEventListener("error", (e) => this.fault("window", e.error ?? e.message));
     addEventListener("unhandledrejection", (e) => this.fault("promise", e.reason));
