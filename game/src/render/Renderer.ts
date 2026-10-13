@@ -132,7 +132,7 @@ export class Renderer {
     // (hysteresis stops it flickering at the boundary mid-pinch; a quick crossfade hides the switch)
     const want2D = this.in2D ? z > 2.8 : z > 3.4;
     if (want2D !== this.in2D) { this.in2D = want2D; this.crossfade(); }
-    if (want2D) { cam.update(dt, o.reduceMotion); this.render2D(dt, o); if (o.quality === 3) this.cinematic(sim); this.stats.frameMs = performance.now() - t0; return; }
+    if (want2D) { cam.update(dt, o.reduceMotion); this.render2D(alpha, dt, o); if (o.quality === 3) this.cinematic(sim); this.stats.frameMs = performance.now() - t0; return; }
     cam.update(dt, o.reduceMotion);
     sim.focus.x = cam.x; sim.focus.y = cam.y;
 
@@ -779,10 +779,10 @@ export class Renderer {
 
   private street = new StreetView();
   /** Street-level 2D view: a gritty pixel-art alley, people side-on (see Street2D.ts). */
-  private render2D(dt: number, o: RenderOptions): void {
+  private render2D(alpha: number, dt: number, o: RenderOptions): void {
     const sim = this.sim, cam = this.cam;
     const f = sim.chars[cam.follow >= 0 ? cam.follow : sim.playerId] ?? sim.player;
-    this.street.draw(this.g, this.dpr, sim, f, cam.viewW, cam.viewH, cam.zoom, dt, this.time, (c, m, s) => this.poseName(c, m, s));
+    this.street.draw(this.g, this.dpr, sim, f, cam.viewW, cam.viewH, cam.zoom, dt, this.time, (c, m, s) => this.poseName(c, m, s), alpha);
     void o;
   }
 

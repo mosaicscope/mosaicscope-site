@@ -97,7 +97,7 @@ export class StreetView {
   private nGlow = 0;
 
   /** Returns true when it drew; `dest` is the visible canvas context (already scaled to CSS px). */
-  draw(dest: CanvasRenderingContext2D, dpr: number, sim: Simulation, f: Character, W: number, H: number, _zoom: number, dt: number, time: number, poseName: (c: Character, moving: boolean, spd: number) => string): void {
+  draw(dest: CanvasRenderingContext2D, dpr: number, sim: Simulation, f: Character, W: number, H: number, _zoom: number, dt: number, time: number, poseName: (c: Character, moving: boolean, spd: number) => string, alpha = 1): void {
     // full device resolution (capped at 2x for phones): figures and houses are drawn sharp, not as a chunky pixel grid
     const res = Math.min(dpr, 2);
     const lw = Math.ceil(W * res), lh = Math.ceil(H * res);
@@ -105,7 +105,9 @@ export class StreetView {
     const g = this.lo.getContext("2d")!;
     g.setTransform(res, 0, 0, res, 0, 0);               // draw in CSS px
     g.globalAlpha = 1; g.globalCompositeOperation = "source-over"; g.lineCap = "round"; g.lineJoin = "round";
-    const pu = (f.x - f.y) / 1.414, pv = f.x + f.y;
+    // the sim steps at a fixed 60 Hz; blend each walker between their last and next step so motion stays smooth on any display
+    const at = (c: Character) => ({ x: c.px + (c.x - c.px) * alpha, y: c.py + (c.y - c.py) * alpha });
+    const fp = at(f), pu = (fp.x - fp.y) / 1.414, pv = fp.x + fp.y;
     // the street's scale is fixed (the same as the people's layout), so zooming never moves the scenery: only walking does
     const S = LAYOUT_S, ground = H * 0.62, day = sim.daylight, night = 1 - Math.min(1, day * 1.3);
     const rain = sim.env.raining, off = pu * S;
@@ -132,7 +134,8 @@ export class StreetView {
     // figure size is fixed: zooming in and out does not change how big people are drawn
     const kk = 0.62;
     // who is on the street and their spacing come from the world, not the zoom: zoom does not change figure size or spacing
-    const slots = this.cast.pick(sim.chars, f, W, LAYOUT_S, 1, dt, W < 700 ? 8 : 11);
+    const live = sim.chars.map((c) => ({ id: c.id, ...at(c), inside: c.inside, inCar: c.inCar }));
+    const slots = this.cast.pick(live, { id: f.id, ...fp, inside: f.inside, inCar: f.inCar }, W, LAYOUT_S, 1, dt, W < 700 ? 8 : 11);
     const drawn: { c: Character; x: number; y: number; k: number; dv: number }[] = [];
     for (const s of slots) {
       const c = sim.chars[s.id]; if (!c) continue;
@@ -342,7 +345,6 @@ export class StreetView {
     if (r < 0.55) { g.fillStyle = "#ff4fb8"; g.fillRect(ax + aw - 40, fy + 190, 4, 60); g.fillStyle = "rgba(255,79,184,.5)"; g.fillRect(ax + aw - 44, fy + 190, 12, 60); }
     g.fillStyle = "#0e0a18"; g.fillRect(ax, ground - 36, aw, 36);
     box(g, ax + 28, ground - 54, 30, 54, "#3a4250", 1.5); box(g, ax + 66, ground - 40, 26, 40, "#4a3a2a", 1.5); box(g, ax + 100, ground - 28, 34, 28, "#5a4430", 1.5);
-    g.fillStyle = "rgba(255,70,60,.9)"; if (r < 0.5) { g.fillRect(ax + 150, ground - 30, 3, 3); g.fillRect(ax + 164, ground - 30, 3, 3); }   // eyes in the dark
     this.fireEscape(g, ax + aw - 80, fy + 20, ground - fy - 50);
   }
 
