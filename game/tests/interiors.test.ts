@@ -16,6 +16,15 @@ describe("interior coverage", () => {
   it("hand-built interiors cover the Agent C kinds", () => {
     for (const k of ["hospital", "mentalhealth", "police", "bank", "office", "apartments", "house", "hotel"] as BuildingKind[]) expect(hasOwnInterior(k), k).toBe(true);
   });
+  it("every high-street kind has its own interior, only the studio and the overlay kinds fall back", () => {
+    for (const k of ["cafe", "bakery", "pizza", "sushi", "fishchips", "dairy", "toyshop", "sports", "pawn", "records", "garage", "barber", "gym", "nightclub", "gallery", "dealership"] as BuildingKind[]) expect(hasOwnInterior(k), k).toBe(true);
+  });
+  it("shops with a menu open their shop panel from the counter", () => {
+    for (const k of kinds) {
+      if (!BUILDINGS[k].menu || !hasOwnInterior(k)) continue;
+      expect(INTERIORS[k]!.interactables.some((i) => i.launch === "shop"), k).toBe(true);
+    }
+  });
   it("interior table has no keys that are not building kinds", () => {
     for (const k of Object.keys(INTERIORS)) expect(kinds).toContain(k);
   });
