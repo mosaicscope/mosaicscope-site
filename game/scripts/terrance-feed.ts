@@ -9,7 +9,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 const path = new URL("../src/content/terrance-feed.json", import.meta.url);
 const feed = JSON.parse(readFileSync(path, "utf8")) as { updated: string; changes: string[]; drama: string[] };
 const log = execSync("git log -n 8 --no-merges --format=%s", { encoding: "utf8" }).split("\n").map((s) => s.trim()).filter(Boolean);
-const shipped = log.map((s) => s.replace(/\s*\(#\d+\)$/, "").slice(0, 140));
+// PR subjects go straight into the game, so a real product name used as a style reference is swapped for the style itself
+const shipped = log.map((s) => s.replace(/\s*\(#\d+\)$/, "").replace(/Bum Fights-style/gi, "gritty pixel-art").slice(0, 140));
 feed.changes = [...feed.changes.filter((c) => c.startsWith("Open and waiting") || c.startsWith("Terrance")), ...shipped].slice(0, 8);
 feed.updated = new Date().toISOString().slice(0, 10);
 writeFileSync(path, JSON.stringify(feed, null, 2) + "\n");

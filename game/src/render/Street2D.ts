@@ -1,10 +1,10 @@
 import type { Character } from "../entities/types";
 import { dressOf } from "../mind/Dress";
-import { NOIR, SHOP_NAMES, hash01, pickOf, shade, muted } from "./noir";
+import { NOIR, SHOP_NAMES, hash01, pickOf, shade, muted, worldWall } from "./noir";
 import type { Simulation } from "../sim/Simulation";
 import { pose, solve, J } from "./StickFigure";
 import { ComicView } from "./ComicView";
-import { MURALS, MURAL_W, MURAL_H, goldenHour, muralAt } from "./ArtSecrets";
+import { MURALS, MURAL_W, MURAL_H, MURAL_WALL, MURAL_GROUT, goldenHour, muralAt } from "./ArtSecrets";
 
 /**
  * The 2D street view, in Louis's noir pixel style (render/noir.ts): a dusk-blue city street with brick tenements,
@@ -104,7 +104,7 @@ export class StreetView {
     this.nGlow = 0;
     this.comic.watch(sim, f, W, pu, S, dt);
     this.backdrop(g, sim, W, pu, pv, S, ground, day, time);
-    this.facades(g, W, H, off, ground, day, time, goldenHour(sim.hour));
+    this.facades(g, sim, W, H, off, pv, S, ground, day, time, goldenHour(sim.hour));
     this.street(g, W, H, off, ground, night, rain, time);
     // dusk settles over the set; the lamps and lit windows then burn through it
     if (night > 0.05) { g.fillStyle = `rgba(14,10,36,${0.55 * night})`; g.fillRect(0, 0, W, H); }
@@ -177,7 +177,7 @@ export class StreetView {
     g.fillStyle = sky; g.fillRect(0, 0, W, ground);
     if (day < 0.4) { g.fillStyle = "rgba(240,230,210,.8)"; for (let i = 0; i < 40; i++) g.fillRect(((hash(i) * W + pu * S * 0.04) % W + W) % W, hash(i + 90) * ground * 0.35, 2, 2); }
     // two hazy layers of far city behind everything, so the horizon is never bare sky
-    const farCol = day > 0.85 ? ["#9aa6bd", "#7f8aa6"] : day > 0.4 ? ["#8a6a80", "#6a4f70"] : day > 0.2 ? ["#4c3e66", "#35294f"] : ["#1d1a36", "#141226"];
+    const farCol = day > 0.85 ? ["#9aa6bd", "#7f8aa6"] : day > 0.4 ? ["#8a6e70", "#6c5560"] : day > 0.2 ? ["#4a3c52", "#33283e"] : ["#1c1a26", "#13111a"];
     for (let layer = 0; layer < 2; layer++) {
       const SW = 150 - layer * 30, o = pu * S * (0.05 + layer * 0.07), j0 = Math.floor((o - W / 2) / SW) - 1;
       for (let i = j0; i < j0 + Math.ceil(W / SW) + 3; i++) {
@@ -188,7 +188,7 @@ export class StreetView {
         if (day < 0.5) { g.fillStyle = day < 0.25 ? `rgba(255,196,110,${0.5 - layer * 0.15})` : "rgba(255,196,110,.22)"; for (let r = 0; r < h / 16; r++) for (let c = 0; c < w / 14; c++) if (hash(i * 31 + r * 7 + c + layer * 99) < 0.22) g.fillRect(x + 5 + c * 14, ground - h + 8 + r * 16, 4, 6); }
       }
     }
-    const base = day > 0.4 ? "#5a4a62" : "#171428";
+    const base = day > 0.4 ? "#5c4e54" : "#16131c";
     const bs = sim.world.buildings.map((b) => ({ b, u: ((b.x0 + b.x1 + 1) / 2 - (b.y0 + b.y1 + 1) / 2) / 1.414, v: (b.x0 + b.x1 + b.y0 + b.y1 + 2) / 2, w: (b.x1 - b.x0 + b.y1 - b.y0 + 2) / 1.6 }))
       .filter((q) => q.v < pv + 4 && q.v > pv - 40).sort((a, c) => a.v - c.v);
     for (const q of bs) {
@@ -217,7 +217,7 @@ export class StreetView {
   }
 
   /** The long street wall: tenements, shopfronts, a stone bank, alley mouths with fire escapes. */
-  private facades(g: CanvasRenderingContext2D, W: number, H: number, off: number, ground: number, day: number, time: number, gold: number): void {
+  private facades(g: CanvasRenderingContext2D, sim: Simulation, W: number, H: number, off: number, pv: number, S: number, ground: number, day: number, time: number, gold: number): void {
     const SEG = 280, i0 = Math.floor((off - W / 2) / SEG) - 1, n = Math.ceil(W / SEG) + 3;
     const wallH = H * 0.54, dim = day > 0.4 ? 1 : 0.85;
     for (let i = i0; i < i0 + n; i++) {
@@ -227,7 +227,8 @@ export class StreetView {
       const hh = wallH * (0.7 + hash(i * 5) * 0.68), top = ground - hh;
       if (kind === 3) { this.alley(g, x, SEG, top, ground, i); continue; }
       const mat = kind === 2 ? NOIR.wallStone : kind === 4 ? NOIR.wallPlaster : NOIR.wallBrick;
-      const col = shade(pickOf(mat, i * 31), dim);
+      const wb = this.neighbour(sim, (i + 0.5) * SEG / S, pv);                // the real building this stretch of wall stands for
+      const col = shade(worldWall(pickOf(mat, i * 31), wb?.color), dim);
       box(g, x, top, SEG, hh, col, 2);
       // brick coursing: faint horizontal joints and a few lighter bricks, no bitmap needed
       if (kind !== 2) { g.fillStyle = "rgba(20,10,20,.22)"; for (let y = top + 6; y < ground; y += 8) g.fillRect(x, y, SEG, 1); g.fillStyle = "rgba(255,210,170,.1)"; for (let k = 0; k < 14; k++) g.fillRect(x + hash(i * 9 + k) * (SEG - 10), top + 6 + Math.floor(hash(i * 13 + k) * (hh / 8)) * 8, 9, 3); }
@@ -245,7 +246,7 @@ export class StreetView {
         }
       }
       const dy = ground - H * 0.17;                                   // ground floor
-      if (kind === 1) { this.shop(g, x, dy, SEG, ground, i, col); this.bladeSign(g, x + SEG - 34, dy - 74, i, day); }
+      if (kind === 1) { this.shop(g, x, dy, SEG, ground, i, col, wb?.sign); this.bladeSign(g, x + SEG - 34, dy - 74, i, day); }
       else this.entry(g, x, dy, ground, i, col);
       if (kind === 0 && mural < 0 && hash(i * 17) < 0.5) this.fireEscape(g, x + SEG - 70, top + 20, ground - H * 0.17 - top - 20);
       // drainpipe and the dark foot of the wall
@@ -255,21 +256,30 @@ export class StreetView {
     g.fillStyle = INK; g.fillRect(0, ground - 3, W, 5);
   }
 
+  /** The world building closest to the street wall at street position u (scene units), looked for either side of the road. */
+  private neighbour(sim: Simulation, u: number, pv: number): { color: string; sign: string } | undefined {
+    for (const d of [-3, 3, -4.5, 4.5]) {
+      const p = pv + d, tx = Math.round((p + u * 1.414) / 2), ty = Math.round((p - u * 1.414) / 2), b = sim.world.buildingAt(tx, ty);
+      if (b) return b;
+    }
+    return undefined;
+  }
+
   /**
-   * A blank gable end. By day it is bare brick with a faint patch of fresh pointing; as the light turns gold a tile mosaic
-   * glows up out of it, then sinks back as the light goes. Finding each one is remembered (and toasted) by the game.
+   * A blank gable end. By day it is a dark panel with a faint patch of fresh pointing; as the light turns gold a neon tile
+   * mosaic (the site's own bulb colours on ink) glows up out of it, then sinks back as the light goes. The game remembers each find.
    */
   private gableMural(g: CanvasRenderingContext2D, x: number, SEG: number, y0: number, y1: number, which: number, gold: number, W: number): void {
     const d = MURALS[which], tile = Math.floor(Math.min((SEG - 40) / MURAL_W, (y1 - y0) / MURAL_H));
     if (tile < 4) return;
     const mw = tile * MURAL_W, mh = tile * MURAL_H, mx = x + Math.floor((SEG - 12 - mw) / 2), my = y0 + Math.floor((y1 - y0 - mh) / 2);
-    g.fillStyle = "rgba(255,225,190,.05)"; g.fillRect(mx - 6, my - 6, mw + 12, mh + 12);          // the patch of fresh pointing: the only daytime clue
+    g.fillStyle = MURAL_WALL; g.globalAlpha = 0.55; g.fillRect(mx - 8, my - 8, mw + 16, mh + 16); g.globalAlpha = 1;       // the panel: the only daytime clue
     if (gold < 0.03) return;
-    g.fillStyle = `rgba(255,170,80,${(0.2 * gold).toFixed(3)})`; g.fillRect(x, y0 - 14, SEG, y1 - y0 + 22);   // low sun raking the wall
+    g.fillStyle = `rgba(246,182,44,${(0.14 * gold).toFixed(3)})`; g.fillRect(x, y0 - 14, SEG, y1 - y0 + 22);               // sodium light raking the wall
     g.globalAlpha = gold;
     for (let ty = 0; ty < MURAL_H; ty++) for (let tx = 0; tx < MURAL_W; tx++) {
       const c = d.tile(tx, ty); if (c < 0) continue;
-      g.fillStyle = "#2a1a24"; g.fillRect(mx + tx * tile, my + ty * tile, tile, tile);
+      g.fillStyle = MURAL_GROUT; g.fillRect(mx + tx * tile, my + ty * tile, tile, tile);
       g.fillStyle = d.palette[c]; g.fillRect(mx + tx * tile + 1, my + ty * tile + 1, tile - 2, tile - 2);
     }
     g.globalAlpha = 1;
@@ -299,11 +309,11 @@ export class StreetView {
     void col;
   }
 
-  private shop(g: CanvasRenderingContext2D, x: number, dy: number, SEG: number, ground: number, i: number, col: string): void {
-    const dh = ground - dy, name = pickOf(SHOP_NAMES, i * 7 + 1), aw = pickOf(NOIR.awning, i * 3);
+  private shop(g: CanvasRenderingContext2D, x: number, dy: number, SEG: number, ground: number, i: number, col: string, sign?: string): void {
+    const dh = ground - dy, name = pickOf(SHOP_NAMES, i * 7 + 1), aw = sign ? muted(sign, 0.8) : pickOf(NOIR.awning, i * 3);
     box(g, x + 8, dy - 26, SEG - 16, 22, NOIR.trim, 1.5);                             // fascia board
     g.fillStyle = "#e8d8a8"; g.font = "800 19px 'IBM Plex Mono', monospace"; g.textAlign = "center"; g.fillText(name, x + SEG / 2, dy - 9); g.textAlign = "start";
-    box(g, x + 8, dy, SEG - 16, dh, "#241f30", 1.5);
+    box(g, x + 8, dy, SEG - 16, dh, "#241f1c", 1.5);
     const g2 = [x + 16, x + SEG / 2 + 28];
     for (let q = 0; q < 2; q++) { box(g, g2[q], dy + 8, SEG / 2 - 44, dh - 16, hash(i + q) < 0.75 ? NOIR.glassLit : NOIR.glassDark, 1.5); this.lit(g2[q], dy + 8, SEG / 2 - 44, dh - 16); g.fillStyle = INK; g.fillRect(g2[q] + 8, dy + dh - 34, 30, 22); g.fillRect(g2[q] + 50, dy + dh - 44, 22, 32); }  // shelves and stock in silhouette
     box(g, x + SEG / 2 - 22, dy + 10, 44, dh - 10, "#3a2a1e", 1.5); g.fillStyle = NOIR.glassLit; g.fillRect(x + SEG / 2 - 16, dy + 14, 32, 14);   // door
@@ -315,7 +325,7 @@ export class StreetView {
   private alley(g: CanvasRenderingContext2D, x: number, SEG: number, top: number, ground: number, i: number): void {
     // the mouth of an alley: the back of the next street, a long way off, with a life of its own
     const ax = x + 14, aw = SEG - 28, ah = ground - top - 10, ay = top + 10, r = hash(i * 3), fy = Math.max(ay, ground - 470);   // fy: the lived-in part of the wall, within sight of the pavement
-    const wall = g.createLinearGradient(0, ay, 0, ground); wall.addColorStop(0, "#2c2646"); wall.addColorStop(0.6, "#3a2f4c"); wall.addColorStop(1, "#1a1428");
+    const wall = g.createLinearGradient(0, ay, 0, ground); wall.addColorStop(0, "#2e2630"); wall.addColorStop(0.6, "#3c3038"); wall.addColorStop(1, "#1a1418");
     g.fillStyle = INK; g.fillRect(ax - 2, ay - 2, aw + 4, ah + 2); g.fillStyle = wall; g.fillRect(ax, ay, aw, ah);
     g.fillStyle = "rgba(10,6,20,.3)"; for (let y = ay + 6; y < ground; y += 8) g.fillRect(ax, y, aw, 1);                       // back-wall brick joints
     g.fillStyle = "#171124"; g.fillRect(ax, ay, 16, ah); g.fillRect(ax + aw - 16, ay, 16, ah);                                    // the side walls fall away in shadow
@@ -346,7 +356,7 @@ export class StreetView {
       g.fillStyle = INK; g.fillRect(x + 90, top - 50, 3, 48); g.fillRect(x + 78, top - 44, 28, 2); g.fillRect(x + 82, top - 34, 20, 2); g.fillRect(x + 86, top - 24, 12, 2);
       if (day < 0.3 && Math.sin(time * 2.4 + i) > 0) { g.fillStyle = "#ff3b2f"; g.fillRect(x + 89, top - 55, 5, 5); }
     } else if (r < 0.76) {   // a painted roof sign
-      box(g, x + 40, top - 40, SEG - 80, 28, "#2a2238", 1.5); g.fillStyle = day < 0.4 ? "#ffd27a" : "#e8d8a8"; for (let k = 0; k < 7; k++) g.fillRect(x + 54 + k * 22, top - 32, 14 + (k % 3) * 2, 12);
+      box(g, x + 40, top - 40, SEG - 80, 28, "#2a2224", 1.5); g.fillStyle = day < 0.4 ? "#ffd27a" : "#e8d8a8"; for (let k = 0; k < 7; k++) g.fillRect(x + 54 + k * 22, top - 32, 14 + (k % 3) * 2, 12);
       g.fillStyle = INK; g.fillRect(x + 60, top - 12, 4, 10); g.fillRect(x + SEG - 64, top - 12, 4, 10);
     }
   }

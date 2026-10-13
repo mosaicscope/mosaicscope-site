@@ -25,6 +25,8 @@ export function gameDay(startHour: number, tick: number): number { return Math.f
 export function gameWeek(startHour: number, tick: number): number { return Math.floor(gameDay(startHour, tick) / 7); }
 
 // ------------------------------------------------------------------ murals
+// Colours are the site's tokens (styles.css :root, see docs/LOOK.md): ink ground, paper, red, acid, sodium and the neon figure colours.
+export const MURAL_WALL = "#1a1412", MURAL_GROUT = "#0e0b0a";
 export const MURAL_W = 24, MURAL_H = 16;
 export interface MuralDesign {
   id: string; name: string; palette: readonly string[];
@@ -41,7 +43,7 @@ const flower = (x: number, y: number, cx: number, cy: number, s: number): number
 
 export const MURALS: readonly MuralDesign[] = [
   {
-    id: "sun-tide", name: "Sun and Tide", palette: ["#f6b62c", "#ec8a2a", "#d8483a", "#2f6a8a", "#3fa3a0", "#eee4d3"],
+    id: "sun-tide", name: "Sun and Tide", palette: ["#f6b62c", "#ff7ad9", "#ec2a1c", "#3dd6ff", "#b48cff", "#eee4d3"],
     tile(x, y) {
       if (y >= 11) { const row = y - 11; return (x + row * 2) % 4 < 2 ? 3 : 4; }
       const dx = x - 11.5, dy = (y - 10.5) * 1.15, r = Math.hypot(dx, dy);
@@ -51,7 +53,7 @@ export const MURALS: readonly MuralDesign[] = [
     },
   },
   {
-    id: "kowhai-bloom", name: "Kowhai Bloom", palette: ["#f6c21c", "#fbe17a", "#4f8a3a", "#e8602a", "#2f5a3a"],
+    id: "kowhai-bloom", name: "Kowhai Bloom", palette: ["#f6b62c", "#eee4d3", "#c6ff3d", "#ec2a1c", "#3a6a10"],
     tile(x, y) {
       const f = flower(x, y, 12, 6.5, 5.6); if (f >= 0) return f;
       const f2 = flower(x, y, 4, 11.5, 2.8); if (f2 >= 0) return f2;
@@ -62,7 +64,7 @@ export const MURALS: readonly MuralDesign[] = [
     },
   },
   {
-    id: "koru-current", name: "Koru Current", palette: ["#3fa3a0", "#2f6a8a", "#eee4d3", "#d8483a"],
+    id: "koru-current", name: "Koru Current", palette: ["#3dd6ff", "#b48cff", "#eee4d3", "#ec2a1c"],
     tile(x, y) {
       const dx = x - 11.5, dy = (y - 7.5) * 1.25, r = Math.hypot(dx, dy);
       if (r > 9.5) return -1;
@@ -88,18 +90,18 @@ export interface Painting {
 }
 
 export const PAINTINGS: readonly Painting[] = [
-  { id: "square-rain", title: "Cathedral Square, Seven Minutes After Rain", artist: "Dot Farrow", medium: "oil on board", note: "Everything is wet and slightly surprised.", style: "city", pal: ["#2c2744", "#7a6483", "#d08a6a", "#f2b24c", "#120d16"] },
-  { id: "blue-square", title: "Blue Square With Reservations", artist: "The Thursday Painters", medium: "acrylic on canvas", note: "The reservations are in the corner. They are very small.", style: "grid", pal: ["#eee4d3", "#2f4fa8", "#ec2a1c", "#f6b62c", "#120d16"] },
-  { id: "hill-opinions", title: "Hill With Opinions", artist: "Kit Penhale", medium: "gouache", note: "It has thoughts about the weather and it will share them.", style: "hills", pal: ["#f2d9a0", "#6a8a3a", "#4a6a4a", "#d8483a", "#3a2a3a"] },
-  { id: "moon-chips", title: "The Moon Considers a Chip Shop", artist: "Mabel Tuck", medium: "oil on canvas", note: "Not tonight, the moon decides. Maybe Thursday.", style: "moon", pal: ["#1d1b2e", "#eee4d3", "#f6b62c", "#3d6ab0", "#5a4a70"] },
+  { id: "square-rain", title: "Cathedral Square, Seven Minutes After Rain", artist: "Dot Farrow", medium: "oil on board", note: "Everything is wet and slightly surprised.", style: "city", pal: ["#1a1412", "#9a8d80", "#ec2a1c", "#f6b62c", "#0e0b0a"] },
+  { id: "blue-square", title: "Blue Square With Reservations", artist: "The Thursday Painters", medium: "acrylic on canvas", note: "The reservations are in the corner. They are very small.", style: "grid", pal: ["#eee4d3", "#3dd6ff", "#ec2a1c", "#f6b62c", "#0e0b0a"] },
+  { id: "hill-opinions", title: "Hill With Opinions", artist: "Kit Penhale", medium: "gouache", note: "It has thoughts about the weather and it will share them.", style: "hills", pal: ["#f2d9a0", "#6a8a3a", "#4a6a4a", "#ec2a1c", "#3a2a3a"] },
+  { id: "moon-chips", title: "The Moon Considers a Chip Shop", artist: "Mabel Tuck", medium: "oil on canvas", note: "Not tonight, the moon decides. Maybe Thursday.", style: "moon", pal: ["#1a1412", "#eee4d3", "#f6b62c", "#3dd6ff", "#b48cff"] },
   { id: "low-tide", title: "Low Tide at the Estuary", artist: "Pip and Wren", medium: "watercolour", note: "Painted standing in it. The shoes are still drying.", style: "horizon", pal: ["#cfd8dc", "#8fb3c0", "#d6a27c", "#4a6a7a", "#eee4d3"] },
-  { id: "nine-lamps", title: "Nine Lamps", artist: "Old Hemi Quill", medium: "ink and gold leaf", note: "There are ten. One went home.", style: "lines", pal: ["#120d16", "#ffd37a", "#c9a24a", "#7a6483", "#2c2744"] },
-  { id: "washing-windy", title: "Washing Line, Windy", artist: "Dot Farrow", medium: "oil on board", note: "Every sheet is a different opinion about the wind.", style: "stripes", pal: ["#bcd4e6", "#eee4d3", "#ec2a1c", "#3d7ad9", "#f6b62c"] },
+  { id: "nine-lamps", title: "Nine Lamps", artist: "Old Hemi Quill", medium: "ink and gold leaf", note: "There are ten. One went home.", style: "lines", pal: ["#0e0b0a", "#f6b62c", "#c9a24a", "#9a8d80", "#1a1412"] },
+  { id: "washing-windy", title: "Washing Line, Windy", artist: "Dot Farrow", medium: "oil on board", note: "Every sheet is a different opinion about the wind.", style: "stripes", pal: ["#bcd4e6", "#eee4d3", "#ec2a1c", "#3dd6ff", "#f6b62c"] },
   { id: "field-mostly", title: "A Field, Mostly", artist: "Kit Penhale", medium: "gouache", note: "Mostly field. The rest is a very patient fence.", style: "horizon", pal: ["#f2d9a0", "#a8c46a", "#6a8a3a", "#c9a24a", "#4a6a4a"] },
-  { id: "orange-less", title: "Orange, Then Less Orange", artist: "The Thursday Painters", medium: "acrylic on canvas", note: "A study in giving up, gently.", style: "circles", pal: ["#f6e6c8", "#e8602a", "#ec8a2a", "#f6b62c", "#d8483a"] },
-  { id: "heron-thinking", title: "Heron, Thinking", artist: "Mabel Tuck", medium: "oil on canvas", note: "The heron has been thinking since the frame was bought.", style: "waves", pal: ["#2f6a8a", "#3fa3a0", "#eee4d3", "#1d1b2e", "#8fb3c0"] },
-  { id: "roof-cat", title: "Roof Cat, Moonlit", artist: "Pip and Wren", medium: "ink on paper", note: "Somebody's cat, nobody's business.", style: "city", pal: ["#0c0b1c", "#2e2848", "#f2b24c", "#eee4d3", "#120d16"] },
-  { id: "bus-east", title: "Tuesday Bus, Eastbound", artist: "Anonymous (found in a skip)", medium: "house paint on a door", note: "Provenance: a skip. Condition: a door.", style: "stripes", pal: ["#2b2838", "#f6b62c", "#eee4d3", "#d8483a", "#3d7ad9"] },
+  { id: "orange-less", title: "Orange, Then Less Orange", artist: "The Thursday Painters", medium: "acrylic on canvas", note: "A study in giving up, gently.", style: "circles", pal: ["#f6e6c8", "#ec2a1c", "#f6b62c", "#f6b62c", "#ec2a1c"] },
+  { id: "heron-thinking", title: "Heron, Thinking", artist: "Mabel Tuck", medium: "oil on canvas", note: "The heron has been thinking since the frame was bought.", style: "waves", pal: ["#3dd6ff", "#c6ff3d", "#eee4d3", "#1a1412", "#8fb3c0"] },
+  { id: "roof-cat", title: "Roof Cat, Moonlit", artist: "Pip and Wren", medium: "ink on paper", note: "Somebody's cat, nobody's business.", style: "city", pal: ["#0e0b0a", "#1a1412", "#f6b62c", "#eee4d3", "#0e0b0a"] },
+  { id: "bus-east", title: "Tuesday Bus, Eastbound", artist: "Anonymous (found in a skip)", medium: "house paint on a door", note: "Provenance: a skip. Condition: a door.", style: "stripes", pal: ["#1a1412", "#f6b62c", "#eee4d3", "#ec2a1c", "#3dd6ff"] },
 ];
 
 /** The painting hanging in the gallery for a given in-game week. Rotates through the whole catalogue before it repeats. */
@@ -193,12 +195,12 @@ export function paintPainting(g: CanvasRenderingContext2D, p: Painting, x: numbe
 export interface Moment { word: string; hue: string; rank: number; verb: string }
 const MOMENTS: Record<string, Moment> = {
   car_crash: { word: "KRAKOOM!", hue: "#f6b62c", rank: 5, verb: "Crash" },
-  car_hit: { word: "WHUMP!", hue: "#ec6a2a", rank: 5, verb: "Ouch" },
-  busted: { word: "BUSTED!", hue: "#3d7ad9", rank: 5, verb: "Nabbed" },
-  arrest: { word: "CLINK!", hue: "#3d7ad9", rank: 4, verb: "Nabbed" },
-  collapse: { word: "THUD.", hue: "#7a6483", rank: 4, verb: "Down" },
+  car_hit: { word: "WHUMP!", hue: "#ec2a1c", rank: 5, verb: "Ouch" },
+  busted: { word: "BUSTED!", hue: "#3dd6ff", rank: 5, verb: "Nabbed" },
+  arrest: { word: "CLINK!", hue: "#3dd6ff", rank: 4, verb: "Nabbed" },
+  collapse: { word: "THUD.", hue: "#b48cff", rank: 4, verb: "Down" },
   caught_cheating: { word: "GASP!", hue: "#ff7ad9", rank: 4, verb: "Awkward" },
-  blackout: { word: "FZZZT!", hue: "#2c2744", rank: 4, verb: "Lights out" },
+  blackout: { word: "FZZZT!", hue: "#eee4d3", rank: 4, verb: "Lights out" },
   knockdown: { word: "BONK!", hue: "#c6ff3d", rank: 3, verb: "Down" },
   melee_hit: { word: "BONK!", hue: "#c6ff3d", rank: 3, verb: "Wallop" },
   kiss: { word: "SMOOCH", hue: "#ff7ad9", rank: 3, verb: "Aww" },

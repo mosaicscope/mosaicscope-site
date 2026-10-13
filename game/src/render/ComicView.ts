@@ -10,7 +10,7 @@ import { hash01 } from "./noir";
  * on the canvas only, so it never blocks a button or a touch. Reduced motion skips the pop-in.
  */
 const DUR = 3.6, COOLDOWN = 22, RANGE = 14, FRESH = 150;
-const INK = "#120d16", PAPER = "#f3e9d2";
+const INK = "#0e0b0a", PAPER = "#eee4d3";   // the site's --ink and --paper (docs/LOOK.md)
 
 interface Shot { m: Moment; caption: string; fx: number; seed: number }
 
@@ -75,12 +75,12 @@ export class ComicView {
 
   private panel(g: CanvasRenderingContext2D, p: PanelRect, i: number, s: Shot): void {
     g.save();
-    g.fillStyle = INK; this.shape(g, p, 3); g.fill();
+    g.fillStyle = PAPER; this.shape(g, p, 2.5); g.fill();
     this.shape(g, p); g.clip();
-    g.fillStyle = PAPER; g.fillRect(p.x, p.y, p.w, p.h);
+    g.fillStyle = INK; g.fillRect(p.x, p.y, p.w, p.h);
     if (i < 2) this.scene(g, p, s, i === 0 ? 0.62 : 0.3, i === 0 ? 0.58 : 0.7);
     else this.burst(g, p, s);
-    if (i === 1) { this.speedLines(g, p, s.seed); this.halftone(g, p, "rgba(236,42,28,.55)", 9, 1); }
+    if (i === 1) { this.speedLines(g, p, s.seed); this.halftone(g, p, "rgba(236,42,28,.6)", 9, 1); }
     if (i === 0) this.captionBox(g, p, s.caption);
     g.restore();
   }
@@ -98,8 +98,8 @@ export class ComicView {
     for (const w of words) { const t = line ? line + " " + w : w; if (g.measureText(t).width > maxW && line) { lines.push(line); line = w; } else line = t; }
     lines.push(line); if (lines.length > 3) lines.length = 3;
     const bw = Math.min(maxW + 12, Math.max(...lines.map((l) => g.measureText(l).width)) + 14), bh = lines.length * 14 + 8, bx = p.x + p.slant + 4, by = p.y + 5;
-    g.fillStyle = INK; g.fillRect(bx - 2, by - 2, bw + 4, bh + 4); g.fillStyle = "#f6e08a"; g.fillRect(bx, by, bw, bh);
-    g.fillStyle = INK; lines.forEach((l, n) => g.fillText(l, bx + 7, by + 15 + n * 14));
+    g.fillStyle = "#f6b62c"; g.fillRect(bx - 1, by - 1, bw + 2, bh + 2); g.fillStyle = INK; g.fillRect(bx, by, bw, bh);
+    g.fillStyle = PAPER; lines.forEach((l, n) => g.fillText(l, bx + 7, by + 15 + n * 14));
   }
 
   private halftone(g: CanvasRenderingContext2D, p: PanelRect, color: string, step: number, dir: number): void {
@@ -125,17 +125,17 @@ export class ComicView {
 
   private burst(g: CanvasRenderingContext2D, p: PanelRect, s: Shot): void {
     const m = s.m, cx = p.x + p.w / 2 + p.slant * 0.1, cy = p.y + p.h / 2, R = Math.min(p.w * 0.5, p.h * 0.56);
-    g.fillStyle = m.hue; g.fillRect(p.x, p.y, p.w, p.h);
-    this.halftone(g, p, "rgba(18,13,22,.28)", 8, -1);
+    g.fillStyle = INK; g.fillRect(p.x, p.y, p.w, p.h);
+    this.halftone(g, p, m.hue + "66", 8, -1);
     const n = 18; g.beginPath();
     for (let k = 0; k < n * 2; k++) { const a = (k / (n * 2)) * 6.283, r = k % 2 ? R * 0.66 : R * (0.9 + hash01(s.seed * 13 + k) * 0.25); g.lineTo(cx + Math.cos(a) * r * 1.15, cy + Math.sin(a) * r * 0.9); }
-    g.closePath(); g.fillStyle = INK; g.fill(); g.save(); g.translate(2.5, -2.5); g.fillStyle = PAPER; g.fill(); g.restore();
-    g.strokeStyle = INK; g.lineWidth = 2.5; g.stroke();
+    g.closePath(); g.shadowColor = m.hue; g.shadowBlur = 14; g.fillStyle = m.hue; g.fill(); g.shadowBlur = 0;
+    g.strokeStyle = PAPER; g.lineWidth = 2.5; g.stroke();
     let size = 52; g.textAlign = "center";
     do { g.font = `900 italic ${size}px 'Big Shoulders Display', Impact, sans-serif`; size -= 2; } while (g.measureText(m.word).width > Math.min(R * 1.9, p.w * 0.78) && size > 14);
     g.save(); g.translate(cx, cy + size * 0.35); g.rotate(-0.1);
-    g.lineJoin = "round"; g.lineWidth = 6; g.strokeStyle = PAPER; g.strokeText(m.word, 0, 0); g.fillStyle = INK; g.fillText(m.word, 0, 0);
+    g.lineJoin = "round"; g.lineWidth = 5; g.strokeStyle = PAPER; g.strokeText(m.word, 0, 0); g.fillStyle = INK; g.fillText(m.word, 0, 0);
     g.restore();
-    g.font = "700 11px 'IBM Plex Mono', monospace"; g.fillStyle = INK; g.fillText(m.verb.toUpperCase(), p.x + p.w / 2, p.y + p.h - 9);
+    g.font = "700 11px 'IBM Plex Mono', monospace"; g.fillStyle = PAPER; g.fillText(m.verb.toUpperCase(), p.x + p.w / 2, p.y + p.h - 9);
   }
 }

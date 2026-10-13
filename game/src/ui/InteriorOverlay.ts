@@ -72,6 +72,8 @@ export class InteriorOverlay {
 
   /** the kind of building you are in, or null outside (the score reads this) */
   get kind(): string | null { return this.open && this.b ? this.b.kind : null; }
+  /** The interior's canvas, for photo mode. */
+  get canvas(): HTMLCanvasElement { return this.cv; }
   get open(): boolean { return !this.el.classList.contains("hidden"); }
   /** the building you are standing in, while its interior is open (audio muffles the street and plays the room) */
   get building(): Building | null { return this.open ? this.b : null; }
