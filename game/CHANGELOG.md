@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- 2D street view: restyled as a gritty pixel-art brick alley (cobbles, bins, cans, puddles, lamp pools, chunky outlined people). Fixed people vanishing: the old filter was a hard +/-1.6 depth band plus a nearest-7 cut; now a wide band with a soft fade, hysteresis on the cap and smoothed positions (`render/Street2D.ts`, `tests/street2d.test.ts`).
+
 ## 0.4.0
 
 - Clinical layer: 249 evidence-tagged studies (`mind/Evidence.ts`), stress, anxiety, depression, trauma and a rare psychosis spectrum with genetic liability from families (`Psychopathology.ts`, `Kin.ts`), whanau support and stigma (`Whanau.ts`), care pathways, Putahi Mental Health Unit. Saves are now v6 (v5 migrates).
