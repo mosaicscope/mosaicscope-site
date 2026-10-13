@@ -6,6 +6,9 @@ import { canCollide, LAYER, MASK } from "./layers";
 import { clamp } from "../core/math";
 
 export const GRAVITY = 14;
+/** World modifier: toy gravity as a fraction of GRAVITY (1 = normal, 0.35 = low-gravity toys). */
+export let gravityScale = 1;
+export function setGravityScale(v: number): void { gravityScale = Math.max(0.1, Math.min(2, v)); }
 export const CHAR_HEIGHT = 1.75;
 
 export interface PhysicsHooks {
@@ -74,7 +77,7 @@ export class PhysicsWorld {
     const sub = clamp(Math.ceil((speed * dt) / (t.radius * 0.7)), 1, 10);
     const h = dt / sub;
     for (let s = 0; s < sub; s++) {
-      t.vz -= GRAVITY * h;
+      t.vz -= GRAVITY * gravityScale * h;
       // X axis
       let nx = t.x + t.vx * h;
       if (this.blocked(nx + Math.sign(t.vx) * t.radius, t.y, t.z)) {

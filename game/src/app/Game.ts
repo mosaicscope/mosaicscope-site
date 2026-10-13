@@ -1169,10 +1169,37 @@ export class Game {
         h("div", null, [h("b", { text: `Slot ${s}` }), h("small", { text: info ? `${info.savedAt === "corrupted" ? "damaged" : new Date(info.savedAt).toLocaleString()} · day time ${fmtHour((this.sim.env.startHour + info.tick / 3600) % 24)}` : "empty" })]),
         h("button.btn", { onclick: () => { const r = this.saves.save(this.sim, s); msg.textContent = r.ok ? `Saved to slot ${s} (${Math.round(r.bytes / 1024)} KB).` : `Couldn't save: ${r.error}`; msg.className = r.ok ? "" : "err"; render(); }, text: "Save" }),
         h("button.btn", { disabled: !info, onclick: () => this.load(s, msg), text: "Load" }),
+        h("button.btn", { disabled: !info, onclick: () => this.exportSave(s, msg), text: "Export" }),
+        h("button.btn", { onclick: () => this.importSave(s, msg, render), text: "Import" }),
       ]);
     }));
     render();
     this.modal.show("Save & load", [h("p", { style: { color: "var(--dim)" }, text: "Saves live in this browser only (local storage). They keep everyone's memories, friendships, grudges and toys." }), body, msg]);
+  }
+
+  /** Download a slot's save as a .json file. */
+  private exportSave(slot: string, msg: HTMLElement): void {
+    const raw = this.saves.raw(slot);
+    if (!raw) { msg.textContent = "There is no save in that slot."; msg.className = "err"; return; }
+    const url = URL.createObjectURL(new Blob([raw], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = `mosaics-save-${slot}.json`; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    msg.textContent = `Exported slot ${slot}.`; msg.className = "";
+  }
+
+  /** Load a .json save file into a slot, after checking it is a valid save. */
+  private importSave(slot: string, msg: HTMLElement, done: () => void): void {
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = ".json,application/json";
+    input.onchange = () => {
+      const file = input.files?.[0]; if (!file) return;
+      file.text().then((t) => {
+        try { this.saves.importRaw(slot, t); msg.textContent = `Imported into slot ${slot}.`; msg.className = ""; done(); }
+        catch (e) { msg.textContent = `Couldn't import: ${(e as Error).message}`; msg.className = "err"; }
+      });
+    };
+    input.click();
   }
 
   private load(slot: string, msg: HTMLElement): void {
