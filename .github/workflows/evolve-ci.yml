@@ -1,0 +1,64 @@
+# Gate for every PR that touches the site or the engine, and the full gate for changes the evolution
+# engine proposes (branches evolve/*). A failing evolve/* PR is closed and its branch deleted (rollback).
+# Set the repository variable EVOLVE_AUTO_MERGE=true to let passing changes merge on their own;
+# micro-features (label evolve:needs-approval) always wait for a person.
+name: evolve-ci
+on:
+  pull_request:
+    paths: ["evolve/**", "functions/**", ".github/workflows/**", "index.html", "404.html", "main.js", "styles.css", "house/**", "stats/**", "sitemap.xml"]
+permissions:
+  contents: write
+  pull-requests: write
+concurrency:
+  group: evolve-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Engine tests
+        run: node --test evolve/test/engine.test.mjs
+      - name: Security gate (no new high or critical findings)
+        run: node evolve/security.mjs gate "origin/${{ github.base_ref }}"
+      - name: Verify the proposed change is exactly one engine remedy
+        id: verify
+        if: startsWith(github.head_ref, 'evolve/')
+        run: node evolve/cli.mjs verify "origin/${{ github.base_ref }}"
+      - name: Install the browser for the probe
+        if: startsWith(github.head_ref, 'evolve/') && !startsWith(github.head_ref, 'evolve/revert-')
+        run: |
+          npm i --no-save --prefix evolve playwright-core@1.64.0
+          npx -y playwright@1.64.0 install --with-deps chromium
+      - name: Visual, performance and bug gate (base vs this change)
+        if: startsWith(github.head_ref, 'evolve/') && !startsWith(github.head_ref, 'evolve/revert-')
+        env:
+          EVOLVE_AREA: ${{ steps.verify.outputs.area }}
+          EVOLVE_MAX_VISUAL: ${{ steps.verify.outputs.approval == 'true' && '0.15' || '0.02' }}
+          EVOLVE_SHOTS: shots
+        run: |
+          git worktree add ../base "origin/${{ github.base_ref }}"
+          node evolve/probe.mjs gate ../base .
+      - name: Upload before/after screenshots (the preview)
+        if: always() && startsWith(github.head_ref, 'evolve/') && hashFiles('shots/*.png') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: evolve-preview
+          path: shots/
+          retention-days: 14
+      - name: Merge (auto-merge on, not a feature)
+        if: success() && startsWith(github.head_ref, 'evolve/') && vars.EVOLVE_AUTO_MERGE == 'true' && steps.verify.outputs.approval != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr merge "${{ github.event.pull_request.number }}" --squash --delete-branch
+      - name: Roll back (close and delete the branch)
+        if: failure() && startsWith(github.head_ref, 'evolve/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr close "${{ github.event.pull_request.number }}" --delete-branch --comment "evolve-ci failed on this change, so it was closed and its branch deleted. The engine records this as a rejection."

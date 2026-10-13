@@ -1,0 +1,59 @@
+# Probes the LIVE site in a real browser (bugs, UI, performance) and scans the repo for security
+# problems, then saves both to the evolve-data branch for the evolution engine and its dashboard.
+# Runs after every deploy to main (so a broken deploy pauses the engine and gets undone), every
+# 6 hours, and on demand. Free on GitHub's runners; no AI involved.
+name: evolve-probe
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 */6 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: evolve-probe
+  cancel-in-progress: false
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Wait for Cloudflare Pages to deploy this commit
+        if: github.event_name == 'push'
+        run: sleep 120
+      - name: Install the browser
+        run: |
+          npm i --no-save --prefix evolve playwright-core@1.64.0
+          npx -y playwright@1.64.0 install --with-deps chromium
+      - name: Probe the live site
+        run: node evolve/probe.mjs report https://mosaicscope.pages.dev probe.json
+      - name: Security scan (plus dependency audit once a day)
+        run: |
+          node evolve/security.mjs scan security.json
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%H)" -lt 6 ]; then
+            (cd game && npm ci --ignore-scripts --silent) && node evolve/security.mjs deps deps.json || true
+            node -e 'const f=require("fs");const s=JSON.parse(f.readFileSync("security.json"));try{s.deps=JSON.parse(f.readFileSync("deps.json")).vulnerabilities}catch{};f.writeFileSync("security.json",JSON.stringify(s))'
+          fi
+      - name: Code health and documentation drift
+        run: |
+          node evolve/maintain.mjs code maintenance.json
+          node evolve/maintain.mjs docs docs.json
+      - name: Save to evolve-data
+        run: |
+          git config --global user.name "evolve-probe"; git config --global user.email "evolve-probe@users.noreply.github.com"
+          url="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          for i in 1 2 3; do
+            rm -rf data
+            if git clone -q --depth 1 --branch evolve-data "$url" data 2>/dev/null; then :; else mkdir data && git -C data init -q -b evolve-data && git -C data remote add origin "$url"; fi
+            cp probe.json security.json maintenance.json docs.json data/
+            git -C data add probe.json security.json maintenance.json docs.json
+            git -C data commit -qm "probe $(date -u +%FT%TZ)" || exit 0
+            git -C data push -q origin evolve-data && exit 0
+            sleep $((i * 5))
+          done
+          exit 1

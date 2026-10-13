@@ -17,7 +17,7 @@ export class ModalHost {
     this.el.classList.remove("hidden");
     (box.querySelector("button:not(.x), input, select") as HTMLElement | null)?.focus();
   }
-  close(): void { this.el.classList.add("hidden"); this.el.replaceChildren(); (this.prevFocus as HTMLElement | null)?.focus?.(); }
+  close(): void { this.el.classList.add("hidden"); this.el.classList.remove("touch-tut"); this.el.replaceChildren(); (this.prevFocus as HTMLElement | null)?.focus?.(); }
 }
 
 export const KEY_HELP: [string, string][] = [

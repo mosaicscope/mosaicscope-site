@@ -188,7 +188,16 @@ export class Game {
     // iOS Safari ignores user-scalable=no: stop double-tap zoom, pinch-zoom of the page and long-press selection ourselves
     let lastTouchEnd = 0;
     document.addEventListener("touchend", (e) => { const n = Date.now(); if (n - lastTouchEnd < 350 && (e.target as HTMLElement | null)?.closest?.("input,textarea,button,.tc") == null) e.preventDefault(); lastTouchEnd = n; }, { passive: false });
-    document.addEventListener("touchmove", (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+    // block iPhone's page-scroll on every drag (one finger too), so the stick is not cancelled mid-drag; panels that scroll keep working
+    document.addEventListener("touchmove", (e) => {
+      let el = e.target as HTMLElement | null;
+      while (el && el !== document.body) {
+        const cs = getComputedStyle(el);
+        if ((cs.overflowY === "auto" || cs.overflowY === "scroll") && el.scrollHeight > el.clientHeight + 1) return;
+        el = el.parentElement;
+      }
+      e.preventDefault();
+    }, { passive: false });
     document.addEventListener("selectstart", (e) => { if (!(e.target as HTMLElement | null)?.closest?.("input,textarea")) e.preventDefault(); });
     addEventListener("error", (e) => this.fault("window", e.error ?? e.message));
     addEventListener("unhandledrejection", (e) => this.fault("promise", e.reason));
@@ -288,7 +297,7 @@ export class Game {
     this.touch.update();
     if (now - this.clubTickAt > 1000) { const earned = this.club.tick(Math.min(5, (now - (this.clubTickAt || now)) / 1000)); this.clubTickAt = now; if (earned > 0) this.sim.player.cash += earned; }
     this.renderer.zooAnimals = this.luxury.empire.animals; zooState.animals = this.luxury.empire.animals.length;
-    this.touch.el.classList.toggle("hidden", this.casino.open || this.interior.open || this.modal.open || this.dialogue.open || this.terrance.open || this.travel.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
+    this.touch.el.classList.toggle("hidden", this.casino.open || this.interior.open || (this.modal.open && !this.modal.el.classList.contains("touch-tut")) || this.dialogue.open || this.terrance.open || this.travel.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
     this.tickStory(now);
     this.minimap.update(now);
     if (now - this.lastUi < 250) return;
@@ -354,6 +363,8 @@ export class Game {
     // touch stick: analog, push past ~94% to sprint
     if (this.touchMove.x || this.touchMove.y) { ix = this.touchMove.x; iy = this.touchMove.y; }
     if (ix || iy) {
+      // moving yourself brings the camera back to you (tapping someone to inspect had left it on them)
+      if (this.renderer.cam.follow !== p.id) this.renderer.cam.follow = p.id;
       // screen directions -> world: screen up = (-1,-1), screen right = (1,-1)
       const wx = ix - iy, wy = -ix - iy, l = Math.hypot(wx, wy);
       p.vx = (wx / l) * p.speed; p.vy = (wy / l) * p.speed;
@@ -548,9 +559,14 @@ export class Game {
         break;
       }
       case "swing": {
-        if (p.hand >= 0 && isMelee(sim.toys[p.hand].def)) { p.facing = Math.atan2(cursor.y - p.y, cursor.x - p.x); p.anim.pose = "swing"; p.anim.poseT = 0.3; sim.swingHeld(p); }
+        // the swing always shows, even empty-handed (air swing); it only hits something when you hold a melee item
+        p.facing = Math.atan2(cursor.y - p.y, cursor.x - p.x);
+        // empty-handed, the swing key throws one of the 20 punches at random; holding a melee item swings it
+        p.anim.pose = p.hand >= 0 && isMelee(sim.toys[p.hand].def) ? "swing" : `punch${Math.floor(Math.random() * 20)}`;
+        p.anim.poseT = 0.3;
+        if (p.hand >= 0 && isMelee(sim.toys[p.hand].def)) sim.swingHeld(p);
         else if (p.hand >= 0 && canThrow(sim.toys[p.hand].def)) this.act("throw");
-        else { const t = this.nearestToy(1.2); if (t) sim.kickToy(p, t, cursor.x, cursor.y); }
+        else { sim.punchHeld(p); const t = this.nearestToy(1.2); if (t) sim.kickToy(p, t, cursor.x, cursor.y); }
         break;
       }
       case "talk": {
@@ -571,6 +587,9 @@ export class Game {
   select(id: number): void {
     this.selected = id;
     this.inspector.show(id);
+    // clicking someone zooms in on them: the camera follows them and they stand out on top
+    const cam = this.renderer.cam;
+    if (id >= 0 && id !== this.sim.playerId) { cam.follow = id; cam.setZoom(Math.max(cam.targetZoom, 5)); }
   }
 
   // ------------------------------------------------------------------ input
@@ -936,6 +955,7 @@ export class Game {
   private touch = new TouchControls({
     move: (x, y) => { this.touchMove.x = x; this.touchMove.y = y; },
     brake: (held: boolean) => { this.touchBrake = held; },
+    zoom: (dir: number) => { const c = this.renderer.cam; c.setZoom(c.targetZoom * (dir > 0 ? 1.4 : 1 / 1.4)); },
     inCar: () => this.sim.player.inCar >= 0,
     action: (n) => {
       const sim = this.sim, p = sim.player;
@@ -1249,9 +1269,10 @@ export class Game {
   }
 
   private tutorial(step: number): void {
+    const touchUI = TouchControls.wanted();
     const steps: [string, string][] = [
       ["Welcome to <i>our world</i>", "You're the stranger in white and red. Tiles, Glitter and the rest of the Mosaics live here with a few hundred locals. Nothing is scripted."],
-      ["Move & look", "WASD or arrow keys to walk, or click the ground. Drag to pan, scroll or pinch to zoom. Click anyone to see what they're feeling, what they remember and who they can't stand."],
+      ["Move & look", touchUI ? "Tap the ground to walk there. Use + and \u2212 (or pinch) to zoom. Tap anyone to see what they're feeling, what they remember and who they can't stand." : "WASD or arrow keys to walk, or click the ground. Drag to pan, scroll or pinch to zoom. Click anyone to see what they're feeling, what they remember and who they can't stand."],
       ["Toys", "E picks up the nearest toy. F (or right-click) throws it at your cursor, Space swings a foam sword. Hits have consequences: people remember who threw what."],
       ["Talk", "T talks to the nearest person. They only know what they've seen or heard, and they'll tell you where they heard it. Press L for the event log, and ? for all controls."],
     ];
@@ -1265,5 +1286,7 @@ export class Game {
         h("button.btn", { onclick: () => { this.settings.tutorialDone = true; this.persistSettings(); this.modal.close(); }, text: "Skip" }),
       ]),
     ], "tut");
+    // on a phone the tutorial floats at the top and lets taps through, so the joystick works under it
+    this.modal.el.classList.toggle("touch-tut", touchUI);
   }
 }

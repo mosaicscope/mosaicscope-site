@@ -20,6 +20,10 @@ A crew lives in the black strip at the very bottom: **Tiles** (main guy), **Glit
 
 **Stats:** https://mosaicscope.pages.dev/api/egg shows visitors who found them, time watched, clicks, music plays, photoshoots, cash throws, boombox clicks, biggest crew and highest level (last 30 days).
 
+## 🤖 Evolution engine
+
+Two competing agents make small, safe fixes to the site (accessibility, speed, SEO) every few minutes, each as its own pull request. Dashboard at **/evolve/**. Setup and limits: `evolve/README.md`.
+
 ## 🔧 Things you can fill in whenever
 
 - **Raw vs edited slider**: Pages CMS → *Raw vs edited* → upload a raw shot + your Lightroom version. The section appears by itself.
