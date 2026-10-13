@@ -1,19 +1,21 @@
 # Session state (auto-saved — last known reality)
 
-_Updated: 2026-10-13 14:56:45_  ·  branch: `claude/pensive-mccarthy-bkv5ql`
+_Updated: 2026-10-13 15:00:03_  ·  branch: `claude/pensive-mccarthy-bkv5ql`
 
 ## Uncommitted changes
 ```
-?? .anchor/
+ M .anchor/session-state.md
 ```
 
 Diff stat:
 ```
-
+ .anchor/session-state.md | 22 ++--------------------
+ 1 file changed, 2 insertions(+), 20 deletions(-)
 ```
 
 ## Recent commits
 ```
+a520ee8 Add session-state snapshot from anchor-memory
 cd20481 Merge main into claude/pensive-mccarthy-bkv5ql
 47f0d38 Merge pull request #114 from mosaicscope/claude/drop-2d-street
 3e2384e World: drop the 2D street view, zoom much closer, HD faces up close
@@ -21,7 +23,6 @@ cd20481 Merge main into claude/pensive-mccarthy-bkv5ql
 ea68eab Show section links on phones and fix anchor landing under header (#109)
 2125509 Merge pull request #108 from mosaicscope/claude/lore-notes
 59102f1 Merge pull request #107 from mosaicscope/claude/lore-bible
-9665f15 Merge pull request #105 from mosaicscope/claude/wire-life-lore
 ```
 
 ## Resume
