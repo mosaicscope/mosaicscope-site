@@ -347,3 +347,9 @@ body { overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
 /* a game, not a document: no text selection, no iOS copy/paste callout, no tap flash (inputs stay editable) */
 html, body, #ui, #ui *:not(input):not(textarea):not([contenteditable]) { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 input, textarea { -webkit-user-select: text; user-select: text; }
+
+/* gigs: rent day pill and the closing-in vignette */
+.gigbar { position: absolute; left: 50%; top: 58px; transform: translateX(-50%); z-index: 3; display: flex; gap: 10px; align-items: center; padding: 6px 12px; border-radius: 999px; background: var(--ink2); border: 1px solid var(--line); font: 700 calc(12px * var(--ts)) / 1.2 var(--mono); color: var(--paper); text-shadow: 0 1px 3px #000; }
+.rent-stress .gigbar { border-color: var(--red); }
+.rent-stress::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; box-shadow: inset 0 0 calc(40px + 120px * var(--stress, 0)) rgba(236, 42, 28, calc(.35 * var(--stress, 0))); }
+@media (prefers-reduced-motion: no-preference) { .rent-stress .gigbar { animation: rentpulse 1.2s ease-in-out infinite; } @keyframes rentpulse { 50% { transform: translateX(-50%) scale(1.04); } } }

@@ -78,6 +78,23 @@ export class Lighting {
       }
       main.globalCompositeOperation = "source-over";
     }
+    // festival lanterns strung along the market street (additive glow, drifting colours)
+    if (sim.gigs.festival && quality > 0) {
+      main.globalCompositeOperation = "lighter";
+      const cols = ["255,120,70", "255,200,90", "255,90,140", "120,220,170"];
+      for (const a of sim.world.areas) {
+        if (a.kind !== "market") continue;
+        for (let i = 0, x = a.x0 + 1; x < a.x1; x += 3, i++) {
+          const sway = reduceMotion ? 0 : Math.sin(time * 1.4 + i) * 0.15;
+          cam.toScreen(x + sway, a.y0 + 1.5, 2.6, this.pt);
+          const r = 46 * cam.zoom, c = cols[i % cols.length];
+          const grd = main.createRadialGradient(this.pt.x, this.pt.y, 0, this.pt.x, this.pt.y, r);
+          grd.addColorStop(0, `rgba(${c},0.55)`); grd.addColorStop(0.25, `rgba(${c},0.22)`); grd.addColorStop(1, `rgba(${c},0)`);
+          main.fillStyle = grd; main.fillRect(this.pt.x - r, this.pt.y - r, r * 2, r * 2);
+        }
+      }
+      main.globalCompositeOperation = "source-over";
+    }
     // lightning: a soft flash (no strobing; disabled under reduced motion)
     if (!reduceMotion && sim.env.lightningAt >= 0) {
       const age = sim.tick - sim.env.lightningAt;

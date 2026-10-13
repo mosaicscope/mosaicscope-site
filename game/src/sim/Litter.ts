@@ -4,6 +4,7 @@ import { BUILDINGS } from "../content/buildings";
 import { LITTER, LITTER_KINDS, LitterKind, Recyclable, isRecyclable, SACK_CAP, BULK_MIN, BULK_BONUS } from "../content/litter";
 import type { Character } from "../entities/types";
 import type { Simulation } from "./Simulation";
+import { crewBonusRate } from "./Gigs";
 
 /**
  * Street litter, bins and the recycling run. Headless and deterministic: everything is drawn from
@@ -112,6 +113,17 @@ export class LitterState {
     }
   }
 
+  /** `n` fresh pieces within `r` tiles of (cx, cy), for the morning after a festival. */
+  scatterNear(cx: number, cy: number, r: number, n: number): void {
+    let placed = 0;
+    for (let tries = 0; tries < n * 6 && placed < n; tries++) {
+      const s = this.pickSpot();
+      if (Math.hypot(s.x - cx, s.y - cy) > r) continue;
+      const x = s.x + this.rng.range(0.12, 0.88), y = s.y + this.rng.range(0.12, 0.88);
+      if (this.world.walkable(x, y) && this.add(this.pickKind(), x, y)) placed++;
+    }
+  }
+
   get uncollected(): number { let n = 0; for (const p of this.pieces) if (!p.taken) n++; return n; }
 }
 
@@ -166,18 +178,20 @@ export function rummageBin(sim: Simulation, c: Character, bin: Poi): { can: numb
 }
 
 /** Return everything in the sack at the recycling centre. Bulk returns earn a tidy-up bonus. */
-export function cashIn(sim: Simulation, c: Character): { n: number; base: number; bonus: number; total: number } {
+export function cashIn(sim: Simulation, c: Character): { n: number; base: number; bonus: number; crew: number; total: number } {
   const n = scrapCount(c), base = Math.round(scrapValue(c) * 100) / 100;
   const bonus = n >= BULK_MIN ? Math.round(base * BULK_BONUS * 100) / 100 : 0;
-  const total = Math.round((base + bonus) * 100) / 100;
+  const isPlayer = c.tier === "player";
+  const crew = isPlayer ? Math.round(base * crewBonusRate(sim.gigs.crew) * 100) / 100 : 0; // Tin Tigers members earn extra
+  const total = Math.round((base + bonus + crew) * 100) / 100;
   if (n > 0) {
     c.scrap = { can: 0, bottle: 0 };
     c.cash += total;
-    if (c.tier === "player") sim.litter.recycled += n;
+    if (isPlayer) { sim.litter.recycled += n; sim.gigs.noteRecycled(n); }
     sim.bus.emit("sound", { kind: "recycle", x: c.x, y: c.y, vol: 0.8 });
     sim.bus.emit("fx", { kind: "cash", x: c.x, y: c.y, z: 1.2, n: Math.min(12, 3 + Math.floor(n / 3)) });
   }
-  return { n, base, bonus, total };
+  return { n, base, bonus, crew, total };
 }
 
 const MESSY_AREA = (sim: Simulation, x: number, y: number): number => MESS[sim.world.areaAt(x, y)?.kind ?? "street"] ?? 1;

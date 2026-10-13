@@ -44,6 +44,7 @@ import { MOSAIC } from "../content/mosaicscope";
 import { carried, detach } from "../inventory/Inventory";
 import { BUILDINGS } from "../content/buildings";
 import { billAbsence, collect } from "../sim/Arrears";
+import { rentDeadline, rentStress, hourOf, RENT_DEADLINE } from "../sim/Gigs";
 
 /** Wires simulation, renderer, input, audio, UI and persistence together and runs the loop. */
 /** People who ring you. Lines can mention {place} and {cash}. */
@@ -101,6 +102,7 @@ export class Game {
   private touches = new Map<number, { x: number; y: number }>();
   casino: Casino; places: Places; radio: Radio; interior: InteriorOverlay;
   private hudEl: HTMLElement;
+  private gigEl: HTMLElement = h("div.gigbar.hidden"); private gigText = h("span"); private gigPay = h("button.btn", { text: "Pay now", onclick: () => this.payRent() });
   private areaEl: HTMLElement = h("div.areaname", { "aria-live": "polite" }); private lastArea = ""; private bustedEl: HTMLElement; private lastBusted = -1;
   private gestured = false;
   private pinchDist = 0;
@@ -142,8 +144,9 @@ export class Game {
     this.dialogue.onTrade = (id) => this.places.trade(this.sim.chars[id]);
     this.radio = new Radio(MOSAIC.soundcloud);
     this.hudEl = h("div.hud", { "aria-live": "polite" });
+    this.gigEl.append(this.gigText, this.gigPay);
     this.bustedEl = h("div.busted.hidden", { role: "alert" });
-    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.terrance.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.interior.el, this.modal.el, this.casino.el, this.bustedEl);
+    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.gigEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.terrance.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.interior.el, this.modal.el, this.casino.el, this.bustedEl);
     // browsers only allow sound after a gesture: the first click/key starts the playlist
     const firstGesture = () => { if (this.gestured) return; this.gestured = true; if (this.settings.sound) this.audio.setEnabled(true); }; // the radio only plays when you press ▶
     window.addEventListener("pointerdown", firstGesture, { once: false, capture: true });
@@ -259,6 +262,7 @@ export class Game {
     this.renderer.zooAnimals = this.luxury.empire.animals; zooState.animals = this.luxury.empire.animals.length;
     this.touch.el.classList.toggle("hidden", this.casino.open || this.interior.open || this.modal.open || this.dialogue.open || this.terrance.open || this.travel.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
     this.tickStory(now);
+    this.tickGigs();
     this.minimap.update(now);
     if (now - this.lastUi < 250) return;
     this.maybeCall();
@@ -692,6 +696,8 @@ export class Game {
     sim.bus.on("event", (e) => {
       const p = sim.player, near = Math.hypot(e.x - p.x, e.y - p.y) < 14 || e.radius > 100;
       if (e.type === "party") this.toast("🎵 " + e.summary, "acid");
+      else if (e.type === "festival") this.toast("🏮 " + e.summary, "acid");
+      else if (e.type === "festival_end" || e.type === "rent_day") this.toast(e.type === "rent_day" ? "🏠 " + e.summary : e.summary, e.data.stage === "final" || e.data.stage === "deadline" ? "red" : "");
       else if (e.type === "blackout") this.toast(e.summary, "red");
       else if (e.type === "power_back" || e.type === "rare_meteor" || e.type === "weather") this.toast(e.summary);
       else if (near && e.actors.includes(p.id) && (e.type === "reconcile" || e.type === "friendship")) this.toast(e.summary);
@@ -793,10 +799,11 @@ export class Game {
   private tickStory(now: number): void {
     this.tickContract();
     const job = this.currentJob(), ct = this.contract ? this.sim.chars[this.contract.target] : null;
-    const t = this.storyTarget() ?? (ct ? { x: ct.x, y: ct.y, label: "contract" } : null);
+    const run = this.sim.gigs.run, rt = run ? { x: run.parcel.tx, y: run.parcel.ty, label: `Deliver to ${run.parcel.toName}` } : null;
+    const t = this.storyTarget() ?? (ct ? { x: ct.x, y: ct.y, label: "contract" } : null) ?? rt;
     this.minimap.target = t;
     const live = this.sim.chars.filter((c) => this.isContact(c) && this.hasJob(c) && c.inside < 0);
-    this.minimap.contacts = live.map((c) => ({ x: c.x, y: c.y }));
+    this.minimap.contacts = [...live.map((c) => ({ x: c.x, y: c.y })), ...(run ? [] : this.sim.gigs.parcels.map((q) => ({ x: q.fx, y: q.fy })))];
     this.renderer.markers = new Set(live.map((c) => c.id));
     if (!job || !t || !this.job) return;
     const p = this.sim.player, px = p.inCar >= 0 ? this.sim.vehicles[p.inCar].x : p.x, py = p.inCar >= 0 ? this.sim.vehicles[p.inCar].y : p.y;
@@ -844,7 +851,49 @@ export class Game {
     }
   }
 
+  // ------------------------------------------------------------------ gigs: couriers, rent day
+  private tickGigs(): void {
+    const sim = this.sim, g = sim.gigs, p = sim.player;
+    if (p.phys === Phys.OK && p.inside < 0) {
+      const px = p.inCar >= 0 ? sim.vehicles[p.inCar].x : p.x, py = p.inCar >= 0 ? sim.vehicles[p.inCar].y : p.y;
+      if (!g.run) {
+        const par = g.parcelNear(px, py, 1.8);
+        if (par) { g.take(sim, par); this.toast(`📦 Parcel from ${par.fromName} to ${par.toName}. ${par.limit}s before it goes cold.`, "acid"); }
+      } else {
+        const d = g.arrive(sim, px, py);
+        if (d) {
+          p.cash += d.pay;
+          this.toast(d.cold ? `📦 Delivered, but it had gone cold. ${fmtCash(d.pay)}.` : `📦 Delivered in ${Math.round(d.seconds)}s · ${fmtCash(d.pay)}${d.tip ? " with a tip" : ""}`, "acid");
+        }
+      }
+    }
+    const unpaid = g.takeUnpaid();
+    if (unpaid > 0) this.settleRent(unpaid);
+    // the rent-day pill, and the room tightening as the deadline nears
+    const owed = g.rentOwed, stress = rentStress(hourOf(sim.env.startHour, sim.tick), owed);
+    this.gigEl.classList.toggle("hidden", owed <= 0);
+    this.rootEl.classList.toggle("rent-stress", stress > 0.6);
+    this.rootEl.style.setProperty("--stress", String(stress));
+    if (owed > 0) { this.gigText.textContent = `🏠 Rent due ${fmtCash(owed)} by ${RENT_DEADLINE - 12}pm`; (this.gigPay as HTMLButtonElement).disabled = p.cash < 1; }
+  }
+  private payRent(): void {
+    const sim = this.sim, paid = sim.gigs.payRent(sim.player);
+    this.toast(paid ? `Paid ${fmtCash(paid)} towards the rent${sim.gigs.rentOwed > 0 ? ` · ${fmtCash(sim.gigs.rentOwed)} to go` : ". Landlord's happy."}` : "Nothing to pay with.", paid ? "acid" : "red");
+  }
+  /** The deadline passed with rent still owing: the landlord takes a share of your cash and the rest becomes arrears. */
+  private settleRent(unpaid: number): void {
+    const p = this.sim.player;
+    let owed = 0;
+    try { owed = +(localStorage.getItem("mosaics-world:arrears") ?? 0) || 0; } catch { /* private mode */ }
+    const r = rentDeadline(unpaid, p.cash, owed);
+    p.cash -= r.taken;
+    try { localStorage.setItem("mosaics-world:arrears", String(r.arrears)); } catch { /* ignore */ }
+    this.focus("Rent day missed", `${fmtCash(r.taken)} taken now${r.arrears >= 5 ? `, ${fmtCash(r.arrears)} in arrears` : ""}`, 4);
+  }
+
   objective(): string {
+    const run = this.sim.gigs.run;
+    if (run && !this.job && !this.contract) { const s = Math.ceil(this.sim.gigs.secondsLeft(this.sim)); return `📦 ${run.parcel.toName} · ${s > 0 ? s + "s" : "gone cold"}`; }
     if (this.contract && !this.job) { const t = this.sim.chars[this.contract.target]; return t ? `🎯 Whack ${t.name}` : ""; }
     const t = this.storyTarget();
     if (!t || !this.job) return "";
