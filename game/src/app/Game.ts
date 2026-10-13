@@ -999,7 +999,7 @@ export class Game {
     const calm = this.reduceMotion;
     if (!this.clock.paused) this.goldenT += dt;
     const env = goldenEnvelope(this.goldenT);
-    this.goldenEl.style.opacity = String((calm ? Math.min(env, 0.5) : env) * 0.6);
+    this.goldenEl.style.opacity = String((calm ? Math.min(env, 0.5) : env) * 0.4);
     this.clock.timeScale = calm || this.clock.speed !== 1 ? 1 : goldenTimeScale(this.goldenT);
     if (this.goldenT >= GOLDEN_LEN) { this.goldenT = -1; this.clock.timeScale = 1; this.goldenEl.style.opacity = "0"; }
   }

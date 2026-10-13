@@ -354,7 +354,7 @@ html, body, #ui, #ui *:not(input):not(textarea):not([contenteditable]) { -webkit
 input, textarea { -webkit-user-select: text; user-select: text; }
 
 /* Gilbert: golden minute wash and play-streak glow */
-.golden { position: absolute; inset: 0; pointer-events: none !important; z-index: 2; opacity: 0; background: radial-gradient(ellipse at 50% 40%, rgba(255,196,92,.55) 0%, rgba(255,140,50,.28) 55%, rgba(120,40,20,.35) 100%); mix-blend-mode: soft-light; }
-.clock.streaking { text-shadow: 0 0 calc(var(--streak) * 10px) rgba(255,190,70,calc(var(--streak) * .9)); }
-.clock.streaking b { color: color-mix(in srgb, var(--paper) calc(100% - var(--streak) * 45%), #ffc95a); }
-.toast.gold { background: #ffc95a; color: var(--ink); }
+.golden { position: absolute; inset: 0; pointer-events: none !important; z-index: 2; opacity: 0; background: radial-gradient(ellipse at 50% 40%, rgba(208,138,106,.6) 0%, rgba(122,100,131,.35) 60%, rgba(44,39,68,.5) 100%); mix-blend-mode: soft-light; }
+.clock.streaking { text-shadow: 0 0 calc(var(--streak) * 10px) rgba(242,178,76,calc(var(--streak) * .7)); }
+.clock.streaking b { color: color-mix(in srgb, var(--paper) calc(100% - var(--streak) * 45%), #f2b24c); }
+.toast.gold { background: #f2b24c; color: var(--ink); }

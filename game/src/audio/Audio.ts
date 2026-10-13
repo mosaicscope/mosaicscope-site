@@ -237,18 +237,18 @@ export class AudioSystem {
     }
   }
 
-  /** Golden minute: G5 then D6 (a fifth up), each swelling in 0.9 s and ringing 1.6 s, 0.4 s apart. Peak 0.12 of master. */
+  /** Golden minute: G4 then D5 (a fifth up), each swelling in 1.0 s and ringing 1.2 s, 0.5 s apart. Peak 0.04 of master, quiet enough to sit under the music. */
   goldenChime(): void {
     if (!this.enabled || !this.ctx || !this.master) return;
     const t = this.ctx.currentTime + 0.02;
-    this.bell(t, 783.99, 0.12, 0.9, 1.6); this.bell(t + 0.4, 1174.66, 0.12, 0.9, 1.6);
+    this.bell(t, 392, 0.04, 1.0, 1.2); this.bell(t + 0.5, 587.33, 0.04, 1.0, 1.2);
   }
 
-  /** Streak gift: D5 F#5 A5 D6, 130 ms apart, each swelling in 40 ms and ringing 0.9 s. Peak 0.14 of master. */
+  /** Streak gift: D5 F#5 A5, 180 ms apart, 50 ms swell, 0.7 s ring. Peak 0.05 of master. */
   streakChime(): void {
     if (!this.enabled || !this.ctx || !this.master) return;
     const t = this.ctx.currentTime + 0.02;
-    [587.33, 739.99, 880, 1174.66].forEach((f, i) => this.bell(t + i * 0.13, f, 0.14, 0.04, 0.9));
+    [587.33, 739.99, 880].forEach((f, i) => this.bell(t + i * 0.18, f, 0.05, 0.05, 0.7));
   }
 
   private kick(vol: number): void { const o = this.outAt(vol); if (o) this.tone(o, "sine", 120, 40, 0.18); }
