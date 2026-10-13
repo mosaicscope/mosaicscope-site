@@ -571,6 +571,9 @@ export class Game {
   select(id: number): void {
     this.selected = id;
     this.inspector.show(id);
+    // clicking someone zooms in on them: the camera follows them and they stand out on top
+    const cam = this.renderer.cam;
+    if (id >= 0 && id !== this.sim.playerId) { cam.follow = id; cam.setZoom(Math.max(cam.targetZoom, 5)); }
   }
 
   // ------------------------------------------------------------------ input

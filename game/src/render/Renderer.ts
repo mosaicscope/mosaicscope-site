@@ -260,6 +260,9 @@ export class Renderer {
     // depth sort
     const items = this.items, n = this.nItems;
     const view = items.slice(0, n).sort((a, b) => a.d - b.d);
+    // the person the camera is on always stands in front of everyone else
+    const top = view.findIndex((it) => it.kind === 0 && it.ref === this.cam.follow);
+    if (top >= 0 && top < view.length - 1) view.push(...view.splice(top, 1));
     this.stats.items = n;
 
     // draw sorted, batching consecutive background silhouettes of the same colour
