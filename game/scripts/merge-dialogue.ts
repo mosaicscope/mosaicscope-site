@@ -2,7 +2,8 @@
 // Keeps only valid exchanges (known tags/placeholders, 2-4 lines, bubble-sized, no line repeated anywhere in the game).
 // Usage: npx vite-node scripts/merge-dialogue.ts life4 life5 ...
 import fs from "node:fs";
-import { EXCHANGES } from "../src/dialogue/director";
+import { EXCHANGES, exchangesReady } from "../src/dialogue/director";
+await exchangesReady;
 import type { Exchange } from "../src/dialogue/exchanges";
 const ROLES = "local student barista chef vendor shopkeeper cop thief graffiti cleaner dealer bouncer busker skater car_enthusiast office tourist mechanic musician photographer medic taxi driver gambler mobster smuggler comic mogul model vigilante villain skibunny zookeeper mosaic player".split(" ");
 const MOODS = "happy sad angry scared tired hungry bored broke rich hurt".split(" ");

@@ -174,7 +174,8 @@ export class Game {
     this.radio = new Radio(MOSAIC.soundcloud);
     this.hudEl = h("div.hud", { "aria-live": "polite" });
     this.bustedEl = h("div.busted.hidden", { role: "alert" });
-    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.terrance.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.interior.el, this.modal.el, this.casino.el, this.bustedEl);
+    root.append(this.club.el, this.luxury.el, this.touch.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.terrance.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.interior.el, this.modal.el, this.casino.el, this.bustedEl);
+    this.loadMinigames();
     // browsers only allow sound after a gesture: the first click/key starts the playlist
     const firstGesture = () => { if (this.gestured) return; this.gestured = true; if (this.settings.sound) this.audio.setEnabled(true); }; // the radio only plays when you press ▶
     window.addEventListener("pointerdown", firstGesture, { once: false, capture: true });
@@ -436,7 +437,7 @@ export class Game {
     if (b.kind === "airport") { this.travel.show(); return; }
     if ((b.kind as string) === "stripclub") { this.club.show("strip"); return; }
     if ((b.kind as string) === "velvet") { this.club.show("velvet"); return; }
-    if (b.kind === "diner") { this.burger.start(); return; } // pick up a shift flipping burgers
+    if (b.kind === "diner") { this.burger?.start(); return; } // pick up a shift flipping burgers
     if (b.kind === "casino") { this.statsCasino++; }
     if (b.kind === "casino") { this.pausedBefore = this.clock.paused; this.casino.show(); return; }
     this.places.enter(b);
@@ -896,7 +897,7 @@ export class Game {
     const don = this.sim.chars[id];
     if (don && this.isContact(don) && (this.hasJob(don) || this.job?.who === don.name) && !(don.role === "comic" && !this.job && (this.story[don.name]?.ch ?? 0) > 0)) { this.talkToContact(don.name); return; }
     if (don && don.role === "overcoder") { this.terrance.start(id); return; } // Terrance: latest changes and team drama
-    if (don && don.role === "comic") { this.roast.start(); return; } // Roastie Malone: roast battle
+    if (don && don.role === "comic") { this.roast?.start(); return; } // Roastie Malone: roast battle
     if (don && don.role === "mogul") { this.luxury.show(); return; } // Sir P shows you his catalogue
     if (don && don.role === "smuggler" && !this.isContact(don)) { this.blackMarket(don.name.split(" ")[0]); return; }
     if (don && don.role === "mobster" && !this.isContact(don)) { this.offerContract(don); return; }
@@ -927,6 +928,20 @@ export class Game {
 
   // ------------------------------------------------------------------ luxury & the zoo
   private luxury = new Luxury({ getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; this.saveEmpire(); }, toast: (t) => this.toast(t, "acid") });
+  private roast?: RoastBattle;
+  private burger?: BurgerShift;
+  private heist?: HeistUI;
+  /** Minigame and heist code is a separate chunk; it arrives shortly after first paint, then the buttons work. */
+  private loadMinigames(): void {
+    void Promise.all([import("../ui/minigames/Roast"), import("../ui/minigames/Burger"), import("../ui/Heist")])
+      .then(([rm, bm, hm]) => {
+        this.roast = new rm.RoastBattle((r) => { if (r.won) { this.sim.player.cash += 150; this.focus("You won the roast", `Crowd ${Math.round(r.crowd)}% · +$150 · Roastie respects you now`, 3.5); } else this.focus("Roasted", "Roastie Malone wins this one. Run it back.", 3); });
+        this.burger = new bm.BurgerShift((r) => { this.sim.player.cash += r.pay; this.toast(`Shift done: ${r.orders} orders, ${r.perfect} perfect. Paid ${fmtCash(r.pay)}`, "acid"); this.focus("Shift over", `Lyttelton Diner paid you ${fmtCash(r.pay)}`, 3); });
+        this.heist = new hm.HeistUI(this.modal);
+        this.rootEl.append(this.roast.el, this.burger.el);
+      })
+      .catch((err) => console.warn("Minigames failed to load", err));
+  }
   private saveEmpire(): void { try { localStorage.setItem("mosaics-world:empire", JSON.stringify(this.luxury.empire)); } catch { /* private mode */ } }
   private loadEmpire(): void { try { const e = JSON.parse(localStorage.getItem("mosaics-world:empire") ?? "null"); if (e && Array.isArray(e.items)) this.luxury.load(e); } catch { /* ignore */ } }
 
@@ -1037,9 +1052,6 @@ export class Game {
 
   // ------------------------------------------------------------------ focus mode
   private minimap = new Minimap(() => this.sim);
-  private roast = new RoastBattle((r) => { if (r.won) { this.sim.player.cash += 150; this.focus("You won the roast", `Crowd ${Math.round(r.crowd)}% · +$150 · Roastie respects you now`, 3.5); } else this.focus("Roasted", "Roastie Malone wins this one. Run it back.", 3); });
-  private burger = new BurgerShift((r) => { this.sim.player.cash += r.pay; this.toast(`Shift done: ${r.orders} orders, ${r.perfect} perfect. Paid ${fmtCash(r.pay)}`, "acid"); this.focus("Shift over", `Lyttelton Diner paid you ${fmtCash(r.pay)}`, 3); });
-  private heist = new HeistUI(this.modal);
   private travel = new Travel({
     getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; },
     companions: () => this.sim.chars.filter((c) => c.tier === "principal" && c.name !== "Chris").map((c) => ({ name: c.name, color: c.look.color })),
@@ -1128,8 +1140,9 @@ export class Game {
       h("div.seg", { role: "group", "aria-label": "Simulation speed" }, this.speedEls),
       this.soundBtn,
       h("button.btn", { onclick: () => this.luxury.show(), text: "Luxury", title: "Velvet & Co. Luxury: property, rides, animals" }),
-      h("button.btn", { onclick: () => this.heist.open(), text: "Heist", title: "Velvet Heist Night: the crew's three-act mission" }),
+      h("button.btn", { onclick: () => this.heist?.open(), text: "Heist", title: "Velvet Heist Night: the crew's three-act mission" }),
       h("button.btn", { onclick: () => this.photos.open(), text: "Photo", title: "Photo mode (O)" }),
+      h("button.btn", { onclick: () => { void import("../ui/VisitorNotes").then((m) => m.openVisitorNotes(this.modal)); }, text: "Notes", title: "Visitor notes: leave a note for the next visitor" }),
       h("button.btn", { onclick: () => this.toggle2D(), text: "2D/3D", title: "Street view (V)" }),
       h("button.btn", { onclick: () => this.log.toggle(), text: "Log" }),
       h("button.btn", { onclick: () => this.select(this.selected === this.sim.playerId ? -1 : this.sim.playerId), text: "Me", class: "btn wide" }),
