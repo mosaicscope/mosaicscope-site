@@ -1,6 +1,6 @@
 # Session state (auto-saved — last known reality)
 
-_Updated: 2026-10-13 22:52:48_  ·  branch: `claude/llm-brain-backends`
+_Updated: 2026-10-13 22:53:17_  ·  branch: `claude/llm-brain-backends`
 
 ## Uncommitted changes
 ```
@@ -15,6 +15,7 @@ Diff stat:
 
 ## Recent commits
 ```
+d436a03 chore: update .anchor session checkpoint
 facde08 chore: update .anchor session checkpoint
 1e331a3 chore: update .anchor session checkpoint
 64231af chore: update .anchor session checkpoint
@@ -22,7 +23,6 @@ d052d8f chore: update .anchor session checkpoint
 c32647b chore: update .anchor session checkpoint
 f207f44 chore: add .anchor session checkpoint
 3513cf4 game: wire LLM brain end to end and test the wiring
-d584136 game: optional LLM brain for principals (HF Worker, local GGUF, WebLLM)
 ```
 
 ## Resume
