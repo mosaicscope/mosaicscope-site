@@ -2,7 +2,7 @@ import "./mobile.css";
 
 /**
  * Mobile controls: a floating analog stick on the left, a thumb cluster on the right.
- * On foot: big context button + Throw / Swing / Talk / Rob / More (sheet: Pick up, Drop, Bandage, Horn, Map, 2D/3D).
+ * On foot: big context button + Throw / Swing / Talk / Rob / More (sheet: Pick up, Drop, Bandage, Horn, Map).
  * In a car: Gas / Brake / Horn / Exit (+ More), and the stick steers.
  */
 export type TouchAction = "use" | "talk" | "throw" | "swing" | "rob" | "bandage" | "horn" | "map" | "view2d" | "pickup" | "drop" | "sprint";
@@ -147,7 +147,7 @@ export class TouchControls {
     };
     this.sheet.append(
       item("pickup", "Pick up", "pickup", "foot"), item("drop", "Drop", "drop", "foot"), item("bandage", "Bandage", "bandage", "foot"),
-      item("horn", "Horn", "horn"), item("map", "Map", "map"), item("view2d", "2D / 3D", "view2d"),
+      item("horn", "Horn", "horn"), item("map", "Map", "map"),
     );
 
     cluster.append(...foot, ...car, more, this.ctxBtn, gasBtn, this.sheet);
