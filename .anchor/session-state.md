@@ -1,6 +1,6 @@
 # Session state (auto-saved — last known reality)
 
-_Updated: 2026-10-13 21:10:05_  ·  branch: `claude/llm-brain-backends`
+_Updated: 2026-10-13 22:44:09_  ·  branch: `claude/llm-brain-backends`
 
 ## Uncommitted changes
 ```
@@ -15,6 +15,7 @@ Diff stat:
 
 ## Recent commits
 ```
+1e331a3 chore: update .anchor session checkpoint
 64231af chore: update .anchor session checkpoint
 d052d8f chore: update .anchor session checkpoint
 c32647b chore: update .anchor session checkpoint
@@ -22,7 +23,6 @@ f207f44 chore: add .anchor session checkpoint
 3513cf4 game: wire LLM brain end to end and test the wiring
 d584136 game: optional LLM brain for principals (HF Worker, local GGUF, WebLLM)
 4b3d207 Merge pull request #117 from mosaicscope/claude/land-practical-turing
-b94533e Merge pull request #115 from mosaicscope/claude/evolve-engine
 ```
 
 ## Resume
