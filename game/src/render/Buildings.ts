@@ -183,6 +183,13 @@ export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Build
   if (tx === cx && ty === cy) {
     const p = P(tx + 0.5, ty + 0.5, top(tx + 0.5, ty + 0.5) + (st === "house" ? 0 : 0.22)), a0 = alpha;
     roofTop(g, b, p[0], p[1], z, time, dark);
+    // tenement roofs breathe steam in the cold, a SimCity night staple
+    if ((st === "flats" || st === "civic") && z >= 0.8 && dark > 0.1) {
+      for (let i = 0; i < 3; i++) {
+        const ph = (time * 0.12 + i / 3 + hash(b.id, i)) % 1, rr = (2.5 + ph * 7) * z;
+        g.fillStyle = `rgba(222,228,240,${(0.34 * (1 - ph)).toFixed(3)})`; g.beginPath(); g.arc(p[0] + (10 + ph * 8 + i * 2) * z, p[1] - (6 + ph * 38) * z, rr, 0, 6.283); g.fill();
+      }
+    }
     // signs are lights: repaint them over the night overlay
     if (dark > 0.3) GLOW.push(() => { g.globalAlpha = a0; roofTop(g, b, p[0], p[1], z, time, dark); g.globalAlpha = 1; });
   }
@@ -322,6 +329,33 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
     for (const [col, rs] of litBy) batch(rs, col);
     batch(refl, "rgba(200,225,255,.16)");
     batch(sills, "rgba(238,228,211,.35)");
+    if (st === "flats" && z >= 0.8 && floors > 2) {
+      const seed = hash(tx * 5 + ty * 11 + (face === "e" ? 9 : 0), b.id);
+      if (seed < 0.38) {
+        // iron fire escape: landings, rails and a zigzag of stairs, the tenement signature of the SimCity night streets
+        const iron = night ? "rgba(8,6,12,.95)" : "rgba(26,22,28,.95)";
+        g.strokeStyle = iron; g.lineCap = "butt";
+        g.lineWidth = Math.max(1, 1.8 * z); g.beginPath();
+        for (let f = 1; f < floors; f++) { const base = floorBase(f), A = at(0.1, base + 0.03), B = at(0.9, base + 0.03); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); }
+        g.stroke();
+        g.lineWidth = Math.max(1, 0.8 * z); g.beginPath();
+        for (let f = 1; f < floors; f++) {
+          const base = floorBase(f), A = at(0.1, base + 0.36), B = at(0.9, base + 0.36); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]);
+          for (let k = 0; k <= 4; k++) { const t = 0.1 + k * 0.2, P0 = at(t, base + 0.03), P1 = at(t, base + 0.36); g.moveTo(P0[0], P0[1]); g.lineTo(P1[0], P1[1]); }
+          if (f > 1) { const pb = floorBase(f - 1), left = f % 2 === 0, A0 = at(left ? 0.15 : 0.85, pb + 0.03), B0 = at(left ? 0.6 : 0.4, base + 0.03); g.moveTo(A0[0], A0[1]); g.lineTo(B0[0], B0[1]); }
+        }
+        g.stroke();
+      } else if (seed < 0.52) {
+        // washing line strung between two windows, a few shirts hanging
+        const f = 1 + Math.floor(hash(tx + ty * 3, b.id + 5) * (floors - 1)), base = floorBase(f), y = base + 0.62;
+        const A = at(0.04, y), B = at(0.96, y - 0.05);
+        g.strokeStyle = night ? "rgba(60,54,60,.9)" : "rgba(40,34,40,.9)"; g.lineWidth = Math.max(1, 0.7 * z); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke();
+        const cols = ["#eee4d3", "#3d7ad9", "#ec2a1c", "#f6b62c", "#ff7ad9"];
+        g.beginPath(); const parts: [number, string][] = [];
+        for (let k = 0; k < 4; k++) { const t = 0.2 + k * 0.17, yy = y - 0.05 * ((t - 0.04) / 0.92); parts.push([t, cols[Math.floor(hash(k * 7 + f, tx + ty + b.id) * cols.length)]]); void yy; }
+        for (const [t, col] of parts) { const yy = y - 0.05 * ((t - 0.04) / 0.92); g.fillStyle = night ? shade(col, 0.55) : col; g.beginPath(); quad(t, t + 0.1, yy - 0.3, yy); g.fill(); }
+      }
+    }
   }
   // lit windows glow past the night overlay, with a household behind some of them
   if (wins.length && glowA > 0.02) { const own = wins.slice(), stories = z >= 1.1; GLOW.push((c) => { c.globalAlpha = a0; paintWindows(c, own, glowA, time, stories); c.globalAlpha = 1; }); }

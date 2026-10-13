@@ -12,3 +12,6 @@ Integration (src/render/NightGlow.ts, Buildings.ts, Renderer.ts):
 - Nearer buildings wipe the glow layer behind them (per-tile silhouette), so occluded windows never show through.
 - Only drawn at zoom >= 0.8; night only; day rendering untouched.
 - What is deliberately NOT copied: the glossy 3D-render finish. Mosaics stays flat-shaded vector art.
+
+## Second pass: tenement furniture
+Also in the picture: fire escapes zigzagging up brick tenements, washing hung between windows, steam venting off the roofs. Added to flats in Buildings.ts: iron fire escapes on about 38% of walls, washing lines with a few shirts on another 14%, and slow rooftop steam puffs from dusk on. All deterministic from tile and building id.
