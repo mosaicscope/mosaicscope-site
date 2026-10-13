@@ -16,13 +16,13 @@ export const INTENT: Record<Scene, Intent> = {
   city: { bpm: [58, 90], flavour: ["day", "dusk", "night", "dread"], leadPerBar: [1, 4], hook: false, onsetsPerSec: [0.5, 3], maxRest: 15 },
   dawn: { bpm: [50, 80], flavour: ["day", "dread"], leadPerBar: [0.5, 3], hook: false, onsetsPerSec: [0.3, 2.5], maxRest: 14 },
   rain: { bpm: [50, 80], flavour: ["day", "dusk", "night", "dread"], leadPerBar: [0.5, 3], hook: false, onsetsPerSec: [0.3, 2.5], maxRest: 14 },
-  street2d: { bpm: [62, 92], flavour: ["day", "dusk", "night", "dread"], leadPerBar: [1, 5], hook: false, onsetsPerSec: [2, 8], maxRest: 4 },
+  street2d: { bpm: [56, 92], flavour: ["day", "dusk", "night", "dread"], leadPerBar: [1, 5], hook: false, onsetsPerSec: [2, 8], maxRest: 4 },
   interior: { bpm: [50, 85], flavour: ["day", "dusk", "night", "dread"], leadPerBar: [0.5, 3.5], hook: false, onsetsPerSec: [0.3, 2.5], maxRest: 14 },
-  nightlife: { bpm: [68, 92], flavour: ["night"], leadPerBar: [1, 6], hook: true, onsetsPerSec: [3, 9], maxRest: 3 },
+  nightlife: { bpm: [66, 92], flavour: ["night"], leadPerBar: [1, 6], hook: true, onsetsPerSec: [3, 9], maxRest: 3 },
   chase: { bpm: [68, 92], flavour: ["dread"], leadPerBar: [0, 6], hook: true, onsetsPerSec: [4, 10], maxRest: 3 },
-  recycling: { bpm: [70, 95], flavour: ["day"], leadPerBar: [1, 6], hook: true, onsetsPerSec: [2, 8], maxRest: 6 },
+  recycling: { bpm: [68, 95], flavour: ["day"], leadPerBar: [1, 6], hook: true, onsetsPerSec: [2, 8], maxRest: 6 },
   terrance: { bpm: [58, 85], flavour: ["dread"], leadPerBar: [0, 4], hook: true, onsetsPerSec: [1.5, 7], maxRest: 6 },
-  studio: { bpm: [62, 90], flavour: ["day"], leadPerBar: [1, 4], hook: true, onsetsPerSec: [0.5, 3.5], maxRest: 15 },
+  studio: { bpm: [58, 90], flavour: ["day"], leadPerBar: [1, 4], hook: true, onsetsPerSec: [0.5, 3.5], maxRest: 15 },
 };
 
 export interface Metrics { bpm: number; flavour: string; leadPerBar: number; onsetsPerSec: number; maxRest: number; motifBars: number; pitchClasses: number; loud: number; drumShare: number }
