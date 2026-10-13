@@ -1,5 +1,6 @@
 import type { Simulation } from "../sim/Simulation";
 import type { Camera } from "../render/Camera";
+import { Music } from "./Music";
 
 /**
  * Synthesised audio (no files to load): material-specific impact blips, whooshes, boings, rain and a
@@ -16,8 +17,19 @@ export class AudioSystem {
   enabled = false;
   volume = 0.6;
   private unsub: (() => void) | null = null;
+  private music: Music | null = null;
+  /** the generative soundtrack; N toggles it, the sound setting still gates everything */
+  musicOn = true;
 
   constructor(private getCam: () => Camera) {}
+
+  /** N mutes/unmutes just the soundtrack (effects stay on). */
+  toggleMusic(): boolean { this.musicOn = !this.musicOn; this.syncMusic(); return this.musicOn; }
+
+  private syncMusic(): void {
+    if (!this.music) return;
+    if (this.enabled && this.musicOn) this.music.start(); else this.music.stop();
+  }
 
   attach(sim: Simulation): void {
     this.unsub?.();
@@ -38,9 +50,16 @@ export class AudioSystem {
         const f = this.ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 1400;
         this.rainGain = this.ctx.createGain(); this.rainGain.gain.value = 0;
         src.connect(f); f.connect(this.rainGain); this.rainGain.connect(this.master); src.start();
+        this.music = new Music(this.ctx, this.master);
+        window.addEventListener("keydown", (e) => {
+          const t = e.target as HTMLElement | null;
+          if (e.key.toLowerCase() !== "n" || e.ctrlKey || e.metaKey || e.altKey || t?.closest("input,textarea,select,[contenteditable]")) return;
+          this.toggleMusic();
+        });
       } catch { this.ctx = null; this.enabled = false; }
     }
     if (this.ctx) on ? this.ctx.resume() : this.ctx.suspend();
+    this.syncMusic();
   }
 
   setVolume(v: number): void { this.volume = v; if (this.master) this.master.gain.value = v; }
@@ -49,6 +68,14 @@ export class AudioSystem {
   update(sim: Simulation): void {
     if (!this.enabled || !this.ctx || !this.rainGain) return;
     this.rainGain.gain.value = sim.env.rain * 0.08;
+    if (this.music && this.musicOn) {
+      const p = sim.player, hurt = 1 - Math.min(1, p.blood);
+      this.music.setMood({
+        hour: sim.hour, rain: sim.env.rain, storm: sim.env.weather === "storm",
+        tension: Math.min(1, (p.wanted ?? 0) / 4 + (hurt > 0.6 ? (hurt - 0.6) : 0)),
+        street: this.getCam().zoom > 3, party: sim.env.party,
+      });
+    }
     if (sim.env.party) {
       const cam = this.getCam();
       const d = Math.hypot(cam.x - sim.stagePoint.x, cam.y - sim.stagePoint.y);
