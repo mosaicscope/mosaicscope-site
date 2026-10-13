@@ -575,7 +575,8 @@ export class Diegetic {
     if (indoors || !voiceAllowed(this.voicePrefs, id, this.ctx.currentTime, this.voiceRecent)) return;
     const o = this.flat(0.2);
     if (!this.begin("event")) return;
-    const f = voicePitch(id, this.voicePrefs), d = voiceDuration(this.voicePrefs);
+    const wobble = this.voicePrefs.randomTone ? 1 + (Math.random() - 0.5) * 0.1 : 1;
+    const f = voicePitch(id, this.voicePrefs) * wobble, d = voiceDuration(this.voicePrefs);
     const tone = voiceTone(this.voicePrefs);
     this.blip(o, tone.shape, f, f * 1.25, d, tone.gain);
     this.end();

@@ -23,6 +23,8 @@ export interface VoicePrefs {
   radio: boolean;
   /** equaliser preset: "flat" as recorded, "bright" lifts the pitch, "warm" lowers it */
   eq: "flat" | "bright" | "warm";
+  /** randomised tones: each blip's pitch wobbles a little so the same speaker never sounds identical twice */
+  randomTone: boolean;
 }
 
 export const DEFAULT_VOICE: VoicePrefs = {
@@ -35,6 +37,7 @@ export const DEFAULT_VOICE: VoicePrefs = {
   shape: "triangle",
   radio: false,
   eq: "flat",
+  randomTone: false,
 };
 
 /** The tone shape and loudness a blip uses, with the radio filter applied when it is on. */
