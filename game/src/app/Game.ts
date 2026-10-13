@@ -550,7 +550,9 @@ export class Game {
         break;
       }
       case "swing": {
-        if (p.hand >= 0 && isMelee(sim.toys[p.hand].def)) { p.facing = Math.atan2(cursor.y - p.y, cursor.x - p.x); p.anim.pose = "swing"; p.anim.poseT = 0.3; sim.swingHeld(p); }
+        // the swing always shows, even empty-handed (air swing); it only hits something when you hold a melee item
+        p.facing = Math.atan2(cursor.y - p.y, cursor.x - p.x); p.anim.pose = "swing"; p.anim.poseT = 0.3;
+        if (p.hand >= 0 && isMelee(sim.toys[p.hand].def)) sim.swingHeld(p);
         else if (p.hand >= 0 && canThrow(sim.toys[p.hand].def)) this.act("throw");
         else { const t = this.nearestToy(1.2); if (t) sim.kickToy(p, t, cursor.x, cursor.y); }
         break;
