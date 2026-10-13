@@ -598,7 +598,28 @@ export class Diegetic {
       case "recycle": return this.recycleChunk(o0());
       case "taser": return this.zap(o0());
       case "squirt": case "paintball": return this.squirt(o0());
+      case "creak": case "shatter": case "crackle": case "spark":
+      case "whoosh": case "chime": case "loot": case "crunch":
+        return this.tone(o0(), kind);
     }
+  }
+
+  /** Entity and combat one-shots: hinges, glass, fire, sparks, dodges, parries, loot and breakages. */
+  private tone(o: Out | null, kind: string): void {
+    if (!o || !this.begin()) return;
+    const parts: AudioScheduledSourceNode[] = [];
+    if (kind === "creak") { parts.push(this.blip(o, "sawtooth", 180, 260, 0.35, 0.12), this.hit(o, "bandpass", 600, 4, 0.3, 0.15)); }
+    else if (kind === "shatter") {
+      for (let i = 0; i < 6; i++) parts.push(this.blip(o, "sine", 2000 + Math.random() * 2200, 1800, 0.5, 0.14, Math.random() * 0.03));
+      parts.push(this.hit(o, "highpass", 5200, 0.7, 0.45, 0.3, 0.03));
+    }
+    else if (kind === "crackle") { for (let i = 0; i < 8; i++) parts.push(this.hit(o, "highpass", 3000 + Math.random() * 2000, 1, 0.02, 0.15, i * 0.05 + Math.random() * 0.03)); }
+    else if (kind === "spark") { parts.push(this.hit(o, "bandpass", 4000, 2, 0.06, 0.3), this.blip(o, "square", 1800, 900, 0.04, 0.12)); }
+    else if (kind === "whoosh") { parts.push(this.hit(o, "bandpass", 800, 0.7, 0.35, 0.3)); }
+    else if (kind === "chime") { parts.push(this.blip(o, "sine", 1760, 1760, 0.25, 0.15), this.blip(o, "sine", 2637, 2637, 0.2, 0.1, 0.06)); }
+    else if (kind === "loot") { [1318, 1568, 2093].forEach((f, i) => parts.push(this.blip(o, "sine", f, f, 0.12, 0.12, i * 0.07))); }
+    else if (kind === "crunch") { parts.push(this.hit(o, "lowpass", 900, 1, 0.12, 0.5), this.blip(o, "triangle", 220, 90, 0.08, 0.35)); }
+    this.end(...parts);
   }
 
   private nearestClass(x: number, y: number): VehicleClass {
