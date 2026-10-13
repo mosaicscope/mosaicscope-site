@@ -365,7 +365,7 @@ export class Game {
     if (piece) {
       const what = LITTER[piece.kind].name, r = collectPiece(sim, p, piece);
       if (r === "full") this.toast(`Sack's full (${SACK_CAP}). Cash in at the recycling centre.`);
-      else if (r === "ok") { p.anim.pose = "kick"; p.anim.poseT = 0.15; this.toast(`Picked up a ${what} · ${scrapCount(p)} in your sack (${fmtCash(scrapValue(p))})`); }
+      else if (r === "ok") { p.anim.pose = "kick"; p.anim.poseT = 0.15; this.toast(`Picked up a ${what} · ${scrapCount(p)} in your sack (${fmtCash(scrapValue(p))})`, scrapCount(p) % 5 === 0 ? "spark" : ""); }
       return true;
     }
     const bin = this.nearestBin();
