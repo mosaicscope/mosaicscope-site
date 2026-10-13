@@ -2,6 +2,7 @@ import type { Vehicle } from "../entities/types";
 import { VEHICLES, VehicleClass } from "../content/vehicles";
 import type { Camera } from "./Camera";
 import { GLOW } from "./Buildings";
+import { patinaOf, weather } from "./CarPatina";
 
 /**
  * Cars are little lofted 3D models projected into the iso view: a rocker skirt, a body whose top
@@ -203,7 +204,9 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const x0 = -L / 2, x1 = L / 2;
   const night = dark > 0.35;
   const ST = STYLE[v.cls] ?? {};
-  const paint = rgb(v.cls === "police" ? "#f2f2ee" : v.cls === "ambulance" ? "#f4f1e6" : ST.paint ?? v.color);
+  const PT = patinaOf(v.cls, v.plate, d.price, v.damage);   // this car's own story: age, rust, dents, stickers (CarPatina.ts)
+  const paint = weather(rgb(v.cls === "police" ? "#f2f2ee" : v.cls === "ambulance" ? "#f4f1e6" : ST.paint ?? v.color), PT);
+  const roofPaint = PT.roof ? rgb(PT.roof) : paint;
   const dmg = 1 - v.damage * 0.35;
   const spin = (spinOf.get(v) ?? 0) + v.speed * 0.016 / (S.wheel * H);
   spinOf.set(v, spin);
@@ -289,6 +292,33 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
       fillPoly(k, [onFace(f, 0.4, 0.2), onFace(f, 0.6, 0.2), onFace(f, 0.6, 0.95), onFace(f, 0.4, 0.95)], lit(rgb(seed % 2 ? "#9a8d80" : "#4a6a7a"), shadeFor(f.n) * dmg));
     }
   }
+  // patina on the near long side only (the far one shows when the car turns)
+  {
+    const nearIdx = longSides.findIndex((f) => dot(WN(k, f.n), VIEW) > 0);
+    const f = nearIdx >= 0 ? longSides[nearIdx] : undefined;
+    if (f) for (const m of PT.marks) {
+      const t0 = m.t, t1 = m.t + m.w, u0 = m.u, u1 = m.u + m.h, F = (t: number, u: number) => onFace(f, t, u);
+      if (m.kind === "rust") {
+        fillPoly(k, [F(t0, u0), F(t1, u0 + m.h * 0.3), F(t1 - m.w * 0.2, u1), F(t0 - 0.01, u0 + m.h * 0.7)], m.col);
+        fillPoly(k, [F(t0 + m.w * 0.3, u0 + m.h * 0.2), F(t0 + m.w * 0.55, u0 + m.h * 0.25), F(t0 + m.w * 0.45, u0 + m.h * 0.5)], "rgba(190,100,40,.7)");   // a bright orange bloom in the middle
+      } else if (m.kind === "dent") {
+        fillPoly(k, [F(t0, u0 + m.h * 0.5), F(t0 + m.w * 0.5, u0), F(t1, u0 + m.h * 0.5), F(t0 + m.w * 0.5, u1)], m.col);
+        fillPoly(k, [F(t0, u0 + m.h * 0.5), F(t0 + m.w * 0.5, u1), F(t0 + m.w * 0.5, u1 - m.h * 0.12), F(t0 + m.w * 0.05, u0 + m.h * 0.5)], "rgba(255,255,255,.22)");
+      } else if (m.kind === "scratch") {
+        const A = W3(k, F(t0, u0)), B = W3(k, F(t1, u1)); g.strokeStyle = m.col; g.lineWidth = Math.max(1, 0.9 * z); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke();
+      } else if (m.kind === "primer") {
+        fillPoly(k, [F(t0, u0), F(t1, u0), F(t1, u0 + m.h), F(t0, u0 + m.h)], lit(rgb("#7a6f68"), shadeFor(f.n) * dmg));
+        fillPoly(k, [F(t0, u0), F(t0 + 0.012, u0), F(t0 + 0.012, u0 + m.h), F(t0, u0 + m.h)], "rgba(122,62,22,.7)");
+      } else if (m.kind === "mud") {
+        fillPoly(k, [F(t0, 0), F(t1, 0), F(t1, u1), F(t0, u0 + m.h * 0.55)], m.col);
+      } else if (m.kind === "sticker") {
+        fillPoly(k, [F(t0, u0), F(t1, u0), F(t1, u1), F(t0, u1)], m.col);
+        fillPoly(k, [F(t0 + m.w * 0.2, u0 + m.h * 0.25), F(t1 - m.w * 0.2, u0 + m.h * 0.25), F(t1 - m.w * 0.2, u0 + m.h * 0.45), F(t0 + m.w * 0.2, u0 + m.h * 0.45)], "rgba(14,11,10,.7)");
+      } else if (m.kind === "stripe") {
+        fillPoly(k, [F(t0, u0), F(t0 + m.w, u0), F(t0 + m.w, u0 + m.h), F(t0, u0 + m.h)], m.col);
+      }
+    }
+  }
   if (S.tray) {
     // open tray behind the cab
     const tx0 = x0 + 0.06, tx1 = S.cab[0] * L - 0.04, th = bodyTop(tx0);
@@ -345,7 +375,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     if (S.boxy) continue;
     fillPoly(k, [onFace(f, 0.15, 0.15), onFace(f, 0.3, 0.15), onFace(f, 0.5, 0.9), onFace(f, 0.35, 0.9)], "rgba(220,235,255,.16)");
   }
-  cap(k, rCab1, (S.open ? seat : paint).map((c) => c * dmg) as [number, number, number], S.open ? 4 : 8);
+  cap(k, rCab1, (S.open ? seat : roofPaint).map((c) => c * dmg) as [number, number, number], S.open ? 4 : 8);
   if (S.box && !frontVisible) drawBox();
   if (S.boxy) { // window line on vans
     for (const f of glassFaces) if (Math.abs(f.a0[0] - f.b0[0]) > L * 0.4) fillPoly(k, [onFace(f, 0.66, 0.35), onFace(f, 0.95, 0.35), onFace(f, 0.95, 0.85), onFace(f, 0.66, 0.85)], lit(glassBase, 1.1, night ? 0 : 12));
@@ -406,6 +436,10 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
       if (night && blink) { const sx = pt.x, sy = pt.y; GLOW.push(() => { g.globalCompositeOperation = "lighter"; const grd = g.createRadialGradient(sx, sy, 0, sx, sy, 22 * z); grd.addColorStop(0, "rgba(255,176,42,.5)"); grd.addColorStop(1, "rgba(255,176,42,0)"); g.fillStyle = grd; g.beginPath(); g.arc(sx, sy, 22 * z, 0, 6.283); g.fill(); g.globalCompositeOperation = "source-over"; }); }
     }
   }
+  if (PT.aerial && !S.open) {   // a whip aerial off the back corner
+    const A = W3(k, [rf0 + 0.05, hw * 0.7, roofZ]), B = W3(k, [rf0 - 0.12, hw * 0.78, roofZ + 0.3]);
+    g.strokeStyle = "#1c1816"; g.lineWidth = Math.max(1, 0.9 * z); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke();
+  }
   if (ST.spare && !frontVisible) {
     const sp: number[][] = []; for (let i = 0; i < 12; i++) { const a = (i / 12) * 6.283; sp.push(W3(k, [x0 - 0.04, Math.cos(a) * 0.12, H * 0.55 + Math.sin(a) * 0.12])); }
     g.fillStyle = "#121010"; g.beginPath(); sp.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.closePath(); g.fill();
@@ -420,7 +454,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   }
 
   // ---- lights (only on the ends that face the camera) ----
-  const hl = night || v.siren ? "#fff8d8" : "#e8e2c8";
+  const hl = night || v.siren ? (PT.yellowLamps ? "#f2d27a" : "#fff8d8") : PT.yellowLamps ? "#cdb878" : "#e8e2c8";
   const brake = v.speed < 0.5 && v.state === "drive" || v.speed < 0 || v.state === "crashed";
   const lampH = (S.hood + 0.02) * H * 0.82, tailH = S.deck * H * 0.8;
   for (const side of [-1, 1]) {
@@ -436,8 +470,8 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   if (night) {
     const tail = !frontVisible;
     const P0 = W3(k, [tail ? x0 : x1, 0, tail ? tailH : lampH]);
-    const sx = P0[0], sy = P0[1], col = tail ? "255,59,47" : "255,246,210", r = (tail ? 14 : 18) * z;
-    GLOW.push(() => { g.globalCompositeOperation = "lighter"; const grd = g.createRadialGradient(sx, sy, 0, sx, sy, r); grd.addColorStop(0, `rgba(${col},${tail && !brake ? 0.25 : 0.45})`); grd.addColorStop(1, `rgba(${col},0)`); g.fillStyle = grd; g.beginPath(); g.arc(sx, sy, r, 0, 6.283); g.fill(); g.globalCompositeOperation = "source-over"; });
+    const sx = P0[0], sy = P0[1], col = tail ? "255,59,47" : PT.yellowLamps ? "255,222,140" : "255,246,210", r = (tail ? 16 : 26) * z;
+    GLOW.push(() => { g.globalCompositeOperation = "lighter"; const grd = g.createRadialGradient(sx, sy, 0, sx, sy, r); grd.addColorStop(0, `rgba(${col},${tail && !brake ? 0.28 : 0.6})`); grd.addColorStop(1, `rgba(${col},0)`); g.fillStyle = grd; g.beginPath(); g.arc(sx, sy, r, 0, 6.283); g.fill(); g.globalCompositeOperation = "source-over"; });
   }
 
   if (v.forSale) {
