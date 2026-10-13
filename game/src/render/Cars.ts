@@ -253,6 +253,14 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     g.strokeStyle = "rgba(255,255,255,.14)"; g.lineWidth = Math.max(1, 1.2 * z); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke();
   }
   cap(k, rTop, paint.map((c) => c * dmg) as [number, number, number], 14);
+  // top-plane patina: sun-bleached paint, rust blotches and a racing stripe over bonnet and boot
+  if (!S.tray) {
+    const sh = (lx: number) => bodyTop(lx) + 0.006, regions: [number, number][] = [[S.cab[1] * L, x1 - 0.07], [x0 + 0.07, S.cab[0] * L]];
+    const at = (r: number, t: number, s: number): V3 => { const [a, b] = regions[r]; const lx = a + (b - a) * t; return [lx, s * hw * 0.8, sh(lx)]; };
+    if (PT.bleach > 0.02) for (let r = 0; r < 2; r++) fillPoly(k, [at(r, 0.05, -0.85), at(r, 0.95, -0.85), at(r, 0.95, 0.85), at(r, 0.05, 0.85)], `rgba(255,238,215,${(PT.bleach * 0.55).toFixed(3)})`);
+    for (const [r, t, sx, sz] of PT.topRust) { const w = sz, c0 = at(r, Math.min(0.9, t), sx); const [lx, ly, lz] = c0; fillPoly(k, [[lx, ly - w * hw * 2, lz], [lx + w * L * 0.7, ly, lz], [lx, ly + w * hw * 2, lz], [lx - w * L * 0.7, ly, lz]], "rgba(132,64,26,.8)"); fillPoly(k, [[lx, ly - w * hw, lz], [lx + w * L * 0.3, ly, lz], [lx, ly + w * hw, lz], [lx - w * L * 0.3, ly, lz]], "rgba(204,112,44,.8)"); }
+    if (PT.stripe) for (const off of [-0.16, 0.16]) for (let r = 0; r < 2; r++) fillPoly(k, [at(r, 0, off - 0.09), at(r, 1, off - 0.09), at(r, 1, off + 0.09), at(r, 0, off + 0.09)], PT.stripe);
+  }
   // liveries on the long sides
   const longSides = sides.filter((f) => Math.abs(f.a0[0] - f.b0[0]) > L * 0.4);
   if (v.cls === "police" || v.cls === "ambulance" || v.cls === "taxi") {
@@ -314,6 +322,15 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
       } else if (m.kind === "sticker") {
         fillPoly(k, [F(t0, u0), F(t1, u0), F(t1, u1), F(t0, u1)], m.col);
         fillPoly(k, [F(t0 + m.w * 0.2, u0 + m.h * 0.25), F(t1 - m.w * 0.2, u0 + m.h * 0.25), F(t1 - m.w * 0.2, u0 + m.h * 0.45), F(t0 + m.w * 0.2, u0 + m.h * 0.45)], "rgba(14,11,10,.7)");
+      } else if (m.kind === "sill") {
+        // a jagged rust line eating up from the sill, the whole length of the car
+        const top: [number, number][] = []; for (let k = 0; k <= 10; k++) top.push([t0 + (m.w * k) / 10, u0 + m.h * (0.55 + 0.45 * Math.abs(Math.sin(k * 2.3 + m.h * 40)))]);
+        fillPoly(k, [F(t0, u0), F(t1, u0), ...top.reverse().map(([a, b]) => F(a, b))], m.col);
+        fillPoly(k, [F(t0, u0), F(t1, u0), F(t1, u0 + m.h * 0.3), F(t0, u0 + m.h * 0.3)], "rgba(70,30,12,.55)");
+      } else if (m.kind === "door") {
+        fillPoly(k, [F(t0, u0), F(t1, u0), F(t1, u1), F(t0, u1)], lit(rgb(m.col), shadeFor(f.n) * dmg));
+        g.strokeStyle = "rgba(14,11,10,.85)"; g.lineWidth = Math.max(1, 0.9 * z); g.beginPath();
+        for (const [a, b] of [[t0, u0], [t0, u1], [t1, u1], [t1, u0]] as const) { const q = W3(k, F(a, b)); g.lineTo(q[0], q[1]); } g.closePath(); g.stroke();
       } else if (m.kind === "stripe") {
         fillPoly(k, [F(t0, u0), F(t0 + m.w, u0), F(t0 + m.w, u0 + m.h), F(t0, u0 + m.h)], m.col);
       }
