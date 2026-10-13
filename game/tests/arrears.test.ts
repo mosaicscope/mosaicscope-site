@@ -35,6 +35,12 @@ describe("rent arrears", () => {
     expect(collect(0, 500)).toEqual({ taken: 0, left: 500 });
     expect(collect(NaN, NaN)).toEqual({ taken: 0, left: 0 });
   });
+  it("never collects more than the room left under the combined cap", () => {
+    expect(collect(1000, 2000, 100)).toEqual({ taken: 100, left: 1900 });
+    expect(collect(1000, 2000, 0)).toEqual({ taken: 0, left: 2000 });
+    expect(collect(1000, 2000, -50)).toEqual({ taken: 0, left: 2000 });
+    expect(collect(1000, 2000, NaN)).toEqual({ taken: 0, left: 2000 });
+  });
   it("is deterministic", () => {
     expect(billAbsence(7, 321, 123)).toEqual(billAbsence(7, 321, 123));
   });

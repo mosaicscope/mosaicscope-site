@@ -40,7 +40,7 @@ import { VEHICLES } from "../content/vehicles";
 import { MOSAIC } from "../content/mosaicscope";
 import { carried, detach } from "../inventory/Inventory";
 import { BUILDINGS } from "../content/buildings";
-import { billAbsence, collect } from "../sim/Arrears";
+import { billAbsence, collect, RENT_CASH_SHARE } from "../sim/Arrears";
 
 /** Wires simulation, renderer, input, audio, UI and persistence together and runs the loop. */
 /** People who ring you. Lines can mention {place} and {cash}. */
@@ -921,8 +921,9 @@ export class Game {
     let owed = 0;
     try { owed = +(localStorage.getItem("mosaics-world:arrears") ?? 0) || 0; } catch { /* private mode */ }
     const bill = billAbsence(days, p.cash, owed);
+    const room = p.cash * RENT_CASH_SHARE - bill.paid; // rent plus collector together never take more than 40% of cash
     if (bill.paid >= 5) { p.cash -= bill.paid; notes.push(`rent and bills took ${fmtCash(bill.paid)}`); }
-    const visit = collect(p.cash, bill.arrears);
+    const visit = collect(p.cash, bill.arrears, room);
     if (visit.taken >= 5) { p.cash -= visit.taken; notes.push(`the landlord's nephew collected ${fmtCash(visit.taken)} of back rent`); }
     if (visit.left >= 5) notes.push(`you still owe ${fmtCash(visit.left)} in arrears`);
     try { localStorage.setItem("mosaics-world:arrears", String(visit.left)); } catch { /* ignore */ }

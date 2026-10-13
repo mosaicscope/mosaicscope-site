@@ -26,9 +26,9 @@ export function billAbsence(days: number, cash: number, arrears = 0): AbsenceBil
   return { rent, paid, arrears: Math.min(ARREARS_CAP, money(grown + (rent - paid))) };
 }
 
-/** A collector's visit: takes up to a share of `cash` towards `arrears`. */
-export function collect(cash: number, arrears: number): { taken: number; left: number } {
+/** A collector's visit: takes up to a share of `cash` towards `arrears`, and never more than `room`. */
+export function collect(cash: number, arrears: number, room = Infinity): { taken: number; left: number } {
   const owed = money(arrears);
-  const taken = Math.min(owed, money(Math.max(0, cash) * COLLECT_CASH_SHARE));
+  const taken = Math.min(owed, money(Math.max(0, cash) * COLLECT_CASH_SHARE), money(Number.isNaN(room) ? 0 : Math.min(room, 1e12)));
   return { taken, left: owed - taken };
 }
