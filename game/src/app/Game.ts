@@ -313,7 +313,12 @@ export class Game {
     this.speedEls.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.speed === (this.clock.paused ? "0" : String(this.clock.speed)))));
     // toasts for notable events near the player
     for (const t of sim.toasts.splice(0)) this.toast(t.text, t.kind);
+    // zone splash: name the district when the player walks into a different area
+    const here = sim.world.areaAt(sim.player.x, sim.player.y);
+    if (here && here.id !== this.zoneId) { this.zoneId = here.id; this.toast(here.name, "zone"); }
   }
+  /** id of the district the player was last in (-1 before the first frame), for the zone splash */
+  private zoneId = -1;
 
   private adaptQuality(dt: number): void {
     if (this.settings.quality !== "auto") return;
