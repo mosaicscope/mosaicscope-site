@@ -147,12 +147,8 @@ export function collectPiece(sim: Simulation, c: Character, p: Piece): "ok" | "f
   if (scrapCount(c) >= SACK_CAP) return "full";
   p.taken = true;
   addScrap(c, p.kind);
-<<<<<<< HEAD
   sim.bus.emit("sound", { kind: "clink", x: c.x, y: c.y, vol: 0.5 });
-=======
-  sim.bus.emit("sound", { kind: "pickup", x: c.x, y: c.y, vol: 0.25 });
   if (c.tier === "player") sim.tidy.bump(sim, c);
->>>>>>> 1db13a0 (Mark: tidy streak, reuse stall and swap meet, community compost, sparkle and ding)
   return "ok";
 }
 
