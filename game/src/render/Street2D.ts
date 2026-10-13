@@ -2,7 +2,7 @@ import type { Character } from "../entities/types";
 import { dressOf } from "../mind/Dress";
 import { NOIR, SHOP_NAMES, hash01, pickOf, shade, muted, worldWall } from "./noir";
 import type { Simulation } from "../sim/Simulation";
-import { pose, solve, J } from "./StickFigure";
+import { pose, solve, J, drawFigure } from "./StickFigure";
 
 /**
  * The 2D street view, in Louis's noir pixel style (render/noir.ts): a dusk-blue city street with brick tenements,
@@ -437,12 +437,14 @@ export class StreetView {
   }
 
   /** A small noir figure: muted coat, fedora or flat cap, one-unit outline, flat two-tone shading. Joints come from `solve`. */
-  private person(g: CanvasRenderingContext2D, c: Character, k: number, _dir: number, flash: boolean, _pix: number, night: number): void {
-    this.neonPerson(g, c, k, flash, night);
+  private person(g: CanvasRenderingContext2D, c: Character, k: number, dir: number, flash: boolean, pix: number, night: number): void {
+    // the same figure as the zoomed-out view: drawn from the joints `solve` already placed
+    void pix; void night;
+    drawFigure(g, c, 0, 0, k, dir, 0, flash ? 1 : 0, 1);
   }
 
   /** LOOK.md: people are neon stick figures, one colour each, same as the zoomed-out view. Joints come from `solve`. */
-  private neonPerson(g: CanvasRenderingContext2D, c: Character, k: number, flash: boolean, night: number): void {
+  neonPerson(g: CanvasRenderingContext2D, c: Character, k: number, flash: boolean, night: number): void {
     const col = flash ? "#ffffff" : NEON[c.id % NEON.length];
     const w = Math.max(1.6, 2.2 * k);
     g.save();
