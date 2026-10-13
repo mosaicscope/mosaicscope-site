@@ -49,6 +49,8 @@ export function settingsBody(s: Settings, onChange: (s: Settings, needsReset?: b
     rng(`Crowd size (${s.density} background people, applies on reset)`, s.density, 0, 2000, 50, (v) => change(() => { s.density = v; }, true)),
     chk("Sound", s.sound, (v) => change(() => { s.sound = v; })),
     rng("Volume", s.volume, 0, 1, 0.05, (v) => change(() => { s.volume = v; })),
+    chk("World sounds: footsteps, cars, weather (J)", s.sfx, (v) => change(() => { s.sfx = v; })),
+    rng("World sound volume", s.sfxVolume, 0, 1, 0.05, (v) => change(() => { s.sfxVolume = v; })),
     sel("Reduced motion", s.reducedMotion === null ? "os" : s.reducedMotion ? "on" : "off", [["os", "Follow my device"], ["on", "On"], ["off", "Off"]], (v) => change(() => { s.reducedMotion = v === "os" ? null : v === "on"; })),
     rng("Text size", s.textScale, 0.85, 1.5, 0.05, (v) => change(() => { s.textScale = v; })),
     chk("Gentle toy fights (softer knockback)", s.gentle, (v) => change(() => { s.gentle = v; })),

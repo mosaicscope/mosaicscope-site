@@ -119,6 +119,7 @@ export class Game {
     this.log = new EventLog(S, (x, y) => { this.renderer.cam.follow = -1; this.renderer.cam.lookAt(x, y); });
     this.dialogue = new DialogueUI(S);
     this.terrance = new TerranceUI(S);
+    this.terrance.onSpeak = (t) => this.audio?.speak(t);
     this.dev = new DevPanel(S, this.renderer, this.debug, {
       quality: () => (this.settings.quality === "auto" ? "auto→" : "") + ["low", "medium", "high", "ultra"][this.quality], speed: () => (this.clock.paused ? 0 : this.clock.speed),
       fps: () => this.fpsAvg, tickRate: () => this.tickRate, reset: (seed) => this.reset(seed), toast: (t) => this.toast(t),
@@ -219,8 +220,12 @@ export class Game {
     this.canvas.style.cursor = ad || this.hovered >= 0 ? "pointer" : "";
     this.canvas.title = ad ? `${ad.label} (opens in a new tab)` : "";
     if (!this.interior.open) this.guard("render", () => this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames }));
-    this.guard("audio", () => this.audio.update(this.sim, this.interior.kind));
-    this.canvas.style.filter = this.audio.dream > 0.01 && !this.reduceMotion ? `hue-rotate(${(this.audio.dream * 28).toFixed(1)}deg) saturate(${(1 + this.audio.dream * 0.12).toFixed(2)})` : "";
+    this.guard("audio", () => {
+      const f = this.interior.footing;
+      this.audio.scene = { interior: this.interior.building?.kind ?? null, moving: f.moving, running: f.running, in2D: this.renderer.street2D };
+      this.audio.update(this.sim, this.interior.kind);
+      this.canvas.style.filter = this.audio.dream > 0.01 && !this.reduceMotion ? `hue-rotate(${(this.audio.dream * 28).toFixed(1)}deg) saturate(${(1 + this.audio.dream * 0.12).toFixed(2)})` : "";
+    });
     this.fpsAvg = this.fpsAvg * 0.95 + (1 / Math.max(dt, 0.001)) * 0.05;
     this.adaptQuality(dt);
     this.guard("dev", () => this.dev.update(dt));
@@ -565,6 +570,7 @@ export class Game {
       else if (key === k.inspect) this.select(this.sim.playerId);
       else if (key === k.log) this.log.toggle();
       else if (key === "m") this.minimap.toggle();
+      else if (key === "j") { this.settings.sfx = !this.settings.sfx; this.applySettings(); this.persistSettings(); this.toast(this.settings.sfx ? "World sounds on (J)" : "World sounds off (J). N still mutes the music", ""); }
       else if (key === k.dev || key === "~") this.dev.toggle();
       else if (key === "c") { this.renderer.cam.follow = this.sim.playerId; }
       else if (key === "v") this.toggle2D();
@@ -1120,6 +1126,7 @@ export class Game {
     if (this.radio) { if (!s.sound && this.radio.playing) this.radio.pause(); this.radio.setVolume(s.volume); }
     document.documentElement.style.setProperty("--ts", String(s.textScale));
     this.audio.setVolume(s.volume);
+    this.audio.setSfx(s.sfx, s.sfxVolume);
     if (this.gestured && s.sound !== this.audio.enabled) this.audio.setEnabled(s.sound);
     this.soundBtn.textContent = s.sound ? "🔊" : "🔇";
     this.soundBtn.classList.toggle("on", s.sound);

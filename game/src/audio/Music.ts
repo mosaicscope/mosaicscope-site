@@ -149,6 +149,7 @@ export class Music {
     if (this.pad) for (const o of this.pad.oscs) o.detune.setTargetAtTime((o.detune.value < 0 ? -7 : 7) * (1 + l.wobble / 7), t, 2);
   }
 
+
   setMood(m: Mood): void {
     this.mood = m;
     const t = this.ctx.currentTime, rain = Math.min(1, m.rain + (this.inspo.live ? liveTint(this.live).rain : 0));

@@ -2,6 +2,7 @@ import type { Vehicle } from "../entities/types";
 import { VEHICLES, VehicleClass } from "../content/vehicles";
 import type { Camera } from "./Camera";
 import { GLOW } from "./Buildings";
+import { patinaOf, weather } from "./CarPatina";
 
 /**
  * Cars are little lofted 3D models projected into the iso view: a rocker skirt, a body whose top
@@ -35,6 +36,12 @@ interface Shape {
   wheel: number;                    // wheel radius (fraction of height)
   boxy?: boolean;                   // vans: painted glasshouse with only front windows
   tray?: boolean; wing?: boolean; scoop?: boolean;
+  rh?: number;                      // roof height as a fraction of the car's height (default 1)
+  open?: boolean;                   // convertible: windscreen only, seats showing
+  pill?: number;                    // extra pillars along each side window (default 1)
+  wb?: number;                      // wheel position as a fraction of length (default 0.31)
+  bed?: string;                     // colour of the tray floor
+  box?: { a: number; b: number; h: number; col: string };  // cargo body behind the cab (fraction of length, fraction of height)
 }
 const SEDAN: Shape = { cf: 0.24, cr: 0.16, hood: 0.5, deck: 0.56, cab: [-0.27, 0.17], roof: [-0.15, -0.02], cw: 0.88, rw: 0.74, wheel: 0.27 };
 const SHAPES: Record<VehicleClass, Shape> = {
@@ -50,6 +57,67 @@ const SHAPES: Record<VehicleClass, Shape> = {
   muscle: { cf: 0.14, cr: 0.12, hood: 0.58, deck: 0.58, cab: [-0.34, 0.05], roof: [-0.24, -0.09], cw: 0.84, rw: 0.72, wheel: 0.31, scoop: true },
   sports: { cf: 0.34, cr: 0.26, hood: 0.42, deck: 0.6, cab: [-0.4, 0.12], roof: [-0.2, -0.03], cw: 0.82, rw: 0.66, wheel: 0.33 },
   super: { cf: 0.4, cr: 0.2, hood: 0.36, deck: 0.56, cab: [-0.3, 0.24], roof: [-0.12, 0.03], cw: 0.8, rw: 0.62, wheel: 0.36, wing: true },
+  mini: { cf: 0.3, cr: 0.14, hood: 0.46, deck: 0.62, cab: [-0.44, 0.14], roof: [-0.4, -0.02], cw: 0.9, rw: 0.8, wheel: 0.3 },
+  wagon: { cf: 0.22, cr: 0.1, hood: 0.5, deck: 0.62, cab: [-0.47, 0.18], roof: [-0.46, -0.02], cw: 0.88, rw: 0.78, wheel: 0.26 },
+  hothatch: { cf: 0.28, cr: 0.12, hood: 0.46, deck: 0.58, cab: [-0.46, 0.19], roof: [-0.42, -0.03], cw: 0.88, rw: 0.76, wheel: 0.31, wing: true },
+  coupe: { cf: 0.3, cr: 0.2, hood: 0.46, deck: 0.56, cab: [-0.32, 0.1], roof: [-0.2, -0.04], cw: 0.84, rw: 0.68, wheel: 0.29 },
+  roadster: { cf: 0.3, cr: 0.2, hood: 0.44, deck: 0.5, cab: [-0.2, 0.1], roof: [-0.18, 0.06], cw: 0.86, rw: 0.8, wheel: 0.3, rh: 0.74, open: true },
+  limo: { cf: 0.2, cr: 0.12, hood: 0.5, deck: 0.54, cab: [-0.4, 0.2], roof: [-0.32, 0.0], cw: 0.88, rw: 0.8, wheel: 0.22, pill: 3, wb: 0.34 },
+  hearse: { cf: 0.2, cr: 0.06, hood: 0.5, deck: 0.66, cab: [-0.5, 0.18], roof: [-0.5, 0.0], cw: 0.88, rw: 0.84, wheel: 0.25, boxy: true },
+  minivan: { cf: 0.22, cr: 0.08, hood: 0.5, deck: 0.7, cab: [-0.48, 0.22], roof: [-0.47, 0.0], cw: 0.9, rw: 0.84, wheel: 0.24, pill: 2 },
+  camper: { cf: 0.2, cr: 0.06, hood: 0.46, deck: 0.6, cab: [-0.5, 0.26], roof: [-0.5, 0.12], cw: 0.96, rw: 0.92, wheel: 0.21, boxy: true, wb: 0.33 },
+  dcute: { cf: 0.18, cr: 0.06, hood: 0.56, deck: 0.58, cab: [-0.22, 0.19], roof: [-0.2, 0.04], cw: 0.9, rw: 0.82, wheel: 0.26, tray: true, pill: 2 },
+  flatdeck: { cf: 0.16, cr: 0.04, hood: 0.6, deck: 0.62, cab: [0.0, 0.2], roof: [0.02, 0.08], cw: 0.94, rw: 0.88, wheel: 0.22, tray: true, bed: "#8a6a3a", wb: 0.33 },
+  tradie: { cf: 0.2, cr: 0.06, hood: 0.42, deck: 0.5, cab: [-0.5, 0.3], roof: [-0.5, 0.16], cw: 0.96, rw: 0.92, wheel: 0.2, boxy: true, wb: 0.33 },
+  icecream: { cf: 0.2, cr: 0.06, hood: 0.42, deck: 0.5, cab: [-0.5, 0.3], roof: [-0.5, 0.16], cw: 0.96, rw: 0.92, wheel: 0.2, boxy: true, wb: 0.33 },
+  post: { cf: 0.2, cr: 0.06, hood: 0.44, deck: 0.52, cab: [-0.5, 0.3], roof: [-0.5, 0.18], cw: 0.96, rw: 0.92, wheel: 0.2, boxy: true, wb: 0.33 },
+  bus: { cf: 0.12, cr: 0.06, hood: 0.55, deck: 0.55, cab: [-0.5, 0.5], roof: [-0.5, 0.48], cw: 0.98, rw: 0.96, wheel: 0.17, pill: 6, wb: 0.32 },
+  tow: { cf: 0.18, cr: 0.06, hood: 0.54, deck: 0.56, cab: [0.0, 0.2], roof: [0.0, 0.06], cw: 0.9, rw: 0.82, wheel: 0.24, tray: true, bed: "#3a3430", wb: 0.33 },
+  fire: { cf: 0.14, cr: 0.04, hood: 0.55, deck: 0.6, cab: [0.1, 0.5], roof: [0.1, 0.46], cw: 0.96, rw: 0.94, wheel: 0.2, pill: 2, wb: 0.34, box: { a: -0.5, b: 0.08, h: 0.98, col: "#d4382a" } },
+  bin: { cf: 0.14, cr: 0.04, hood: 0.55, deck: 0.6, cab: [0.12, 0.5], roof: [0.12, 0.46], cw: 0.96, rw: 0.94, wheel: 0.2, pill: 1, wb: 0.34, box: { a: -0.5, b: 0.1, h: 1.02, col: "#2d6b24" } },
+  banger: SEDAN,
+  retro: { cf: 0.36, cr: 0.34, hood: 0.4, deck: 0.5, cab: [-0.3, 0.22], roof: [-0.2, 0.05], cw: 0.9, rw: 0.72, wheel: 0.3 },
+  lowrider: { ...SEDAN, hood: 0.44, deck: 0.48, wheel: 0.24 },
+  fourby: { cf: 0.1, cr: 0.06, hood: 0.58, deck: 0.68, cab: [-0.48, 0.12], roof: [-0.47, 0.06], cw: 0.94, rw: 0.88, wheel: 0.3, pill: 2 },
+  ev: { cf: 0.3, cr: 0.18, hood: 0.44, deck: 0.6, cab: [-0.44, 0.2], roof: [-0.4, 0.0], cw: 0.88, rw: 0.74, wheel: 0.27 },
+  rally: { cf: 0.28, cr: 0.12, hood: 0.5, deck: 0.6, cab: [-0.46, 0.19], roof: [-0.42, -0.03], cw: 0.88, rw: 0.76, wheel: 0.31, wing: true, scoop: true },
+  hotrod: { cf: 0.18, cr: 0.12, hood: 0.46, deck: 0.52, cab: [-0.22, 0.06], roof: [-0.14, -0.04], cw: 0.8, rw: 0.66, wheel: 0.33, scoop: true },
+};
+
+type Band = { u0: number; u1: number; cols: string[]; n?: number };
+/** Paint, trim and fittings per class, on top of the shape. */
+interface Style {
+  paint?: string;                 // fixed paint (ignores the car's own colour)
+  rim?: string;
+  bands?: Band[];                 // stripes / checks along the long sides
+  flames?: boolean; rust?: number;
+  roof?: "rack" | "surf" | "pop" | "cone" | "beacon" | "bar" | "ladder" | "boom";
+  neon?: boolean; spare?: boolean; crest?: string;
+}
+const STYLE: Partial<Record<VehicleClass, Style>> = {
+  hothatch: { rim: "#c9c4bc", neon: true, bands: [{ u0: 0.28, u1: 0.34, cols: ["#0e0b0a"] }] },
+  roadster: { rim: "#cfc8c0" },
+  hearse: { paint: "#0e0b0a", rim: "#cfc8c0", bands: [{ u0: 0.42, u1: 0.47, cols: ["#cfc8c0"] }] },
+  limo: { rim: "#cfc8c0", bands: [{ u0: 0.44, u1: 0.48, cols: ["#e6b422"] }] },
+  camper: { rim: "#cfc8c0", bands: [{ u0: 0.58, u1: 1.0, cols: ["#f4f0e4"] }], roof: "pop" },
+  minivan: { rim: "#a39d96" },
+  wagon: { roof: "surf" },
+  dcute: { rim: "#8a8580", roof: "bar" },
+  flatdeck: { rim: "#8a8580" },
+  tradie: { rim: "#8a8580", roof: "ladder", bands: [{ u0: 0.18, u1: 0.3, cols: ["#ff9a3d"] }] },
+  icecream: { rim: "#8a8580", roof: "cone", bands: [{ u0: 0.22, u1: 0.78, cols: ["#ffc2e8", "#fff1d6"], n: 10 }] },
+  post: { rim: "#8a8580", bands: [{ u0: 0.36, u1: 0.46, cols: ["#f6d32c"] }] },
+  bus: { rim: "#8a8580", bands: [{ u0: 0.08, u1: 0.3, cols: ["#eee4d3"] }, { u0: 0.3, u1: 0.4, cols: ["#f6d32c"] }] },
+  tow: { rim: "#8a8580", roof: "boom", bands: [{ u0: 0.05, u1: 0.2, cols: ["#f6d32c", "#0e0b0a"], n: 14 }] },
+  fire: { paint: "#d4382a", rim: "#cfc8c0", roof: "ladder", bands: [{ u0: 0.3, u1: 0.4, cols: ["#f6d32c"] }] },
+  bin: { rim: "#8a8580", roof: "beacon", bands: [{ u0: 0.05, u1: 0.18, cols: ["#0e0b0a"] }] },
+  banger: { rust: 6, rim: "#8a8580" },
+  retro: { rim: "#cfc8c0" },
+  lowrider: { rim: "#e6b422", neon: true },
+  fourby: { rim: "#8a8580", spare: true, roof: "rack" },
+  ev: { rim: "#2a2a2a" },
+  rally: { rim: "#e6b422", neon: false, bands: [{ u0: 0.25, u1: 0.33, cols: ["#e6b422"] }, { u0: 0.36, u1: 0.4, cols: ["#eee4d3"] }] },
+  hotrod: { rim: "#cfc8c0", neon: true, flames: true },
 };
 
 /** Octagonal plan ring (counter-clockwise), centred on cx, with nose / tail chamfers. */
@@ -135,7 +203,10 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const L = d.length, hw = d.width / 2, H = d.height * 1.08;
   const x0 = -L / 2, x1 = L / 2;
   const night = dark > 0.35;
-  const paint = rgb(v.cls === "police" ? "#f2f2ee" : v.cls === "ambulance" ? "#f4f1e6" : v.color);
+  const ST = STYLE[v.cls] ?? {};
+  const PT = patinaOf(v.cls, v.plate, d.price, v.damage);   // this car's own story: age, rust, dents, stickers (CarPatina.ts)
+  const paint = weather(rgb(v.cls === "police" ? "#f2f2ee" : v.cls === "ambulance" ? "#f4f1e6" : ST.paint ?? v.color), PT);
+  const roofPaint = PT.roof ? rgb(PT.roof) : paint;
   const dmg = 1 - v.damage * 0.35;
   const spin = (spinOf.get(v) ?? 0) + v.speed * 0.016 / (S.wheel * H);
   spinOf.set(v, spin);
@@ -146,7 +217,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   g.fillStyle = "rgba(0,0,0,.3)"; g.beginPath(); g.ellipse(pt.x, pt.y + 1 * z, L * 18 * z, L * 9 * z, 0, 0, 6.283); g.fill();
 
   // neon underglow on tuned cars at night (replayed over the darkness)
-  if (night && (v.cls === "jdm" || v.cls === "sports" || v.cls === "super" || v.cls === "muscle")) {
+  if (night && (v.cls === "jdm" || v.cls === "sports" || v.cls === "super" || v.cls === "muscle" || ST.neon)) {
     const hue = ["255,122,217", "61,214,255", "198,255,61", "180,140,255"][v.plate.charCodeAt(0) % 4];
     const sx = pt.x, sy = pt.y, rx = L * 26 * z, ry = L * 13 * z;
     GLOW.push(() => {
@@ -160,8 +231,8 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
 
   // which side faces the camera
   const nearSign = dot(WN(k, [0, 1, 0]), VIEW) > 0 ? 1 : -1;
-  const wr = S.wheel * H, wx = L * (v.cls === "van" || v.cls === "ambulance" ? 0.33 : 0.31), wy = hw - 0.02;
-  const rimCol = v.cls === "police" || v.cls === "ambulance" || v.cls === "van" ? "#8a8580" : v.cls === "super" || v.cls === "sports" ? "#2a2a2a" : "#cfc8c0";
+  const wr = S.wheel * H, wx = L * (S.wb ?? (v.cls === "van" || v.cls === "ambulance" ? 0.33 : 0.31)), wy = hw - 0.02;
+  const rimCol = ST.rim ?? (v.cls === "police" || v.cls === "ambulance" || v.cls === "van" ? "#8a8580" : v.cls === "super" || v.cls === "sports" ? "#2a2a2a" : "#cfc8c0");
   for (const lx of [wx, -wx]) wheel(k, lx, -nearSign * wy, wr, false, spin, rimCol);
 
   // ---- lower skirt ----
@@ -182,6 +253,14 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     g.strokeStyle = "rgba(255,255,255,.14)"; g.lineWidth = Math.max(1, 1.2 * z); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke();
   }
   cap(k, rTop, paint.map((c) => c * dmg) as [number, number, number], 14);
+  // top-plane patina: sun-bleached paint, rust blotches and a racing stripe over bonnet and boot
+  if (!S.tray) {
+    const sh = (lx: number) => bodyTop(lx) + 0.006, regions: [number, number][] = [[S.cab[1] * L, x1 - 0.07], [x0 + 0.07, S.cab[0] * L]];
+    const at = (r: number, t: number, s: number): V3 => { const [a, b] = regions[r]; const lx = a + (b - a) * t; return [lx, s * hw * 0.8, sh(lx)]; };
+    if (PT.bleach > 0.02) for (let r = 0; r < 2; r++) fillPoly(k, [at(r, 0.05, -0.85), at(r, 0.95, -0.85), at(r, 0.95, 0.85), at(r, 0.05, 0.85)], `rgba(255,238,215,${(PT.bleach * 0.55).toFixed(3)})`);
+    for (const [r, t, sx, sz] of PT.topRust) { const w = sz, c0 = at(r, Math.min(0.9, t), sx); const [lx, ly, lz] = c0; fillPoly(k, [[lx, ly - w * hw * 2, lz], [lx + w * L * 0.7, ly, lz], [lx, ly + w * hw * 2, lz], [lx - w * L * 0.7, ly, lz]], "rgba(132,64,26,.8)"); fillPoly(k, [[lx, ly - w * hw, lz], [lx + w * L * 0.3, ly, lz], [lx, ly + w * hw, lz], [lx - w * L * 0.3, ly, lz]], "rgba(204,112,44,.8)"); }
+    if (PT.stripe) for (const off of [-0.16, 0.16]) for (let r = 0; r < 2; r++) fillPoly(k, [at(r, 0, off - 0.09), at(r, 1, off - 0.09), at(r, 1, off + 0.09), at(r, 0, off + 0.09)], PT.stripe);
+  }
   // liveries on the long sides
   const longSides = sides.filter((f) => Math.abs(f.a0[0] - f.b0[0]) > L * 0.4);
   if (v.cls === "police" || v.cls === "ambulance" || v.cls === "taxi") {
@@ -196,10 +275,71 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     const sh = (lx: number) => bodyTop(lx) + 0.005;
     for (const off of [-0.09, 0.09]) fillPoly(k, [[x1 - 0.05, off - 0.04, sh(x1 - 0.05)], [x1 - 0.05, off + 0.04, sh(x1 - 0.05)], [S.cab[1] * L, off + 0.04, sh(S.cab[1] * L)], [S.cab[1] * L, off - 0.04, sh(S.cab[1] * L)]], v.cls === "super" ? "rgba(14,11,10,.55)" : "rgba(238,228,211,.8)");
   }
+  for (const b of ST.bands ?? []) {
+    const n = b.n ?? 1;
+    for (const f of longSides) for (let i = 0; i < n; i++) {
+      const t0 = n > 1 ? 0.04 + (i / n) * 0.92 : 0.02, t1 = n > 1 ? 0.04 + ((i + 1) / n) * 0.92 : 0.98;
+      fillPoly(k, [onFace(f, t0, b.u0), onFace(f, t1, b.u0), onFace(f, t1, b.u1), onFace(f, t0, b.u1)], b.cols[i % b.cols.length]);
+    }
+  }
+  if (ST.flames) {
+    // tongues of flame licking back from the front wheel arch
+    for (const f of longSides) for (let i = 0; i < 4; i++) {
+      const t = 0.12 + i * 0.13;
+      fillPoly(k, [onFace(f, t, 0.12), onFace(f, t + 0.12, 0.12), onFace(f, t + 0.01, 0.62 - i * 0.1)], i % 2 ? "#f6b62c" : "#ff6a1c");
+    }
+  }
+  if (ST.rust) {
+    // rust bloom and a mismatched door
+    const seed = v.plate.charCodeAt(1) + v.plate.charCodeAt(2);
+    for (const f of longSides) {
+      for (let i = 0; i < ST.rust; i++) {
+        const t = ((seed * (i + 3) * 37) % 90) / 100 + 0.04, u = ((seed * (i + 5) * 17) % 40) / 100 + 0.05, w = 0.05 + (i % 3) * 0.03;
+        fillPoly(k, [onFace(f, t, u), onFace(f, t + w, u + 0.04), onFace(f, t + w * 1.2, u + 0.16), onFace(f, t - 0.01, u + 0.1)], i % 2 ? "rgba(122,62,22,.8)" : "rgba(90,48,20,.75)");
+      }
+      fillPoly(k, [onFace(f, 0.4, 0.2), onFace(f, 0.6, 0.2), onFace(f, 0.6, 0.95), onFace(f, 0.4, 0.95)], lit(rgb(seed % 2 ? "#9a8d80" : "#4a6a7a"), shadeFor(f.n) * dmg));
+    }
+  }
+  // patina on the near long side only (the far one shows when the car turns)
+  {
+    const nearIdx = longSides.findIndex((f) => dot(WN(k, f.n), VIEW) > 0);
+    const f = nearIdx >= 0 ? longSides[nearIdx] : undefined;
+    if (f) for (const m of PT.marks) {
+      const t0 = m.t, t1 = m.t + m.w, u0 = m.u, u1 = m.u + m.h, F = (t: number, u: number) => onFace(f, t, u);
+      if (m.kind === "rust") {
+        fillPoly(k, [F(t0, u0), F(t1, u0 + m.h * 0.3), F(t1 - m.w * 0.2, u1), F(t0 - 0.01, u0 + m.h * 0.7)], m.col);
+        fillPoly(k, [F(t0 + m.w * 0.3, u0 + m.h * 0.2), F(t0 + m.w * 0.55, u0 + m.h * 0.25), F(t0 + m.w * 0.45, u0 + m.h * 0.5)], "rgba(190,100,40,.7)");   // a bright orange bloom in the middle
+      } else if (m.kind === "dent") {
+        fillPoly(k, [F(t0, u0 + m.h * 0.5), F(t0 + m.w * 0.5, u0), F(t1, u0 + m.h * 0.5), F(t0 + m.w * 0.5, u1)], m.col);
+        fillPoly(k, [F(t0, u0 + m.h * 0.5), F(t0 + m.w * 0.5, u1), F(t0 + m.w * 0.5, u1 - m.h * 0.12), F(t0 + m.w * 0.05, u0 + m.h * 0.5)], "rgba(255,255,255,.22)");
+      } else if (m.kind === "scratch") {
+        const A = W3(k, F(t0, u0)), B = W3(k, F(t1, u1)); g.strokeStyle = m.col; g.lineWidth = Math.max(1, 0.9 * z); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke();
+      } else if (m.kind === "primer") {
+        fillPoly(k, [F(t0, u0), F(t1, u0), F(t1, u0 + m.h), F(t0, u0 + m.h)], lit(rgb("#7a6f68"), shadeFor(f.n) * dmg));
+        fillPoly(k, [F(t0, u0), F(t0 + 0.012, u0), F(t0 + 0.012, u0 + m.h), F(t0, u0 + m.h)], "rgba(122,62,22,.7)");
+      } else if (m.kind === "mud") {
+        fillPoly(k, [F(t0, 0), F(t1, 0), F(t1, u1), F(t0, u0 + m.h * 0.55)], m.col);
+      } else if (m.kind === "sticker") {
+        fillPoly(k, [F(t0, u0), F(t1, u0), F(t1, u1), F(t0, u1)], m.col);
+        fillPoly(k, [F(t0 + m.w * 0.2, u0 + m.h * 0.25), F(t1 - m.w * 0.2, u0 + m.h * 0.25), F(t1 - m.w * 0.2, u0 + m.h * 0.45), F(t0 + m.w * 0.2, u0 + m.h * 0.45)], "rgba(14,11,10,.7)");
+      } else if (m.kind === "sill") {
+        // a jagged rust line eating up from the sill, the whole length of the car
+        const top: [number, number][] = []; for (let k = 0; k <= 10; k++) top.push([t0 + (m.w * k) / 10, u0 + m.h * (0.55 + 0.45 * Math.abs(Math.sin(k * 2.3 + m.h * 40)))]);
+        fillPoly(k, [F(t0, u0), F(t1, u0), ...top.reverse().map(([a, b]) => F(a, b))], m.col);
+        fillPoly(k, [F(t0, u0), F(t1, u0), F(t1, u0 + m.h * 0.3), F(t0, u0 + m.h * 0.3)], "rgba(70,30,12,.55)");
+      } else if (m.kind === "door") {
+        fillPoly(k, [F(t0, u0), F(t1, u0), F(t1, u1), F(t0, u1)], lit(rgb(m.col), shadeFor(f.n) * dmg));
+        g.strokeStyle = "rgba(14,11,10,.85)"; g.lineWidth = Math.max(1, 0.9 * z); g.beginPath();
+        for (const [a, b] of [[t0, u0], [t0, u1], [t1, u1], [t1, u0]] as const) { const q = W3(k, F(a, b)); g.lineTo(q[0], q[1]); } g.closePath(); g.stroke();
+      } else if (m.kind === "stripe") {
+        fillPoly(k, [F(t0, u0), F(t0 + m.w, u0), F(t0 + m.w, u0 + m.h), F(t0, u0 + m.h)], m.col);
+      }
+    }
+  }
   if (S.tray) {
     // open tray behind the cab
     const tx0 = x0 + 0.06, tx1 = S.cab[0] * L - 0.04, th = bodyTop(tx0);
-    fillPoly(k, [[tx0, -hw * 0.82, th - 0.02], [tx1, -hw * 0.82, th - 0.02], [tx1, hw * 0.82, th - 0.02], [tx0, hw * 0.82, th - 0.02]], "#1c1816");
+    fillPoly(k, [[tx0, -hw * 0.82, th - 0.02], [tx1, -hw * 0.82, th - 0.02], [tx1, hw * 0.82, th - 0.02], [tx0, hw * 0.82, th - 0.02]], S.bed ?? "#1c1816");
     g.strokeStyle = lit(paint, 1.15); g.lineWidth = Math.max(1, 1.4 * z); g.beginPath();
     const c = [[tx0, -hw * 0.9], [tx1, -hw * 0.9], [tx1, hw * 0.9], [tx0, hw * 0.9]].map(([a, b]) => W3(k, [a, b, th + 0.03]));
     c.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.closePath(); g.stroke();
@@ -213,9 +353,24 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const glassBase = rgb(night ? "#141c28" : "#2c4058");
   const cb0 = S.cab[0] * L, cb1 = S.cab[1] * L, rf0 = S.roof[0] * L, rf1 = S.roof[1] * L;
   const rCab0 = ring(cb0, cb1, hw * S.cw, 0.12, 0.1, (lx) => bodyTop(lx) - 0.01);
-  const rCab1 = ring(rf0, rf1, hw * S.rw, 0.1, 0.08, () => H);
+  const roofZ = H * (S.rh ?? 1);
+  const rCab1 = ring(rf0, rf1, hw * S.rw, 0.1, 0.08, () => roofZ);
+  const seat = rgb("#2a1c16");
   const pillar = lit(paint, 0.75 * dmg);
+  const fwdW = WN(k, [1, 0, 0]), frontVisible = dot(fwdW, VIEW) > 0;
+  const drawBox = () => {
+    const B = S.box!, bx0 = B.a * L, bx1 = B.b * L, base = bodyTop(bx0) - 0.02, col = rgb(B.col);
+    const rb0 = ring(bx0, bx1, hw * 0.97, 0.03, 0.03, () => base), rb1 = ring(bx0 + 0.02, bx1 - 0.02, hw * 0.95, 0.03, 0.03, () => H * B.h);
+    loft(k, rb0, rb1, (n) => lit(col, shadeFor(n) * dmg), "rgba(255,255,255,.28)");
+    cap(k, rb1, col.map((c) => c * dmg) as [number, number, number], 10);
+    if (v.cls === "bin") { // lift arm and hopper lip
+      const A = W3(k, [bx0 + 0.05, -hw * 0.5, H * B.h + 0.02]), C = W3(k, [bx0 + 0.05, hw * 0.5, H * B.h + 0.02]);
+      g.strokeStyle = "#1c1816"; g.lineWidth = Math.max(1, 1.5 * z); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(C[0], C[1]); g.stroke();
+    }
+  };
+  if (S.box && frontVisible) drawBox(); // the cab is nearer the camera, so the body goes down first
   const glassFaces = loft(k, rCab0, rCab1, (n, i) => {
+    if (S.open) return i === 0 || i === 1 || i === 7 ? lit(glassBase, shadeFor(n) * 1.1, 26) : lit(seat, shadeFor(n) * 1.1);
     // vans: painted sides, glass only at the front
     if (S.boxy && !(i === 0 || i === 1 || i === 7)) return lit(paint, shadeFor(n) * dmg);
     const sky = n[2] > 0.4 ? 26 : 0; // raked glass catches the sky
@@ -226,7 +381,10 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   for (const f of glassFaces) {
     const A = W3(k, f.a0), B = W3(k, f.a1); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]);
     const C = W3(k, f.b0), D = W3(k, f.b1); g.moveTo(C[0], C[1]); g.lineTo(D[0], D[1]);
-    if (Math.abs(f.a0[0] - f.b0[0]) > L * 0.25 && !S.boxy) { const E = W3(k, onFace(f, 0.5, 0)), F = W3(k, onFace(f, 0.5, 1)); g.moveTo(E[0], E[1]); g.lineTo(F[0], F[1]); }
+    if (Math.abs(f.a0[0] - f.b0[0]) > L * 0.25 && !S.boxy && !S.open) {
+      const np = S.pill ?? 1;
+      for (let j = 1; j <= np; j++) { const E = W3(k, onFace(f, j / (np + 1), 0)), F = W3(k, onFace(f, j / (np + 1), 1)); g.moveTo(E[0], E[1]); g.lineTo(F[0], F[1]); }
+    }
   }
   g.stroke();
   // window reflections
@@ -234,7 +392,8 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     if (S.boxy) continue;
     fillPoly(k, [onFace(f, 0.15, 0.15), onFace(f, 0.3, 0.15), onFace(f, 0.5, 0.9), onFace(f, 0.35, 0.9)], "rgba(220,235,255,.16)");
   }
-  cap(k, rCab1, paint.map((c) => c * dmg) as [number, number, number], 8);
+  cap(k, rCab1, (S.open ? seat : roofPaint).map((c) => c * dmg) as [number, number, number], S.open ? 4 : 8);
+  if (S.box && !frontVisible) drawBox();
   if (S.boxy) { // window line on vans
     for (const f of glassFaces) if (Math.abs(f.a0[0] - f.b0[0]) > L * 0.4) fillPoly(k, [onFace(f, 0.66, 0.35), onFace(f, 0.95, 0.35), onFace(f, 0.95, 0.85), onFace(f, 0.66, 0.85)], lit(glassBase, 1.1, night ? 0 : 12));
   }
@@ -263,6 +422,46 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     for (const sy of [-hw * 0.7, hw * 0.7]) { const A = W3(k, [rf0 + 0.05, sy, H + 0.04]), B = W3(k, [rf1 - 0.05, sy, H + 0.04]); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); }
     g.stroke();
   }
+  if (ST.roof) {
+    const rm = roofMid, hz = (S.box ? H * S.box.h : H) + 0.04;
+    if (ST.roof === "rack" || ST.roof === "ladder") {
+      const r0 = S.box ? S.box.a * L : rf0, r1 = S.box ? S.box.b * L : rf1;
+      g.strokeStyle = ST.roof === "ladder" ? "#c9c4bc" : "#1c1816"; g.lineWidth = Math.max(1, 1.3 * z); g.beginPath();
+      for (const sy of [-hw * 0.6, hw * 0.6]) { const A = W3(k, [r0 + 0.04, sy, hz]), B = W3(k, [r1 - 0.04, sy, hz]); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); }
+      for (let i = 0; i < 5; i++) { const t = r0 + 0.04 + (r1 - r0 - 0.08) * (i / 4), A = W3(k, [t, -hw * 0.6, hz]), B = W3(k, [t, hw * 0.6, hz]); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); }
+      g.stroke();
+    } else if (ST.roof === "surf") {
+      fillPoly(k, [[rf0 + 0.02, -0.07, hz + 0.01], [rf1 - 0.02, -0.04, hz + 0.01], [rf1, 0, hz + 0.01], [rf1 - 0.02, 0.04, hz + 0.01], [rf0 + 0.02, 0.07, hz + 0.01]], lit(rgb(["#3dd6ff", "#ff7ad9", "#c6ff3d"][v.plate.charCodeAt(0) % 3]), 1.05));
+    } else if (ST.roof === "pop") {
+      const rp0 = ring(rf0 + 0.05, rf1 - 0.05, hw * 0.7, 0.1, 0.1, () => H), rp1 = ring(rf0 + 0.08, rf1 - 0.08, hw * 0.66, 0.1, 0.1, () => H + 0.12);
+      loft(k, rp0, rp1, (n) => lit(rgb("#f4f0e4"), shadeFor(n) * dmg));
+      cap(k, rp1, rgb("#f4f0e4"), 8);
+    } else if (ST.roof === "cone") {
+      cam.toScreen(x + k.c * rm, y + k.s * rm, H + 0.12, pt);
+      g.fillStyle = "#c98a3a"; g.beginPath(); g.moveTo(pt.x - 3.5 * z, pt.y); g.lineTo(pt.x + 3.5 * z, pt.y); g.lineTo(pt.x, pt.y + 8 * z); g.closePath(); g.fill();
+      g.fillStyle = "#ffc2e8"; g.beginPath(); g.arc(pt.x, pt.y - 1.5 * z, 4.2 * z, 0, 6.283); g.fill();
+      g.fillStyle = "#fff1d6"; g.beginPath(); g.arc(pt.x, pt.y - 5 * z, 3 * z, 0, 6.283); g.fill();
+    } else if (ST.roof === "beacon" || ST.roof === "bar" || ST.roof === "boom") {
+      const blink = Math.floor(time * 5) % 2 === 0;
+      cam.toScreen(x + k.c * (ST.roof === "boom" ? rm : rm + 0.05), y + k.s * (ST.roof === "boom" ? rm : rm + 0.05), H + 0.1, pt);
+      g.fillStyle = blink ? "#ffb02a" : "#7a5410"; g.fillRect(pt.x - 3 * z, pt.y - 3 * z, 6 * z, 3.5 * z);
+      if (ST.roof === "boom") { // winch arm over the bed
+        g.strokeStyle = "#1c1816"; g.lineWidth = Math.max(1, 1.6 * z); g.beginPath();
+        const A = W3(k, [x0 + 0.5, 0, bodyTop(x0) + 0.02]), B = W3(k, [x0 + 0.1, 0, bodyTop(x0) + 0.3]);
+        g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke();
+      }
+      if (night && blink) { const sx = pt.x, sy = pt.y; GLOW.push(() => { g.globalCompositeOperation = "lighter"; const grd = g.createRadialGradient(sx, sy, 0, sx, sy, 22 * z); grd.addColorStop(0, "rgba(255,176,42,.5)"); grd.addColorStop(1, "rgba(255,176,42,0)"); g.fillStyle = grd; g.beginPath(); g.arc(sx, sy, 22 * z, 0, 6.283); g.fill(); g.globalCompositeOperation = "source-over"; }); }
+    }
+  }
+  if (PT.aerial && !S.open) {   // a whip aerial off the back corner
+    const A = W3(k, [rf0 + 0.05, hw * 0.7, roofZ]), B = W3(k, [rf0 - 0.12, hw * 0.78, roofZ + 0.3]);
+    g.strokeStyle = "#1c1816"; g.lineWidth = Math.max(1, 0.9 * z); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke();
+  }
+  if (ST.spare && !frontVisible) {
+    const sp: number[][] = []; for (let i = 0; i < 12; i++) { const a = (i / 12) * 6.283; sp.push(W3(k, [x0 - 0.04, Math.cos(a) * 0.12, H * 0.55 + Math.sin(a) * 0.12])); }
+    g.fillStyle = "#121010"; g.beginPath(); sp.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.closePath(); g.fill();
+    g.fillStyle = "#8a8580"; g.beginPath(); for (let i = 0; i < 8; i++) { const a = (i / 8) * 6.283, p = W3(k, [x0 - 0.045, Math.cos(a) * 0.06, H * 0.55 + Math.sin(a) * 0.06]); if (i) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); } g.closePath(); g.fill();
+  }
   if (S.wing) {
     const wx0 = x0 + 0.03, wx1 = x0 + 0.17, wh = bodyTop(x0) + (v.cls === "super" ? 0.16 : 0.13);
     g.strokeStyle = lit(paint, 0.4); g.lineWidth = Math.max(1, 1.4 * z); g.beginPath();
@@ -272,8 +471,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   }
 
   // ---- lights (only on the ends that face the camera) ----
-  const fwd = WN(k, [1, 0, 0]), frontVisible = dot(fwd, VIEW) > 0;
-  const hl = night || v.siren ? "#fff8d8" : "#e8e2c8";
+  const hl = night || v.siren ? (PT.yellowLamps ? "#f2d27a" : "#fff8d8") : PT.yellowLamps ? "#cdb878" : "#e8e2c8";
   const brake = v.speed < 0.5 && v.state === "drive" || v.speed < 0 || v.state === "crashed";
   const lampH = (S.hood + 0.02) * H * 0.82, tailH = S.deck * H * 0.8;
   for (const side of [-1, 1]) {
@@ -289,8 +487,8 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   if (night) {
     const tail = !frontVisible;
     const P0 = W3(k, [tail ? x0 : x1, 0, tail ? tailH : lampH]);
-    const sx = P0[0], sy = P0[1], col = tail ? "255,59,47" : "255,246,210", r = (tail ? 14 : 18) * z;
-    GLOW.push(() => { g.globalCompositeOperation = "lighter"; const grd = g.createRadialGradient(sx, sy, 0, sx, sy, r); grd.addColorStop(0, `rgba(${col},${tail && !brake ? 0.25 : 0.45})`); grd.addColorStop(1, `rgba(${col},0)`); g.fillStyle = grd; g.beginPath(); g.arc(sx, sy, r, 0, 6.283); g.fill(); g.globalCompositeOperation = "source-over"; });
+    const sx = P0[0], sy = P0[1], col = tail ? "255,59,47" : PT.yellowLamps ? "255,222,140" : "255,246,210", r = (tail ? 16 : 26) * z;
+    GLOW.push(() => { g.globalCompositeOperation = "lighter"; const grd = g.createRadialGradient(sx, sy, 0, sx, sy, r); grd.addColorStop(0, `rgba(${col},${tail && !brake ? 0.28 : 0.6})`); grd.addColorStop(1, `rgba(${col},0)`); g.fillStyle = grd; g.beginPath(); g.arc(sx, sy, r, 0, 6.283); g.fill(); g.globalCompositeOperation = "source-over"; });
   }
 
   if (v.forSale) {
