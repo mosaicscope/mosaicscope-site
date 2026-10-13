@@ -36,7 +36,7 @@ export type Role =
 export const ROLE_LABEL: Record<Role, string> = {
   overcoder: "overcoder",
   local: "local", student: "uni student", barista: "barista", chef: "cook", vendor: "food truck vendor", shopkeeper: "shopkeeper", cop: "police officer",
-  thief: "small-time thief", graffiti: "graffiti artist", cleaner: "city cleaner", dealer: "casino dealer", bouncer: "bouncer", busker: "busker",
+  thief: "small-time thief", graffiti: "graffiti artist", cleaner: "city cleaner", dealer: "casino dealer", bouncer: "security guard", busker: "busker",
   skater: "skater", car_enthusiast: "car-meet regular", office: "office worker", tourist: "tourist", mechanic: "mechanic", musician: "musician",
   photographer: "photographer", medic: "paramedic", taxi: "taxi driver", driver: "delivery driver", gambler: "regular at the casino",
   mobster: "Famiglia Tessera wiseguy", smuggler: "smuggler", comic: "roast comedian", mogul: "mogul", model: "glamour model", vigilante: "masked vigilante",
