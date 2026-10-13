@@ -127,7 +127,12 @@ export class StreetView {
       const dir = (Math.cos(c.facing) - Math.sin(c.facing)) >= 0 ? 1 : -1;
       g.globalAlpha = s.alpha * 0.45; g.fillStyle = NOIR.night; g.beginPath(); g.ellipse(s.x, sy, 22 * k, 4.5 * k, 0, 0, 6.283); g.fill();
       g.globalAlpha = s.alpha;
-      solve(pose(poseName(c, moving, spd), c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT), s.x, sy, k, dir);
+      // mood-based animation: a happy figure swings its arms wider and leans forward; a low one slumps
+      const A = pose(poseName(c, moving, spd), c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT);
+      const mood = c.emo ? c.emo.mood : 0;
+      A.armL *= 1 + 0.25 * mood; A.armR *= 1 + 0.25 * mood;
+      A.lean += 0.06 * mood;
+      solve(A, s.x, sy, k, dir);
       this.person(g, c, k, dir, c.anim.flash > 0, pix, night);
       g.globalAlpha = 1;
       drawn.push({ c, x: s.x, y: sy, k, dv: s.dv });
