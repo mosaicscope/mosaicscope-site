@@ -539,6 +539,11 @@ export class Diegetic {
   setFoot(p: FootPrefs): void { this.footPrefs = p; }
   /** Whether the player is sneaking right now; the game calls this when it knows. */
   setSneaking(on: boolean): void { this.sneaking = on; }
+  /** Quiet mode: mutes ambience and speech blips, keeping footsteps and one-shot effects. */
+  setQuiet(on: boolean): void {
+    this.setAmbience({ ...this.ambPrefs, muted: on });
+    this.voicePrefs = { ...this.voicePrefs, enabled: !on };
+  }
   /** 3D audio: when off, every effect plays centred (no left/right panning from where it is). */
   setPositional(on: boolean): void { this.positional = on; }
   /** Audio debug read-out: live one-shot voices by priority, the ambience gain now, and recent blips in the last second. */
