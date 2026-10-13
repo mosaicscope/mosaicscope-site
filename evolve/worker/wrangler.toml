@@ -1,0 +1,27 @@
+# The evolution engine's scheduler. Deploy from this folder: npx wrangler deploy
+# See evolve/README.md for the one-time setup (KV id, secrets).
+name = "mosaicscope-evolve"
+main = "index.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+[triggers]
+crons = ["*/2 * * * *"]   # every two minutes
+
+# The same KV namespace the Pages site binds as EGG (Cloudflare -> Workers & Pages -> KV -> copy its id).
+[[kv_namespaces]]
+binding = "EGG"
+id = "REPLACE_WITH_EGG_NAMESPACE_ID"
+
+[vars]
+GITHUB_REPO = "mosaicscope/mosaicscope-site"
+GITHUB_BRANCH = "main"
+SITE_URL = "https://mosaicscope.pages.dev/"
+# Hard limits (defaults live in evolve/core/config.js). Uncomment to override.
+# EVOLVE_DAILY_USD_LIMIT = "0.10"
+# EVOLVE_DAILY_CALL_LIMIT = "200"
+# EVOLVE_DAILY_CYCLE_LIMIT = "720"
+# EVOLVE_MAX_OUTPUT_TOKENS = "8"
+# EVOLVE_MAX_INPUT_TOKENS = "400"
+# EVOLVE_MAX_CONSECUTIVE_FAILURES = "3"
+# EVOLVE_KILL = "1"          # global emergency stop; only a redeploy without it turns the engine back on

@@ -1,0 +1,40 @@
+# Gate for changes the evolution engine proposes (branches evolve/*), plus its own tests on any PR
+# that touches the engine. A failing evolve/* PR is closed and its branch deleted (the rollback).
+# Set the repository variable EVOLVE_AUTO_MERGE=true to let passing changes merge on their own;
+# otherwise they wait for a person to merge them.
+name: evolve-ci
+on:
+  pull_request:
+    paths: ["evolve/**", "functions/api/evolve.js", "index.html", "404.html", "house/**", "stats/**", "sitemap.xml"]
+permissions:
+  contents: write
+  pull-requests: write
+concurrency:
+  group: evolve-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Engine tests
+        run: node --test evolve/test/engine.test.mjs
+      - name: Verify the proposed change
+        if: startsWith(github.head_ref, 'evolve/')
+        run: node evolve/cli.mjs verify "origin/${{ github.base_ref }}"
+      - name: Merge (auto-merge on)
+        if: success() && startsWith(github.head_ref, 'evolve/') && vars.EVOLVE_AUTO_MERGE == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr merge "${{ github.event.pull_request.number }}" --squash --delete-branch
+      - name: Roll back (close and delete the branch)
+        if: failure() && startsWith(github.head_ref, 'evolve/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr close "${{ github.event.pull_request.number }}" --delete-branch --comment "evolve-ci failed on this change, so it was closed and its branch deleted. The engine records this as a rejection."
