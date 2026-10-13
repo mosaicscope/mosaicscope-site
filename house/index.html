@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Flying House</title>
+<meta name="description" content="A massive house drifting over the city, in 3D.">
+<style>
+  :root { color-scheme: dark; --ink: #0e0b0a; --neon: #c6ff3d; --pink: #ff7ad9; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #07050f; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
+  .hud { position: fixed; left: 16px; bottom: 14px; color: #efe4cc; font: 600 13px/1.4 ui-monospace, Menlo, monospace; text-shadow: 0 1px 0 #000; pointer-events: none; z-index: 2; }
+  .hud b { color: var(--neon); }
+  .fallback { position: fixed; inset: 0; display: none; place-items: center; color: #efe4cc; font: 600 15px ui-monospace, monospace; padding: 24px; text-align: center; }
+  @media (prefers-reduced-motion: reduce) { .hud { opacity: .8; } }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="A massive house flying over a city, drag to look around"></canvas>
+<div class="hud" aria-hidden="true"><b>THE FLYING HOUSE</b><br>drag to look · scroll to zoom</div>
+<div class="fallback" id="fallback">This needs WebGL. Try a newer browser.</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r160/three.min.js"></script>
+<script>
+(() => {
+  if (!window.THREE) { document.getElementById("fallback").style.display = "grid"; return; }
+  const T = window.THREE;
+  const canvas = document.getElementById("c");
+  let renderer;
+  try { renderer = new T.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" }); }
+  catch (e) { document.getElementById("fallback").style.display = "grid"; return; }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = T.PCFSoftShadowMap;
+  renderer.toneMapping = T.ACESFilmicToneMapping;
+  renderer.outputColorSpace = T.SRGBColorSpace;
+
+  const scene = new T.Scene();
+  scene.background = new T.Color(0x07050f);
+  scene.fog = new T.FogExp2(0x120a22, 0.0042);
+
+  const camera = new T.PerspectiveCamera(50, 1, 0.1, 2000);
+
+  // ---- sky and city below ----
+  scene.add(new T.HemisphereLight(0x8a7cff, 0x1a0f14, 0.6));
+  const sun = new T.DirectionalLight(0xffb27a, 1.6);
+  sun.position.set(-120, 160, 80);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -260, right: 260, top: 260, bottom: -260, far: 800 });
+  scene.add(sun);
+
+  const rnd = (() => { let s = 7; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+  const city = new T.Group();
+  const towerMat = new T.MeshStandardMaterial({ color: 0x1c1a2e, roughness: 0.9 });
+  const winColors = [0xffc46b, 0xff7ad9, 0x3dd6ff, 0xc6ff3d];
+  for (let i = 0; i < 180; i++) {
+    const w = 8 + rnd() * 14, h = 20 + Math.pow(rnd(), 2) * 150, d = 8 + rnd() * 14;
+    const m = new T.Mesh(new T.BoxGeometry(w, h, d), towerMat);
+    const ang = rnd() * Math.PI * 2, r = 60 + rnd() * 900;
+    m.position.set(Math.cos(ang) * r, h / 2 - 30, Math.sin(ang) * r);
+    m.castShadow = m.receiveShadow = true;
+    city.add(m);
+    if (rnd() < 0.55) {   // a few lit windows per tower
+      const wc = winColors[Math.floor(rnd() * winColors.length)];
+      const wm = new T.MeshBasicMaterial({ color: wc });
+      for (let k = 0; k < 6; k++) {
+        const win = new T.Mesh(new T.PlaneGeometry(1.6, 2.2), wm);
+        win.position.set(m.position.x + (rnd() - 0.5) * w * 0.7, m.position.y + (rnd() - 0.5) * h * 0.8, m.position.z + d / 2 + 0.05);
+        win.rotation.y = 0;
+        city.add(win);
+      }
+    }
+  }
+  const ground = new T.Mesh(new T.CircleGeometry(1400, 64), new T.MeshStandardMaterial({ color: 0x0c0a14, roughness: 1 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -30; ground.receiveShadow = true;
+  scene.add(ground, city);
+
+  // stars
+  const starGeo = new T.BufferGeometry();
+  const starPos = new Float32Array(1500 * 3);
+  for (let i = 0; i < 1500; i++) {
+    const a = rnd() * Math.PI * 2, e = rnd() * 1.1, r = 1200;
+    starPos[i * 3] = Math.cos(a) * Math.cos(e) * r; starPos[i * 3 + 1] = 200 + Math.sin(e) * r * 0.6; starPos[i * 3 + 2] = Math.sin(a) * Math.cos(e) * r;
+  }
+  starGeo.setAttribute("position", new T.BufferAttribute(starPos, 3));
+  scene.add(new T.Points(starGeo, new T.PointsMaterial({ color: 0xffffff, size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0.8 })));
+
+  // ---- THE HOUSE ----
+  const house = new T.Group();
+  const W = 120, Hh = 90, D = 100;
+  const wallMat = new T.MeshStandardMaterial({ color: 0xf1e3c8, roughness: 0.85 });
+  const trimMat = new T.MeshStandardMaterial({ color: 0x3a2c2a, roughness: 0.7 });
+  const roofMat = new T.MeshStandardMaterial({ color: 0x8a2a24, roughness: 0.6 });
+  const glassMat = new T.MeshStandardMaterial({ color: 0x9fd8ff, emissive: 0xffb45a, emissiveIntensity: 1.2, roughness: 0.2 });
+
+  const body = new T.Mesh(new T.BoxGeometry(W, Hh, D), wallMat);
+  body.position.y = Hh / 2; body.castShadow = body.receiveShadow = true;
+  house.add(body);
+
+  const roof = new T.Mesh(new T.ConeGeometry(Math.hypot(W, D) / 2 * 0.78, 52, 4), roofMat);
+  roof.rotation.y = Math.PI / 4; roof.position.y = Hh + 26; roof.scale.set(1, 1, D / W); roof.castShadow = true;
+  house.add(roof);
+
+  const chimney = new T.Mesh(new T.BoxGeometry(12, 40, 12), new T.MeshStandardMaterial({ color: 0x5a3a2e }));
+  chimney.position.set(W * 0.28, Hh + 42, -D * 0.22); chimney.castShadow = true;
+  house.add(chimney);
+
+  // windows and a door on the front (+z) face
+  for (let row = 0; row < 2; row++) for (let col = 0; col < 4; col++) {
+    const win = new T.Mesh(new T.BoxGeometry(14, 16, 2), glassMat);
+    win.position.set(-W * 0.36 + col * (W * 0.24), 28 + row * 36, D / 2 + 1);
+    house.add(win);
+    const frame = new T.Mesh(new T.BoxGeometry(18, 20, 1), trimMat);
+    frame.position.copy(win.position); frame.position.z += 0.6;
+    house.add(frame);
+  }
+  const door = new T.Mesh(new T.BoxGeometry(20, 36, 2), new T.MeshStandardMaterial({ color: 0x5b2e1c }));
+  door.position.set(0, 18, D / 2 + 1);
+  house.add(door);
+
+  // porch lamp and a lit doorway glow
+  const lampGlow = new T.PointLight(0xffb45a, 90, 180, 2);
+  lampGlow.position.set(0, 46, D / 2 + 12);
+  house.add(lampGlow);
+
+  // a wrap-around porch and steps
+  const porch = new T.Mesh(new T.BoxGeometry(W + 20, 4, 18), trimMat);
+  porch.position.set(0, 2, D / 2 + 9); porch.castShadow = porch.receiveShadow = true;
+  house.add(porch);
+
+  // a bit of garden on the roof: a tree, a little pool
+  const trunk = new T.Mesh(new T.CylinderGeometry(3, 4, 22, 8), new T.MeshStandardMaterial({ color: 0x5a3a2e }));
+  trunk.position.set(-W * 0.3, Hh + 4, D * 0.18); trunk.castShadow = true;
+  const crown = new T.Mesh(new T.IcosahedronGeometry(20, 1), new T.MeshStandardMaterial({ color: 0x2f7a3a, roughness: 0.9, flatShading: true }));
+  crown.position.set(-W * 0.3, Hh + 26, D * 0.18); crown.castShadow = true;
+  house.add(trunk, crown);
+
+  // the house floats on a rocky island
+  const rock = new T.Mesh(new T.ConeGeometry(W * 0.72, 90, 12), new T.MeshStandardMaterial({ color: 0x3a3340, roughness: 1, flatShading: true }));
+  rock.rotation.x = Math.PI; rock.position.y = -46; rock.castShadow = true;
+  house.add(rock);
+
+  // jet of fire underneath, moving with the wind
+  const flameGeo = new T.ConeGeometry(18, 80, 16, 1, true);
+  const flameMat = new T.MeshBasicMaterial({ color: 0xff8a3d, transparent: true, opacity: 0.55, blending: T.AdditiveBlending, depthWrite: false });
+  const flame = new T.Mesh(flameGeo, flameMat);
+  flame.rotation.x = Math.PI; flame.position.y = -110;
+  house.add(flame);
+  const flameCore = new T.Mesh(new T.ConeGeometry(9, 56, 12, 1, true), new T.MeshBasicMaterial({ color: 0xffe9b0, transparent: true, opacity: 0.8, blending: T.AdditiveBlending, depthWrite: false }));
+  flameCore.rotation.x = Math.PI; flameCore.position.y = -92;
+  house.add(flameCore);
+  const thrust = new T.PointLight(0xff8a3d, 160, 300, 2);
+  thrust.position.y = -120; house.add(thrust);
+
+  house.scale.setScalar(1.35);
+  scene.add(house);
+
+  // ---- camera and controls ----
+  let yaw = 0.6, pitch = 0.28, dist = 1000;
+  let dragging = false, lx = 0, ly = 0;
+  canvas.addEventListener("pointerdown", (e) => { dragging = true; lx = e.clientX; ly = e.clientY; canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    yaw -= (e.clientX - lx) * 0.005; pitch = Math.max(-0.1, Math.min(0.9, pitch + (e.clientY - ly) * 0.004));
+    lx = e.clientX; ly = e.clientY;
+  });
+  const endDrag = () => { dragging = false; };
+  canvas.addEventListener("pointerup", endDrag); canvas.addEventListener("pointercancel", endDrag);
+  canvas.addEventListener("wheel", (e) => { dist = Math.max(360, Math.min(1800, dist + e.deltaY * 0.8)); e.preventDefault(); }, { passive: false });
+
+  const resize = () => {
+    renderer.setSize(window.innerWidth, window.innerHeight, false);
+    camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+  };
+  window.addEventListener("resize", resize); resize();
+
+  // ---- animation: the house drifts in a slow loop, bobs, banks and wobbles ----
+  const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const clock = new T.Clock();
+  const target = new T.Vector3();
+  function frame() {
+    const t = reduce ? 0 : clock.getElapsedTime();
+    const r = 240, a = t * 0.12;
+    house.position.set(Math.cos(a) * r, 140 + Math.sin(t * 0.9) * 14, Math.sin(a) * r);
+    house.rotation.set(Math.sin(t * 0.7) * 0.05, -a + Math.PI / 2, Math.sin(t * 1.1) * 0.04);
+    flame.scale.set(1 + Math.sin(t * 9) * 0.06, 1 + Math.sin(t * 13) * 0.12, 1 + Math.cos(t * 9) * 0.06);
+    flameCore.scale.set(1 + Math.sin(t * 17) * 0.1, 1 + Math.sin(t * 21) * 0.2, 1);
+    thrust.intensity = 140 + Math.sin(t * 11) * 25;
+    lampGlow.intensity = 80 + Math.sin(t * 3) * 6;
+
+    // orbit the camera around the house, following it
+    const cx = house.position.x, cy = house.position.y, cz = house.position.z;
+    camera.position.set(cx + Math.cos(yaw) * Math.cos(pitch) * dist, cy + Math.sin(pitch) * dist + 40, cz + Math.sin(yaw) * Math.cos(pitch) * dist);
+    target.set(cx, cy + 30, cz);
+    camera.lookAt(target);
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  if (!reduce) { yaw = 0.6; }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

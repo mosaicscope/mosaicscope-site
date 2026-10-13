@@ -28,9 +28,9 @@ export interface SimConfig {
 
 export const DEFAULT_CONFIG: SimConfig = {
   seed: 20251012,
-  worldSize: 130,
-  midCount: 110,
-  backgroundCount: 300,
+  worldSize: 170,
+  midCount: 70,
+  backgroundCount: 150,
   eventsPerTick: 12,
   eventQueueCap: 256,
   maxCausalDepth: 5,

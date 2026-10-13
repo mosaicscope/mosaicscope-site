@@ -64,12 +64,16 @@ export class NightFX {
     // neon puddles: some road tiles hold a puddle that glows the player's mood colour while it rains
     const wet = sim.env.rain;
     if (wet > 0.12 && z > 0.6) {
+      // puddle budget follows the graphics quality setting
+      const maxPuddles = quality >= 3 ? 90 : quality === 2 ? 50 : 24;
+      let puddles = 0;
       for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
         if (tiles[ty * S + tx] !== T.ROAD) continue;
         const h = h2(tx, ty);
-        if (h > 0.2) continue;
+        if (h > 0.2 || puddles >= maxPuddles) continue;
         cam.toScreen(tx + 0.3 + h * 2.5, ty + 0.5, 0, this.pt);
         if (this.pt.x < -60 || this.pt.y < -30 || this.pt.x > W + 60 || this.pt.y > H + 30) continue;
+        puddles++;
         const shimmer = 0.75 + 0.25 * Math.sin(t * 2.2 + h * 40);
         const a = Math.min(0.5, wet * night * shimmer * 0.5);
         const rx = (16 + h * 70) * z, ry = rx * 0.4;
