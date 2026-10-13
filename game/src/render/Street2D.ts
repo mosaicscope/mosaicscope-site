@@ -92,7 +92,7 @@ export class StreetView {
   private nGlow = 0;
 
   /** Returns true when it drew; `dest` is the visible canvas context (already scaled to CSS px). */
-  draw(dest: CanvasRenderingContext2D, dpr: number, sim: Simulation, f: Character, W: number, H: number, zoom: number, dt: number, time: number, poseName: (c: Character, moving: boolean, spd: number) => string): void {
+  draw(dest: CanvasRenderingContext2D, dpr: number, sim: Simulation, f: Character, W: number, H: number, _zoom: number, dt: number, time: number, poseName: (c: Character, moving: boolean, spd: number) => string): void {
     // full device resolution (capped at 2x for phones): figures and houses are drawn sharp, not as a chunky pixel grid
     const res = Math.min(dpr, 2);
     const lw = Math.ceil(W * res), lh = Math.ceil(H * res);
