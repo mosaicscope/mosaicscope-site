@@ -1,6 +1,7 @@
 import type { Simulation } from "../sim/Simulation";
 import type { Camera } from "../render/Camera";
 import { Music } from "./Music";
+import { Diegetic, STREET, type Scene } from "./Diegetic";
 
 /**
  * Synthesised audio (no files to load): material-specific impact blips, whooshes, boings, rain and a
@@ -10,7 +11,6 @@ import { Music } from "./Music";
 export class AudioSystem {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
-  private rainGain: GainNode | null = null;
   private recent = 0;
   private recentT = 0;
   private beatAt = 0;
@@ -20,6 +20,14 @@ export class AudioSystem {
   private music: Music | null = null;
   /** the generative soundtrack; N toggles it, the sound setting still gates everything */
   musicOn = true;
+  /** Hunter's in-world sound layer: footsteps, cars, weather, doors, machines (own bus, own mute: J) */
+  private dg: Diegetic | null = null;
+  private sim: Simulation | null = null;
+  /** every effect connects here: the world-sound bus once audio is on */
+  private fx: AudioNode | null = null;
+  sfxOn = true; sfxVolume = 0.8;
+  /** where the player is (the game sets this each frame): street, 2D street view or inside a building */
+  scene: Scene = STREET;
 
   constructor(private getCam: () => Camera) {}
 
@@ -31,9 +39,21 @@ export class AudioSystem {
     if (this.enabled && this.musicOn) this.music.start(); else this.music.stop();
   }
 
+  /** Set the world-sound mute and volume (separate from the soundtrack and the master volume). */
+  setSfx(on: boolean, vol: number): void { this.sfxOn = on; this.sfxVolume = vol; this.dg?.setLevel(on, vol); }
+
+  /** Terrance's voice for the dialogue panel. */
+  speak(text: string): void { this.dg?.speak(text, this.getCam(), this.scene); }
+
   attach(sim: Simulation): void {
     this.unsub?.();
-    this.unsub = sim.bus.on("sound", (s) => this.play(s.kind, s.x, s.y, s.vol));
+    this.sim = sim;
+    this.dg?.attach(sim);
+    const offs = [
+      sim.bus.on("sound", (s) => { this.play(s.kind, s.x, s.y, s.vol); this.dg?.onSound(s.kind, s.x, s.y, s.vol, this.getCam(), this.scene); }),
+      sim.bus.on("say", (s) => { const c = sim.chars[s.id]; if (c?.role === "overcoder") this.dg?.speak(s.text, this.getCam(), this.scene, c); }),
+    ];
+    this.unsub = () => offs.forEach((f) => f());
   }
 
   setEnabled(on: boolean): void {
@@ -43,13 +63,10 @@ export class AudioSystem {
         const AC = window.AudioContext || (window as any).webkitAudioContext;
         this.ctx = new AC();
         this.master = this.ctx.createGain(); this.master.gain.value = this.volume; this.master.connect(this.ctx.destination);
-        // rain bed: filtered noise loop
-        const buf = this.ctx.createBuffer(1, this.ctx.sampleRate * 2, this.ctx.sampleRate);
-        const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-        const src = this.ctx.createBufferSource(); src.buffer = buf; src.loop = true;
-        const f = this.ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 1400;
-        this.rainGain = this.ctx.createGain(); this.rainGain.gain.value = 0;
-        src.connect(f); f.connect(this.rainGain); this.rainGain.connect(this.master); src.start();
+        const lite = typeof matchMedia === "function" && (matchMedia("(pointer: coarse)").matches || window.innerWidth < 520);
+        this.dg = new Diegetic(this.ctx, this.master, lite);
+        this.fx = this.dg.input; this.dg.setLevel(this.sfxOn, this.sfxVolume);
+        if (this.sim) this.dg.attach(this.sim);
         this.music = new Music(this.ctx, this.master);
         window.addEventListener("keydown", (e) => {
           const t = e.target as HTMLElement | null;
@@ -64,10 +81,10 @@ export class AudioSystem {
 
   setVolume(v: number): void { this.volume = v; if (this.master) this.master.gain.value = v; }
 
-  /** Per-frame ambience: rain level and the party beat near the stage. */
+  /** Per-frame ambience: the world's sounds, the soundtrack's mood and the party beat near the stage. */
   update(sim: Simulation): void {
-    if (!this.enabled || !this.ctx || !this.rainGain) return;
-    this.rainGain.gain.value = sim.env.rain * 0.08;
+    if (!this.enabled || !this.ctx || !this.dg) return;
+    this.dg.update(sim, this.getCam(), this.scene);
     if (this.music && this.musicOn) {
       const p = sim.player, hurt = 1 - Math.min(1, p.blood);
       this.music.setMood({
@@ -92,6 +109,7 @@ export class AudioSystem {
 
   private out(x: number, y: number, vol: number): { gain: GainNode; at: number } | null {
     if (!this.enabled || !this.ctx || !this.master) return null;
+    const dest = this.fx ?? this.master;
     const now = this.ctx.currentTime;
     if (now - this.recentT > 0.1) { this.recentT = now; this.recent = 0; }
     if (++this.recent > 8) return null; // rate limit
@@ -101,8 +119,8 @@ export class AudioSystem {
     if (att <= 0.01) return null;
     const gain = this.ctx.createGain(); gain.gain.value = vol * att;
     const pan = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
-    if (pan) { pan.pan.value = Math.max(-1, Math.min(1, ((x - y) - (cam.x - cam.y)) / 12)); gain.connect(pan); pan.connect(this.master); }
-    else gain.connect(this.master);
+    if (pan) { pan.pan.value = Math.max(-1, Math.min(1, ((x - y) - (cam.x - cam.y)) / 12)); gain.connect(pan); pan.connect(dest); }
+    else gain.connect(dest);
     return { gain, at: now };
   }
 
@@ -145,7 +163,7 @@ export class AudioSystem {
   private hat(vol: number): void { const o = this.outAt(vol); if (o) this.noise(o, 0.03, 7000); }
   private outAt(vol: number): { gain: GainNode; at: number } | null {
     if (!this.ctx || !this.master) return null;
-    const gain = this.ctx.createGain(); gain.gain.value = vol; gain.connect(this.master);
+    const gain = this.ctx.createGain(); gain.gain.value = vol; gain.connect(this.fx ?? this.master);
     return { gain, at: this.ctx.currentTime };
   }
 }

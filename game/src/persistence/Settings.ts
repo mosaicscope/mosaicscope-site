@@ -4,6 +4,8 @@ export interface Settings {
   quality: "auto" | "low" | "medium" | "high" | "ultra";
   volume: number;          // 0..1
   sound: boolean;
+  sfx: boolean;            // in-world sounds (footsteps, cars, weather...), separate from the music
+  sfxVolume: number;       // 0..1
   reducedMotion: boolean | null; // null = follow the OS setting
   textScale: number;       // 0.85..1.5
   gentle: boolean;         // softer toy impacts
@@ -19,7 +21,7 @@ export const DEFAULT_KEYS: Record<string, string> = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  quality: "auto", volume: 0.6, sound: true, fakeBlood: true, reducedMotion: null, textScale: 1, gentle: false, density: 260, showNames: true, tutorialDone: false, keys: { ...DEFAULT_KEYS },
+  quality: "auto", volume: 0.6, sound: true, sfx: true, sfxVolume: 0.8, fakeBlood: true, reducedMotion: null, textScale: 1, gentle: false, density: 260, showNames: true, tutorialDone: false, keys: { ...DEFAULT_KEYS },
 };
 
 /** Load settings defensively: any missing or wrong-typed field falls back to its default. */
@@ -32,6 +34,8 @@ export function loadSettings(store: StorageProvider): Settings {
     if (["auto", "low", "medium", "high", "ultra"].includes(d.quality)) s.quality = d.quality;
     if (typeof d.volume === "number" && d.volume >= 0 && d.volume <= 1) s.volume = d.volume;
     if (typeof d.sound === "boolean") s.sound = d.sound;
+    if (typeof d.sfx === "boolean") s.sfx = d.sfx;
+    if (typeof d.sfxVolume === "number" && d.sfxVolume >= 0 && d.sfxVolume <= 1) s.sfxVolume = d.sfxVolume;
     if (d.reducedMotion === null || typeof d.reducedMotion === "boolean") s.reducedMotion = d.reducedMotion;
     if (typeof d.textScale === "number" && d.textScale >= 0.85 && d.textScale <= 1.5) s.textScale = d.textScale;
     if (typeof d.gentle === "boolean") s.gentle = d.gentle;

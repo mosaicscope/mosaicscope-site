@@ -8,6 +8,8 @@ type Page = "hello" | "changes" | "drama";
 export class TerranceUI {
   el: HTMLElement;
   npc = -1;
+  /** Terrance mutters each page in his red-guy voice (audio hook) */
+  onSpeak?: (text: string) => void;
   constructor(private sim: () => Simulation) {
     this.el = h("section.panel.dialogue.hidden", { role: "dialog", "aria-label": "Terrance", "aria-live": "polite" });
   }
@@ -43,5 +45,6 @@ export class TerranceUI {
       h("button.x", { "aria-label": "End conversation", onclick: () => this.close(), text: "×" }),
       h("div.who", { text: `Terrance · updated ${feed.updated}` }), body, h("div.opts", null, opts));
     (opts[0] as HTMLElement).focus({ preventScroll: true });
+    this.onSpeak?.(page === "hello" ? "BOBONUT. I've read it one more time. Ask." : page === "changes" ? "Here is what changed. Read it twice." : feed.drama.length ? "There is drama. Do not look at me." : "No drama. I do not trust it.");
   }
 }

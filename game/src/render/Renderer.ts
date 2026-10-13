@@ -710,6 +710,8 @@ export class Renderer {
 
   private qualityNow: Quality = 1;
   private in2D = false;
+  /** true while the flat 2D street view is showing (audio uses a side-on mix) */
+  get street2D(): boolean { return this.in2D; }
   private fadeEl: HTMLCanvasElement | null = null;
   /** Freeze the last frame on top of the canvas and fade it out, so 3D <-> 2D dissolves instead of cutting. */
   private crossfade(): void {
