@@ -1,6 +1,7 @@
 import { Rng } from "../core/rng";
 import type { Face, Look, BodyKind, HatStyle, HairStyle } from "../entities/types";
 import { PALETTE } from "./cast";
+import { faceGeneKey, geneFromString } from "../render/FaceGenes";
 
 /**
  * Procedural appearance with guaranteed uniqueness: every person's combination of face, hair, hat
@@ -20,7 +21,7 @@ const OUTFITS = [...PALETTE, "#ff9a3d", "#b0641c", "#2d6b24", "#7a2bd6", "#1c6bd
 
 export const lookKey = (l: Look): string => {
   const f = l.face!;
-  return [l.kind, l.color, l.accent, l.hat, l.hair, f.eyes, f.brows, f.mouth, f.nose, f.facial, f.extra, f.head].join("|");
+  return [l.kind, l.color, l.accent, l.hat, l.hair, f.eyes, f.brows, f.mouth, f.nose, f.facial, f.extra, f.head, f.gene === undefined ? "" : faceGeneKey(f.gene)].join("|");
 };
 
 export function randomFace(rng: Rng, kind: BodyKind): Face {
@@ -44,6 +45,8 @@ export function uniqueLook(rng: Rng, kind: BodyKind, background: boolean, used: 
       face: randomFace(rng, kind),
       ...forced,
     };
+    // gene is derived from the rest of the look (no RNG draws, so every other stream stays as it was)
+    l.face = { ...l.face!, gene: geneFromString(lookKey(l) + "#" + used.size + "#" + i) };
     const k = lookKey(l);
     if (!used.has(k)) { used.add(k); return l; }
   }

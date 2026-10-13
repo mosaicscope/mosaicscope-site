@@ -198,6 +198,62 @@ export function doorKind(k: BuildingKind): DoorKind {
 }
 const SHOPS = new Set<BuildingKind>(["diner", "pizza", "sushi", "bakery", "cafe", "fishchips", "dairy", "toyshop", "sports", "pawn", "records", "barber", "gym", "bank", "gallery", "dealership", "studio"]);
 
+/**
+ * A tiny signature jingle for every shop type, so you can tell where you are with your eyes shut.
+ * `notes` are semitones above `root` (Hz); each note lasts `step` seconds on `wave`.
+ */
+export interface Jingle { wave: OscillatorType; root: number; notes: number[]; step: number }
+export const JINGLES: Partial<Record<BuildingKind, Jingle>> = {
+  diner: { wave: "triangle", root: 659, notes: [0, 4, 7, 4], step: 0.11 },        // cheerful counter ding
+  pizza: { wave: "square", root: 392, notes: [0, 7, 5, 12], step: 0.09 },          // bouncy
+  sushi: { wave: "sine", root: 880, notes: [0, 2, 7, 9], step: 0.14 },             // pentatonic chime
+  bakery: { wave: "sine", root: 784, notes: [0, 4, 7, 12, 7], step: 0.1 },         // warm music-box rise
+  cafe: { wave: "triangle", root: 523, notes: [0, 5, 4, 0], step: 0.13 },          // easy-going
+  fishchips: { wave: "square", root: 330, notes: [0, 0, 7, 5], step: 0.1 },        // seaside squeeze-box
+  dairy: { wave: "sine", root: 698, notes: [0, 7, 0], step: 0.15 },                // milk-float bell
+  toyshop: { wave: "square", root: 1046, notes: [0, 4, 8, 12, 16], step: 0.06 },   // wind-up toy climb
+  sports: { wave: "sawtooth", root: 392, notes: [0, 0, 7, 12], step: 0.08 },       // stadium fanfare
+  pawn: { wave: "triangle", root: 311, notes: [0, -3, 0, 5], step: 0.12 },         // wary shop-bell, slightly off
+  records: { wave: "sine", root: 440, notes: [0, 3, 7, 10, 14], step: 0.09 },      // jazzy seventh arpeggio
+  barber: { wave: "triangle", root: 587, notes: [0, 5, 9, 5], step: 0.1 },         // barbershop two-step
+  gym: { wave: "sawtooth", root: 196, notes: [0, 12, 0, 12], step: 0.07 },         // clanging plates
+  bank: { wave: "sine", root: 523, notes: [0, 7, 12], step: 0.2 },                 // dignified triad
+  gallery: { wave: "sine", root: 987, notes: [0, 6, 11], step: 0.22 },             // hushed, slightly strange
+  dealership: { wave: "square", root: 440, notes: [0, 5, 9, 14], step: 0.08 },     // used-car jingle
+  studio: { wave: "triangle", root: 466, notes: [0, 3, 5, 10], step: 0.12 },       // control-room sting
+};
+export const jingleFor = (k: BuildingKind): Jingle | null => JINGLES[k] ?? null;
+/** Frequencies of each note of a jingle. */
+export const jingleFreqs = (j: Jingle): number[] => j.notes.map((n) => j.root * Math.pow(2, n / 12));
+
+/** Puddles only splash when it is properly wet and the ground is hard. */
+export function puddleChance(surface: Surface, rain: number): number {
+  if (surface !== "pave" && surface !== "road" && surface !== "gravel") return 0;
+  return clamp01((rain - 0.3) * 1.6);
+}
+/** Gaps (s) after a first drip at which its echoes land, softer each time; a bigger drip echoes more. */
+export function dripEchoes(size: number): { at: number; vol: number }[] {
+  const n = size > 0.66 ? 3 : size > 0.33 ? 2 : 1;
+  return Array.from({ length: n }, (_, i) => ({ at: 0.16 * (i + 1) * (1 + i * 0.4), vol: Math.pow(0.5, i + 1) }));
+}
+/** Drips per second from awnings and gutters: nothing in the dry, steady once it is soaking. */
+export const dripRate = (rain: number): number => (rain < 0.12 ? 0 : 0.6 + rain * 3.2);
+
+/**
+ * The train: passes every `period` seconds and takes `length` to go by. Returns 0 when it is not
+ * running, else a swell that rises, holds and fades (0..1).
+ */
+export function trainSwell(t: number, period = 95, length = 16, offset = 31): number {
+  const x = (((t - offset) % period) + period) % period;
+  if (x >= length) return 0;
+  const u = x / length;
+  return Math.sin(Math.PI * Math.min(1, u * 1.15)) ** 0.7 * (u > 0.87 ? (1 - u) / 0.13 : 1);
+}
+/** Always faintly there when it runs, louder the nearer the station. */
+export const trainReach = (dist: number): number => 0.2 + 0.8 * clamp01(1 - dist / 42);
+/** Wheel clack rate (Hz) tracks the swell: slow rumble out of the station, quick at speed. */
+export const trainClack = (swell: number): number => 2 + swell * 6;
+
 /** What each interior sounds like underneath: chatter, a fridge, bass through the walls, machines. */
 export interface Room { crowd: number; fridge: boolean; bass: number; machine: number }
 export const ROOMS: Partial<Record<BuildingKind, Room>> = {
@@ -242,13 +298,13 @@ export class Diegetic {
   private on = true; private vol = 0.8;
 
   // beds
-  private rain!: Bed; private roof!: Bed; private wind!: Bed; private traffic!: Bed; private crowd!: Bed; private water!: Bed; private machine!: Bed; private sizzle!: Bed;
+  private rain!: Bed; private roof!: Bed; private wind!: Bed; private traffic!: Bed; private crowd!: Bed; private water!: Bed; private machine!: Bed; private sizzle!: Bed; private train!: Bed; private trainTick!: Bed; private trainLfo!: OscillatorNode;
   private fridge!: GainNode; private cricket!: GainNode; private cricketLfo!: OscillatorNode; private room!: GainNode;
   private thump!: GainNode; private thumpPan!: StereoPannerNode | null; private thumpFilter!: BiquadFilterNode;
   private engines: EngineVoice[] = []; private sirens: SirenVoice[] = [];
 
   // world emitters
-  private machines: Emitter[] = []; private clubs: Emitter[] = []; private fountains: Emitter[] = []; private trucks: Emitter[] = [];
+  private stations: Emitter[] = []; private machines: Emitter[] = []; private clubs: Emitter[] = []; private fountains: Emitter[] = []; private trucks: Emitter[] = [];
 
   // per-scan state
   private lastScan = 0; private lastTick = -1; private lastSlow = 0;
@@ -256,7 +312,7 @@ export class Diegetic {
   private foot = new Map<number, { x: number; y: number; acc: number; side: number }>();
   private veh = new Map<number, { x: number; y: number; speed: number; driver: number; pop: number }>();
   private inside = new Map<number, number>();
-  private nextBird = 0; private nextClank = 0; private nextBeat = 0; private beatN = 0; private nextHiss = 0;
+  private nextDrip = 0; private trainSwellPrev = 0; private nextBird = 0; private nextClank = 0; private nextBeat = 0; private beatN = 0; private nextHiss = 0;
   private lightning = -1; private interiorStep = 0; private leak = 0;
   private prevInterior: BuildingKind | null | undefined;
   private stop: (() => void)[] = [];
@@ -281,6 +337,7 @@ export class Diegetic {
   attach(sim: Simulation): void {
     this.sim = sim; this.foot.clear(); this.veh.clear(); this.inside.clear(); this.lastTick = -1; this.lightning = sim.env.lightningAt;
     const w = sim.world, door = (b: (typeof w.buildings)[number]): Emitter => ({ x: b.door.x + 0.5, y: b.door.y + 0.5, b: b.id });
+    this.stations = w.buildings.filter((b) => b.kind === "airport").map(door);
     this.machines = w.buildings.filter((b) => b.kind === "recycling").map(door);
     this.clubs = w.buildings.filter((b) => b.kind === "nightclub" || b.kind === "stripclub" || b.kind === "velvet").map(door);
     this.fountains = w.pois.filter((p) => p.kind === "fountain").map((p) => ({ x: p.x, y: p.y, b: p.id }));
@@ -338,6 +395,12 @@ export class Diegetic {
     this.lfo(1.9, 0.12, this.machine.gain.gain, "square");
     this.sizzle = this.bed(this.white, "highpass", 6200, 0.5, true);      // food-truck fry
     this.lfo(11, 0.04, this.sizzle.gain.gain);
+    this.train = this.bed(this.brown, "lowpass", 120, 0.8);               // distant train: rolling rumble
+    this.lfo(2.3, 0.04, this.train.gain.gain);
+    this.trainTick = this.bed(this.white, "bandpass", 1500, 1.2);         // wheel clack over the rail joints
+    const gate = this.ctx.createGain(); gate.gain.value = 0.5;             // square-wave gate: clack, clack
+    this.trainTick.filter.disconnect(); this.trainTick.filter.connect(gate); gate.connect(this.trainTick.gain);
+    this.trainLfo = this.lfo(4, 0.5, gate.gain, "square");
 
     // fridge hum: mains hum and its octave with a little buzz
     this.fridge = ctx.createGain(); this.fridge.gain.value = 0; this.fridge.connect(this.input);
@@ -513,20 +576,70 @@ export class Diegetic {
   }
 
   /** A footstep on a surface. wet: rain on hard ground adds a splashy edge. */
-  private step(o: Out | null, surface: Surface, wet: number, jitter: number): void {
+  private step(o: Out | null, surface: Surface, wet: number, jitter: number, rain = wet / 1.6): void {
     if (!o || !this.begin()) return;
     const r = FOOT[surface], [f, q, d, v, type] = r.noise, k = 1 + jitter;
     const n = this.hit(o, type, f * k * (1 + wet * 0.3), q, d * (1 + wet * 0.8), v * (1 + wet * 0.35));
     if (r.thud) this.blip(o, r.thud[4], r.thud[0] * k, r.thud[1] * k, r.thud[2], r.thud[3]);
     if (r.squeak && Math.random() < r.squeak) this.blip(o, "sine", 1100 + Math.random() * 300, 1700, 0.07, 0.07, 0.01);
-    this.end(n);
+    const parts: AudioScheduledSourceNode[] = [n];
+    if (Math.random() < puddleChance(surface, rain)) parts.push(this.splash(o));
+    this.end(...parts);
+  }
+
+  /** A foot (or tyre) through a puddle: a wet slap and a little "bloop". */
+  private splash(o: Out): AudioScheduledSourceNode {
+    const n = this.hit(o, "bandpass", 1800 + Math.random() * 900, 0.9, 0.16, 0.5);
+    this.hit(o, "highpass", 4500, 0.7, 0.07, 0.18, 0.02);
+    this.blip(o, "sine", 260 + Math.random() * 120, 520, 0.09, 0.16, 0.03);
+    return n;
+  }
+
+  /** Drips off awnings and gutters, each with a few echoes; only outdoors and only in rain. */
+  private drips(cam: Camera, scene: Scene, rain: number, now: number): void {
+    const rate = dripRate(rain);
+    if (scene.interior || rate <= 0 || now < this.nextDrip) return;
+    this.nextDrip = now + (0.5 + Math.random()) / rate;
+    const a = Math.random() * 6.283, r = 2 + Math.random() * 9;
+    const o = this.route(cam.x + Math.cos(a) * r, cam.y + Math.sin(a) * r, 0.3, cam, scene.in2D);
+    if (!o || !this.begin()) return;
+    const size = Math.random(), f = 1500 + Math.random() * 900, parts: AudioScheduledSourceNode[] = [this.blip(o, "sine", f, f * 0.5, 0.07, 0.4)];
+    for (const e of dripEchoes(size)) parts.push(this.blip(o, "sine", f * (0.9 - e.at * 0.2), f * 0.45, 0.08, 0.4 * e.vol, e.at));
+    this.end(...parts);
+  }
+
+  /** A far-off train: low rumble and wheel clack that swell as it passes, louder near the station. */
+  private trains(cam: Camera, scene: Scene, now: number): void {
+    const swell = trainSwell(now), t = now;
+    let d = 99;
+    for (const s of this.stations) d = Math.min(d, Math.hypot(s.x - cam.x, s.y - cam.y));
+    const k = swell * trainReach(d) * (scene.interior ? 0.3 : 1);
+    this.train.gain.gain.setTargetAtTime(k * 0.22, t, 0.5);
+    this.train.filter.frequency.setTargetAtTime(110 + swell * 90, t, 0.5);
+    this.trainTick.gain.gain.setTargetAtTime(k * 0.05, t, 0.3);
+    this.trainLfo.frequency.setTargetAtTime(trainClack(swell), t, 0.5);
+    // a long horn as it arrives at the station, if you are near enough to hear it
+    const arriving = swell > 0.2 && this.trainSwellPrev <= 0.2;
+    this.trainSwellPrev = swell;
+    if (arriving && d < 55 && !scene.interior) {
+      const o = this.flat(0.14 * trainReach(d));
+      if (this.begin()) this.end(this.blip(o, "sawtooth", 233, 233, 1.1, 0.5), this.blip(o, "sawtooth", 311, 311, 1.1, 0.4));
+    }
   }
 
   // ---- doors
-  private door(o: Out | null, kind: DoorKind, opening: boolean): void {
+  private door(o: Out | null, kind: DoorKind, opening: boolean, shop?: BuildingKind): void {
     if (!o || !this.begin()) return;
     const parts: AudioScheduledSourceNode[] = [];
-    if (kind === "bell") { parts.push(this.blip(o, "sine", 2637, 2637, 0.6, 0.2), this.blip(o, "sine", 3520, 3500, 0.5, 0.14, 0.09)); this.hit(o, "bandpass", 900, 1, 0.05, 0.25); }
+    const jg = kind === "bell" && shop ? jingleFor(shop) : null;
+    if (jg) {
+      jingleFreqs(jg).forEach((f, i) => {
+        parts.push(this.blip(o, jg.wave, f, f, jg.step * 1.6, jg.wave === "sine" ? 0.22 : 0.12, i * jg.step));
+        if (jg.wave !== "sine") this.blip(o, "sine", f * 2, f * 2, jg.step, 0.05, i * jg.step);
+      });
+      this.hit(o, "bandpass", 900, 1, 0.05, 0.25);
+    }
+    else if (kind === "bell") { parts.push(this.blip(o, "sine", 2637, 2637, 0.6, 0.2), this.blip(o, "sine", 3520, 3500, 0.5, 0.14, 0.09)); this.hit(o, "bandpass", 900, 1, 0.05, 0.25); }
     else if (kind === "heavy") { parts.push(this.hit(o, "lowpass", 500, 0.8, 0.25, 0.6, 0, this.brown)); this.blip(o, "triangle", 100, 45, 0.2, 0.6); if (!opening) this.blip(o, "square", 700, 500, 0.03, 0.2, 0.2); }
     else { parts.push(this.hit(o, "bandpass", 700, 1, 0.08, 0.5), this.blip(o, "triangle", 190, 110, 0.07, 0.4), this.blip(o, "square", 1500, 900, 0.02, 0.15, opening ? 0.07 : 0.0)); }
     this.end(...parts);
@@ -555,7 +668,7 @@ export class Diegetic {
   private sceneChange(from: BuildingKind | null, to: BuildingKind | null): void {
     const k = to ?? from;
     if (!k) return;
-    this.door(this.flat(0.5), doorKind(k), to !== null);
+    this.door(this.flat(0.5), doorKind(k), to !== null, k);
     if (to && roomFor(to).bass > 0) this.leak = 1;
   }
 
@@ -601,6 +714,8 @@ export class Diegetic {
 
     this.thunder(sim, scene);
     this.birds(cam, scene, hour, rain, now);
+    this.drips(cam, scene, rain, now);
+    this.trains(cam, scene, now);
     this.emitters(sim, cam, scene, now);
   }
 
@@ -706,7 +821,7 @@ export class Diegetic {
       const was = this.inside.get(c.id);
       if (was !== undefined && was !== c.inside && c.id !== pid) {
         const b = w.buildings[c.inside >= 0 ? c.inside : was];
-        if (b && Math.hypot(b.door.x + 0.5 - cam.x, b.door.y + 0.5 - cam.y) < 26) this.door(this.route(b.door.x + 0.5, b.door.y + 0.5, 0.5, cam, scene.in2D), doorKind(b.kind), c.inside >= 0);
+        if (b && Math.hypot(b.door.x + 0.5 - cam.x, b.door.y + 0.5 - cam.y) < 26) this.door(this.route(b.door.x + 0.5, b.door.y + 0.5, 0.5, cam, scene.in2D), doorKind(b.kind), c.inside >= 0, b.kind);
       }
       if (Math.abs(dx) < 30 && Math.abs(dy) < 30) this.inside.set(c.id, c.inside); else this.inside.delete(c.id);
       if (c.inside >= 0 || c.inCar >= 0 || scene.interior) { this.foot.delete(c.id); continue; }

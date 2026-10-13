@@ -25,9 +25,11 @@ Code: `src/audio/Diegetic.ts` (pure planning functions at the top, Web Audio bel
 | Rain, wind, thunder | `sim.env` (rain level, weather, `lightningAt`) |
 | Birds, crickets | hour, rain and greenery around the camera |
 | Traffic and crowd beds | cars and people near the camera, scaled by the hour |
-| Shop bells, door latches | characters entering or leaving buildings, and you opening an interior |
+| Shop jingles (`JINGLES`, one per shop kind), door latches | characters entering or leaving buildings, and you opening an interior |
 | Depot machinery, fountains, food truck, club bass | fixed emitters found once per world in `attach()` |
 | Inside | `ROOMS` table: crowd chatter, fridge hum, bass, machinery per building kind |
+| Puddle splashes, drip echoes | hard ground and `sim.env.rain` above ~0.3 (`puddleChance`, `dripRate`, `dripEchoes`) |
+| Distant train | `trainSwell()` schedule on audio time; loudest near an `airport` door (`trainReach`), horn on arrival; no station building exists yet |
 | Terrance | his `say` lines and his dialogue panel, `voiceBlips()` |
 
 ## Adding a sound

@@ -18,6 +18,8 @@ export interface Face {
   facial: "none" | "mustache" | "goatee" | "beard" | "stubble" | "soulpatch";
   extra: "none" | "freckles" | "earrings" | "nosering" | "blush" | "tattoo" | "scar" | "mole";
   head: "round" | "oval" | "wide";
+  /** Face-gene seed (see render/FaceGenes.ts): layered procedural details. Absent on old saves. */
+  gene?: number;
 }
 export interface Look {
   kind: BodyKind;

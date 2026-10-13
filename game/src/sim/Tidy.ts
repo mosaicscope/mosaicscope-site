@@ -54,7 +54,7 @@ export class TidyState {
     this.streak = sim.tick - this.last > STREAK_WINDOW ? 1 : this.streak + 1;
     this.last = sim.tick;
     if (this.streak > this.best) this.best = this.streak;
-    if (this.streak % 5 === 0) sparkle(sim, c.x, c.y, this.streak % 10 === 0 ? 2 : 1);
+    if (this.streak % 10 === 0) sparkle(sim, c.x, c.y, 1); // every 10th, so it stays rare next to the per-5 pickup spark
     return this.streak;
   }
 
@@ -62,12 +62,12 @@ export class TidyState {
   get trinketCount(): number { let n = 0; for (const k in this.trinkets) n += this.trinkets[k]; return n; }
 }
 
-/** A little sparkle and a soft ding: a flash, a burst of stars, then two rising notes (see Audio "ding"). */
+/** A little sparkle and a very soft ding: a flash, a burst of stars, then two rising notes (see Audio "ding"). */
 export function sparkle(sim: Simulation, x: number, y: number, size: 1 | 2 = 1): void {
   sim.bus.emit("fx", { kind: "flash", x, y, z: 1.2, n: 1 });
   sim.bus.emit("fx", { kind: "star", x, y, z: 1.4, n: size === 2 ? 9 : 4 });
   if (size === 2) sim.bus.emit("fx", { kind: "confetti", x, y, z: 1.6, n: 10 });
-  sim.bus.emit("sound", { kind: "ding", x, y, vol: size === 2 ? 0.7 : 0.45 });
+  sim.bus.emit("sound", { kind: "ding", x, y, vol: size === 2 ? 0.3 : 0.18 });
 }
 
 /* ------------------------------------------------------------- compost */

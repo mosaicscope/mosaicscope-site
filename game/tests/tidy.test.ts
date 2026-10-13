@@ -6,20 +6,20 @@ import { TRINKETS, ART_COST, verdictFor } from "../src/content/reuse";
 import { serialize, restore, parseSave, toJSON } from "../src/persistence/SaveSystem";
 
 describe("tidy-up streak, reuse stall and compost", () => {
-  it("grows a streak with each tidy action, resets after a pause, and sparkles every fifth", () => {
+  it("grows a streak with each tidy action, resets after a pause, and sparkles every tenth", () => {
     const sim = small(3), p = sim.player, fx: string[] = [], snd: string[] = [];
     sim.bus.on("fx", (f) => fx.push(f.kind)); sim.bus.on("sound", (s) => snd.push(s.kind));
-    const cans = sim.litter.pieces.filter((l) => l.kind === "can").slice(0, 6);
-    for (let i = 0; i < 4; i++) collectPiece(sim, p, cans[i]);
-    expect(sim.tidy.streak).toBe(4);
+    const cans = sim.litter.pieces.filter((l) => l.kind === "can").slice(0, 11);
+    for (let i = 0; i < 9; i++) collectPiece(sim, p, cans[i]);
+    expect(sim.tidy.streak).toBe(9);
     expect(snd).not.toContain("ding");
-    collectPiece(sim, p, cans[4]);
-    expect(sim.tidy.streak).toBe(5);
+    collectPiece(sim, p, cans[9]);
+    expect(sim.tidy.streak).toBe(10);
     expect(snd).toContain("ding"); expect(fx).toContain("star");
     sim.tick += STREAK_WINDOW + 1;
-    collectPiece(sim, p, cans[5]);
+    collectPiece(sim, p, cans[10]);
     expect(sim.tidy.streak).toBe(1);
-    expect(sim.tidy.best).toBe(5);
+    expect(sim.tidy.best).toBe(10);
   });
 
   it("brightens windows where litter is gone", () => {

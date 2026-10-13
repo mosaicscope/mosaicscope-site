@@ -63,3 +63,10 @@ First pass, in character: "Nightlife is a shouting match: wrong scale, 11 notes 
 
 ## Routine
 "HQ Lil Wooski: composer" runs twice a day just before a Christa gate: read the inbox and `inspo.json`, deepen one scene or motif, keep it original and mobile-friendly, run `cd game && npx tsc --noEmit -p . && npx vitest run && npm run build`, open a PR on `lilwooski/YYYY-MM-DD`, never merge.
+## Mood layers (Moods.ts, Busker.ts)
+Small chill add-ons on top of the scene score, all pure logic in `Moods.ts` and unit-tested.
+- **Dream mode:** after about 90s of steady walking the music slows (up to 14%), darkens and the pad detunes; the canvas colours drift a few degrees of hue. Full at 240s. Stopping drains it 3x faster. Off with reduce-motion for the colours.
+- **Rain on glass:** rain adds vinyl crackle everywhere, and a soft lowpassed rain-on-window bed when you are indoors.
+- **3am layer:** from about 1am to 5am, if you are not in danger and the street is quiet, the music thins and a hushed root-and-fifth tone fades in.
+- **Busker:** the existing busker characters now play a tiny plucked tune, panned and faded by distance (14 tiles). It follows the day: sunny pentatonic in the morning, easy major in the afternoon, gentle minor in the evening, slow and sparse late; softer and slower in rain. Silent indoors.
+Everything respects N (mute) and only changes audio and the canvas colour filter, never the simulation.
