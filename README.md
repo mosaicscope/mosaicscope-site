@@ -20,6 +20,20 @@ A crew lives in the black strip at the very bottom: **Tiles** (main guy), **Glit
 
 **Stats:** https://mosaicscope.pages.dev/api/egg shows visitors who found them, time watched, clicks, music plays, photoshoots, cash throws, boombox clicks, biggest crew and highest level (last 30 days).
 
+## 🤖 Your website bot team
+
+Five helpers live in `.claude/agents/`. In Claude Code, just say what you want (e.g. "have the website team add a gear section") and Claude hands the work to the right one.
+
+| Bot | Does |
+|---|---|
+| **site-builder** | New sections, features and bug fixes |
+| **site-designer** | Look and feel: layout, colours, type, phone layout |
+| **site-copywriter** | Words, rates, FAQ, Google titles and descriptions |
+| **site-backend** | Contact form, Instagram, YouTube, stats, offline mode |
+| **site-qa** | Tests the site on phone and desktop sizes and reports anything broken |
+
+They only work on the main site, never the world game (that has its own team).
+
 ## 🔧 Things you can fill in whenever
 
 - **Raw vs edited slider**: Pages CMS → *Raw vs edited* → upload a raw shot + your Lightroom version. The section appears by itself.
