@@ -223,6 +223,34 @@ export class AudioSystem {
     else if (kind === "kick") this.tone(o, "sine", 150, 80, 0.08);
   }
 
+  /** Gilbert: soft sine voice that swells in, then rings out. `swell` = attack seconds. */
+  private bell(at: number, freq: number, peak: number, swell: number, ring: number): void {
+    const ctx = this.ctx!, env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, at);
+    env.gain.exponentialRampToValueAtTime(peak, at + swell);
+    env.gain.exponentialRampToValueAtTime(0.0001, at + swell + ring);
+    env.connect(this.master!);
+    for (const [mult, lvl] of [[1, 1], [2, 0.18]] as const) {
+      const osc = ctx.createOscillator(), g = ctx.createGain();
+      osc.type = "sine"; osc.frequency.value = freq * mult; g.gain.value = lvl;
+      osc.connect(g); g.connect(env); osc.start(at); osc.stop(at + swell + ring + 0.05);
+    }
+  }
+
+  /** Golden minute: G5 then D6 (a fifth up), each swelling in 0.9 s and ringing 1.6 s, 0.4 s apart. Peak 0.12 of master. */
+  goldenChime(): void {
+    if (!this.enabled || !this.ctx || !this.master) return;
+    const t = this.ctx.currentTime + 0.02;
+    this.bell(t, 783.99, 0.12, 0.9, 1.6); this.bell(t + 0.4, 1174.66, 0.12, 0.9, 1.6);
+  }
+
+  /** Streak gift: D5 F#5 A5 D6, 130 ms apart, each swelling in 40 ms and ringing 0.9 s. Peak 0.14 of master. */
+  streakChime(): void {
+    if (!this.enabled || !this.ctx || !this.master) return;
+    const t = this.ctx.currentTime + 0.02;
+    [587.33, 739.99, 880, 1174.66].forEach((f, i) => this.bell(t + i * 0.13, f, 0.14, 0.04, 0.9));
+  }
+
   private kick(vol: number): void { const o = this.outAt(vol); if (o) this.tone(o, "sine", 120, 40, 0.18); }
   private hat(vol: number): void { const o = this.outAt(vol); if (o) this.noise(o, 0.03, 7000); }
   private outAt(vol: number): { gain: GainNode; at: number } | null {

@@ -352,3 +352,9 @@ body { overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
 /* a game, not a document: no text selection, no iOS copy/paste callout, no tap flash (inputs stay editable) */
 html, body, #ui, #ui *:not(input):not(textarea):not([contenteditable]) { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 input, textarea { -webkit-user-select: text; user-select: text; }
+
+/* Gilbert: golden minute wash and play-streak glow */
+.golden { position: absolute; inset: 0; pointer-events: none !important; z-index: 2; opacity: 0; background: radial-gradient(ellipse at 50% 40%, rgba(255,196,92,.55) 0%, rgba(255,140,50,.28) 55%, rgba(120,40,20,.35) 100%); mix-blend-mode: soft-light; }
+.clock.streaking { text-shadow: 0 0 calc(var(--streak) * 10px) rgba(255,190,70,calc(var(--streak) * .9)); }
+.clock.streaking b { color: color-mix(in srgb, var(--paper) calc(100% - var(--streak) * 45%), #ffc95a); }
+.toast.gold { background: #ffc95a; color: var(--ink); }
