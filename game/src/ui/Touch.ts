@@ -93,6 +93,18 @@ export class TouchControls {
       this.stickDown(e);
     }, { capture: true });
     window.addEventListener("pointermove", (e) => this.stickMove(e), { capture: true, passive: false });
+    // Safari fallback: raw touch events drive the same stick, in case Safari drops the pointer events mid-drag
+    const asPointer = (t: Touch, target: EventTarget | null): PointerEvent => ({ pointerId: 9000 + t.identifier, clientX: t.clientX, clientY: t.clientY, target, preventDefault: () => {}, stopPropagation: () => {} }) as unknown as PointerEvent;
+    window.addEventListener("touchstart", (e) => {
+      if (this.stickId >= 0 || e.touches.length === 0) return;
+      const t = e.changedTouches[0]; if (!t || t.clientX > innerWidth * 0.5) return;
+      const target = e.target; if (!(target instanceof Element) || target.closest("button, .tc-btn, .tc-sheet, .tc-cluster")) return;
+      if (this.el.classList.contains("hidden") || !this.el.classList.contains("on")) return;
+      this.stickDown(asPointer(t, target));
+    }, { capture: true, passive: true });
+    window.addEventListener("touchmove", (e) => { const t = [...e.changedTouches].find((x) => x.identifier + 9000 === this.stickId); if (t) this.stickMove(asPointer(t, e.target)); }, { capture: true, passive: true });
+    window.addEventListener("touchend", (e) => { if ([...e.changedTouches].some((x) => x.identifier + 9000 === this.stickId)) this.stickUp(); }, { capture: true, passive: true });
+    window.addEventListener("touchcancel", (e) => { if ([...e.changedTouches].some((x) => x.identifier + 9000 === this.stickId)) this.stickUp(); }, { capture: true, passive: true });
     for (const t of ["pointerup", "pointercancel"] as const) window.addEventListener(t, (e) => { if (e.pointerId === this.stickId) this.stickUp(); }, { capture: true });
 
     // ---- right cluster
