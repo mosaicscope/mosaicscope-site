@@ -96,7 +96,7 @@ export class StreetView {
     const rain = sim.env.raining, off = pu * S;
     this.nGlow = 0;
     this.backdrop(g, sim, W, pu, pv, S, ground, day, time);
-    this.facades(g, W, H, off, ground, day, night);
+    this.facades(g, W, H, off, ground, day);
     this.street(g, W, H, off, ground, night, rain);
     // dusk settles over the set; the lamps and lit windows then burn through it
     if (night > 0.05) { g.fillStyle = `rgba(14,10,36,${0.55 * night})`; g.fillRect(0, 0, W, H); }
@@ -164,7 +164,8 @@ export class StreetView {
   // ---- sky, far skyline, telegraph poles and wires
   private backdrop(g: CanvasRenderingContext2D, sim: Simulation, W: number, pu: number, pv: number, S: number, ground: number, day: number, time: number): void {
     const sky = g.createLinearGradient(0, 0, 0, ground);
-    if (day > 0.6) { sky.addColorStop(0, "#4a5f8a"); sky.addColorStop(1, "#d6a27c"); }
+    if (day > 0.85) { sky.addColorStop(0, "#5d7fb0"); sky.addColorStop(1, "#c9d0da"); }
+    else if (day > 0.6) { sky.addColorStop(0, "#4a5f8a"); sky.addColorStop(1, "#d6a27c"); }
     else if (day > 0.2) { sky.addColorStop(0, NOIR.skyTop); sky.addColorStop(0.7, NOIR.skyLow); sky.addColorStop(1, NOIR.skyDusk); }
     else { sky.addColorStop(0, "#0c0b1c"); sky.addColorStop(1, "#2e2848"); }
     g.fillStyle = sky; g.fillRect(0, 0, W, ground);
@@ -189,11 +190,17 @@ export class StreetView {
       g.fillStyle = INK; g.fillRect(x - 3, ty, 6, ground - ty); g.fillRect(x - 22, ty + 6, 44, 4);
       g.beginPath(); g.moveTo(x - 20, ty + 8); g.quadraticCurveTo(x + sp / 2, ty + 42 + Math.sin(time * 0.5 + i) * 1.5, x - 20 + sp, ty + 8); g.stroke();
     }
+    // pixel cloud streaks drifting slowly, tinted by the hour
+    const cl = day > 0.6 ? "255,230,210" : day > 0.2 ? "230,150,140" : "120,110,170";
+    for (let i = 0; i < 6; i++) {
+      const cx = (((hash(i + 40) * W * 1.5 + pu * S * 0.02 - time * (2 + hash(i) * 3)) % (W + 360)) + W + 360) % (W + 360) - 180, cy = ground * (0.08 + hash(i + 70) * 0.34), cw = 120 + hash(i + 9) * 160;
+      g.fillStyle = `rgba(${cl},${day > 0.2 ? 0.3 : 0.12})`; g.fillRect(cx, cy, cw, 8); g.fillRect(cx + cw * 0.15, cy - 6, cw * 0.55, 6); g.fillRect(cx + cw * 0.3, cy + 8, cw * 0.6, 5);
+    }
     this.band(g, 0, ground * 0.55, W, ground * 0.45, 0.14);
   }
 
   /** The long street wall: tenements, shopfronts, a stone bank, alley mouths with fire escapes. */
-  private facades(g: CanvasRenderingContext2D, W: number, H: number, off: number, ground: number, day: number, night: number): void {
+  private facades(g: CanvasRenderingContext2D, W: number, H: number, off: number, ground: number, day: number): void {
     const SEG = 280, i0 = Math.floor(off / SEG) - 1, n = Math.ceil(W / SEG) + 3;
     const wallH = H * 0.54, dim = day > 0.4 ? 1 : 0.85;
     for (let i = i0; i < i0 + n; i++) {
@@ -214,7 +221,7 @@ export class StreetView {
       for (let fl = 0; fl < floors; fl++) {
         for (let w = 0; w < 3; w++) {
           const wx = x + 30 + w * 80, wy = top + 16 + fl * fh, ww = 34, wh = Math.min(fh - 22, 54);
-          this.window(g, wx, wy, ww, wh, hash(i * 11 + fl * 3 + w), night);
+          this.window(g, wx, wy, ww, wh, hash(i * 11 + fl * 3 + w), day);
         }
       }
       const dy = ground - H * 0.17;                                   // ground floor
@@ -228,14 +235,15 @@ export class StreetView {
     g.fillStyle = INK; g.fillRect(0, ground - 3, W, 5);
   }
 
-  private window(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number, night: number): void {
+  private window(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number, day: number): void {
     box(g, x - 3, y - 6, w + 6, 5, NOIR.sill, 1.5);                                 // lintel
-    box(g, x, y, w, h, r < 0.4 ? NOIR.glassLit : NOIR.glassDark, 1.5);
-    if (r < 0.4) { this.lit(x, y, w, h); g.fillStyle = "rgba(60,20,20,.35)"; g.fillRect(x, y, 6, h); g.fillRect(x + w - 6, y, 6, h); if (r < 0.15) { g.fillStyle = INK; g.fillRect(x + w / 2 - 3, y + h * 0.4, 6, h * 0.6); g.fillRect(x + w / 2 - 2, y + h * 0.28, 4, 4); } }  // curtains, a figure behind the glass
+    const on = r < 0.4, noon = day > 0.5;
+    box(g, x, y, w, h, on ? (noon ? "#a89a88" : NOIR.glassLit) : NOIR.glassDark, 1.5);
+    if (on) { if (!noon) this.lit(x, y, w, h); g.fillStyle = "rgba(60,20,20,.35)"; g.fillRect(x, y, 6, h); g.fillRect(x + w - 6, y, 6, h); if (r < 0.15) { g.fillStyle = INK; g.fillRect(x + w / 2 - 3, y + h * 0.4, 6, h * 0.6); g.fillRect(x + w / 2 - 2, y + h * 0.28, 4, 4); } }  // curtains, a figure behind the glass
     else { g.fillStyle = "rgba(160,170,220,.18)"; g.beginPath(); g.moveTo(x + 4, y + h - 4); g.lineTo(x + w * 0.5, y + 4); g.lineTo(x + w * 0.7, y + 4); g.lineTo(x + 12, y + h - 4); g.fill(); if (r > 0.88) { g.fillStyle = "#6a4a2c"; g.fillRect(x, y + 6, w, 6); g.fillRect(x, y + h * 0.55, w, 6); } }
     g.fillStyle = INK; g.fillRect(x + w / 2 - 1, y, 2, h); g.fillRect(x, y + h * 0.45, w, 2);   // mullions
     box(g, x - 3, y + h + 1, w + 6, 4, NOIR.sill, 1.2);                              // sill
-    void night;
+    g.fillStyle = "rgba(10,6,20,.45)"; g.fillRect(x, y, w, 3);                      // reveal shadow under the lintel
   }
 
   private entry(g: CanvasRenderingContext2D, x: number, dy: number, ground: number, i: number, col: string): void {
@@ -258,7 +266,7 @@ export class StreetView {
     for (let q = 0; q < 2; q++) { box(g, g2[q], dy + 8, SEG / 2 - 44, dh - 16, hash(i + q) < 0.75 ? NOIR.glassLit : NOIR.glassDark, 1.5); this.lit(g2[q], dy + 8, SEG / 2 - 44, dh - 16); g.fillStyle = INK; g.fillRect(g2[q] + 8, dy + dh - 34, 30, 22); g.fillRect(g2[q] + 50, dy + dh - 44, 22, 32); }  // shelves and stock in silhouette
     box(g, x + SEG / 2 - 22, dy + 10, 44, dh - 10, "#3a2a1e", 1.5); g.fillStyle = NOIR.glassLit; g.fillRect(x + SEG / 2 - 16, dy + 14, 32, 14);   // door
     for (let s = 0; s < 10; s++) { g.fillStyle = s % 2 ? NOIR.sill : aw; g.fillRect(x + 6 + s * ((SEG - 12) / 10), dy - 2, (SEG - 12) / 10 + 1, 14); } // striped awning
-    g.fillStyle = INK; g.fillRect(x + 6, dy + 12, SEG - 12, 2); this.band(g, x + 6, dy + 14, SEG - 12, 6, 0.3);
+    g.fillStyle = INK; g.fillRect(x + 6, dy + 12, SEG - 12, 2);
     void col;
   }
 
@@ -267,6 +275,9 @@ export class StreetView {
     g.fillStyle = "#0e0c1c"; g.fillRect(x + 20, ground - 90, SEG - 40, 90);
     this.band(g, x + 20, top + 10, SEG - 40, ground - top - 10, 0.12);
     g.fillStyle = "rgba(255,70,60,.9)"; if (hash(i * 3) < 0.5) { g.fillRect(x + 120, ground - 60, 3, 3); g.fillRect(x + 134, ground - 60, 3, 3); }   // eyes in the dark
+    const wy = top + (ground - top) * 0.3;                                                    // the back of the next street: a lit window, a ladder, bins
+    box(g, x + 150, wy, 30, 40, hash(i) < 0.6 ? NOIR.glassLit : NOIR.glassDark, 1.5); if (hash(i) < 0.6) this.lit(x + 150, wy, 30, 40);
+    g.fillStyle = "#2a2440"; g.fillRect(x + 110, ground - 70, 24, 70); g.fillRect(x + 200, ground - 46, 28, 46);
     this.fireEscape(g, x + 30, top + 20, ground - top - 40);
   }
 
@@ -281,7 +292,6 @@ export class StreetView {
     const padH = H * 0.1, roadY = ground + padH;
     g.fillStyle = NOIR.pave; g.fillRect(0, ground, W, padH);
     g.fillStyle = NOIR.paveJoint; for (let x = -(off % 90) - 90; x < W; x += 90) g.fillRect(x, ground, 2, padH);
-    this.band(g, 0, ground, W, padH * 0.25, 0.3);
     box(g, 0, roadY - 6, W, 6, NOIR.kerb, 1.5);
     g.fillStyle = NOIR.road; g.fillRect(0, roadY, W, H - roadY);
     g.fillStyle = NOIR.roadFar; g.fillRect(0, roadY, W, (H - roadY) * 0.25); this.band(g, 0, roadY + (H - roadY) * 0.25, W, 12, 0.3);
@@ -292,16 +302,21 @@ export class StreetView {
       const x = i * SEG - off + W / 2, h = hash(i * 13 + 5), h2 = hash(i * 29 + 1);
       if (x < -260 || x > W + 260) continue;
       if (h < 0.18 || rain) { g.fillStyle = NOIR.puddle; g.globalAlpha = 0.6; g.beginPath(); g.ellipse(x + h2 * 120, ly + 34 + h2 * 30, 36 + h * 80, 5 + h2 * 4, 0, 0, 6.283); g.fill(); g.globalAlpha = 1; }
-      if (h < 0.34) this.parked(g, x + 40, roadY + (H - roadY) * 0.34, pickOf(NOIR.cars, i * 5), h2 < 0.5 ? 1 : -1);
+      g.fillStyle = "rgba(10,6,20,.5)"; g.fillRect(x + 20 + h2 * 100, ly + 22 + h * 40, 40 + h * 60, 2); g.fillRect(x + 70 + h * 80, ly + 25 + h2 * 40, 24, 2);   // cracks
+      if (h2 > 0.55) { g.fillStyle = "#171424"; g.beginPath(); g.ellipse(x + 160, ly + 46, 20, 5, 0, 0, 6.283); g.fill(); g.fillStyle = "#3a3450"; g.fillRect(x + 142, ly + 45, 36, 1); }   // manhole
+      if (h < 0.34) this.parked(g, x + 40, roadY + (H - roadY) * 0.34, pickOf(NOIR.cars, i * 5), h2 < 0.5 ? 1 : -1, night);
       if (h2 < 0.28) this.mailbox(g, x + 220, ground + padH * 0.8);
       else if (h2 < 0.5) this.bin(g, x + 200, ground + padH * 0.8, i);
       if (hash(i * 3 + 8) < 0.3) this.bench(g, x + 120, ground + padH * 0.7);
     }
-    void night;
+    if (night > 0.3) {                                                                          // lamp light on the wet road
+      const LS = 420, j0 = Math.floor(off / LS) - 1;
+      for (let j = j0; j < j0 + Math.ceil(W / LS) + 3; j++) { const lx = j * LS - off + W / 2 + 140; for (let q = 0; q < 7; q++) { g.fillStyle = `rgba(255,200,120,${(0.28 - q * 0.035) * night})`; g.fillRect(lx - 7 + (q % 2) * 3, roadY + 10 + q * 22, 14 - q, 8); } }
+    }
   }
 
   /** A parked 1930s-style sedan, side-on: long bonnet, rounded cabin, fenders, white-wall wheels. Original shapes. */
-  private parked(g: CanvasRenderingContext2D, x: number, y: number, col: string, dir: number): void {
+  private parked(g: CanvasRenderingContext2D, x: number, y: number, col: string, dir: number, night: number): void {
     g.save(); g.translate(x + 95, y); g.scale(dir, 1); g.translate(-95, 0);
     const dark = shade(col, 0.6), lite = shade(col, 1.5);
     g.fillStyle = "rgba(8,6,18,.5)"; g.beginPath(); g.ellipse(95, 4, 100, 7, 0, 0, 6.283); g.fill();
@@ -312,6 +327,7 @@ export class StreetView {
     g.fillStyle = dark; g.fillRect(0, -30, 201, 7);                                             // lower sill
     g.fillStyle = NOIR.glassDark; for (const [a, b] of [[62, 92], [98, 124]]) { g.beginPath(); g.moveTo(a, -48); g.quadraticCurveTo(a + 4, -74, a + 14, -75); g.lineTo(b, -75); g.lineTo(b + 2, -48); g.closePath(); g.fill(); }
     g.fillStyle = "rgba(170,180,230,.3)"; g.fillRect(68, -70, 8, 18); g.fillRect(104, -70, 8, 18);
+    g.fillStyle = lite; g.fillRect(70, -79, 56, 2);                                            // roof highlight
     g.fillStyle = INK; g.fillRect(94, -76, 3, 30);                                             // pillar
     g.fillStyle = NOIR.lampLight; g.fillRect(194, -40, 8, 8); g.fillStyle = "#b7aebb"; g.fillRect(-6, -28, 6, 8); g.fillRect(200, -26, 8, 6);   // lamp, bumpers
     for (const wx of [38, 160]) {                                                              // wheels and fender arches
@@ -319,6 +335,8 @@ export class StreetView {
       g.fillStyle = INK; g.beginPath(); g.arc(wx, -14, 17, 0, 6.283); g.fill(); g.fillStyle = "#cfc6b0"; g.beginPath(); g.arc(wx, -14, 12, 0, 6.283); g.fill();
       g.fillStyle = "#1a1620"; g.beginPath(); g.arc(wx, -14, 8, 0, 6.283); g.fill(); g.fillStyle = "#b7aebb"; g.fillRect(wx - 2, -16, 4, 4);
     }
+    g.fillStyle = "#a02020"; g.fillRect(-3, -40, 4, 6);                                        // tail lamp
+    if (night > 0.3) { g.globalCompositeOperation = "lighter"; const bm = g.createLinearGradient(200, 0, 330, 0); bm.addColorStop(0, `rgba(255,214,140,${0.3 * night})`); bm.addColorStop(1, "rgba(255,214,140,0)"); g.fillStyle = bm; g.beginPath(); g.moveTo(200, -38); g.lineTo(340, -62); g.lineTo(340, -4); g.lineTo(200, -30); g.closePath(); g.fill(); g.globalCompositeOperation = "source-over"; }
     g.restore();
   }
 
