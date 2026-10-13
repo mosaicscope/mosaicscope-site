@@ -1,0 +1,1 @@
+Side-on pixel-art street at dusk: a stone-grey corner building with lit shopfront windows and a hanging sign, two long black 1930s sedans, a bus-stop sign, a lone figure. Request: 2D streets should look like this.
