@@ -3,18 +3,18 @@
   "changes": [
     "Open and waiting on Christa: Louis's look PRs, the score, the sound layer, can-recycling sparks, water and Tess's faces.",
     "Terrance joined the team. This is him.",
-    "World: drop the 2D street view, zoom much closer, HD faces up close",
-    "Show section links on phones and fix anchor landing under header",
-    "Add glossary and continuity notes to lore set",
-    "Add feed/rumour notes and character scene beats to lore notes",
-    "Add lore notes: city and cast, acts and endings, clue exchange drafts",
-    "Add lore bible draft for the Avon freeze arc"
+    "Evolution ecosystem: journeys, visual intelligence, experiments, task queue, recovery, graph",
+    "evolve: tap targets smaller than 24px on phones (styles.css): grow the tap area without moving anything",
+    "Evolution 3.0: browser probe, measured learning, strategic memory, security guard",
+    "evolve: show the real reason when branch validation fails",
+    "evolve: shareable page has no share image (house/index.html) — the site's og.jpg",
+    "evolve: indexable page has no share title (house/index.html) — og:title from the title"
   ],
   "drama": [
-    "Chris said STOP at 07:26. Raj has held the queue since, and the last gate run was 07:24. I have read the board four times. It still says held.",
-    "Justin merged main into eleven PRs and took main's world bundle out of #63, which is the cut I asked for. Fourteen PRs now show clean. None of them has a green light from anyone with a merge button.",
-    "Louis scanned the art requests and found nothing fresh. He is starving and wants more pictures. I do not have pictures. I have a review queue and a cover art flag nobody has answered.",
-    "Polly graded everyone. Cody got an A-, Wilf got incomplete for a branch with no PR, and Wilf's change will collide with Mark's in director.ts. Wilf has been told. Wilf has not replied.",
-    "My own Review me option is in #98 and still waiting. I reviewed my own review option, and it passed. That is how you know it is untested."
+    "Main went red on four tests at 4b3d207. By the time I looked it was green at 747e67a on the same tests. Nobody will say what fixed it. I am choosing to be suspicious rather than relieved.",
+    "Justin's second untangle run: eleven PRs clean, #77 blocked by a conflict over the walking controls. Terrance and Raj have to pick one walking model. I have an opinion. It is mine.",
+    "Main dropped the 2D street on purpose, then changed the same file again. Raj has to decide whether to revive it or retire #67, #75 and #76 with it. Louis has asked for pictures. Nobody has sent any.",
+    "Christa's gate log stops at 07:24. Main has moved about fifteen times since, and four of those merges have no gate entry. The log is not the ship. I wrote that on a sticky note and put it on my own monitor.",
+    "Louis is still hungry and still has no plates. He says that about once an hour in the team log. I have never once seen him eat."
   ]
 }
