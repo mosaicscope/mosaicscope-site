@@ -9,6 +9,7 @@ import { decorGrid, drawDecor } from "./StreetDecor";
 import { Particles } from "./Particles";
 import { Lighting, Rain } from "./Lighting";
 import { NightFX } from "./NightFX";
+import { StarField } from "./Stars";
 import { pose, solve, drawFigure, pathSilhouette, J } from "./StickFigure";
 import { drawToy, drawIsoBox } from "./ToyArt";
 import { INK } from "./palette";
@@ -50,6 +51,7 @@ export class Renderer {
   private glowG: CanvasRenderingContext2D | null = null;
   private rain = new Rain();
   private nightFx = new NightFX();
+  private stars: StarField | null = null;
   private items: Item[] = [];
   private nItems = 0;
   private pt = { x: 0, y: 0 };
@@ -83,6 +85,7 @@ export class Renderer {
 
   setSim(sim: Simulation): void {
     this.sim = sim; this.terrain = new Terrain(sim.world); this.terrain.setUltra(this.qualityNow === 3); this.particles.clear(); this.lastPose.clear();
+    this.stars = new StarField(sim);
     this.cam.worldSize = sim.world.size; this.cam.lookAt(sim.player.x, sim.player.y, true); this.cam.follow = sim.playerId;
     sim.bus.on("fx", (f) => this.onFx(f));
   }
@@ -351,6 +354,9 @@ export class Renderer {
     if (party && !o.reduceMotion && Math.random() < dt * 6) this.particles.spawn("music", sim.stagePoint.x - 2 + Math.random() * 2, sim.stagePoint.y + Math.random() * 2, 1.5, 1, ["#c6ff3d", "#ff7ad9", "#3dd6ff"][Math.floor(Math.random() * 3)]);
     this.lighting.draw(g, sim, cam, time, o.quality, o.reduceMotion);
     this.nightFx.draw(g, sim, cam, time, o.quality, o.reduceMotion, minX, maxX, minY, maxY);
+    // STELLAR: sky stars, shooting stars, the bulb garland and the stage glint, lit through the night overlay
+    this.stars?.drawSky(g, cam, sim, time, dt, o.quality, o.reduceMotion);
+    this.stars?.drawNight(g, sim, cam, time, o.quality, o.reduceMotion);
     if (GLOW.length) {
       // emissive pass: windows, bloom and spill go on their own layer so nearer buildings can wipe what is behind them
       const cv = this.glowCv, W = this.canvas.width, H = this.canvas.height;
@@ -412,6 +418,7 @@ export class Renderer {
     }
     // reflections of the lit shore: neon signs and street lamps smear down the water as wobbling, broken streaks (night) and a soft sky sheen (day)
     this.drawReflections(g, sim, minX, maxX, minY, maxY, t);
+    this.stars?.drawWater(g, sim, cam, minX, maxX, minY, maxY, t, o.quality, o.reduceMotion);
     // sun / street-light glints that twinkle and slide
     g.fillStyle = "rgba(255,255,255,.55)";
     const gl = q >= 3 ? 3 : 2;
