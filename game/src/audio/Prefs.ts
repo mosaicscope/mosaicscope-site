@@ -63,7 +63,7 @@ export interface FootPrefs {
 
 export const DEFAULT_FOOT: FootPrefs = {
   enabled: true,
-  volume: 1,
+  volume: 0.5,
   shoe: "default",
   silenceWhenSneaking: true,
   sneakAmount: 0.7,
