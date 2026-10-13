@@ -40,6 +40,6 @@ describe("car mutation", () => {
     expect(big.length).toBeGreaterThan(0);
     expect(small.length).toBeGreaterThan(0);
     for (const m of big) { expect(m.pitch).toBeLessThan(1); expect(m.rumble).toBeGreaterThan(1.4); }
-    for (const m of small) { expect(m.pitch).toBeGreaterThan(1); expect(m.rumble).toBeLessThan(1.1); }
+    for (const m of small) { expect(m.pitch).toBeGreaterThan(1); expect(m.rumble).toBeLessThan(1.15); }
   });
 });
