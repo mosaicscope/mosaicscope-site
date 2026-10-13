@@ -163,4 +163,11 @@ export class SaveSystem {
     try { const d = JSON.parse(raw); return { savedAt: d.savedAt, label: d.label, tick: d.tick }; } catch { return { savedAt: "corrupted", label: "Damaged save", tick: 0 }; }
   }
   remove(slot: string) { this.store.remove(this.key(slot)); }
+  /** The slot's save as stored JSON, for exporting to a file. */
+  raw(slot: string): string | null { return this.store.get(this.key(slot)); }
+  /** Store a save file in a slot, after checking it parses as a valid save. */
+  importRaw(slot: string, json: string): void {
+    parseSave(json);
+    if (!this.store.set(this.key(slot), json)) throw new SaveError("Browser storage is full or blocked.");
+  }
 }
