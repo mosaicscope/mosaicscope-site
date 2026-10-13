@@ -2,7 +2,7 @@ import { Phys, type Character } from "../entities/types";
 import { dressOf } from "../mind/Dress";
 import { NOIR, SHOP_NAMES, hash01, pickOf, shade, muted, worldWall } from "./noir";
 import type { Simulation } from "../sim/Simulation";
-import { pose, solve, J, drawFigure, type Angles } from "./StickFigure";
+import { pose, solve, J, drawFigure, reachArm, type Angles } from "./StickFigure";
 
 // ragdoll: a fallen figure goes limp, and blends back to its normal pose when it recovers
 const LIMP: Partial<Angles> = { lean: 0.9, lying: 1, tilt: 0.6, armL: 2.4, armR: 2.7, foreL: 0.6, foreR: 0.6, thighL: 0.5, thighR: -0.4, bendL: 0.3, bendR: 0.2, bob: -2, hipX: 0 };
@@ -136,6 +136,8 @@ export class StreetView {
       const mood = c.emo ? c.emo.mood : 0;
       A.armL *= 1 + 0.25 * mood; A.armR *= 1 + 0.25 * mood;
       A.lean += 0.06 * mood;
+      // inverse kinematics: someone close to you reaches a hand toward you (in front, waist high)
+      if (c.phys === Phys.OK && Math.hypot(c.x - f.x, c.y - f.y) < 6) reachArm(A, 1, A.hipX + 0.83 * 42 * Math.sin(A.lean), -44 - 0.83 * 42 * Math.cos(A.lean), 20 * dir, -66);
       // ragdoll blend: ease toward limp while knocked down, back to the pose when recovered
       const target = c.phys === Phys.DOWN ? 1 : 0, r0 = ragdoll.get(c.id) ?? 0;
       const r = r0 + (target - r0) * 0.15;
