@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Terrance the overcoder: a completely red NPC who always stands in front of the Studio. Talk to him for the latest changes and any team drama, read from `src/content/terrance-feed.json` (refresh with `npm run terrance`). He never wanders.
+
 ## 0.4.0
 
 - Clinical layer: 249 evidence-tagged studies (`mind/Evidence.ts`), stress, anxiety, depression, trauma and a rare psychosis spectrum with genetic liability from families (`Psychopathology.ts`, `Kin.ts`), whanau support and stigma (`Whanau.ts`), care pathways, Putahi Mental Health Unit. Saves are now v6 (v5 migrates).

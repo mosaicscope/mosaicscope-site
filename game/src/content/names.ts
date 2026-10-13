@@ -31,9 +31,10 @@ export const NICKNAMES = ["Chopper", "Smokey", "Bubbles", "Gizmo", "Moose", "Ace
 export type Role =
   | "local" | "student" | "barista" | "chef" | "vendor" | "shopkeeper" | "cop" | "thief" | "graffiti" | "cleaner" | "dealer" | "bouncer"
   | "busker" | "skater" | "car_enthusiast" | "office" | "tourist" | "mechanic" | "musician" | "photographer" | "medic" | "taxi" | "driver" | "gambler"
-  | "mobster" | "smuggler" | "comic" | "mogul" | "model" | "vigilante" | "villain" | "skibunny" | "zookeeper";
+  | "mobster" | "smuggler" | "comic" | "mogul" | "model" | "vigilante" | "villain" | "skibunny" | "zookeeper" | "overcoder";
 
 export const ROLE_LABEL: Record<Role, string> = {
+  overcoder: "overcoder",
   local: "local", student: "uni student", barista: "barista", chef: "cook", vendor: "food truck vendor", shopkeeper: "shopkeeper", cop: "police officer",
   thief: "small-time thief", graffiti: "graffiti artist", cleaner: "city cleaner", dealer: "casino dealer", bouncer: "bouncer", busker: "busker",
   skater: "skater", car_enthusiast: "car-meet regular", office: "office worker", tourist: "tourist", mechanic: "mechanic", musician: "musician",

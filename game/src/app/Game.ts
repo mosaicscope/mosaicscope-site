@@ -23,6 +23,7 @@ import { DevPanel } from "../debug/DevPanel";
 import { Inspector } from "../ui/Inspector";
 import { EventLog } from "../ui/EventLog";
 import { DialogueUI } from "../ui/DialogueUI";
+import { TerranceUI } from "../ui/Terrance";
 import { ModalHost, settingsBody, keysList } from "../ui/Modals";
 import { h, fmtHour } from "../ui/dom";
 import { moveTo, stop } from "../ai/steps";
@@ -79,7 +80,7 @@ export class Game {
   settings: Settings;
   debug = newDebugFlags();
   ui: HTMLElement;
-  inspector: Inspector; log: EventLog; dialogue: DialogueUI; modal = new ModalHost(); dev: DevPanel;
+  inspector: Inspector; log: EventLog; dialogue: DialogueUI; terrance: TerranceUI; modal = new ModalHost(); dev: DevPanel;
   private selected = -1; private hovered = -1;
   private keys = new Set<string>();
   private mouse = { x: 0, y: 0, down: false, dragging: false, sx: 0, sy: 0, button: 0 };
@@ -114,6 +115,7 @@ export class Game {
     this.inspector = new Inspector(S, { talk: (id) => this.talkTo(id), follow: (id) => { this.renderer.cam.follow = id; }, select: (id) => this.select(id) });
     this.log = new EventLog(S, (x, y) => { this.renderer.cam.follow = -1; this.renderer.cam.lookAt(x, y); });
     this.dialogue = new DialogueUI(S);
+    this.terrance = new TerranceUI(S);
     this.dev = new DevPanel(S, this.renderer, this.debug, {
       quality: () => (this.settings.quality === "auto" ? "auto→" : "") + ["low", "medium", "high", "ultra"][this.quality], speed: () => (this.clock.paused ? 0 : this.clock.speed),
       fps: () => this.fpsAvg, tickRate: () => this.tickRate, reset: (seed) => this.reset(seed), toast: (t) => this.toast(t),
@@ -137,7 +139,7 @@ export class Game {
     this.radio = new Radio(MOSAIC.soundcloud);
     this.hudEl = h("div.hud", { "aria-live": "polite" });
     this.bustedEl = h("div.busted.hidden", { role: "alert" });
-    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.interior.el, this.modal.el, this.casino.el, this.bustedEl);
+    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.terrance.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.interior.el, this.modal.el, this.casino.el, this.bustedEl);
     // browsers only allow sound after a gesture: the first click/key starts the playlist
     const firstGesture = () => { if (this.gestured) return; this.gestured = true; if (this.settings.sound) this.audio.setEnabled(true); }; // the radio only plays when you press ▶
     window.addEventListener("pointerdown", firstGesture, { once: false, capture: true });
@@ -247,7 +249,7 @@ export class Game {
     this.touch.update();
     if (now - this.clubTickAt > 1000) { const earned = this.club.tick(Math.min(5, (now - (this.clubTickAt || now)) / 1000)); this.clubTickAt = now; if (earned > 0) this.sim.player.cash += earned; }
     this.renderer.zooAnimals = this.luxury.empire.animals; zooState.animals = this.luxury.empire.animals.length;
-    this.touch.el.classList.toggle("hidden", this.casino.open || this.interior.open || this.modal.open || this.dialogue.open || this.travel.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
+    this.touch.el.classList.toggle("hidden", this.casino.open || this.interior.open || this.modal.open || this.dialogue.open || this.terrance.open || this.travel.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
     this.tickStory(now);
     this.minimap.update(now);
     if (now - this.lastUi < 250) return;
@@ -267,7 +269,7 @@ export class Game {
     if (areaName) this.lastArea = areaName;
     this.inspector.update();
     this.log.update();
-    this.dialogue.check();
+    this.dialogue.check(); this.terrance.check();
     this.updateHint();
     this.updateHud();
     this.speedEls.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.speed === (this.clock.paused ? "0" : String(this.clock.speed)))));
@@ -313,6 +315,7 @@ export class Game {
       p.vx = (wx / l) * p.speed; p.vy = (wy / l) * p.speed;
       this.moveTarget = null; this.pendingTalk = -1;
       if (this.dialogue.open) this.dialogue.close();
+      if (this.terrance.open) this.terrance.close();
       this.renderer.cam.follow = p.id;
     } else if (this.moveTarget) {
       if (moveTo(p, this.moveTarget.x, this.moveTarget.y, sim, 0.3)) {
@@ -513,8 +516,9 @@ export class Game {
       if (key !== "escape" && typing) return;
       if (key === "escape" && this.casino.open) { this.casino.close(); return; }
       if (key === "escape" && this.minimap.bigOpen) { this.minimap.toggle(false); return; }
-      if (key === "escape") { if (this.modal.open) this.modal.close(); else if (this.dialogue.open) this.dialogue.close(); else { this.select(-1); this.dev.toggle(false); this.log.toggle(false); } return; }
+      if (key === "escape") { if (this.modal.open) this.modal.close(); else if (this.terrance.open) this.terrance.close(); else if (this.dialogue.open) this.dialogue.close(); else { this.select(-1); this.dev.toggle(false); this.log.toggle(false); } return; }
       if (this.modal.open) return;
+      if (this.terrance.open && /^[1-9]$/.test(key)) { if (this.terrance.key(+key)) e.preventDefault(); return; }
       if (this.dialogue.open && /^[1-9]$/.test(key)) { if (this.dialogue.key(+key)) e.preventDefault(); return; }
       if ((tag === "BUTTON" || tag === "INPUT") && (key === " " || key === "enter")) return;
       this.keys.add(key);
@@ -813,6 +817,7 @@ export class Game {
   private openTalk(id: number): void {
     const don = this.sim.chars[id];
     if (don && this.isContact(don) && (this.hasJob(don) || this.job?.who === don.name) && !(don.role === "comic" && !this.job && (this.story[don.name]?.ch ?? 0) > 0)) { this.talkToContact(don.name); return; }
+    if (don && don.role === "overcoder") { this.terrance.start(id); return; } // Terrance: latest changes and team drama
     if (don && don.role === "comic") { this.roast.start(); return; } // Roastie Malone: roast battle
     if (don && don.role === "mogul") { this.luxury.show(); return; } // Sir P shows you his catalogue
     if (don && don.role === "smuggler" && !this.isContact(don)) { this.blackMarket(don.name.split(" ")[0]); return; }
