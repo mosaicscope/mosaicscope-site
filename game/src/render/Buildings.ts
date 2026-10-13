@@ -136,8 +136,7 @@ export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Build
     g.fillStyle = shade(b.roof, 0.42 + hash(tx, ty) * 0.05);
     poly(g, R); g.fill();
     if (z >= 0.8) fillTextured(g, "concrete", 0.7, anchor);
-    // gravel speckle / roof membrane seams
-    g.strokeStyle = "rgba(255,255,255,.04)"; g.lineWidth = 1; g.beginPath(); g.moveTo(R[0][0], R[0][1]); g.lineTo(R[2][0], R[2][1]); g.stroke();
+    // (no seam lines: a diagonal per tile made a criss-cross on every flat roof)
     // parapet: inner faces on the far edges, outer cornice on the near edges
     const pH = 0.22;
     const lip = (x0: number, y0: number, x1: number, y1: number, col: string) => { g.fillStyle = col; poly(g, [P(x0, y0, H), P(x1, y1, H), P(x1, y1, H + pH), P(x0, y0, H + pH)]); g.fill(); };
