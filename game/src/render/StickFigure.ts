@@ -5,6 +5,7 @@ import type { Dress } from "../mind/Dress";
 import { isResident, drawResident } from "./Residents";
 import { modelOf, modelLook, drawModelBody, drawModelHeadGear, MODEL_INK } from "./Models";
 import { drawFaceGenes } from "./FaceGenes";
+import { sway as swayRig } from "./FigureRig";
 
 /**
  * Procedural stick figures in the style of the MosaicScope footer crew (same proportions as the
@@ -28,24 +29,42 @@ export function pose(name: string, style: string, t: number, ph: number, speed: 
   const s = Math.sin(ph), c = Math.cos(ph);
   switch (name) {
     case "walk": {
-      A.thighL = s * 0.45; A.thighR = -s * 0.45; A.bendL = Math.max(0, -c) * 0.5; A.bendR = Math.max(0, c) * 0.5;
-      A.armL = -s * 0.42; A.armR = s * 0.42; A.foreL = 0.25; A.foreR = 0.25; A.bob = -Math.abs(c) * 2;
-      if (style === "swagger") { A.lean = -0.06; A.armR = s * 0.6; }
-      if (style === "bouncy") A.bob = -Math.abs(c) * 4;
+      // stride and arm swing grow with ground speed; elbows fold on the forward swing, hips and shoulders counter-rotate
+      const sp = Math.min(speed, 2.6), th = 0.3 + sp * 0.09, sw = 0.2 + sp * 0.12;
+      A.thighL = s * th; A.thighR = -s * th; A.bendL = Math.max(0, -c) * 0.5; A.bendR = Math.max(0, c) * 0.5;
+      A.armL = -s * sw; A.armR = s * sw; A.foreL = 0.14 + sp * 0.04 + Math.max(0, -s) * 0.38; A.foreR = 0.14 + sp * 0.04 + Math.max(0, s) * 0.38;
+      A.bob = -Math.abs(c) * (1.2 + sp * 0.5); A.hipX = s * 0.7; A.tilt = -s * 0.03;
+      if (style === "swagger") { A.lean = -0.06; A.armR = s * (sw + 0.18); A.hipX = s * 1.4; }
+      if (style === "bouncy") A.bob = -Math.abs(c) * (2.5 + sp * 0.6);
       break;
     }
     case "run": case "panic": {
       A.thighL = s * 0.85; A.thighR = -s * 0.85; A.bendL = Math.max(0, -c) * 1.3 + 0.2; A.bendR = Math.max(0, c) * 1.3 + 0.2;
       A.lean = 0.22; A.bob = -Math.abs(c) * 4;
-      if (name === "panic") { A.armL = 2.7 + Math.sin(t * 14) * 0.4; A.armR = 2.7 + Math.cos(t * 13) * 0.4; A.foreL = 0.3; A.foreR = 0.3; A.lean = 0.05; }
-      else { A.armL = -s * 0.9; A.armR = s * 0.9; A.foreL = 1.4; A.foreR = 1.4; }
+      if (name === "panic") { A.armL = 2.7 + Math.sin(t * 14) * 0.4; A.armR = 2.7 + Math.cos(t * 13) * 0.4; A.foreL = 0.3 + Math.sin(t * 17) * 0.25; A.foreR = 0.3 + Math.cos(t * 16) * 0.25; A.lean = 0.05; }
+      else {
+        const sp = Math.min(speed, 4), sw = 0.65 + sp * 0.13;
+        A.armL = -s * sw; A.armR = s * sw; A.foreL = 1.15 + Math.max(0, -s) * 0.5; A.foreR = 1.15 + Math.max(0, s) * 0.5;
+        A.lean = 0.16 + sp * 0.02; A.hipX = s * 0.9; A.tilt = -s * 0.05;
+      }
       break;
     }
     case "dance": dance(style, t); break;
     case "cheer": A.armL = 2.7 + Math.sin(t * 10) * 0.3; A.armR = 2.7 + Math.cos(t * 10) * 0.3; A.bob = -Math.abs(Math.sin(t * 6)) * 4; break;
     case "watch": A.armL = 0.7; A.foreL = 1.9; A.armR = 0.7; A.foreR = 1.9; A.tilt = Math.sin(t * 0.7) * 0.08; break;
     case "think": A.armR = 0.45; A.foreR = 2.5; A.armL = 0.5; A.foreL = 1.6; A.tilt = 0.15; break;
-    case "talk": A.armR = 0.5 + Math.sin(t * 5) * 0.35; A.foreR = 0.9 + Math.sin(t * 7) * 0.3; A.armL = 0.15; A.tilt = Math.sin(t * 3) * 0.06; break;
+    case "talk": { // beats: right hand punctuates, left joins on the big words, head nods with it
+      const beat = Math.sin(t * 5), emph = Math.max(0, Math.sin(t * 1.7)), nod = Math.sin(t * 3.4);
+      A.armR = 0.5 + beat * 0.35 + emph * 0.3; A.foreR = 0.9 + Math.sin(t * 7) * 0.3 - emph * 0.3;
+      A.armL = 0.15 + emph * (0.5 + Math.sin(t * 5.6 + 1) * 0.25); A.foreL = 0.2 + emph * 1.0;
+      A.tilt = Math.sin(t * 3) * 0.06 + nod * 0.03; A.lean = emph * 0.05; A.hipX = Math.sin(t * 1.1) * 0.8;
+      break;
+    }
+    case "wave": A.armR = 2.55 + Math.sin(t * 2.4) * 0.08; A.foreR = 0.55 + Math.sin(t * 9) * 0.6; A.armL = 0.12; A.tilt = 0.06; A.lean = -0.03; break;
+    case "point": A.armR = 1.35 + Math.sin(t * 1.5) * 0.04; A.foreR = 0.05; A.armL = 0.2; A.foreL = 0.5; A.lean = 0.1; A.thighL = 0.15; A.thighR = -0.1; break;
+    case "carry": A.armL = 0.95; A.foreL = 1.75; A.armR = 0.95; A.foreR = 1.75; A.lean = -0.05; A.bob = Math.sin(t * 2) * 0.5; break;
+    case "startle": { const w = Math.min(1, poseT / 0.14); A.armL = 1.6 * w; A.armR = 1.9 * w; A.foreL = 0.5; A.foreR = 0.4; A.lean = -0.2 * w; A.bob = -12 * (1 - w) * w; A.thighL = 0.2 * w; A.thighR = -0.2 * w; break; }
+    case "shrug": { const w = 0.5 - 0.5 * Math.cos(Math.min(1, poseT / 0.5) * Math.PI); A.armL = 0.55 * w + 0.12; A.armR = 0.55 * w + 0.12; A.foreL = 1.5 * w; A.foreR = 1.5 * w; A.bob = -w * 1.5; A.tilt = 0.1 * w; break; }
     case "throw": {
       const w = Math.min(1, poseT / 0.38);
       if (w < 1) { A.armR = -1.2 - w * 1.4; A.foreR = -0.6; A.lean = -0.12 * w; A.thighR = -0.25 * w; A.thighL = 0.2 * w; A.armL = 0.9; }
@@ -90,7 +109,13 @@ export function pose(name: string, style: string, t: number, ph: number, speed: 
       else if (style === "hype") { A.bob = -Math.abs(Math.sin(t * 3)) * 1.5; }
     }
   }
-  if (speed > 0.05 && name !== "walk" && name !== "run" && name !== "panic") { /* moving while posing: keep legs walking */ }
+  if (name !== "walk" && name !== "run" && name !== "panic" && A.lying < 0.5) {
+    // always a little alive: slow breathing lifts the shoulders, arms drift, weight shifts side to side
+    const br = Math.sin(t * 1.9);
+    A.bob += br * 0.45; A.armL += Math.sin(t * 1.3 + 0.5) * 0.03 + br * 0.015; A.armR += Math.sin(t * 1.1 + 2) * 0.03 - br * 0.015;
+    A.foreL += Math.sin(t * 1.7) * 0.04; A.foreR += Math.sin(t * 1.5 + 1) * 0.04; A.tilt += Math.sin(t * 0.6) * 0.012;
+    if (name === "idle" || name === "watch" || name === "talk") A.hipX += Math.sin(t * 0.45) * 0.7;
+  }
   return A;
 }
 
@@ -155,14 +180,18 @@ export function solve(a: Angles, sx: number, sy: number, k: number, dir: number)
   for (let i = 0; i < 24; i += 2) { J[i] = sx + J[i] * k * dir; J[i + 1] = sy + J[i + 1] * k; }
 }
 
+/** Hair / loose-cloth sway for the figure being drawn (set from its rig each frame, read by drawHead). */
+let SW = 0, SB = 0;
+
 export interface ItemDraw { (g: CanvasRenderingContext2D, x: number, y: number, k: number, dir: number, angle: number): void }
 
 /** Full-detail figure (principal, mid, player). */
-export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: number, _sy: number, k: number, dir: number, t: number, flash: number, alpha: number, hdOverride?: boolean): void {
+export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: number, _sy: number, k: number, dir: number, t: number, flash: number, alpha: number, hdOverride?: boolean, rigKey: object = c.anim): void {
   const L = c.look, girl = L.kind === "girl";
   const lw = Math.max(1.1, 3.2 * k * (L.build ?? 1));
   g.globalAlpha = alpha;
   g.lineCap = "round"; g.lineJoin = "round";
+  const rg = swayRig(rigKey, J[4], J[5], k, dir, t); SW = rg.sway; SB = rg.bounce;
   const col = flash > 0 ? "#ffffff" : L.color;
   // HD pass when you're close: soft neon glow, a crisp ink outline under every limb, then the line
   // very close people always get the HD face, whatever the quality budget says
@@ -213,11 +242,41 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
     g.fillStyle = L.accent; g.globalAlpha = alpha * 0.32;
     g.beginPath(); g.moveTo(J[0] + px * 0.8, J[1] + py * 0.8); g.lineTo(J[6] + px, J[7] + py); g.lineTo(J[6] - px, J[7] - py); g.lineTo(J[0] - px * 0.8, J[1] - py * 0.8); g.closePath(); g.fill();
     g.globalAlpha = alpha;
-    // joints (shoulder, elbows, hip, knees) and mitten hands
+    // joints (shoulder, elbows, hip, knees)
     g.fillStyle = col;
     for (const i of [6, 8, 12, 0, 16, 20]) { g.beginPath(); g.arc(J[i], J[i + 1], lw * 0.62, 0, 6.283); g.fill(); }
-    g.strokeStyle = "rgba(10,8,12,.85)"; g.lineWidth = 1.2 * k;
-    for (const i of [10, 14]) { g.beginPath(); g.arc(J[i], J[i + 1], lw * 0.95, 0, 6.283); g.fill(); g.stroke(); }
+    // belt and sleeve cuffs in the accent, then proper hands: palm and four fingers fanned off the wrist
+    const tdx = J[2] - J[0], tdy = J[3] - J[1], tl = Math.hypot(tdx, tdy) || 1, bnx = -tdy / tl, bny = tdx / tl;
+    g.strokeStyle = L.accent; g.lineWidth = Math.max(0.9, lw * 0.55); g.globalAlpha = alpha * 0.9;
+    g.beginPath(); g.moveTo(J[0] + tdx * 0.1 + bnx * 6.2 * k, J[1] + tdy * 0.1 + bny * 6.2 * k); g.lineTo(J[0] + tdx * 0.1 - bnx * 6.2 * k, J[1] + tdy * 0.1 - bny * 6.2 * k); g.stroke();
+    g.fillStyle = L.accent; g.beginPath(); g.arc(J[0] + tdx * 0.1 + bnx * 1.2 * k, J[1] + tdy * 0.1 + bny * 1.2 * k, Math.max(0.8, 1.1 * k), 0, 6.283); g.fill();
+    g.globalAlpha = alpha;
+    for (const e of [8, 12]) {
+      const hx2 = J[e + 2], hy2 = J[e + 3], fdx = hx2 - J[e], fdy = hy2 - J[e + 1], fl = Math.hypot(fdx, fdy) || 1, ux = fdx / fl, uy = fdy / fl;
+      // cuff
+      g.strokeStyle = L.accent; g.lineWidth = Math.max(0.9, lw * 0.5);
+      g.beginPath(); g.moveTo(hx2 - ux * 3.4 * k - uy * 2.1 * k, hy2 - uy * 3.4 * k + ux * 2.1 * k); g.lineTo(hx2 - ux * 3.4 * k + uy * 2.1 * k, hy2 - uy * 3.4 * k - ux * 2.1 * k); g.stroke();
+      // palm
+      g.fillStyle = col; g.strokeStyle = "rgba(10,8,12,.85)"; g.lineWidth = 1.1 * k;
+      g.beginPath(); g.arc(hx2 + ux * 0.8 * k, hy2 + uy * 0.8 * k, lw * 0.78, 0, 6.283); g.fill(); g.stroke();
+      // fingers: curl follows the swing a little so a waving hand ripples
+      const base = Math.atan2(uy, ux), curl = 0.28 + SW * 0.4 * (e === 8 ? 1 : -1);
+      g.strokeStyle = col; g.lineWidth = Math.max(0.7, lw * 0.3);
+      g.beginPath();
+      for (let f = -1; f <= 2; f++) {
+        const a1 = base + (f - 0.5) * 0.36, fl1 = (f === 0 || f === 1 ? 3.7 : 3.1) * k;
+        const fx1 = hx2 + Math.cos(a1) * (lw * 0.7 + fl1 * 0.55), fy1 = hy2 + Math.sin(a1) * (lw * 0.7 + fl1 * 0.55);
+        g.moveTo(hx2 + Math.cos(a1) * lw * 0.6, hy2 + Math.sin(a1) * lw * 0.6); g.lineTo(fx1, fy1);
+        g.lineTo(fx1 + Math.cos(a1 + curl) * fl1 * 0.55, fy1 + Math.sin(a1 + curl) * fl1 * 0.55);
+      }
+      const ta = base + (e === 8 ? -1 : 1) * dir * 1.1; // thumb
+      g.moveTo(hx2 + Math.cos(ta) * lw * 0.5, hy2 + Math.sin(ta) * lw * 0.5); g.lineTo(hx2 + Math.cos(ta) * (lw * 0.5 + 2.6 * k), hy2 + Math.sin(ta) * (lw * 0.5 + 2.6 * k));
+      g.stroke();
+    }
+    // collar: a small V where the shirt meets the neck
+    const cx0 = J[6], cy0 = J[7];
+    g.strokeStyle = L.accent; g.lineWidth = Math.max(0.8, lw * 0.4);
+    g.beginPath(); g.moveTo(cx0 - bnx * 4.2 * k, cy0 - bny * 4.2 * k); g.lineTo(cx0 + tdx * 0.03, cy0 + tdy * 0.03 + 3 * k); g.lineTo(cx0 + bnx * 4.2 * k, cy0 + bny * 4.2 * k); g.stroke();
   }
   // boots in accent
   g.strokeStyle = L.accent; g.lineWidth = lw * (girl ? 1.6 : 1.9);
@@ -293,9 +352,10 @@ function drawHead(g: CanvasRenderingContext2D, L: Character["look"], x: number, 
   const H = L.hair;
   g.strokeStyle = col; g.fillStyle = L.color;
   if (H === "big" || H === "afro") { g.globalAlpha = alpha * (H === "afro" ? 0.45 : 0.25); g.beginPath(); g.ellipse(x - 2 * k * dir, y - (H === "afro" ? 3 : -1) * k, rx * (H === "afro" ? 1.5 : 1.55), ry * (H === "afro" ? 1.45 : 1.45), 0, 0, 6.283); g.fill(); g.globalAlpha = alpha; g.lineWidth = lw * 0.8; g.stroke(); }
-  if (H === "long" || H === "braids") { g.lineWidth = lw * (H === "braids" ? 1.1 : 1.4); g.beginPath(); g.moveTo(x - rx * 0.9, y - ry * 0.2); g.lineTo(x - rx * 1.05, y + ry * 1.5); g.moveTo(x + rx * 0.9, y - ry * 0.2); g.lineTo(x + rx * 1.05, y + ry * 1.5); g.stroke(); if (H === "braids") { for (const sx of [-1.05, 1.05]) { g.beginPath(); g.arc(x + rx * sx, y + ry * 1.6, 1.6 * k + 0.5, 0, 6.283); g.fill(); } } }
-  if (H === "pony") { g.lineWidth = lw; g.beginPath(); g.moveTo(x - rx * 0.7 * dir, y - ry * 0.5); g.quadraticCurveTo(x - rx * 1.9 * dir, y - ry * 0.2, x - rx * 1.6 * dir, y + ry * 1.4); g.stroke(); }
-  if (H === "pigtails") { g.globalAlpha = alpha * 0.5; for (const sx of [-1, 1]) { g.beginPath(); g.arc(x + rx * 1.25 * sx, y - ry * 0.1, r * 0.45, 0, 6.283); g.fill(); } g.globalAlpha = alpha; }
+  const hs = SW * rx * 1.6, hb = SB * ry * 0.5;
+  if (H === "long" || H === "braids") { g.lineWidth = lw * (H === "braids" ? 1.1 : 1.4); g.beginPath(); g.moveTo(x - rx * 0.9, y - ry * 0.2); g.quadraticCurveTo(x - rx * 1.1 + hs * 0.3, y + ry * 0.7, x - rx * 1.05 + hs, y + ry * 1.5 + hb); g.moveTo(x + rx * 0.9, y - ry * 0.2); g.quadraticCurveTo(x + rx * 1.1 + hs * 0.3, y + ry * 0.7, x + rx * 1.05 + hs, y + ry * 1.5 + hb); g.stroke(); if (H === "braids") { for (const sx of [-1.05, 1.05]) { g.beginPath(); g.arc(x + rx * sx + hs, y + ry * 1.6 + hb, 1.6 * k + 0.5, 0, 6.283); g.fill(); } } }
+  if (H === "pony") { g.lineWidth = lw; g.beginPath(); g.moveTo(x - rx * 0.7 * dir, y - ry * 0.5); g.quadraticCurveTo(x - rx * 1.9 * dir + hs * 0.5, y - ry * 0.2, x - rx * 1.6 * dir + hs * 1.4, y + ry * 1.4 + hb); g.stroke(); }
+  if (H === "pigtails") { g.globalAlpha = alpha * 0.5; for (const sx of [-1, 1]) { g.beginPath(); g.arc(x + rx * 1.25 * sx + hs * 0.6, y - ry * 0.1 + hb * 0.6, r * 0.45, 0, 6.283); g.fill(); } g.globalAlpha = alpha; }
   // ---- head
   g.fillStyle = skin ?? "#0e0b0a"; g.strokeStyle = col; g.lineWidth = lw;
   if (inkRing) { g.lineWidth = lw + 2.2 * k; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 6.283); g.stroke(); g.lineWidth = lw; }

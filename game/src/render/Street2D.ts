@@ -3,6 +3,7 @@ import { dressOf } from "../mind/Dress";
 import { NOIR, SHOP_NAMES, hash01, pickOf, shade, muted, worldWall } from "./noir";
 import type { Simulation } from "../sim/Simulation";
 import { pose, solve, J, drawFigure, reachArm, type Angles } from "./StickFigure";
+import { smooth } from "./FigureRig";
 
 // ragdoll: a fallen figure goes limp, and blends back to its normal pose when it recovers
 const LIMP: Partial<Angles> = { lean: 0.9, lying: 1, tilt: 0.6, armL: 2.4, armR: 2.7, foreL: 0.6, foreR: 0.6, thighL: 0.5, thighR: -0.4, bendL: 0.3, bendR: 0.2, bob: -2, hipX: 0 };
@@ -138,8 +139,9 @@ export class StreetView {
       const dir = (Math.cos(c.facing) - Math.sin(c.facing)) >= 0 ? 1 : -1;
       g.globalAlpha = s.alpha * 0.45; g.fillStyle = NOIR.night; g.beginPath(); g.ellipse(s.x, sy, 22 * k, 4.5 * k, 0, 0, 6.283); g.fill();
       g.globalAlpha = s.alpha;
+      const pn = poseName(c, moving, spd);
       // mood-based animation: a happy figure swings its arms wider and leans forward; a low one slumps
-      const A = pose(poseName(c, moving, spd), c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT);
+      const A = pose(pn, c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT);
       const mood = c.emo ? c.emo.mood : 0;
       A.armL *= 1 + 0.25 * mood; A.armR *= 1 + 0.25 * mood;
       A.lean += 0.06 * mood;
@@ -150,7 +152,8 @@ export class StreetView {
       const r = r0 + (target - r0) * 0.15;
       ragdoll.set(c.id, r);
       if (r > 0.001) for (const key of Object.keys(LIMP) as (keyof Angles)[]) A[key] = A[key] * (1 - r) + (LIMP[key] as number) * r;
-      solve(A, s.x, sy, k, dir);
+      // fluid rig: the finished target pose is eased through springs so limbs follow through
+      solve(smooth(c.anim, A, time, pn), s.x, sy, k, dir);
       this.person(g, c, k, dir, c.anim.flash > 0, 1, night);
       g.globalAlpha = 1;
       drawn.push({ c, x: s.x, y: sy, k, dv: s.dv });
