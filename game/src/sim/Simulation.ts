@@ -31,6 +31,7 @@ import { forceGoal } from "../ai/brain";
 import { updateHealth, hospitalise, wound, useBandage, recomputeBleed } from "./Life";
 import { clamp } from "../core/math";
 import { fireGun, startTurfWar, turfWarActive } from "./Turf";
+import { LitterState, updateLitter } from "./Litter";
 
 export type FxKind = "dust" | "impact" | "spark" | "confetti" | "break" | "heart" | "rain_splash" | "text" | "spring" | "zzz" | "music" | "star" | "blood" | "spray" | "flash" | "paint" | "water" | "cash" | "gib";
 export interface SimSignals {
@@ -65,6 +66,8 @@ export class Simulation {
   bus = new EventBus<SimSignals>();
   chars: Character[] = [];
   toys: Toy[] = [];
+  /** street litter, bins and the recycling run (sim/Litter.ts) */
+  litter!: LitterState;
   vehicles: Vehicle[] = [];
   names?: NameBook;
   usedLooks = new Set<string>();
@@ -123,6 +126,7 @@ export class Simulation {
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (this.world.shelter[y * S + x] && this.world.walkableTile(x, y)) this.shelterPts.push({ x: x + 0.5, y: y + 0.5 });
     spawnAll(this);
     spawnVehicles(this);
+    this.litter = new LitterState(this.world, this.cfg.seed);
     this.rebuildHash();
   }
 
@@ -207,7 +211,7 @@ export class Simulation {
     this.metrics.eventsMs = performance.now() - te;
     if (this.deferred.length) { const d = this.deferred; this.deferred = []; for (const fn of d) fn(); }
 
-    if (this.tick % 120 === 0) this.groups.update(this.chars, this.tick);
+    if (this.tick % 120 === 0) { this.groups.update(this.chars, this.tick); updateLitter(this); }
     if (this.tick % 30 === 0) this.policeTick();
     if (this.tick % 60 === 0) for (const [id, at] of this.pendingAmbulance) {
       const c = this.chars[id];

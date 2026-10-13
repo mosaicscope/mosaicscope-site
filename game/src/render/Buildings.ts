@@ -31,7 +31,7 @@ const STYLE: Record<string, Style> = {
 const styleOf = (b: Building): Style => STYLE[b.kind] ?? "shop";
 /** Emissive paint jobs (neon, signs) replayed by the renderer after the night overlay. */
 export const GLOW: (() => void)[] = [];
-const NEON = new Set(["casino", "nightclub", "diner", "pizza", "sushi", "fishchips", "records", "toyshop", "barber", "hotel", "dealership", "gallery", "studio", "cafe", "pawn"]);
+const NEON = new Set(["casino", "nightclub", "diner", "pizza", "sushi", "fishchips", "records", "toyshop", "barber", "hotel", "dealership", "gallery", "studio", "cafe", "pawn", "recycling"]);
 
 /** Pitched roof height above the eaves at a world point (0 for flat roofs). */
 function roofRise(b: Building, wx: number, wy: number): number {

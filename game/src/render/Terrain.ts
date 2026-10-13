@@ -1,4 +1,5 @@
 import { World, T, TILE_HEIGHT, Poi, ROAD_W, CROSS_W } from "../world/World";
+import { drawBin } from "./LitterArt";
 import { TILE_W, TILE_H, Z_PX } from "../world/iso";
 import { GROUND } from "./palette";
 import type { Camera } from "./Camera";
@@ -270,6 +271,7 @@ export function drawTallTile(g: CanvasRenderingContext2D, t: number, sx: number,
 /** Points of interest (benches, lamps, boombox, chests, hoops, spring pads). */
 export function drawPoi(g: CanvasRenderingContext2D, p: Poi, sx: number, sy: number, z: number, time: number, party: boolean, dark: boolean): void {
   switch (p.kind) {
+    case "bin": drawBin(g, sx, sy, z, p.id >= 0 && ((p.id * 2654435761) >>> 0) % 3 === 0); break;
     case "bench": {
       g.strokeStyle = "#9a5a1c"; g.lineWidth = 3 * z; g.lineCap = "round";
       g.beginPath(); g.moveTo(sx - 14 * z, sy - 5 * z); g.lineTo(sx + 14 * z, sy + 2 * z); g.stroke();

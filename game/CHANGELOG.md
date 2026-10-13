@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Street litter and recycling: cans, bottles, wrappers and cups on the pavements (messier round clubs, alleys and food streets), street bins by doors and benches, and the Avon Recycling Centre on Cashel Mall. Pick up cans and bottles (E), rummage bins, then cash them in at the centre: 10c a can, 20c a bottle, 25% bonus for 20+. Cleaners tidy up, litter persists in saves (no version bump).
+
 ## 0.4.0
 
 - Clinical layer: 249 evidence-tagged studies (`mind/Evidence.ts`), stress, anxiety, depression, trauma and a rare psychosis spectrum with genetic liability from families (`Psychopathology.ts`, `Kin.ts`), whanau support and stigma (`Whanau.ts`), care pathways, Putahi Mental Health Unit. Saves are now v6 (v5 migrates).
