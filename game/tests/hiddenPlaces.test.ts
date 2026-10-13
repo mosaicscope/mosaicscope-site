@@ -21,6 +21,10 @@ describe("hidden places", () => {
     const spots = hiddenSpots(w);
     for (let i = 0; i < spots.length; i++) for (let j = i + 1; j < spots.length; j++) expect(Math.hypot(spots[i].x - spots[j].x, spots[i].y - spots[j].y), `${spots[i].id}/${spots[j].id}`).toBeGreaterThan(1);
   });
+  it("keeps secrets out of the way of the spawn point and the shop doors", () => {
+    const p = sim.player;
+    for (const s of hiddenSpots(w)) expect(Math.hypot(s.x - p.x, s.y - p.y), s.id).toBeGreaterThan(4);
+  });
   it("puts the ladder on the south wall of a tall flat-roofed building", () => {
     const b = pickGardenBuilding(w)!, l = hiddenSpots(w).find((s) => s.id === "ladder")!;
     expect(["apartments", "office", "hotel", "bank"]).toContain(b.kind);

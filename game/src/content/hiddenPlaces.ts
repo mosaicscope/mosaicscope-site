@@ -95,8 +95,8 @@ export function placeHidden(w: World): HiddenSpot[] {
   const g = pickGardenBuilding(w);
   if (g) { const t = ladderTile(w, g) ?? w.nearestWalkable(g.door.x + 0.5, g.door.y + 1.5); out.push(mk("ladder", t, "Climb the rooftop ladder", { building: g.id })); }
   const plaza = w.areas.find((a) => a.kind === "plaza") ?? w.areas.find((a) => a.kind !== "street");
-  if (plaza) out.push(mk("subway", w.nearestWalkable(plaza.cx + 3, plaza.cy + 1), "Take the subway"));
-  stationAreas(w).forEach((a, i) => out.push(mk("station", w.nearestWalkable(a.cx - 2, a.cy + 2), `Ride on from ${STATIONS[i].name}`, { station: i })));
+  if (plaza) out.push(mk("subway", w.nearestWalkable(plaza.x1 - 1, plaza.y0 + 1), "Take the subway"));
+  stationAreas(w).forEach((a, i) => out.push(mk("station", w.nearestWalkable(a.x0 + 2, a.y0 + 2), `Ride on from ${STATIONS[i].name}`, { station: i })));
   const alleys = w.areas.filter((a) => a.kind === "alley");
   const a0 = alleys[0] ?? w.areas.find((a) => a.kind !== "street")!, a1 = alleys[1] ?? a0;
   out.push(mk("glitch", w.nearestWalkable(a0.cx - 3, a0.y1 - 1), "Step into the glitch"));

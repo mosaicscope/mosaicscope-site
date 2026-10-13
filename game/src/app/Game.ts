@@ -425,10 +425,10 @@ export class Game {
       }
     }
     if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; if (Math.abs(v.speed) > 2) { this.toast("Slow down to get out"); return; } v.speed = 0; unseat(sim, v); v.state = "parked"; this.renderer.cam.follow = p.id; return; }
-    const secret = this.hidden.near();
-    if (secret) { this.hidden.open(secret); return; }
     const door = this.nearDoor();
     if (door) { this.enterPlace(door); return; }
+    const secret = this.hidden.near();
+    if (secret) { this.hidden.open(secret); return; }
     if (this.nearestToy()) { this.act("pickup"); return; }
     if (this.scavenge()) return;
     const car = nearestCar(sim, p.x, p.y, 2.2);
@@ -940,8 +940,8 @@ export class Game {
     context: () => {
       const sim = this.sim, p = sim.player;
       if (p.inCar >= 0) return { label: "Get out", icon: "exit" };
-      const secret = this.hidden.near(); if (secret) return { label: secret.label, icon: "use" };
       const d = this.nearDoor(); if (d) return { label: d.studio ? "Enter Studio" : `Enter ${sim.world.buildings[d.building].name}`, icon: "use" };
+      const secret = this.hidden.near(); if (secret) return { label: secret.label, icon: "use" };
       if (this.nearestToy()) return { label: "Pick up", icon: "pickup" };
       if (this.nearestLitter()) return { label: "Pick up litter", icon: "use" };
       if (this.nearestBin()) return { label: "Rummage bin", icon: "use" };
