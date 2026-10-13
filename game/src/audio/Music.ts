@@ -71,9 +71,9 @@ export function planStep(m: Mood, f: Flavour, bar: number, step: number, rand: (
   switch (theme.drums) {
     case "shuffle": kick = step === 0 || step === 7 || step === 10; snare = step === 4 || step === 12; hat = step % 2 === 0 ? 1 : (rand() < 0.4 ? 2 : 0); break;
     case "club": kick = beat; snare = step === 4 || step === 12; hat = offbeat ? 1 : (rand() < 0.3 ? 2 : 0); break;
-    case "chase": kick = step === 0 || step === 6 || step === 8 || step === 14; snare = step === 4 || step === 12; hat = step % 2 === 0 ? 1 : 0; break;
+    case "chase": kick = step === 0 || step === 6 || step === 8 || step === 14; snare = step === 4 || step === 12; hat = step % 4 === 2 ? 1 : 0; break;
     case "mallet": kick = step === 0 && bar % 2 === 0; hat = offbeat ? 2 : 0; break;
-    case "tick": kick = step === 0 && bar % 2 === 0; hat = offbeat && !dread && m.rain < 0.5 ? 2 : 0; break;
+    case "tick": kick = step === 0 && bar % 2 === 0; hat = offbeat && bar % 2 === 0 && !dread && m.rain < 0.5 ? 2 : 0; break;
     case "none": break;
   }
   const bass = beat && (step === 0 || rand() < 0.45) ? sc.root - 12 + chord[0] + (step === 8 && rand() < 0.5 ? 7 : 0) : null;

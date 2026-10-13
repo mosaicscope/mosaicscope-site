@@ -94,3 +94,16 @@ describe("Lil Wooski's scenes", () => {
     expect(c.source).toBe("clock"); expect(c.hour).toBeGreaterThanOrEqual(0); expect(c.hour).toBeLessThan(24);
   });
 });
+
+import { reviewAll, review, CRITERIA } from "../src/audio/Critique";
+describe("the old master (fictional critic) reviews every scene", () => {
+  it("scores every shipped scene theme a 10 on all six criteria", () => {
+    for (const r of reviewAll(parseInspo(inspoJson))) {
+      for (const c of CRITERIA) expect(r.scores[c], `${r.scene} ${c}: ${r.notes.join("; ")}`).toBe(10);
+    }
+  });
+  it("actually marks a bad theme down", () => {
+    
+    expect(review("nightlife", { ...THEMES.nightlife, bpm: 0.6, flavour: "day", density: 0.1, drums: "none", motif: undefined }).total).toBeLessThan(8);
+  });
+});

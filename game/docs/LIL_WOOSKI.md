@@ -54,5 +54,10 @@ Write vibes here in plain words (a scene, a feeling, a film mood, "more lonely a
 
 Rules: live data only drives audio, never the simulation (so saves, tests and the sim stay deterministic); the request is a bare GET with no parameters, cookies or user data.
 
+## The old master's critique
+Chris asked for a 10 every time. A real person's rating can't be produced here, so the review is a **fictional critic**, "the old master" (Lil Wooski's father in Chris's story, not a real person and not a real opinion). `src/audio/Critique.ts` plays each scene's generator offline for 32 bars and scores it 1 to 10 on six written criteria: **fit** (tempo, scale, busyness vs the scene's written intent), **memorability** (a recurring hook, a sensible pitch vocabulary), **storytelling** (scale colour matches the feeling), **transitions** (tempo jump from the city under 2x so the sweep can carry it), **mix** (loudness and drum share proxies from the engine's own envelope levels) and **restraint** (notes per second and silence gaps). It is a listening proxy, not ears: it catches wrong tempo, mud, nervousness and missing hooks, and cannot judge taste. Run it with `npm run critique`; the test suite fails if any shipped scene drops below 10 on any criterion.
+
+First pass, in character: "Nightlife is a shouting match: wrong scale, 11 notes a second, nine pitch classes where there should be a hook. Street is dragging its feet at 72. The chase fidgets (10.6 notes a second). The city hats too much. Fix those." After fixes (tempo, scale, density, hats, and removing the shipped `swagger` example that dragged nightlife out of its scale): all ten scenes score 10 on all six criteria. The old master has not heard the game in a real browser; ears still beat this check.
+
 ## Routine
 "HQ Lil Wooski: composer" runs twice a day just before a Christa gate: read the inbox and `inspo.json`, deepen one scene or motif, keep it original and mobile-friendly, run `cd game && npx tsc --noEmit -p . && npx vitest run && npm run build`, open a PR on `lilwooski/YYYY-MM-DD`, never merge.
