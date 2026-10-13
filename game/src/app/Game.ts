@@ -19,6 +19,7 @@ import { Renderer, Quality } from "../render/Renderer";
 import { AudioSystem } from "../audio/Audio";
 import { LocalStorageProvider } from "../persistence/storage";
 import { SaveSystem, SaveError } from "../persistence/SaveSystem";
+import { setGravityScale, gravityScale } from "../physics/PhysicsWorld";
 import { Settings, loadSettings, saveSettings } from "../persistence/Settings";
 import { newDebugFlags } from "../debug/flags";
 import { DevPanel } from "../debug/DevPanel";
@@ -127,6 +128,14 @@ export class Game {
       fps: () => this.fpsAvg, tickRate: () => this.tickRate, reset: (seed) => this.reset(seed), toast: (t) => this.toast(t),
       teleport: () => { const p = this.renderer.cam.toWorld(this.mouse.x, this.mouse.y); const w = this.sim.world.nearestWalkable(p.x, p.y); this.sim.player.x = w.x; this.sim.player.y = w.y; },
     });
+    // debug console: type mosaics.help() in the browser console
+    (window as unknown as { mosaics: object }).mosaics = {
+      help: () => "mosaics.gravity(v) sets toy gravity (0.1 to 2); mosaics.toast(text) shows a toast; mosaics.saveSlots() lists slots",
+      gravity: (v: number) => { setGravityScale(v); return `gravity ${gravityScale}`; },
+      toast: (text: string) => this.toast(text),
+      saveSlots: () => ["1", "2", "3"].map((s) => ({ slot: s, info: this.saves.info(s) })),
+    };
+    try { if (localStorage.getItem("ms-colourblind") === "1") document.documentElement.classList.add("cb"); } catch { /* storage blocked: default palette */ }
     this.toastEl = h("div.toasts", { "aria-live": "polite" });
     this.hintEl = h("div.hint");
     this.clockEl = h("span.clock");
