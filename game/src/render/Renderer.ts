@@ -5,6 +5,7 @@ import { drawLitter } from "./LitterArt";
 import { T, TILE_HEIGHT, ROAD_W } from "../world/World";
 import { Camera } from "./Camera";
 import { Terrain, drawTallTile, drawPoi } from "./Terrain";
+import { decorGrid, drawDecor } from "./StreetDecor";
 import { Particles } from "./Particles";
 import { Lighting, Rain } from "./Lighting";
 import { NightFX } from "./NightFX";
@@ -25,7 +26,7 @@ import { LOD_NAMES } from "../entities/types";
 import { StreetView } from "./Street2D";
 
 export type Quality = 0 | 1 | 2 | 3; // low, medium, high, ultra
-interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter
+interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter, 7 street decor
 interface Decal { x: number; y: number; r: number; color: string; born: number; life: number; rot: number }
 
 export interface RenderOptions { selected: number; hovered: number; debug: DebugFlags; reduceMotion: boolean; quality: Quality; showNames: boolean }
@@ -179,6 +180,15 @@ export class Renderer {
       if (!inView(pt.x, pt.y, 120 * z)) continue;
       this.push(p.x + p.y, 3, p.id, pt.x, pt.y);
     }
+    // street dressing (kerb trees, planters, bollards, bike racks, cafe tables); skipped when zoomed far out
+    if (z >= 0.5) {
+      const dg = decorGrid(sim.world);
+      for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
+        if (!dg[ty * S + tx]) continue;
+        cam.toScreen(tx + 0.5, ty + 0.5, 0, pt);
+        if (inView(pt.x, pt.y, 70 * z)) this.push(tx + ty + 1, 7, ty * S + tx, pt.x, pt.y);
+      }
+    }
     // water: drifting ripple crests (continuous across tiles, driven by world position) and sun glints
     this.drawWater(g, sim, o, minX, maxX, minY, maxY, time);
 
@@ -319,6 +329,9 @@ export class Renderer {
         flush();
         const l = sim.litter.pieces[it.ref];
         drawLitter(g, l.kind, l.tone, l.rot, it.sx, it.sy, z);
+      } else if (it.kind === 7) {
+        flush();
+        drawDecor(g, decorGrid(sim.world)[it.ref], it.sx, it.sy, z, time, 1 - sim.daylight, (it.ref * 0.618) % 1);
       } else {
         flush();
         drawPoi(g, sim.world.pois[it.ref], it.sx, it.sy, z, time, party, isDark);
