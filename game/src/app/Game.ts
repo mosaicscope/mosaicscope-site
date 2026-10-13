@@ -40,6 +40,7 @@ import { VEHICLES } from "../content/vehicles";
 import { MOSAIC } from "../content/mosaicscope";
 import { carried, detach } from "../inventory/Inventory";
 import { BUILDINGS } from "../content/buildings";
+import { billAbsence, collect } from "../sim/Arrears";
 
 /** Wires simulation, renderer, input, audio, UI and persistence together and runs the loop. */
 /** People who ring you. Lines can mention {place} and {cash}. */
@@ -916,8 +917,15 @@ export class Game {
     const notes: string[] = [];
     if (days >= 0.25) { p.hunger = Math.min(p.hunger, Math.max(0.12, 0.6 - days * 0.12)); notes.push("you're starving"); }
     if (days >= 1.5) { const k = Math.max(0.7, 1 - days * 0.025); p.look.build = Math.min(p.look.build ?? 1, k); notes.push(k < 0.85 ? "you've gone skinny" : "you've lost a bit of weight"); }
-    const rent = Math.min(p.cash * 0.4, Math.round(days * 45));
-    if (rent >= 5) { p.cash -= rent; notes.push(`rent and bills took ${fmtCash(rent)}`); }
+    // unpaid rent becomes arrears (capped, with interest) kept in localStorage, and the collector takes a share of what you hold
+    let owed = 0;
+    try { owed = +(localStorage.getItem("mosaics-world:arrears") ?? 0) || 0; } catch { /* private mode */ }
+    const bill = billAbsence(days, p.cash, owed);
+    if (bill.paid >= 5) { p.cash -= bill.paid; notes.push(`rent and bills took ${fmtCash(bill.paid)}`); }
+    const visit = collect(p.cash, bill.arrears);
+    if (visit.taken >= 5) { p.cash -= visit.taken; notes.push(`the landlord's nephew collected ${fmtCash(visit.taken)} of back rent`); }
+    if (visit.left >= 5) notes.push(`you still owe ${fmtCash(visit.left)} in arrears`);
+    try { localStorage.setItem("mosaics-world:arrears", String(visit.left)); } catch { /* ignore */ }
     const crew = sim.chars.filter((c) => c.tier === "principal" && c.name !== "Chris");
     if (days >= 1) for (const c of crew) { const r = sim.relate(c, p.id); r.aff = Math.min(1, r.aff + 0.05); r.fam = Math.min(1, r.fam + 0.05); }
     const tiles = crew.find((c) => c.name === "Tiles"), glitter = crew.find((c) => c.name === "Glitter");
