@@ -1,3 +1,4 @@
+import { ISSUES } from "./FaceIssues";
 /**
  * Procedural face "genes": ~107 tiny part variants (x8 tones) in 14 slots (iris, liner, glasses, brow pierce, nose bit, cheek,
  * forehead, face paint, mouth bit, ear, chin, scar, tattoo, age) plus continuous jitter, combined by one integer
@@ -5,7 +6,7 @@
  * The product of the tables is ~10^15 faces; the seed gives 2^31 of them.
  */
 export interface FaceCtx { x: number; y: number; k: number; dir: number; lw: number; col: string; alpha: number; fx: number; ey: number; my: number; rx: number; ry: number; covered: boolean }
-type Draw = (g: CanvasRenderingContext2D, c: FaceCtx, t: string) => void;
+export type Draw = (g: CanvasRenderingContext2D, c: FaceCtx, t: string) => void;
 
 // 24 bright markings colours: paint, ink, glitter and tattoo tones, picked per slot per face
 const TONES = ["#3dd6ff", "#ff4fa3", "#f6b62c", "#7be34a", "#a35bff", "#ff6a3d", "#f4f1ea", "#1fd1b8",
@@ -204,6 +205,8 @@ const EXTRA: [number, Draw[]][] = [
   ]],
 ];
 for (const [i, parts] of EXTRA) SLOTS[i].push(...parts);
+// the everyday issues (acne, bags, braces, nosebleeds...) join the same slots
+for (const [i, parts] of ISSUES) SLOTS[i].push(...parts);
 
 /** Odds that a slot is used at all (so most faces stay readable at 100px). */
 // more of the faces get markings now: about 1.6x the old odds, capped so faces stay readable
@@ -243,7 +246,12 @@ export function drawFaceGenes(g: CanvasRenderingContext2D, seed: number, c: Face
   g.lineCap = "round"; g.lineWidth = Math.max(0.7, c.lw * 0.45);
   for (let i = 0; i < SLOTS.length; i++) {
     const p = G.parts[i];
-    if (p) { g.strokeStyle = G.tones[i]; g.fillStyle = G.tones[i]; SLOTS[i][p](g, c, G.tones[i]); }
+    if (!p) continue;
+    // seeded variety: each slot's part is scaled and nudged by its own seed, so one part shows up in many versions
+    const h = mix(seed + i * 977);
+    const jit: FaceCtx = { ...c, k: c.k * (0.78 + (h % 50) / 100), fx: c.fx + (((h >>> 6) % 9) - 4) * 0.3 * c.k, my: c.my + (((h >>> 12) % 7) - 3) * 0.3 * c.k };
+    g.strokeStyle = G.tones[i]; g.fillStyle = G.tones[i];
+    SLOTS[i][p](g, jit, G.tones[i]);
   }
   g.restore();
 }
