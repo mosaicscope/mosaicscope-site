@@ -104,6 +104,8 @@ export class AudioSystem {
         if (c === p || c.inside >= 0) continue;
         const d = Math.hypot(c.x - p.x, c.y - p.y);
         if (d < 10) crowd++;
+        // a new speech bubble close by gets a short voice blip
+        if (c.bubble && c.bubble !== this.seenBubble.get(c.id) && d < 12) { this.seenBubble.set(c.id, c.bubble); this.dg?.voice(c.id, interior !== null); }
         if (c.role === "busker" && d < bd) { bd = d; bx = c.x - p.x; }
       }
       this.crowd = Math.min(1, crowd / 8); this.buskerDist = interior ? Infinity : bd; this.buskerPan = bx / 14;
@@ -112,6 +114,7 @@ export class AudioSystem {
     this.music?.setLayers(layers);
     this.busker?.update(this.buskerDist, this.buskerPan, sim.hour, sim.env.rain);
   }
+  private seenBubble = new Map<number, unknown>();
   private moodT = 0; private crowd = 0; private buskerDist = Infinity; private buskerPan = 0;
 
   attach(sim: Simulation): void {
