@@ -80,6 +80,9 @@ export class AudioSystem {
   /** A UI tone for an interface event (click, tab, error, save and so on). Silent until the audio context is on. */
   ui(tone: UiTone): void { this.dg?.uiTone(tone); }
 
+  /** Victory or defeat sting for the soundtrack. Only plays while the music is on. */
+  stinger(kind: "victory" | "defeat"): void { if (this.musicOn) this.music?.stinger(kind); }
+
   /** Set the world-sound mute and volume (separate from the soundtrack and the master volume). */
   setSfx(on: boolean, vol: number): void { this.sfxOn = on; this.sfxVolume = vol; this.dg?.setLevel(on, vol); }
 

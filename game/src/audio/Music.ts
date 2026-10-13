@@ -137,6 +137,20 @@ export class Music {
 
   setLevel(v: number): void { this.out.gain.setTargetAtTime(v, this.ctx.currentTime, 0.2); }
 
+  /** A short victory or defeat sting, played through the same warm tape filter as the score. */
+  stinger(kind: "victory" | "defeat"): void {
+    const t = this.ctx.currentTime + 0.02;
+    const notes = kind === "victory" ? [440, 554.37, 659.25, 880] : [329.63, 293.66, 261.63, 233.08];
+    const wave: OscillatorType = kind === "victory" ? "triangle" : "sine";
+    const gap = kind === "victory" ? 0.09 : 0.2, len = kind === "victory" ? 0.5 : 0.7, peak = kind === "victory" ? 0.12 : 0.1;
+    notes.forEach((f, i) => {
+      const at = t + i * gap, o = this.ctx.createOscillator(), g = this.ctx.createGain();
+      o.type = wave; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(peak, at + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, at + len);
+      o.connect(g); g.connect(this.out); o.start(at); o.stop(at + len + 0.05);
+    });
+  }
+
   setLive(l: Live | null): void { this.live = l; }
 
   /** Ease the mood layers in: crackle, rain on glass, the 3am hush and the dream wobble all glide, never jump. */
