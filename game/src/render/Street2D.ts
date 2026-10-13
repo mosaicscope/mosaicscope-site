@@ -100,6 +100,17 @@ export class StreetView {
     this.backdrop(g, sim, W, pu, pv, S, ground, day, time);
     this.facades(g, sim, W, H, off, pv, S, ground, day, time);
     this.street(g, W, H, off, ground, night, rain, time);
+    // kerb bushes, and pigeons pecking along the pavement (LOOK.md neon line for the animals)
+    for (let i = 0; i < 16; i++) {
+      const bx = hash(i + 700) * W, by = ground + 2 + hash(i + 710) * 6, br = 14 + hash(i + 720) * 16;
+      g.fillStyle = "#14321f"; g.beginPath(); g.ellipse(bx, by, br, br * 0.7, 0, 0, 6.283); g.fill();
+      g.fillStyle = "#2c5a36"; g.beginPath(); g.ellipse(bx - br * 0.2, by - br * 0.2, br * 0.6, br * 0.4, 0, 0, 6.283); g.fill();
+    }
+    for (let i = 0; i < 6; i++) {
+      const px = ((hash(i + 800) * W + time * (6 + hash(i + 810) * 6)) % (W + 40)) - 20, py = ground + 14 + hash(i + 820) * 8;
+      g.strokeStyle = NEON[(i + 3) % NEON.length]; g.lineWidth = 1.4; g.beginPath(); g.ellipse(px, py, 5, 3, 0, 0, 6.283); g.stroke();
+      g.beginPath(); g.moveTo(px + 4, py - 1); g.lineTo(px + 8, py - 3); g.stroke();
+    }
     // dusk settles over the set; the lamps and lit windows then burn through it
     if (night > 0.05) { g.fillStyle = `rgba(14,10,36,${0.55 * night})`; g.fillRect(0, 0, W, H); }
     this.lights(g, W, H, off, ground, night, time);
