@@ -6,6 +6,8 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--ink); color: var(--paper); font: calc(13px * var(--ts)) / 1.45 var(--mono); -webkit-font-smoothing: antialiased; }
+/* mobile: no rubber-band bounce, no grey tap flash, and the browser keeps its own pinch-zoom and address bar */
+html, body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
 #world { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block; touch-action: none; cursor: crosshair; }
 #ui { position: fixed; inset: 0; pointer-events: none; }
 #ui > * { pointer-events: auto; }
@@ -352,3 +354,6 @@ body { overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
 /* a game, not a document: no text selection, no iOS copy/paste callout, no tap flash (inputs stay editable) */
 html, body, #ui, #ui *:not(input):not(textarea):not([contenteditable]) { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 input, textarea { -webkit-user-select: text; user-select: text; }
+
+/* colour-blind palette: the red/green accents swap to blue/orange, which stay distinct for most colour vision types */
+html.cb { --red: #d55e00; --acid: #56b4e9; --gold: #e69f00; --pink: #cc79a7; --cyan: #56b4e9; }

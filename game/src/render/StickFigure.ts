@@ -138,6 +138,24 @@ export let hdBudget = 0;
 export function resetHdBudget(n: number): void { hdBudget = n; }
 export const HEAD_R = 10.5;
 
+/**
+ * Inverse kinematics for one arm: aim the hand at a point (tx, ty) in figure space (before solve's screen transform,
+ * y down, shoulder at the origin of the arm). Two-bone law of cosines; the elbow bends so the hand reaches out in front.
+ * Writes armL/foreL (side 0) or armR/foreR (side 1) into `a`. Targets beyond reach are clamped to a straight arm.
+ */
+export function reachArm(a: Angles, side: 0 | 1, shx: number, shy: number, tx: number, ty: number): void {
+  const UP = 17, FORE = 14;
+  const dx = tx - shx, dy = ty - shy;
+  const d = Math.min(Math.max(Math.hypot(dx, dy), 1e-3), UP + FORE - 1e-3);
+  const base = Math.atan2(dx, dy);                       // direction from shoulder to target, same convention as solve
+  const alpha = Math.acos(Math.min(1, Math.max(-1, (UP * UP + d * d - FORE * FORE) / (2 * UP * d))));
+  const a1 = base - alpha;                               // upper arm: elbow bends forward (toward the target side)
+  const ex = shx + Math.sin(a1) * UP, ey = shy + Math.cos(a1) * UP;
+  const a12 = Math.atan2(tx - ex, ty - ey);              // forearm direction from elbow to target
+  const a2 = a12 - a1;
+  if (side === 0) { a.armL = a1 - a.lean; a.foreL = a2; } else { a.armR = a1 - a.lean; a.foreR = a2; }
+}
+
 export function solve(a: Angles, sx: number, sy: number, k: number, dir: number): void {
   const T = 44, TORSO = 42, UP = 17, FORE = 14, TH = 22, SH = 21, NECK = 13;
   let hx = a.hipX, hy = -T + a.bob;
@@ -168,7 +186,7 @@ let SW = 0, SB = 0;
 export interface ItemDraw { (g: CanvasRenderingContext2D, x: number, y: number, k: number, dir: number, angle: number): void }
 
 /** Full-detail figure (principal, mid, player). */
-export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: number, _sy: number, k: number, dir: number, t: number, flash: number, alpha: number, rigKey: object = c.anim): void {
+export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: number, _sy: number, k: number, dir: number, t: number, flash: number, alpha: number, hdOverride?: boolean, rigKey: object = c.anim): void {
   const L = c.look, girl = L.kind === "girl";
   const lw = Math.max(1.1, 3.2 * k * (L.build ?? 1));
   g.globalAlpha = alpha;
@@ -176,7 +194,7 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
   const rg = swayRig(rigKey, J[4], J[5], k, dir, t); SW = rg.sway; SB = rg.bounce;
   const col = flash > 0 ? "#ffffff" : L.color;
   // HD pass when you're close: soft neon glow, a crisp ink outline under every limb, then the line
-  const hd = k >= 1.05 && hdBudget-- > 0;
+  const hd = hdOverride ?? (k >= 1.05 && hdBudget-- > 0);
   if (isResident(c)) {   // the everyday local: egg belly, long neck, big nose (see Residents.ts)
     drawResident(g, J, c, k, dir, alpha, hd, flash > 0, lw);
     if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 18 * k, k, t);

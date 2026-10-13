@@ -580,7 +580,7 @@ export class InteriorView {
     const A = smooth(a, pose(a.pose, a.style, st.t + a.seed, a.phase, a.speed, a.poseT), st.t, a.pose);
     solve(A, sx, sy, k, a.dir);
     (this.stub as { look: Look }).look = a.look;
-    drawFigure(g, this.stub, sx, sy, k, a.dir, st.t, 0, 1, a);
+    drawFigure(g, this.stub, sx, sy, k, a.dir, st.t, 0, 1, undefined, a);
     if (a.isPlayer) { g.fillStyle = "#ec2a1c"; g.font = "700 10px 'IBM Plex Mono', monospace"; g.textAlign = "center"; g.fillText("You", sx, sy + 13); }
     else if (st.nearActor === a.id && a.name) this.tag(g, a.name, sx, sy - 122 * k - 6, "#eee4d3");
   }
