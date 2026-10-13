@@ -3,11 +3,11 @@ import { clamp } from "../core/math";
 
 /** World-space camera: looks at (x, y) on the ground plane with a zoom; smooth follow and bounds. */
 export class Camera {
-  x = 32; y = 32; zoom = 1.5;
-  targetX = 32; targetY = 32; targetZoom = 1.5;
+  x = 32; y = 32; zoom = 1.1;
+  targetX = 32; targetY = 32; targetZoom = 1.1;
   follow = -1;           // character id to follow (-1 = free)
   viewW = 800; viewH = 600;
-  minZoom = 0.35; maxZoom = 6;
+  minZoom = 0.35; maxZoom = 12;
   worldSize = 64;
   private s: Pt = { x: 0, y: 0 };
   private c: Pt = { x: 0, y: 0 };
