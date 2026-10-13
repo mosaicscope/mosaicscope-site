@@ -158,10 +158,8 @@ export class StreetView {
   // ---- sky, far skyline, telegraph poles and wires
   private backdrop(g: CanvasRenderingContext2D, sim: Simulation, W: number, pu: number, pv: number, S: number, ground: number, day: number, time: number): void {
     const sky = g.createLinearGradient(0, 0, 0, ground);
-    if (day > 0.85) { sky.addColorStop(0, "#5d7fb0"); sky.addColorStop(1, "#c9d0da"); }
-    else if (day > 0.6) { sky.addColorStop(0, "#4a5f8a"); sky.addColorStop(1, "#d6a27c"); }
-    else if (day > 0.2) { sky.addColorStop(0, NOIR.skyTop); sky.addColorStop(0.7, NOIR.skyLow); sky.addColorStop(1, NOIR.skyDusk); }
-    else { sky.addColorStop(0, "#0c0b1c"); sky.addColorStop(1, "#2e2848"); }
+    // LOOK.md: a near-black street at every hour, lit by people and lamps (no blue or brown washes)
+    sky.addColorStop(0, NOIR.skyTop); sky.addColorStop(0.7, NOIR.skyLow); sky.addColorStop(1, NOIR.skyDusk);
     g.fillStyle = sky; g.fillRect(0, 0, W, ground);
     if (day < 0.4) { g.fillStyle = "rgba(240,230,210,.8)"; for (let i = 0; i < 40; i++) g.fillRect(((hash(i) * W + pu * S * 0.04) % W + W) % W, hash(i + 90) * ground * 0.35, 2, 2); }
     // two hazy layers of far city behind everything, so the horizon is never bare sky
