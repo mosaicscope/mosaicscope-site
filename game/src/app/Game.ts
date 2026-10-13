@@ -29,6 +29,7 @@ import { TerranceUI } from "../ui/Terrance";
 import { ModalHost, settingsBody, keysList } from "../ui/Modals";
 import { h, fmtHour } from "../ui/dom";
 import { moveTo, stop } from "../ai/steps";
+import { screenToWorldDir, easeVelocity } from "./steer";
 import { canPickUp } from "../inventory/Inventory";
 import { TOYS, canThrow, isMelee, BLACK_MARKET } from "../content/toys";
 import { setImpactIntensity } from "../physics/combat";
@@ -304,10 +305,14 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ player
+  private walkDir = { x: 0, y: 0 };
+  /** The player's own smoothed walking velocity (the sim's p.vx/vy is overwritten by AI thinking, so it can't carry the ease). */
+  private vel = { x: 0, y: 0 };
   private controlPlayer(): void {
     const sim = this.sim, p = sim.player, k = this.settings.keys;
-    if (this.interior.open) { p.vx = p.vy = 0; return; } // you're indoors; the street body waits at the door
+    if (this.interior.open) { p.vx = p.vy = 0; this.vel.x = this.vel.y = 0; return; } // you're indoors; the street body waits at the door
     if (p.inCar >= 0) {
+      this.vel.x = this.vel.y = 0;
       const up = this.keys.has(k.up) || this.keys.has("arrowup"), down = this.keys.has(k.down) || this.keys.has("arrowdown");
       const left = this.keys.has(k.left) || this.keys.has("arrowleft"), right = this.keys.has(k.right) || this.keys.has("arrowright");
       playerInput.throttle = up ? 1 : down ? -1 : 0;
@@ -318,7 +323,7 @@ export class Game {
       this.renderer.cam.follow = p.id;
       return;
     }
-    if (p.phys !== Phys.OK || sim.tick < p.stunUntil) { stop(p); return; }
+    if (p.phys !== Phys.OK || sim.tick < p.stunUntil) { stop(p); this.vel.x = this.vel.y = 0; return; }
     let ix = 0, iy = 0;
     if (this.keys.has(k.up) || this.keys.has("arrowup")) iy -= 1;
     if (this.keys.has(k.down) || this.keys.has("arrowdown")) iy += 1;
@@ -327,9 +332,10 @@ export class Game {
     // touch stick: analog, push past ~94% to sprint
     if (this.touchMove.x || this.touchMove.y) { ix = this.touchMove.x; iy = this.touchMove.y; }
     if (ix || iy) {
-      // screen directions -> world: screen up = (-1,-1), screen right = (1,-1)
-      const wx = ix - iy, wy = -ix - iy, l = Math.hypot(wx, wy);
-      p.vx = (wx / l) * p.speed; p.vy = (wy / l) * p.speed;
+      // screen directions -> world (up = away from the camera), eased so it never snaps
+      const w = screenToWorldDir(ix, iy, this.walkDir);
+      easeVelocity(this.vel, w.x * p.speed, w.y * p.speed, 1 / 60);
+      p.vx = this.vel.x; p.vy = this.vel.y;
       this.moveTarget = null; this.pendingTalk = -1;
       if (this.dialogue.open) this.dialogue.close();
       if (this.terrance.open) this.terrance.close();
@@ -345,7 +351,8 @@ export class Game {
       if (!t) this.pendingTalk = -1;
       else if (Math.hypot(t.x - p.x, t.y - p.y) < 1.8) { stop(p); const id = this.pendingTalk; this.pendingTalk = -1; this.openTalk(id); }
       else moveTo(p, t.x, t.y, sim, 1.4);
-    } else stop(p);
+    } else { easeVelocity(this.vel, 0, 0, 1 / 60); p.vx = this.vel.x; p.vy = this.vel.y; } // let go: brake smoothly
+    if (!(ix || iy) && (this.moveTarget || this.pendingTalk >= 0)) { this.vel.x = p.vx; this.vel.y = p.vy; } // click-to-walk drives p directly; stay in sync
     if (p.anim.pose !== "auto" && sim.tick % 30 === 0) p.anim.pose = "auto";
   }
 
