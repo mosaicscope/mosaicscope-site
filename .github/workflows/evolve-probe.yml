@@ -39,6 +39,10 @@ jobs:
             (cd game && npm ci --ignore-scripts --silent) && node evolve/security.mjs deps deps.json || true
             node -e 'const f=require("fs");const s=JSON.parse(f.readFileSync("security.json"));try{s.deps=JSON.parse(f.readFileSync("deps.json")).vulnerabilities}catch{};f.writeFileSync("security.json",JSON.stringify(s))'
           fi
+      - name: Code health and documentation drift
+        run: |
+          node evolve/maintain.mjs code maintenance.json
+          node evolve/maintain.mjs docs docs.json
       - name: Save to evolve-data
         run: |
           git config --global user.name "evolve-probe"; git config --global user.email "evolve-probe@users.noreply.github.com"
@@ -46,8 +50,8 @@ jobs:
           for i in 1 2 3; do
             rm -rf data
             if git clone -q --depth 1 --branch evolve-data "$url" data 2>/dev/null; then :; else mkdir data && git -C data init -q -b evolve-data && git -C data remote add origin "$url"; fi
-            cp probe.json security.json data/
-            git -C data add probe.json security.json
+            cp probe.json security.json maintenance.json docs.json data/
+            git -C data add probe.json security.json maintenance.json docs.json
             git -C data commit -qm "probe $(date -u +%FT%TZ)" || exit 0
             git -C data push -q origin evolve-data && exit 0
             sleep $((i * 5))

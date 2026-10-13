@@ -25,6 +25,12 @@ export function blankState() {
     security: null,           // latest security scan summary
     backlog: [],              // strategic memory: ranked, deduplicated, aged-out list of known problems
     cache: {},                // agent answers by prompt hash (same question = no new call)
+    graph: null,              // knowledge graph: { stats, edges } (capped)
+    recovery: { points: [], log: [] }, // known-good commits and every rollback with its cause
+    experiments: [],          // controlled experiments and their measured verdicts
+    maintenance: null,        // code-health totals over time
+    docs: null,               // documentation drift count
+    resources: null,          // current operating mode and why
     month: { id: "", usd: 0, calls: 0 },
     auditCheckedAt: 0,
     priorities: [],           // current ranked opportunities (for the dashboard)
@@ -72,6 +78,6 @@ export function prune(s, now) {
 
 /** Public view for the dashboard: everything except the raw finding cache. */
 export function publicView(s) {
-  const { findings, scanKey, seen, cache, ...rest } = s;
-  return { ...rest, seenCount: Object.keys(seen || {}).length, findingCount: (findings || []).length, cacheSize: Object.keys(cache || {}).length };
+  const { findings, scanKey, seen, cache, graph, ...rest } = s;
+  return { ...rest, seenCount: Object.keys(seen || {}).length, findingCount: (findings || []).length, cacheSize: Object.keys(cache || {}).length, graph: graph ? { stats: graph.stats, at: graph.at, sample: (graph.edges || []).filter((e) => e[1] !== "styles").slice(0, 30) } : null };
 }

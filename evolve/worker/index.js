@@ -11,7 +11,7 @@ import { runCycle } from "../core/cycle.js";
 import { hash } from "../core/html.js";
 
 // What the checks read: the editable pages plus read-only context (manifest, the world page for the sitemap).
-const READ_PATHS = [...ALLOWED_PATHS, "manifest.webmanifest", "world/index.html"];
+const READ_PATHS = [...ALLOWED_PATHS, "manifest.webmanifest", "world/index.html", "main.js"];
 
 export default {
   async scheduled(_event, env, ctx) {
@@ -51,6 +51,7 @@ export function workerIo(env, fetchImpl = fetch) {
       get: () => env.EGG.get("evo:state", "json"),
       put: (s) => env.EGG.put("evo:state", JSON.stringify(s)),
       control: () => env.EGG.get("evo:control", "json"),
+      taskControls: () => env.EGG.get("evo:tasks", "json"),
       // Cron runs once per tick and a cycle is cut off at CYCLE_DEADLINE_MS (< the 2 minute interval),
       // so cycles can't overlap. No KV lock: it would cost two writes per cycle on the free tier.
       lock: async () => true,
@@ -64,12 +65,12 @@ export function workerIo(env, fetchImpl = fetch) {
       // plus the probe and security results the workflows keep on the evolve-data branch
       const d = await gh(`/commits/evolve-data`, { headers: { Accept: "application/vnd.github.sha" } });
       const data = d.ok ? (await d.text()).trim() : "";
-      return { ...Object.fromEntries(READ_PATHS.map((p) => [p, head])), ...(data ? { "@probe": data, "@security": data } : {}) };
+      return { ...Object.fromEntries(READ_PATHS.map((p) => [p, head])), ...(data ? { "@probe": data, "@security": data, "@maintenance": data, "@docs": data } : {}) };
     },
     async readFiles(paths) {
       const out = {};
       await Promise.all(paths.map(async (p) => {
-        const data = { "@probe": "probe.json", "@security": "security.json" }[p];
+        const data = { "@probe": "probe.json", "@security": "security.json", "@maintenance": "maintenance.json", "@docs": "docs.json" }[p];
         const r = await gh(data ? `/contents/${data}?ref=evolve-data` : `/contents/${p}?ref=${head || branch}`, { headers: { Accept: "application/vnd.github.raw+json" } });
         if (r.ok) out[p] = await r.text();
       }));
@@ -84,7 +85,7 @@ export function workerIo(env, fetchImpl = fetch) {
         await gh(`/contents/${p.change.path}`, { method: "PUT", body: JSON.stringify({ message: p.title, content: b64(p.change.text), sha: meta.sha, branch: name }) });
         const pr = await (await gh(`/pulls`, { method: "POST", body: JSON.stringify({
           title: p.title, head: name, base: branch,
-          body: `Automatic change from the MosaicScope evolution engine.\n\n- Check: \`${p.kind}\` at \`${p.path}:${p.line}\`\n- Fix: ${p.label}\n- Won by: **${p.agent}** (score ${p.score})\n- Changed lines: ${p.lines}\n\nCI (\`evolve-ci\`) re-validates this diff, runs the engine tests, and closes this PR and deletes the branch if anything fails.`,
+          body: `Automatic change from the MosaicScope evolution engine.\n\n- Check: \`${p.kind}\` at \`${p.path}:${p.line}\`\n- Pages it can affect (knowledge graph): ${(p.deps || []).join(", ") || "this file only"}\n- Fix: ${p.label}\n- Won by: **${p.agent}** (score ${p.score})\n- Changed lines: ${p.lines}\n\nCI (\`evolve-ci\`) re-validates this diff, runs the engine tests, and closes this PR and deletes the branch if anything fails.`,
         }) })).json();
         if (!pr.number) throw new Error("PR was not created");
         // features never merge themselves: a person approves them from the PR's preview
@@ -114,6 +115,29 @@ export function workerIo(env, fetchImpl = fetch) {
     async audit() {
       const r = await gh(`/contents/audit.json?ref=evolve-data`, { headers: { Accept: "application/vnd.github.raw+json" } });
       return r.ok ? r.json() : null;
+    },
+    // Recovery to a known-good commit: only files whose every change since then came from the engine.
+    async restore(good) {
+      const base = (await (await gh(`/commits/${branch}`, { headers: { Accept: "application/vnd.github.sha" } })).text()).trim();
+      const restored = [], skipped = [], contents = {};
+      for (const p of ALLOWED_PATHS) {
+        const list = await (await gh(`/commits?sha=${base}&path=${encodeURIComponent(p)}&per_page=30`)).json();
+        const since = [];
+        for (const c of Array.isArray(list) ? list : []) { if (c.sha === good) break; since.push(c); }
+        if (!since.length) continue;
+        if (since.length >= 30 || since.some((c) => !/^evolve:|^Merge pull request .* from [\w-]+\/evolve\//.test(c.commit?.message || ""))) { skipped.push(p); continue; }
+        const r = await gh(`/contents/${p}?ref=${good}`, { headers: { Accept: "application/vnd.github.raw+json" } });
+        if (r.ok) { contents[p] = await r.text(); restored.push(p); }
+      }
+      if (!restored.length) throw new Error("nothing safe to restore" + (skipped.length ? ` (people changed ${skipped.join(", ")})` : ""));
+      const name = `evolve/revert-restore-${good}`;
+      await gh(`/git/refs`, { method: "POST", body: JSON.stringify({ ref: `refs/heads/${name}`, sha: base }) });
+      for (const p of restored) {
+        const meta = await (await gh(`/contents/${p}?ref=${name}`)).json();
+        await gh(`/contents/${p}`, { method: "PUT", body: JSON.stringify({ message: `evolve: restore ${p} to known-good ${good.slice(0, 7)}`, content: b64(contents[p]), sha: meta.sha, branch: name }) });
+      }
+      const pr = await (await gh(`/pulls`, { method: "POST", body: JSON.stringify({ title: `evolve: restore ${restored.join(", ")} to known-good ${good.slice(0, 7)}`, head: name, base: branch, body: `A critical failure was seen on the live site. This restores the engine-edited files to the last commit the probe verified as healthy. Files a person changed since then were left alone: ${skipped.join(", ") || "none"}.` }) })).json();
+      return { ref: `#${pr.number}`, url: pr.html_url, restored, skipped };
     },
     async checkPending(p) {
       const n = String(p.ref).replace("#", "");

@@ -18,10 +18,12 @@ import { existsSync, statSync } from "node:fs";
 import { join, extname, resolve, dirname } from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { runJourneys } from "./journeys.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const PAGES = ["/", "/house/", "/404.html"];
 export const WIDTHS = [[390, 844], [1280, 800]];
+export const RESPONSIVE = [[360, 740], [768, 1024], [1440, 900]]; // extra widths the report checks for overflow
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".webmanifest": "application/manifest+json", ".xml": "application/xml", ".txt": "text/plain", ".mp3": "audio/mpeg", ".mp4": "video/mp4" };
 
 /** Serve a folder like Pages does. /api/* answers {} so pages that call their functions still load. */
@@ -104,6 +106,23 @@ function uiAudit() {
     const large = size >= 24 || (size >= 18.66 && +s.fontWeight >= 700);
     if (ratio < (large ? 3 : 4.5) && out.lowContrast.length < 40) out.lowContrast.push({ el: key, ratio: Math.round(ratio * 100) / 100 });
   }
+  // design consistency: the same kind of component styled many different ways
+  const groups = { button: "button,.btn,.cta,[role=button]", heading2: "h2", heading3: "h3", link: "main a:not(.btn):not(.cta)", input: "input:not([type=radio]):not([type=checkbox]):not([type=hidden]),select,textarea" };
+  out.inconsistent = [];
+  for (const [name, q] of Object.entries(groups)) {
+    const variants = new Map();
+    for (const el of [...document.querySelectorAll(q)].filter(vis).slice(0, 60)) {
+      const st = getComputedStyle(el);
+      const key = [st.fontFamily.split(",")[0], st.fontSize, st.fontWeight, st.borderRadius, st.textTransform].join("|");
+      variants.set(key, (variants.get(key) || 0) + 1);
+    }
+    if (variants.size > 4) out.inconsistent.push({ component: name, variants: variants.size, examples: [...variants.keys()].slice(0, 3) });
+  }
+  // visual hierarchy: exactly one h1, headings get smaller as levels go down
+  const hs = [...document.querySelectorAll("h1,h2,h3")].filter(vis).map((h) => [Number(h.tagName[1]), parseFloat(getComputedStyle(h).fontSize)]);
+  out.h1Count = hs.filter(([n]) => n === 1).length;
+  const avg = (n) => { const a = hs.filter(([k]) => k === n).map(([, s]) => s); return a.length ? a.reduce((x, y) => x + y) / a.length : 0; };
+  out.hierarchyInverted = avg(2) && avg(3) && avg(3) > avg(2) * 1.05;
   return out;
 }
 
@@ -240,13 +259,20 @@ export async function report(target, { pages = PAGES, interact = true, shot = fa
   const base = srv ? srv.url : target.replace(/\/$/, "");
   const browser = await launch();
   const results = [];
+  let journeys = [];
   try {
     for (const p of pages) for (const wh of WIDTHS) results.push({ page: p, ...(await probePage(browser, base + p, wh, { interact, shot, offline })) });
+    // responsive sweep: overflow and tap targets at extra widths (no clicking, no screenshots)
+    for (const wh of RESPONSIVE) {
+      const r = await probePage(browser, base + "/", wh, { interact: false, offline });
+      results.push({ page: "/", sweep: true, width: wh[0], status: r.status, errors: r.errors, consoleErrors: [], failed: [], ui: { overflowPx: r.ui?.overflowPx || 0, smallTargets: [], smallText: [], lowContrast: [], noFocusStyle: [] } });
+    }
+    journeys = [...(await runJourneys(browser, base, WIDTHS[0], { offline })), ...(await runJourneys(browser, base, WIDTHS[1], { offline }))];
   } finally {
     await browser.close();
     if (srv) await srv.close();
   }
-  return { at: Date.now(), target: local ? "local" : base, results };
+  return { at: Date.now(), target: local ? "local" : base, sha: process.env.GITHUB_SHA || "", results, journeys };
 }
 
 /** Text runs (by text) whose position differs between two layouts, or which disappeared. */
@@ -268,6 +294,7 @@ export async function gate(baseDir, headDir, { maxVisual = 0.02, area = "", page
   const [A, B] = [await serveDir(baseDir), await serveDir(headDir)];
   const browser = await launch();
   const problems = [], notes = [];
+  const measures = { visual: 0, moved: 0, uiIssues: 0, errors: 0, kb: 0, requests: 0, journeysPass: 0 };
   let improved = false;
   try {
     for (const p of pages) for (const wh of WIDTHS) {
@@ -283,6 +310,7 @@ export async function gate(baseDir, headDir, { maxVisual = 0.02, area = "", page
       if (nb.ownKB > na.ownKB * 1.02 + 2) problems.push(`${at}: heavier (${na.ownKB} -> ${nb.ownKB} KB)`);
       if (nb.renderBlocking > na.renderBlocking) problems.push(`${at}: more render-blocking files`);
       if (nb.cls > na.cls + 0.02) problems.push(`${at}: more layout shift (${na.cls} -> ${nb.cls})`);
+      measures.uiIssues += ui(b); measures.errors += ownErr(b); measures.kb += nb.ownKB; measures.requests += nb.requests;
       if (nb.requests < na.requests || nb.ownKB < na.ownKB - 1 || nb.renderBlocking < na.renderBlocking || nb.cls < na.cls - 0.01) improved = true;
       // text that moved: allowed only for features (which add content on purpose). Animated text moves
       // by itself, so when anything moved, the base is loaded again and text unstable across two loads
@@ -294,10 +322,12 @@ export async function gate(baseDir, headDir, { maxVisual = 0.02, area = "", page
         movedRuns = movedRuns.filter((t) => !unstable.has(t));
       }
       const moved = movedRuns.length;
+      measures.moved += moved;
       notes.push(`${at}: ${moved} text runs moved${moved ? " (" + movedRuns.slice(0, 3).join(", ") + ")" : ""}`);
       if (moved && maxVisual < 0.1) problems.push(`${at}: layout changed (${moved} text runs moved)`);
       const d = await pixelDiff(browser, a.png, b.png);
       notes.push(`${at}: ${(d * 100).toFixed(2)}% pixels changed`);
+      measures.visual = Math.max(measures.visual, d);
       if (d > maxVisual) problems.push(`${at}: looks different (${(d * 100).toFixed(1)}% of pixels > ${(maxVisual * 100).toFixed(1)}% allowed)`);
       if (process.env.EVOLVE_SHOTS) {
         await mkdir(process.env.EVOLVE_SHOTS, { recursive: true });
@@ -306,12 +336,23 @@ export async function gate(baseDir, headDir, { maxVisual = 0.02, area = "", page
         if (b.png) await writeFile(join(process.env.EVOLVE_SHOTS, name + "-after.png"), b.png);
       }
     }
+    // the same user journeys before and after: a journey that worked must still work
+    for (const wh of WIDTHS) {
+      const ja = await runJourneys(browser, A.url, wh, { offline: true });
+      const jb = await runJourneys(browser, B.url, wh, { offline: true });
+      for (const x of jb) {
+        const was = ja.find((y) => y.id === x.id);
+        if (was?.status === "pass" && x.status === "fail") problems.push(`journey "${x.name}" @${wh[0]}px broke: ${x.why}`);
+      }
+      measures.journeysPass += jb.filter((x) => x.status === "pass").length;
+      notes.push(`journeys @${wh[0]}px: ${jb.filter((x) => x.status === "pass").length} pass, ${jb.filter((x) => x.status === "fail").length} fail, ${jb.filter((x) => x.status === "skip").length} skipped`);
+    }
   } finally {
     await browser.close();
     await A.close(); await B.close();
   }
   if (area === "perf" && !improved) problems.push("a performance change must measurably improve requests, bytes, render-blocking files or layout shift");
-  return { ok: problems.length === 0, problems, notes };
+  return { ok: problems.length === 0, problems, notes, measures };
 }
 
 async function main() {
@@ -324,6 +365,7 @@ async function main() {
   } else if (cmd === "gate") {
     const r = await gate(a, b, { maxVisual: Number(process.env.EVOLVE_MAX_VISUAL || 0.02), area: process.env.EVOLVE_AREA || "" });
     r.notes.forEach((n) => console.log("  " + n));
+    console.log("measures " + JSON.stringify(r.measures));
     console.log(r.ok ? "probe gate: ok" : "probe gate FAILED:\n- " + r.problems.join("\n- "));
     process.exitCode = r.ok ? 0 : 1;
   } else {

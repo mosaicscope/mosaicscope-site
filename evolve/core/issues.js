@@ -28,6 +28,10 @@ export function classify(probe) {
       for (const c of ui.lowContrast || []) add("low-contrast", "medium", r.page, `${c.el} ${c.ratio}:1`, false, { sel: c.el, ratio: c.ratio });
       for (const s of ui.noFocusStyle || []) add("no-focus-style", "medium", r.page, s, true, { sel: s });
       for (const s of (ui.smallText || []).slice(0, 5)) add("small-text", "low", r.page, `${s.el} ${s.px}px`);
+      for (const c of ui.inconsistent || []) add("inconsistent-component", "low", r.page, `${c.component}: ${c.variants} different styles`);
+      if (ui.h1Count === 0 && !r.sweep) add("hierarchy", "low", r.page, "no visible h1");
+      if (ui.h1Count > 1) add("hierarchy", "low", r.page, `${ui.h1Count} visible h1 headings`);
+      if (ui.hierarchyInverted) add("hierarchy", "medium", r.page, "h3 headings are bigger than h2");
     }
     const p = r.perf;
     if (p) {
@@ -41,6 +45,7 @@ export function classify(probe) {
       if (probe.target !== "local" && p.tbtMs > 600) add("main-thread", "medium", r.page, `${p.tbtMs}ms blocked by long tasks ${at}`);
     }
   }
+  for (const j of probe.journeys || []) if (j.status === "fail") add("broken-journey", "high", j.id, `${j.name} @${j.width}px: ${j.why}`);
   return [...out.values()].sort((a, b) => SEVERITY.indexOf(a.severity) - SEVERITY.indexOf(b.severity));
 }
 

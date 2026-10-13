@@ -21,7 +21,7 @@ export async function onRequestGet({ env }) {
     control: control || null,
     limits: {
       interval: cfg.INTERVAL_SECONDS, maxIn: cfg.MAX_INPUT_TOKENS, maxOut: cfg.MAX_OUTPUT_TOKENS, usd: cfg.DAILY_USD_LIMIT, monthUsd: cfg.MONTHLY_USD_LIMIT,
-      calls: cfg.DAILY_CALL_LIMIT, cycles: cfg.DAILY_CYCLE_LIMIT, failures: cfg.MAX_CONSECUTIVE_FAILURES, changes: cfg.MAX_CHANGES_PER_CYCLE,
+      calls: cfg.DAILY_CALL_LIMIT, cycles: cfg.DAILY_CYCLE_LIMIT, mode: cfg.MODE, failures: cfg.MAX_CONSECUTIVE_FAILURES, changes: cfg.MAX_CHANGES_PER_CYCLE,
     },
     state: state ? publicView(state) : null,
   });
@@ -33,6 +33,15 @@ export async function onRequestPost({ request, env }) {
   if (!(await same(auth, env.EVOLVE_ADMIN_TOKEN))) return json({ error: "wrong admin token" }, 401);
   let b = {};
   try { b = await request.json(); } catch { /* empty body */ }
+  // per-task controls: { task: "<id>", action: "pause" | "resume" | "cancel" | "approve" }
+  if (b.task) {
+    if (!["pause", "resume", "cancel", "approve"].includes(b.action) || typeof b.task !== "string" || b.task.length > 300) return json({ error: "bad task action" }, 400);
+    const cur = (await env.EGG.get("evo:tasks", "json")) || {};
+    cur[b.task] = { action: b.action, at: Date.now() };
+    const keep = Object.entries(cur).sort((x, y) => y[1].at - x[1].at).slice(0, 100);
+    await env.EGG.put("evo:tasks", JSON.stringify(Object.fromEntries(keep)));
+    return json({ ok: true, note: `Task will be ${b.action}d at the next cycle.` });
+  }
   const mode = { pause: "paused", resume: "running", stop: "stopped" }[b.action];
   if (!mode) return json({ error: "action must be pause, resume or stop" }, 400);
   const ctl = { mode, at: Date.now() };

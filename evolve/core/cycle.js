@@ -17,7 +17,9 @@ import { normalise, prune } from "./state.js";
 import { rollLedger, canCycle } from "./budget.js";
 import { priority, scoreProposal, recordOutcome, recordEffect, retired, fixKey, round } from "./score.js";
 import { classify, critical, probeSummary, metricFor } from "./issues.js";
-import { updateBacklog } from "./memory.js";
+import { updateBacklog, taskAllows, applyTaskControls } from "./memory.js";
+import { policy, worthAsking, trackResources } from "./resources.js";
+import { buildGraph, linkKnowledge, impactOf, graphStats } from "./graph.js";
 import { ask } from "./agents.js";
 import { validateChange } from "./validate.js";
 import { hash } from "./html.js";
@@ -32,6 +34,7 @@ export async function runCycle(io, cfg) {
     const state = normalise(await io.store.get());
     rollLedger(state, t0);
     applyControl(state, io.store.control ? await io.store.control() : null);
+    applyTaskControls(state, io.store.taskControls ? await io.store.taskControls() : null);
     const before = significant(state);
     let result;
     try {
@@ -46,9 +49,11 @@ export async function runCycle(io, cfg) {
     }
     state.lastCycle = { at: t0, result, ms: io.now() - t0 };
     prune(state, t0);
+    trackResources(state, io.now() - t0, false, JSON.stringify(state).length);
     const dirty = significant(state) !== before;
     if (dirty || t0 - (state.lastWrite || 0) > cfg.HEARTBEAT_MINUTES * 60000) {
       state.lastWrite = t0;
+      state.ledger.writes = (state.ledger.writes || 0) + 1;
       await io.store.put(state);
     }
     return { result, wrote: dirty, state };
@@ -70,8 +75,8 @@ export function applyControl(state, ctl) {
 
 // Changes worth a storage write (KV writes are the scarce free-tier resource, not reads).
 function significant(s) {
-  const { lastCycle, lastWrite, ledger, ...rest } = s;
-  const { cycles, skipped, ...money } = ledger;
+  const { lastCycle, lastWrite, ledger, storage, ...rest } = s;
+  const { cycles, skipped, avgMs, writes, ...money } = ledger;
   return JSON.stringify([rest, money]);
 }
 
@@ -119,7 +124,26 @@ async function body(io, cfg, state, now) {
     if (a && a.at && a.at !== state.audit?.at) state.audit = a;
   }
 
-  // 2. a change already in flight blocks new proposals until it lands or is rejected
+  // 2. live data first, even while a change is pending: a critical failure must never wait behind a PR
+  const versions = await io.listFiles();
+  const dataKey = Object.entries(versions).filter(([k]) => k.startsWith("@")).sort().map((e) => e.join("@")).join("|");
+  if (dataKey && dataKey !== state.dataKey) {
+    const data = await io.readFiles(Object.keys(versions).filter((k) => k.startsWith("@")));
+    const fresh = parseJson(data["@probe"]);
+    if (fresh && fresh.at && fresh.at !== state.probeAt) {
+      state.dataKey = dataKey;
+      const outcome = await absorbProbe(io, state, fresh, now);
+      if (outcome) {
+        updateBacklog(state, { findings: null, weaknesses: null, issues: state.issues, security: null, maintenance: null, docs: null }, now);
+        state.scanKey = "";
+        return outcome;
+      }
+      state.probeAt = 0; // let the full scan below take it in again with the files (cheap, local)
+    }
+    state.dataKey = dataKey;
+  }
+
+  // 3. a change already in flight blocks new proposals until it lands or is rejected
   if (state.pending) {
     const p = state.pending;
     const st = await io.checkPending(p);
@@ -130,8 +154,7 @@ async function body(io, cfg, state, now) {
     return `${p.ref} ${st === "merged" ? "accepted" : "rejected"}`;
   }
 
-  // 3. cheap local checks, skipped entirely when no file changed since the last scan
-  const versions = await io.listFiles();
+  // 4. cheap local checks, skipped entirely when no file changed since the last scan
   const key = hash(Object.entries(versions).sort().map((e) => e.join("@")).join("|"));
   let files = null;
   let probe = null;
@@ -142,15 +165,23 @@ async function body(io, cfg, state, now) {
     state.weaknesses = r.weaknesses.map(({ kind, path, line, data }) => ({ kind, path, line, data }));
     state.scanKey = key;
     probe = parseJson(files["@probe"]);
+    const graph = buildGraph(files, null, { now });
+    state.graph = { stats: graphStats(graph), edges: graph.edges.slice(0, 400), at: now };
+    const maint = parseJson(files["@maintenance"]), docs = parseJson(files["@docs"]);
+    if (maint && maint.at !== state.maintenance?.at) state.maintenance = { at: maint.at, totals: maint.totals, history: [{ at: maint.at, totals: maint.totals }, ...(state.maintenance?.history || [])].slice(0, 12) };
+    if (docs && docs.at !== state.docs?.at) state.docs = { at: docs.at, count: (docs.findings || []).length };
+    const sources = () => ({ findings: state.findings.filter((f) => pathAllowed(f.path)), weaknesses: state.weaknesses, issues: probe ? state.issues : null, security: state.security?.top || null, maintenance: maint ? (maint.findings || []).slice(0, 15) : null, docs: docs ? (docs.findings || []).slice(0, 15) : null });
     const sec = parseJson(files["@security"]);
     if (sec && sec.at !== state.security?.at) state.security = { at: sec.at, counts: sec.counts, deps: sec.deps || null, top: (sec.findings || []).filter((f) => f.severity !== "low").slice(0, 10) };
     // a new probe of the live site: grade it, measure what recent changes did, and react to breakage
     if (probe && probe.at && probe.at !== state.probeAt) {
       const outcome = absorbProbe(io, state, probe, now);
-      updateBacklog(state, { findings: state.findings.filter((f) => pathAllowed(f.path)), weaknesses: state.weaknesses, issues: state.issues, security: state.security?.top || null }, now);
+      updateBacklog(state, sources(), now, graph);
       if (outcome) return outcome;
     }
-    updateBacklog(state, { findings: state.findings.filter((f) => pathAllowed(f.path)), weaknesses: state.weaknesses, issues: probe ? state.issues : null, security: state.security?.top || null }, now);
+    updateBacklog(state, sources(), now, graph);
+    linkKnowledge(graph, state);
+    state.graph = { stats: graphStats(graph), edges: graph.edges.slice(0, 400), at: now };
   }
 
   // 4. rank what's left after dedupe, cooldowns and retired remedies (this is where history steers)
@@ -160,8 +191,10 @@ async function body(io, cfg, state, now) {
     return !seen || (seen.outcome !== "accepted" && now - seen.at > cfg.COOLDOWN_HOURS * 3600000);
   };
   const worth = (f) => (rem) => open(f)(rem) && scoreProposal(f, rem, state, now) >= cfg.MIN_SCORE; // nothing pointless
+  const pol = policy(state, cfg, now);
+  state.resources = { mode: pol.mode, want: pol.want, reason: pol.reason, used: pol.used, ai: pol.ai, options: pol.options };
   const ranked = state.findings
-    .filter((f) => pathAllowed(f.path) && ruleByKind(f.kind)?.remedies.some(worth(f)))
+    .filter((f) => pathAllowed(f.path) && taskAllows(state, f.fp, now) && ruleByKind(f.kind)?.remedies.some(worth(f)))
     .map((f) => ({ f, p: priority(f, state, now) }))
     .sort((a, b) => b.p - a.p || a.f.path.localeCompare(b.f.path) || a.f.line - b.f.line);
   state.priorities = ranked.slice(0, 8).map(({ f, p }) => ({ kind: f.kind, path: f.path, line: f.line, priority: round(p) }));
@@ -171,7 +204,7 @@ async function body(io, cfg, state, now) {
   files ||= await io.readFiles(Object.keys(versions));
   const options = [];
   for (const { f } of ranked) {
-    if (options.length >= OPTIONS_SHOWN) break;
+    if (options.length >= Math.min(OPTIONS_SHOWN, pol.options)) break;
     const rule = ruleByKind(f.kind);
     const remedies = rule.remedies.filter(worth(f)).filter((rem) => validateChange(files, rem.apply(files, f), f, cfg, rem).ok);
     if (remedies.length) options.push({ finding: f, area: rule.area, remedies });
@@ -188,8 +221,11 @@ async function body(io, cfg, state, now) {
     A = owner === "innovator" ? only : null;
     B = owner === "optimiser" ? only : null;
   } else {
-    A = await ask("innovator", options, state, cfg, io.llm, null, null, now);
-    B = await ask("optimiser", options, state, cfg, io.llm, A && code(options, A), A, now);
+    // the resource manager decides whether this choice is worth an AI call at all
+    const llm = worthAsking(pol, options, (o, r) => scoreProposal(o.finding, r, state, now)) ? io.llm : null;
+    const ecfg = pol.escalate ? cfg : { ...cfg, MODEL_ESCALATE: cfg.MODEL_CHEAP };
+    A = await ask("innovator", options, state, ecfg, llm, null, null, now);
+    B = await ask("optimiser", options, state, ecfg, llm, A && code(options, A), A, now);
   }
   const entry = (x) => x && { code: code(options, x), kind: x.o.finding.kind, path: x.o.finding.path, label: x.r.label, score: scoreProposal(x.o.finding, x.r, state, now), via: x.via, model: x.model || "", note: x.note || "" };
   const a = entry(A), b = entry(B);
@@ -216,6 +252,7 @@ async function body(io, cfg, state, now) {
   const p = { fp: f.fp, kind: f.kind, path: f.path, line: f.line, remedy: W.r.id, label: W.r.label, risk: W.r.meta.risk || 0, agent: winner, rival, score: w.score, at: now, area: rule.area, approval: !!rule.approval };
   probe ||= parseJson(files["@probe"]);
   p.before = metricFor(rule.area, probe); // measured again on the next probe after it lands
+  p.deps = state.graph ? impactOf({ edges: state.graph.edges }, f.path) : []; // pages this change can affect
   if (!v.ok) { recordOutcome(state, p, "rejected", now, v.reasons.join("; ")); return "rejected: " + v.reasons.join("; "); }
   let pub;
   try {
@@ -245,6 +282,7 @@ function absorbProbe(io, state, probe, now) {
   const issues = classify(probe);
   state.issues = issues.slice(0, 40).map(({ fp, kind, severity, page, detail, fixable }) => ({ fp, kind, severity, page, detail, fixable }));
   state.probe = probeSummary(probe);
+  state.journeys = (probe.journeys || []).map(({ id, name, width, status, why, ms }) => ({ id, name, width, status, why: why || "", ms }));
   state.probeAt = probe.at;
   for (const h of state.history) {
     if (h.outcome !== "accepted" || h.measured || h.before == null || h.at > probe.at) continue;
@@ -254,14 +292,30 @@ function absorbProbe(io, state, probe, now) {
     }
   }
   const crit = critical(issues);
+  const rec = (state.recovery ||= { points: [], log: [] });
+  const brokenJourney = issues.some((i) => i.kind === "broken-journey");
+  // a clean probe of a known commit is a recovery point
+  if (!crit.length && !brokenJourney && probe.sha && rec.points[0]?.sha !== probe.sha) rec.points = [{ sha: probe.sha, at: probe.at }, ...rec.points].slice(0, 5);
   if (crit.length && state.mode === "running") {
     state.mode = "tripped";
-    state.modeReason = `critical: ${crit[0].kind} on ${crit[0].page} (${crit[0].detail.slice(0, 60)})`;
+    const cause = `${crit[0].kind} on ${crit[0].page} (${crit[0].detail.slice(0, 60)})`;
+    state.modeReason = "critical: " + cause;
+    const log = (action, ref = "") => { rec.log = [{ at: now, cause, action, ref }, ...rec.log].slice(0, 20); };
     const last = state.history.find((h) => h.outcome === "accepted");
+    // 1. the engine's own latest change landed since the last good probe: undo just that, and learn from it
     if (last && last.at > prevAt && io.revert && last.ref && !last.reverted) {
       last.reverted = true;
-      return io.revert(last).then((u) => `critical failure: paused, undo ${u.ref} opened`, (e) => `critical failure: paused (undo failed: ${String(e?.message || e).slice(0, 60)})`);
+      recordOutcome(state, { ...last, fp: `regression|${last.at}`, risk: 0 }, "regression", now, "critical failure on the live site after it landed: " + cause);
+      return io.revert(last).then((u) => { log("undo " + last.ref, u.ref); return `critical failure: paused, undo ${u.ref} opened`; },
+        (e) => { log("undo failed: " + String(e?.message || e).slice(0, 60)); return "critical failure: paused (undo failed)"; });
     }
+    // 2. otherwise restore the site's editable files to the last known-good commit (engine-made changes only)
+    const good = rec.points.find((x) => x.sha && x.sha !== probe.sha);
+    if (good && io.restore) {
+      return io.restore(good.sha).then((u) => { log(`restore to ${good.sha.slice(0, 7)}`, u.ref); return `critical failure: paused, restore ${u.ref} opened`; },
+        (e) => { log("restore not possible: " + String(e?.message || e).slice(0, 80)); return "critical failure: paused (needs a person: " + String(e?.message || e).slice(0, 60) + ")"; });
+    }
+    log("paused; no safe automatic recovery");
     return "critical failure: paused";
   }
   return null;

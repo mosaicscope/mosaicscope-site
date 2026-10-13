@@ -3,6 +3,7 @@
 //
 //   node evolve/cli.mjs check              run the local checks and print what they find
 //   node evolve/cli.mjs cycle [--dry]      run one full cycle here; changes go to a git branch evolve/*
+//   node evolve/cli.mjs experiment         test every candidate fix for the top problem in isolated previews
 //   node evolve/cli.mjs status             print the local state
 //   node evolve/cli.mjs verify <base-ref>  CI gate: the diff from <base-ref> to HEAD must be one safe fix
 //
@@ -25,7 +26,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const STATE_DIR = join(ROOT, "evolve", ".state");
 const STATE = join(STATE_DIR, "state.json");
 const LOCK = join(STATE_DIR, "lock");
-const READ_PATHS = [...ALLOWED_PATHS, "manifest.webmanifest", "world/index.html"];
+const READ_PATHS = [...ALLOWED_PATHS, "manifest.webmanifest", "world/index.html", "main.js"];
 
 const git = (args, cwd = ROOT) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 const readLocal = (paths, root = ROOT) => Object.fromEntries(paths.filter((p) => existsSync(join(root, p))).map((p) => [p, readFileSync(join(root, p), "utf8")]));
@@ -37,6 +38,7 @@ export function localIo({ dry = false, root = ROOT, env = process.env } = {}) {
       get: () => (existsSync(STATE) ? JSON.parse(readFileSync(STATE, "utf8")) : null),
       put: (s) => { if (!dry) { mkdirSync(STATE_DIR, { recursive: true }); writeFileSync(STATE, JSON.stringify(s, null, 1)); } },
       control: () => null,
+      taskControls: () => { try { return JSON.parse(readFileSync(join(STATE_DIR, "tasks.json"), "utf8")); } catch { return null; } },
       async lock(ttl) {
         mkdirSync(STATE_DIR, { recursive: true });
         if (existsSync(LOCK) && Date.now() - statSync(LOCK).mtimeMs < ttl * 1000) return false;
@@ -85,6 +87,33 @@ export function localIo({ dry = false, root = ROOT, env = process.env } = {}) {
       git(["worktree", "remove", "--force", dir], root);
       return { ref: branch, sha };
     },
+    /**
+     * Recovery: put the editable site files back to a known-good commit, on a branch. A file is only
+     * restored if every commit that touched it since then was the engine's own ("evolve: ..."), so a
+     * person's edits are never overwritten; other files are left alone and listed as skipped.
+     */
+    async restore(good) {
+      const branch = `evolve/revert-restore-${git(["rev-parse", good], root)}`;
+      const dir = join(tmpdir(), "mosaicscope-" + branch.replace(/\W/g, "-"));
+      git(["worktree", "add", "-q", "-b", branch, dir, "HEAD"], root);
+      const restored = [], skipped = [];
+      try {
+        for (const p of ALLOWED_PATHS) {
+          const changed = git(["diff", "--name-only", good, "HEAD", "--", p], root);
+          if (!changed) continue;
+          const subjects = git(["log", "--format=%s", `${good}..HEAD`, "--", p], root).split("\n").filter(Boolean);
+          if (subjects.every((x) => /^evolve:/.test(x))) { git(["checkout", good, "--", p], dir); restored.push(p); } else skipped.push(p);
+        }
+        if (!restored.length) throw new Error("nothing safe to restore" + (skipped.length ? ` (people changed ${skipped.join(", ")})` : ""));
+        git(["-c", "user.name=mosaicscope-evolve", "-c", "user.email=evolve@users.noreply.github.com", "commit", "-q", "-m", `evolve: restore ${restored.join(", ")} to known-good ${good.slice(0, 7)}`], dir);
+      } catch (e) {
+        git(["worktree", "remove", "--force", dir], root);
+        git(["branch", "-D", branch], root);
+        throw e;
+      }
+      git(["worktree", "remove", "--force", dir], root);
+      return { ref: branch, restored, skipped };
+    },
     async revert(acc) {
       const sha = acc.sha || acc.ref;
       const branch = `evolve/revert-${git(["rev-parse", sha], root)}`;
@@ -125,7 +154,7 @@ export function localIo({ dry = false, root = ROOT, env = process.env } = {}) {
 /** Probe and security results: EVOLVE_PROBE / EVOLVE_SECURITY files, else the evolve-data branch. */
 export function dataFiles(root = ROOT, env = process.env) {
   const out = {};
-  for (const [key, file, envKey] of [["@probe", "probe.json", "EVOLVE_PROBE"], ["@security", "security.json", "EVOLVE_SECURITY"]]) {
+  for (const [key, file, envKey] of [["@probe", "probe.json", "EVOLVE_PROBE"], ["@security", "security.json", "EVOLVE_SECURITY"], ["@maintenance", "maintenance.json", "EVOLVE_MAINTENANCE"], ["@docs", "docs.json", "EVOLVE_DOCS"]]) {
     try {
       out[key] = env[envKey] ? readFileSync(env[envKey], "utf8") : execFileSync("git", ["show", `origin/evolve-data:${file}`], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
     } catch { /* not there yet */ }
@@ -138,6 +167,12 @@ export function verify(base, root = ROOT, cfg = loadConfig(process.env), headRef
   const changed = git(["diff", "--name-only", base, "HEAD"], root).split("\n").filter(Boolean);
   if (changed.length === 0) return { ok: false, reasons: ["no changes"] };
   // an undo: every changed file must be exactly its version from before the commit being undone
+  const restore = /^evolve\/revert-restore-([0-9a-f]{7,40})$/.exec(headRef);
+  if (restore) {
+    const raw = (ref, p) => { try { return execFileSync("git", ["show", `${ref}:${p}`], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }); } catch { return null; } };
+    const bad = changed.filter((p) => !pathAllowed(p) || raw("HEAD", p) !== raw(restore[1], p));
+    return bad.length ? { ok: false, reasons: ["restore doesn't match the known-good version: " + bad.join(", ")] } : { ok: true, reasons: [], lines: 0 };
+  }
   const undo = /^evolve\/revert-([0-9a-f]{7,40})$/.exec(headRef);
   if (undo) {
     const sha = undo[1];
@@ -166,6 +201,61 @@ export function verify(base, root = ROOT, cfg = loadConfig(process.env), headRef
   return { ok: false, reasons: ["the diff isn't exactly any remedy's output"] };
 }
 
+/**
+ * Run one controlled experiment: the top queued problem with 2+ candidate fixes, each built in its own
+ * worktree and measured by the browser gate against the unchanged site. The winner (if the evidence
+ * supports one) goes through the normal pipeline as a proposal; everything is recorded in state.experiments.
+ */
+async function experiment(cfg) {
+  const { experimentKey, decide } = await import("./core/experiments.js");
+  const { normalise } = await import("./core/state.js");
+  const { taskAllows } = await import("./core/memory.js");
+  const io = localIo();
+  const state = normalise(io.store.get());
+  const now = Date.now();
+  const files = await io.readFiles(Object.keys(await io.listFiles()));
+  const target = runChecks(files).findings.find((f) => pathAllowed(f.path) && ruleByKind(f.kind).remedies.length > 1 && taskAllows(state, f.fp, now));
+  if (!target) return console.log("no problem with competing candidates to test");
+  const rems = ruleByKind(target.kind).remedies.filter((r) => { const ch = r.apply(files, target); return ch && validateChange(files, ch, target, cfg, r).ok; });
+  const key = experimentKey(target.fp, rems.map((r) => r.id), git(["rev-parse", "HEAD"]));
+  if ((state.experiments || []).some((e) => e.key === key)) return console.log("already ran this exact experiment; see status");
+  const pw = (() => { try { return createRequire(join(ROOT, "game", "package.json")).resolve("playwright-core"); } catch { return ""; } })();
+  const gateRun = (dir) => {
+    const out = execFileSync(process.execPath, [join(ROOT, "evolve/probe.mjs"), "gate", ROOT, dir], { encoding: "utf8", timeout: 300000, env: { ...process.env, EVOLVE_PLAYWRIGHT: pw, EVOLVE_AREA: ruleByKind(target.kind).area }, stdio: ["ignore", "pipe", "pipe"] }).toString();
+    return out;
+  };
+  const parse = (out, ok) => ({ ok, problems: out.split("\n").filter((l) => l.startsWith("- ")), measures: JSON.parse((out.match(/^measures (.*)$/m) || [, "{}"])[1]) });
+  // baseline: the unchanged site measured the same way
+  let baseOut;
+  try { baseOut = gateRun(ROOT); } catch (e) { baseOut = String(e.stdout || ""); }
+  const baseline = parse(baseOut, true).measures;
+  const results = [];
+  for (const r of rems) {
+    const dir = join(tmpdir(), `mosaicscope-exp-${r.id}-${now.toString(36)}`);
+    git(["worktree", "add", "-q", "--detach", dir, "HEAD"]);
+    try {
+      const ch = r.apply(files, target);
+      writeFileSync(join(dir, ch.path), ch.text);
+      let out, ok = true;
+      try { out = gateRun(dir); } catch (e) { out = String(e.stdout || ""); ok = false; }
+      results.push({ remedy: r.id, label: r.label, ...parse(out, ok) });
+      console.log(`candidate ${r.id} (${r.label}): ${ok ? "passed" : "failed"} ${JSON.stringify(results.at(-1).measures)}`);
+    } finally { git(["worktree", "remove", "--force", dir]); }
+  }
+  const d = decide(results, baseline);
+  (state.experiments ||= []).unshift({ at: now, key, fp: target.fp, kind: target.kind, where: `${target.path}:${target.line}`, baseline, results: results.map(({ remedy, label, ok, problems, measures }) => ({ remedy, label, ok, problems: problems.slice(0, 3), measures })), winner: d.winner, verdict: d.verdict });
+  state.experiments = state.experiments.slice(0, 15);
+  io.store.put(state);
+  console.log(`verdict: ${d.verdict}${d.winner ? ` -> promote remedy ${d.winner}` : ""}`);
+  if (d.winner) {
+    const rem = rems.find((r) => r.id === d.winner);
+    const p = { fp: target.fp, kind: target.kind, path: target.path, line: target.line, remedy: rem.id, label: rem.label, risk: rem.meta.risk || 0, agent: "experiment", score: 0, at: now, area: ruleByKind(target.kind).area };
+    const ch = rem.apply(files, target);
+    const pub = await io.publish({ ...p, change: ch, lines: 0, title: `evolve: ${ruleByKind(target.kind).label} (${target.path}) — ${rem.label} [experiment winner]` });
+    console.log(pub.rejected ? `promotion rejected: ${pub.rejected}` : `promoted on ${pub.ref}`);
+  }
+}
+
 async function main() {
   const [cmd, arg] = process.argv.slice(2);
   const cfg = loadConfig(process.env);
@@ -179,6 +269,8 @@ async function main() {
     console.log(r.result);
     const p = r.state?.proposals?.[0];
     if (p && p.at === r.state.lastCycle?.at) console.log("innovator:", p.innovator, "\noptimiser:", p.optimiser, "\nwinner:", p.winner);
+  } else if (cmd === "experiment") {
+    await experiment(cfg);
   } else if (cmd === "status") {
     console.log(JSON.stringify(existsSync(STATE) ? publicView(JSON.parse(readFileSync(STATE, "utf8"))) : { note: "no local state yet" }, null, 1));
   } else if (cmd === "verify") {
@@ -188,7 +280,7 @@ async function main() {
     if (process.env.GITHUB_OUTPUT) writeFileSync(process.env.GITHUB_OUTPUT, `area=${r.area || ""}\napproval=${r.approval ? "true" : "false"}\n`, { flag: "a" });
     process.exitCode = r.ok ? 0 : 1;
   } else {
-    console.log("usage: node evolve/cli.mjs check | cycle [--dry] | status | verify <base-ref>");
+    console.log("usage: node evolve/cli.mjs check | cycle [--dry] | experiment | status | verify <base-ref>");
     process.exitCode = 2;
   }
 }
