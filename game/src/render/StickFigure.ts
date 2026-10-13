@@ -58,11 +58,21 @@ export function pose(name: string, style: string, t: number, ph: number, speed: 
       if (style === "bouncy") A.bob = -Math.abs(c) * 4;
       break;
     }
-    case "run": case "panic": {
+    case "run": {
+      // Running responds to speed: stride reach, knee lift, lean and bounce all grow with f (0 = jog, 1 = flat out).
+      // Legs and arms swing opposite; the body is lowest at footfall, so the bounce runs at twice the stride rate.
+      const f = Math.min(1, Math.max(0, (speed - 2.6) / 4));
+      A.thighL = s * (0.6 + 0.35 * f); A.thighR = -s * (0.6 + 0.35 * f);
+      A.bendL = Math.max(0, -c) * (1.1 + 0.6 * f) + 0.15; A.bendR = Math.max(0, c) * (1.1 + 0.6 * f) + 0.15;
+      A.lean = 0.1 + 0.18 * f;
+      A.bob = -(1 - Math.cos(2 * ph)) * (1.5 + 3 * f);
+      A.armL = -s * (0.8 + 0.4 * f); A.armR = s * (0.8 + 0.4 * f); A.foreL = 1.5; A.foreR = 1.5; // elbows near a right angle
+      break;
+    }
+    case "panic": {
       A.thighL = s * 0.85; A.thighR = -s * 0.85; A.bendL = Math.max(0, -c) * 1.3 + 0.2; A.bendR = Math.max(0, c) * 1.3 + 0.2;
-      A.lean = 0.22; A.bob = -Math.abs(c) * 4;
-      if (name === "panic") { A.armL = 2.7 + Math.sin(t * 14) * 0.4; A.armR = 2.7 + Math.cos(t * 13) * 0.4; A.foreL = 0.3; A.foreR = 0.3; A.lean = 0.05; }
-      else { A.armL = -s * 0.9; A.armR = s * 0.9; A.foreL = 1.4; A.foreR = 1.4; }
+      A.lean = 0.05; A.bob = -Math.abs(c) * 4;
+      A.armL = 2.7 + Math.sin(t * 14) * 0.4; A.armR = 2.7 + Math.cos(t * 13) * 0.4; A.foreL = 0.3; A.foreR = 0.3;
       break;
     }
     case "dance": dance(style, t); break;

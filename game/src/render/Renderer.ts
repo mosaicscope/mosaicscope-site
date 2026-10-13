@@ -108,7 +108,9 @@ export class Renderer {
   resize(quality: Quality): void {
     const w = this.canvas.clientWidth || window.innerWidth, h = this.canvas.clientHeight || window.innerHeight;
     const native = window.devicePixelRatio || 1;
-    this.dpr = quality === 0 ? Math.min(1, native) * 0.75 : quality === 1 ? Math.min(1.25, native) : quality === 2 ? Math.min(1.5, native) : Math.min(3, native); // fill-rate is the real cost: ultra goes to full native sharpness
+    // Never render below device pixels: a sub-native canvas is upscaled by the browser and reads as blur on the ground and figures.
+    // Lower tiers cap the pixel count instead (fill-rate is the real cost on weak machines); ultra stays at full native sharpness.
+    this.dpr = quality === 0 ? Math.min(1.5, native) : quality === 1 ? Math.min(1.5, native) : quality === 2 ? Math.min(2, native) : native;
     this.canvas.width = Math.round(w * this.dpr); this.canvas.height = Math.round(h * this.dpr);
     this.cam.resize(w, h);
     this.particles.scale = quality === 0 ? 0.35 : quality === 1 ? 0.7 : quality === 2 ? 1 : 1.4;
