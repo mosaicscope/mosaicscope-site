@@ -106,7 +106,7 @@ export function generateWorld(opts: GenOptions): World {
     w.buildings.push({
       id, kind, name: kind === "house" ? `${rng.int(1, 240)} ${rng.pick(["Hereford", "Worcester", "Gloucester", "Armagh", "Kilmore", "Salisbury", "Peterborough", "Durham", "Madras", "Barbadoes"])} St` : nameFor(kind),
       x0, y0, x1, y1, floors, height: GROUND_H + (floors - 1) * FLOOR_H, color: rng.pick(def.colors), roof: def.roof, sign: def.sign,
-      door: { ...door, face: f }, area: area.id, billboard: floors >= 3 && rng.chance(0.35),
+      door: { ...door, face: f }, area: area.id, billboard: floors >= 3 && rng.chance(0.6),
     });
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { set(x, y, T.BUILDING); w.buildingOf[idx(x, y)] = id; }
     if (w.tile(door.x, door.y) === T.BUILDING || SOLID.has(w.tile(door.x, door.y))) set(door.x, door.y, T.PAVE);
@@ -126,6 +126,9 @@ export function generateWorld(opts: GenOptions): World {
     poi("lamp", x0, y0 + SW, street); poi("lamp", x1, y1 - SW, street);
     if (rng.chance(0.5)) poi("busstop", x0 + 8, y1, street);
     if (rng.chance(0.4)) poi("hydrant", x1, y0 + 6, street);
+    // kerb-side boards on a fixed pattern (no rng draws, so the seeded world stays the same elsewhere)
+    if ((bx + by) % 2 === 0) poi("billboard", x0 + 4, y0 + 1, street, { name: "kiwi" });
+    if ((bx * 3 + by) % 4 === 1) poi("billboard", x1 - 4, y1 - 1, street, { name: "kiwi" });
 
     switch (plan) {
       case "plaza": {

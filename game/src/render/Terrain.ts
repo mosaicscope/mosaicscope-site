@@ -428,7 +428,8 @@ export function drawPoi(g: CanvasRenderingContext2D, p: Poi, sx: number, sy: num
     }
     case "billboard": {
       g.strokeStyle = "#3a3430"; g.lineWidth = 3 * z; g.beginPath(); g.moveTo(sx, sy); g.lineTo(sx, sy - 40 * z); g.stroke();
-      drawAd(g, p.name === "cars" ? "cars" : "mosaic", sx, sy - 38 * z, 84 * z, 30 * z, p.id + Math.floor(time / 10), dark ? 1 : 0);
+      const kind = p.name === "cars" ? "cars" : p.name === "kiwi" ? "kiwi" : "mosaic";
+      drawAd(g, kind, sx, sy - 38 * z, 84 * z, 30 * z, p.id + Math.floor(time / 10), dark ? 1 : 0);
       break;
     }
     case "plane": {
