@@ -178,6 +178,19 @@ export function cricketLevel(hour: number, rain: number, greenery: number, storm
   if ((h > 5 && h < 19.5) || storm) return 0;
   return clamp01(0.25 + greenery) * (1 - rain * 0.9) * (h >= 19.5 || h <= 5 ? 1 : 0);
 }
+/**
+ * The city's own hum: a very low, near-inaudible drone that rises a touch as the neon comes on at dusk and
+ * falls away before dawn. Gone in a blackout (the neon is off), and it gives way to everything else: the
+ * busier the street, the less of it you hear.
+ */
+export function cityHumLevel(hour: number, power: boolean, busy: number): number {
+  if (!power) return 0;
+  const h = ((hour % 24) + 24) % 24;
+  // neon ramps up 17:00-20:00, holds, fades 4:00-6:30
+  const neon = h >= 17 && h < 20 ? (h - 17) / 3 : h >= 20 || h < 4 ? 1 : h < 6.5 ? 1 - (h - 4) / 2.5 : 0;
+  return (0.35 + 0.65 * neon) * (1 - clamp01(busy) * 0.7);
+}
+export const CITY_HUM_GAIN = 0.02;
 export function windLevel(weather: string, rain: number): number {
   return weather === "storm" ? 0.9 : weather === "rain" ? 0.4 + rain * 0.15 : weather === "cloudy" ? 0.22 : 0.1;
 }
@@ -348,7 +361,7 @@ export class Diegetic {
   private on = true; private vol = 0.8;
 
   // beds
-  private rain!: Bed; private roof!: Bed; private wind!: Bed; private traffic!: Bed; private crowd!: Bed; private water!: Bed; private machine!: Bed; private sizzle!: Bed; private train!: Bed; private trainTick!: Bed; private trainLfo!: OscillatorNode;
+  private rain!: Bed; private roof!: Bed; private wind!: Bed; private traffic!: Bed; private crowd!: Bed; private water!: Bed; private machine!: Bed; private sizzle!: Bed; private train!: Bed; private trainTick!: Bed; private trainLfo!: OscillatorNode; private hum!: Bed; private humTone!: GainNode;
   private fridge!: GainNode; private cricket!: GainNode; private cricketLfo!: OscillatorNode; private room!: GainNode;
   private thump!: GainNode; private thumpPan!: StereoPannerNode | null; private thumpFilter!: BiquadFilterNode;
   private engines: EngineVoice[] = []; private sirens: SirenVoice[] = [];
@@ -447,6 +460,10 @@ export class Diegetic {
     this.lfo(7, 0.06, this.water.gain.gain);
     this.machine = this.bed(this.brown, "lowpass", 380, 0.7, true);       // the depot's conveyor
     this.lfo(1.9, 0.12, this.machine.gain.gain, "square");
+    // the city hum: brown rumble plus a faint mains-buzz tone, both on the ambience bus so they duck and sit under everything
+    this.hum = this.bed(this.brown, "lowpass", 140, 0.6);
+    this.humTone = ctx.createGain(); this.humTone.gain.value = 0; this.humTone.connect(this.amb);
+    for (const [f, g] of [[60, 0.6], [120, 0.3]] as const) { const o = ctx.createOscillator(), og = ctx.createGain(); o.frequency.value = f; og.gain.value = g; o.connect(og); og.connect(this.humTone); o.start(); this.stop.push(() => { try { o.stop(); } catch { /* ok */ } }); }
     this.sizzle = this.bed(this.white, "highpass", 6200, 0.5, true);      // food-truck fry
     this.lfo(11, 0.04, this.sizzle.gain.gain);
     this.train = this.bed(this.brown, "lowpass", 120, 0.8);               // distant train: rolling rumble
@@ -858,6 +875,8 @@ export class Diegetic {
 
     // distant traffic and crowd murmur follow the camera
     const b = busyness(this.carWeight, this.people, hour);
+    const hum = cityHumLevel(hour, env.power, Math.max(b.traffic, b.crowd)) * out;
+    this.hum.gain.gain.setTargetAtTime(hum * CITY_HUM_GAIN, t, 1.5); this.humTone.gain.setTargetAtTime(hum * CITY_HUM_GAIN * 0.35, t, 1.5);
     this.traffic.gain.gain.setTargetAtTime(b.traffic * 0.12 * out * (1 + wet * 0.5), t, 0.6);
     this.traffic.filter.frequency.setTargetAtTime(190 + b.traffic * 120 + wet * 90, t, 0.6);
     const room = scene.interior ? roomFor(scene.interior) : null;
