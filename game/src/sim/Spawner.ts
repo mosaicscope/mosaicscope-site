@@ -128,6 +128,7 @@ export function spawnAll(sim: Simulation): void {
   const workFor = (role: Role): Building | undefined => {
     const kinds = Object.values(BUILDINGS).filter((d) => d.job === role).map((d) => d.kind);
     if (role === "office") kinds.push("office", "bank", "hotel");
+    if (role === "bouncer") kinds.push("casino", "bank", "hotel", "airport");
     if (role === "student") kinds.push("cafe");
     const opts = world.buildings.filter((b) => kinds.includes(b.kind));
     return opts.length ? rng.pick(opts) : undefined;
@@ -137,7 +138,7 @@ export function spawnAll(sim: Simulation): void {
     const kind = rng.chance(0.5) ? "girl" : "guy";
     const pers = randomPers(rng);
     shapeForRole(pers, role);
-    const look = uniqueLook(rng, kind, false, usedLooks, role === "cop" ? { hat: "police", accent: "#1c6bd6" } : role === "medic" ? { accent: "#c6ff3d" } : role === "dealer" ? { accent: "#0e0b0a", hat: "none" } : {});
+    const look = uniqueLook(rng, kind, false, usedLooks, role === "cop" ? { hat: "police", accent: "#1c6bd6" } : role === "bouncer" ? { hat: "cap", accent: "#1c2a4a" } : role === "medic" ? { accent: "#c6ff3d" } : role === "dealer" ? { accent: "#0e0b0a", hat: "none" } : {});
     const area = areaByKind(homeAreaFor(role));
     const p = world.randomPointIn(area, rng);
     const c = addChar(sim, names.next(kind), "mid", p.x, p.y, look, pers);

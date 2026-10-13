@@ -23,6 +23,30 @@ const A: Angles = { lean: 0, bob: 0, hipX: 0, thighL: 0, bendL: 0, thighR: 0, be
 const reset = () => { A.lean = 0; A.bob = 0; A.hipX = 0; A.thighL = 0; A.bendL = 0; A.thighR = 0; A.bendR = 0; A.armL = 0.12; A.foreL = 0.1; A.armR = 0.12; A.foreR = 0.1; A.tilt = 0; A.lying = 0; };
 
 /** Choose angles for a pose. t = seconds, ph = walk phase, speed = ground speed. */
+/** 20 punch variants: the arm, forearm, lean and stance each one ends in, reached in `t` seconds. */
+const PUNCHES: { t: number; to: Partial<Angles> }[] = [
+  { t: 0.18, to: { armR: 1.6, foreR: 0.1, lean: 0.2 } },                       // 0 straight jab
+  { t: 0.2, to: { armR: 1.9, foreR: 0.0, lean: 0.34, thighR: -0.3 } },          // 1 cross
+  { t: 0.24, to: { armL: 2.2, foreL: 1.2, lean: 0.12, bendL: 0.4 } },           // 2 left hook
+  { t: 0.24, to: { armR: 2.5, foreR: 1.4, lean: 0.1 } },                        // 3 right hook
+  { t: 0.22, to: { armR: -0.4, foreR: 2.4, lean: 0.4 } },                       // 4 uppercut
+  { t: 0.3, to: { armR: 2.9, foreR: 0.0, lean: 0.45, thighR: -0.45 } },         // 5 overhand smash
+  { t: 0.3, to: { armR: 2.6, foreR: 1.0, lean: 0.3, thighL: 0.5 } },            // 6 haymaker
+  { t: 0.16, to: { armL: 1.0, foreL: 0.2, lean: 0.5 } },                        // 7 body shot
+  { t: 0.18, to: { armR: 1.1, foreR: 0.3, armL: 0.9, foreL: 0.4, lean: 0.25 } },// 8 double jab
+  { t: 0.2, to: { armR: 1.4, foreR: 0.9, lean: -0.1, thighR: 0.6 } },           // 9 backfist
+  { t: 0.26, to: { armL: 1.8, foreL: 0.1, lean: 0.3, thighL: -0.5, thighR: 0.4 } }, // 10 lunge jab
+  { t: 0.26, to: { armR: 1.5, foreR: 2.2, lean: 0.55, bendR: 1.0 } },           // 11 elbow strike
+  { t: 0.22, to: { armR: 0.6, foreR: 1.6, armL: 0.5, foreL: 1.6, lean: 0.2 } }, // 12 guard up, forward
+  { t: 0.28, to: { armR: 2.1, foreR: 0.6, lean: -0.3, thighR: 0.9, thighL: -0.3 } }, // 13 spinning back punch
+  { t: 0.2, to: { armR: 1.7, foreR: 0.2, lean: 0.15, hipX: 4 } },               // 14 shoulder-led jab
+  { t: 0.24, to: { armL: 2.7, foreL: 0.4, lean: 0.4, thighR: -0.6 } },          // 15 rabbit punch
+  { t: 0.3, to: { armR: 2.3, foreR: 0.5, lean: 0.6, bendL: 1.1, thighL: 0.8 } },// 16 low dropping punch
+  { t: 0.22, to: { armR: 1.2, foreR: 1.9, armL: 1.2, foreL: 1.9, lean: 0.35 } },// 17 double-fist slam
+  { t: 0.26, to: { armL: 2.0, foreL: 2.0, armR: 0.3, foreR: 0.2, lean: 0.15, tilt: 0.2 } }, // 18 sideways hook
+  { t: 0.34, to: { armR: 3.0, foreR: 0.0, lean: 0.7, thighR: -0.7, thighL: 0.6, bob: 3 } }, // 19 full-body wind-up punch
+];
+
 export function pose(name: string, style: string, t: number, ph: number, speed: number, poseT: number): Angles {
   reset();
   const s = Math.sin(ph), c = Math.cos(ph);
@@ -56,6 +80,15 @@ export function pose(name: string, style: string, t: number, ph: number, speed: 
       const w = Math.min(1, poseT / 0.28);
       if (w < 1) { A.armR = 2.4 + w * 0.6; A.foreR = 0.2; A.lean = -0.08; } else { A.armR = 0.9; A.foreR = 0.2; A.lean = 0.28; A.thighL = 0.4; A.thighR = -0.25; }
       A.armL = 0.7; A.foreL = 1.2;
+      break;
+    }
+    case "punch0": case "punch1": case "punch2": case "punch3": case "punch4": case "punch5": case "punch6": case "punch7": case "punch8": case "punch9":
+    case "punch10": case "punch11": case "punch12": case "punch13": case "punch14": case "punch15": case "punch16": case "punch17": case "punch18": case "punch19": {
+      // 20 punch variants: each one is a short reach-and-recover with its own arm, lean and stance
+      const v = PUNCHES[Number(name.slice(5))], w = Math.min(1, poseT / v.t), back = poseT > v.t ? Math.min(1, (poseT - v.t) / 0.25) : 0;
+      const k = w * (1 - back);
+      for (const key of Object.keys(v.to) as (keyof Angles)[]) (A as any)[key] = (A as any)[key] + ((v.to[key] as number) - (A as any)[key]) * k;
+      A.bob += -2 * k;
       break;
     }
     case "kick": A.thighR = 1.2; A.bendR = 0.1; A.lean = -0.15; A.armL = 0.9; A.armR = -0.5; break;
