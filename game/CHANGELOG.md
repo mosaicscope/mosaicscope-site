@@ -10,6 +10,7 @@
 
 ## 0.4.0
 
+- Cars: 25 new vehicle classes (37 total) so the street stops looking like the same four cars. Everyday: kei mini, wagon, minivan, coupe, roadster, retro bug, EV, banger with rust and a mismatched door, camper with a pop-top. Work: double-cab ute, flatdeck, tradie van with ladder, ice-cream van, post van, tow truck, rubbish truck, Metro bus, hearse, fire engine. Performance: hot hatch, rally, lowrider, hot rod with flames, stretch limo, 4x4 with a spare wheel. Parody names only, 16 are for sale at the dealership.
 - Clinical layer: 249 evidence-tagged studies (`mind/Evidence.ts`), stress, anxiety, depression, trauma and a rare psychosis spectrum with genetic liability from families (`Psychopathology.ts`, `Kin.ts`), whanau support and stigma (`Whanau.ts`), care pathways, Putahi Mental Health Unit. Saves are now v6 (v5 migrates).
 - Interiors: enterable interiors with props and people (hospital, Putahi, police, bank, office, apartments, house, hotel); other kinds use a generic shopfront until more are written.
 - Zoo: visitors react to the animals you own.
