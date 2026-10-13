@@ -3,6 +3,8 @@ import type { Camera } from "../render/Camera";
 import { Music } from "./Music";
 import { fetchVibe, VIBE_REFRESH_MS } from "./LiveVibe";
 import type { Place } from "./Score";
+import { BuskerVoice } from "./Busker";
+import { stepWalk, dreamLevel, lateLevel, layersFor } from "./Moods";
 
 /**
  * Synthesised audio (no files to load): material-specific impact blips, whooshes, boings, rain and a
@@ -20,6 +22,10 @@ export class AudioSystem {
   volume = 0.6;
   private unsub: (() => void) | null = null;
   private music: Music | null = null;
+  private busker: BuskerVoice | null = null;
+  private walked = 0; private lastX = NaN; private lastY = NaN; private lastT = 0;
+  /** 0..1 how deep into the dream the walk has taken the player; the renderer drifts the colours by it */
+  dream = 0;
   /** the generative soundtrack; N toggles it, the sound setting still gates everything */
   musicOn = true;
   private place: Place = ""; private placeT = 0; private vibeTimer: ReturnType<typeof setInterval> | null = null;
@@ -31,7 +37,7 @@ export class AudioSystem {
 
   private syncMusic(): void {
     if (!this.music) return;
-    if (this.enabled && this.musicOn) { this.music.start(); this.refreshVibe(); } else this.music.stop();
+    if (this.enabled && this.musicOn) { this.music.start(); this.busker?.start(); this.refreshVibe(); } else { this.music.stop(); this.busker?.stop(); }
   }
 
   /** Pull real Christchurch weather/time for the score (audio only), then again every 15 minutes while music plays. */
@@ -59,6 +65,29 @@ export class AudioSystem {
     return (this.place = place);
   }
 
+  /** Dream (long walks), rain on the glass, the 3am hush and the busker's tune. Throttled scans, audio only. */
+  private moods(sim: Simulation, interior: string | null, tension: number): void {
+    const p = sim.player, now = performance.now(), dt = (now - this.lastT) / 1000;
+    if (this.lastT && Number.isFinite(this.lastX)) this.walked = stepWalk(this.walked, Math.hypot(p.x - this.lastX, p.y - this.lastY) / Math.max(dt, 0.001), dt);
+    this.lastX = p.x; this.lastY = p.y; this.lastT = now;
+    this.dream = dreamLevel(this.walked);
+    if (now - this.moodT > 500) {
+      this.moodT = now;
+      let crowd = 0, bd = Infinity, bx = 0;
+      for (const c of sim.chars) {
+        if (c === p || c.inside >= 0) continue;
+        const d = Math.hypot(c.x - p.x, c.y - p.y);
+        if (d < 10) crowd++;
+        if (c.role === "busker" && d < bd) { bd = d; bx = c.x - p.x; }
+      }
+      this.crowd = Math.min(1, crowd / 8); this.buskerDist = interior ? Infinity : bd; this.buskerPan = bx / 14;
+    }
+    const layers = layersFor({ dream: this.dream, late: lateLevel(sim.hour, tension, this.crowd), rain: sim.env.rain, indoors: interior !== null });
+    this.music?.setLayers(layers);
+    this.busker?.update(this.buskerDist, this.buskerPan, sim.hour, sim.env.rain);
+  }
+  private moodT = 0; private crowd = 0; private buskerDist = Infinity; private buskerPan = 0;
+
   attach(sim: Simulation): void {
     this.unsub?.();
     this.unsub = sim.bus.on("sound", (s) => this.play(s.kind, s.x, s.y, s.vol));
@@ -79,6 +108,7 @@ export class AudioSystem {
         this.rainGain = this.ctx.createGain(); this.rainGain.gain.value = 0;
         src.connect(f); f.connect(this.rainGain); this.rainGain.connect(this.master); src.start();
         this.music = new Music(this.ctx, this.master);
+        this.busker = new BuskerVoice(this.ctx, this.master);
         window.addEventListener("keydown", (e) => {
           const t = e.target as HTMLElement | null;
           if (e.key.toLowerCase() !== "n" || e.ctrlKey || e.metaKey || e.altKey || t?.closest("input,textarea,select,[contenteditable]")) return;
@@ -98,6 +128,7 @@ export class AudioSystem {
     this.rainGain.gain.value = sim.env.rain * 0.08;
     if (this.music && this.musicOn) {
       const p = sim.player, hurt = 1 - Math.min(1, p.blood);
+      this.moods(sim, interior, Math.min(1, (p.wanted ?? 0) / 4 + (hurt > 0.6 ? (hurt - 0.6) : 0)));
       this.music.setMood({
         hour: sim.hour, rain: sim.env.rain, storm: sim.env.weather === "storm",
         tension: Math.min(1, (p.wanted ?? 0) / 4 + (hurt > 0.6 ? (hurt - 0.6) : 0)),

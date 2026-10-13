@@ -7,6 +7,7 @@
 
 import { THEMES, SceneTracker, sceneFor, resolveTheme, motifNote, liveTint, parseInspo, type Theme, type Place, type Scene, type Live, type Inspo, type Timbre } from "./Score";
 import inspoRaw from "./inspo.json";
+import { layersFor, BASE_CRACKLE, type Layers } from "./Moods";
 
 export interface Mood {
   /** 0..24 */ hour: number;
@@ -111,6 +112,11 @@ export class Music {
   inspo: Inspo = parseInspo(inspoRaw);
   /** real Christchurch conditions; audio only, the simulation never sees this */
   live: Live | null = null;
+  /** dream / rain-glass / 3am add-ons, set per frame by AudioSystem */
+  layers: Layers = layersFor({ dream: 0, late: 0, rain: 0 });
+  private crackleGain: GainNode | null = null;
+  private glass: GainNode | null = null;
+  private hush: { gain: GainNode; oscs: OscillatorNode[] } | null = null;
   mood: Mood = { hour: 17, rain: 0, storm: false, tension: 0, street: false, party: false };
 
   constructor(private ctx: AudioContext, dest: AudioNode) {
@@ -132,6 +138,16 @@ export class Music {
   setLevel(v: number): void { this.out.gain.setTargetAtTime(v, this.ctx.currentTime, 0.2); }
 
   setLive(l: Live | null): void { this.live = l; }
+
+  /** Ease the mood layers in: crackle, rain on glass, the 3am hush and the dream wobble all glide, never jump. */
+  setLayers(l: Layers): void {
+    this.layers = l;
+    const t = this.ctx.currentTime;
+    this.crackleGain?.gain.setTargetAtTime(l.crackle, t, 1.5);
+    this.glass?.gain.setTargetAtTime(l.glass, t, 1.5);
+    this.hush?.gain.gain.setTargetAtTime(l.hush, t, 3);
+    if (this.pad) for (const o of this.pad.oscs) o.detune.setTargetAtTime((o.detune.value < 0 ? -7 : 7) * (1 + l.wobble / 7), t, 2);
+  }
 
   setMood(m: Mood): void {
     this.mood = m;
@@ -161,7 +177,8 @@ export class Music {
   /** Bar boundary: pick the scene (with hold), resolve its theme, swap scale when it changes, retune the pad. */
   private newBar(): void {
     const prev = this.tracker.update(this.mood);
-    this.theme = resolveTheme(this.tracker.scene, this.inspo, this.live);
+    const base = resolveTheme(this.tracker.scene, this.inspo, this.live), ly = this.layers;
+    this.theme = { ...base, bpm: base.bpm * ly.bpm, density: base.density * ly.density, bright: base.bright * ly.bright };
     if (prev) this.swell();
     const f = flavourFor(this.mood, this.theme);
     this.flavour = f;
@@ -170,6 +187,7 @@ export class Music {
     if (key !== this.chordKey) { this.chordKey = key; this.setPad(sc.root + chord[0], chord.slice(1), f); }
     this.ensureDrone(sc.root - 12);
     this.ensureCrackle();
+    this.ensureHush(sc.root);
   }
 
   /** Scene change: no risers or sweeps, just a soft breath: the level eases down for a beat and back up. */
@@ -188,7 +206,7 @@ export class Music {
     for (const [i, n] of [0, ...tones].entries()) {
       for (const det of [-7, 7]) {
         const o = ctx.createOscillator(); o.type = "triangle"; // soft, no saw buzz
-        o.frequency.value = mtof(root + n + (i === 0 ? 12 : 12)); o.detune.value = det;
+        o.frequency.value = mtof(root + n + (i === 0 ? 12 : 12)); o.detune.value = det * (1 + this.layers.wobble / 7);
         o.connect(filter); o.start(t); o.stop(t + dur * 1.15); oscs.push(o);
       }
     }
@@ -206,8 +224,24 @@ export class Music {
     for (let i = 0; i < n; i++) d[i] = (r() * 2 - 1) * 0.25 + (r() < 0.0004 ? (r() * 2 - 1) * 2 : 0);
     const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
     const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 2600; f.Q.value = 0.3;
-    const g = ctx.createGain(); g.gain.value = 0.02;
+    const g = ctx.createGain(); g.gain.value = BASE_CRACKLE; this.crackleGain = g;
     src.connect(f); f.connect(g); g.connect(this.out); src.start();
+    // rain on the window: soft lowpassed noise that only opens up when it rains while you are inside
+    const gl = ctx.createBufferSource(); gl.buffer = buf; gl.loop = true; gl.playbackRate.value = 0.7;
+    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1100;
+    const gg = ctx.createGain(); gg.gain.value = 0; this.glass = gg;
+    gl.connect(lp); lp.connect(gg); gg.connect(this.out); gl.start();
+  }
+
+  /** The 3am layer: two very quiet sine tones (root and fifth, an octave up) that fade in when the city sleeps. */
+  private ensureHush(root: number): void {
+    const ctx = this.ctx;
+    if (!this.hush) {
+      const gain = ctx.createGain(); gain.gain.value = 0; gain.connect(this.out);
+      const oscs = [0, 7].map((n) => { const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = mtof(root + 12 + n); o.connect(gain); o.start(); return o; });
+      this.hush = { gain, oscs };
+    }
+    this.hush.oscs.forEach((o, i) => o.frequency.setTargetAtTime(mtof(root + 12 + (i ? 7 : 0)), ctx.currentTime, 2));
   }
 
   private ensureDrone(midi: number): void {
