@@ -7,6 +7,7 @@ import { Camera } from "./Camera";
 import { Terrain, drawTallTile, drawPoi } from "./Terrain";
 import { Particles } from "./Particles";
 import { Lighting, Rain } from "./Lighting";
+import { NightFX } from "./NightFX";
 import { pose, solve, drawFigure, pathSilhouette, J } from "./StickFigure";
 import { drawToy, drawIsoBox } from "./ToyArt";
 import { INK } from "./palette";
@@ -44,6 +45,7 @@ export class Renderer {
   private glowCv = document.createElement("canvas");
   private glowG: CanvasRenderingContext2D | null = null;
   private rain = new Rain();
+  private nightFx = new NightFX();
   private items: Item[] = [];
   private nItems = 0;
   private pt = { x: 0, y: 0 };
@@ -329,6 +331,7 @@ export class Renderer {
     this.particles.draw(g, cam);
     if (party && !o.reduceMotion && Math.random() < dt * 6) this.particles.spawn("music", sim.stagePoint.x - 2 + Math.random() * 2, sim.stagePoint.y + Math.random() * 2, 1.5, 1, ["#c6ff3d", "#ff7ad9", "#3dd6ff"][Math.floor(Math.random() * 3)]);
     this.lighting.draw(g, sim, cam, time, o.quality, o.reduceMotion);
+    this.nightFx.draw(g, sim, cam, time, o.quality, o.reduceMotion, minX, maxX, minY, maxY);
     if (GLOW.length) {
       // emissive pass: windows, bloom and spill go on their own layer so nearer buildings can wipe what is behind them
       const cv = this.glowCv, W = this.canvas.width, H = this.canvas.height;
