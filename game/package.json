@@ -16,7 +16,8 @@
     "catalogue": "vite-node scripts/catalogue.ts",
     "smoke": "node e2e/smoke.mjs",
     "soak": "vite-node scripts/soak.ts",
-    "terrance": "vite-node scripts/terrance-feed.ts"
+    "terrance": "vite-node scripts/terrance-feed.ts",
+    "critique": "vite-node scripts/critique.ts"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
