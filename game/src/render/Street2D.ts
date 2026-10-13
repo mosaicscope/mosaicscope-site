@@ -79,7 +79,6 @@ const box = (g: CanvasRenderingContext2D, x: number, y: number, w: number, h: nu
 export class StreetView {
   readonly cast = new StreetCast();
   private lo = document.createElement("canvas");
-  private dither: CanvasPattern | null = null;
   private glow = new Float32Array(GLOWS * 4);
   private nGlow = 0;
 
@@ -96,8 +95,8 @@ export class StreetView {
     const rain = sim.env.raining, off = pu * S;
     this.nGlow = 0;
     this.backdrop(g, sim, W, pu, pv, S, ground, day, time);
-    this.facades(g, W, H, off, ground, day);
-    this.street(g, W, H, off, ground, night, rain);
+    this.facades(g, W, H, off, ground, day, time);
+    this.street(g, W, H, off, ground, night, rain, time);
     // dusk settles over the set; the lamps and lit windows then burn through it
     if (night > 0.05) { g.fillStyle = `rgba(14,10,36,${0.55 * night})`; g.fillRect(0, 0, W, H); }
     this.lights(g, W, H, off, ground, night, time);
@@ -146,16 +145,11 @@ export class StreetView {
     dest.fillText(`${sim.world.streetName(f.x, f.y)} · V or scroll out for 3D`, 16, 66);
   }
 
-  /** A 2x2 checker used for hand-dithered shadow bands (pixel art's gradient). */
-  private ditherPat(g: CanvasRenderingContext2D): CanvasPattern | null {
-    if (this.dither) return this.dither;
-    const c = document.createElement("canvas"); c.width = 4; c.height = 4; const x = c.getContext("2d")!;
-    x.fillStyle = "#000"; x.fillRect(0, 0, 2, 2); x.fillRect(2, 2, 2, 2);
-    return this.dither = g.createPattern(c, "repeat");
-  }
+  /** A soft shadow band: four stacked strips that deepen downward. No checker patterns anywhere: they read as a criss-cross lattice. */
   private band(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, alpha: number): void {
-    const p = this.ditherPat(g); if (!p) return;
-    g.save(); g.globalAlpha *= alpha; g.fillStyle = p; g.fillRect(x, y, w, h); g.restore();
+    g.save();
+    for (let i = 0; i < 4; i++) { g.globalAlpha *= 1; g.fillStyle = `rgba(8,5,18,${(alpha * (0.35 + i * 0.3)).toFixed(3)})`; g.fillRect(x, y + (h * i) / 4, w, Math.ceil(h / 4)); }
+    g.restore();
   }
   private lit(x: number, y: number, w: number, h: number): void {
     if (this.nGlow >= GLOWS) return; const i = this.nGlow++ * 4; this.glow[i] = x; this.glow[i + 1] = y; this.glow[i + 2] = w; this.glow[i + 3] = h;
@@ -170,6 +164,18 @@ export class StreetView {
     else { sky.addColorStop(0, "#0c0b1c"); sky.addColorStop(1, "#2e2848"); }
     g.fillStyle = sky; g.fillRect(0, 0, W, ground);
     if (day < 0.4) { g.fillStyle = "rgba(240,230,210,.8)"; for (let i = 0; i < 40; i++) g.fillRect(((hash(i) * W + pu * S * 0.04) % W + W) % W, hash(i + 90) * ground * 0.35, 2, 2); }
+    // two hazy layers of far city behind everything, so the horizon is never bare sky
+    const farCol = day > 0.85 ? ["#9aa6bd", "#7f8aa6"] : day > 0.4 ? ["#8a6a80", "#6a4f70"] : day > 0.2 ? ["#4c3e66", "#35294f"] : ["#1d1a36", "#141226"];
+    for (let layer = 0; layer < 2; layer++) {
+      const SW = 150 - layer * 30, o = pu * S * (0.05 + layer * 0.07), j0 = Math.floor((o - W / 2) / SW) - 1;
+      for (let i = j0; i < j0 + Math.ceil(W / SW) + 3; i++) {
+        const hh = hash(i * 3 + layer * 50 + 1), x = i * SW - o + W / 2, w = SW * (0.75 + hash(i * 7 + layer) * 0.5), h = ground * (0.2 + hh * (0.55 - layer * 0.14));
+        g.fillStyle = farCol[layer]; g.fillRect(x, ground - h, w, h);
+        if (hash(i * 11 + layer * 3) < 0.14) { g.beginPath(); g.moveTo(x + w * 0.35, ground - h); g.lineTo(x + w * 0.5, ground - h - 70 - hh * 40); g.lineTo(x + w * 0.65, ground - h); g.closePath(); g.fill(); }   // a spire: Cathedral Square's neighbours
+        else if (hash(i * 13 + layer) < 0.3) { g.fillRect(x + w * 0.5, ground - h - 26, 2, 26); if (day < 0.35 && Math.sin(time * 2 + i) > 0) { g.fillStyle = "#ff3b2f"; g.fillRect(x + w * 0.5 - 1, ground - h - 29, 4, 4); } }   // an aerial with a red lamp
+        if (day < 0.5) { g.fillStyle = day < 0.25 ? `rgba(255,196,110,${0.5 - layer * 0.15})` : "rgba(255,196,110,.22)"; for (let r = 0; r < h / 16; r++) for (let c = 0; c < w / 14; c++) if (hash(i * 31 + r * 7 + c + layer * 99) < 0.22) g.fillRect(x + 5 + c * 14, ground - h + 8 + r * 16, 4, 6); }
+      }
+    }
     const base = day > 0.4 ? "#5a4a62" : "#171428";
     const bs = sim.world.buildings.map((b) => ({ b, u: ((b.x0 + b.x1 + 1) / 2 - (b.y0 + b.y1 + 1) / 2) / 1.414, v: (b.x0 + b.x1 + b.y0 + b.y1 + 2) / 2, w: (b.x1 - b.x0 + b.y1 - b.y0 + 2) / 1.6 }))
       .filter((q) => q.v < pv + 4 && q.v > pv - 40).sort((a, c) => a.v - c.v);
@@ -196,18 +202,17 @@ export class StreetView {
       const cx = (((hash(i + 40) * W * 1.5 + pu * S * 0.02 - time * (2 + hash(i) * 3)) % (W + 360)) + W + 360) % (W + 360) - 180, cy = ground * (0.08 + hash(i + 70) * 0.34), cw = 120 + hash(i + 9) * 160;
       g.fillStyle = `rgba(${cl},${day > 0.2 ? 0.3 : 0.12})`; g.fillRect(cx, cy, cw, 8); g.fillRect(cx + cw * 0.15, cy - 6, cw * 0.55, 6); g.fillRect(cx + cw * 0.3, cy + 8, cw * 0.6, 5);
     }
-    this.band(g, 0, ground * 0.55, W, ground * 0.45, 0.14);
   }
 
   /** The long street wall: tenements, shopfronts, a stone bank, alley mouths with fire escapes. */
-  private facades(g: CanvasRenderingContext2D, W: number, H: number, off: number, ground: number, day: number): void {
-    const SEG = 280, i0 = Math.floor(off / SEG) - 1, n = Math.ceil(W / SEG) + 3;
+  private facades(g: CanvasRenderingContext2D, W: number, H: number, off: number, ground: number, day: number, time: number): void {
+    const SEG = 280, i0 = Math.floor((off - W / 2) / SEG) - 1, n = Math.ceil(W / SEG) + 3;
     const wallH = H * 0.54, dim = day > 0.4 ? 1 : 0.85;
     for (let i = i0; i < i0 + n; i++) {
       const x = i * SEG - off + W / 2, h = hash(i * 7 + 3);
       if (x > W + SEG || x < -SEG) continue;
       const kind = h < 0.32 ? 0 : h < 0.58 ? 1 : h < 0.74 ? 2 : h < 0.86 ? 3 : 4;
-      const hh = wallH * (0.9 + hash(i * 5) * 0.2), top = ground - hh;
+      const hh = wallH * (0.7 + hash(i * 5) * 0.68), top = ground - hh;
       if (kind === 3) { this.alley(g, x, SEG, top, ground, i); continue; }
       const mat = kind === 2 ? NOIR.wallStone : kind === 4 ? NOIR.wallPlaster : NOIR.wallBrick;
       const col = shade(pickOf(mat, i * 31), dim);
@@ -217,7 +222,8 @@ export class StreetView {
       else { g.fillStyle = "rgba(20,20,40,.25)"; for (let p = 0; p <= SEG; p += SEG / 4) g.fillRect(x + p - 3, top, 6, hh); }        // pilasters
       // cornice and a stone string course
       box(g, x - 3, top - 5, SEG + 6, 8, shade(col, 0.7), 1.5); g.fillStyle = NOIR.sill; g.fillRect(x - 2, top - 3, SEG + 4, 2);
-      const floors = hh > wallH * 0.95 ? 3 : 2, fh = (hh - H * 0.17) / floors;
+      this.roofKit(g, x, top, SEG, col, i, day, time);
+      const floors = hh > wallH * 1.22 ? 4 : hh > wallH * 0.95 ? 3 : 2, fh = (hh - H * 0.17) / floors;
       for (let fl = 0; fl < floors; fl++) {
         for (let w = 0; w < 3; w++) {
           const wx = x + 30 + w * 80, wy = top + 16 + fl * fh, ww = 34, wh = Math.min(fh - 22, 54);
@@ -225,7 +231,7 @@ export class StreetView {
         }
       }
       const dy = ground - H * 0.17;                                   // ground floor
-      if (kind === 1) this.shop(g, x, dy, SEG, ground, i, col);
+      if (kind === 1) { this.shop(g, x, dy, SEG, ground, i, col); this.bladeSign(g, x + SEG - 34, dy - 74, i, day); }
       else this.entry(g, x, dy, ground, i, col);
       if (kind === 0 && hash(i * 17) < 0.5) this.fireEscape(g, x + SEG - 70, top + 20, ground - H * 0.17 - top - 20);
       // drainpipe and the dark foot of the wall
@@ -271,14 +277,50 @@ export class StreetView {
   }
 
   private alley(g: CanvasRenderingContext2D, x: number, SEG: number, top: number, ground: number, i: number): void {
-    g.fillStyle = "#1a1730"; g.fillRect(x + 20, top + 10, SEG - 40, ground - top - 10);
-    g.fillStyle = "#0e0c1c"; g.fillRect(x + 20, ground - 90, SEG - 40, 90);
-    this.band(g, x + 20, top + 10, SEG - 40, ground - top - 10, 0.12);
-    g.fillStyle = "rgba(255,70,60,.9)"; if (hash(i * 3) < 0.5) { g.fillRect(x + 120, ground - 60, 3, 3); g.fillRect(x + 134, ground - 60, 3, 3); }   // eyes in the dark
-    const wy = top + (ground - top) * 0.3;                                                    // the back of the next street: a lit window, a ladder, bins
-    box(g, x + 150, wy, 30, 40, hash(i) < 0.6 ? NOIR.glassLit : NOIR.glassDark, 1.5); if (hash(i) < 0.6) this.lit(x + 150, wy, 30, 40);
-    g.fillStyle = "#2a2440"; g.fillRect(x + 110, ground - 70, 24, 70); g.fillRect(x + 200, ground - 46, 28, 46);
-    this.fireEscape(g, x + 30, top + 20, ground - top - 40);
+    // the mouth of an alley: the back of the next street, a long way off, with a life of its own
+    const ax = x + 14, aw = SEG - 28, ah = ground - top - 10, ay = top + 10, r = hash(i * 3), fy = Math.max(ay, ground - 470);   // fy: the lived-in part of the wall, within sight of the pavement
+    const wall = g.createLinearGradient(0, ay, 0, ground); wall.addColorStop(0, "#2c2646"); wall.addColorStop(0.6, "#3a2f4c"); wall.addColorStop(1, "#1a1428");
+    g.fillStyle = INK; g.fillRect(ax - 2, ay - 2, aw + 4, ah + 2); g.fillStyle = wall; g.fillRect(ax, ay, aw, ah);
+    g.fillStyle = "rgba(10,6,20,.3)"; for (let y = ay + 6; y < ground; y += 8) g.fillRect(ax, y, aw, 1);                       // back-wall brick joints
+    g.fillStyle = "#171124"; g.fillRect(ax, ay, 16, ah); g.fillRect(ax + aw - 16, ay, 16, ah);                                    // the side walls fall away in shadow
+    for (let k = 0; k < 2; k++) { const wx = ax + 54 + k * 92, wy = fy + 24 + hash(i * 5 + k) * 60, on = hash(i * 7 + k) < 0.65; box(g, wx, wy, 28, 38, on ? NOIR.glassLit : NOIR.glassDark, 1.5); if (on) this.lit(wx, wy, 28, 38); g.fillStyle = INK; g.fillRect(wx + 13, wy, 2, 38); }
+    // washing strung across, a lantern, a neon blade, bins and crates
+    const ly = fy + 150 + r * 14; g.strokeStyle = INK; g.lineWidth = 2; g.beginPath(); g.moveTo(ax + 6, ly); g.quadraticCurveTo(ax + aw / 2, ly + 22, ax + aw - 6, ly - 4); g.stroke();
+    const cl = ["#eee4d3", "#3d7ad9", "#ec2a1c", "#f6b62c"]; for (let k = 0; k < 4; k++) { g.fillStyle = cl[(i + k) % 4]; g.fillRect(ax + 40 + k * 44, ly + 10 + Math.sin(k) * 4, 14, 20); }
+    g.fillStyle = "#ffd27a"; g.fillRect(ax + aw / 2 - 3, fy + 4, 6, 8); this.lit(ax + aw / 2 - 3, fy + 4, 6, 8);
+    if (r < 0.55) { g.fillStyle = "#ff4fb8"; g.fillRect(ax + aw - 40, fy + 190, 4, 60); g.fillStyle = "rgba(255,79,184,.5)"; g.fillRect(ax + aw - 44, fy + 190, 12, 60); }
+    g.fillStyle = "#0e0a18"; g.fillRect(ax, ground - 36, aw, 36);
+    box(g, ax + 28, ground - 54, 30, 54, "#3a4250", 1.5); box(g, ax + 66, ground - 40, 26, 40, "#4a3a2a", 1.5); box(g, ax + 100, ground - 28, 34, 28, "#5a4430", 1.5);
+    g.fillStyle = "rgba(255,70,60,.9)"; if (r < 0.5) { g.fillRect(ax + 150, ground - 30, 3, 3); g.fillRect(ax + 164, ground - 30, 3, 3); }   // eyes in the dark
+    this.fireEscape(g, ax + aw - 80, fy + 20, ground - fy - 50);
+  }
+
+  /** Things that live on a roofline: a water tank on legs, a chimney stack with pots, an aerial, a painted sign. */
+  private roofKit(g: CanvasRenderingContext2D, x: number, top: number, SEG: number, col: string, i: number, day: number, time: number): void {
+    const r = hash(i * 19 + 4), dark = shade(col, 0.55);
+    if (r < 0.26) {          // water tank
+      g.strokeStyle = INK; g.lineWidth = 3; g.beginPath(); g.moveTo(x + 70, top - 4); g.lineTo(x + 66, top - 36); g.moveTo(x + 100, top - 4); g.lineTo(x + 104, top - 36); g.stroke();
+      box(g, x + 62, top - 78, 46, 42, "#6b4a30", 1.5); g.fillStyle = "rgba(0,0,0,.28)"; g.fillRect(x + 62, top - 78, 8, 42); g.fillStyle = INK; for (let y = top - 66; y < top - 40; y += 12) g.fillRect(x + 62, y, 46, 2);
+      g.fillStyle = "#4a3322"; g.beginPath(); g.moveTo(x + 58, top - 78); g.lineTo(x + 85, top - 94); g.lineTo(x + 112, top - 78); g.closePath(); g.fill();
+    } else if (r < 0.52) {   // chimney stack with pots, and a thread of smoke when it is cold
+      box(g, x + 150, top - 46, 30, 44, dark, 1.5); box(g, x + 146, top - 52, 38, 8, shade(col, 0.4), 1.5);
+      g.fillStyle = "#8a4a2a"; g.fillRect(x + 154, top - 66, 8, 14); g.fillRect(x + 168, top - 62, 8, 10);
+      if (day < 0.7) { g.fillStyle = `rgba(210,210,225,${day < 0.4 ? 0.34 : 0.2})`; for (let k = 0; k < 4; k++) { const ph = (time * 0.2 + k / 4 + hash(i)) % 1; g.fillRect(x + 156 + Math.sin(ph * 6 + i) * 6 + ph * 10, top - 70 - ph * 60, 8 + ph * 6, 6 + ph * 4); } }
+    } else if (r < 0.66) {   // aerial farm
+      g.fillStyle = INK; g.fillRect(x + 90, top - 50, 3, 48); g.fillRect(x + 78, top - 44, 28, 2); g.fillRect(x + 82, top - 34, 20, 2); g.fillRect(x + 86, top - 24, 12, 2);
+      if (day < 0.3 && Math.sin(time * 2.4 + i) > 0) { g.fillStyle = "#ff3b2f"; g.fillRect(x + 89, top - 55, 5, 5); }
+    } else if (r < 0.76) {   // a painted roof sign
+      box(g, x + 40, top - 40, SEG - 80, 28, "#2a2238", 1.5); g.fillStyle = day < 0.4 ? "#ffd27a" : "#e8d8a8"; for (let k = 0; k < 7; k++) g.fillRect(x + 54 + k * 22, top - 32, 14 + (k % 3) * 2, 12);
+      g.fillStyle = INK; g.fillRect(x + 60, top - 12, 4, 10); g.fillRect(x + SEG - 64, top - 12, 4, 10);
+    }
+  }
+
+  /** A blade sign on an iron bracket over a shop door. */
+  private bladeSign(g: CanvasRenderingContext2D, x: number, y: number, i: number, day: number): void {
+    g.fillStyle = INK; g.fillRect(x - 16, y, 18, 3); g.fillRect(x, y, 2, 10);
+    const cols = ["#c0503a", "#3a6a8a", "#e8c42c", "#4a8a5a"];
+    box(g, x - 10, y + 10, 26, 24, cols[i % cols.length], 1.5);
+    g.fillStyle = day > 0.4 ? "#efe4cc" : "#ffe9a8"; g.fillRect(x - 6, y + 16, 18, 3); g.fillRect(x - 6, y + 23, 12, 3);
   }
 
   private fireEscape(g: CanvasRenderingContext2D, x: number, y: number, h: number): void {
@@ -288,7 +330,7 @@ export class StreetView {
   }
 
   /** Pavement, kerb, road with a worn lane line, and the things that live on it. */
-  private street(g: CanvasRenderingContext2D, W: number, H: number, off: number, ground: number, night: number, rain: boolean): void {
+  private street(g: CanvasRenderingContext2D, W: number, H: number, off: number, ground: number, night: number, rain: boolean, time: number): void {
     const padH = H * 0.1, roadY = ground + padH;
     g.fillStyle = NOIR.pave; g.fillRect(0, ground, W, padH);
     g.fillStyle = NOIR.paveJoint; for (let x = -(off % 90) - 90; x < W; x += 90) g.fillRect(x, ground, 2, padH);
@@ -297,7 +339,7 @@ export class StreetView {
     g.fillStyle = NOIR.roadFar; g.fillRect(0, roadY, W, (H - roadY) * 0.25); this.band(g, 0, roadY + (H - roadY) * 0.25, W, 12, 0.3);
     const ly = roadY + (H - roadY) * 0.55;
     g.fillStyle = NOIR.lane; for (let x = -(off % 120) - 120; x < W; x += 120) g.fillRect(x, ly, 64, 4);
-    const SEG = 300, i0 = Math.floor(off / SEG) - 1;
+    const SEG = 300, i0 = Math.floor((off - W / 2) / SEG) - 1;
     for (let i = i0; i < i0 + Math.ceil(W / SEG) + 3; i++) {
       const x = i * SEG - off + W / 2, h = hash(i * 13 + 5), h2 = hash(i * 29 + 1);
       if (x < -260 || x > W + 260) continue;
@@ -308,9 +350,11 @@ export class StreetView {
       if (h2 < 0.28) this.mailbox(g, x + 220, ground + padH * 0.8);
       else if (h2 < 0.5) this.bin(g, x + 200, ground + padH * 0.8, i);
       if (hash(i * 3 + 8) < 0.3) this.bench(g, x + 120, ground + padH * 0.7);
+      else if (hash(i * 3 + 9) < 0.4) this.tree(g, x + 100, ground + padH * 0.85, i, night);
+      if (h2 > 0.4 && h2 < 0.62) this.vent(g, x + 90, roadY + (H - roadY) * 0.5, time, i);
     }
     if (night > 0.3) {                                                                          // lamp light on the wet road
-      const LS = 420, j0 = Math.floor(off / LS) - 1;
+      const LS = 420, j0 = Math.floor((off - W / 2) / LS) - 1;
       for (let j = j0; j < j0 + Math.ceil(W / LS) + 3; j++) { const lx = j * LS - off + W / 2 + 140; for (let q = 0; q < 7; q++) { g.fillStyle = `rgba(255,200,120,${(0.28 - q * 0.035) * night})`; g.fillRect(lx - 7 + (q % 2) * 3, roadY + 10 + q * 22, 14 - q, 8); } }
     }
   }
@@ -340,13 +384,26 @@ export class StreetView {
     g.restore();
   }
 
+  /** A street tree in an iron grating: dark trunk, a clumped pixel canopy that catches the last light. */
+  private tree(g: CanvasRenderingContext2D, x: number, y: number, i: number, night: number): void {
+    g.fillStyle = INK; g.fillRect(x - 5, y - 96, 10, 96); g.fillRect(x - 20, y - 2, 40, 5);
+    const leaf = night > 0.5 ? ["#16261f", "#1d3328"] : ["#2f5a3a", "#3f7a4a"];
+    for (let k = 0; k < 9; k++) { const cx = x + (hash(i * 7 + k) - 0.5) * 70, cy = y - 118 + (hash(i * 11 + k) - 0.5) * 44, r = 18 + hash(i * 3 + k) * 14; g.fillStyle = INK; g.beginPath(); g.arc(cx, cy, r + 2, 0, 6.283); g.fill(); g.fillStyle = leaf[k % 2]; g.beginPath(); g.arc(cx, cy, r, 0, 6.283); g.fill(); }
+    g.fillStyle = "rgba(255,210,150,.14)"; g.beginPath(); g.arc(x - 14, y - 128, 16, 0, 6.283); g.fill();
+  }
+
+  /** A steam vent in the road: a grating and slow puffs rising, straight out of the SimCity night streets. */
+  private vent(g: CanvasRenderingContext2D, x: number, y: number, time: number, i: number): void {
+    g.fillStyle = "#0e0c18"; g.fillRect(x - 22, y, 44, 8); g.fillStyle = "#3a3450"; for (let k = 0; k < 5; k++) g.fillRect(x - 18 + k * 9, y + 1, 4, 6);
+    for (let k = 0; k < 7; k++) { const ph = (time * 0.22 + k / 7 + hash(i)) % 1; g.fillStyle = `rgba(215,215,232,${(0.4 * (1 - ph)).toFixed(3)})`; const r = 7 + ph * 22; g.beginPath(); g.arc(x + Math.sin(ph * 5 + k) * 10 + ph * 14, y - ph * 120, r, 0, 6.283); g.fill(); }
+  }
   private mailbox(g: CanvasRenderingContext2D, x: number, y: number): void { box(g, x - 11, y - 46, 22, 46, "#2f4a8a", 1.5); box(g, x - 13, y - 52, 26, 8, "#3a5aa0", 1.5); g.fillStyle = INK; g.fillRect(x - 7, y - 36, 14, 3); }
   private bin(g: CanvasRenderingContext2D, x: number, y: number, i: number): void { box(g, x - 15, y - 36, 30, 36, "#4a525e", 1.5); box(g, x - 18, y - 42, 36, 7, "#2c3038", 1.5); g.fillStyle = "rgba(255,255,255,.12)"; g.fillRect(x - 15, y - 36, 5, 36); if (hash(i) < 0.5) { g.fillStyle = "#c7b98a"; g.fillRect(x - 8, y - 48, 14, 7); } }
   private bench(g: CanvasRenderingContext2D, x: number, y: number): void { box(g, x - 34, y - 28, 68, 8, "#5a3c26", 1.5); box(g, x - 34, y - 44, 68, 10, "#6a4a30", 1.5); g.fillStyle = INK; g.fillRect(x - 30, y - 20, 5, 20); g.fillRect(x + 25, y - 20, 5, 20); }
 
   /** Thin cast-iron lamp posts with a warm globe, lit windows and shop glass blooming into the dusk. */
   private lights(g: CanvasRenderingContext2D, W: number, H: number, off: number, ground: number, night: number, time: number): void {
-    const SEG = 420, i0 = Math.floor(off / SEG) - 1, py = ground + H * 0.1 + 8;
+    const SEG = 420, i0 = Math.floor((off - W / 2) / SEG) - 1, py = ground + H * 0.1 + 8;
     for (let i = i0; i < i0 + Math.ceil(W / SEG) + 3; i++) {
       const x = i * SEG - off + W / 2 + 140;
       if (x < -150 || x > W + 150) continue;
