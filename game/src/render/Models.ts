@@ -1,4 +1,4 @@
-import type { Character, Face, HairStyle, HatStyle, Look } from "../entities/types";
+import type { Character, EyeShape, Face, HairStyle, HatStyle, Look } from "../entities/types";
 
 /**
  * CHARACTER MODELS: 25 chunky street archetypes in the spirit of a gritty beat-'em-up cover
@@ -64,6 +64,38 @@ export const MODELS: readonly ModelSpec[] = [
   M("holiday-tourist", "Holiday Tourist", "any", SK.pale, "hawaiian", "#19b3a8", "shorts", "#d9c9a0", "sandals", "#6b4a2a", 9.5, 2.5, 1.1, "sidepart", "#8a6a3a", "bucket", { eyes: "aviator", brows: "none", mouth: "grin", nose: "dot", facial: "none", extra: "blush", head: "round" }, [], "camera", "#ff6a4a", "#efe6d2"),
 ];
 
+/**
+ * Each model's own eyes (a unique shape and size per archetype, so no two faces share one).
+ * tests/models.test.ts checks every model has one and that no two are the same.
+ */
+export const EYE_SHAPES: Record<string, EyeShape> = {
+  "wrap-brawler": { kind: "heavy", w: 1.0, h: 0.7, tilt: -0.2, pupil: 0, lid: 0.4, lash: false },
+  "singlet-slugger": { kind: "slit", w: 1.0, h: 1.0, tilt: 0, pupil: 0.2, lid: 0, lash: false },
+  "pub-regular": { kind: "heavy", w: 1.1, h: 0.6, tilt: 0.1, pupil: 0.6, lid: 0.55, lash: false },
+  "can-collector": { kind: "ring", w: 1.0, h: 1.0, tilt: 0, pupil: 0, lid: 0, lash: false },
+  "trolley-nomad": { kind: "almond", w: 1.0, h: 0.8, tilt: 0.25, pupil: -0.5, lid: 0, lash: false },
+  "park-bench-sage": { kind: "closed", w: 1.1, h: 1.0, tilt: 0.1, pupil: 0, lid: 0, lash: false },
+  "sign-holder": { kind: "oval", w: 0.9, h: 1.3, tilt: -0.1, pupil: 0.5, lid: 0, lash: true },
+  "hoodie-kid": { kind: "oval", w: 1.2, h: 1.2, tilt: 0, pupil: 0, lid: 0, lash: false },
+  "skate-punk": { kind: "slit", w: 1.1, h: 0.9, tilt: 0.1, pupil: -0.3, lid: 0, lash: false },
+  "gym-bro": { kind: "heavy", w: 1.2, h: 0.9, tilt: 0.2, pupil: -0.4, lid: 0.2, lash: true },
+  "surfie": { kind: "almond", w: 1.3, h: 0.7, tilt: -0.2, pupil: 0.3, lid: 0, lash: true },
+  "tradie": { kind: "heavy", w: 0.9, h: 0.9, tilt: 0.3, pupil: 0, lid: 0.25, lash: false },
+  "op-shop-queen": { kind: "almond", w: 1.1, h: 1.2, tilt: 0.3, pupil: -0.2, lid: 0, lash: true },
+  "tartan-nan": { kind: "oval", w: 1.0, h: 0.8, tilt: 0.15, pupil: 0.7, lid: 0, lash: false },
+  "office-drone": { kind: "ring", w: 0.9, h: 0.8, tilt: 0, pupil: 0, lid: 0, lash: false },
+  "rugby-prop": { kind: "cross", w: 0.9, h: 0.9, tilt: 0, pupil: 0, lid: 0, lash: false },
+  "goth-student": { kind: "almond", w: 1.2, h: 0.6, tilt: 0, pupil: 0, lid: 0, lash: true },
+  "busker": { kind: "oval", w: 0.8, h: 1.0, tilt: -0.3, pupil: -0.6, lid: 0, lash: false },
+  "smoko-chef": { kind: "heavy", w: 1.0, h: 1.0, tilt: -0.1, pupil: 0, lid: 0.15, lash: false },
+  "hens-night": { kind: "almond", w: 1.0, h: 1.0, tilt: 0.05, pupil: 0.4, lid: 0, lash: true },
+  "bogan-legend": { kind: "ring", w: 1.2, h: 1.0, tilt: -0.1, pupil: 0.3, lid: 0, lash: false },
+  "old-digger": { kind: "closed", w: 1.0, h: 0.8, tilt: -0.05, pupil: 0, lid: 0, lash: false },
+  "flower-hippie": { kind: "closed", w: 1.3, h: 1.2, tilt: 0.2, pupil: 0, lid: 0, lash: false },
+  "battered-scrapper": { kind: "oval", w: 1.3, h: 1.4, tilt: -0.2, pupil: 0.1, lid: 0, lash: false },
+  "holiday-tourist": { kind: "oval", w: 1.1, h: 1.0, tilt: 0.1, pupil: 0, lid: 0, lash: false },
+};
+
 // ---------------------------------------------------------------- assignment
 
 const hashId = (id: number): number => { let h = Math.imul(id + 1, 0x9e3779b1); h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d); h ^= h >>> 12; return h >>> 0; };
@@ -91,7 +123,7 @@ export function setModel(c: Character, m: ModelSpec | null): void { CACHE.set(c,
 
 /** Look re-skinned for the head pass: hair colour in `color`, the model's face over their own. */
 export function modelLook(L: Look, M_: ModelSpec): Look {
-  return { ...L, color: M_.hairColor, accent: M_.hatColor ?? M_.trim, hat: M_.hat, hair: M_.hair, face: { ...(L.face ?? { eyes: "dots", brows: "none", mouth: "smile", nose: "none", facial: "none", extra: "none", head: "round" }), ...M_.face } };
+  return { ...L, color: M_.hairColor, accent: M_.hatColor ?? M_.trim, hat: M_.hat, hair: M_.hair, face: { ...(L.face ?? { eyes: "dots", brows: "none", mouth: "smile", nose: "none", facial: "none", extra: "none", head: "round" }), ...M_.face, shape: EYE_SHAPES[M_.id] } };
 }
 export const MODEL_INK = INK;
 
@@ -107,7 +139,7 @@ const P = (g: Ctx, pts: number[]) => { g.beginPath(); g.moveTo(pts[0], pts[1]); 
  */
 export function drawModelBody(g: Ctx, J: Float32Array, _c: Character, M_: ModelSpec, k: number, dir: number, alpha: number, hd: boolean, flash: boolean): void {
   const top = flash ? "#ffffff" : M_.topColor, bot = flash ? "#ffffff" : M_.bottomColor, skin = flash ? "#ffffff" : M_.skin;
-  const lb = Math.max(1.4, 4.2 * k * M_.limb);
+  const lb = Math.max(1.3, 3.2 * k * M_.limb); // slim limbs: a stick figure, not a chunky one
   const ink = (w: number) => { g.strokeStyle = INK; g.lineWidth = w; };
   const limb = (a: number, b: number, cc: number, col: string, w: number) => {
     if (hd) { g.strokeStyle = INK; g.lineWidth = w + 2.6 * k; g.beginPath(); g.moveTo(J[a], J[a + 1]); g.lineTo(J[b], J[b + 1]); if (cc >= 0) g.lineTo(J[cc], J[cc + 1]); g.stroke(); }

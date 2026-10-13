@@ -9,7 +9,7 @@ import { decorGrid, drawDecor } from "./StreetDecor";
 import { Particles } from "./Particles";
 import { Lighting, Rain } from "./Lighting";
 import { NightFX } from "./NightFX";
-import { pose, solve, drawFigure, pathSilhouette, J } from "./StickFigure";
+import { pose, solve, drawFigure, pathSilhouette, J, HEAD_R } from "./StickFigure";
 import { drawToy, drawIsoBox } from "./ToyArt";
 import { INK } from "./palette";
 import { drawBuildingTile, GLOW } from "./Buildings";
@@ -732,7 +732,7 @@ export class Renderer {
     const g = this.g;
     for (const w of c.wounds) {
       const [x, y] = w.part === "head" ? [J[4], J[5]] : w.part === "torso" ? [(J[0] + J[2]) / 2, (J[1] + J[3]) / 2] : w.part === "arm" ? [J[12], J[13]] : [J[20], J[21]];
-      if (w.bandaged) { g.strokeStyle = "#eee4d3"; g.lineWidth = Math.max(1.5, 3 * k); g.beginPath(); if (w.part === "head") g.arc(x, y, 10.5 * k, Math.PI * 1.1, Math.PI * 1.9); else { g.moveTo(x - 3 * k * dir, y - 2 * k); g.lineTo(x + 3 * k * dir, y + 2 * k); } g.stroke(); continue; }
+      if (w.bandaged) { g.strokeStyle = "#eee4d3"; g.lineWidth = Math.max(1.5, 3 * k); g.beginPath(); if (w.part === "head") g.arc(x, y, HEAD_R * k, Math.PI * 1.1, Math.PI * 1.9); else { g.moveTo(x - 3 * k * dir, y - 2 * k); g.lineTo(x + 3 * k * dir, y + 2 * k); } g.stroke(); continue; }
       if (!this.fakeBlood) continue;
       g.fillStyle = "#b3121b";
       g.beginPath(); g.ellipse(x + 2 * k * dir, y + (w.part === "head" ? -3 * k : 0), (1.5 + w.severity) * k, (1 + w.severity * 0.7) * k, 0.4, 0, 6.283); g.fill();
