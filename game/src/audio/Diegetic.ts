@@ -547,8 +547,8 @@ export class Diegetic {
   /** 3D audio: when off, every effect plays centred (no left/right panning from where it is). */
   setPositional(on: boolean): void { this.positional = on; }
   /** Audio debug read-out: live one-shot voices by priority, the ambience gain now, and recent blips in the last second. */
-  debugStats(): { live: Record<Prio, number>; ambient: number; recentBlips: number } {
-    return { live: { ...this.liveBy }, ambient: this.amb.gain.value, recentBlips: this.voiceRecent.length };
+  debugStats(): { live: Record<Prio, number>; ambient: number; recentBlips: number; unheard: string[] } {
+    return { live: { ...this.liveBy }, ambient: this.amb.gain.value, recentBlips: this.voiceRecent.length, unheard: [...this.unheard].sort() };
   }
   /** For the older effects in Audio.ts (impacts, gunfire): the same cap and spacing, with the slot freed after a short while. */
   allow(prio: Prio = "event"): boolean {
@@ -613,8 +613,11 @@ export class Diegetic {
       case "creak": case "shatter": case "crackle": case "spark":
       case "whoosh": case "chime": case "loot": case "crunch":
         return this.tone(o0(), kind);
+      default: this.unheard.add(kind);
     }
   }
+  /** Sound kinds the sim sent that no effect plays for yet (a missing-sound report for the debug console). */
+  private unheard = new Set<string>();
 
   /** Entity and combat one-shots: hinges, glass, fire, sparks, dodges, parries, loot and breakages. */
   private tone(o: Out | null, kind: string): void {
