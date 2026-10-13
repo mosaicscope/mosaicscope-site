@@ -97,14 +97,32 @@ function mix(a: string, b: string, t: number): string {
   return `rgb(${Math.round(p(a, 0) + (p(b, 0) - p(a, 0)) * t)},${Math.round(p(a, 1) + (p(b, 1) - p(a, 1)) * t)},${Math.round(p(a, 2) + (p(b, 2) - p(a, 2)) * t)})`;
 }
 
-/** Water: deep teal in the middle, shallow turquoise toward the shore (a vertical gradient per tile, baked into the chunk). */
-function waterShade(g: CanvasRenderingContext2D, sx: number, sy: number, w: World, tx: number, ty: number): CanvasGradient {
+/** Smooth value noise at world position (tile units), 0..1. Pinned to the world so water colour flows across tile and chunk edges. */
+function wnoise(x: number, y: number): number {
+  const h = (ix: number, iy: number) => { let n = (Math.imul(ix, 374761393) + Math.imul(iy, 668265263)) >>> 0; n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967296; };
+  const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+  return (h(ix, iy) * (1 - u) + h(ix + 1, iy) * u) * (1 - v) + (h(ix, iy + 1) * (1 - u) + h(ix + 1, iy + 1) * u) * v;
+}
+
+/** Water colour at a world point: deep ink-teal offshore, glassy turquoise in the shallows, drifting with two octaves of noise so no tile repeats. */
+function waterColour(w: World, x: number, y: number, tx: number, ty: number): string {
   let land = 0;
-  for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (w.tile(tx + dx, ty + dy) !== T.WATER) land += 1 / (1 + Math.abs(dx) + Math.abs(dy));
-  const sh = Math.min(1, land * 0.55); // 0 deep .. 1 shallow
+  for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (w.tile(tx + dx, ty + dy) !== T.WATER) land += 1 / (1 + dx * dx + dy * dy);
+  const sh = Math.min(1, Math.max(0, land * 0.42 - 0.12));                                   // 0 deep .. 1 shallow
+  const n = wnoise(x * 0.35, y * 0.35) * 0.65 + wnoise(x * 0.9 + 40, y * 0.9 - 17) * 0.35; // 0..1 large + small patches
+  const d = 1 - sh;
+  const r = 5 + sh * 30 + n * 14 - d * 2;
+  const gg = 24 + sh * 78 + n * 30 + (1 - n) * d * 4;
+  const b = 46 + sh * 62 + n * 34;
+  return `rgb(${Math.round(r)},${Math.round(gg)},${Math.round(b)})`;
+}
+
+/** Water: a per-tile gradient between colours sampled at the tile's top and bottom corners (continuous across tiles), baked into the chunk. */
+function waterShade(g: CanvasRenderingContext2D, sx: number, sy: number, w: World, tx: number, ty: number): CanvasGradient {
   const grd = g.createLinearGradient(sx, sy, sx, sy + TILE_H);
-  grd.addColorStop(0, `rgb(${Math.round(8 + sh * 22)},${Math.round(34 + sh * 70)},${Math.round(56 + sh * 70)})`);
-  grd.addColorStop(1, `rgb(${Math.round(6 + sh * 18)},${Math.round(44 + sh * 74)},${Math.round(70 + sh * 70)})`);
+  grd.addColorStop(0, waterColour(w, tx, ty, tx, ty));
+  grd.addColorStop(0.5, waterColour(w, tx + 0.5, ty + 0.5, tx, ty));
+  grd.addColorStop(1, waterColour(w, tx + 1, ty + 1, tx, ty));
   return grd;
 }
 
@@ -129,13 +147,19 @@ function detail(g: CanvasRenderingContext2D, t: number, sx: number, sy: number, 
       break;
     }
     case T.WATER: {
-      // foam line along any edge that meets land
+      // shore: a wide soft turquoise wash, then a thin bright foam line, along any edge that meets land
       const land = (dx: number, dy: number) => w.tile(tx + dx, ty + dy) !== T.WATER;
-      g.strokeStyle = "rgba(220,250,255,.38)"; g.lineWidth = 1.6; g.lineCap = "round"; g.beginPath();
-      if (land(0, -1)) { g.moveTo(sx, sy + 1); g.lineTo(sx + hw - 1, sy + hh); }
-      if (land(1, 0)) { g.moveTo(sx + hw - 1, sy + hh); g.lineTo(sx, sy + TILE_H - 1); }
-      if (land(0, 1)) { g.moveTo(sx, sy + TILE_H - 1); g.lineTo(sx - hw + 1, sy + hh); }
-      if (land(-1, 0)) { g.moveTo(sx - hw + 1, sy + hh); g.lineTo(sx, sy + 1); }
+      const edges = (inset: number) => {
+        g.beginPath();
+        if (land(0, -1)) { g.moveTo(sx, sy + inset); g.lineTo(sx + hw - inset, sy + hh); }
+        if (land(1, 0)) { g.moveTo(sx + hw - inset, sy + hh); g.lineTo(sx, sy + TILE_H - inset); }
+        if (land(0, 1)) { g.moveTo(sx, sy + TILE_H - inset); g.lineTo(sx - hw + inset, sy + hh); }
+        if (land(-1, 0)) { g.moveTo(sx - hw + inset, sy + hh); g.lineTo(sx, sy + inset); }
+      };
+      g.lineCap = "round";
+      g.strokeStyle = "rgba(90,230,225,.16)"; g.lineWidth = 7; edges(4); g.stroke();
+      g.strokeStyle = "rgba(140,245,240,.22)"; g.lineWidth = 3.2; edges(2.5); g.stroke();
+      g.strokeStyle = "rgba(235,252,255,.5)"; g.lineWidth = 1.1; edges(1.2); g.stroke();
       g.stroke(); g.lineCap = "butt";
       break;
     }
