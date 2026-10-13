@@ -130,10 +130,11 @@ export class Game {
     });
     // debug console: type mosaics.help() in the browser console
     (window as unknown as { mosaics: object }).mosaics = {
-      help: () => "mosaics.gravity(v) sets toy gravity (0.1 to 2); mosaics.toast(text) shows a toast; mosaics.saveSlots() lists slots",
+      help: () => "mosaics.gravity(v) sets toy gravity (0.1 to 2); mosaics.toast(text) shows a toast; mosaics.saveSlots() lists slots; mosaics.colourBlind(true|false) switches the palette",
       gravity: (v: number) => { setGravityScale(v); return `gravity ${gravityScale}`; },
       toast: (text: string) => this.toast(text),
       saveSlots: () => ["1", "2", "3"].map((s) => ({ slot: s, info: this.saves.info(s) })),
+      colourBlind: (on: boolean) => { try { localStorage.setItem("ms-colourblind", on ? "1" : "0"); } catch { /* storage blocked */ } document.documentElement.classList.toggle("cb", on); return `colour-blind ${on ? "on" : "off"}`; },
     };
     try { if (localStorage.getItem("ms-colourblind") === "1") document.documentElement.classList.add("cb"); } catch { /* storage blocked: default palette */ }
     this.toastEl = h("div.toasts", { "aria-live": "polite" });
