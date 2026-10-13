@@ -387,20 +387,23 @@ function windows(g: CanvasRenderingContext2D, quad: (t0: number, t1: number, h0:
   g.fillStyle = "rgba(238,228,211,.35)"; g.beginPath(); for (const [a, b] of spans) quad(a - 0.04, b + 0.04, h0 - 0.06, h0 - 0.01); g.fill();
   // window box under the ground-floor windows: dark planter, green spill, one bloom
   if (h0 < 0.4) {
-    g.fillStyle = "#3a2c24"; g.beginPath(); for (const [a, b] of spans) quad(a - 0.02, b + 0.02, h0 - 0.14, h0 - 0.06); g.fill();
-    g.fillStyle = "#2a5f2a"; g.beginPath(); for (const [a, b] of spans) quad(a - 0.02, b + 0.02, h0 - 0.07, h0 - 0.01); g.fill();
+    g.fillStyle = "#1a1412"; g.beginPath(); for (const [a, b] of spans) quad(a - 0.02, b + 0.02, h0 - 0.14, h0 - 0.06); g.fill();
+    g.fillStyle = "#3a5a1a"; g.beginPath(); for (const [a, b] of spans) quad(a - 0.02, b + 0.02, h0 - 0.07, h0 - 0.01); g.fill();
   }
 }
 
 /** A blade sign hanging from a bracket at the end of the shop front: a small board in the shop's sign colour. */
-function bladeSign(g: CanvasRenderingContext2D, P: (x: number, y: number, h: number) => [number, number], ax: number, ay: number, bx: number, by: number, face: "s" | "e", col: string, lightK: number, z: number, night: boolean, seed: number): void {
+function bladeSign(g: CanvasRenderingContext2D, P: (x: number, y: number, h: number) => [number, number], ax: number, ay: number, bx: number, by: number, face: "s" | "e", col: string, _lightK: number, z: number, night: boolean, seed: number): void {
   const t = hash(seed, 5) < 0.5 ? 0.88 : 0.12, ox = face === "e" ? 0.3 : 0, oy = face === "s" ? 0.3 : 0;
   const x = ax + (bx - ax) * t, y = ay + (by - ay) * t;
   const wall = P(x, y, GROUND_H * 1.02), tip = P(x + ox, y + oy, GROUND_H * 1.02), top = P(x + ox, y + oy, GROUND_H * 0.99), bot = P(x + ox, y + oy, GROUND_H * 0.74);
   g.strokeStyle = "#0e0b0a"; g.lineWidth = Math.max(1, 1.4 * z); g.beginPath(); g.moveTo(wall[0], wall[1]); g.lineTo(tip[0], tip[1]); g.stroke();
-  g.fillStyle = night ? shade(col, 0.85) : shade(col, 0.95 * lightK);
-  g.fillRect(tip[0] - 4 * z, top[1] + 1 * z, 8 * z, bot[1] - top[1]);
-  g.fillStyle = "rgba(238,228,211,.7)"; g.fillRect(tip[0] - 2.4 * z, top[1] + 4 * z, 4.8 * z, 1.4 * z);
+  // a website-style tag: dark body, 1px coloured border in the shop's sign colour, one mono-caps line
+  const bx0 = tip[0] - 4 * z, bw = 8 * z, by0 = top[1] + 1 * z, bh = bot[1] - top[1];
+  g.fillStyle = "#1a1412"; g.fillRect(bx0, by0, bw, bh);
+  g.strokeStyle = col; g.lineWidth = Math.max(1, z); g.strokeRect(bx0, by0, bw, bh);
+  g.fillStyle = "rgba(238,228,211,.75)"; g.fillRect(tip[0] - 2.4 * z, by0 + 3 * z, 4.8 * z, 1.4 * z);
+  if (night) { g.globalAlpha = 0.18; g.fillStyle = col; g.fillRect(bx0 - 2 * z, by0 - 2 * z, bw + 4 * z, bh + 4 * z); g.globalAlpha = 1; }
 }
 
 function awning(g: CanvasRenderingContext2D, P: (x: number, y: number, h: number) => [number, number], ax: number, ay: number, bx: number, by: number, face: "s" | "e", col: string, lightK: number, z: number): void {
