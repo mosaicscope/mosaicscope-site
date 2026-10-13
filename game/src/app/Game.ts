@@ -232,7 +232,6 @@ export class Game {
     }
   }
 
-  private dbgEl: HTMLDivElement | null = null;
   private loop = (): void => {
     this.raf = requestAnimationFrame(this.loop);
     this.guard("frame", () => this.frame());
@@ -243,9 +242,6 @@ export class Game {
     const dt = Math.min(0.1, (now - this.last) / 1000);
     this.last = now;
     const steps = this.clock.advance(dt);
-    // TEMP DEBUG (phone stick test): shows the stick values and your position. Remove after testing.
-    if (!this.dbgEl) { this.dbgEl = document.createElement("div"); this.dbgEl.id = "dbg-stick"; this.dbgEl.style.cssText = "position:fixed;top:45%;left:12px;z-index:999;background:rgba(0,0,0,.85);color:#c6ff3d;font:bold 16px monospace;padding:8px 10px;border-radius:8px;pointer-events:none;white-space:pre"; document.body.append(this.dbgEl); }
-    this.dbgEl.textContent = `stick x ${this.touchMove.x.toFixed(2)} y ${this.touchMove.y.toFixed(2)}\nyou ${this.sim.player.x.toFixed(1)}, ${this.sim.player.y.toFixed(1)}  follow ${this.renderer.cam.follow}`;
     for (let i = 0; i < steps; i++) this.guard("sim", () => { this.controlPlayer(); this.sim.step(); });
     this.ticksThisSecond += steps; this.tickWindow += dt;
     if (this.tickWindow >= 1) { this.tickRate = this.ticksThisSecond / this.tickWindow; this.ticksThisSecond = 0; this.tickWindow = 0; }
