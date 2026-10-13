@@ -31,7 +31,11 @@ export async function onRequestPost({ request, env }) {
   return new Response(null, { status: 204 });
 }
 
-export async function onRequestGet({ env }) {
+export async function onRequestGet({ request, env }) {
+  // people opening the link in a browser get the desktop-style stats page; scripts and ?format=json get the raw numbers
+  const url = new URL(request.url);
+  const wantsHtml = (request.headers.get("Accept") || "").includes("text/html") && url.searchParams.get("format") !== "json";
+  if (wantsHtml) return Response.redirect(new URL("/stats/", url).toString(), 302);
   if (!env.EGG) return json({ note: "Stats are off. Bind a KV namespace called EGG to this Pages project to turn them on." });
   const days = [];
   for (let i = 0; i < 30; i++) days.push(day(new Date(Date.now() - i * 864e5)));
