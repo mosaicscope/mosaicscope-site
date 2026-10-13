@@ -99,6 +99,25 @@
     <p class="mono dim" id="pw-msg" aria-live="polite" style="flex-basis:100%;margin:0"></p>
   </form>
 </div>
+<script>
+// View lock only: hides the page. Data at /api/evolve stays public; controls still need the admin token.
+(function () {
+  var root = document.documentElement, lock = document.getElementById("lock"), pw = document.getElementById("pw"), msg = document.getElementById("pw-msg");
+  function open() {
+    root.classList.remove("locked"); lock.hidden = true;
+    try { sessionStorage.setItem("evo-unlocked", "1"); } catch (e) { /* storage blocked */ }
+    var tok = document.getElementById("tok"); if (tok && !tok.value) tok.value = "chris";
+  }
+  function check(e) {
+    if (e) e.preventDefault();
+    if (String(pw.value).replace(/\s+/g, "").toLowerCase() === "chris") open();
+    else { msg.textContent = "Wrong password."; pw.select(); }
+  }
+  if (root.classList.contains("locked")) lock.hidden = false;
+  document.getElementById("lock-f").addEventListener("submit", check);
+  pw.addEventListener("keydown", function (e) { if (e.key === "Enter") check(e); });
+})();
+</script>
 <main>
   <header>
     <div>
@@ -398,20 +417,6 @@
       const j = await r.json();
       $("ctl-msg").textContent = r.ok ? j.note : "Refused: " + j.error;
     } catch (err) { $("ctl-msg").textContent = "Couldn't reach the API."; }
-  });
-
-  // View lock. This only hides the page; the data at /api/evolve stays public and controls still need the admin token.
-  const PW = "5d7f15f2fce8ddb2dbef5c38be896c238ba7e0a432e396759030a853fa6b1151";
-  const sha = async (s) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)))].map((b) => b.toString(16).padStart(2, "0")).join("");
-  if (document.documentElement.classList.contains("locked")) $("lock").hidden = false;
-  $("lock-f").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const v = $("pw").value.trim();
-    if (await sha(v.toLowerCase()) !== PW) { $("pw-msg").textContent = "Wrong password."; $("pw").select(); return; }
-    try { sessionStorage.setItem("evo-unlocked", "1"); } catch (err) { /* storage blocked */ }
-    if (!$("tok").value) $("tok").value = v;
-    document.documentElement.classList.remove("locked");
-    $("lock").hidden = true;
   });
 
   const stat = (k, v) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`;
