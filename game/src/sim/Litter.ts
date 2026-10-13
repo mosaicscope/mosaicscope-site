@@ -160,6 +160,7 @@ export function collectPiece(sim: Simulation, c: Character, p: Piece): "ok" | "f
   p.taken = true;
   addScrap(c, p.kind);
   sim.bus.emit("sound", { kind: "clink", x: c.x, y: c.y, vol: 0.5 });
+  sim.bus.emit("sound", { kind: `plink_${scrapCount(c)}`, x: c.x, y: c.y, vol: 0.3 }); // pitch climbs with the sack
   return "ok";
 }
 
@@ -174,6 +175,7 @@ export function rummageBin(sim: Simulation, c: Character, bin: Poi): { can: numb
   }
   st.stock.set(bin.id, left);
   if (got.can + got.bottle) sim.bus.emit("sound", { kind: "bin", x: c.x, y: c.y, vol: 0.6 });
+  if (got.can + got.bottle) sim.bus.emit("sound", { kind: `plink_${scrapCount(c)}`, x: c.x, y: c.y, vol: 0.3 });
   return got;
 }
 
@@ -189,6 +191,7 @@ export function cashIn(sim: Simulation, c: Character): { n: number; base: number
     c.cash += total;
     if (isPlayer) { sim.litter.recycled += n; sim.gigs.noteRecycled(n); }
     sim.bus.emit("sound", { kind: "recycle", x: c.x, y: c.y, vol: 0.8 });
+    sim.bus.emit("sound", { kind: n >= BULK_MIN ? "jackpot" : "cashin", x: c.x, y: c.y, vol: 0.5 });
     sim.bus.emit("fx", { kind: "cash", x: c.x, y: c.y, z: 1.2, n: Math.min(12, 3 + Math.floor(n / 3)) });
   }
   return { n, base, bonus, crew, total };

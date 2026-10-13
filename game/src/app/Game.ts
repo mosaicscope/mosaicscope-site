@@ -226,7 +226,7 @@ export class Game {
     this.guard("audio", () => {
       const f = this.interior.footing;
       this.audio.scene = { interior: this.interior.building?.kind ?? null, moving: f.moving, running: f.running, in2D: this.renderer.street2D };
-      this.audio.update(this.sim);
+      this.audio.update(this.sim, this.interior.kind);
     });
     this.fpsAvg = this.fpsAvg * 0.95 + (1 / Math.max(dt, 0.001)) * 0.05;
     this.adaptQuality(dt);
@@ -361,7 +361,7 @@ export class Game {
     if (piece) {
       const what = LITTER[piece.kind].name, r = collectPiece(sim, p, piece);
       if (r === "full") this.toast(`Sack's full (${SACK_CAP}). Cash in at the recycling centre.`);
-      else if (r === "ok") { p.anim.pose = "kick"; p.anim.poseT = 0.15; this.toast(`Picked up a ${what} · ${scrapCount(p)} in your sack (${fmtCash(scrapValue(p))})`); }
+      else if (r === "ok") { p.anim.pose = "kick"; p.anim.poseT = 0.15; this.toast(`Picked up a ${what} · ${scrapCount(p)} in your sack (${fmtCash(scrapValue(p))})`, scrapCount(p) % 5 === 0 ? "spark" : ""); }
       return true;
     }
     const bin = this.nearestBin();

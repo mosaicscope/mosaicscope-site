@@ -89,6 +89,11 @@ button { cursor: pointer; }
 .toast { background: var(--paper); color: var(--ink); border-radius: 999px; padding: 6px 14px; font-weight: 600; box-shadow: 0 6px 20px rgba(0,0,0,.4); animation: tin .3s ease-out; }
 .toast.red { background: var(--red); color: var(--paper); } .toast.acid { background: var(--acid); }
 @keyframes tin { from { opacity: 0; transform: translateY(-6px); } }
+/* Gilbert: a toast that pops, and a wallet that bumps when cash lands */
+.toast.spark { animation: tpop .45s cubic-bezier(.2,1.6,.4,1); }
+@keyframes tpop { 0% { opacity: 0; transform: scale(.6) translateY(-8px); } 100% { opacity: 1; transform: none; } }
+.wallet.bump { animation: wbump .5s ease-out; }
+@keyframes wbump { 30% { transform: scale(1.18); text-shadow: 0 0 12px var(--acid); } }
 
 /* modal */
 .modal-wrap { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(14,11,10,.6); padding: 16px; }
@@ -129,7 +134,7 @@ button { cursor: pointer; }
   .inspector, .log { top: auto; bottom: 160px; max-height: 45vh; }
   .dialogue { bottom: 150px; }
 }
-@media (prefers-reduced-motion: reduce) { .toast { animation: none; } .meter .fill { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .toast, .toast.spark, .wallet.bump { animation: none; } .meter .fill { transition: none; } }
 
 /* ================= casino ================= */
 .casino { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(8,6,10,.78); padding: 12px; }

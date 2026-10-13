@@ -31,3 +31,91 @@ describe("generative soundtrack", () => {
     for (const f of ["day", "dusk", "night", "dread"] as const) expect(stepSeconds(scaleFor(f).bpm)).toBeGreaterThan(0.1);
   });
 });
+
+import { sceneFor, SceneTracker, parseInspo, liveTint, resolveTheme, motifNote, MOTIFS, THEMES, HOLD } from "../src/audio/Score";
+import { parseVibe, clockVibe } from "../src/audio/LiveVibe";
+import inspoJson from "../src/audio/inspo.json";
+
+describe("Lil Wooski's scenes", () => {
+  it("picks the right scene, chase first", () => {
+    expect(sceneFor(calm)).toBe("city");
+    expect(sceneFor({ ...calm, hour: 6 })).toBe("dawn");
+    expect(sceneFor({ ...calm, rain: 0.8 })).toBe("rain");
+    expect(sceneFor({ ...calm, street: true })).toBe("street2d");
+    expect(sceneFor({ ...calm, indoors: true })).toBe("interior");
+    expect(sceneFor({ ...calm, party: true })).toBe("nightlife");
+    expect(sceneFor({ ...calm, place: "recycling" })).toBe("recycling");
+    expect(sceneFor({ ...calm, place: "studio" })).toBe("studio");
+    expect(sceneFor({ ...calm, place: "terrance", party: true })).toBe("terrance");
+    expect(sceneFor({ ...calm, chase: true, place: "terrance" })).toBe("chase");
+  });
+  it("holds a new scene for a couple of bars but cuts the chase in at once", () => {
+    const t = new SceneTracker();
+    for (let i = 0; i < HOLD - 1; i++) expect(t.update({ ...calm, street: true })).toBeNull();
+    expect(t.update({ ...calm, street: true })).toBe("city");
+    expect(t.scene).toBe("street2d");
+    t.update(calm); t.update({ ...calm, street: true }); // a flicker does not switch
+    expect(t.scene).toBe("street2d");
+    expect(t.update({ ...calm, chase: true })).toBe("street2d");
+    expect(t.scene).toBe("chase");
+  });
+  it("gives recurring characters and places a fixed leitmotif", () => {
+    expect(THEMES.terrance.motif).toBe("terrance");
+    const heard = [0, 1, 2, 3].map((s) => motifNote("terrance", 0, s * 3));
+    expect(heard).toEqual(MOTIFS.terrance.notes);
+    expect(motifNote("studio", 1, 0)).toBeNull(); // studio theme only every 4th bar
+    expect(motifNote(undefined, 0, 0)).toBeNull();
+    const r = rng(3);
+    const notes = Array.from({ length: 16 }, (_, s) => planStep({ ...calm, place: "terrance" }, "dread", 0, s, r, THEMES.terrance).motif).filter((n) => n !== null);
+    expect(notes).toHaveLength(4);
+  });
+  it("shipped inspo.json parses and bad inspo is ignored or clamped", () => {
+    const i = parseInspo(inspoJson);
+    expect(i.live).toBe(true);
+    expect(i.scenes.studio?.mood).toBe("tender");
+    const bad = parseInspo({ tempo: 99, density: "loud", scenes: { studio: { mood: "bonkers", tempo: -4 }, nonsense: {} } });
+    expect(bad.tempo).toBe(1.3); expect(bad.density).toBe(1); expect(bad.scenes.studio?.mood).toBeUndefined(); expect(bad.scenes.studio?.tempo).toBe(0.6);
+    expect(parseInspo(null).scenes).toEqual({});
+  });
+  it("inspo and live data bend the theme, and live can be switched off", () => {
+    const live = { weather: "rain" as const, isDay: false, temp: 4, wind: 10, hour: 2, source: "live" as const };
+    const base = resolveTheme("city", parseInspo({}), null), wet = resolveTheme("city", parseInspo({}), live);
+    expect(wet.density).toBeLessThan(base.density); expect(wet.bpm).toBeLessThan(base.bpm); expect(wet.bright).toBeLessThan(base.bright);
+    expect(resolveTheme("city", parseInspo({ live: false }), live)).toEqual(base);
+    expect(resolveTheme("studio", parseInspo({ scenes: { studio: { mood: "hype" } } }), null).bpm).toBeGreaterThan(THEMES.studio.bpm);
+    expect(liveTint(null)).toEqual({ bpm: 1, density: 1, bright: 1, rain: 0 });
+  });
+  it("trusts only well-formed live data and falls back to the clock", () => {
+    expect(parseVibe({ weather: "rain", isDay: true, temp: 9, wind: 12, hour: 14.5 })?.weather).toBe("rain");
+    expect(parseVibe({ weather: "snow", temp: 1, wind: 1, hour: 1 })).toBeNull();
+    expect(parseVibe({ weather: "clear", temp: "hot", wind: 1, hour: 1 })).toBeNull();
+    expect(parseVibe("<html>")).toBeNull();
+    const c = clockVibe(new Date("2026-10-13T01:00:00Z"));
+    expect(c.source).toBe("clock"); expect(c.hour).toBeGreaterThanOrEqual(0); expect(c.hour).toBeLessThan(24);
+  });
+});
+
+import { reviewAll, review, CRITERIA } from "../src/audio/Critique";
+describe("the old master (fictional critic) reviews every scene", () => {
+  it("scores every shipped scene theme a 10 on all six criteria", () => {
+    for (const r of reviewAll(parseInspo(inspoJson))) {
+      for (const c of CRITERIA) expect(r.scores[c], `${r.scene} ${c}: ${r.notes.join("; ")}`).toBe(10);
+    }
+  });
+  it("actually marks a bad theme down", () => {
+    
+    expect(review("nightlife", { ...THEMES.nightlife, bpm: 0.6, flavour: "day", density: 0.1, drums: "none", motif: undefined }).total).toBeLessThan(8);
+  });
+});
+
+import { LEVELS, scaleFor as scaleForChill } from "../src/audio/Music";
+describe("the score stays chill (lofi)", () => {
+  it("is slow, soft and never sharp", () => {
+    for (const [scene, th] of Object.entries(THEMES)) {
+      for (const f of (th.flavour ? [th.flavour] : ["day", "dusk", "night", "dread"] as const)) expect(scaleForChill(f).bpm * th.bpm, `${scene} ${f}`).toBeLessThanOrEqual(95);
+      expect(["tick", "none", "mallet", "shuffle", "club", "chase"]).toContain(th.drums);
+    }
+    expect(Math.max(LEVELS.snare, LEVELS.hatLo, LEVELS.hatHi)).toBeLessThanOrEqual(0.08);
+    expect(LEVELS.kick).toBeLessThanOrEqual(0.3);
+  });
+});
