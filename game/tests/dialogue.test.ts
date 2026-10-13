@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { EXCHANGES, Director } from "../src/dialogue/director";
+import { EXCHANGES, exchangesReady, Director } from "../src/dialogue/director";
 import { small, byName } from "./helpers";
+
+await exchangesReady; // the Life pack loads asynchronously; tests check the full set
 
 const ROLES = "local student barista chef vendor shopkeeper cop thief graffiti cleaner dealer bouncer busker skater car_enthusiast office tourist mechanic musician photographer medic taxi driver gambler mobster smuggler comic mogul model vigilante villain skibunny zookeeper mosaic player".split(" ");
 const MOODS = "happy sad angry scared tired hungry bored broke rich hurt".split(" ");
