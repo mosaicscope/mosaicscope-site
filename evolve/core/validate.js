@@ -3,6 +3,7 @@
 import { pathAllowed } from "./config.js";
 import { runChecks } from "./rules.js";
 import { scanTags } from "./html.js";
+import { scanSecurity, newFindings } from "./security.js";
 
 /** Lines removed plus lines added (multiset difference; good enough for one-tag edits). */
 export function changedLines(a, b) {
@@ -27,7 +28,8 @@ const FORBIDDEN = [
  * files: the current file set; change: { path, text }; finding: the finding it claims to fix.
  * Returns { ok, reasons: [...] }.
  */
-export function validateChange(files, change, finding, cfg) {
+export function validateChange(files, change, finding, cfg, remedy = null) {
+  const allow = remedy?.meta?.allow || {};
   const reasons = [];
   if (!change || typeof change.text !== "string") return { ok: false, reasons: ["no change produced"] };
   if (!pathAllowed(change.path)) reasons.push(`path ${change.path} is protected`);
@@ -49,7 +51,7 @@ export function validateChange(files, change, finding, cfg) {
     const A = h(before), B = h(change.text);
     for (const k of new Set([...Object.keys(A), ...Object.keys(B)])) {
       const d = (B[k] || 0) - (A[k] || 0);
-      if (d !== 0 && !(k === "meta" && d === 1)) reasons.push(`tag count for <${k}> changed by ${d}`);
+      if (d !== 0 && !(k === "meta" && d === 1) && !(d > 0 && d <= (allow[k] || 0))) reasons.push(`tag count for <${k}> changed by ${d}`);
     }
     for (const close of ["</html>", "</head>", "</body>"]) if (before.includes(close) && !change.text.includes(close)) reasons.push(`lost ${close}`);
   }
@@ -60,6 +62,10 @@ export function validateChange(files, change, finding, cfg) {
     if (change.text.length < before.length) reasons.push("removes CSS");
   }
   if (change.path.endsWith(".xml") && !/<\/urlset>\s*$/.test(change.text)) reasons.push("sitemap no longer ends with </urlset>");
+
+  // the security guard sees nothing new in the edited file (medium and up)
+  const sec = newFindings(scanSecurity({ [change.path]: before }), scanSecurity({ [change.path]: change.text }), "medium");
+  if (sec.length) reasons.push("security: " + sec.map((f) => f.kind).join(", "));
 
   // the target is fixed, and nothing new is broken (accessibility and security checks included)
   const old = runChecks(files), now = runChecks({ ...files, [change.path]: change.text });

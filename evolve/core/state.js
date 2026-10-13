@@ -19,6 +19,13 @@ export function blankState() {
     health: [],               // live-site samples { at, status, ms, kb }
     weaknesses: [],           // things the checks see but won't fix
     audit: null,              // latest weekly speed audit { at, url, scores, metrics }
+    probe: null,              // summary of the latest browser probe of the live site
+    probeAt: 0,
+    issues: [],               // graded issues from that probe (bugs, UI, performance)
+    security: null,           // latest security scan summary
+    backlog: [],              // strategic memory: ranked, deduplicated, aged-out list of known problems
+    cache: {},                // agent answers by prompt hash (same question = no new call)
+    month: { id: "", usd: 0, calls: 0 },
     auditCheckedAt: 0,
     priorities: [],           // current ranked opportunities (for the dashboard)
     scanKey: "",              // hash of the file versions last scanned (skip unchanged files)
@@ -52,6 +59,10 @@ export function prune(s, now) {
   s.days = cap(s.days, 14);
   s.weaknesses = cap(s.weaknesses, 20);
   s.findings = cap(s.findings, 60);
+  s.issues = cap(s.issues || [], 40);
+  s.backlog = cap(s.backlog || [], 40);
+  const ck = Object.keys(s.cache || {});
+  if (ck.length > 50) s.cache = Object.fromEntries(Object.entries(s.cache).sort((a, b) => b[1].at - a[1].at).slice(0, 50));
   const keys = Object.keys(s.seen);
   for (const k of keys) if (now - s.seen[k].at > WEEK) delete s.seen[k];
   const left = Object.entries(s.seen).sort((a, b) => b[1].at - a[1].at);
@@ -61,6 +72,6 @@ export function prune(s, now) {
 
 /** Public view for the dashboard: everything except the raw finding cache. */
 export function publicView(s) {
-  const { findings, scanKey, seen, ...rest } = s;
-  return { ...rest, seenCount: Object.keys(seen || {}).length, findingCount: (findings || []).length };
+  const { findings, scanKey, seen, cache, ...rest } = s;
+  return { ...rest, seenCount: Object.keys(seen || {}).length, findingCount: (findings || []).length, cacheSize: Object.keys(cache || {}).length };
 }
