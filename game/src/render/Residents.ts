@@ -14,6 +14,7 @@ type Ctx = CanvasRenderingContext2D;
 
 const INK = "#0e0b0a";
 const NOSE = ["#ff7ad9", "#ffb36b", "#ff9a8a", "#d99aff"];
+const TEES = ["#8fd0ff", "#8fd0ff", "#ffe08a", "#f4efe0", "#a6f0b8", "#ffb3d9"];   // mostly the reference's light blue
 const CAPS = ["#d9382c", "#2f7ad9", "#e8c42c", "#3a9e6a", "#efe6d2"];
 const hashId = (n: number): number => { n = Math.imul(n ^ 0x9e3779b9, 0x85ebca6b); n ^= n >>> 13; n = Math.imul(n, 0xc2b2ae35); return (n ^ (n >>> 16)) >>> 0; };
 
@@ -34,9 +35,10 @@ export function isResident(c: Character): boolean {
 }
 
 /** Deterministic cosmetic traits for one resident. */
-export function residentTraits(id: number): { nose: string; cap: string | null; belly: number; lids: number; teeth: boolean } {
+export function residentTraits(id: number): { tee: string; nose: string; cap: string | null; belly: number; lids: number; teeth: boolean } {
   const h = hashId(id * 7 + 3);
   return {
+    tee: TEES[(h >>> 2) % TEES.length],
     nose: NOSE[h % NOSE.length],
     cap: (h >>> 4) % 10 < 6 ? CAPS[(h >>> 8) % CAPS.length] : null,
     belly: 0.85 + ((h >>> 12) % 40) / 100,     // 0.85 to 1.24 of the base belly
@@ -46,7 +48,7 @@ export function residentTraits(id: number): { nose: string; cap: string | null; 
 }
 
 export function drawResident(g: Ctx, J: Float32Array, c: Character, k: number, dir: number, alpha: number, hd: boolean, flash: boolean, lw: number): void {
-  const L = c.look, T = residentTraits(c.id), col = flash ? "#ffffff" : L.color, acc = flash ? "#ffffff" : L.accent;
+  const L = c.look, T = residentTraits(c.id), col = flash ? "#ffffff" : L.color;
   const thin = Math.max(1, lw * 0.82);
   g.globalAlpha = alpha; g.lineCap = "round"; g.lineJoin = "round";
   const path = (pts: number[]) => { g.beginPath(); g.moveTo(J[pts[0]], J[pts[0] + 1]); for (let i = 1; i < pts.length; i++) g.lineTo(J[pts[i]], J[pts[i] + 1]); };
@@ -78,12 +80,14 @@ export function drawResident(g: Ctx, J: Float32Array, c: Character, k: number, d
     g.closePath();
   };
   egg(0); g.fillStyle = INK; g.fill();
-  g.fillStyle = col; g.globalAlpha = alpha * 0.16; egg(0); g.fill(); g.globalAlpha = alpha;
+  g.fillStyle = col; g.globalAlpha = alpha * 0.34; egg(0); g.fill(); g.globalAlpha = alpha;   // skin: the pear reads as a form, not a hole
   // the tee: a brighter upper half with short sleeves and a hem line
-  g.fillStyle = acc; g.globalAlpha = alpha * 0.58; egg(0.4); g.fill(); g.globalAlpha = alpha;
-  g.strokeStyle = acc; g.lineWidth = thin * 1.5; g.beginPath(); g.moveTo(J[6], J[7]); g.lineTo(J[6] + (J[8] - J[6]) * 0.45, J[7] + (J[9] - J[7]) * 0.45); g.moveTo(J[6], J[7]); g.lineTo(J[6] + (J[12] - J[6]) * 0.45, J[7] + (J[13] - J[7]) * 0.45); g.stroke();
+  const tee = flash ? "#ffffff" : T.tee;
+  g.fillStyle = tee; g.globalAlpha = alpha * 0.9; egg(0.14); g.fill();
+  g.fillStyle = "rgba(20,14,40,.28)"; g.globalAlpha = alpha; { const a = at(0.14, -dir), b = at(1, -dir), c2 = at(1, -dir * 0.15), d = at(0.14, -dir * 0.15); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c2[0], c2[1]); g.lineTo(d[0], d[1]); g.closePath(); g.fill(); }   // turned-away side in shade, for volume
+  g.strokeStyle = tee; g.lineWidth = thin * 1.5; g.beginPath(); g.moveTo(J[6], J[7]); g.lineTo(J[6] + (J[8] - J[6]) * 0.45, J[7] + (J[9] - J[7]) * 0.45); g.moveTo(J[6], J[7]); g.lineTo(J[6] + (J[12] - J[6]) * 0.45, J[7] + (J[13] - J[7]) * 0.45); g.stroke();
   g.strokeStyle = col; g.lineWidth = lw; egg(0); g.stroke();
-  const hem0 = at(0.42, 1), hem1 = at(0.42, -1); g.lineWidth = thin * 0.7; g.beginPath(); g.moveTo(hem0[0], hem0[1]); g.lineTo(hem1[0], hem1[1]); g.stroke();
+  const hem0 = at(0.16, 1), hem1 = at(0.16, -1); g.lineWidth = thin * 0.7; g.beginPath(); g.moveTo(hem0[0], hem0[1]); g.lineTo(hem1[0], hem1[1]); g.stroke();
   if (hd) { g.strokeStyle = "rgba(255,255,255,.28)"; g.lineWidth = Math.max(0.6, lw * 0.3); g.beginPath(); for (let i = 0; i <= 8; i++) { const p = at(0.1 + 0.8 * (i / 8), dir > 0 ? -1 : 1); i ? g.lineTo(p[0] + 1.2 * k, p[1] - 0.8 * k) : g.moveTo(p[0] + 1.2 * k, p[1] - 0.8 * k); } g.stroke(); }
 
   // ---- long neck into a tall head
