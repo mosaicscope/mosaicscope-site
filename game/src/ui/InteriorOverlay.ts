@@ -70,6 +70,10 @@ export class InteriorOverlay {
   }
 
   get open(): boolean { return !this.el.classList.contains("hidden"); }
+  /** the building you are standing in, while its interior is open (audio muffles the street and plays the room) */
+  get building(): Building | null { return this.open ? this.b : null; }
+  /** walking and running right now, for footstep sounds */
+  get footing(): { moving: boolean; running: boolean } { return { moving: this.open && this.me.speed > 0.2, running: this.open && this.me.speed > 3.6 }; }
 
   show(b: Building): void {
     const sim = this.host.sim(), def = interiorFor(b.kind);
