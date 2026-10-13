@@ -22,6 +22,20 @@ export class Lighting {
     if (!sim.env.power) dark += 0.12 * (1 - day);
     dark = Math.min(0.9, dark);
     const W = cam.viewW, H = cam.viewH;
+    // colour grade: warm daylight, cool gloaming (a soft-light wash keeps the neon palette intact) + a vignette that frames the street
+    if (quality > 0) {
+      const warm = Math.max(0, day - 0.45) * 0.14, cool = Math.max(0, 0.6 - day) * 0.12;
+      if (warm + cool > 0.005) {
+        main.globalCompositeOperation = "soft-light";
+        main.fillStyle = warm > cool ? `rgba(255,205,140,${warm})` : `rgba(90,110,255,${cool})`;
+        main.fillRect(0, 0, W, H); main.globalCompositeOperation = "source-over";
+      }
+      if (quality >= 2) {
+        const r = Math.hypot(W, H) * 0.55, vg = main.createRadialGradient(W / 2, H / 2, r * 0.55, W / 2, H / 2, r);
+        vg.addColorStop(0, "rgba(6,4,14,0)"); vg.addColorStop(1, `rgba(6,4,14,${quality >= 3 ? 0.4 : 0.28})`);
+        main.fillStyle = vg; main.fillRect(0, 0, W, H);
+      }
+    }
     if (dark > 0.02) {
       if (quality === 0) {
         main.fillStyle = `rgba(8,6,22,${dark})`; main.fillRect(0, 0, W, H);

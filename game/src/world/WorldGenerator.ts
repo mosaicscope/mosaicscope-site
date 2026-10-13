@@ -294,7 +294,7 @@ export function generateWorld(opts: GenOptions): World {
       }
       case "shops": case "shops2": {
         fill(ix0, iy0, ix1, iy1, T.PAVE);
-        const kinds: BuildingKind[] = plan === "shops" ? ["toyshop", "sports", "pawn", "records", "dairy", "barber"] : ["toyshop", "sports", "pawn", "cafe", "dairy", "pizza"];
+        const kinds: BuildingKind[] = plan === "shops" ? ["toyshop", "sports", "pawn", "records", "dairy", "recycling"] : ["toyshop", "sports", "pawn", "cafe", "dairy", "pizza"];
         let k = 0;
         for (const ly of [iy0, iy0 + 7]) for (const lx of [ix0, ix0 + 4, ix0 + 8]) building(kinds[k++], lx, ly, lx + 3, ly + 4, a, ly === iy0 ? "s" : "n");
         poi("bench", ix0 + 5, iy0 + 6, a); poi("atm", ix1 - 1, iy0 + 6, a);

@@ -247,7 +247,7 @@ describe("romance", () => {
     expect(loveOf(b, a.id)).toBeLessThan(0.8);
   });
   it("couples go on dates together", () => {
-    const sim = small(3);
+    const sim = small(5);
     const t = byName(sim, "Tiles"), g = byName(sim, "Glitter");
     expect(t.partner).toBe(g.id);
     stage(sim, t, g, 2);

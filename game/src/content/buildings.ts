@@ -2,7 +2,7 @@
 export type BuildingKind =
   | "casino" | "studio" | "gallery" | "police" | "dealership" | "diner" | "pizza" | "sushi" | "bakery" | "cafe" | "fishchips" | "dairy"
   | "toyshop" | "sports" | "pawn" | "bank" | "nightclub" | "apartments" | "house" | "office" | "garage" | "hospital" | "records" | "barber" | "gym" | "hotel" | "airport"
-  | "stripclub" | "velvet" | "mentalhealth";
+  | "stripclub" | "velvet" | "mentalhealth" | "recycling";
 
 export interface BuildingDef {
   kind: BuildingKind;
@@ -12,7 +12,7 @@ export interface BuildingDef {
   roof: string;
   open: [number, number];        // opening hours [from, to); to < from wraps past midnight
   menu?: string[];               // item ids for sale
-  sells?: "cars" | "chips" | "booking" | "pawn" | "fine" | "flights";
+  sells?: "cars" | "chips" | "booking" | "pawn" | "fine" | "flights" | "recycling";
   enterable: boolean;            // player can go in (opens a panel)
   sign: string;                  // neon sign colour
   job?: string;                  // role that works here
@@ -48,6 +48,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
   airport: { kind: "airport", names: ["Christchurch Airport"], floors: [3, 3], colors: ["#d8cdb8", "#cfc6b4"], roof: "#9a8d80", open: [0, 24], sells: "flights", enterable: true, sign: "#3dd6ff" },
   stripclub: { kind: "stripclub", names: ["The Pink Pukeko"], floors: [2, 2], colors: ["#2a1626", "#33182c"], roof: "#4a1f3d", open: [20, 4], enterable: true, sign: "#ff7ad9", job: "bouncer" },
   velvet: { kind: "velvet", names: ["The Velvet Rooms"], floors: [3, 4], colors: ["#1e1630", "#24182e"], roof: "#3a2850", open: [19, 3], enterable: true, sign: "#b48cff", job: "bouncer" },
+  recycling: { kind: "recycling", names: ["Avon Recycling Centre"], floors: [1, 2], colors: ["#2d3a22", "#24302a"], roof: "#2d6b24", open: [7, 19], sells: "recycling", enterable: true, sign: "#6fe3b0", job: "shopkeeper" },
   hotel: { kind: "hotel", names: ["The Crowned Plaza"], floors: [8, 11], colors: ["#2a2a33", "#33252c"], roof: "#3a3a48", open: [0, 24], enterable: true, sign: "#f6b62c" },
 };
 

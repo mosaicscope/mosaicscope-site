@@ -1,6 +1,7 @@
 import type { Simulation } from "../sim/Simulation";
 import { Character, Lod, Phys, Toy } from "../entities/types";
 import { TOYS } from "../content/toys";
+import { drawLitter } from "./LitterArt";
 import { T, TILE_HEIGHT, ROAD_W } from "../world/World";
 import { Camera } from "./Camera";
 import { Terrain, drawTallTile, drawPoi } from "./Terrain";
@@ -22,7 +23,7 @@ import { friendship, hostility } from "../social/Social";
 import { LOD_NAMES } from "../entities/types";
 
 export type Quality = 0 | 1 | 2 | 3; // low, medium, high, ultra
-interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light
+interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter
 interface Decal { x: number; y: number; r: number; color: string; born: number; life: number; rot: number }
 
 export interface RenderOptions { selected: number; hovered: number; debug: DebugFlags; reduceMotion: boolean; quality: Quality; showNames: boolean }
@@ -173,14 +174,8 @@ export class Renderer {
       if (!inView(pt.x, pt.y, 120 * z)) continue;
       this.push(p.x + p.y, 3, p.id, pt.x, pt.y);
     }
-    // water shimmer (animated, cheap)
-    g.fillStyle = "rgba(61,214,255,.06)";
-    for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
-      if (sim.world.tiles[ty * S + tx] !== T.WATER) continue;
-      if (((tx * 7 + ty * 3 + Math.floor(time * 1.5)) % 5) !== 0) continue;
-      cam.toScreen(tx + 0.5, ty + 0.5, 0, pt);
-      g.beginPath(); g.ellipse(pt.x, pt.y, 14 * z, 4 * z, 0, 0, 6.283); g.fill();
-    }
+    // water: drifting ripple crests (continuous across tiles, driven by world position) and sun glints
+    this.drawWater(g, sim, o, minX, maxX, minY, maxY, time);
 
     // real street names painted on the road between intersections
     this.streetLabels(g, sim, z, inView);
@@ -195,6 +190,13 @@ export class Renderer {
       const r = (TOYS[t.def].uses.includes("heavy") ? 16 : 7) * z / (1 + t.z * 0.3);
       g.beginPath(); g.ellipse(pt.x, pt.y, r, r * 0.5, 0, 0, 6.283); g.fill();
       this.push(this.behind(x, y, x + y + 0.01), 1, t.id, pt.x, pt.y);
+    }
+    // litter on the ground: cans, bottles, wrappers and cups
+    for (const l of sim.litter.pieces) {
+      if (l.taken) continue;
+      cam.toScreen(l.x, l.y, 0, pt);
+      if (!inView(pt.x, pt.y, 30)) continue;
+      this.push(this.behind(l.x, l.y, l.x + l.y - 0.02), 6, l.id, pt.x, pt.y);
     }
     this.pickBoxes.length = 0;
     AD_BOXES.length = 0;
@@ -308,6 +310,10 @@ export class Renderer {
       } else if (it.kind === 5) {
         flush();
         this.drawLight(it.ref % 64, Math.floor(it.ref / 64), it.sx, it.sy, z);
+      } else if (it.kind === 6) {
+        flush();
+        const l = sim.litter.pieces[it.ref];
+        drawLitter(g, l.kind, l.tone, l.rot, it.sx, it.sy, z);
       } else {
         flush();
         drawPoi(g, sim.world.pois[it.ref], it.sx, it.sy, z, time, party, isDark);
@@ -340,6 +346,51 @@ export class Renderer {
     this.drawDebug(o.debug, alpha);
     if (o.quality === 3) this.cinematic(sim);
     this.stats.frameMs = performance.now() - t0;
+  }
+
+  /** Animated water. Low: the old soft shimmer. Higher tiers: two ripple layers, travelling glints, more on Ultra. */
+  private drawWater(g: CanvasRenderingContext2D, sim: Simulation, o: RenderOptions, minX: number, maxX: number, minY: number, maxY: number, time: number): void {
+    const S = sim.world.size, cam = this.cam, z = cam.zoom, pt = this.pt, q = o.quality, t = o.reduceMotion ? 0 : time;
+    if (q === 0) {
+      g.fillStyle = "rgba(61,214,255,.06)";
+      for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
+        if (sim.world.tiles[ty * S + tx] !== T.WATER || ((tx * 7 + ty * 3 + Math.floor(t * 1.5)) % 5) !== 0) continue;
+        cam.toScreen(tx + 0.5, ty + 0.5, 0, pt);
+        g.beginPath(); g.ellipse(pt.x, pt.y, 14 * z, 4 * z, 0, 0, 6.283); g.fill();
+      }
+      return;
+    }
+    const seg = q >= 3 ? 6 : q === 2 ? 4 : 3;
+    g.lineCap = "round";
+    for (let layer = 0; layer < (q >= 2 ? 2 : 1); layer++) {
+      g.strokeStyle = layer ? "rgba(150,235,255,.2)" : "rgba(255,255,255,.14)"; g.lineWidth = Math.max(1, (layer ? 1 : 1.4) * z);
+      g.beginPath();
+      for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
+        if (sim.world.tiles[ty * S + tx] !== T.WATER) continue;
+        // each tile carries one wavy crest running along the iso x axis; phase comes from world position so crests line up neighbour to neighbour
+        const v = 0.5 + 0.28 * Math.sin((tx + ty * 0.7) * 1.7 + layer * 2.1 + t * (0.9 + layer * 0.35));
+        for (let i = 0; i <= seg; i++) {
+          const u = i / seg, wob = Math.sin((tx + u) * 2.3 + t * 1.3 + layer * 1.7 + ty * 0.9) * 0.07;
+          cam.toScreen(tx + u, ty + v + wob + layer * 0.18, 0, pt);
+          if (i) g.lineTo(pt.x, pt.y); else g.moveTo(pt.x, pt.y);
+        }
+      }
+      g.stroke();
+    }
+    // sun / street-light glints that twinkle and slide
+    g.fillStyle = "rgba(255,255,255,.55)";
+    const gl = q >= 3 ? 3 : 2;
+    for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
+      if (sim.world.tiles[ty * S + tx] !== T.WATER) continue;
+      for (let k = 0; k < gl; k++) {
+        const ph = Math.sin(t * 1.6 + tx * 12.9898 + ty * 78.233 + k * 4.1);
+        if (ph < 0.93) continue;
+        cam.toScreen(tx + 0.2 + ((tx * 37 + ty * 17 + k * 29) % 60) / 100, ty + 0.2 + ((tx * 13 + ty * 41 + k * 11) % 60) / 100, 0, pt);
+        const r = (1 + (ph - 0.93) * 18) * z;
+        g.beginPath(); g.ellipse(pt.x, pt.y, r * 1.8, r * 0.7, 0, 0, 6.283); g.fill();
+      }
+    }
+    g.lineCap = "butt";
   }
 
   private poseName(c: Character, moving: boolean, spd: number): string {

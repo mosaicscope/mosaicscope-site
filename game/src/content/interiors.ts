@@ -509,8 +509,27 @@ const fallback: InteriorDef = {
   flavour: ["A bell over the door, a radio on low, and the smell of someone's lunch.", "Shelves, a counter and a person who has seen it all."],
 };
 
+// ------------------------------------------------------------------ RECYCLING CENTRE (cans and bottles for cash)
+const recycling: InteriorDef = {
+  kind: "recycling", title: "Avon Recycling Centre", size: { w: 14, h: 10 }, door: { x: 1.5, y: 6.5 },
+  light: "cool", ambience: ["clatter", "radio", "murmur"], busy: 0.35, staff: { color: "#6fe3b0", hat: "cap" },
+  zones: [z("depot", "Sorting floor", 0, 0, 14, 10, "concrete", "#8a9088")],
+  props: [
+    p("counter", 5, 2, 6, 1, "#3a4a32", "Weigh-in counter"), p("machine", 11.6, 1.2, 1.6, 1.2, "#6fe3b0", "Reverse vending machine"),
+    p("bin", 0.4, 0.4, 1.4, 1.2, "#2d6b24", "Glass"), p("bin", 2, 0.4, 1.4, 1.2, "#c4453a", "Cans"), p("bin", 3.6, 0.4, 1.4, 1.2, "#5a8fc4", "Paper"),
+    p("rack", 0.4, 3.2, 1, 3, "#6b6b60", "Crates"), p("rack", 11.8, 4, 1.4, 3.4, "#6b6b60", "Pallets"), p("table", 5, 6, 3.4, 1.4, "#58604f", "Sorting bench"),
+    p("mat", 0.4, 5.8, 2, 1.6, "#2d6b24", "Welcome"), wp("sign", "n", 5, 4, "#6fe3b0", "Cash for cans"), wp("clock", "w", 8, 0.8, "#eee4d3", "Clock"),
+  ],
+  interactables: [
+    { id: "counter", label: "Weigh-in counter", x: 8, y: 3.5, launch: "legacy", text: "Tip your sack on the scale. Cans ten cents, bottles twenty. A big haul earns a tidy-up bonus." },
+    { id: "rvm", label: "Return machine", x: 12.4, y: 3, launch: "legacy", text: "The machine hums, hungry for cans." },
+  ],
+  spots: [spot(6.5, 1.4, "work", "s"), spot(8.5, 1.4, "work", "s"), spot(7.5, 3.6, "queue", "n", "counter"), spot(7.5, 4.5, "queue", "n", "counter"), spot(4.2, 8, "browse", "n"), spot(10, 8, "stand", "n")],
+  flavour: ["Glass clinks somewhere in the back. The whole place smells faintly of old beer and wet cardboard.", "A tidy sign above the counter: \"Every can counts.\""],
+};
+
 /** Hand-built plans by kind. Anything missing resolves to FALLBACK (see header for who is missing). */
-export const INTERIORS: Partial<Record<BuildingKind, InteriorDef>> = { hospital, mentalhealth, police, bank, office, apartments, house, hotel, ...SHOP_INTERIORS };
+export const INTERIORS: Partial<Record<BuildingKind, InteriorDef>> = { hospital, mentalhealth, police, bank, office, apartments, house, hotel, recycling, ...SHOP_INTERIORS };
 export const FALLBACK: InteriorDef = fallback;
 export function interiorFor(kind: BuildingKind): InteriorDef { return INTERIORS[kind] ?? FALLBACK; }
 export function hasOwnInterior(kind: BuildingKind): boolean { return !!INTERIORS[kind]; }
