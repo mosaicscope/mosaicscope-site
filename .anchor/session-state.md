@@ -1,6 +1,6 @@
 # Session state (auto-saved — last known reality)
 
-_Updated: 2026-10-13 15:00:03_  ·  branch: `claude/pensive-mccarthy-bkv5ql`
+_Updated: 2026-10-13 15:00:26_  ·  branch: `claude/pensive-mccarthy-bkv5ql`
 
 ## Uncommitted changes
 ```
@@ -9,12 +9,13 @@ _Updated: 2026-10-13 15:00:03_  ·  branch: `claude/pensive-mccarthy-bkv5ql`
 
 Diff stat:
 ```
- .anchor/session-state.md | 22 ++--------------------
- 1 file changed, 2 insertions(+), 20 deletions(-)
+ .anchor/session-state.md | 21 +--------------------
+ 1 file changed, 1 insertion(+), 20 deletions(-)
 ```
 
 ## Recent commits
 ```
+f290ec2 Update session-state snapshot from anchor-memory
 a520ee8 Add session-state snapshot from anchor-memory
 cd20481 Merge main into claude/pensive-mccarthy-bkv5ql
 47f0d38 Merge pull request #114 from mosaicscope/claude/drop-2d-street
@@ -22,7 +23,6 @@ cd20481 Merge main into claude/pensive-mccarthy-bkv5ql
 3f0f0ee Replace site tree with upgraded build from zip
 ea68eab Show section links on phones and fix anchor landing under header (#109)
 2125509 Merge pull request #108 from mosaicscope/claude/lore-notes
-59102f1 Merge pull request #107 from mosaicscope/claude/lore-bible
 ```
 
 ## Resume
