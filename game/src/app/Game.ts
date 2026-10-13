@@ -1,4 +1,5 @@
 import { nearestRecyclable, nearestBin, collectPiece, rummageBin, scrapCount, scrapValue } from "../sim/Litter";
+import { HiddenPlaces } from "../ui/HiddenPlaces";
 import { LITTER, SACK_CAP } from "../content/litter";
 import { Club } from "../ui/Club";
 import "../ui/club.css";
@@ -83,7 +84,7 @@ export class Game {
   settings: Settings;
   debug = newDebugFlags();
   ui: HTMLElement;
-  inspector: Inspector; log: EventLog; dialogue: DialogueUI; terrance: TerranceUI; modal = new ModalHost(); dev: DevPanel;
+  inspector: Inspector; log: EventLog; dialogue: DialogueUI; terrance: TerranceUI; modal = new ModalHost(); dev: DevPanel; hidden: HiddenPlaces;
   private selected = -1; private hovered = -1;
   private keys = new Set<string>();
   private mouse = { x: 0, y: 0, down: false, dragging: false, sx: 0, sy: 0, button: 0 };
@@ -134,6 +135,7 @@ export class Game {
       patrons: () => this.sim.chars.filter((c) => c.inside >= 0 && this.sim.world.buildings[c.inside]?.kind === "casino").length + 3,
     }, () => { this.clock.paused = this.pausedBefore; });
     this.places = new Places(() => this.sim, (t, b, cls) => this.modal.show(t, b, cls), () => this.modal.close(), (t, k) => this.toast(t, k));
+    this.hidden = new HiddenPlaces(() => this.sim, (t, b, cls) => this.modal.show(t, b, cls), () => this.modal.close(), (t, k) => this.toast(t, k));
     this.interior = new InteriorOverlay({
       sim: () => this.sim, toast: (t, k) => this.toast(t, k), launch: (what, b) => this.places.launch(what, b), modalOpen: () => this.modal.open,
       keys: () => ({ up: this.settings.keys.up, down: this.settings.keys.down, left: this.settings.keys.left, right: this.settings.keys.right, use: this.settings.keys.pickup }),
@@ -283,6 +285,7 @@ export class Game {
     this.speedEls.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.speed === (this.clock.paused ? "0" : String(this.clock.speed)))));
     // toasts for notable events near the player
     for (const t of sim.toasts.splice(0)) this.toast(t.text, t.kind);
+    this.hidden.tick();
   }
 
   private adaptQuality(dt: number): void {
@@ -422,6 +425,8 @@ export class Game {
       }
     }
     if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; if (Math.abs(v.speed) > 2) { this.toast("Slow down to get out"); return; } v.speed = 0; unseat(sim, v); v.state = "parked"; this.renderer.cam.follow = p.id; return; }
+    const secret = this.hidden.near();
+    if (secret) { this.hidden.open(secret); return; }
     const door = this.nearDoor();
     if (door) { this.enterPlace(door); return; }
     if (this.nearestToy()) { this.act("pickup"); return; }
@@ -935,6 +940,7 @@ export class Game {
     context: () => {
       const sim = this.sim, p = sim.player;
       if (p.inCar >= 0) return { label: "Get out", icon: "exit" };
+      const secret = this.hidden.near(); if (secret) return { label: secret.label, icon: "use" };
       const d = this.nearDoor(); if (d) return { label: d.studio ? "Enter Studio" : `Enter ${sim.world.buildings[d.building].name}`, icon: "use" };
       if (this.nearestToy()) return { label: "Pick up", icon: "pickup" };
       if (this.nearestLitter()) return { label: "Pick up litter", icon: "use" };

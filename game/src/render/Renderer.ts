@@ -2,6 +2,9 @@ import type { Simulation } from "../sim/Simulation";
 import { Character, Lod, Phys, Toy } from "../entities/types";
 import { TOYS } from "../content/toys";
 import { drawLitter } from "./LitterArt";
+import { drawHidden, drawRoofGarden } from "./HiddenArt";
+import { hiddenSpots, spotLive, pickGardenBuilding, dayOf, hiddenState } from "../content/hiddenPlaces";
+import { TICKS_PER_HOUR } from "../sim/Environment";
 import { T, TILE_HEIGHT, ROAD_W } from "../world/World";
 import { Camera } from "./Camera";
 import { Terrain, drawTallTile, drawPoi } from "./Terrain";
@@ -24,7 +27,7 @@ import { LOD_NAMES } from "../entities/types";
 import { StreetView } from "./Street2D";
 
 export type Quality = 0 | 1 | 2 | 3; // low, medium, high, ultra
-interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter
+interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter, 7 hidden place (ref >= 1000: rooftop garden of building ref-1000)
 interface Decal { x: number; y: number; r: number; color: string; born: number; life: number; rot: number }
 
 export interface RenderOptions { selected: number; hovered: number; debug: DebugFlags; reduceMotion: boolean; quality: Quality; showNames: boolean }
@@ -201,6 +204,20 @@ export class Renderer {
       if (!inView(pt.x, pt.y, 30)) continue;
       this.push(this.behind(l.x, l.y, l.x + l.y - 0.02), 6, l.id, pt.x, pt.y);
     }
+    // hidden places: the rooftop garden, subway stairs, the glitch alley (3:33 only) and the moss wall
+    const hiddenList = hiddenSpots(sim.world);
+    for (let i = 0; i < hiddenList.length; i++) {
+      const hs = hiddenList[i];
+      if (!spotLive(hs, sim.hour)) continue;
+      cam.toScreen(hs.x, hs.y, 0, pt);
+      if (!inView(pt.x, pt.y, 120 * z)) continue;
+      this.push(this.behind(hs.x, hs.y, hs.x + hs.y + 0.04), 7, i, pt.x, pt.y);
+    }
+    const garden = pickGardenBuilding(sim.world);
+    if (garden && !((this.cut.get(garden.id) ?? 0) > 0.01)) {
+      cam.toScreen((garden.x0 + garden.x1 + 1) / 2, (garden.y0 + garden.y1 + 1) / 2, garden.height, pt);
+      if (inView(pt.x, pt.y, 200 * z)) this.push(garden.x1 + garden.y1 + 1.6, 7, 1000 + garden.id, pt.x, pt.y);
+    }
     this.pickBoxes.length = 0;
     AD_BOXES.length = 0;
     // cars and traffic lights
@@ -317,6 +334,10 @@ export class Renderer {
         flush();
         const l = sim.litter.pieces[it.ref];
         drawLitter(g, l.kind, l.tone, l.rot, it.sx, it.sy, z);
+      } else if (it.kind === 7) {
+        flush();
+        if (it.ref >= 1000) drawRoofGarden(g, sim.world.buildings[it.ref - 1000], it.sx, it.sy, z, time, 1 - sim.daylight);
+        else drawHidden(g, hiddenList[it.ref], it.sx, it.sy, z, { time, dark: 1 - sim.daylight, day: dayOf(sim.env.startHour, sim.tick, TICKS_PER_HOUR), tags: hiddenState.tags });
       } else {
         flush();
         drawPoi(g, sim.world.pois[it.ref], it.sx, it.sy, z, time, party, isDark);
