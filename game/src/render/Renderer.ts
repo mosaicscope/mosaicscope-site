@@ -1,6 +1,7 @@
 import type { Simulation } from "../sim/Simulation";
 import { Character, Lod, Phys, Toy } from "../entities/types";
 import { TOYS } from "../content/toys";
+import { drawLitter } from "./LitterArt";
 import { T, TILE_HEIGHT, ROAD_W } from "../world/World";
 import { Camera } from "./Camera";
 import { Terrain, drawTallTile, drawPoi } from "./Terrain";
@@ -22,7 +23,7 @@ import { friendship, hostility } from "../social/Social";
 import { LOD_NAMES } from "../entities/types";
 
 export type Quality = 0 | 1 | 2 | 3; // low, medium, high, ultra
-interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light
+interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter
 interface Decal { x: number; y: number; r: number; color: string; born: number; life: number; rot: number }
 
 export interface RenderOptions { selected: number; hovered: number; debug: DebugFlags; reduceMotion: boolean; quality: Quality; showNames: boolean }
@@ -190,6 +191,13 @@ export class Renderer {
       g.beginPath(); g.ellipse(pt.x, pt.y, r, r * 0.5, 0, 0, 6.283); g.fill();
       this.push(this.behind(x, y, x + y + 0.01), 1, t.id, pt.x, pt.y);
     }
+    // litter on the ground: cans, bottles, wrappers and cups
+    for (const l of sim.litter.pieces) {
+      if (l.taken) continue;
+      cam.toScreen(l.x, l.y, 0, pt);
+      if (!inView(pt.x, pt.y, 30)) continue;
+      this.push(this.behind(l.x, l.y, l.x + l.y - 0.02), 6, l.id, pt.x, pt.y);
+    }
     this.pickBoxes.length = 0;
     AD_BOXES.length = 0;
     // cars and traffic lights
@@ -302,6 +310,10 @@ export class Renderer {
       } else if (it.kind === 5) {
         flush();
         this.drawLight(it.ref % 64, Math.floor(it.ref / 64), it.sx, it.sy, z);
+      } else if (it.kind === 6) {
+        flush();
+        const l = sim.litter.pieces[it.ref];
+        drawLitter(g, l.kind, l.tone, l.rot, it.sx, it.sy, z);
       } else {
         flush();
         drawPoi(g, sim.world.pois[it.ref], it.sx, it.sy, z, time, party, isDark);
