@@ -1,0 +1,1 @@
+Isometric pixel-art cutaway bar: wood-panelled walls, long bar with stools, jukebox, booths under blinds, an office with desk, safe and filing cabinets, warm lamps over a dark floor. Request: interiors and sprites like this.

@@ -1,0 +1,1 @@
+Isometric cutaway house: light wood-plank floor, peach walls, stone fireplace, wicker sofa, tall plant, table and chairs, a TV, a staircase, glass panels and a nearby brick wall. Request: the cutaway house look.
