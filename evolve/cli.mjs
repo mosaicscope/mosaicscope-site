@@ -65,7 +65,7 @@ export function localIo({ dry = false, root = ROOT, env = process.env } = {}) {
       } catch (e) {
         git(["worktree", "remove", "--force", dir], root);
         git(["branch", "-D", branch], root); // roll back
-        throw new Error("validation failed on the branch: " + String(e.stdout || "").trim().split("\n").pop() || String(e.stderr || e.message).split("\n").find(Boolean));
+        throw new Error("validation failed on the branch: " + (String(e.stdout || "").trim().split("\n").pop() || String(e.stderr || e.message).split("\n").find(Boolean)));
       }
       const sha = git(["rev-parse", "HEAD"], dir);
       git(["worktree", "remove", "--force", dir], root);
