@@ -38,7 +38,7 @@ function ladder(g: CanvasRenderingContext2D, sx: number, sy: number, z: number, 
 
 function stairs(g: CanvasRenderingContext2D, sx: number, sy: number, z: number, col: string, text: string, time: number): void {
   // a dark stairwell mouth in the pavement with a round sign on a pole
-  g.fillStyle = "#14140f"; g.beginPath(); const [a, b] = off(0.55, 0, z), [c, d] = off(0, 0.55, z), [e, f] = off(0.55, 0.55, z);
+  g.fillStyle = "#120d16"; g.beginPath(); const [a, b] = off(0.55, 0, z), [c, d] = off(0, 0.55, z), [e, f] = off(0.55, 0.55, z);
   g.moveTo(sx, sy - 6 * z); g.lineTo(sx + a, sy + b - 6 * z); g.lineTo(sx + e, sy + f - 6 * z); g.lineTo(sx + c, sy + d - 6 * z); g.closePath(); g.fill();
   g.strokeStyle = "rgba(255,255,255,.18)"; g.lineWidth = z;
   for (let i = 1; i < 5; i++) { const t = i / 5; g.beginPath(); g.moveTo(sx + a * t, sy + b * t - 6 * z); g.lineTo(sx + a * t + c, sy + b * t + d - 6 * z); g.stroke(); }
@@ -53,8 +53,8 @@ function stairs(g: CanvasRenderingContext2D, sx: number, sy: number, z: number, 
 /** Each station is its own little neighbourhood: a tinted pool of light, a sign and five themed props. */
 function station(g: CanvasRenderingContext2D, i: number, sx: number, sy: number, z: number, o: HiddenCtx): void {
   const st = STATIONS[i];
-  glow(g, sx, sy, 78 * z, st.tint, 0.1 + o.dark * 0.14);
-  glow(g, sx, sy, 46 * z, st.tint, 0.1 + o.dark * 0.1);
+  glow(g, sx, sy, 78 * z, st.tint, 0.08 + o.dark * 0.1);
+  glow(g, sx, sy, 46 * z, st.tint, 0.07 + o.dark * 0.07);
   stairs(g, sx, sy, z, st.tint, st.name.toUpperCase(), o.time);
   if (z < 0.8) return;
   for (let k = 0; k < 5; k++) {
@@ -122,7 +122,7 @@ function glitch(g: CanvasRenderingContext2D, sx: number, sy: number, z: number, 
 function mossWall(g: CanvasRenderingContext2D, sx: number, sy: number, z: number, o: HiddenCtx): void {
   const L = 3, wallH = 46 * z, [ex, ey] = off(L, 0, z), night = o.dark > 0.3;
   const x0 = sx - ex / 2, y0 = sy - ey / 2, cover = mossCover(o.day);
-  g.fillStyle = "#3b3846"; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x0 + ex, y0 + ey); g.lineTo(x0 + ex, y0 + ey - wallH); g.lineTo(x0, y0 - wallH); g.closePath(); g.fill();
+  g.fillStyle = "#4e4a5e"; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x0 + ex, y0 + ey); g.lineTo(x0 + ex, y0 + ey - wallH); g.lineTo(x0, y0 - wallH); g.closePath(); g.fill();
   // neon strips
   const strip = (h: number, col: string) => { if (night) { g.globalAlpha = 0.35; g.strokeStyle = col; g.lineWidth = 6 * z; g.beginPath(); g.moveTo(x0, y0 - h); g.lineTo(x0 + ex, y0 + ey - h); g.stroke(); g.globalAlpha = 1; } g.strokeStyle = col; g.lineWidth = 1.6 * z; g.beginPath(); g.moveTo(x0, y0 - h); g.lineTo(x0 + ex, y0 + ey - h); g.stroke(); };
   strip(wallH - 3 * z, "#3dd6ff"); strip(5 * z, "#ff7ad9");

@@ -37,12 +37,12 @@ function ladderTile(w: World, b: Building): { x: number; y: number } | null {
 export type StationProp = "lantern" | "pigeon" | "sign" | "fern" | "tv" | "mushroom";
 export interface Station { name: string; tint: string; prop: StationProp; blurb: string; quips: string[]; /** preferred area kinds, best first */ kinds: string[] }
 export const STATIONS: Station[] = [
-  { name: "Pigeon Terminus", tint: "#9fb0c8", prop: "pigeon", blurb: "The pigeons run the timetable. Every platform is a perch.", quips: ["Coo-ordinates, please.", "The 9:15 is a pigeon. It's always a pigeon."], kinds: ["plaza", "market"] },
-  { name: "Lantern Row", tint: "#ff9a3d", prop: "lantern", blurb: "Paper lanterns on every pole and a noodle cart nobody can find twice.", quips: ["Lantern's lit, so the soup's on.", "Mind the glow. It gets in your hair."], kinds: ["food", "market"] },
-  { name: "Upside-Down Mall", tint: "#ff7ad9", prop: "sign", blurb: "Every sign hangs upside down and the shoppers have given up complaining.", quips: ["The sale is on. Probably. I can't read it.", "Down is up here. Get used to it."], kinds: ["shops", "plaza"] },
-  { name: "Moss Junction", tint: "#6fe3b0", prop: "fern", blurb: "Ferns push up through the tiles and the benches are soft with moss.", quips: ["Shh. The floor is sleeping.", "Even the timetable has leaves."], kinds: ["park", "playground"] },
-  { name: "Static Heights", tint: "#3dd6ff", prop: "tv", blurb: "A hundred old TVs hum a single channel of pure snow.", quips: ["Channel zero's the good one.", "We're not watching it. It's watching the weather."], kinds: ["alley", "court"] },
-  { name: "Glowcap Gardens", tint: "#b48cff", prop: "mushroom", blurb: "Giant mushrooms light the platform. Please do not lick the benches.", quips: ["Don't lick the benches.", "The blue ones are mood lamps. Probably."], kinds: ["residential", "office", "park"] },
+  { name: "Pigeon Terminus", tint: "#8c8a96", prop: "pigeon", blurb: "The pigeons run the timetable. Every platform is a perch.", quips: ["Coo-ordinates, please.", "The 9:15 is a pigeon. It's always a pigeon."], kinds: ["plaza", "market"] },
+  { name: "Lantern Row", tint: "#d08a6a", prop: "lantern", blurb: "Paper lanterns on every pole and a noodle cart nobody can find twice.", quips: ["Lantern's lit, so the soup's on.", "Mind the glow. It gets in your hair."], kinds: ["food", "market"] },
+  { name: "Upside-Down Mall", tint: "#b9788f", prop: "sign", blurb: "Every sign hangs upside down and the shoppers have given up complaining.", quips: ["The sale is on. Probably. I can't read it.", "Down is up here. Get used to it."], kinds: ["shops", "plaza"] },
+  { name: "Moss Junction", tint: "#5f8f6a", prop: "fern", blurb: "Ferns push up through the tiles and the benches are soft with moss.", quips: ["Shh. The floor is sleeping.", "Even the timetable has leaves."], kinds: ["park", "playground"] },
+  { name: "Static Heights", tint: "#6f86b4", prop: "tv", blurb: "A hundred old TVs hum a single channel of pure snow.", quips: ["Channel zero's the good one.", "We're not watching it. It's watching the weather."], kinds: ["alley", "court"] },
+  { name: "Glowcap Gardens", tint: "#8a74b0", prop: "mushroom", blurb: "Giant mushrooms light the platform. Please do not lick the benches.", quips: ["Don't lick the benches.", "The blue ones are mood lamps. Probably."], kinds: ["residential", "office", "park"] },
 ];
 
 /** One distinct area per station, preferring the themed kinds; falls back to any non-street area. */
@@ -66,7 +66,7 @@ const GLITCH: GlitchVisit[] = [
   { title: "A vending machine for time", lines: ["It sells minutes in little cans.", "A can rolls out stamped 3:33. You put it back."], cash: 0, tint: "#ff7ad9" },
   { title: "Loose change from tomorrow", lines: ["The coins are warm and slightly future.", "You pocket $33 before it notices."], cash: 33, tint: "#c6ff3d" },
   { title: "Your own footsteps, late", lines: ["They arrive a second after you stop.", "They sound less sure than you do."], cash: 0, tint: "#b48cff" },
-  { title: "The wall remembers", lines: ["Old posters peel themselves back on, then off.", "One says OPEN LATE. The shop it advertises isn't built yet."], cash: 0, tint: "#ff9a3d" },
+  { title: "The wall remembers", lines: ["Old posters peel themselves back on, then off.", "One says OPEN LATE. The shop it advertises isn't built yet."], cash: 0, tint: "#d08a6a" },
   { title: "A door with no building", lines: ["It opens onto the same alley, a different year.", "Somebody left a $20 note in the frame."], cash: 20, tint: "#3dd6ff" },
   { title: "Rain that isn't wet", lines: ["It falls upward and smells of pennies.", "You feel strangely rested."], cash: 0, tint: "#6fe3b0" },
   { title: "The lamp winks", lines: ["Once for yes, twice for 3:34.", "It winks three times. You decide not to ask."], cash: 5, tint: "#ff7ad9" },
