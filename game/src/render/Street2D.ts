@@ -1,8 +1,12 @@
-import type { Character } from "../entities/types";
+import { Phys, type Character } from "../entities/types";
 import { dressOf } from "../mind/Dress";
 import { NOIR, SHOP_NAMES, hash01, pickOf, shade, muted, worldWall } from "./noir";
 import type { Simulation } from "../sim/Simulation";
-import { pose, solve, J, drawFigure } from "./StickFigure";
+import { pose, solve, J, drawFigure, type Angles } from "./StickFigure";
+
+// ragdoll: a fallen figure goes limp, and blends back to its normal pose when it recovers
+const LIMP: Partial<Angles> = { lean: 0.9, lying: 1, tilt: 0.6, armL: 2.4, armR: 2.7, foreL: 0.6, foreR: 0.6, thighL: 0.5, thighR: -0.4, bendL: 0.3, bendR: 0.2, bob: -2, hipX: 0 };
+const ragdoll = new Map<number, number>();
 
 /**
  * The 2D street view, in Louis's noir pixel style (render/noir.ts): a dusk-blue city street with brick tenements,
@@ -132,6 +136,11 @@ export class StreetView {
       const mood = c.emo ? c.emo.mood : 0;
       A.armL *= 1 + 0.25 * mood; A.armR *= 1 + 0.25 * mood;
       A.lean += 0.06 * mood;
+      // ragdoll blend: ease toward limp while knocked down, back to the pose when recovered
+      const target = c.phys === Phys.DOWN ? 1 : 0, r0 = ragdoll.get(c.id) ?? 0;
+      const r = r0 + (target - r0) * 0.15;
+      ragdoll.set(c.id, r);
+      if (r > 0.001) for (const key of Object.keys(LIMP) as (keyof Angles)[]) A[key] = A[key] * (1 - r) + (LIMP[key] as number) * r;
       solve(A, s.x, sy, k, dir);
       this.person(g, c, k, dir, c.anim.flash > 0, pix, night);
       g.globalAlpha = 1;
