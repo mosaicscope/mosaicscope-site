@@ -165,7 +165,8 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
   g.lineCap = "round"; g.lineJoin = "round";
   const col = flash > 0 ? "#ffffff" : L.color;
   // HD pass when you're close: soft neon glow, a crisp ink outline under every limb, then the line
-  const hd = hdOverride ?? (k >= 1.05 && hdBudget-- > 0);
+  // very close people always get the HD face, whatever the quality budget says
+  const hd = hdOverride ?? (k >= 1.05 && (hdBudget-- > 0 || k >= 1.6));
   if (isResident(c)) {   // the everyday local: egg belly, long neck, big nose (see Residents.ts)
     drawResident(g, J, c, k, dir, alpha, hd, flash > 0, lw);
     if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 18 * k, k, t);
