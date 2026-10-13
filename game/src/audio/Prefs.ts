@@ -21,6 +21,8 @@ export interface VoicePrefs {
   shape: "triangle" | "square" | "sine";
   /** radio / walkie-talkie: buzzier tone and quieter blips */
   radio: boolean;
+  /** equaliser preset: "flat" as recorded, "bright" lifts the pitch, "warm" lowers it */
+  eq: "flat" | "bright" | "warm";
 }
 
 export const DEFAULT_VOICE: VoicePrefs = {
@@ -32,6 +34,7 @@ export const DEFAULT_VOICE: VoicePrefs = {
   maxPerSec: 6,
   shape: "triangle",
   radio: false,
+  eq: "flat",
 };
 
 /** The tone shape and loudness a blip uses, with the radio filter applied when it is on. */
@@ -76,7 +79,8 @@ const clamp = (v: number, lo: number, hi: number): number => (Number.isFinite(v)
 /** Blip pitch for a character: the old per-person voice, moved by the pitch preference. */
 export function voicePitch(id: number, prefs: VoicePrefs): number {
   const base = 220 + ((id * 37) % 260);
-  return base * clamp(prefs.pitch, 0.5, 2);
+  const eq = prefs.eq === "bright" ? 1.12 : prefs.eq === "warm" ? 0.9 : 1;
+  return base * clamp(prefs.pitch, 0.5, 2) * eq;
 }
 
 /** Blip length in seconds for the speed preference. */
