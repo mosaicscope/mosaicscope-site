@@ -75,7 +75,7 @@ export function spatialize(dx: number, dy: number, zoom: number, in2D: boolean):
   let dist: number, range: number, pan: number;
   if (in2D) {
     const u = (dx - dy) / 1.414, v = (dx + dy) / 1.414; // screen axes of the side view
-    dist = Math.hypot(u, v * 0.5); range = 20; pan = u / 8;
+    dist = Math.hypot(u, v * 0.5); range = 14; pan = u / 8;
   } else {
     dist = Math.hypot(dx, dy); range = Math.min(40, Math.max(14, 36 / (0.5 + zoom * 0.5))); pan = (dx - dy) / 14;
   }
@@ -190,6 +190,40 @@ export function voiceBlips(text: string, base = 92): Blip[] {
   return out;
 }
 
+// ---- the mix rule: every sound obeys this, so the street never piles up
+
+/** Who gets to speak when it is crowded: crashes and horns beat doors and clinks, which beat footsteps and birds. */
+export type Prio = "critical" | "event" | "foley";
+export interface MixCaps { total: number; event: number; foley: number }
+export const mixCaps = (lite: boolean): MixCaps => (lite ? { total: 5, event: 3, foley: 2 } : { total: 8, event: 5, foley: 3 });
+/** Minimum seconds between two starts of the same priority (stops a burst of identical sounds on one frame). */
+export const MIX_GAP: Record<Prio, number> = { critical: 0.08, event: 0.06, foley: 0.11 };
+/** The whole world-sound bus sits well under the soundtrack. */
+export const BUS_LEVEL = 0.6;
+/** Ambient beds sit under the bus level, and duck briefly when something important sounds. */
+export const AMBIENT_LEVEL = 0.6;
+export const DUCK = { amount: 0.4, secs: 0.45, music: 0.3 };
+
+/** May a new one-shot of this priority start, given what is already playing? Critical sounds get headroom, foley is first to be dropped. */
+export function admit(prio: Prio, live: Record<Prio, number>, c: MixCaps): boolean {
+  const total = live.critical + live.event + live.foley;
+  if (prio === "critical") return total < c.total + 2;
+  if (prio === "event") return total < c.total && live.event + live.critical < c.event;
+  return total < c.total - 2 && live.foley < c.foley;
+}
+
+/** Of the footsteps due this instant, which are heard: always yours, then only the nearest one or two others, and those quietly. */
+export interface StepCand { id: number; dist: number; player: boolean }
+export function pickSteps(cands: StepCand[], in2D: boolean, lite: boolean): { id: number; gain: number }[] {
+  const range = in2D ? 7 : 9, maxOthers = in2D || lite ? 1 : 2;
+  const out: { id: number; gain: number }[] = [];
+  const others: StepCand[] = [];
+  for (const c of cands) { if (c.player) out.push({ id: c.id, gain: 0.5 }); else if (c.dist < range) others.push(c); }
+  others.sort((a, b) => a.dist - b.dist);
+  for (const c of others.slice(0, maxOthers)) out.push({ id: c.id, gain: 0.2 * (1 - c.dist / range) ** 1.5 });
+  return out;
+}
+
 export type DoorKind = "bell" | "latch" | "heavy";
 export function doorKind(k: BuildingKind): DoorKind {
   if (k === "nightclub" || k === "stripclub" || k === "velvet" || k === "casino" || k === "police" || k === "hospital") return "heavy";
@@ -292,8 +326,15 @@ export class Diegetic {
   private muffle: BiquadFilterNode;
   private white: AudioBuffer;
   private brown: AudioBuffer;
-  private live = 0;
-  private maxLive: number;
+  private liveBy: Record<Prio, number> = { critical: 0, event: 0, foley: 0 };
+  private lastAt: Record<Prio, number> = { critical: -9, event: -9, foley: -9 };
+  private caps: MixCaps;
+  private cur: Prio = "event";
+  private npcStepAt = 0;
+  /** the soundtrack ducks for the street, never the other way round (set by AudioSystem) */
+  onDuck?: (amount: number, secs: number) => void;
+  /** ambience bus: beds, crickets, hum. Ducks when something important happens. */
+  private amb: GainNode;
   private sim: Simulation | null = null;
   private on = true; private vol = 0.8;
 
@@ -318,8 +359,9 @@ export class Diegetic {
   private stop: (() => void)[] = [];
 
   constructor(private ctx: AudioContext, master: AudioNode, private lite: boolean) {
-    this.maxLive = lite ? 8 : 14;
-    this.input = ctx.createGain(); this.input.gain.value = this.vol;
+    this.caps = mixCaps(lite);
+    this.input = ctx.createGain(); this.input.gain.value = this.vol * BUS_LEVEL;
+    this.amb = ctx.createGain(); this.amb.gain.value = AMBIENT_LEVEL; this.amb.connect(this.input);
     this.muffle = ctx.createBiquadFilter(); this.muffle.type = "lowpass"; this.muffle.frequency.value = 20000; this.muffle.Q.value = 0.4;
     const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4; comp.attack.value = 0.005; comp.release.value = 0.2;
     this.input.connect(this.muffle); this.muffle.connect(comp); comp.connect(master);
@@ -331,7 +373,7 @@ export class Diegetic {
   // ---- control
   setLevel(on: boolean, vol: number): void {
     this.on = on; this.vol = vol;
-    this.input.gain.setTargetAtTime(on ? vol : 0, this.ctx.currentTime, 0.05);
+    this.input.gain.setTargetAtTime(on ? vol * BUS_LEVEL : 0, this.ctx.currentTime, 0.05);
   }
 
   attach(sim: Simulation): void {
@@ -370,7 +412,7 @@ export class Diegetic {
     const gain = ctx.createGain(); gain.gain.value = 0;
     this.loop(buf).connect(filter); filter.connect(gain);
     const pan = positional && ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-    if (pan) { gain.connect(pan); pan.connect(this.input); } else gain.connect(this.input);
+    if (pan) { gain.connect(pan); pan.connect(this.amb); } else gain.connect(this.amb);
     return { gain, pan, filter };
   }
 
@@ -403,12 +445,12 @@ export class Diegetic {
     this.trainLfo = this.lfo(4, 0.5, gate.gain, "square");
 
     // fridge hum: mains hum and its octave with a little buzz
-    this.fridge = ctx.createGain(); this.fridge.gain.value = 0; this.fridge.connect(this.input);
+    this.fridge = ctx.createGain(); this.fridge.gain.value = 0; this.fridge.connect(this.amb);
     for (const [f, g] of [[50, 0.5], [100, 0.28], [150, 0.1]] as const) {
       const o = ctx.createOscillator(), og = ctx.createGain(); o.type = f === 50 ? "triangle" : "sine"; o.frequency.value = f; og.gain.value = g; o.connect(og); og.connect(this.fridge); o.start(); this.stop.push(() => { try { o.stop(); } catch { /* ok */ } });
     }
     // crickets: two high sines gated into chirp trains
-    this.cricket = ctx.createGain(); this.cricket.gain.value = 0; this.cricket.connect(this.input);
+    this.cricket = ctx.createGain(); this.cricket.gain.value = 0; this.cricket.connect(this.amb);
     const crick = (f: number, rate: number) => {
       const o = ctx.createOscillator(), am = ctx.createGain(); o.type = "sine"; o.frequency.value = f; am.gain.value = 0; o.connect(am); am.connect(this.cricket); o.start();
       this.lfo(rate, 0.5, am.gain, "square"); this.lfo(28, 0.25, am.gain); this.stop.push(() => { try { o.stop(); } catch { /* ok */ } });
@@ -416,19 +458,19 @@ export class Diegetic {
     };
     this.cricketLfo = crick(4300, 5.3); crick(5100, 4.1);
     // room tone for interiors (chatter lives on the crowd bed, this is just air)
-    this.room = ctx.createGain(); this.room.gain.value = 0; this.room.connect(this.input);
+    this.room = ctx.createGain(); this.room.gain.value = 0; this.room.connect(this.amb);
     const rt = ctx.createBiquadFilter(); rt.type = "lowpass"; rt.frequency.value = 300; this.loop(this.brown).connect(rt); rt.connect(this.room);
     // bass leaking through walls: kicks are scheduled into this
     this.thumpFilter = ctx.createBiquadFilter(); this.thumpFilter.type = "lowpass"; this.thumpFilter.frequency.value = 170;
     this.thump = ctx.createGain(); this.thump.gain.value = 0;
     this.thumpPan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
     this.thumpFilter.connect(this.thump);
-    if (this.thumpPan) { this.thump.connect(this.thumpPan); this.thumpPan.connect(this.input); } else this.thump.connect(this.input);
+    if (this.thumpPan) { this.thump.connect(this.thumpPan); this.thumpPan.connect(this.amb); } else this.thump.connect(this.amb);
   }
 
   private buildVoices(): void {
     const ctx = this.ctx;
-    for (let i = 0; i < (this.lite ? 2 : 4); i++) {
+    for (let i = 0; i < (this.lite ? 1 : 2); i++) {
       const a = ctx.createOscillator(), b = ctx.createOscillator(); a.type = "sawtooth"; b.type = "square";
       const filt = ctx.createBiquadFilter(); filt.type = "lowpass"; filt.Q.value = 1.2;
       const wob = ctx.createGain(); wob.gain.value = 1;
@@ -447,7 +489,7 @@ export class Diegetic {
       this.stop.push(() => { for (const n of [a, b, lfo]) try { n.stop(); } catch { /* ok */ } });
       this.engines.push({ veh: -1, a, b, filt, amp, road, pan, lfoDepth, lfo });
     }
-    for (let i = 0; i < (this.lite ? 1 : 2); i++) {
+    for (let i = 0; i < 1; i++) {
       const osc = ctx.createOscillator(); osc.type = "sawtooth";
       const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1500; bp.Q.value = 0.7;
       const amp = ctx.createGain(); amp.gain.value = 0;
@@ -460,10 +502,30 @@ export class Diegetic {
   }
 
   // ---- one-shot plumbing
-  private begin(): boolean { if (this.live >= this.maxLive) return false; this.live++; return true; }
+  /** Ask the mix for a voice. Returns false when the street is too busy for this priority (the caller just skips the sound). */
+  private begin(prio: Prio = "event"): boolean {
+    const now = this.ctx.currentTime;
+    if (now - this.lastAt[prio] < MIX_GAP[prio] || !admit(prio, this.liveBy, this.caps)) return false;
+    this.lastAt[prio] = now; this.liveBy[prio]++; this.cur = prio;
+    if (prio === "critical") this.duck();
+    return true;
+  }
   private end(...src: AudioScheduledSourceNode[]): void {
-    let left = src.length; if (!left) { this.live--; return; }
-    for (const s of src) s.onended = () => { if (--left === 0) this.live--; };
+    const p = this.cur; let left = src.length;
+    if (!left) { this.liveBy[p]--; return; }
+    for (const s of src) s.onended = () => { if (--left === 0) this.liveBy[p]--; };
+  }
+  /** Dip the ambience for a moment so the important sound reads clearly. */
+  private duck(): void {
+    this.onDuck?.(DUCK.music, DUCK.secs + 0.15);
+    const t = this.ctx.currentTime, g = this.amb.gain;
+    g.cancelScheduledValues(t); g.setTargetAtTime(AMBIENT_LEVEL * (1 - DUCK.amount), t, 0.03); g.setTargetAtTime(AMBIENT_LEVEL, t + DUCK.secs, 0.4);
+  }
+  /** For the older effects in Audio.ts (impacts, gunfire): the same cap and spacing, with the slot freed after a short while. */
+  allow(prio: Prio = "event"): boolean {
+    if (!this.on || !this.begin(prio)) return false;
+    const p = this.cur; setTimeout(() => { this.liveBy[p]--; }, 180);
+    return true;
   }
 
   private route(x: number, y: number, vol: number, cam: Camera, in2D: boolean): Out | null {
@@ -518,7 +580,7 @@ export class Diegetic {
   }
 
   private horn(o: Out | null, cls: VehicleClass): void {
-    if (!o || !this.begin()) return;
+    if (!o || !this.begin("critical")) return;
     const big = cls === "van" || cls === "ute" || cls === "ambulance" || cls === "suv", fast = cls === "jdm" || cls === "sports" || cls === "super";
     const f = big ? 330 : fast ? 480 : 400, dur = cls === "taxi" ? 0.2 : 0.34;
     const a = this.blip(o, "sawtooth", f, f, dur, 0.28), b = this.blip(o, "sawtooth", f * 1.26, f * 1.26, dur, 0.24);
@@ -526,7 +588,7 @@ export class Diegetic {
   }
 
   private crash(o: Out | null, power: number): void {
-    if (!o || !this.begin()) return;
+    if (!o || !this.begin(power > 0.6 ? "critical" : "event")) return;
     const n = this.hit(o, "lowpass", 900, 0.6, 0.35, 0.9 * power);
     this.blip(o, "triangle", 110, 38, 0.3, 0.8 * power);
     if (power > 0.6) { for (const f of [210, 342, 588, 1130]) this.blip(o, "sine", f * (0.96 + Math.random() * 0.08), f * 0.97, 0.5, 0.18, 0.01); this.hit(o, "highpass", 5200, 0.7, 0.45, 0.3, 0.03); } // glass and bent metal
@@ -576,14 +638,15 @@ export class Diegetic {
   }
 
   /** A footstep on a surface. wet: rain on hard ground adds a splashy edge. */
-  private step(o: Out | null, surface: Surface, wet: number, jitter: number, rain = wet / 1.6): void {
-    if (!o || !this.begin()) return;
-    const r = FOOT[surface], [f, q, d, v, type] = r.noise, k = 1 + jitter;
-    const n = this.hit(o, type, f * k * (1 + wet * 0.3), q, d * (1 + wet * 0.8), v * (1 + wet * 0.35));
-    if (r.thud) this.blip(o, r.thud[4], r.thud[0] * k, r.thud[1] * k, r.thud[2], r.thud[3]);
-    if (r.squeak && Math.random() < r.squeak) this.blip(o, "sine", 1100 + Math.random() * 300, 1700, 0.07, 0.07, 0.01);
+  private step(o: Out | null, surface: Surface, wet: number, jitter: number, soft = false, rain = wet / 1.6): void {
+    if (!o || !this.begin("foley")) return;
+    const r = FOOT[surface], [f, q, d, v, type] = r.noise, k = 1 + jitter, vol = 0.6;
+    // everyone else's steps are a muted tap (low-passed, no squeak); only yours has the full detail
+    const n = soft ? this.hit(o, "lowpass", Math.min(1100, f) * k, 0.5, d * 1.2, v * vol * 0.8) : this.hit(o, type, f * k * (1 + wet * 0.3), q, d * (1 + wet * 0.8), v * vol * (1 + wet * 0.35));
+    if (r.thud) this.blip(o, r.thud[4], r.thud[0] * k, r.thud[1] * k, r.thud[2], r.thud[3] * vol);
+    if (!soft && r.squeak && Math.random() < r.squeak) this.blip(o, "sine", 1100 + Math.random() * 300, 1700, 0.07, 0.05, 0.01);
     const parts: AudioScheduledSourceNode[] = [n];
-    if (Math.random() < puddleChance(surface, rain)) parts.push(this.splash(o));
+    if (!soft && Math.random() < puddleChance(surface, rain) * 0.5) parts.push(this.splash(o)); // splashes are yours, and rare
     this.end(...parts);
   }
 
@@ -599,10 +662,10 @@ export class Diegetic {
   private drips(cam: Camera, scene: Scene, rain: number, now: number): void {
     const rate = dripRate(rain);
     if (scene.interior || rate <= 0 || now < this.nextDrip) return;
-    this.nextDrip = now + (0.5 + Math.random()) / rate;
+    this.nextDrip = now + (0.9 + Math.random() * 1.2) / rate;
     const a = Math.random() * 6.283, r = 2 + Math.random() * 9;
-    const o = this.route(cam.x + Math.cos(a) * r, cam.y + Math.sin(a) * r, 0.3, cam, scene.in2D);
-    if (!o || !this.begin()) return;
+    const o = this.route(cam.x + Math.cos(a) * r, cam.y + Math.sin(a) * r, 0.2, cam, scene.in2D);
+    if (!o || !this.begin("foley")) return;
     const size = Math.random(), f = 1500 + Math.random() * 900, parts: AudioScheduledSourceNode[] = [this.blip(o, "sine", f, f * 0.5, 0.07, 0.4)];
     for (const e of dripEchoes(size)) parts.push(this.blip(o, "sine", f * (0.9 - e.at * 0.2), f * 0.45, 0.08, 0.4 * e.vol, e.at));
     this.end(...parts);
@@ -614,15 +677,15 @@ export class Diegetic {
     let d = 99;
     for (const s of this.stations) d = Math.min(d, Math.hypot(s.x - cam.x, s.y - cam.y));
     const k = swell * trainReach(d) * (scene.interior ? 0.3 : 1);
-    this.train.gain.gain.setTargetAtTime(k * 0.22, t, 0.5);
+    this.train.gain.gain.setTargetAtTime(k * 0.14, t, 0.5);
     this.train.filter.frequency.setTargetAtTime(110 + swell * 90, t, 0.5);
-    this.trainTick.gain.gain.setTargetAtTime(k * 0.05, t, 0.3);
+    this.trainTick.gain.gain.setTargetAtTime(k * 0.03, t, 0.3);
     this.trainLfo.frequency.setTargetAtTime(trainClack(swell), t, 0.5);
     // a long horn as it arrives at the station, if you are near enough to hear it
     const arriving = swell > 0.2 && this.trainSwellPrev <= 0.2;
     this.trainSwellPrev = swell;
     if (arriving && d < 55 && !scene.interior) {
-      const o = this.flat(0.14 * trainReach(d));
+      const o = this.flat(0.1 * trainReach(d));
       if (this.begin()) this.end(this.blip(o, "sawtooth", 233, 233, 1.1, 0.5), this.blip(o, "sawtooth", 311, 311, 1.1, 0.4));
     }
   }
@@ -634,10 +697,10 @@ export class Diegetic {
     const jg = kind === "bell" && shop ? jingleFor(shop) : null;
     if (jg) {
       jingleFreqs(jg).forEach((f, i) => {
-        parts.push(this.blip(o, jg.wave, f, f, jg.step * 1.6, jg.wave === "sine" ? 0.22 : 0.12, i * jg.step));
-        if (jg.wave !== "sine") this.blip(o, "sine", f * 2, f * 2, jg.step, 0.05, i * jg.step);
+        parts.push(this.blip(o, jg.wave, f, f, jg.step * 1.2, jg.wave === "sine" ? 0.14 : 0.08, i * jg.step)); // short and quiet
+        if (jg.wave !== "sine") this.blip(o, "sine", f * 2, f * 2, jg.step, 0.03, i * jg.step);
       });
-      this.hit(o, "bandpass", 900, 1, 0.05, 0.25);
+      this.hit(o, "bandpass", 900, 1, 0.05, 0.15);
     }
     else if (kind === "bell") { parts.push(this.blip(o, "sine", 2637, 2637, 0.6, 0.2), this.blip(o, "sine", 3520, 3500, 0.5, 0.14, 0.09)); this.hit(o, "bandpass", 900, 1, 0.05, 0.25); }
     else if (kind === "heavy") { parts.push(this.hit(o, "lowpass", 500, 0.8, 0.25, 0.6, 0, this.brown)); this.blip(o, "triangle", 100, 45, 0.2, 0.6); if (!opening) this.blip(o, "square", 700, 500, 0.03, 0.2, 0.2); }
@@ -661,7 +724,7 @@ export class Diegetic {
       last = this.blip(o, "square", b.f, b.f * 0.93, b.dur, 0.2 * b.vol, t);
       t += b.dur + b.gap;
     }
-    if (last) this.end(last); else this.live--;
+    if (last) this.end(last); else this.liveBy[this.cur]--;
   }
 
   /** Doors, bell and a pop of bass when the player walks into or out of a building (interior overlay opened/closed). */
@@ -692,11 +755,11 @@ export class Diegetic {
     const slow = now - this.lastSlow > 1;
     if (slow) { this.lastSlow = now; this.greenery = this.sampleGreen(cam.x, cam.y); this.sceneBeds(sim, cam); }
     const wl = windLevel(env.weather, rain);
-    this.rain.gain.gain.setTargetAtTime(rain * 0.07 * (inside ? 0.8 : 1), t, 0.4);
-    this.roof.gain.gain.setTargetAtTime(rain * rain * 0.16 * (inside ? 1.2 : 1), t, 0.4);
+    this.rain.gain.gain.setTargetAtTime(rain * 0.05 * (inside ? 0.8 : 1), t, 0.4);
+    this.roof.gain.gain.setTargetAtTime(rain * rain * 0.11 * (inside ? 1.2 : 1), t, 0.4);
     this.rain.filter.frequency.setTargetAtTime(900 + (1 - rain) * 500, t, 0.5);
-    this.wind.gain.gain.setTargetAtTime(wl * 0.09 * out, t, 0.8);
-    this.cricket.gain.setTargetAtTime(cricketLevel(hour, rain, this.greenery, env.storm) * 0.014 * out, t, 1.2);
+    this.wind.gain.gain.setTargetAtTime(wl * 0.06 * out, t, 0.8);
+    this.cricket.gain.setTargetAtTime(cricketLevel(hour, rain, this.greenery, env.storm) * 0.009 * out, t, 1.2);
     this.cricketLfo.frequency.setTargetAtTime(4300 + (sim.hour % 1) * 150, t, 3);
 
     if (!frozen) {
@@ -707,10 +770,10 @@ export class Diegetic {
 
     // distant traffic and crowd murmur follow the camera
     const b = busyness(this.carWeight, this.people, hour);
-    this.traffic.gain.gain.setTargetAtTime(b.traffic * 0.2 * out * (1 + wet * 0.5), t, 0.6);
+    this.traffic.gain.gain.setTargetAtTime(b.traffic * 0.12 * out * (1 + wet * 0.5), t, 0.6);
     this.traffic.filter.frequency.setTargetAtTime(190 + b.traffic * 120 + wet * 90, t, 0.6);
     const room = scene.interior ? roomFor(scene.interior) : null;
-    this.crowd.gain.gain.setTargetAtTime(room ? room.crowd * 0.085 : b.crowd * 0.045 * out, t, 0.6);
+    this.crowd.gain.gain.setTargetAtTime(room ? room.crowd * 0.06 : b.crowd * 0.028 * out, t, 0.6);
 
     this.thunder(sim, scene);
     this.birds(cam, scene, hour, rain, now);
@@ -759,7 +822,7 @@ export class Diegetic {
       // doors: someone got in or out
       if (d < 30 && ((prev.driver < 0) !== (v.driver < 0)) && this.sim) {
         const o = this.route(v.x, v.y, 0.7, cam, scene.in2D); this.carDoor(o);
-        if (prev.driver < 0 && v.driver >= 0 && d < 16) { const o2 = this.route(v.x, v.y, 0.5, cam, scene.in2D); if (o2 && this.begin()) { this.end(this.blip(o2, "sawtooth", 50, 130, 0.5, 0.35, 0.15)); } } // ignition
+        if (prev.driver < 0 && v.driver >= 0 && d < 16) { const o2 = this.route(v.x, v.y, 0.5, cam, scene.in2D); if (o2 && this.begin()) { this.end(this.blip(o2, "sawtooth", 50, 130, 0.5, 0.25, 0.15)); } } // ignition
       }
       prev.driver = v.driver; prev.x = v.x; prev.y = v.y; prev.speed = smooth;
       if (d < 36) cw += (1 / (1 + d / 8)) * (0.4 + Math.min(1, smooth / 6));
@@ -768,9 +831,9 @@ export class Diegetic {
       if (running && sp.gain > 0.015) cands.push({ id: v.id, g: sp.gain, sp, spd: smooth, rad, x: v.x, y: v.y });
       if (v.siren) { const sg = spatialize(dx * 0.6, dy * 0.6, cam.zoom, scene.in2D); if (sg.gain > 0.01) sirenC.push({ id: v.id, g: sg.gain, sp: sg, spd: smooth, rad, x: v.x, y: v.y }); }
       // pops and bangs from the loud ones
-      if (ENGINE[v.cls].pops && smooth > 2 && sp.gain > 0.05 && Math.random() < dt * 0.35 && v.id !== myCar) {
+      if (ENGINE[v.cls].pops && smooth > 2 && sp.gain > 0.15 && Math.random() < dt * 0.12 && v.id !== myCar) {
         const o = this.route(v.x, v.y, 0.8, cam, scene.in2D);
-        if (o && this.begin()) { const n = this.hit(o, "bandpass", 1500, 1, 0.05, 0.5); this.blip(o, "triangle", 160, 60, 0.06, 0.4); this.end(n); }
+        if (o && this.begin("foley")) { const n = this.hit(o, "bandpass", 1500, 1, 0.05, 0.4); this.blip(o, "triangle", 160, 60, 0.06, 0.3); this.end(n); }
       }
     }
     this.carWeight = cw;
@@ -791,8 +854,8 @@ export class Diegetic {
       e.filt.frequency.setTargetAtTime(p.cut * (0.55 + s * 0.9) * (mine ? 0.55 : 1), t, 0.1);
       e.lfo.frequency.setTargetAtTime(7 + s * 12, t, 0.1); e.lfoDepth.gain.setTargetAtTime(p.burble, t, 0.1);
       const idle = c.spd < 0.4;
-      e.amp.gain.setTargetAtTime(c.sp.gain * (mine ? 0.3 : 0.22) * (idle ? 0.55 : 0.65 + s * 0.6), t, 0.07);
-      e.road.gain.setTargetAtTime(c.sp.gain * clamp01(c.spd / 7) ** 1.4 * (0.06 + wet * 0.1), t, 0.08);
+      e.amp.gain.setTargetAtTime(c.sp.gain * (mine ? 0.2 : 0.14) * (idle ? 0.55 : 0.65 + s * 0.6), t, 0.07);
+      e.road.gain.setTargetAtTime(c.sp.gain * clamp01(c.spd / 7) ** 1.4 * (0.04 + wet * 0.07), t, 0.08);
       if (e.pan) e.pan.pan.setTargetAtTime(mine ? 0 : c.sp.pan, t, 0.05);
     }
     // sirens
@@ -804,29 +867,27 @@ export class Diegetic {
       if (!s) { s = this.sirens.find((x) => x.veh < 0); if (!s) continue; s.veh = c.id; }
       const v = veh.get(c.id)!, f = sirenFreq(sirenKindFor(v.cls), t) * dopplerRate(c.rad);
       s.osc.frequency.setTargetAtTime(f, t, v.cls === "ambulance" ? 0.012 : 0.03);
-      s.amp.gain.setTargetAtTime(c.sp.gain * 0.11, t, 0.08);
+      s.amp.gain.setTargetAtTime(c.sp.gain * 0.07, t, 0.08);
       if (s.pan) s.pan.pan.setTargetAtTime(c.sp.pan, t, 0.05);
     }
   }
 
   /** Footsteps, doors and shop bells for everyone on screen. */
   private scanPeople(sim: Simulation, cam: Camera, scene: Scene, wet: number): void {
-    let steps = 0;
-    const w = sim.world, pid = sim.playerId;
-    const stepCap = this.lite ? 4 : 8;
-    const near = new Set<number>();
+    const w = sim.world, pid = sim.playerId, now = this.ctx.currentTime;
+    const near = new Set<number>(), due: StepCand[] = [], dueC = new Map<number, { x: number; y: number }>();
     for (const c of sim.chars) {
       const dx = c.x - cam.x, dy = c.y - cam.y;
       // doors: someone walked into or out of a building near the camera
       const was = this.inside.get(c.id);
       if (was !== undefined && was !== c.inside && c.id !== pid) {
         const b = w.buildings[c.inside >= 0 ? c.inside : was];
-        if (b && Math.hypot(b.door.x + 0.5 - cam.x, b.door.y + 0.5 - cam.y) < 26) this.door(this.route(b.door.x + 0.5, b.door.y + 0.5, 0.5, cam, scene.in2D), doorKind(b.kind), c.inside >= 0, b.kind);
+        if (b && Math.hypot(b.door.x + 0.5 - cam.x, b.door.y + 0.5 - cam.y) < 20) this.door(this.route(b.door.x + 0.5, b.door.y + 0.5, 0.4, cam, scene.in2D), doorKind(b.kind), c.inside >= 0, b.kind);
       }
       if (Math.abs(dx) < 30 && Math.abs(dy) < 30) this.inside.set(c.id, c.inside); else this.inside.delete(c.id);
       if (c.inside >= 0 || c.inCar >= 0 || scene.interior) { this.foot.delete(c.id); continue; }
       if (c.lod > 2 && c.id !== pid) continue;
-      if (dx * dx + dy * dy > 26 * 26) continue;
+      if (dx * dx + dy * dy > 12 * 12 && c.id !== pid) continue; // footsteps only matter close by
       near.add(c.id);
       let f = this.foot.get(c.id);
       if (!f) { f = { x: c.x, y: c.y, acc: 0, side: c.id & 1 }; this.foot.set(c.id, f); continue; }
@@ -836,13 +897,21 @@ export class Diegetic {
       const dt = this.lite ? 0.09 : 0.05, spd = m / dt;
       if (f.acc >= strideFor(spd) && spd > 0.5) {
         f.acc = 0; f.side ^= 1;
-        if (steps >= stepCap) continue;
-        const surface = surfaceOf(w.tile(Math.floor(c.x), Math.floor(c.y)));
-        const o = this.route(c.x, c.y, c.id === pid ? 1.1 : 0.7, cam, scene.in2D);
-        if (o) { this.step(o, surface, surface === "pave" || surface === "road" || surface === "gravel" ? wet : 0, (Math.random() - 0.5) * 0.3 + (f.side ? 0.04 : -0.04)); steps++; }
+        due.push({ id: c.id, dist: Math.hypot(dx, dy), player: c.id === pid });
+        dueC.set(c.id, c);
       }
     }
-    if (this.foot.size > near.size + 60) for (const id of this.foot.keys()) if (!near.has(id)) this.foot.delete(id);
+    // the mix picks who is heard: you, then the nearest one or two, and never a stampede
+    for (const pick of pickSteps(due, scene.in2D, this.lite)) {
+      const c = dueC.get(pick.id)!, mine = pick.id === pid;
+      if (!mine && now - this.npcStepAt < 0.28) continue;
+      const o = this.route(c.x, c.y, pick.gain * (mine ? 1 : 3.5), cam, scene.in2D);
+      if (!o) continue;
+      if (!mine) { this.npcStepAt = now; o.t += Math.random() * 0.08; }
+      const surface = surfaceOf(w.tile(Math.floor(c.x), Math.floor(c.y)));
+      this.step(o, surface, surface === "pave" || surface === "road" || surface === "gravel" ? wet : 0, (Math.random() - 0.5) * 0.3, !mine);
+    }
+    if (this.foot.size > near.size + 40) for (const id of this.foot.keys()) if (!near.has(id)) this.foot.delete(id);
   }
 
   /** Inside a building: your own footsteps, the room's hum, bass, machinery. */
@@ -851,7 +920,7 @@ export class Diegetic {
     this.interiorStep -= dt;
     if (scene.moving && this.interiorStep <= 0) {
       this.interiorStep = scene.running ? 0.26 : 0.38;
-      this.step(this.flat(0.6), interiorSurface(scene.interior!), 0, (Math.random() - 0.5) * 0.3);
+      this.step(this.flat(0.45), interiorSurface(scene.interior!), 0, (Math.random() - 0.5) * 0.3);
     }
     this.room.gain.setTargetAtTime(0.03, t, 0.5);
     this.fridge.gain.setTargetAtTime(room.fridge && sim.env.power ? 0.03 : 0, t, 0.4);
@@ -868,7 +937,7 @@ export class Diegetic {
     const delay = 0.25 + Math.random() * 2.2, ctx = this.ctx;
     const at = ctx.currentTime + delay, g = ctx.createGain(), f = ctx.createBiquadFilter();
     f.type = "lowpass"; f.frequency.setValueAtTime(700, at); f.frequency.exponentialRampToValueAtTime(90, at + 3.4);
-    g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(scene.interior ? 0.5 : 0.9, at + 0.05); g.gain.exponentialRampToValueAtTime(0.0001, at + 3.8);
+    g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(scene.interior ? 0.35 : 0.6, at + 0.05); g.gain.exponentialRampToValueAtTime(0.0001, at + 3.8);
     const src = ctx.createBufferSource(); src.buffer = this.brown; src.start(at, Math.random() * 1.5, 4);
     src.connect(f); f.connect(g); g.connect(this.input);
     const sub = ctx.createOscillator(), sg = ctx.createGain(); sub.frequency.setValueAtTime(58, at); sub.frequency.exponentialRampToValueAtTime(32, at + 2.5);
@@ -880,11 +949,11 @@ export class Diegetic {
   private birds(cam: Camera, scene: Scene, hour: number, rain: number, now: number): void {
     if (scene.interior || now < this.nextBird) return;
     const rate = birdRate(hour, rain, this.greenery);
-    this.nextBird = now + (rate > 0 ? (0.5 + Math.random()) / rate : 2.5);
+    this.nextBird = now + (rate > 0 ? (1 + Math.random() * 1.5) / rate : 2.5);
     if (rate <= 0) return;
     const a = Math.random() * 6.283, r = 4 + Math.random() * 16;
-    const o = this.route(cam.x + Math.cos(a) * r, cam.y + Math.sin(a) * r, 0.35, cam, scene.in2D);
-    if (!o || !this.begin()) return;
+    const o = this.route(cam.x + Math.cos(a) * r, cam.y + Math.sin(a) * r, 0.22, cam, scene.in2D);
+    if (!o || !this.begin("foley")) return;
     const kind = Math.random(), base = 2400 + Math.random() * 1600;
     const parts: AudioScheduledSourceNode[] = [];
     if (kind < 0.45) { // sparrow: a few quick pips

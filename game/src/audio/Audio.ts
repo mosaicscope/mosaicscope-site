@@ -1,7 +1,7 @@
 import type { Simulation } from "../sim/Simulation";
 import type { Camera } from "../render/Camera";
 import { Music } from "./Music";
-import { Diegetic, STREET, type Scene } from "./Diegetic";
+import { Diegetic, STREET, type Scene, type Prio } from "./Diegetic";
 import { fetchVibe, VIBE_REFRESH_MS } from "./LiveVibe";
 import type { Place } from "./Score";
 import { BuskerVoice } from "./Busker";
@@ -12,6 +12,9 @@ import { stepWalk, dreamLevel, lateLevel, layersFor } from "./Moods";
  * simple party beat. Off until the player turns it on (browsers require a gesture anyway).
  * Sounds are panned by screen position and attenuated by distance; a rate limiter stops pile-ups.
  */
+/** the soundtrack's resting level (Music starts at this) */
+const MUSIC_LEVEL = 0.4;
+
 export class AudioSystem {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
@@ -76,6 +79,15 @@ export class AudioSystem {
   /** Set the world-sound mute and volume (separate from the soundtrack and the master volume). */
   setSfx(on: boolean, vol: number): void { this.sfxOn = on; this.sfxVolume = vol; this.dg?.setLevel(on, vol); }
 
+  /** Dip the soundtrack briefly when something important happens in the street (crashes, horns, gunfire). */
+  private duckMusic(amount: number, secs: number): void {
+    if (!this.music) return;
+    this.music.setLevel(MUSIC_LEVEL * (1 - amount));
+    if (this.duckTimer) clearTimeout(this.duckTimer);
+    this.duckTimer = setTimeout(() => this.music?.setLevel(MUSIC_LEVEL), secs * 1000);
+  }
+  private duckTimer: ReturnType<typeof setTimeout> | null = null;
+
   /** Terrance's voice for the dialogue panel. */
   speak(text: string): void { this.dg?.speak(text, this.getCam(), this.scene); }
 
@@ -124,6 +136,7 @@ export class AudioSystem {
         this.dg = new Diegetic(this.ctx, this.master, lite);
         this.fx = this.dg.input; this.dg.setLevel(this.sfxOn, this.sfxVolume);
         if (this.sim) this.dg.attach(this.sim);
+        this.dg.onDuck = (amt, secs) => this.duckMusic(amt, secs);
         this.music = new Music(this.ctx, this.master);
         this.busker = new BuskerVoice(this.ctx, this.master);
         window.addEventListener("keydown", (e) => {
@@ -167,16 +180,17 @@ export class AudioSystem {
     }
   }
 
-  private out(x: number, y: number, vol: number): { gain: GainNode; at: number } | null {
+  private out(x: number, y: number, vol: number, prio: Prio = "event"): { gain: GainNode; at: number } | null {
     if (!this.enabled || !this.ctx || !this.master) return null;
     const dest = this.fx ?? this.master;
     const now = this.ctx.currentTime;
     if (now - this.recentT > 0.1) { this.recentT = now; this.recent = 0; }
-    if (++this.recent > 8) return null; // rate limit
+    if (++this.recent > 3) return null; // rate limit
     const cam = this.getCam();
     const d = Math.hypot(x - cam.x, y - cam.y);
     const att = Math.max(0, 1 - d / (22 / Math.max(0.5, cam.zoom)));
     if (att <= 0.01) return null;
+    if (this.dg && !this.dg.allow(prio)) return null; // the central mix: caps, spacing, priority
     const gain = this.ctx.createGain(); gain.gain.value = vol * att;
     const pan = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
     if (pan) { pan.pan.value = Math.max(-1, Math.min(1, ((x - y) - (cam.x - cam.y)) / 12)); gain.connect(pan); pan.connect(dest); }
@@ -200,7 +214,7 @@ export class AudioSystem {
   }
 
   play(kind: string, x: number, y: number, vol: number): void {
-    const o = this.out(x, y, vol * 0.6);
+    const o = this.out(x, y, vol * 0.6, kind.startsWith("bang") || kind === "ricochet" ? "critical" : "event");
     if (!o) return;
     const mat = kind.split("_")[1] ?? "";
     const pitch: Record<string, number> = { rubber: 320, foam: 180, plush: 120, plastic: 520, wood: 220, cardboard: 260 };
