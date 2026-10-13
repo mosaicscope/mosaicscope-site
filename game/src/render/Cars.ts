@@ -3,6 +3,7 @@ import { VEHICLES, VehicleClass } from "../content/vehicles";
 import type { Camera } from "./Camera";
 import { GLOW } from "./Buildings";
 import { patinaOf, weather } from "./CarPatina";
+import { carMutationOf } from "./CarMutation";
 
 /**
  * Cars are little lofted 3D models projected into the iso view: a rocker skirt, a body whose top
@@ -196,11 +197,12 @@ function wheel(k: Ctx, lx: number, ly: number, r: number, near: boolean, spin: n
 const spinOf = new WeakMap<Vehicle, number>();
 
 export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, alpha: number, time: number, dark: number, selected: boolean): void {
-  const d = VEHICLES[v.cls], S = SHAPES[v.cls];
+  const d = VEHICLES[v.cls], S = SHAPES[v.cls], M = carMutationOf(v.plate, v.cls);
   const x = v.px + (v.x - v.px) * alpha, y = v.py + (v.y - v.py) * alpha;
   const z = cam.zoom, ang = v.heading;
   const k: Ctx = { g, cam, x, y, c: Math.cos(ang), s: Math.sin(ang) };
-  const L = d.length, hw = d.width / 2, H = d.height * 1.08;
+  // drawn size only: the simulation still uses the class dimensions, so movement and collisions are unchanged
+  const L = d.length * M.scale, hw = (d.width / 2) * M.scale, H = d.height * 1.08 * M.scale;
   const x0 = -L / 2, x1 = L / 2;
   const night = dark > 0.35;
   const ST = STYLE[v.cls] ?? {};
@@ -233,7 +235,8 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const nearSign = dot(WN(k, [0, 1, 0]), VIEW) > 0 ? 1 : -1;
   const wr = S.wheel * H, wx = L * (S.wb ?? (v.cls === "van" || v.cls === "ambulance" ? 0.33 : 0.31)), wy = hw - 0.02;
   const rimCol = ST.rim ?? (v.cls === "police" || v.cls === "ambulance" || v.cls === "van" ? "#8a8580" : v.cls === "super" || v.cls === "sports" ? "#2a2a2a" : "#cfc8c0");
-  for (const lx of [wx, -wx]) wheel(k, lx, -nearSign * wy, wr, false, spin, rimCol);
+  const axles = M.axles === 1 ? [0] : M.axles === 2 ? [wx, -wx] : [wx, 0, -wx];
+  for (const lx of axles) wheel(k, lx, -nearSign * wy, wr, false, spin, rimCol);
 
   // ---- lower skirt ----
   const hs = H * 0.3, ground = 0.08;
@@ -242,7 +245,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const rSk1 = ring(x0, x1, hw, S.cf, S.cr, () => hs);
   const lower = (n: V3) => lit(paint, shadeFor(n) * 0.72 * dmg);
   loft(k, rSk0, rSk1, lower);
-  for (const lx of [wx, -wx]) wheel(k, lx, nearSign * wy, wr, true, spin, rimCol);
+  for (const lx of axles) wheel(k, lx, nearSign * wy, wr, true, spin, rimCol);
 
   // ---- body sides (with a slight tumblehome) and the bonnet/boot deck ----
   const rTop = ring(x0 + 0.03, x1 - 0.02, hw * 0.95, S.cf * 1.05, S.cr * 1.05, bodyTop);
@@ -253,6 +256,16 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     g.strokeStyle = "rgba(255,255,255,.14)"; g.lineWidth = Math.max(1, 1.2 * z); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke();
   }
   cap(k, rTop, paint.map((c) => c * dmg) as [number, number, number], 14);
+  // extra glasshouse pods stacked on the bonnet and boot of the big ones (multi-cabin monstrosities)
+  if (M.cabins > 1) {
+    const pods: [number, number][] = M.cabins === 2 ? [[x1 - L * 0.44, x1 - L * 0.2]] : [[x1 - L * 0.44, x1 - L * 0.24], [x0 + L * 0.08, x0 + L * 0.34]];
+    for (const [a, b] of pods) {
+      const base = (bodyTop(a) + bodyTop(b)) / 2, top = base + H * 0.34;
+      const p0 = ring(a, b, hw * 0.72, 0.08, 0.08, () => base), p1 = ring(a + (b - a) * 0.14, b - (b - a) * 0.14, hw * 0.46, 0.08, 0.08, () => top);
+      loft(k, p0, p1, (n) => lit(roofPaint, shadeFor(n) * dmg));
+      cap(k, p1, roofPaint.map((c) => c * dmg) as [number, number, number], 18);
+    }
+  }
   // top-plane patina: sun-bleached paint, rust blotches and a racing stripe over bonnet and boot
   if (!S.tray) {
     const sh = (lx: number) => bodyTop(lx) + 0.006, regions: [number, number][] = [[S.cab[1] * L, x1 - 0.07], [x0 + 0.07, S.cab[0] * L]];
@@ -500,17 +513,46 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     g.fillStyle = "#c6ff3d"; g.fillRect(pt.x - w / 2, pt.y - fs * 0.8, w, fs * 1.6);
     g.fillStyle = "#0e0b0a"; g.fillText(label, pt.x, pt.y + 1); g.textAlign = "start"; g.textBaseline = "alphabetic";
   }
+  // brake glow at night: a soft halo over the tail lamps while braking
+  if (brake && night && !frontVisible) {
+    const bp = W3(k, [x0, 0, S.deck * H * 0.8]), br = 14 * M.scale * z;
+    GLOW.push(() => {
+      g.globalCompositeOperation = "lighter";
+      const grd = g.createRadialGradient(bp[0], bp[1], 0, bp[0], bp[1], br);
+      grd.addColorStop(0, "rgba(255,59,47,.45)"); grd.addColorStop(1, "rgba(255,59,47,0)");
+      g.fillStyle = grd; g.beginPath(); g.arc(bp[0], bp[1], br, 0, 6.283); g.fill();
+      g.globalCompositeOperation = "source-over";
+    });
+  }
+  // exhaust: three puffs rising from the back of a moving car, bigger for bigger engines
+  if (Math.abs(v.speed) > 0.3 || v.state === "drive") {
+    for (let i = 0; i < 3; i++) {
+      const ph = (time * 0.9 + i / 3 + spin * 0.01) % 1;
+      const p = W3(k, [x0 - 0.04 - ph * 0.5 * M.scale, (i % 2 ? 1 : -1) * hw * 0.45, 0.06 + ph * 0.4 * M.scale]);
+      g.fillStyle = `rgba(200,196,190,${((1 - ph) * 0.28).toFixed(3)})`;
+      g.beginPath(); g.arc(p[0], p[1], (0.035 + ph * 0.12) * M.scale * z * 10, 0, 6.283); g.fill();
+    }
+  }
   if (selected) { cam.toScreen(x, y, 0, pt); g.strokeStyle = "#c6ff3d"; g.lineWidth = 2; g.beginPath(); g.ellipse(pt.x, pt.y, L * 26 * z, L * 13 * z, 0, 0, 6.283); g.stroke(); }
 }
 
 /** Headlight beams (drawn in the lighting pass, additive). */
 export function headlights(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, strength: number): void {
   if (strength < 0.1 || v.state === "parked" && v.driver < 0) return;
-  const d = VEHICLES[v.cls];
-  const fx = v.x + Math.cos(v.heading) * (d.length * 0.5 + 1.6), fy = v.y + Math.sin(v.heading) * (d.length * 0.5 + 1.6);
-  cam.toScreen(fx, fy, 0, pt);
-  const r = 46 * cam.zoom;
-  const grd = g.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, r);
-  grd.addColorStop(0, `rgba(255,240,190,${0.22 * strength})`); grd.addColorStop(1, "rgba(255,240,190,0)");
-  g.fillStyle = grd; g.fillRect(pt.x - r, pt.y - r, r * 2, r * 2);
+  const d = VEHICLES[v.cls], M = carMutationOf(v.plate, v.cls);
+  const ca = Math.cos(v.heading), sa = Math.sin(v.heading);
+  const L = d.length * M.scale, reach = 7 * M.scale, spread = 0.9 * M.scale;
+  // a beam cone from the headlamps: narrow at the lamps, fanning out ahead of the car
+  const nx = v.x + ca * (L * 0.5 + 0.2), ny = v.y + sa * (L * 0.5 + 0.2);
+  const fx = nx + ca * reach, fy = ny + sa * reach;
+  const a = { x: 0, y: 0 }, b = { x: 0, y: 0 }, c = { x: 0, y: 0 }, e = { x: 0, y: 0 };
+  cam.toScreen(nx - sa * 0.15, ny + ca * 0.15, 0, a); cam.toScreen(nx + sa * 0.15, ny - ca * 0.15, 0, b);
+  cam.toScreen(fx + sa * spread, fy - ca * spread, 0, c); cam.toScreen(fx - sa * spread, fy + ca * spread, 0, e);
+  const grd = g.createLinearGradient(a.x, a.y, c.x, c.y);
+  grd.addColorStop(0, `rgba(255,240,190,${0.34 * strength})`); grd.addColorStop(1, "rgba(255,240,190,0)");
+  g.fillStyle = grd; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(c.x, c.y); g.lineTo(e.x, e.y); g.lineTo(b.x, b.y); g.closePath(); g.fill();
+  // a bright core right at the lamps
+  const r = 12 * M.scale * cam.zoom, core = g.createRadialGradient(a.x, a.y, 0, a.x, a.y, r);
+  core.addColorStop(0, `rgba(255,250,220,${0.45 * strength})`); core.addColorStop(1, "rgba(255,250,220,0)");
+  g.fillStyle = core; g.fillRect(a.x - r, a.y - r, r * 2, r * 2);
 }

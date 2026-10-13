@@ -1,9 +1,28 @@
 import type { Simulation } from "../sim/Simulation";
+import { TICKS_PER_HOUR } from "../sim/Environment";
 import type { Camera } from "./Camera";
 
 /**
+ * Time-of-day colour: a golden-hour warm wash around 18:00 and a lighter gold at 06:30, a hazy
+ * dawn just after sunrise, and a cool neon wash once it is properly dark. Pure function of the clock.
+ */
+export interface LightCycle { warm: number; neon: number; haze: number }
+export function lightCycle(hour: number, daylight: number): LightCycle {
+  const h = ((hour % 24) + 24) % 24;
+  const dusk = Math.max(0, 1 - Math.abs(h - 18) / 1.6), dawn = Math.max(0, 1 - Math.abs(h - 6.5) / 1.2);
+  const haze = Math.max(0, 1 - Math.abs(h - 6) / 2.2);
+  const night = Math.max(0, Math.min(1, (0.45 - daylight) / 0.4));
+  return {
+    warm: Math.min(0.2, (dusk + dawn * 0.7) * 0.14 * (0.5 + daylight * 0.5)),
+    neon: night * 0.12,
+    haze: haze * 0.1,
+  };
+}
+
+/**
  * Night/storm darkness as a low-resolution overlay with holes cut for light sources, plus additive
- * coloured party lights. Low quality skips the gradients and just tints.
+ * coloured party lights. Low quality skips the gradients and just tints. Overlay resolution scales
+ * with the graphics quality setting: crisper light holes on high and ultra, cheaper on low.
  */
 export class Lighting {
   private cv: HTMLCanvasElement;
@@ -22,13 +41,22 @@ export class Lighting {
     if (!sim.env.power) dark += 0.12 * (1 - day);
     dark = Math.min(0.9, dark);
     const W = cam.viewW, H = cam.viewH;
-    // colour grade: warm daylight, cool gloaming (a soft-light wash keeps the neon palette intact) + a vignette that frames the street
+    this.scale = quality >= 3 ? 0.4 : quality === 2 ? 0.32 : 0.22;
+    // colour grade follows the light cycle (golden hour, dawn haze, neon night); soft-light keeps the neon palette intact
     if (quality > 0) {
-      const warm = Math.max(0, day - 0.45) * 0.14, cool = Math.max(0, 0.6 - day) * 0.12;
-      if (warm + cool > 0.005) {
+      const cyc = lightCycle((sim.tick / TICKS_PER_HOUR) % 24, day);
+      if (cyc.warm > 0.005) {
         main.globalCompositeOperation = "soft-light";
-        main.fillStyle = warm > cool ? `rgba(255,205,140,${warm})` : `rgba(90,110,255,${cool})`;
+        main.fillStyle = `rgba(255,190,120,${cyc.warm})`;
         main.fillRect(0, 0, W, H); main.globalCompositeOperation = "source-over";
+      }
+      if (cyc.neon > 0.005) {
+        main.globalCompositeOperation = "soft-light";
+        main.fillStyle = `rgba(120,70,230,${cyc.neon})`;
+        main.fillRect(0, 0, W, H); main.globalCompositeOperation = "source-over";
+      }
+      if (cyc.haze > 0.005) {
+        main.fillStyle = `rgba(205,210,225,${cyc.haze})`; main.fillRect(0, 0, W, H);
       }
       if (quality >= 2) {
         const r = Math.hypot(W, H) * 0.55, vg = main.createRadialGradient(W / 2, H / 2, r * 0.55, W / 2, H / 2, r);

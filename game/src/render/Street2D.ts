@@ -1,13 +1,17 @@
-import type { Character } from "../entities/types";
+import { Phys, type Character } from "../entities/types";
 import { dressOf } from "../mind/Dress";
 import { NOIR, SHOP_NAMES, hash01, pickOf, shade, muted, worldWall } from "./noir";
 import type { Simulation } from "../sim/Simulation";
-import { pose, solve, J, drawFigure } from "./StickFigure";
+import { pose, solve, J, drawFigure, reachArm, type Angles } from "./StickFigure";
+
+// ragdoll: a fallen figure goes limp, and blends back to its normal pose when it recovers
+const LIMP: Partial<Angles> = { lean: 0.9, lying: 1, tilt: 0.6, armL: 2.4, armR: 2.7, foreL: 0.6, foreR: 0.6, thighL: 0.5, thighR: -0.4, bendL: 0.3, bendR: 0.2, bob: -2, hipX: 0 };
+const ragdoll = new Map<number, number>();
 
 /**
- * The 2D street view, in Louis's noir pixel style (render/noir.ts): a dusk-blue city street with brick tenements,
- * lit shopfronts, parked sedans, thin lamp posts and small outlined people, seen side-on. The scene is drawn small
- * and blown up with smoothing off, which gives the chunky pixels for free and keeps it cheap on phones.
+ * The 2D street view, in Louis's noir style (render/noir.ts): a dusk-blue city street with brick tenements,
+ * lit shopfronts, parked sedans, thin lamp posts and small outlined people, seen side-on. The scene is drawn at
+ * device resolution (capped at 2x for phones) so houses and figures stay sharp when zoomed in.
  *
  * Who is on screen is decided by `StreetCast` (pure, tested). People used to vanish because the
  * old filter was a hard +/-1.6 band across the street plus a nearest-7 cut; anyone strolling off
@@ -27,6 +31,8 @@ export const BAND_FULL = 2.6;
 export const BAND_OUT = 5;
 const HYST = 1.6;   // a person already on screen counts this much closer than they are, so the cap never flickers
 const MIN_GAP_K = 56;
+/** px per lateral unit used to place people. Fixed (the zoom-3 value) so zooming never slides people across the screen. */
+const LAYOUT_S = 18 * (3 - 1.2);
 
 export class StreetCast {
   private shown = new Set<number>();
@@ -86,23 +92,26 @@ export class StreetView {
   private nGlow = 0;
 
   /** Returns true when it drew; `dest` is the visible canvas context (already scaled to CSS px). */
-  draw(dest: CanvasRenderingContext2D, dpr: number, sim: Simulation, f: Character, W: number, H: number, zoom: number, dt: number, time: number, poseName: (c: Character, moving: boolean, spd: number) => string): void {
-    const pix = W < 700 ? 2 : 3;
-    const lw = Math.ceil(W / pix), lh = Math.ceil(H / pix);
+  draw(dest: CanvasRenderingContext2D, dpr: number, sim: Simulation, f: Character, W: number, H: number, _zoom: number, dt: number, time: number, poseName: (c: Character, moving: boolean, spd: number) => string): void {
+    // full device resolution (capped at 2x for phones): figures and houses are drawn sharp, not as a chunky pixel grid
+    const res = Math.min(dpr, 2);
+    const lw = Math.ceil(W * res), lh = Math.ceil(H * res);
     if (this.lo.width !== lw || this.lo.height !== lh) { this.lo.width = lw; this.lo.height = lh; }
     const g = this.lo.getContext("2d")!;
-    g.setTransform(1 / pix, 0, 0, 1 / pix, 0, 0);       // draw in CSS px, land on a small grid
+    g.setTransform(res, 0, 0, res, 0, 0);               // draw in CSS px
     g.globalAlpha = 1; g.globalCompositeOperation = "source-over"; g.lineCap = "round"; g.lineJoin = "round";
     const pu = (f.x - f.y) / 1.414, pv = f.x + f.y;
-    const S = 18 * (zoom - 1.2), ground = H * 0.62, day = sim.daylight, night = 1 - Math.min(1, day * 1.3);
+    // the street's scale is fixed (the same as the people's layout), so zooming never moves the scenery: only walking does
+    const S = LAYOUT_S, ground = H * 0.62, day = sim.daylight, night = 1 - Math.min(1, day * 1.3);
     const rain = sim.env.raining, off = pu * S;
     this.nGlow = 0;
     this.backdrop(g, sim, W, pu, pv, S, ground, day, time);
     this.facades(g, sim, W, H, off, pv, S, ground, day, time);
     this.street(g, W, H, off, ground, night, rain, time);
-    // kerb bushes, and pigeons pecking along the pavement (LOOK.md neon line for the animals)
+    // kerb bushes are fixed to the world: they slide only when you walk, never when you zoom or pan
+    const BUSH_P = 2720;
     for (let i = 0; i < 16; i++) {
-      const bx = hash(i + 700) * W, by = ground + 2 + hash(i + 710) * 6, br = 14 + hash(i + 720) * 16;
+      const bx = ((((hash(i + 700) * BUSH_P) - off) % BUSH_P) + BUSH_P) % BUSH_P - 40, by = ground + 2 + hash(i + 710) * 6, br = 14 + hash(i + 720) * 16;
       g.fillStyle = "#14321f"; g.beginPath(); g.ellipse(bx, by, br, br * 0.7, 0, 0, 6.283); g.fill();
       g.fillStyle = "#2c5a36"; g.beginPath(); g.ellipse(bx - br * 0.2, by - br * 0.2, br * 0.6, br * 0.4, 0, 0, 6.283); g.fill();
     }
@@ -115,20 +124,34 @@ export class StreetView {
     if (night > 0.05) { g.fillStyle = `rgba(14,10,36,${0.55 * night})`; g.fillRect(0, 0, W, H); }
     this.lights(g, W, H, off, ground, night, time);
     // people
-    const kk = (1 + (zoom - 3) * 0.3) * 0.62;
-    // who is on the street and their spacing come from the world, not the zoom: zoom only changes figure size
-    const slots = this.cast.pick(sim.chars, f, W, S, 1, dt, W < 700 ? 8 : 11);
+    // figure size is fixed: zooming in and out does not change how big people are drawn
+    const kk = 0.62;
+    // who is on the street and their spacing come from the world, not the zoom: zoom does not change figure size or spacing
+    const slots = this.cast.pick(sim.chars, f, W, LAYOUT_S, 1, dt, W < 700 ? 8 : 11);
     const drawn: { c: Character; x: number; y: number; k: number; dv: number }[] = [];
     for (const s of slots) {
       const c = sim.chars[s.id]; if (!c) continue;
-      const k = kk * c.look.scale * (1 + s.dv * 0.035), sy = ground + H * 0.1 + s.dv * 6 * (kk / 0.62);
+      // no depth perspective: everyone stands on the same line at the same size, so walking never shifts them
+      const k = kk * c.look.scale, sy = ground + H * 0.1;
       const moving = Math.abs(c.x - c.px) + Math.abs(c.y - c.py) > 0.0005, spd = Math.hypot(c.x - c.px, c.y - c.py) * 60;
       c.anim.phase += spd * dt * 5.5;
       const dir = (Math.cos(c.facing) - Math.sin(c.facing)) >= 0 ? 1 : -1;
       g.globalAlpha = s.alpha * 0.45; g.fillStyle = NOIR.night; g.beginPath(); g.ellipse(s.x, sy, 22 * k, 4.5 * k, 0, 0, 6.283); g.fill();
       g.globalAlpha = s.alpha;
-      solve(pose(poseName(c, moving, spd), c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT), s.x, sy, k, dir);
-      this.person(g, c, k, dir, c.anim.flash > 0, pix, night);
+      // mood-based animation: a happy figure swings its arms wider and leans forward; a low one slumps
+      const A = pose(poseName(c, moving, spd), c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT);
+      const mood = c.emo ? c.emo.mood : 0;
+      A.armL *= 1 + 0.25 * mood; A.armR *= 1 + 0.25 * mood;
+      A.lean += 0.06 * mood;
+      // inverse kinematics: someone close to you reaches a hand toward you (in front, waist high)
+      if (c.phys === Phys.OK && Math.hypot(c.x - f.x, c.y - f.y) < 6) reachArm(A, 1, A.hipX + 0.83 * 42 * Math.sin(A.lean), -44 - 0.83 * 42 * Math.cos(A.lean), 20 * dir, -66);
+      // ragdoll blend: ease toward limp while knocked down, back to the pose when recovered
+      const target = c.phys === Phys.DOWN ? 1 : 0, r0 = ragdoll.get(c.id) ?? 0;
+      const r = r0 + (target - r0) * 0.15;
+      ragdoll.set(c.id, r);
+      if (r > 0.001) for (const key of Object.keys(LIMP) as (keyof Angles)[]) A[key] = A[key] * (1 - r) + (LIMP[key] as number) * r;
+      solve(A, s.x, sy, k, dir);
+      this.person(g, c, k, dir, c.anim.flash > 0, 1, night);
       g.globalAlpha = 1;
       drawn.push({ c, x: s.x, y: sy, k, dv: s.dv });
     }
@@ -140,10 +163,9 @@ export class StreetView {
 
     // blow it up, crisp
     dest.setTransform(1, 0, 0, 1, 0, 0);
-    dest.imageSmoothingEnabled = false;
-    dest.drawImage(this.lo, 0, 0, lw, lh, 0, 0, lw * pix * dpr, lh * pix * dpr);
-    dest.setTransform(dpr, 0, 0, dpr, 0, 0);
     dest.imageSmoothingEnabled = true;
+    dest.drawImage(this.lo, 0, 0, lw, lh, 0, 0, W * dpr, H * dpr);
+    dest.setTransform(dpr, 0, 0, dpr, 0, 0);
     // text stays sharp: bubbles, your marker, the street name
     for (const d of drawn) {
       const c = d.c;
@@ -452,7 +474,8 @@ export class StreetView {
   private person(g: CanvasRenderingContext2D, c: Character, k: number, dir: number, flash: boolean, pix: number, night: number): void {
     // the same figure as the zoomed-out view: drawn from the joints `solve` already placed
     void pix; void night;
-    drawFigure(g, c, 0, 0, k, dir, 0, flash ? 1 : 0, 1, true);   // street people always get the HD pass (glow and ink outline)
+    // the same figure as the zoomed-out view (no heavy HD ink outline), so close-up people keep the same look
+    drawFigure(g, c, 0, 0, k, dir, 0, flash ? 1 : 0, 1, false);
   }
 
   /** LOOK.md: people are neon stick figures, one colour each, same as the zoomed-out view. Joints come from `solve`. */
