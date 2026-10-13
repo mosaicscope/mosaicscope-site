@@ -1,60 +1,63 @@
-# LOOK: one world, three ways of seeing it
+# LOOK: the website is the source of truth
 
-Louis's look guide. Everyone who draws, lights or colours anything in the game follows this. If a change fights it, change the change.
+Louis's look guide, v2. **The mosaicscope.com site is the look.** The game is that site's footer street, grown into a city. If the website, the 2D street and the iso world are ever side by side, they must read as one thing. When in doubt, open the site and copy it.
+
+Source files (read these, don't guess from a picture): `styles.css` (tokens at `:root`, the footer stage from "Round 13" onward, string lights, `.prop--banner`, `.prop--neon`), `main.js` (raver colours `COL`, `PARTY` props), `index.html` (font links).
 
 ## The one idea
 
-Mosaics is a **warm-black city lit by people**. Walls are dark and quiet, so the human things (lit windows, neon, headlights, a hot pie shop, a bus stop with a face in it) are the brightest things on screen. The concrete jungle is only bleak when nothing in it is alive, so every street needs life in the light, not more grey.
+**A near-black night street, lit by people.** The ground is warm black. Everything alive is drawn as a bright neon line: stick figures in a different colour each, small glowing label tags, a string of coloured bulbs overhead, one loud red accent. Nothing is realistic, muted or brown. The footer is the whole game in one picture, and the game is that picture at city scale.
 
-The iso view, the 2D street and the interiors are **the same place**. Switching view must feel like stepping through a door, not changing games.
+## Tokens (from `styles.css :root`, mirrored in `render/palette.ts`)
 
-## Palette (the tokens are in `render/palette.ts`)
-
-| Role | Colour | Use |
+| Token | Value | Role |
 |---|---|---|
-| Ink | `#0e0b0a` | the only outline and deepest shadow, never pure black |
-| Paper | `#eee4d3` | light stone, paper, signs' text |
-| Dim | `#9a8d80` | mid stone, dust, distance |
-| Warm window | `#ffd27a` / `#fff0c0` | every lit window, lamp, doorway, shopfront (cool `#9fe8ff` TV only) |
-| Red / Gold / Acid / Pink / Cyan | `#ec2a1c` `#f6b62c` `#c6ff3d` `#ff7ad9` `#3dd6ff` | **accents**: signs, awnings, cars, one thing per block, never walls |
+| `--ink` | `#0e0b0a` | ground, sky, deepest black. The page background. |
+| `--ink-2` | `#1a1412` | raised surfaces: building bodies, panels |
+| `--paper` | `#eee4d3` | text, outlines on dark, the moon, labels |
+| `--dim` | `#9a8d80` | captions, far things |
+| `--red` | `#ec2a1c` | **the** accent. One loud red per scene (a sign, an awning, the lamp). |
+| `--acid` | `#c6ff3d` | second accent, bulbs, "after hours" banner |
+| `--sodium` | `#f6b62c` | streetlight yellow, every lit window |
+| Neon figure colours | `#c6ff3d #ff7ad9 #3dd6ff #f6b62c #ec2a1c #eee4d3 #b48cff` | raver and character line colours (`COL` in `main.js`) |
 
 Rules:
-- Walls and ground are **warm-dark** (browns, plum, slate with a warm cast). No saturated blue or violet walls. Blue lives in the sky, in shadow, in rain and in glass.
-- Accents are small. If more than a tenth of the screen is accent colour, it is a toy, not a city.
-- A shadow is the same hue as its wall, darker, with a slight cool shift (`shade()` in `render/noir.ts` does this).
+- Backgrounds are `--ink` and `--ink-2`. No blue-violet washes, no brown dusk, no grey-blue sky.
+- Colour is for **lines and light**, not for filling large areas. A building is a dark body with a coloured edge and coloured sign, not a painted brick wall.
+- Shops keep the iso world's saturated block colours (that is the world's own `Building.color`), but at street level they show as a dark body, a lit shopfront and a coloured neon edge.
+
+## Type
+
+- **Display / labels on signs**: Big Shoulders Display (condensed, 700 to 900). Shop names, building names, the logo.
+- **Mono / tags**: IBM Plex Mono, uppercase, letter-spaced, 9 to 11px. Tags, captions, counters, "THE MOSAICS", "AFTER HOURS".
+- **Serif italic accent**: Instrument Serif italic, only for the "scope" flourish and an occasional handwritten line.
+
+## The signature motifs (use them, they are what makes it Mosaics)
+
+1. **Neon stick figures.** Characters are always the `StickFigure.ts` line figures, in their own neon colour, soft glow when close. Never filled realistic people.
+2. **String of bulbs.** A sagging line across the top of any street: small round bulbs cycling sodium, red, acid, twinkling on a staggered delay (`.prop--lights`). Brighter and faster when something is happening.
+3. **Tag labels.** Small rectangles with a 1px coloured border, mono caps, a slight tilt (about -2 degrees), glowing (`.prop--banner`, the pink "AFTER HOURS" tag). Use for place names and moods.
+4. **A disco ball** or one odd glowing object per scene.
+5. **A dashed hairline** ground line (`1px dashed paper at 7%`) where the figures stand.
+6. **The boombox and the ENTER button**: small boxed props in a corner; the world has little tools, not big UI.
 
 ## Light
 
-- **One sun, one clock.** Day, dusk and night come from `sim.daylight` in every view. Both views use the same night overlay colour (`rgba(8,6,22)`) so dusk matches across the join.
-- Dusk is the hero hour: warm band low in the sky, cool high, windows turning on.
-- At night, **light is spent, not spread**: lamps cast a pool, windows glow past the dark (`NightGlow.ts`), neon bleeds onto the footpath. Everything else drops away.
-- Rain darkens the ground and adds reflections of lights, not extra fog.
+- One clock. `sim.daylight` drives every view. Night overlay is the same in iso and 2D.
+- By day the world is the same palette, lifted: ink stays ink, but windows go dim and the sky is a flat lighter ink. Never a blue "realistic" sky.
+- Light is spent, not spread: bulbs, windows, neon edges, lamp pools. Everything else is black.
 
-## Materials
+## How 2D relates to the iso world and the site
 
-- Brick (warm red-brown), render/plaster (sand, grey), concrete (cool grey-brown), glass (dark with a bright reflection), painted metal (flat accents).
-- Shading is **flat two-tone**: lit face and shaded face, plus one edge light on the lamp side. No gradients on walls, no noise textures, no dither patterns (they read as a criss-cross).
-- Roofs carry kit (vents, aerials, tanks, steam). Walls carry life (fire escapes, washing, window boxes, signs). A bare flat plane is a bug.
-
-## Density (what makes a street feel triple-A rather than bleak)
-
-Every block of street should have, within a screen: one light source that is not a lamp post, one piece of street furniture that tells a story (bench, bins, bike, bus stop), one sign, one thing moving, and one thing a person did (graffiti, litter, a parked car with a dent). Greenery at the edges of concrete.
-
-Keep it **calm**: a lot of small things, few loud ones. Sound follows the same rule (quiet by default, loud only for events).
-
-## How 2D relates to the iso view
-
-2D is the iso world **cut open**, not a second game:
-1. **Same colours**: its walls come from the building the player is next to in the world (`Building.color`, shop awnings from `Building.sign`), blended into the brick/stone/plaster materials. Same ink, same ground colours as `GROUND`.
-2. **Same time**: driven by `sim.daylight`, same night overlay.
-3. **Same cast**: the people and cars in 2D are the characters and cars of the world, dressed from the same data.
-4. **Same signs**: accents in 2D (neon, awnings) are the sign colours of the iso building.
-5. The only differences allowed are the ones the camera forces: side-on perspective, pixel grid, and parallax.
+- **Site footer = the 2D street at small scale.** Same ground (`--ink`), same bulbs, same tags, same figures.
+- **2D = the iso world cut open.** Same buildings (dark body, edge coloured by the world building's own colour and sign), same shop labels in Big Shoulders, same characters (the same `drawFigure`), same night overlay.
+- **Pixelation is not part of the look.** The site is crisp vector line work, so 2D is crisp vector line work.
 
 ## Checklist before you ship a visual change
 
-- [ ] Take a day, a dusk and a night screenshot in iso **and** 2D at the same spot. Do they feel like one place?
-- [ ] No new saturated wall colour. No pure black, no pure white.
-- [ ] No dither, checker or hairline lattice.
-- [ ] Anything bright is something a person would want to look at.
+- [ ] Put the website footer, the 2D street and the iso world next to each other. Same palette, same lines, same type?
+- [ ] Characters are neon line figures, not filled muted people.
+- [ ] Ground and sky are `--ink`/`--ink-2`. No new brown, violet or grey-blue.
+- [ ] Bulbs and at least one tag are present in any street scene.
+- [ ] Only one loud red.
 - [ ] Original shapes only; no real brands, people or text traced.
