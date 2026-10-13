@@ -6,6 +6,7 @@ import { fetchVibe, VIBE_REFRESH_MS } from "./LiveVibe";
 import type { Place } from "./Score";
 import { BuskerVoice } from "./Busker";
 import { stepWalk, dreamLevel, lateLevel, layersFor } from "./Moods";
+import type { UiTone } from "./Prefs";
 
 /**
  * Synthesised audio (no files to load): material-specific impact blips, whooshes, boings, rain and a
@@ -75,6 +76,9 @@ export class AudioSystem {
     else if (sim.world.buildings.some((b) => b.kind === "recycling" && Math.hypot((b.x0 + b.x1) / 2 - p.x, (b.y0 + b.y1) / 2 - p.y) < 7)) place = "recycling";
     return (this.place = place);
   }
+
+  /** A UI tone for an interface event (click, tab, error, save and so on). Silent until the audio context is on. */
+  ui(tone: UiTone): void { this.dg?.uiTone(tone); }
 
   /** Set the world-sound mute and volume (separate from the soundtrack and the master volume). */
   setSfx(on: boolean, vol: number): void { this.sfxOn = on; this.sfxVolume = vol; this.dg?.setLevel(on, vol); }
