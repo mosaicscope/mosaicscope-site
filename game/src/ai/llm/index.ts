@@ -1,5 +1,5 @@
 import { MenuItem, SYSTEM_PROMPT, buildMenu, parseChoice } from "./choice";
-import { Chooser, hfWorkerChooser, localGgufChooser, webLlmChooser } from "./backends";
+import { Chooser, hfWorkerChooser, localGgufChooser, webLlmChooser, ollamaChooser, hfDirectChooser, ggufFileChooser, claudeChooser, openAiCompatChooser, OLLAMA_CLOUD_URL } from "./backends";
 
 export type { MenuItem } from "./choice";
 
@@ -41,6 +41,9 @@ export class LlmBrain {
       .finally(() => this.inflight.delete(id));
   }
 
+  /** Check the backend answers. Does not count against the budget. */
+  test(): Promise<boolean> { return testLlm(this.chooser); }
+
   /** The model's pick for this character if it is fresh and still a valid option; otherwise null. */
   take(id: number, tick: number, allowed: Set<string>): string | null {
     const p = this.pending.get(id);
@@ -51,29 +54,55 @@ export class LlmBrain {
   }
 }
 
-/** The active brain, or null. Null means the sim is fully deterministic and offline. */
-let active: LlmBrain | null = null;
-export function getLlm(): LlmBrain | null { return active; }
-export function setLlm(b: LlmBrain | null): void { active = b; }
-
 /**
- * Reads ?llm=hf|local|webllm from the page URL. Optional: llmUrl overrides the endpoint, llmModel picks the
- * WebLLM model. Returns null (and changes nothing) when the parameter is missing or unknown.
+ * The connected brains. Each principal is given one of them (by id), so several models can run the town at once.
+ * Empty means the sim is fully deterministic and offline.
  */
-export async function llmFromQuery(search: string): Promise<LlmBrain | null> {
-  const q = new URLSearchParams(search);
-  const kind = q.get("llm");
-  if (!kind) return null;
+let pool: LlmBrain[] = [];
+export function getLlm(id = 0): LlmBrain | null { return pool.length ? pool[Math.abs(id) % pool.length] : null; }
+export function setLlm(b: LlmBrain | null): void { pool = b ? [b] : []; }
+export function setLlmPool(brains: LlmBrain[]): void { pool = brains.slice(); }
+export function llmPoolSize(): number { return pool.length; }
+
+export type LlmKind = "off" | "ollama" | "claude" | "openai" | "gemini" | "openrouter" | "hfdirect" | "gguf" | "local" | "webllm" | "hf";
+export interface LlmChoice { kind: LlmKind; url?: string; model?: string; token?: string; file?: Blob }
+
+/** Build a brain for the chosen backend. Null when off, misconfigured, or the backend fails to load. */
+export async function llmFromChoice(c: LlmChoice): Promise<LlmBrain | null> {
+  const url = c.url?.trim() || undefined;
   try {
     // hf needs the Worker's own URL: it is deployed separately from the Pages site, so there is no safe default
-    if (kind === "hf") {
-      const url = q.get("llmUrl");
-      return url ? new LlmBrain(hfWorkerChooser(url)) : null;
-    }
-    if (kind === "local") return new LlmBrain(localGgufChooser(q.get("llmUrl") ?? undefined));
-    if (kind === "webllm") return new LlmBrain(await webLlmChooser(q.get("llmModel") ?? undefined));
+    if (c.kind === "hf") return url ? new LlmBrain(hfWorkerChooser(url)) : null;
+    if (c.kind === "ollama") return c.model?.trim() ? new LlmBrain(ollamaChooser(c.model.trim(), url ?? (c.token?.trim() ? OLLAMA_CLOUD_URL : undefined), c.token?.trim() || undefined)) : null;
+    if (c.kind === "hfdirect") return c.token?.trim() && c.model?.trim() ? new LlmBrain(hfDirectChooser(c.token.trim(), c.model.trim())) : null;
+    if (c.kind === "claude") return c.token?.trim() ? new LlmBrain(await claudeChooser(c.token.trim(), c.model?.trim() || undefined)) : null;
+    if (c.kind === "openai" || c.kind === "gemini" || c.kind === "openrouter") return url && c.token?.trim() && c.model?.trim() ? new LlmBrain(openAiCompatChooser(url, c.token.trim(), c.model.trim())) : null;
+    if (c.kind === "gguf") return c.file ? new LlmBrain(await ggufFileChooser(c.file)) : null;
+    if (c.kind === "local") return new LlmBrain(localGgufChooser(url));
+    if (c.kind === "webllm") return new LlmBrain(await webLlmChooser(c.model?.trim() || undefined));
   } catch {
     return null;
   }
   return null;
+}
+
+/**
+ * Reads ?llm=hf|local|webllm from the page URL (llmUrl and llmModel optional). Null when absent or unknown.
+ * A URL parameter overrides the Settings choice, which is handy for testing.
+ */
+export function choiceFromQuery(search: string): LlmChoice | null {
+  const q = new URLSearchParams(search);
+  const kind = q.get("llm");
+  if (kind !== "hf" && kind !== "local" && kind !== "webllm" && kind !== "ollama") return null;
+  return { kind, url: q.get("llmUrl") ?? undefined, model: q.get("llmModel") ?? undefined };
+}
+
+export async function llmFromQuery(search: string): Promise<LlmBrain | null> {
+  const c = choiceFromQuery(search);
+  return c ? llmFromChoice(c) : null;
+}
+
+/** One tiny request to check the backend answers in the expected format. */
+export async function testLlm(chooser: (system: string, user: string) => Promise<string>): Promise<boolean> {
+  try { return parseChoice(await chooser(SYSTEM_PROMPT, "1. wander\n2. rest\nReply with one number."), 2) !== null; } catch { return false; }
 }

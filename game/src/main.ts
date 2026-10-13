@@ -1,7 +1,6 @@
 import "./ui/styles.css";
 import { Game } from "./app/Game";
 import { setMosaicData, MOSAIC } from "./content/mosaicscope";
-import { llmFromQuery, setLlm } from "./ai/llm";
 
 /**
  * Pull the live business details from the main site (content.json) and the real Instagram feed
@@ -44,8 +43,6 @@ try {
   const canvas = document.getElementById("world") as HTMLCanvasElement;
   const ui = document.getElementById("ui")!;
   if (!canvas.getContext("2d")) throw new Error("Your browser can't draw the world (canvas is unavailable).");
-  // optional model brain: ?llm=hf | local | webllm (absent = fully offline, as before)
-  llmFromQuery(location.search).then(setLlm);
   const game = new Game(canvas, ui);
   game.start();
   loadMosaicScope();

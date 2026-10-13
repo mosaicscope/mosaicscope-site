@@ -84,7 +84,7 @@ export function chooseGoal(c: Character, sim: Simulation): void {
   // weighted pick among the top three keeps behaviour varied but sensible (seeded rng)
   const top = candidates.slice(0, 3);
   // optional model brain (principals only): use its last fresh pick if it is still valid, then ask for the next one
-  const llm = getLlm();
+  const llm = getLlm(c.id);
   if (llm && c.tier === "principal") {
     const said = llm.take(c.id, now, new Set(candidates.map((x) => x.g.id)));
     const hit = said && candidates.find((x) => x.g.id === said);
