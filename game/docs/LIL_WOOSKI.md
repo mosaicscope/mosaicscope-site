@@ -1,6 +1,6 @@
 # Lil Wooski: the score
 
-Lil Wooski composes the game's music. Everything is original, synthesised live with Web Audio (no samples, no files, no paid tools, nothing imitates a real song or artist). It starts after the first click or key, **N mutes it**, and effects stay on.
+Lil Wooski composes the game's music, and the house sound is **chill lofi**: slow (about 50 to 90 bpm), warm, lazy-swung, soft brushed rim instead of a snare crack, gentle electric-piano and music-box voices with soft attacks, everything through a warm lowpass over quiet vinyl hiss. No risers, sweeps, buzzy saws or sudden hits (a scene change is just a soft breath in the level). Everything is original, synthesised live with Web Audio (no samples, no files, no paid tools, nothing imitates a real song or artist). It starts after the first click or key, **N mutes it**, and effects stay on.
 
 Code: `src/audio/Music.ts` (the player), `src/audio/Score.ts` (scenes, themes, leitmotifs, moods, inspo, live tint), `src/audio/LiveVibe.ts` + `functions/api/vibe.js` (live data). Hunter S Bombson owns diegetic and ambient sound effects (`Audio.ts`); this file is music only.
 
@@ -9,9 +9,9 @@ One theme per scene, chosen by priority: chase, Terrance, nightlife, recycling c
 
 | Scene | When | Sound |
 |---|---|---|
-| chase | wanted 2+ | dread scale, fast, driving drums, brass tritone siren motif |
-| terrance | near the red NPC | dread, brass, an insistent slightly wrong 4-note ostinato |
-| nightlife | party on, or inside a club | night scale, four-on-the-floor, keys hook |
+| chase | wanted 2+ | dread scale, a touch quicker and more insistent but still soft, tritone motif on soft keys |
+| terrance | near the red NPC | dread, soft keys, an insistent slightly wrong 4-note ostinato |
+| nightlife | party on, or inside a club | night scale, downtempo boom-bap, keys hook |
 | recycling | at or inside the recycling centre | bouncy marimba and mallets, clink-clink motif |
 | studio | at or inside the Studio | warm keys, rising arpeggio every 4th bar |
 | interior | inside any other building | muffled "through the wall" keys |
@@ -20,7 +20,7 @@ One theme per scene, chosen by priority: chase, Terrance, nightlife, recycling c
 | dawn | 05:00 to 07:30 | slow, sparse, bells |
 | city | otherwise | lazy jangle, moods follow the clock |
 
-**Transitions:** a new scene must hold for 2 bars before the music changes (no whiplash walking past a door), changes land on the bar line with the pad overlapping the old chord, and a filtered noise sweep rises into intense scenes and falls away from them. The chase is the exception and cuts in on the next bar.
+**Transitions:** a new scene must hold for 2 bars before the music changes (no whiplash walking past a door), changes land on the bar line with the pad overlapping the old chord, and the level eases down and back up in a soft breath (no risers or sweeps, which were jarring). The chase is the exception and cuts in on the next bar.
 
 ## Giving Lil Wooski inspiration
 Edit `src/audio/inspo.json` (or drop notes in the inbox below and he turns them into config on his next run).
@@ -56,6 +56,8 @@ Rules: live data only drives audio, never the simulation (so saves, tests and th
 
 ## The old master's critique
 Chris asked for a 10 every time. A real person's rating can't be produced here, so the review is a **fictional critic**, "the old master" (Lil Wooski's father in Chris's story, not a real person and not a real opinion). `src/audio/Critique.ts` plays each scene's generator offline for 32 bars and scores it 1 to 10 on six written criteria: **fit** (tempo, scale, busyness vs the scene's written intent), **memorability** (a recurring hook, a sensible pitch vocabulary), **storytelling** (scale colour matches the feeling), **transitions** (tempo jump from the city under 2x so the sweep can carry it), **mix** (loudness and drum share proxies from the engine's own envelope levels) and **restraint** (notes per second and silence gaps). It is a listening proxy, not ears: it catches wrong tempo, mud, nervousness and missing hooks, and cannot judge taste. Run it with `npm run critique`; the test suite fails if any shipped scene drops below 10 on any criterion.
+
+Chris then asked for much more chill, lofi sound (the first mix was jarring), so tempos, drum levels, timbres and transitions were all softened and a test now holds the whole score to a chill bar (tempo at most 95 bpm, soft drum levels).
 
 First pass, in character: "Nightlife is a shouting match: wrong scale, 11 notes a second, nine pitch classes where there should be a hook. Street is dragging its feet at 72. The chase fidgets (10.6 notes a second). The city hats too much. Fix those." After fixes (tempo, scale, density, hats, and removing the shipped `swagger` example that dragged nightlife out of its scale): all ten scenes score 10 on all six criteria. The old master has not heard the game in a real browser; ears still beat this check.
 

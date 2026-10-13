@@ -107,3 +107,15 @@ describe("the old master (fictional critic) reviews every scene", () => {
     expect(review("nightlife", { ...THEMES.nightlife, bpm: 0.6, flavour: "day", density: 0.1, drums: "none", motif: undefined }).total).toBeLessThan(8);
   });
 });
+
+import { LEVELS, scaleFor as scaleForChill } from "../src/audio/Music";
+describe("the score stays chill (lofi)", () => {
+  it("is slow, soft and never sharp", () => {
+    for (const [scene, th] of Object.entries(THEMES)) {
+      for (const f of (th.flavour ? [th.flavour] : ["day", "dusk", "night", "dread"] as const)) expect(scaleForChill(f).bpm * th.bpm, `${scene} ${f}`).toBeLessThanOrEqual(95);
+      expect(["tick", "none", "mallet", "shuffle", "club", "chase"]).toContain(th.drums);
+    }
+    expect(Math.max(LEVELS.snare, LEVELS.hatLo, LEVELS.hatHi)).toBeLessThanOrEqual(0.08);
+    expect(LEVELS.kick).toBeLessThanOrEqual(0.3);
+  });
+});

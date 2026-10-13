@@ -69,9 +69,9 @@ export function planStep(m: Mood, f: Flavour, bar: number, step: number, rand: (
   const dread = f === "dread";
   let kick = false, snare = false, hat: 0 | 1 | 2 = 0;
   switch (theme.drums) {
-    case "shuffle": kick = step === 0 || step === 7 || step === 10; snare = step === 4 || step === 12; hat = step % 2 === 0 ? 1 : (rand() < 0.4 ? 2 : 0); break;
-    case "club": kick = beat; snare = step === 4 || step === 12; hat = offbeat ? 1 : (rand() < 0.3 ? 2 : 0); break;
-    case "chase": kick = step === 0 || step === 6 || step === 8 || step === 14; snare = step === 4 || step === 12; hat = step % 4 === 2 ? 1 : 0; break;
+    case "shuffle": kick = step === 0 || step === 7 || step === 10; snare = step === 4 || step === 12; hat = step % 2 === 0 ? 2 : 0; break; // lazy boom-bap
+    case "club": kick = step === 0 || step === 8 || step === 10; snare = step === 4 || step === 12; hat = step % 2 === 0 ? 2 : 0; break;
+    case "chase": kick = step === 0 || step === 7 || step === 10; snare = step === 4 || step === 12; hat = step % 4 === 2 ? 1 : 0; break;
     case "mallet": kick = step === 0 && bar % 2 === 0; hat = offbeat ? 2 : 0; break;
     case "tick": kick = step === 0 && bar % 2 === 0; hat = offbeat && bar % 2 === 0 && !dread && m.rain < 0.5 ? 2 : 0; break;
     case "none": break;
@@ -85,8 +85,11 @@ export function planStep(m: Mood, f: Flavour, bar: number, step: number, rand: (
     const deg = sc.steps[Math.floor(rand() * sc.steps.length)];
     lead = sc.root + 12 + deg + (rand() < 0.15 ? 12 : 0);
   }
-  return { bass, lead, kick, snare, hat, motif, swing: step % 2 === 1 ? 0.035 : 0 };
+  return { bass, lead, kick, snare, hat, motif, swing: step % 2 === 1 ? 0.06 : 0 };
 }
+
+/** Peak levels of each voice. Soft by design (lofi): the critique's loudness proxy reads these too. */
+export const LEVELS = { kick: 0.26, snare: 0.07, hatLo: 0.018, hatHi: 0.032, bass: 0.24, lead: 0.08, motif: 0.11, pad: 0.09 };
 
 export const stepSeconds = (bpm: number): number => 60 / bpm / 4;
 
@@ -111,7 +114,9 @@ export class Music {
   mood: Mood = { hour: 17, rain: 0, storm: false, tension: 0, street: false, party: false };
 
   constructor(private ctx: AudioContext, dest: AudioNode) {
-    this.out = ctx.createGain(); this.out.gain.value = 0.55; this.out.connect(dest);
+    // everything runs through a warm lowpass ("tape"), so nothing can be harsh
+    const warm = ctx.createBiquadFilter(); warm.type = "lowpass"; warm.frequency.value = 3600; warm.Q.value = 0.4; warm.connect(dest);
+    this.out = ctx.createGain(); this.out.gain.value = 0.4; this.out.connect(warm);
   }
 
   get scene(): Scene { return this.tracker.scene; }
@@ -144,10 +149,10 @@ export class Music {
       const t = this.nextAt + s.swing * (th.drums === "shuffle" ? 1 : 0.4);
       if (s.kick) this.kick(t);
       if (s.snare) this.snare(t);
-      if (s.hat) this.hat(t, s.hat === 2 ? 0.05 : 0.09);
+      if (s.hat) this.hat(t, s.hat === 2 ? LEVELS.hatLo : LEVELS.hatHi);
       if (s.bass !== null) this.bass(t, s.bass, stepSeconds(sc.bpm * th.bpm) * 3);
       if (s.lead !== null) this.lead(t, s.lead, f, th.timbre);
-      if (s.motif !== null) this.lead(t, s.motif, f, th.timbre, 1.6);
+      if (s.motif !== null) this.lead(t, s.motif, f, th.timbre, LEVELS.motif / LEVELS.lead);
       this.nextAt += stepSeconds(sc.bpm * th.bpm);
       if (++this.step >= 16) { this.step = 0; this.bar++; }
     }
@@ -157,39 +162,32 @@ export class Music {
   private newBar(): void {
     const prev = this.tracker.update(this.mood);
     this.theme = resolveTheme(this.tracker.scene, this.inspo, this.live);
-    if (prev) this.swell(prev, this.tracker.scene);
+    if (prev) this.swell();
     const f = flavourFor(this.mood, this.theme);
     this.flavour = f;
     const sc = SCALES[f], chord = sc.chords[this.bar % sc.chords.length];
     const key = f + ":" + (this.bar % sc.chords.length);
     if (key !== this.chordKey) { this.chordKey = key; this.setPad(sc.root + chord[0], chord.slice(1), f); }
     this.ensureDrone(sc.root - 12);
+    this.ensureCrackle();
   }
 
-  /** Scene change: a filtered noise sweep, rising into the intense scenes and falling away from them. */
-  private swell(from: Scene, to: Scene): void {
-    const rank: Record<Scene, number> = { dawn: 0, rain: 0, interior: 0, city: 1, studio: 1, street2d: 2, recycling: 2, terrance: 3, nightlife: 3, chase: 4 };
-    const up = rank[to] >= rank[from], ctx = this.ctx, t = ctx.currentTime, dur = 1.2, n = Math.ceil(ctx.sampleRate * dur);
-    const buf = ctx.createBuffer(1, n, ctx.sampleRate), d = buf.getChannelData(0);
-    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
-    const src = ctx.createBufferSource(); src.buffer = buf;
-    const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.Q.value = 1.2;
-    f.frequency.setValueAtTime(up ? 300 : 3000, t); f.frequency.exponentialRampToValueAtTime(up ? 3000 : 300, t + dur);
-    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(up ? 0.07 : 0.04, t + (up ? dur * 0.9 : 0.15)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(f); f.connect(g); g.connect(this.out); src.start(t);
+  /** Scene change: no risers or sweeps, just a soft breath: the level eases down for a beat and back up. */
+  private swell(): void {
+    const g = this.out.gain, t = this.ctx.currentTime;
+    g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(0.22, t + 0.6); g.linearRampToValueAtTime(0.4, t + 2.2);
   }
 
   private setPad(root: number, tones: number[], f: Flavour): void {
     const ctx = this.ctx, t = ctx.currentTime, dur = stepSeconds(SCALES[f].bpm) * 16;
-    const filter = ctx.createBiquadFilter(); filter.type = "lowpass"; filter.frequency.value = 900; filter.Q.value = 0.7;
+    const filter = ctx.createBiquadFilter(); filter.type = "lowpass"; filter.frequency.value = 700; filter.Q.value = 0.5;
     const gain = ctx.createGain(); gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.linearRampToValueAtTime(f === "dread" ? 0.07 : 0.1, t + dur * 0.35);
+    gain.gain.linearRampToValueAtTime(f === "dread" ? LEVELS.pad * 0.75 : LEVELS.pad, t + dur * 0.4);
     gain.gain.linearRampToValueAtTime(0.0001, t + dur * 1.1);
     const oscs: OscillatorNode[] = [];
     for (const [i, n] of [0, ...tones].entries()) {
-      for (const det of [-9, 9]) {
-        const o = ctx.createOscillator(); o.type = f === "day" ? "triangle" : "sawtooth";
+      for (const det of [-7, 7]) {
+        const o = ctx.createOscillator(); o.type = "triangle"; // soft, no saw buzz
         o.frequency.value = mtof(root + n + (i === 0 ? 12 : 12)); o.detune.value = det;
         o.connect(filter); o.start(t); o.stop(t + dur * 1.15); oscs.push(o);
       }
@@ -197,6 +195,19 @@ export class Music {
     filter.connect(gain); gain.connect(this.out);
     this.pad = { oscs, gain, filter };
     this.setMood(this.mood);
+  }
+
+  /** Quiet vinyl hiss and the odd soft pop, always on: the lofi bed. */
+  private crackle = false;
+  private ensureCrackle(): void {
+    if (this.crackle) return;
+    this.crackle = true;
+    const ctx = this.ctx, n = ctx.sampleRate * 4, buf = ctx.createBuffer(1, n, ctx.sampleRate), d = buf.getChannelData(0), r = rng(0xBEEF);
+    for (let i = 0; i < n; i++) d[i] = (r() * 2 - 1) * 0.25 + (r() < 0.0004 ? (r() * 2 - 1) * 2 : 0);
+    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 2600; f.Q.value = 0.3;
+    const g = ctx.createGain(); g.gain.value = 0.02;
+    src.connect(f); f.connect(g); g.connect(this.out); src.start();
   }
 
   private ensureDrone(midi: number): void {
@@ -213,16 +224,16 @@ export class Music {
     this.drone.osc.frequency.setTargetAtTime(mtof(midi), ctx.currentTime, 0.8);
   }
 
-  private env(t: number, peak: number, dur: number): GainNode {
+  private env(t: number, peak: number, dur: number, attack = 0.012): GainNode {
     const g = this.ctx.createGain();
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     g.connect(this.out); return g;
   }
 
   private kick(t: number): void {
-    const o = this.ctx.createOscillator(), g = this.env(t, 0.5, 0.22);
-    o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.18);
-    o.connect(g); o.start(t); o.stop(t + 0.25);
+    const o = this.ctx.createOscillator(), g = this.env(t, LEVELS.kick, 0.3, 0.015);
+    o.frequency.setValueAtTime(95, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.2);
+    o.connect(g); o.start(t); o.stop(t + 0.35);
   }
 
   private noiseBurst(t: number, dur: number, type: BiquadFilterType, freq: number, peak: number): void {
@@ -233,30 +244,32 @@ export class Music {
     src.connect(f); f.connect(this.env(t, peak, dur)); src.start(t);
   }
 
-  private snare(t: number): void { this.noiseBurst(t, 0.16, "bandpass", 1800, 0.22); }
-  private hat(t: number, v: number): void { this.noiseBurst(t, 0.04, "highpass", 7000, v); }
+  private snare(t: number): void { this.noiseBurst(t, 0.2, "bandpass", 1100, LEVELS.snare); } // a soft brushed rim, not a crack
+  private hat(t: number, v: number): void { this.noiseBurst(t, 0.05, "bandpass", 5200, v); }
 
   private bass(t: number, midi: number, dur: number): void {
     const o = this.ctx.createOscillator(); o.type = "triangle"; o.frequency.value = mtof(midi);
-    const g = this.env(t, 0.32, dur); o.connect(g); o.start(t); o.stop(t + dur + 0.05);
+    const g = this.env(t, LEVELS.bass, dur, 0.03); o.connect(g); o.start(t); o.stop(t + dur + 0.05);
   }
 
   /** Pluck by day, glassy detuned bell at night and in dread; brass, marimba and keys colour the special scenes. */
   private lead(t: number, midi: number, f: Flavour, timbre: Timbre = "pluck", gain = 1): void {
     const ctx = this.ctx, fq = mtof(midi), tone = (type: OscillatorType, mul: number, peak: number, dur: number, lp?: number): void => {
       const o = ctx.createOscillator(); o.type = type; o.frequency.value = fq * mul;
-      const g = this.env(t, peak * gain, dur);
+      const g = this.env(t, peak * gain, dur, 0.025);
       if (lp) { const fl = ctx.createBiquadFilter(); fl.type = "lowpass"; fl.frequency.value = lp; o.connect(fl); fl.connect(g); } else o.connect(g);
       o.start(t); o.stop(t + dur + 0.05);
     };
+    // every voice has a soft attack and a lowpass: warm electric-piano and music-box colours, nothing sharp
+    const L = LEVELS.lead;
     switch (timbre) {
-      case "brass": tone("sawtooth", 1, 0.06, 0.28, 1400); tone("square", 1.003, 0.03, 0.28, 900); break;
-      case "marimba": tone("sine", 1, 0.12, 0.22); tone("triangle", 4, 0.03, 0.08); break;
-      case "keys": tone("triangle", 1, 0.09, 0.7); tone("sine", 2, 0.03, 0.4); break;
-      case "bell": tone("sine", 1, 0.1, 1.2); tone("sine", f === "dread" ? 1.4142 : 2.005, 0.03, 0.9); break;
+      case "brass": tone("triangle", 1, L * 0.9, 0.9, 1100); tone("sine", 2, L * 0.25, 0.5); break;   // a soft "rhodes" for the tense scenes
+      case "marimba": tone("sine", 1, L * 1.1, 0.5, 1800); tone("triangle", 2, L * 0.2, 0.2, 1500); break;
+      case "keys": tone("triangle", 1, L, 1.1, 1400); tone("sine", 2, L * 0.3, 0.7); break;
+      case "bell": tone("sine", 1, L, 1.6, 2000); tone("sine", f === "dread" ? 1.4142 : 2.005, L * 0.25, 1.1, 2000); break;
       default:
-        tone("sine", 1, f === "dread" ? 0.07 : 0.1, f === "day" ? 0.5 : 1.1);
-        if (f !== "day") tone("sine", f === "dread" ? 1.4142 : 2.005, 0.03, 0.9);
+        tone("sine", 1, f === "dread" ? L * 0.75 : L, f === "day" ? 0.8 : 1.3, 1800);
+        if (f !== "day") tone("sine", f === "dread" ? 1.4142 : 2.005, L * 0.25, 1.0, 2000);
     }
   }
 }

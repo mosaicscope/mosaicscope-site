@@ -23,16 +23,16 @@ export interface Theme {
 }
 
 export const THEMES: Record<Scene, Theme> = {
-  city: { bpm: 1, drums: "tick", density: 0.85, bright: 1, timbre: "pluck" },
-  dawn: { flavour: "day", bpm: 0.85, drums: "none", density: 0.7, bright: 0.8, timbre: "bell" },
-  rain: { bpm: 0.92, drums: "none", density: 0.6, bright: 0.6, timbre: "bell" },
-  street2d: { bpm: 1.15, drums: "shuffle", density: 1.3, bright: 1.25, timbre: "pluck" },
+  city: { bpm: 0.92, drums: "tick", density: 0.85, bright: 1, timbre: "pluck" },
+  dawn: { flavour: "day", bpm: 0.82, drums: "none", density: 0.7, bright: 0.8, timbre: "bell" },
+  rain: { bpm: 0.88, drums: "none", density: 0.6, bright: 0.6, timbre: "bell" },
+  street2d: { bpm: 0.95, drums: "shuffle", density: 1, bright: 1, timbre: "pluck" },
   interior: { bpm: 0.9, drums: "none", density: 0.8, bright: 0.55, timbre: "keys" },
-  nightlife: { flavour: "night", bpm: 1.5, drums: "club", density: 2, bright: 1.3, timbre: "keys", motif: "club" },
-  chase: { flavour: "dread", bpm: 1.9, drums: "chase", density: 1, bright: 1.4, timbre: "brass", motif: "police" },
-  recycling: { flavour: "day", bpm: 1.25, drums: "mallet", density: 1.3, bright: 1.1, timbre: "marimba", motif: "recycling" },
-  terrance: { flavour: "dread", bpm: 1.1, drums: "tick", density: 0.8, bright: 1, timbre: "brass", motif: "terrance" },
-  studio: { flavour: "day", bpm: 1, drums: "tick", density: 0.9, bright: 0.9, timbre: "keys", motif: "studio" },
+  nightlife: { flavour: "night", bpm: 1.1, drums: "club", density: 1.6, bright: 1, timbre: "keys", motif: "club" },
+  chase: { flavour: "dread", bpm: 1.25, drums: "chase", density: 0.8, bright: 1, timbre: "brass", motif: "police" },
+  recycling: { flavour: "day", bpm: 0.95, drums: "mallet", density: 1.1, bright: 1, timbre: "marimba", motif: "recycling" },
+  terrance: { flavour: "dread", bpm: 1.05, drums: "tick", density: 0.8, bright: 1, timbre: "brass", motif: "terrance" },
+  studio: { flavour: "day", bpm: 0.9, drums: "tick", density: 0.9, bright: 0.9, timbre: "keys", motif: "studio" },
 };
 
 /**
