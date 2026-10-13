@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mosaic Stats</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0e0b0a; --paper: #eee4d3; --face: #c9c4bc; --face-dark: #8a8580; --hi: #fff8ea;
+    --neon: #c6ff3d; --pink: #ff7ad9; --cyan: #3dd6ff; --amber: #f6b62c; --red: #ec2a1c;
+    --desk-a: #1a1230; --desk-b: #2a1738;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --desk-a: #3c2a5e; --desk-b: #1d1433; } }
+  :root[data-theme="dark"] { --desk-a: #1a1230; --desk-b: #2a1738; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; color: var(--ink);
+    background: radial-gradient(ellipse at 30% 20%, var(--desk-b), var(--desk-a) 70%) fixed;
+    overflow: hidden; min-height: 100vh;
+  }
+  /* scanlines over the whole monitor */
+  body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 99;
+    background: repeating-linear-gradient(to bottom, rgba(0,0,0,.14) 0 1px, transparent 1px 3px); }
+
+  /* desktop icons */
+  .icons { position: fixed; top: 14px; left: 14px; display: grid; gap: 18px; z-index: 1; }
+  .icon { width: 92px; text-align: center; color: var(--paper); font-size: 12px; cursor: pointer; user-select: none; background: none; border: 0; font-family: inherit; }
+  .icon .glyph { width: 52px; height: 52px; margin: 0 auto 6px; border: 2px solid var(--ink); background: var(--face); box-shadow: 3px 3px 0 var(--ink); display: grid; place-items: center; font-size: 26px; }
+  .icon:focus-visible { outline: 2px dashed var(--neon); outline-offset: 4px; }
+  .icon span { background: rgba(14,11,10,.55); padding: 1px 4px; }
+
+  /* windows */
+  .win { position: fixed; z-index: 2; background: var(--face); border: 2px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); display: flex; flex-direction: column; min-width: 0; }
+  .win[hidden] { display: none; }
+  .titlebar { background: linear-gradient(90deg, #1c2836, #6b3a8a); color: var(--paper); display: flex; align-items: center; gap: 8px; padding: 4px 6px; cursor: move; user-select: none; touch-action: none; font-weight: 800; font-size: 13px; letter-spacing: .04em; }
+  .titlebar .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wbtn { width: 20px; height: 18px; border: 2px solid var(--ink); background: var(--face); color: var(--ink); font-family: inherit; font-weight: 800; font-size: 11px; line-height: 1; cursor: pointer; padding: 0; box-shadow: 1px 1px 0 var(--ink); }
+  .wbtn:active { box-shadow: none; transform: translate(1px,1px); }
+  .menu { display: flex; gap: 14px; padding: 3px 8px; border-bottom: 2px solid var(--ink); font-size: 12px; background: var(--face); }
+  .menu span { cursor: default; }
+  .body { padding: 10px; overflow: auto; background: var(--paper); flex: 1; min-height: 0; }
+  .status { border-top: 2px solid var(--ink); padding: 3px 8px; font-size: 11px; background: var(--face); display: flex; justify-content: space-between; gap: 10px; }
+
+  /* stat tiles */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+  .tile { border: 2px solid var(--ink); background: var(--hi); padding: 8px; box-shadow: 3px 3px 0 var(--ink); }
+  .tile .k { font-size: 11px; color: #4a3f3a; text-transform: uppercase; letter-spacing: .05em; }
+  .tile .v { font-size: 26px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; word-break: break-word; }
+  .tile.hot .v { color: var(--red); }
+  .tile.pink .v { color: #b0269a; }
+  .tile.cyan .v { color: #0c7aa0; }
+
+  /* chart */
+  .chart-title { margin: 14px 0 6px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+  .chart { border: 2px solid var(--ink); background: #1d1433; padding: 10px 8px 6px; display: flex; align-items: flex-end; gap: 3px; height: 180px; box-shadow: inset 0 0 0 2px #0e0b0a; }
+  .bar { flex: 1; min-width: 4px; background: linear-gradient(to top, #b0269a, var(--pink)); border: 1px solid #0e0b0a; position: relative; cursor: default; }
+  .bar.empty { background: #3a2f55; }
+  .bar:hover { background: var(--neon); }
+  .bar .tip { display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: var(--hi); color: var(--ink); border: 2px solid var(--ink); padding: 2px 6px; white-space: nowrap; font-size: 11px; margin-bottom: 4px; z-index: 3; }
+  .bar:hover .tip { display: block; }
+  .axis { display: flex; justify-content: space-between; font-size: 10px; color: #4a3f3a; margin-top: 4px; }
+
+  /* table */
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+  th, td { border: 1px solid var(--ink); padding: 3px 6px; text-align: right; font-variant-numeric: tabular-nums; }
+  th { background: var(--face); text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  tr:nth-child(even) td { background: #f6efdf; }
+
+  .note { padding: 10px; border: 2px dashed var(--ink); background: #fff3c4; font-size: 13px; }
+
+  /* taskbar */
+  .taskbar { position: fixed; left: 0; right: 0; bottom: 0; height: 40px; z-index: 50; background: var(--face); border-top: 2px solid var(--ink); display: flex; align-items: center; gap: 8px; padding: 0 6px; }
+  .start { font-weight: 800; border: 2px solid var(--ink); background: var(--face); padding: 3px 10px; box-shadow: 2px 2px 0 var(--ink); font-family: inherit; font-size: 13px; cursor: pointer; }
+  .start:active { box-shadow: none; transform: translate(1px,1px); }
+  .task { border: 2px solid var(--ink); background: var(--hi); padding: 3px 10px; font-size: 12px; font-family: inherit; cursor: pointer; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .task[aria-pressed="true"] { background: #fff; box-shadow: inset 2px 2px 0 var(--ink); }
+  .clock { margin-left: auto; font-size: 12px; font-variant-numeric: tabular-nums; border: 2px solid var(--ink); padding: 3px 8px; background: var(--paper); }
+
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  /* small screens: windows take the whole screen, icons stay out of the way */
+  @media (max-width: 720px) {
+    .icons { position: static; grid-template-columns: repeat(4, 1fr); padding: 14px 14px 0; gap: 10px; }
+    .icon { width: auto; }
+    .win { left: 8px !important; right: 8px; top: 8px !important; width: auto !important; height: auto !important; max-height: calc(100vh - 110px); }
+    .win.max { max-height: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+
+<nav class="icons" aria-label="Desktop">
+  <button class="icon" data-open="stats" type="button"><div class="glyph" aria-hidden="true">📊</div><span>My Stats</span></button>
+  <button class="icon" data-open="crew" type="button"><div class="glyph" aria-hidden="true">🎭</div><span>The Crew</span></button>
+  <button class="icon" data-open="about" type="button"><div class="glyph" aria-hidden="true">📝</div><span>README</span></button>
+  <button class="icon" data-open="bin" type="button"><div class="glyph" aria-hidden="true">🗑️</div><span>Recycle Bin</span></button>
+</nav>
+
+<!-- MAIN WINDOW: last 30 days -->
+<section class="win" id="w-stats" aria-label="My Stats" style="left:150px; top:40px; width:min(820px, calc(100vw - 170px)); height:min(640px, calc(100vh - 110px));">
+  <div class="titlebar" data-drag><span class="t">📊 My Stats · last 30 days</span>
+    <button class="wbtn" data-min type="button" aria-label="Minimise">_</button>
+    <button class="wbtn" data-max type="button" aria-label="Maximise">□</button>
+    <button class="wbtn" data-close type="button" aria-label="Close">×</button>
+  </div>
+  <div class="menu"><span>File</span><span>View</span><span>Refresh</span><span>Help</span></div>
+  <div class="body" id="stats-body"><p>Connecting to the crew's books…</p></div>
+  <div class="status"><span id="stat-msg">loading</span><span id="stat-when"></span></div>
+</section>
+
+<!-- CREW WINDOW -->
+<section class="win" id="w-crew" aria-label="The Crew" hidden style="left:200px; top:90px; width:min(420px, calc(100vw - 230px)); height:min(300px, calc(100vh - 160px));">
+  <div class="titlebar" data-drag><span class="t">🎭 The Crew · cheat sheet</span>
+    <button class="wbtn" data-min type="button" aria-label="Minimise">_</button>
+    <button class="wbtn" data-max type="button" aria-label="Maximise">□</button>
+    <button class="wbtn" data-close type="button" aria-label="Close">×</button>
+  </div>
+  <div class="body">
+    <p><b>Tiles</b> (main guy), <b>Glitter</b> (his girl), plus Kodak, Nova, Grain, Ruby, Flash, Lux, Bando and Honey.</p>
+    <p>Music off: they live their lives. Music on: they party under the disco ball. Tap or hover anyone to see their name.</p>
+  </div>
+</section>
+
+<!-- README WINDOW -->
+<section class="win" id="w-about" aria-label="README" hidden style="left:260px; top:130px; width:min(440px, calc(100vw - 290px)); height:min(260px, calc(100vh - 200px));">
+  <div class="titlebar" data-drag><span class="t">📝 README.txt</span>
+    <button class="wbtn" data-min type="button" aria-label="Minimise">_</button>
+    <button class="wbtn" data-max type="button" aria-label="Maximise">□</button>
+    <button class="wbtn" data-close type="button" aria-label="Close">×</button>
+  </div>
+  <div class="body">
+    <p>Every number here is anonymous and kept for 30 days. Nothing is sent that identifies anyone.</p>
+    <p>The raw JSON is at <a href="/api/egg?format=json">/api/egg?format=json</a>.</p>
+  </div>
+</section>
+
+<!-- BIN WINDOW -->
+<section class="win" id="w-bin" aria-label="Recycle Bin" hidden style="left:320px; top:170px; width:min(320px, calc(100vw - 350px)); height:min(170px, calc(100vh - 240px));">
+  <div class="titlebar" data-drag><span class="t">🗑️ Recycle Bin</span>
+    <button class="wbtn" data-min type="button" aria-label="Minimise">_</button>
+    <button class="wbtn" data-max type="button" aria-label="Maximise">□</button>
+    <button class="wbtn" data-close type="button" aria-label="Close">×</button>
+  </div>
+  <div class="body"><p>Empty. The crew keeps everything.</p></div>
+</section>
+
+<footer class="taskbar" aria-label="Taskbar">
+  <button class="start" id="start" type="button" aria-haspopup="true" aria-expanded="false">▶ Start</button>
+  <div id="tasks" style="display:flex; gap:6px; overflow:hidden;"></div>
+  <div class="clock" id="clock" aria-live="off">--:--</div>
+</footer>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const fmt = (n) => (typeof n === "number" ? n.toLocaleString("en-NZ") : "0");
+  const fmtTime = (s) => {
+    s = Math.max(0, +s || 0);
+    if (s < 60) return Math.round(s) + "s";
+    const m = Math.floor(s / 60), r = Math.round(s % 60);
+    return m + "m " + String(r).padStart(2, "0") + "s";
+  };
+  const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  // ---- window manager: open, focus, drag, minimise, maximise, close ----
+  let z = 10;
+  const wins = $$(".win");
+  const tasks = $("#tasks");
+  const taskFor = (w) => $(`.task[data-for="${w.id}"]`, tasks);
+  function focusWin(w) {
+    wins.forEach((x) => x.style.zIndex = 2);
+    w.style.zIndex = ++z;
+    $$(".task").forEach((t) => t.setAttribute("aria-pressed", t.dataset.for === w.id ? "true" : "false"));
+  }
+  function openWin(id) {
+    const w = document.getElementById("w-" + id);
+    if (!w) return;
+    w.hidden = false;
+    if (!taskFor(w)) {
+      const b = document.createElement("button");
+      b.className = "task"; b.type = "button"; b.dataset.for = w.id;
+      b.textContent = w.getAttribute("aria-label");
+      b.addEventListener("click", () => {
+        if (w.hidden) { w.hidden = false; focusWin(w); }
+        else if (w.style.zIndex == z) { w.hidden = true; b.setAttribute("aria-pressed", "false"); }
+        else focusWin(w);
+      });
+      tasks.appendChild(b);
+    }
+    focusWin(w);
+  }
+  function closeWin(w) { w.hidden = true; const t = taskFor(w); if (t) { t.remove(); } }
+  wins.forEach((w) => {
+    w.addEventListener("pointerdown", () => focusWin(w));
+    const bar = $("[data-drag]", w);
+    let drag = null;
+    bar.addEventListener("pointerdown", (e) => {
+      if (e.target.closest(".wbtn") || w.classList.contains("max")) return;
+      drag = { x: e.clientX, y: e.clientY, l: w.offsetLeft, t: w.offsetTop };
+      bar.setPointerCapture(e.pointerId);
+    });
+    bar.addEventListener("pointermove", (e) => {
+      if (!drag) return;
+      const nl = Math.max(0, drag.l + e.clientX - drag.x), nt = Math.max(0, drag.t + e.clientY - drag.y);
+      w.style.left = nl + "px"; w.style.top = nt + "px";
+    });
+    const end = () => { drag = null; };
+    bar.addEventListener("pointerup", end); bar.addEventListener("pointercancel", end);
+    $("[data-close]", w).addEventListener("click", () => closeWin(w));
+    $("[data-min]", w).addEventListener("click", () => { w.hidden = true; const t = taskFor(w); if (t) t.setAttribute("aria-pressed", "false"); });
+    $("[data-max]", w).addEventListener("click", () => w.classList.toggle("max"));
+  });
+  $$(".icon").forEach((b) => b.addEventListener("click", () => openWin(b.dataset.open)));
+  $$(".icon").forEach((b) => b.addEventListener("dblclick", () => openWin(b.dataset.open)));
+  $("#start").addEventListener("click", (e) => {
+    const exp = e.currentTarget.getAttribute("aria-expanded") === "true";
+    e.currentTarget.setAttribute("aria-expanded", String(!exp));
+    openWin("stats");
+  });
+
+  // ---- clock ----
+  const tick = () => { $("#clock").textContent = new Date().toLocaleTimeString("en-NZ", { hour: "2-digit", minute: "2-digit" }); };
+  tick(); setInterval(tick, 15000);
+
+  // ---- stats ----
+  const tiles = (t) => [
+    ["People who found the crew", fmt(t.peopleWhoFoundTheCrew), "", ""],
+    ["Average time watching", fmtTime(t.averageSecondsWatching), "cyan", ""],
+    ["People who clicked them", fmt(t.peopleWhoClickedThem), "pink", ""],
+    ["Total clicks", fmt(t.totalClicks), "", ""],
+    ["Music started", fmt(t.timesTheyStartedTheMusic), "", ""],
+    ["Times it rained", fmt(t.timesItRained), "cyan", ""],
+    ["Photoshoots", fmt(t.photoshootsTriggered), "pink", ""],
+    ["Cash throws", fmt(t.cashThrows), "hot", ""],
+    ["Boombox clicks", fmt(t.boomboxClicks), "", ""],
+    ["Biggest crew seen", fmt(t.biggestCrewSeen), "", ""],
+    ["Highest scene level", fmt(t.highestSceneLevel), "hot", ""],
+  ];
+
+  function chart(byDay) {
+    // oldest on the left, most recent on the right, 30 slots
+    const rows = byDay.slice().sort((a, b) => a.date.localeCompare(b.date));
+    const max = Math.max(1, ...rows.map((r) => r.visitors || 0));
+    const bars = rows.map((r) => {
+      const h = Math.max(2, Math.round(((r.visitors || 0) / max) * 100));
+      const empty = !r.visitors ? " empty" : "";
+      return `<div class="bar${empty}" style="height:${h}%" role="img" aria-label="${esc(r.date)}: ${fmt(r.visitors || 0)} visitors"><span class="tip">${esc(r.date.slice(5))} · ${fmt(r.visitors || 0)} visitors</span></div>`;
+    }).join("");
+    const first = rows[0] ? rows[0].date.slice(5) : "", last = rows[rows.length - 1] ? rows[rows.length - 1].date.slice(5) : "";
+    return `<div class="chart-title">Visitors per day</div>
+      <div class="chart" role="img" aria-label="Visitors per day for the last ${rows.length} days">${bars || '<div class="bar empty" style="height:4%"></div>'}</div>
+      <div class="axis"><span>${esc(first)}</span><span>${esc(last)}</span></div>`;
+  }
+
+  function table(byDay) {
+    const recent = byDay.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10);
+    if (!recent.length) return "";
+    const rows = recent.map((r) => `<tr><td>${esc(r.date)}</td><td>${fmt(r.visitors || 0)}</td><td>${fmt(r.clicks || 0)}</td><td>${fmt(r.plays || 0)}</td><td>${fmt(r.boombox || 0)}</td></tr>`).join("");
+    return `<div class="chart-title">Last 10 days with visitors</div>
+      <table><thead><tr><th>Date</th><th>Visitors</th><th>Clicks</th><th>Music</th><th>Boombox</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  async function load() {
+    const body = $("#stats-body"), msg = $("#stat-msg"), when = $("#stat-when");
+    try {
+      const res = await fetch("/api/egg?format=json", { headers: { Accept: "application/json" }, cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      if (data.note) {
+        body.innerHTML = `<div class="note">${esc(data.note)}</div>`;
+        msg.textContent = "stats are off";
+      } else {
+        const t = data.last30days || {};
+        const by = Array.isArray(data.byDay) ? data.byDay : [];
+        body.innerHTML = `<div class="grid">${tiles(t).map(([k, v, cls]) => `<div class="tile ${cls}"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join("")}</div>
+          ${chart(by)}
+          ${table(by)}`;
+        msg.textContent = `${fmt(t.peopleWhoFoundTheCrew || 0)} visitors · ${by.length} active days`;
+      }
+      when.textContent = "updated " + new Date().toLocaleTimeString("en-NZ", { hour: "2-digit", minute: "2-digit" });
+    } catch (err) {
+      body.innerHTML = `<div class="note">Couldn't reach the stats right now (${esc(err.message)}). Try Refresh in a minute.</div>`;
+      msg.textContent = "offline";
+    }
+  }
+
+  // refresh from the menu bar, and every 5 minutes while the window is open
+  $("#w-stats .menu span:nth-child(3)").addEventListener("click", load);
+  setInterval(() => { if (!$("#w-stats").hidden) load(); }, 5 * 60 * 1000);
+
+  openWin("stats");
+  load();
+})();
+</script>
+</body>
+</html>

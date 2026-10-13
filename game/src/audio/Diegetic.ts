@@ -18,6 +18,7 @@ import type { BuildingKind } from "../content/buildings";
 import type { VehicleClass } from "../content/vehicles";
 import type { Simulation } from "../sim/Simulation";
 import type { Camera } from "../render/Camera";
+import { carMutationOf } from "../render/CarMutation";
 import { DEFAULT_VOICE, DEFAULT_FOOT, DEFAULT_AMBIENCE, voiceAllowed, voicePitch, voiceDuration, voiceTone, footGain, shoePitch, ambienceGain } from "./Prefs";
 import { UI_TONES, uiGain } from "./Prefs";
 import type { VoicePrefs, FootPrefs, AmbiencePrefs, UiTone } from "./Prefs";
@@ -933,12 +934,13 @@ export class Diegetic {
       const v = veh.get(c.id)!, p = ENGINE[v.cls], top = 12;
       const s = clamp01(c.spd / top);
       const mine = c.id === myCar;
-      const f = engineFreq(p, c.spd, top) * dopplerRate(c.rad);
+      const M = carMutationOf(v.plate, v.cls);   // bigger cars sound lower and heavier (visual size only, see CarMutation.ts)
+      const f = engineFreq(p, c.spd, top) * dopplerRate(c.rad) * M.pitch;
       e.a.frequency.setTargetAtTime(f, t, 0.06); e.b.frequency.setTargetAtTime(f * 0.5, t, 0.06);
       e.filt.frequency.setTargetAtTime(p.cut * (0.55 + s * 0.9) * (mine ? 0.55 : 1), t, 0.1);
       e.lfo.frequency.setTargetAtTime(7 + s * 12, t, 0.1); e.lfoDepth.gain.setTargetAtTime(p.burble, t, 0.1);
       const idle = c.spd < 0.4;
-      e.amp.gain.setTargetAtTime(c.sp.gain * (mine ? 0.2 : 0.14) * (idle ? 0.55 : 0.65 + s * 0.6), t, 0.07);
+      e.amp.gain.setTargetAtTime(c.sp.gain * (mine ? 0.2 : 0.14) * (idle ? 0.55 : 0.65 + s * 0.6) * M.rumble, t, 0.07);
       e.road.gain.setTargetAtTime(c.sp.gain * clamp01(c.spd / 7) ** 1.4 * (0.04 + wet * 0.07), t, 0.08);
       if (e.pan) e.pan.pan.setTargetAtTime(mine ? 0 : c.sp.pan, t, 0.05);
     }

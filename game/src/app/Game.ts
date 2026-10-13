@@ -9,6 +9,7 @@ import { RoastBattle } from "../ui/minigames/Roast";
 import { BurgerShift } from "../ui/minigames/Burger";
 import "../ui/minigames/minigames.css";
 import { Travel } from "../ui/Travel";
+import { HeistUI } from "../ui/Heist";
 import "../ui/travel.css";
 import { Minimap } from "../ui/Minimap";
 import { ROLE_LABEL } from "../content/names";
@@ -189,7 +190,6 @@ export class Game {
     document.addEventListener("touchend", (e) => { const n = Date.now(); if (n - lastTouchEnd < 350 && (e.target as HTMLElement | null)?.closest?.("input,textarea,button,.tc") == null) e.preventDefault(); lastTouchEnd = n; }, { passive: false });
     document.addEventListener("touchmove", (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
     document.addEventListener("selectstart", (e) => { if (!(e.target as HTMLElement | null)?.closest?.("input,textarea")) e.preventDefault(); });
-    addEventListener("orientationchange", () => setTimeout(() => this.rescueZoom(), 350));
     addEventListener("error", (e) => this.fault("window", e.error ?? e.message));
     addEventListener("unhandledrejection", (e) => this.fault("promise", e.reason));
     this.loadEmpire();
@@ -608,7 +608,6 @@ export class Game {
       else if (key === "j") { this.settings.sfx = !this.settings.sfx; this.applySettings(); this.persistSettings(); this.toast(this.settings.sfx ? "World sounds on (J)" : "World sounds off (J). N still mutes the music", ""); }
       else if (key === k.dev || key === "~") this.dev.toggle();
       else if (key === "c") { this.renderer.cam.follow = this.sim.playerId; }
-      else if (key === "v") this.toggle2D();
       else if (key === "o") this.photos.open();
       else if (key === "=" || key === "+") this.renderer.cam.setZoom(this.renderer.cam.targetZoom * 1.2);
       else if (key === "-") this.renderer.cam.setZoom(this.renderer.cam.targetZoom / 1.2);
@@ -907,23 +906,6 @@ export class Game {
     this.focus(c.nickname ? `${first} "${c.nickname}"` : first, label, 0, true);
   }
 
-  /** On phones, if the camera ends up absurdly close (rotation, stuck pinch, finished cinematic) pull it back. */
-  private rescueZoom(): void {
-    if (!matchMedia("(pointer: coarse)").matches) return;
-    const cam = this.renderer.cam;
-    if (this.focusEl.classList.contains("on")) return;
-    if (cam.targetZoom > 3.4 && !this.userWanted2D) cam.setZoom(1.5);
-  }
-  private userWanted2D = false;
-
-  /** V / the 2D button: jump between the 3D city and the 2D street view. */
-  private toggle2D(): void {
-    const cam = this.renderer.cam;
-    this.userWanted2D = cam.targetZoom <= 3;
-    cam.setZoom(cam.targetZoom > 3 ? 1.5 : 4);
-    cam.follow = this.sim.playerId;
-  }
-
   // ------------------------------------------------------------------ luxury & the zoo
   private luxury = new Luxury({ getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; this.saveEmpire(); }, toast: (t) => this.toast(t, "acid") });
   private saveEmpire(): void { try { localStorage.setItem("mosaics-world:empire", JSON.stringify(this.luxury.empire)); } catch { /* private mode */ } }
@@ -965,7 +947,6 @@ export class Game {
       else if (n === "bandage") this.bandage();
       else if (n === "horn") sim.bus.emit("sound", { kind: "horn", x: p.x, y: p.y, vol: 0.8 });
       else if (n === "map") this.minimap.toggle();
-      else if (n === "view2d") this.toggle2D();
       else if (n === "pickup") this.act("pickup");
       else if (n === "drop") this.act("drop");
       else if (n === "sprint") { p.speed = Math.min(3, p.speed * 1.35); setTimeout(() => { p.speed = Math.max(1.6, p.speed / 1.35); }, 2500); }
@@ -1038,6 +1019,7 @@ export class Game {
   private minimap = new Minimap(() => this.sim);
   private roast = new RoastBattle((r) => { if (r.won) { this.sim.player.cash += 150; this.focus("You won the roast", `Crowd ${Math.round(r.crowd)}% · +$150 · Roastie respects you now`, 3.5); } else this.focus("Roasted", "Roastie Malone wins this one. Run it back.", 3); });
   private burger = new BurgerShift((r) => { this.sim.player.cash += r.pay; this.toast(`Shift done: ${r.orders} orders, ${r.perfect} perfect. Paid ${fmtCash(r.pay)}`, "acid"); this.focus("Shift over", `Lyttelton Diner paid you ${fmtCash(r.pay)}`, 3); });
+  private heist = new HeistUI(this.modal);
   private travel = new Travel({
     getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; },
     companions: () => this.sim.chars.filter((c) => c.tier === "principal" && c.name !== "Chris").map((c) => ({ name: c.name, color: c.look.color })),
@@ -1126,8 +1108,8 @@ export class Game {
       h("div.seg", { role: "group", "aria-label": "Simulation speed" }, this.speedEls),
       this.soundBtn,
       h("button.btn", { onclick: () => this.luxury.show(), text: "Luxury", title: "Velvet & Co. Luxury: property, rides, animals" }),
+      h("button.btn", { onclick: () => this.heist.open(), text: "Heist", title: "Velvet Heist Night: the crew's three-act mission" }),
       h("button.btn", { onclick: () => this.photos.open(), text: "Photo", title: "Photo mode (O)" }),
-      h("button.btn", { onclick: () => this.toggle2D(), text: "2D/3D", title: "Street view (V)" }),
       h("button.btn", { onclick: () => this.log.toggle(), text: "Log" }),
       h("button.btn", { onclick: () => this.select(this.selected === this.sim.playerId ? -1 : this.sim.playerId), text: "Me", class: "btn wide" }),
       h("button.btn", { onclick: () => this.openSaves(), text: "Save" }),
