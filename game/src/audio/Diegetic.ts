@@ -42,6 +42,9 @@ export const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
 /** Stereo pan kept in the -1..1 range the panner accepts. */
 export const clamp01Pan = (v: number): number => (v < -1 ? -1 : v > 1 ? 1 : v);
 
+/** Footstep sounds are switched off (they sounded bad). Set to true to bring them back. */
+export const FOOTSTEPS = false;
+
 /** Which ground a footstep lands on. */
 export function surfaceOf(tile: number): Surface {
   switch (tile) {
@@ -988,7 +991,7 @@ export class Diegetic {
       }
     }
     // the mix picks who is heard: you, then the nearest one or two, and never a stampede
-    for (const pick of pickSteps(due, scene.in2D, this.lite)) {
+    for (const pick of FOOTSTEPS ? pickSteps(due, scene.in2D, this.lite) : []) {
       const c = dueC.get(pick.id)!, mine = pick.id === pid;
       if (!mine && now - this.npcStepAt < 0.28) continue;
       const o = this.route(c.x, c.y, pick.gain * (mine ? 1 : 3.5), cam, scene.in2D);
@@ -1004,7 +1007,7 @@ export class Diegetic {
   private interiorLife(sim: Simulation, scene: Scene, dt: number): void {
     const t = this.ctx.currentTime, room = roomFor(scene.interior!);
     this.interiorStep -= dt;
-    if (scene.moving && this.interiorStep <= 0) {
+    if (FOOTSTEPS && scene.moving && this.interiorStep <= 0) {
       this.interiorStep = scene.running ? 0.26 : 0.38;
       this.step(this.flat(0.45), interiorSurface(scene.interior!), 0, (Math.random() - 0.5) * 0.3);
     }
