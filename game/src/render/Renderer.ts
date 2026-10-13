@@ -1,6 +1,7 @@
 import type { Simulation } from "../sim/Simulation";
 import { Character, Lod, Phys, Toy } from "../entities/types";
 import { TOYS } from "../content/toys";
+import { drawLitter } from "./LitterArt";
 import { T, TILE_HEIGHT, ROAD_W } from "../world/World";
 import { Camera } from "./Camera";
 import { Terrain, drawTallTile, drawPoi } from "./Terrain";
@@ -20,9 +21,10 @@ import type { Graffiti } from "../world/World";
 import type { DebugFlags } from "../debug/flags";
 import { friendship, hostility } from "../social/Social";
 import { LOD_NAMES } from "../entities/types";
+import { StreetView } from "./Street2D";
 
 export type Quality = 0 | 1 | 2 | 3; // low, medium, high, ultra
-interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light
+interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter
 interface Decal { x: number; y: number; r: number; color: string; born: number; life: number; rot: number }
 
 export interface RenderOptions { selected: number; hovered: number; debug: DebugFlags; reduceMotion: boolean; quality: Quality; showNames: boolean }
@@ -173,14 +175,8 @@ export class Renderer {
       if (!inView(pt.x, pt.y, 120 * z)) continue;
       this.push(p.x + p.y, 3, p.id, pt.x, pt.y);
     }
-    // water shimmer (animated, cheap)
-    g.fillStyle = "rgba(61,214,255,.06)";
-    for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
-      if (sim.world.tiles[ty * S + tx] !== T.WATER) continue;
-      if (((tx * 7 + ty * 3 + Math.floor(time * 1.5)) % 5) !== 0) continue;
-      cam.toScreen(tx + 0.5, ty + 0.5, 0, pt);
-      g.beginPath(); g.ellipse(pt.x, pt.y, 14 * z, 4 * z, 0, 0, 6.283); g.fill();
-    }
+    // water: drifting ripple crests (continuous across tiles, driven by world position) and sun glints
+    this.drawWater(g, sim, o, minX, maxX, minY, maxY, time);
 
     // real street names painted on the road between intersections
     this.streetLabels(g, sim, z, inView);
@@ -195,6 +191,13 @@ export class Renderer {
       const r = (TOYS[t.def].uses.includes("heavy") ? 16 : 7) * z / (1 + t.z * 0.3);
       g.beginPath(); g.ellipse(pt.x, pt.y, r, r * 0.5, 0, 0, 6.283); g.fill();
       this.push(this.behind(x, y, x + y + 0.01), 1, t.id, pt.x, pt.y);
+    }
+    // litter on the ground: cans, bottles, wrappers and cups
+    for (const l of sim.litter.pieces) {
+      if (l.taken) continue;
+      cam.toScreen(l.x, l.y, 0, pt);
+      if (!inView(pt.x, pt.y, 30)) continue;
+      this.push(this.behind(l.x, l.y, l.x + l.y - 0.02), 6, l.id, pt.x, pt.y);
     }
     this.pickBoxes.length = 0;
     AD_BOXES.length = 0;
@@ -308,6 +311,10 @@ export class Renderer {
       } else if (it.kind === 5) {
         flush();
         this.drawLight(it.ref % 64, Math.floor(it.ref / 64), it.sx, it.sy, z);
+      } else if (it.kind === 6) {
+        flush();
+        const l = sim.litter.pieces[it.ref];
+        drawLitter(g, l.kind, l.tone, l.rot, it.sx, it.sy, z);
       } else {
         flush();
         drawPoi(g, sim.world.pois[it.ref], it.sx, it.sy, z, time, party, isDark);
@@ -340,6 +347,51 @@ export class Renderer {
     this.drawDebug(o.debug, alpha);
     if (o.quality === 3) this.cinematic(sim);
     this.stats.frameMs = performance.now() - t0;
+  }
+
+  /** Animated water. Low: the old soft shimmer. Higher tiers: two ripple layers, travelling glints, more on Ultra. */
+  private drawWater(g: CanvasRenderingContext2D, sim: Simulation, o: RenderOptions, minX: number, maxX: number, minY: number, maxY: number, time: number): void {
+    const S = sim.world.size, cam = this.cam, z = cam.zoom, pt = this.pt, q = o.quality, t = o.reduceMotion ? 0 : time;
+    if (q === 0) {
+      g.fillStyle = "rgba(61,214,255,.06)";
+      for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
+        if (sim.world.tiles[ty * S + tx] !== T.WATER || ((tx * 7 + ty * 3 + Math.floor(t * 1.5)) % 5) !== 0) continue;
+        cam.toScreen(tx + 0.5, ty + 0.5, 0, pt);
+        g.beginPath(); g.ellipse(pt.x, pt.y, 14 * z, 4 * z, 0, 0, 6.283); g.fill();
+      }
+      return;
+    }
+    const seg = q >= 3 ? 6 : q === 2 ? 4 : 3;
+    g.lineCap = "round";
+    for (let layer = 0; layer < (q >= 2 ? 2 : 1); layer++) {
+      g.strokeStyle = layer ? "rgba(150,235,255,.2)" : "rgba(255,255,255,.14)"; g.lineWidth = Math.max(1, (layer ? 1 : 1.4) * z);
+      g.beginPath();
+      for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
+        if (sim.world.tiles[ty * S + tx] !== T.WATER) continue;
+        // each tile carries one wavy crest running along the iso x axis; phase comes from world position so crests line up neighbour to neighbour
+        const v = 0.5 + 0.28 * Math.sin((tx + ty * 0.7) * 1.7 + layer * 2.1 + t * (0.9 + layer * 0.35));
+        for (let i = 0; i <= seg; i++) {
+          const u = i / seg, wob = Math.sin((tx + u) * 2.3 + t * 1.3 + layer * 1.7 + ty * 0.9) * 0.07;
+          cam.toScreen(tx + u, ty + v + wob + layer * 0.18, 0, pt);
+          if (i) g.lineTo(pt.x, pt.y); else g.moveTo(pt.x, pt.y);
+        }
+      }
+      g.stroke();
+    }
+    // sun / street-light glints that twinkle and slide
+    g.fillStyle = "rgba(255,255,255,.55)";
+    const gl = q >= 3 ? 3 : 2;
+    for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
+      if (sim.world.tiles[ty * S + tx] !== T.WATER) continue;
+      for (let k = 0; k < gl; k++) {
+        const ph = Math.sin(t * 1.6 + tx * 12.9898 + ty * 78.233 + k * 4.1);
+        if (ph < 0.93) continue;
+        cam.toScreen(tx + 0.2 + ((tx * 37 + ty * 17 + k * 29) % 60) / 100, ty + 0.2 + ((tx * 13 + ty * 41 + k * 11) % 60) / 100, 0, pt);
+        const r = (1 + (ph - 0.93) * 18) * z;
+        g.beginPath(); g.ellipse(pt.x, pt.y, r * 1.8, r * 0.7, 0, 0, 6.283); g.fill();
+      }
+    }
+    g.lineCap = "butt";
   }
 
   private poseName(c: Character, moving: boolean, spd: number): string {
@@ -622,91 +674,12 @@ export class Renderer {
     g.restore();
   }
 
-  /** Street-level 2D view: sky, skyline (buildings behind you), the pavement, people side-on. */
+  private street = new StreetView();
+  /** Street-level 2D view: a gritty pixel-art alley, people side-on (see Street2D.ts). */
   private render2D(dt: number, o: RenderOptions): void {
-    const sim = this.sim, g = this.g, cam = this.cam, W = cam.viewW, H = cam.viewH, time = this.time;
-    g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    const sim = this.sim, cam = this.cam;
     const f = sim.chars[cam.follow >= 0 ? cam.follow : sim.playerId] ?? sim.player;
-    const pu = (f.x - f.y) / 1.414, pv = f.x + f.y;
-    const S = 18 * (cam.zoom - 1.2), ground = H * 0.7, day = sim.daylight;
-    // sky: deep gradient, warm at dusk, stars at night
-    const sky = g.createLinearGradient(0, 0, 0, ground);
-    if (day > 0.6) { sky.addColorStop(0, "#2d4a7a"); sky.addColorStop(1, "#d9a07a"); }
-    else if (day > 0.2) { sky.addColorStop(0, "#1c1838"); sky.addColorStop(1, "#c4584a"); }
-    else { sky.addColorStop(0, "#05040c"); sky.addColorStop(1, "#2a1630"); }
-    g.fillStyle = sky; g.fillRect(0, 0, W, ground);
-    if (day < 0.4) { g.fillStyle = "rgba(238,228,211,.7)"; for (let i = 0; i < 70; i++) { const x = (i * 97.3 + pu * 2) % W, y = (i * 53.1) % (ground * 0.55); g.fillRect((x + W) % W, y, 1.4, 1.4); } }
-    // skyline in three parallax layers (far = dark silhouettes, near = detailed), with haze between
-    const bs = sim.world.buildings.map((b) => { const cx = (b.x0 + b.x1 + 1) / 2, cy = (b.y0 + b.y1 + 1) / 2; return { b, u: (cx - cy) / 1.414, v: cx + cy, w: (b.x1 - b.x0 + b.y1 - b.y0 + 2) / 1.6 }; })
-      .filter((q) => q.v < pv - 1 && q.v > pv - 40).sort((a, c) => a.v - c.v);
-    const haze = day > 0.4 ? "rgba(217,160,122," : "rgba(42,22,48,";
-    let layer = -1;
-    for (const q of bs) {
-      const depth = (pv - q.v) / 40, k = 1 - depth * 0.6, par = 0.35 + 0.65 * k; // farther = moves slower
-      const x = W / 2 + (q.u - pu) * S * par, w = q.w * S * k, h = q.b.height * S * 0.85 * k;
-      if (x + w / 2 < 0 || x - w / 2 > W) continue;
-      const L = depth > 0.45 ? 1 : 2;
-      if (L !== layer) { if (layer >= 0) { g.fillStyle = haze + "0.16)"; g.fillRect(0, 0, W, ground); } layer = L; }
-      const base = parseInt(q.b.color.slice(1), 16), dim = L === 1 ? 0.55 : 0.9;
-      g.fillStyle = `rgb(${((base >> 16) & 255) * dim | 0},${((base >> 8) & 255) * dim | 0},${(base & 255) * dim | 0})`;
-      g.fillRect(x - w / 2, ground - h, w, h);
-      // rim light on the roofline
-      g.fillStyle = day > 0.4 ? "rgba(255,220,180,.35)" : `rgba(${q.b.sign === "#3dd6ff" ? "61,214,255" : "255,122,217"},.35)`; g.fillRect(x - w / 2, ground - h, w, 2);
-      if (L > 0) {
-        const cols = Math.max(2, Math.floor(w / (12 * k))), rows = Math.max(1, Math.floor((h - 10 * k) / (16 * k)));
-        for (let r = 0; r < rows; r++) for (let cI = 0; cI < cols; cI++) {
-          const on = ((q.b.id * 31 + r * 7 + cI * 13) % 5) < (day < 0.4 ? 3 : 1);
-          g.fillStyle = on ? (day < 0.4 ? "rgba(255,214,130,.9)" : "rgba(255,236,200,.5)") : "rgba(12,14,24,.55)";
-          g.fillRect(x - w / 2 + 4 * k + cI * (w - 8 * k) / cols, ground - h + 8 * k + r * 16 * k, Math.max(2, (w - 8 * k) / cols - 4 * k), 9 * k);
-        }
-      }
-      if (L === 2 && q.b.kind !== "house") {
-        g.font = `800 ${Math.max(10, 15 * k)}px "Big Shoulders Display", Impact, sans-serif`; g.textAlign = "center";
-        g.strokeStyle = q.b.sign; g.globalAlpha = 0.35; g.lineWidth = 4; g.strokeText(q.b.name.toUpperCase(), x, ground - h - 8 * k); g.globalAlpha = 1;
-        g.fillStyle = q.b.sign; g.fillText(q.b.name.toUpperCase(), x, ground - h - 8 * k);
-      }
-    }
-    g.fillStyle = haze + "0.1)"; g.fillRect(0, ground * 0.55, W, ground * 0.45);
-    // pavement with joints, kerb, road with lane dashes
-    g.fillStyle = "#3a3430"; g.fillRect(0, ground, W, H * 0.11);
-    g.strokeStyle = "rgba(0,0,0,.25)"; g.lineWidth = 1; g.beginPath(); for (let x = -((pu * S) % 60); x < W; x += 60) { g.moveTo(x, ground); g.lineTo(x - 20, ground + H * 0.11); } g.stroke();
-    g.fillStyle = "#8a8278"; g.fillRect(0, ground + H * 0.11 - 5, W, 5);
-    g.fillStyle = "#14110f"; g.fillRect(0, ground + H * 0.11, W, H);
-    g.fillStyle = "rgba(246,182,44,.55)"; for (let x = -((pu * S) % 120); x < W; x += 120) g.fillRect(x, ground + H * 0.19, 60, 4);
-    // street lamps every few metres, glowing after dark
-    for (let x = -((pu * S) % 340) + 170; x < W + 40; x += 340) {
-      g.strokeStyle = "#2a2622"; g.lineWidth = 4; g.beginPath(); g.moveTo(x, ground + 4); g.lineTo(x, ground - 150); g.lineTo(x + 26, ground - 156); g.stroke();
-      g.fillStyle = day < 0.5 ? "#fff0c0" : "#c8c0b0"; g.fillRect(x + 18, ground - 158, 16, 6);
-      if (day < 0.5) { const grd = g.createRadialGradient(x + 26, ground, 0, x + 26, ground, 120); grd.addColorStop(0, "rgba(255,230,160,.22)"); grd.addColorStop(1, "rgba(255,230,160,0)"); g.fillStyle = grd; g.fillRect(x - 100, ground - 120, 250, 160); }
-    }
-    // people near you, side-on, nearer ones lower and bigger
-    const near = sim.chars.filter((c) => c.inside < 0 && c.inCar < 0 && Math.abs((c.x + c.y) - pv) < 1.6 && Math.abs((c.x - c.y) / 1.414 - pu) * S < W * 0.55)
-      .sort((a, c) => Math.hypot(a.x - f.x, a.y - f.y) - Math.hypot(c.x - f.x, c.y - f.y)).slice(0, 7);
-    // lay them out along the pavement: keep everyone at least a body-width apart (you stay put)
-    const kk = (1 + (cam.zoom - 3) * 0.3), minGap = 56 * kk;
-    const slots = near.map((c) => ({ c, x: W / 2 + ((c.x - c.y) / 1.414 - pu) * S })).sort((a, b) => a.x - b.x);
-    for (let pass = 0; pass < 4; pass++) for (let i = 1; i < slots.length; i++) {
-      const gap = slots[i].x - slots[i - 1].x;
-      if (gap < minGap) { const push = (minGap - gap) / 2; if (slots[i - 1].c !== f) slots[i - 1].x -= push; else slots[i].x += push; if (slots[i].c !== f) slots[i].x += push; else slots[i - 1].x -= push; }
-    }
-    slots.sort((a, b) => (a.c.x + a.c.y) - (b.c.x + b.c.y));
-    for (const { c, x: sx } of slots) {
-      const dv = (c.x + c.y) - pv, k = kk * c.look.scale * (1 + dv * 0.04);
-      const sy = ground + 8 + dv * 5;
-      const moving = Math.abs(c.x - c.px) + Math.abs(c.y - c.py) > 0.0005, spd = Math.hypot(c.x - c.px, c.y - c.py) * 60;
-      c.anim.phase += spd * dt * 5.5;
-      const dir = (Math.cos(c.facing) - Math.sin(c.facing)) >= 0 ? 1 : -1;
-      g.fillStyle = "rgba(0,0,0,.3)"; g.beginPath(); g.ellipse(sx, sy, 16 * k, 4 * k, 0, 0, 6.283); g.fill();
-      const a = pose(this.poseName(c, moving, spd), c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT);
-      solve(a, sx, sy, k, dir);
-      drawFigure(g, c, sx, sy, k, dir, time, c.anim.flash, 1);
-      if (c.bubble && c.bubble.until > sim.tick && Math.abs(dv) < 1.5) { g.font = "500 13px 'IBM Plex Mono', monospace"; g.textAlign = "center"; const tw = Math.min(260, g.measureText(c.bubble.text).width + 14); g.fillStyle = "rgba(238,228,211,.94)"; g.fillRect(sx - tw / 2, sy - 120 * k - 26, tw, 22); g.fillStyle = "#0e0b0a"; g.fillText(c.bubble.text.slice(0, 40), sx, sy - 120 * k - 10); }
-      if (c.id === sim.playerId) { g.fillStyle = "#ec2a1c"; g.font = "700 12px 'IBM Plex Mono', monospace"; g.textAlign = "center"; g.fillText("You", sx, sy + 18); }
-    }
-    g.textAlign = "start";
-    // soft vignette to frame the scene
-    const vg = g.createRadialGradient(W / 2, H * 0.55, H * 0.3, W / 2, H * 0.55, H * 0.95); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.5)"); g.fillStyle = vg; g.fillRect(0, 0, W, H);
-    g.fillStyle = "rgba(238,228,211,.7)"; g.font = "600 12px 'IBM Plex Mono', monospace"; g.fillText(`2D street view · ${sim.world.streetName(f.x, f.y)} · press V or scroll out for 3D`, 16, 66);
+    this.street.draw(this.g, this.dpr, sim, f, cam.viewW, cam.viewH, cam.zoom, dt, this.time, (c, m, s) => this.poseName(c, m, s));
     void o;
   }
 

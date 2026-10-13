@@ -1,3 +1,5 @@
+import { nearestRecyclable, nearestBin, collectPiece, rummageBin, scrapCount, scrapValue } from "../sim/Litter";
+import { LITTER, SACK_CAP } from "../content/litter";
 import { Club } from "../ui/Club";
 import "../ui/club.css";
 import { Luxury } from "../ui/Luxury";
@@ -23,6 +25,7 @@ import { DevPanel } from "../debug/DevPanel";
 import { Inspector } from "../ui/Inspector";
 import { EventLog } from "../ui/EventLog";
 import { DialogueUI } from "../ui/DialogueUI";
+import { TerranceUI } from "../ui/Terrance";
 import { ModalHost, settingsBody, keysList } from "../ui/Modals";
 import { h, fmtHour } from "../ui/dom";
 import { moveTo, stop } from "../ai/steps";
@@ -40,6 +43,7 @@ import { VEHICLES } from "../content/vehicles";
 import { MOSAIC } from "../content/mosaicscope";
 import { carried, detach } from "../inventory/Inventory";
 import { BUILDINGS } from "../content/buildings";
+import { billAbsence, collect } from "../sim/Arrears";
 
 /** Wires simulation, renderer, input, audio, UI and persistence together and runs the loop. */
 /** People who ring you. Lines can mention {place} and {cash}. */
@@ -79,7 +83,7 @@ export class Game {
   settings: Settings;
   debug = newDebugFlags();
   ui: HTMLElement;
-  inspector: Inspector; log: EventLog; dialogue: DialogueUI; modal = new ModalHost(); dev: DevPanel;
+  inspector: Inspector; log: EventLog; dialogue: DialogueUI; terrance: TerranceUI; modal = new ModalHost(); dev: DevPanel;
   private selected = -1; private hovered = -1;
   private keys = new Set<string>();
   private mouse = { x: 0, y: 0, down: false, dragging: false, sx: 0, sy: 0, button: 0 };
@@ -114,6 +118,7 @@ export class Game {
     this.inspector = new Inspector(S, { talk: (id) => this.talkTo(id), follow: (id) => { this.renderer.cam.follow = id; }, select: (id) => this.select(id) });
     this.log = new EventLog(S, (x, y) => { this.renderer.cam.follow = -1; this.renderer.cam.lookAt(x, y); });
     this.dialogue = new DialogueUI(S);
+    this.terrance = new TerranceUI(S);
     this.dev = new DevPanel(S, this.renderer, this.debug, {
       quality: () => (this.settings.quality === "auto" ? "auto→" : "") + ["low", "medium", "high", "ultra"][this.quality], speed: () => (this.clock.paused ? 0 : this.clock.speed),
       fps: () => this.fpsAvg, tickRate: () => this.tickRate, reset: (seed) => this.reset(seed), toast: (t) => this.toast(t),
@@ -137,7 +142,7 @@ export class Game {
     this.radio = new Radio(MOSAIC.soundcloud);
     this.hudEl = h("div.hud", { "aria-live": "polite" });
     this.bustedEl = h("div.busted.hidden", { role: "alert" });
-    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.interior.el, this.modal.el, this.casino.el, this.bustedEl);
+    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.terrance.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.interior.el, this.modal.el, this.casino.el, this.bustedEl);
     // browsers only allow sound after a gesture: the first click/key starts the playlist
     const firstGesture = () => { if (this.gestured) return; this.gestured = true; if (this.settings.sound) this.audio.setEnabled(true); }; // the radio only plays when you press ▶
     window.addEventListener("pointerdown", firstGesture, { once: false, capture: true });
@@ -247,7 +252,7 @@ export class Game {
     this.touch.update();
     if (now - this.clubTickAt > 1000) { const earned = this.club.tick(Math.min(5, (now - (this.clubTickAt || now)) / 1000)); this.clubTickAt = now; if (earned > 0) this.sim.player.cash += earned; }
     this.renderer.zooAnimals = this.luxury.empire.animals; zooState.animals = this.luxury.empire.animals.length;
-    this.touch.el.classList.toggle("hidden", this.casino.open || this.interior.open || this.modal.open || this.dialogue.open || this.travel.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
+    this.touch.el.classList.toggle("hidden", this.casino.open || this.interior.open || this.modal.open || this.dialogue.open || this.terrance.open || this.travel.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
     this.tickStory(now);
     this.minimap.update(now);
     if (now - this.lastUi < 250) return;
@@ -267,7 +272,7 @@ export class Game {
     if (areaName) this.lastArea = areaName;
     this.inspector.update();
     this.log.update();
-    this.dialogue.check();
+    this.dialogue.check(); this.terrance.check();
     this.updateHint();
     this.updateHud();
     this.speedEls.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.speed === (this.clock.paused ? "0" : String(this.clock.speed)))));
@@ -313,6 +318,7 @@ export class Game {
       p.vx = (wx / l) * p.speed; p.vy = (wy / l) * p.speed;
       this.moveTarget = null; this.pendingTalk = -1;
       if (this.dialogue.open) this.dialogue.close();
+      if (this.terrance.open) this.terrance.close();
       this.renderer.cam.follow = p.id;
     } else if (this.moveTarget) {
       if (moveTo(p, this.moveTarget.x, this.moveTarget.y, sim, 0.3)) {
@@ -334,6 +340,29 @@ export class Game {
     let best = null, bd = maxD;
     for (const t of this.sim.toys) { if (canPickUp(p, t, maxD) === "unavailable") continue; const d = Math.hypot(t.x - p.x, t.y - p.y); if (d < bd && t.z < 1.6) { bd = d; best = t; } }
     return best;
+  }
+
+  private nearestLitter() { const p = this.sim.player; return p.phys === Phys.OK ? nearestRecyclable(this.sim.litter, p.x, p.y, 1.1) : null; }
+  private nearestBin() { const p = this.sim.player; return p.phys === Phys.OK ? nearestBin(this.sim.world, p.x, p.y, 1.5) : null; }
+
+  /** Pick a can or bottle off the street, or rummage a bin for the ones people left in it. */
+  private scavenge(): boolean {
+    const sim = this.sim, p = sim.player;
+    const piece = this.nearestLitter();
+    if (piece) {
+      const what = LITTER[piece.kind].name, r = collectPiece(sim, p, piece);
+      if (r === "full") this.toast(`Sack's full (${SACK_CAP}). Cash in at the recycling centre.`);
+      else if (r === "ok") { p.anim.pose = "kick"; p.anim.poseT = 0.15; this.toast(`Picked up a ${what} · ${scrapCount(p)} in your sack (${fmtCash(scrapValue(p))})`); }
+      return true;
+    }
+    const bin = this.nearestBin();
+    if (bin) {
+      const got = rummageBin(sim, p, bin);
+      if (got.can + got.bottle) this.toast(`Rummaged the bin: ${[got.can && `${got.can} can${got.can > 1 ? "s" : ""}`, got.bottle && `${got.bottle} bottle${got.bottle > 1 ? "s" : ""}`].filter(Boolean).join(" and ")} · ${scrapCount(p)} in your sack`);
+      else this.toast(got.full ? `Sack's full (${SACK_CAP}). Cash in at the recycling centre.` : "Nothing in this bin but regret.");
+      return true;
+    }
+    return false;
   }
 
   private nearestPerson(maxD = 2.5): number {
@@ -391,6 +420,7 @@ export class Game {
     const door = this.nearDoor();
     if (door) { this.enterPlace(door); return; }
     if (this.nearestToy()) { this.act("pickup"); return; }
+    if (this.scavenge()) return;
     const car = nearestCar(sim, p.x, p.y, 2.2);
     if (!car) { this.toast("Nothing to pick up here"); return; }
     if (car.forSale) { this.toast(`For sale: ${fmtCash(car.price)}. Buy it inside the dealership.`); return; }
@@ -513,8 +543,9 @@ export class Game {
       if (key !== "escape" && typing) return;
       if (key === "escape" && this.casino.open) { this.casino.close(); return; }
       if (key === "escape" && this.minimap.bigOpen) { this.minimap.toggle(false); return; }
-      if (key === "escape") { if (this.modal.open) this.modal.close(); else if (this.dialogue.open) this.dialogue.close(); else { this.select(-1); this.dev.toggle(false); this.log.toggle(false); } return; }
+      if (key === "escape") { if (this.modal.open) this.modal.close(); else if (this.terrance.open) this.terrance.close(); else if (this.dialogue.open) this.dialogue.close(); else { this.select(-1); this.dev.toggle(false); this.log.toggle(false); } return; }
       if (this.modal.open) return;
+      if (this.terrance.open && /^[1-9]$/.test(key)) { if (this.terrance.key(+key)) e.preventDefault(); return; }
       if (this.dialogue.open && /^[1-9]$/.test(key)) { if (this.dialogue.key(+key)) e.preventDefault(); return; }
       if ((tag === "BUTTON" || tag === "INPUT") && (key === " " || key === "enter")) return;
       this.keys.add(key);
@@ -635,7 +666,13 @@ export class Game {
     } else {
       const t = this.nearestToy();
       if (t) parts.push(kb(k.pickup), " pick up ", h("b", { text: TOYS[t.def].name }), " · ");
+      else if (!door) {
+        const lit = this.nearestLitter(), bin = lit ? null : this.nearestBin();
+        if (lit) parts.push(kb(k.pickup), " pick up ", h("b", { text: LITTER[lit.kind].name }), " · ");
+        else if (bin) parts.push(kb(k.pickup), " rummage ", h("b", { text: "the bin" }), " · ");
+      }
     }
+    if (scrapCount(p) > 0) parts.push("Sack ", h("b", { text: `${scrapCount(p)} (${fmtCash(scrapValue(p))})` }), " · ");
     const n = this.nearestPerson();
     if (n >= 0) parts.push(kb(k.talk), " talk to ", h("b", { text: sim.chars[n].name }), " · ");
     parts.push("click people to inspect · ", kb("?"), " help");
@@ -813,6 +850,7 @@ export class Game {
   private openTalk(id: number): void {
     const don = this.sim.chars[id];
     if (don && this.isContact(don) && (this.hasJob(don) || this.job?.who === don.name) && !(don.role === "comic" && !this.job && (this.story[don.name]?.ch ?? 0) > 0)) { this.talkToContact(don.name); return; }
+    if (don && don.role === "overcoder") { this.terrance.start(id); return; } // Terrance: latest changes and team drama
     if (don && don.role === "comic") { this.roast.start(); return; } // Roastie Malone: roast battle
     if (don && don.role === "mogul") { this.luxury.show(); return; } // Sir P shows you his catalogue
     if (don && don.role === "smuggler" && !this.isContact(don)) { this.blackMarket(don.name.split(" ")[0]); return; }
@@ -893,6 +931,8 @@ export class Game {
       if (p.inCar >= 0) return { label: "Get out", icon: "exit" };
       const d = this.nearDoor(); if (d) return { label: d.studio ? "Enter Studio" : `Enter ${sim.world.buildings[d.building].name}`, icon: "use" };
       if (this.nearestToy()) return { label: "Pick up", icon: "pickup" };
+      if (this.nearestLitter()) return { label: "Pick up litter", icon: "use" };
+      if (this.nearestBin()) return { label: "Rummage bin", icon: "use" };
       const id = this.nearestPerson(1.8); if (id >= 0) return { label: `Talk to ${sim.chars[id].name.split(" ")[0]}`, icon: "talk" };
       return null;
     },
@@ -916,8 +956,15 @@ export class Game {
     const notes: string[] = [];
     if (days >= 0.25) { p.hunger = Math.min(p.hunger, Math.max(0.12, 0.6 - days * 0.12)); notes.push("you're starving"); }
     if (days >= 1.5) { const k = Math.max(0.7, 1 - days * 0.025); p.look.build = Math.min(p.look.build ?? 1, k); notes.push(k < 0.85 ? "you've gone skinny" : "you've lost a bit of weight"); }
-    const rent = Math.min(p.cash * 0.4, Math.round(days * 45));
-    if (rent >= 5) { p.cash -= rent; notes.push(`rent and bills took ${fmtCash(rent)}`); }
+    // unpaid rent becomes arrears (capped, with interest) kept in localStorage, and the collector takes a share of what you hold
+    let owed = 0;
+    try { owed = +(localStorage.getItem("mosaics-world:arrears") ?? 0) || 0; } catch { /* private mode */ }
+    const bill = billAbsence(days, p.cash, owed);
+    if (bill.paid >= 5) { p.cash -= bill.paid; notes.push(`rent and bills took ${fmtCash(bill.paid)}`); }
+    const visit = collect(p.cash, bill.arrears);
+    if (visit.taken >= 5) { p.cash -= visit.taken; notes.push(`the landlord's nephew collected ${fmtCash(visit.taken)} of back rent`); }
+    if (visit.left >= 5) notes.push(`you still owe ${fmtCash(visit.left)} in arrears`);
+    try { localStorage.setItem("mosaics-world:arrears", String(visit.left)); } catch { /* ignore */ }
     const crew = sim.chars.filter((c) => c.tier === "principal" && c.name !== "Chris");
     if (days >= 1) for (const c of crew) { const r = sim.relate(c, p.id); r.aff = Math.min(1, r.aff + 0.05); r.fam = Math.min(1, r.fam + 0.05); }
     const tiles = crew.find((c) => c.name === "Tiles"), glitter = crew.find((c) => c.name === "Glitter");

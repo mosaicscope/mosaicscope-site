@@ -2,6 +2,8 @@ import type { Character } from "../entities/types";
 import { Phys } from "../entities/types";
 import { dressOf } from "../mind/Dress";
 import type { Dress } from "../mind/Dress";
+import { isResident, drawResident } from "./Residents";
+import { modelOf, modelLook, drawModelBody, drawModelHeadGear, MODEL_INK } from "./Models";
 
 /**
  * Procedural stick figures in the style of the MosaicScope footer crew (same proportions as the
@@ -145,6 +147,21 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
   const col = flash > 0 ? "#ffffff" : L.color;
   // HD pass when you're close: soft neon glow, a crisp ink outline under every limb, then the line
   const hd = k >= 1.05 && hdBudget-- > 0;
+  if (isResident(c)) {   // the everyday local: egg belly, long neck, big nose (see Residents.ts)
+    drawResident(g, J, c, k, dir, alpha, hd, flash > 0, lw);
+    if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 18 * k, k, t);
+    return;
+  }
+  const M = modelOf(c);
+  if (M) {
+    // chunky street model: filled body over the solved skeleton, skin-tone head with thick ink outline
+    drawModelBody(g, J, c, M, k, dir, alpha, hd, flash > 0);
+    const ML = modelLook(L, M);
+    drawHead(g, ML, J[4], J[5], k * 1.2, dir, Math.max(1.4, lw * 1.05), MODEL_INK, alpha, M.hat, flash > 0 ? "#ffffff" : M.skin, hd);
+    drawModelHeadGear(g, M, J[4], J[5], k * 1.2, dir, hd);
+    if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 14 * k, k, t);
+    return;
+  }
   const skel = () => {
     g.beginPath();
     g.moveTo(J[0], J[1]); g.lineTo(J[16], J[17]); g.lineTo(J[18], J[19]);
@@ -247,7 +264,7 @@ function drawDress(g: CanvasRenderingContext2D, D: Dress, L: Character["look"], 
   g.globalAlpha = alpha;
 }
 
-function drawHead(g: CanvasRenderingContext2D, L: Character["look"], x: number, y: number, k: number, dir: number, lw: number, col: string, alpha: number, hat: Character["look"]["hat"] = L.hat): void {
+function drawHead(g: CanvasRenderingContext2D, L: Character["look"], x: number, y: number, k: number, dir: number, lw: number, col: string, alpha: number, hat: Character["look"]["hat"] = L.hat, skin?: string, inkRing = false): void {
   const F = L.face ?? { eyes: "shades", brows: "none", mouth: L.kind === "girl" ? "smile" : "smile", nose: "none", facial: "none", extra: "none", head: "round" } as const;
   const r = HEAD_R * k;
   const rx = F.head === "wide" ? r * 1.12 : r, ry = F.head === "oval" ? r * 1.12 : r;
@@ -260,8 +277,10 @@ function drawHead(g: CanvasRenderingContext2D, L: Character["look"], x: number, 
   if (H === "pony") { g.lineWidth = lw; g.beginPath(); g.moveTo(x - rx * 0.7 * dir, y - ry * 0.5); g.quadraticCurveTo(x - rx * 1.9 * dir, y - ry * 0.2, x - rx * 1.6 * dir, y + ry * 1.4); g.stroke(); }
   if (H === "pigtails") { g.globalAlpha = alpha * 0.5; for (const sx of [-1, 1]) { g.beginPath(); g.arc(x + rx * 1.25 * sx, y - ry * 0.1, r * 0.45, 0, 6.283); g.fill(); } g.globalAlpha = alpha; }
   // ---- head
-  g.fillStyle = "#0e0b0a"; g.strokeStyle = col; g.lineWidth = lw;
+  g.fillStyle = skin ?? "#0e0b0a"; g.strokeStyle = col; g.lineWidth = lw;
+  if (inkRing) { g.lineWidth = lw + 2.2 * k; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 6.283); g.stroke(); g.lineWidth = lw; }
   g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 6.283); g.fill(); g.stroke();
+  if (skin && inkRing) { g.fillStyle = "rgba(0,0,0,.16)"; g.beginPath(); g.ellipse(x, y, rx * 0.98, ry * 0.98, 0, -0.6, 1.9); g.lineTo(x, y); g.fill(); g.fillStyle = skin; }
   // ---- hair on top
   g.fillStyle = L.color; g.strokeStyle = col;
   if (H === "bun" || H === "topknot") { g.globalAlpha = alpha * 0.35; g.beginPath(); g.arc(x - 1 * k * dir, y - ry * (H === "topknot" ? 1.3 : 1.45), r * (H === "topknot" ? 0.4 : 0.6), 0, 6.283); g.fill(); g.globalAlpha = alpha; g.lineWidth = lw * 0.8; g.stroke(); }

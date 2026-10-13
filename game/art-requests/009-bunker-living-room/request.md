@@ -1,0 +1,1 @@
+Isometric pixel-art living room in a dark capsule: orange sofas and chair, patterned rug and checker floor, bookcases, plants, stag head, posters, coffee table with bottles, lamp. Request: interior props and density.

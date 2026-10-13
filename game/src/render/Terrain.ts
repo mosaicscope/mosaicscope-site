@@ -1,4 +1,5 @@
 import { World, T, TILE_HEIGHT, Poi, ROAD_W, CROSS_W } from "../world/World";
+import { drawBin } from "./LitterArt";
 import { TILE_W, TILE_H, Z_PX } from "../world/iso";
 import { GROUND } from "./palette";
 import type { Camera } from "./Camera";
@@ -26,6 +27,14 @@ export class Terrain {
 
   private noise(i: number): number { let h = (i * 2654435761) >>> 0; h ^= h >>> 13; h = Math.imul(h, 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
 
+  /** Smooth value noise over the tile lattice (0..1), so ground colour drifts instead of alternating. */
+  private smooth(tx: number, ty: number): number {
+    const f = (x: number, y: number) => this.noise(y * 4099 + x);
+    const gx = tx / 3, gy = ty / 3, ix = Math.floor(gx), iy = Math.floor(gy), fx = gx - ix, fy = gy - iy;
+    const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+    return (f(ix, iy) * (1 - u) + f(ix + 1, iy) * u) * (1 - v) + (f(ix, iy + 1) * (1 - u) + f(ix + 1, iy + 1) * u) * v;
+  }
+
   private build(cx: number, cy: number) {
     const w = this.world, S = w.size;
     const x0 = cx * CH, y0 = cy * CH;
@@ -35,20 +44,30 @@ export class Terrain {
     cv.width = (CH * TILE_W + 2) * SC; cv.height = (CH * TILE_H + 2) * SC;
     const g = cv.getContext("2d")!;
     g.scale(SC, SC);
+    const anchor = { x: -ox, y: -oy, zoom: 1 }; // grain is pinned to the world, so it runs on across chunk edges
+    const hw = TILE_W / 2, hh = TILE_H / 2, bleed = 0.7; // diamonds overdraw a hair so no seam lattice shows between tiles
+    const diamond = (sx: number, sy: number) => { g.moveTo(sx, sy - bleed); g.lineTo(sx + hw + bleed, sy + hh); g.lineTo(sx, sy + TILE_H + bleed); g.lineTo(sx - hw - bleed, sy + hh); g.closePath(); };
+    // tiles sharing a material get their grain in ONE fill: filling tile by tile double-covers every shared edge (the criss-cross)
+    const grit = new Map<string, { m: Material; a: number; at: number[] }>();
+    const cell: { sx: number; sy: number; base: number; n: number; tx: number; ty: number }[] = [];
     for (let ty = y0; ty < Math.min(S, y0 + CH); ty++) for (let tx = x0; tx < Math.min(S, x0 + CH); tx++) {
       const t = w.tiles[ty * S + tx];
       const base = groundOf(w, tx, ty, t);
       const n = this.noise(ty * S + tx);
       const [c1, c2] = GROUND[base] ?? ["#1a1614", "#1e1a17"];
-      const sx = (tx - ty) * (TILE_W / 2) - ox, sy = (tx + ty) * (TILE_H / 2) - oy;
-      // diamond
-      g.fillStyle = n < 0.5 ? c1 : c2;
-      g.beginPath(); g.moveTo(sx, sy); g.lineTo(sx + TILE_W / 2, sy + TILE_H / 2); g.lineTo(sx, sy + TILE_H); g.lineTo(sx - TILE_W / 2, sy + TILE_H / 2); g.closePath(); g.fill();
-      // real-world grit (the chunk is cached, so this costs nothing per frame)
+      const sx = (tx - ty) * hw - ox, sy = (tx + ty) * hh - oy;
+      // soft tonal variation: blend the two ground colours smoothly (no checkerboard)
+      g.fillStyle = base === T.WATER ? waterShade(g, sx, sy, w, tx, ty) : mix(c1, c2, this.smooth(tx, ty));
+      g.beginPath(); diamond(sx, sy); g.fill();
       const mat = MAT_OF[base];
-      if (mat) fillTextured(g, mat[0], mat[1]);
-      detail(g, base, sx, sy, n, w, tx, ty);
+      if (mat) { const k = mat[0] + mat[1]; let e = grit.get(k); if (!e) grit.set(k, e = { m: mat[0], a: mat[1], at: [] }); e.at.push(sx, sy); }
+      cell.push({ sx, sy, base, n, tx, ty });
     }
+    for (const e of grit.values()) {
+      g.beginPath(); for (let i = 0; i < e.at.length; i += 2) diamond(e.at[i], e.at[i + 1]);
+      fillTextured(g, e.m, e.a, anchor);
+    }
+    for (const c of cell) detail(g, c.base, c.sx, c.sy, c.n, w, c.tx, c.ty);
     this.chunksBuilt++;
     return { cv, ox, oy };
   }
@@ -73,6 +92,22 @@ export class Terrain {
   }
 }
 
+function mix(a: string, b: string, t: number): string {
+  const p = (c: string, i: number) => parseInt(c.slice(1 + i * 2, 3 + i * 2), 16);
+  return `rgb(${Math.round(p(a, 0) + (p(b, 0) - p(a, 0)) * t)},${Math.round(p(a, 1) + (p(b, 1) - p(a, 1)) * t)},${Math.round(p(a, 2) + (p(b, 2) - p(a, 2)) * t)})`;
+}
+
+/** Water: deep teal in the middle, shallow turquoise toward the shore (a vertical gradient per tile, baked into the chunk). */
+function waterShade(g: CanvasRenderingContext2D, sx: number, sy: number, w: World, tx: number, ty: number): CanvasGradient {
+  let land = 0;
+  for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (w.tile(tx + dx, ty + dy) !== T.WATER) land += 1 / (1 + Math.abs(dx) + Math.abs(dy));
+  const sh = Math.min(1, land * 0.55); // 0 deep .. 1 shallow
+  const grd = g.createLinearGradient(sx, sy, sx, sy + TILE_H);
+  grd.addColorStop(0, `rgb(${Math.round(8 + sh * 22)},${Math.round(34 + sh * 70)},${Math.round(56 + sh * 70)})`);
+  grd.addColorStop(1, `rgb(${Math.round(6 + sh * 18)},${Math.round(44 + sh * 74)},${Math.round(70 + sh * 70)})`);
+  return grd;
+}
+
 /** What ground to paint under a tile (solid tiles show their district's floor). */
 function groundOf(w: World, tx: number, ty: number, t: number): number {
   if (GROUND[t] && t !== T.WATER) return t;
@@ -90,15 +125,21 @@ function detail(g: CanvasRenderingContext2D, t: number, sx: number, sy: number, 
       break;
     }
     case T.PAVE: case T.PATH: {
-      g.strokeStyle = t === T.PAVE ? "rgba(238,228,211,.05)" : "rgba(0,0,0,.18)"; g.lineWidth = 1;
-      g.beginPath(); g.moveTo(sx - hw + 3, sy + hh); g.lineTo(sx, sy + 2); g.lineTo(sx + hw - 3, sy + hh); g.stroke();
+      // (no per-tile chevrons: repeated every tile they formed a diagonal criss-cross lattice)
       break;
     }
-    case T.FLOOR: {
-      g.strokeStyle = "rgba(0,0,0,.25)"; g.lineWidth = 1;
-      g.beginPath(); g.moveTo(sx - hw / 2, sy + hh / 2); g.lineTo(sx + hw / 2, sy + hh * 1.5); g.stroke();
+    case T.WATER: {
+      // foam line along any edge that meets land
+      const land = (dx: number, dy: number) => w.tile(tx + dx, ty + dy) !== T.WATER;
+      g.strokeStyle = "rgba(220,250,255,.38)"; g.lineWidth = 1.6; g.lineCap = "round"; g.beginPath();
+      if (land(0, -1)) { g.moveTo(sx, sy + 1); g.lineTo(sx + hw - 1, sy + hh); }
+      if (land(1, 0)) { g.moveTo(sx + hw - 1, sy + hh); g.lineTo(sx, sy + TILE_H - 1); }
+      if (land(0, 1)) { g.moveTo(sx, sy + TILE_H - 1); g.lineTo(sx - hw + 1, sy + hh); }
+      if (land(-1, 0)) { g.moveTo(sx - hw + 1, sy + hh); g.lineTo(sx, sy + 1); }
+      g.stroke(); g.lineCap = "butt";
       break;
     }
+    case T.FLOOR: break;
     case T.COURT: {
       const edge = (dx: number, dy: number) => w.tile(tx + dx, ty + dy) !== T.COURT && w.tile(tx + dx, ty + dy) !== T.FENCE;
       g.strokeStyle = "rgba(238,228,211,.35)"; g.lineWidth = 1.5; g.beginPath();
@@ -180,8 +221,6 @@ function detail(g: CanvasRenderingContext2D, t: number, sx: number, sy: number, 
       break;
     }
     case T.SIDEWALK: {
-      g.strokeStyle = "rgba(0,0,0,.25)"; g.lineWidth = 1;
-      g.beginPath(); g.moveTo(sx - hw * 0.5, sy + hh * 0.5); g.lineTo(sx + hw * 0.5, sy + hh * 1.5); g.stroke();
       const kerb = (dx: number, dy: number) => { const t = w.tile(tx + dx, ty + dy); return t === T.ROAD || t === T.CROSSWALK; };
       g.strokeStyle = "rgba(238,228,211,.28)"; g.lineWidth = 2; g.beginPath();
       if (kerb(0, 1)) { g.moveTo(sx - hw, sy + hh); g.lineTo(sx, sy + TILE_H); }
@@ -270,6 +309,7 @@ export function drawTallTile(g: CanvasRenderingContext2D, t: number, sx: number,
 /** Points of interest (benches, lamps, boombox, chests, hoops, spring pads). */
 export function drawPoi(g: CanvasRenderingContext2D, p: Poi, sx: number, sy: number, z: number, time: number, party: boolean, dark: boolean): void {
   switch (p.kind) {
+    case "bin": drawBin(g, sx, sy, z, p.id >= 0 && ((p.id * 2654435761) >>> 0) % 3 === 0); break;
     case "bench": {
       g.strokeStyle = "#9a5a1c"; g.lineWidth = 3 * z; g.lineCap = "round";
       g.beginPath(); g.moveTo(sx - 14 * z, sy - 5 * z); g.lineTo(sx + 14 * z, sy + 2 * z); g.stroke();
