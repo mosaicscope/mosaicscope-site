@@ -244,7 +244,7 @@ export class Game {
     this.last = now;
     const steps = this.clock.advance(dt);
     // TEMP DEBUG (phone stick test): shows the stick values and your position. Remove after testing.
-    if (!this.dbgEl) { this.dbgEl = document.createElement("div"); this.dbgEl.id = "dbg-stick"; this.dbgEl.style.cssText = "position:fixed;top:4px;left:50%;transform:translateX(-50%);z-index:99;background:rgba(0,0,0,.7);color:#c6ff3d;font:12px monospace;padding:4px 8px;border-radius:6px;pointer-events:none;white-space:pre"; document.body.append(this.dbgEl); }
+    if (!this.dbgEl) { this.dbgEl = document.createElement("div"); this.dbgEl.id = "dbg-stick"; this.dbgEl.style.cssText = "position:fixed;top:45%;left:12px;z-index:999;background:rgba(0,0,0,.85);color:#c6ff3d;font:bold 16px monospace;padding:8px 10px;border-radius:8px;pointer-events:none;white-space:pre"; document.body.append(this.dbgEl); }
     this.dbgEl.textContent = `stick x ${this.touchMove.x.toFixed(2)} y ${this.touchMove.y.toFixed(2)}\nyou ${this.sim.player.x.toFixed(1)}, ${this.sim.player.y.toFixed(1)}  follow ${this.renderer.cam.follow}`;
     for (let i = 0; i < steps; i++) this.guard("sim", () => { this.controlPlayer(); this.sim.step(); });
     this.ticksThisSecond += steps; this.tickWindow += dt;
