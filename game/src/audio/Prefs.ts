@@ -54,6 +54,8 @@ export interface FootPrefs {
   silenceWhenSneaking: boolean;
   /** how much quieter sneaking steps are, 0 (no change) to 1 (silent) */
   sneakAmount: number;
+  /** step delay offset in seconds: pushes every footstep later (negative values are clamped to 0) */
+  delay: number;
 }
 
 export const DEFAULT_FOOT: FootPrefs = {
@@ -62,6 +64,7 @@ export const DEFAULT_FOOT: FootPrefs = {
   shoe: "default",
   silenceWhenSneaking: true,
   sneakAmount: 0.7,
+  delay: 0,
 };
 
 /** Ambience preferences: the background beds (rain, wind, crickets, crowd). */

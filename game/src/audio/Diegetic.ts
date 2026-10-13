@@ -709,6 +709,7 @@ export class Diegetic {
   private step(o: Out | null, surface: Surface, wet: number, jitter: number, soft = false, rain = wet / 1.6): void {
     const vol = footGain(this.footPrefs, this.sneaking);
     if (!o || vol <= 0 || !this.begin("foley")) return;
+    o.t += Math.max(0, this.footPrefs.delay);
     const r = FOOT[surface], [f, q, d, v, type] = r.noise, k = (1 + jitter) * shoePitch(this.footPrefs.shoe);
     // everyone else's steps are a soft tap (low-passed, no squeak); only yours has the full detail
     const n = soft ? this.hit(o, "lowpass", Math.min(2400, f) * k, 0.5, d * 1.2, v * vol * 1.4) : this.hit(o, type, f * k * (1 + wet * 0.3), q, d * (1 + wet * 0.8), v * vol * (1 + wet * 0.35));
