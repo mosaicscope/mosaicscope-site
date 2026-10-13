@@ -1,7 +1,7 @@
 import type { Simulation } from "../sim/Simulation";
 import type { Camera } from "../render/Camera";
 import { Music } from "./Music";
-import { Diegetic, STREET, type Scene } from "./Diegetic";
+import { Diegetic, STREET, type Scene, type Prio } from "./Diegetic";
 import { fetchVibe, VIBE_REFRESH_MS } from "./LiveVibe";
 import type { Place } from "./Score";
 
@@ -136,16 +136,17 @@ export class AudioSystem {
     }
   }
 
-  private out(x: number, y: number, vol: number): { gain: GainNode; at: number } | null {
+  private out(x: number, y: number, vol: number, prio: Prio = "event"): { gain: GainNode; at: number } | null {
     if (!this.enabled || !this.ctx || !this.master) return null;
     const dest = this.fx ?? this.master;
     const now = this.ctx.currentTime;
     if (now - this.recentT > 0.1) { this.recentT = now; this.recent = 0; }
-    if (++this.recent > 8) return null; // rate limit
+    if (++this.recent > 3) return null; // rate limit
     const cam = this.getCam();
     const d = Math.hypot(x - cam.x, y - cam.y);
     const att = Math.max(0, 1 - d / (22 / Math.max(0.5, cam.zoom)));
     if (att <= 0.01) return null;
+    if (this.dg && !this.dg.allow(prio)) return null; // the central mix: caps, spacing, priority
     const gain = this.ctx.createGain(); gain.gain.value = vol * att;
     const pan = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
     if (pan) { pan.pan.value = Math.max(-1, Math.min(1, ((x - y) - (cam.x - cam.y)) / 12)); gain.connect(pan); pan.connect(dest); }
@@ -169,7 +170,7 @@ export class AudioSystem {
   }
 
   play(kind: string, x: number, y: number, vol: number): void {
-    const o = this.out(x, y, vol * 0.6);
+    const o = this.out(x, y, vol * 0.6, kind.startsWith("bang") || kind === "ricochet" ? "critical" : "event");
     if (!o) return;
     const mat = kind.split("_")[1] ?? "";
     const pitch: Record<string, number> = { rubber: 320, foam: 180, plush: 120, plastic: 520, wood: 220, cardboard: 260 };
