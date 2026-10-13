@@ -482,3 +482,147 @@ test("competition: the Optimiser doesn't copy A when a near-equal alternative ex
   const second = heuristicPick("optimiser", options, s, first);
   assert.notEqual(first.r.id, second.r.id);
 });
+
+// ---- Ecosystem (11-20): visual, experiments, maintenance, queue, resources, docs, recovery, graph, journeys ----
+import { buildGraph, impactOf, contextFor } from "../core/graph.js";
+import { taskAllows, applyTaskControls, MAX_RETRIES } from "../core/memory.js";
+import { policy, worthAsking } from "../core/resources.js";
+import { scanMaintenance } from "../core/maintain.js";
+import { checkDocs, settingsTable, applySettingsTable } from "../core/docs.js";
+import { decide, experimentKey } from "../core/experiments.js";
+import { JOURNEYS } from "../journeys.mjs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, writeFileSync as wfs, readFileSync as rfs } from "node:fs";
+import { tmpdir as tmp } from "node:os";
+import { join as pjoin } from "node:path";
+
+test("visual intelligence: inconsistent components and inverted hierarchy become issues", () => {
+  const p = probeOf({ ui: { overflowPx: 0, smallTargets: [], smallText: [], lowContrast: [], noFocusStyle: [], inconsistent: [{ component: "button", variants: 6, examples: [] }], h1Count: 2, hierarchyInverted: true } });
+  const kinds = classify(p).map((i) => i.kind + ":" + i.severity);
+  assert.ok(kinds.includes("inconsistent-component:low") && kinds.includes("hierarchy:medium"));
+  p.journeys = [{ id: "faq-opens", name: "An FAQ answer opens", width: 390, status: "fail", why: "didn't open" }];
+  assert.ok(classify(p).some((i) => i.kind === "broken-journey" && i.severity === "high"));
+  assert.ok(JOURNEYS.length >= 6 && JOURNEYS.every((j) => j.id && j.page && typeof j.run === "function"));
+});
+
+test("knowledge graph: a stylesheet change maps to every page that uses it", () => {
+  const g = buildGraph({
+    "index.html": '<html><head><link rel="stylesheet" href="styles.css"></head><body><div class="hero"></div><script src="main.js"></script><section id="rates"></section></body></html>',
+    "404.html": '<html><head><link rel="stylesheet" href="/styles.css"></head><body class="lost"></body></html>',
+    "house/index.html": "<html><body></body></html>",
+    "styles.css": ".hero{} .lost{}",
+    "main.js": 'fetch("/api/egg")',
+  });
+  assert.deepEqual(impactOf(g, "styles.css"), ["404.html", "index.html"]);
+  assert.ok(g.edges.some(([a, r, b]) => a === "script:main.js" && r === "calls" && b === "api:/api/egg"));
+  assert.ok(contextFor(g, "page:index.html").length > 0 && contextFor(g, "page:index.html").length <= 8, "only the relevant facts");
+});
+
+test("task queue: every task has its fields, controls work, retries stop", () => {
+  const s = blankState();
+  const r = runChecks(files());
+  updateBacklog(s, { findings: r.findings, weaknesses: r.weaknesses, issues: [], security: [] }, 1000);
+  const t = s.backlog.find((b) => b.source === "check" && b.status === "queued");
+  for (const k of ["benefit", "severity", "confidence", "cost", "risk", "deps", "resource", "status", "retries"]) assert.ok(k in t, k);
+  applyTaskControls(s, { [t.id]: { action: "pause", at: 5 } });
+  assert.equal(s.backlog.find((b) => b.id === t.id).status, "paused");
+  assert.equal(taskAllows(s, t.id, 2000), false);
+  updateBacklog(s, { findings: r.findings, weaknesses: [], issues: [], security: [] }, 3000);
+  assert.equal(s.backlog.find((b) => b.id === t.id).status, "paused", "a person's pause survives rescans");
+  applyTaskControls(s, { [t.id]: { action: "resume", at: 6 } });
+  assert.equal(taskAllows(s, t.id, 4000), true);
+  // three failed attempts block it: no infinite retry loop
+  const f = r.findings.find((x) => x.fp === t.id);
+  for (let i = 0; i < MAX_RETRIES; i++) recordOutcome(s, { fp: f.fp + i, kind: f.kind, path: f.path, remedy: "a", agent: "innovator", score: 5, risk: 0 }, "rejected", 5000 + i);
+  updateBacklog(s, { findings: r.findings, weaknesses: [], issues: [], security: [] }, 9000);
+  assert.equal(s.backlog.find((b) => b.id === t.id).status, "blocked");
+});
+
+test("resource manager: economy by default, throttles as budgets run down, never raises limits", () => {
+  const s = blankState();
+  rollLedger(s, Date.now());
+  assert.equal(policy(s, cfg).mode, "economy");
+  const dev = loadConfig({ EVOLVE_MODE: "development" });
+  assert.equal(policy(s, dev).options, 8);
+  s.ledger.usd = dev.DAILY_USD_LIMIT * 0.6;
+  assert.equal(policy(s, dev).mode, "economy");
+  s.ledger.usd = dev.DAILY_USD_LIMIT * 0.85;
+  assert.equal(policy(s, dev).ai, "never");
+  assert.equal(dev.DAILY_USD_LIMIT, loadConfig({}).DAILY_USD_LIMIT);
+  const opts = [{ finding: {}, remedies: [{ id: "a" }, { id: "b" }] }];
+  assert.equal(worthAsking({ ai: "valuable" }, opts, (o, r) => (r.id === "a" ? 20 : 5)), false, "economy skips an obvious choice");
+  assert.equal(worthAsking({ ai: "valuable" }, opts, (o, r) => (r.id === "a" ? 20 : 19)), true, "economy asks on a close, valuable call");
+});
+
+test("maintenance: duplicates, cycles, dead exports and formatting drift", () => {
+  const block = Array.from({ length: 9 }, (_, i) => `  const value${i} = computeSomething(${i}, "abc");`).join("\n");
+  const found = scanMaintenance({
+    "evolve/core/a.js": `import { b } from "./b.js";\nexport function used() {}\nexport function neverUsed() {}\n${block}\n`,
+    "evolve/core/b.js": `import { used } from "./a.js";\nexport const b = 1;\n${block}\nused();\n`,
+    "x.js": "a  \nb  \nc  \nd  \ne  \nf  \n",
+  });
+  const kinds = found.map((f) => f.kind);
+  for (const k of ["duplicate-code", "circular-import", "dead-code", "format"]) assert.ok(kinds.includes(k), k);
+  assert.ok(found.some((f) => f.detail.includes("neverUsed")) && !found.some((f) => f.detail.includes(" used ")));
+});
+
+test("documentation: drift is found and the settings table is generated, not hand-kept", () => {
+  const docs = checkDocs({ "evolve/README.md": "Run `node evolve/cli.mjs fly` and see `nothere.js`.", "evolve/cli.mjs": 'if (cmd === "check")', "functions/api/egg.js": "" });
+  const kinds = docs.map((d) => d.kind);
+  for (const k of ["doc-dead-command", "doc-dead-path", "doc-missing-setting", "doc-missing-api"]) assert.ok(kinds.includes(k), k);
+  const table = settingsTable("export const DEFAULTS = {\n  MODE: \"economy\", // how hard to work\n};");
+  assert.match(table, /EVOLVE_MODE.*economy.*how hard to work/);
+  const once = applySettingsTable("# x\n\n## Hard limits and safety\n", table);
+  assert.equal(applySettingsTable(once, table), once, "regenerating is stable");
+});
+
+test("experiments: promote only on measured evidence; same experiment isn't run twice", () => {
+  const base = { visual: 0, moved: 0, uiIssues: 3, errors: 0, kb: 100, requests: 5, journeysPass: 12 };
+  const r = decide([
+    { remedy: "a", ok: true, measures: { ...base, uiIssues: 2, visual: 0.001 } },
+    { remedy: "b", ok: true, measures: { ...base, uiIssues: 2, visual: 0.02 } },
+    { remedy: "c", ok: false, measures: base },
+  ], base);
+  assert.equal(r.winner, "a");
+  assert.equal(decide([{ remedy: "a", ok: true, measures: { ...base, visual: 0.001 } }], base).winner, null, "no gain, no promotion");
+  assert.equal(decide([{ remedy: "a", ok: false, measures: base }], base).winner, null);
+  assert.equal(experimentKey("fp", ["b", "a"], "sha"), experimentKey("fp", ["a", "b"], "sha"));
+});
+
+test("recovery (real git, isolated): restores engine changes to known-good, never a person's edits", async () => {
+  const dir = mkdtempSync(pjoin(tmp(), "evo-recovery-"));
+  const g = (...a) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...a], { cwd: dir, encoding: "utf8" }).trim();
+  g("init", "-q", "-b", "main");
+  wfs(pjoin(dir, "styles.css"), "a { color: red; }\n");
+  wfs(pjoin(dir, "index.html"), "<p>hello</p>\n");
+  g("add", "-A"); g("commit", "-qm", "site");
+  const good = g("rev-parse", "HEAD");
+  wfs(pjoin(dir, "styles.css"), "a { color: red; }\nbody { display: none; }\n"); // the deliberately breaking change
+  g("commit", "-qam", "evolve: broke the page");
+  wfs(pjoin(dir, "index.html"), "<p>hello from a person</p>\n");
+  g("commit", "-qam", "Chris: new copy");
+  const { localIo } = await import("../cli.mjs");
+  const io = localIo({ root: dir, env: {} });
+  const r = await io.restore(good);
+  assert.deepEqual(r.restored, ["styles.css"]);
+  assert.deepEqual(r.skipped, ["index.html"], "the person's edit is left alone");
+  assert.equal(g("show", `${r.ref}:styles.css`), "a { color: red; }");
+  assert.equal(g("show", `${r.ref}:index.html`), "<p>hello from a person</p>");
+  assert.equal(rfs(pjoin(dir, "styles.css"), "utf8").includes("display: none"), true, "the working tree wasn't touched");
+});
+
+test("recovery in the cycle: a critical failure with no recent engine change restores to known-good", async () => {
+  const io = fakeIo();
+  io.fs["@probe"] = JSON.stringify({ ...probeOf(), at: 10, sha: "good111" });
+  await runCycle(io, cfg);
+  assert.equal(io.state.recovery.points[0].sha, "good111");
+  const restored = [];
+  io.restore = async (sha) => { restored.push(sha); return { ref: "#77" }; };
+  io.revert = async () => { throw new Error("should not undo: nothing of ours landed"); };
+  io.fs["@probe"] = JSON.stringify({ ...probeOf({ errors: ["boom"] }), at: 20, sha: "bad222" });
+  io.tick();
+  const r = await runCycle(io, cfg);
+  assert.match(r.result, /restore #77 opened/);
+  assert.deepEqual(restored, ["good111"]);
+  assert.equal(io.state.recovery.log[0].action, "restore to good111");
+});

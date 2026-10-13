@@ -64,6 +64,7 @@
   button { font: 600 13px var(--f-body); text-transform: uppercase; letter-spacing: .06em; padding: 10px 14px; border: 1px solid var(--paper); background: transparent; color: var(--paper); cursor: pointer; }
   button:hover { background: var(--paper); color: var(--ink); }
   button.stop { border-color: var(--red); color: var(--red); }
+  button.mini { padding: 4px 8px; font-size: 11px; margin: 0 4px 4px 0; }
   button.stop:hover { background: var(--red); color: var(--ink); }
   button:focus-visible, input:focus-visible { outline: 2px solid var(--sodium); outline-offset: 2px; }
   .empty { color: var(--dim); font-style: italic; }
@@ -111,6 +112,25 @@
   </section>
 
   <section class="grid">
+    <article class="card c4"><h2>Operating mode</h2><div id="resources"></div></article>
+    <article class="card c8"><h2>User journeys</h2><div class="scroll" id="journeys"></div></article>
+  </section>
+
+  <section class="grid">
+    <article class="card"><h2>Task queue</h2><div class="scroll" id="queue"></div></article>
+  </section>
+
+  <section class="grid">
+    <article class="card c6"><h2>Experiments</h2><div id="experiments"></div></article>
+    <article class="card c6"><h2>Recovery</h2><div id="recovery"></div></article>
+  </section>
+
+  <section class="grid">
+    <article class="card c6"><h2>Knowledge graph</h2><div id="graph"></div></article>
+    <article class="card c6"><h2>Code health and docs</h2><div id="health2"></div></article>
+  </section>
+
+  <section class="grid">
     <article class="card c6"><h2>Usage today</h2><div id="usage"></div></article>
     <article class="card c6"><h2>Website health</h2><div id="health"></div></article>
   </section>
@@ -121,8 +141,7 @@
   </section>
 
   <section class="grid">
-    <article class="card c8"><h2>Strategic backlog</h2><div class="scroll" id="backlog"></div></article>
-    <article class="card c4"><h2>Security</h2><div id="security"></div></article>
+    <article class="card"><h2>Security</h2><div id="security"></div></article>
   </section>
 
   <section class="grid">
@@ -234,10 +253,48 @@
       ${kinds.length ? `<table><thead><tr><th>Check</th><th>Landed / failed</th><th>Measured effect</th></tr></thead><tbody>${kinds.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="mono">${v.ok} / ${v.fail}</td><td>${v.measured ? `<span class="mono ${v.effect > 0 ? "ok" : v.effect < 0 ? "bad" : "dim"}">${v.effect > 0 ? "+" : ""}${v.effect} (${v.measured}×)</span><div class="bar"><i class="${v.effect < 0 ? "neg" : ""}" style="left:${v.effect < 0 ? 50 + v.effect * 50 : 50}%;width:${Math.abs(v.effect) * 50}%"></i></div>` : '<span class="dim mono">not measured yet</span>'}</td></tr>`).join("")}</tbody></table>` : '<p class="empty">Nothing learned yet.</p>'}
       <p class="mono dim" style="margin-top:10px">Outcomes fade with a two-week half-life. Measured effects compare probes before and after each change landed. ${s.cacheSize || 0} cached agent answers.</p>`;
 
+    const R = s.resources;
+    $("resources").innerHTML = R ? `<p class="big ${R.mode === "local-only" ? "warn" : "ok"}">${esc(R.mode)}</p>
+      <p class="mono dim">${R.want !== R.mode ? `configured: ${esc(R.want)} · ` : ""}AI: ${esc(R.ai)} · ${R.options} options per decision${R.reason ? "<br>" + esc(R.reason) : ""}</p>
+      <dl style="grid-template-columns:repeat(3,1fr);margin-top:10px"><div><dt>Cycle avg</dt><dd>${s.ledger?.avgMs ?? "–"} ms</dd></div><div><dt>KV writes</dt><dd>${s.ledger?.writes ?? 0}<span class="dim">/1000</span></dd></div><div><dt>State</dt><dd>${s.storage?.stateKB ?? "–"} KB</dd></div></dl>
+      <p class="mono dim" style="margin-top:10px">Economy: local rules decide, AI only for close high-value calls. Balanced: AI for real choices. Development: more options. It steps down on its own at 50% and 80% of a budget, and never raises a limit.</p>` : '<p class="empty">Set after the first cycle.</p>';
+
+    const J = s.journeys || [];
+    const jids = [...new Set(J.map((j) => j.id))];
+    $("journeys").innerHTML = J.length ? `<table><thead><tr><th>Journey</th><th>Phone</th><th>Desktop</th></tr></thead><tbody>${jids.map((id) => { const a = J.find((j) => j.id === id && j.width < 500), b = J.find((j) => j.id === id && j.width >= 500); const cell = (j) => j ? `<span class="mono ${j.status === "pass" ? "ok" : j.status === "fail" ? "bad" : "dim"}">${esc(j.status)}</span>${j.why ? `<br><span class="mono dim">${esc(j.why)}</span>` : ""}` : "–"; return `<tr><td>${esc((a || b).name)}</td><td>${cell(a)}</td><td>${cell(b)}</td></tr>`; }).join("")}</tbody></table>
+      <p class="mono dim">Synthetic visitors in headless Chrome: no real user data, nothing submitted. Every change must keep these passing.</p>` : '<p class="empty">No journeys yet (they run with the probe).</p>';
+
     const bl = s.backlog || [];
-    $("backlog").innerHTML = bl.length ? `<table><thead><tr><th>Rank</th><th>Problem</th><th>Status</th></tr></thead><tbody>${bl.slice(0, 15).map((b) => `<tr>
+    const tb = (b, a, label) => `<button type="button" class="mini" data-task="${esc(b.id)}" data-act="${a}">${label}</button>`;
+    $("queue").innerHTML = bl.length ? `<table><thead><tr><th>Score</th><th>Task</th><th>Benefit · cost · risk · confidence</th><th>Status</th><th></th></tr></thead><tbody>${bl.slice(0, 20).map((b) => `<tr>
+      <td class="mono">${b.rank}</td>
+      <td><span class="sev sev-${esc(b.severity)}">${esc(b.severity)}</span> ${esc(b.title)}<br><span class="mono dim">${esc(b.where)} · ${esc(b.source)} · ${esc(b.resource || "")}${b.deps?.length ? " · affects " + esc(b.deps.join(", ")) : ""}${b.lastOutcome ? " · last try " + esc(b.lastOutcome) : ""}${b.retries ? ` · ${b.retries} retries` : ""}</span></td>
+      <td class="mono">${b.benefit ?? "–"} · ${b.cost ?? "–"} · ${b.risk ?? "–"} · ${b.confidence ?? "–"}</td>
+      <td class="mono ${["queued", "approved"].includes(b.status) ? "ok" : ["blocked", "cancelled"].includes(b.status) ? "bad" : "warn"}">${esc(b.status)}</td>
+      <td style="white-space:nowrap">${b.status === "needs-approval" ? tb(b, "approve", "Approve") : ""}${["paused", "cancelled", "blocked"].includes(b.status) ? tb(b, "resume", "Resume") : b.status !== "needs-person" ? tb(b, "pause", "Pause") + tb(b, "cancel", "Cancel") : ""}</td></tr>`).join("")}</tbody></table>
+      <p class="mono dim">Picked top-down by a fixed formula (no AI). Failed tasks back off 2, 4, 8 h and stop after 3 tries. Controls need the admin token above.</p>` : '<p class="empty">Queue is empty.</p>';
+
+    const E = s.experiments || [];
+    $("experiments").innerHTML = E.length ? `<ul class="plain">${E.slice(0, 5).map((e) => `<li><b>${esc(e.kind)}</b> <span class="mono dim">${esc(e.where)} · ${ago(e.at)}</span><br>${e.results.map((r) => `<span class="mono ${r.ok ? "" : "bad"}">${esc(r.remedy)}: ${r.ok ? "passed" : "failed"} (UI issues ${r.measures?.uiIssues ?? "?"}, ${((r.measures?.visual || 0) * 100).toFixed(2)}% visual)</span>`).join("<br>")}<br><span class="mono ${e.winner ? "ok" : "warn"}">${e.winner ? "promoted " + esc(e.winner) + ": " : ""}${esc(e.verdict)}</span></li>`).join("")}</ul>` : '<p class="empty">No experiments yet. Each one builds every candidate fix in its own preview and promotes one only if it measurably beats the current site.</p>';
+
+    const RC = s.recovery || { points: [], log: [] };
+    $("recovery").innerHTML = `<p class="mono">Known-good points: ${RC.points.length ? RC.points.map((p) => esc(p.sha.slice(0, 7)) + " (" + ago(p.at) + ")").join(", ") : "none yet"}</p>
+      ${RC.log.length ? `<ul class="plain">${RC.log.slice(0, 6).map((l) => `<li><span class="bad mono">${ago(l.at)}</span> ${esc(l.cause)}<br><span class="mono dim">${esc(l.action)}${l.ref ? " · " + esc(l.ref) : ""}</span></li>`).join("")}</ul>` : '<p class="empty">No rollbacks so far.</p>'}
+      <p class="mono dim">A critical failure undoes the engine's latest change, or restores engine-edited files to the last known-good commit. A person's edits are never overwritten. All deterministic: no AI needed.</p>`;
+
+    const G = s.graph;
+    $("graph").innerHTML = G ? `<p class="mono">${G.stats.nodes} nodes · ${G.stats.edges} links · ${Object.entries(G.stats.by).map(([k, v]) => `${v} ${esc(k)}`).join(" · ")}</p>
+      <ul class="plain">${(G.sample || []).slice(0, 10).map((e) => `<li class="mono dim">${esc(e[0])} <span class="ok">${esc(e[1])}</span> ${esc(e[2])}</li>`).join("")}</ul>
+      <p class="mono dim">Each change is checked against every page it can affect. An agent only ever sees the few links that matter for one task.</p>` : '<p class="empty">Built at the first scan.</p>';
+
+    const M = s.maintenance;
+    $("health2").innerHTML = (M ? `<p class="mono">${Object.entries(M.totals || {}).map(([k, v]) => `${esc(k)} ${v}`).join(" · ")}</p>${M.history?.length > 1 ? `<p class="mono dim">Trend: ${M.history.slice(0, 6).reverse().map((h) => Object.values(h.totals || {}).reduce((a, b) => a + b, 0)).join(" → ")} findings</p>` : ""}` : '<p class="empty">No code scan yet (runs with the probe).</p>')
+      + (s.docs ? `<p class="mono">${s.docs.count} documentation mismatches · checked ${ago(s.docs.at)}</p>` : "")
+      + '<p class="mono dim">Duplicates, oversized modules, long functions, import cycles, dead code, unused CSS and dependencies, formatting. Reported for a person; never refactored automatically.</p>';
+
+    $("backlog") && ($("backlog").innerHTML = bl.length ? `<table><thead><tr><th>Rank</th><th>Problem</th><th>Status</th></tr></thead><tbody>${bl.slice(0, 15).map((b) => `<tr>
       <td class="mono">${b.rank}</td><td><span class="sev sev-${esc(b.severity)}">${esc(b.severity)}</span> ${esc(b.title)}<br><span class="mono dim">${esc(b.where)} · ${esc(b.source)} · seen since ${ago(b.firstSeen)}${b.lastOutcome ? " · last try " + esc(b.lastOutcome) : ""}</span></td>
-      <td class="mono ${b.status === "fixable" ? "ok" : "warn"}">${esc(b.status)}</td></tr>`).join("")}</tbody></table>` : '<p class="empty">Backlog is empty.</p>';
+      <td class="mono ${b.status === "fixable" ? "ok" : "warn"}">${esc(b.status)}</td></tr>`).join("")}</tbody></table>` : '<p class="empty">Backlog is empty.</p>');
 
     const sec = s.security;
     $("security").innerHTML = sec ? `<p class="mono">${["critical", "high", "medium", "low"].map((k) => `<span class="sev sev-${k}">${sec.counts?.[k] ?? 0} ${k}</span>`).join(" ")}</p>
@@ -301,6 +358,18 @@
       load();
     } catch (e) { $("ctl-msg").textContent = "Couldn't reach the API."; }
   }));
+
+  document.addEventListener("click", async (e) => {
+    const b = e.target.closest && e.target.closest("button[data-task]");
+    if (!b) return;
+    const token = $("tok").value.trim();
+    if (!token) { $("ctl-msg").textContent = "Enter the admin token first."; $("tok").focus(); return; }
+    try {
+      const r = await fetch("/api/evolve", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + token }, body: JSON.stringify({ task: b.dataset.task, action: b.dataset.act }) });
+      const j = await r.json();
+      $("ctl-msg").textContent = r.ok ? j.note : "Refused: " + j.error;
+    } catch (err) { $("ctl-msg").textContent = "Couldn't reach the API."; }
+  });
 
   load();
   setInterval(load, 30000);

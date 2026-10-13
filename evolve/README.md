@@ -2,7 +2,7 @@
 
 Small, safe improvements to the site, found and made automatically. Two agents compete to pick each one. Scripts do the work; the AI only makes a choice when there is one to make.
 
-Dashboard: **/evolve/** (for example https://mosaicscope.pages.dev/evolve/). It isn't in the sitemap and is marked noindex.
+Dashboard: **/evolve/** (data from `/api/evolve`; the site's other endpoints are `/api/egg`, `/api/world-stats`, `/api/vibe`, `/api/youtube` and `/api/chch-map`) (for example https://mosaicscope.pages.dev/evolve/). It isn't in the sitemap and is marked noindex.
 
 ## How a cycle works
 
@@ -83,7 +83,59 @@ EVOLVE_PROBE=probe.json EVOLVE_LOCAL_GATE=1 EVOLVE_CYCLE_DEADLINE_MS=300000 node
 node evolve/security.mjs scan
 ```
 
+## The ecosystem (11–20)
+
+| Part | What it does | Where | Status |
+|---|---|---|---|
+| **Visual intelligence** | Screenshots and pixel diffs. A layout check fails any change that moves text, ignoring animated text by loading the base twice. Overflow is checked at 360, 390, 768, 1280 and 1440 px. It flags components styled inconsistently (buttons, links, headings, inputs) and visual-hierarchy problems such as h3 bigger than h2 or a missing or extra h1. | `probe.mjs`, `core/issues.js` | working |
+| **User journeys** | Six synthetic visits: header link to Rates, quote builder total, empty enquiry refused, FAQ opens, work tile opens and closes, 404 leads home. They run on phone and desktop. A journey that passed before a change must still pass after it. No real user data is used and nothing is submitted. | `journeys.mjs` | working, 12/12 pass |
+| **Experiments** | Every candidate fix for one problem is built in its own preview and measured on the same scenarios. One is promoted only if it measurably beats the current site. Experiments are deduplicated by problem, candidates and commit. No visitor A/B tests: there isn't enough traffic for honest statistics, and synthetic tests need nobody's data. | `cli.mjs experiment`, `core/experiments.js` | working (local / CI runner) |
+| **Code maintenance** | Duplicate code, oversized modules, long functions, import cycles, dead exports, unused CSS classes, unused dependencies, formatting drift. Everything is reported to the task queue; nothing is refactored automatically. The trend is kept so maintainability can be measured. | `maintain.mjs code`, `core/maintain.js` | working |
+| **Task queue** | Every problem from every source is one task, with benefit, severity, confidence, cost, risk, deps (pages, from the graph), resource and status. Tasks are picked deterministically, back off 2, 4 and 8 h after a failure, and stop after 3 tries. You can pause, resume, cancel or approve a task from the dashboard. The queue lives in the engine state, which survives restarts. | `core/memory.js` | working |
+| **Resource manager** | `EVOLVE_MODE` economy (default) / balanced / development. It steps down by itself at 50% of a budget and stops all AI at 80%, and never raises a limit. It tracks average cycle time, KV writes against the free tier, and state size. | `core/resources.js` | working |
+| **Docs engine** | Finds paths, commands and settings the docs mention that don't exist, and settings, APIs and workflows nobody documented. It skips the check when nothing changed (by hash). The settings table below is generated from `core/config.js`, and git keeps its history. | `maintain.mjs docs` / `docs-fix` | working |
+| **Recovery** | A clean probe of a commit becomes a known-good point. On a critical failure the engine undoes its own latest change, or restores engine-edited files to the last known-good commit. A file a person changed since then is never touched. Every rollback is logged with its cause and counted against the change. CI checks that a restore matches the known-good version exactly. No AI is involved. | `core/cycle.js`, `cli.mjs`, `worker/index.js` | working (tested in a throwaway git repo with a deliberately breaking change) |
+| **Knowledge graph** | Pages, stylesheets, scripts, APIs, features, tests (journeys), issues, changes and tasks, rebuilt from file text at each scan and capped. Each PR lists the pages its change can affect, and agents get only the few relevant links. | `core/graph.js` | working |
+| **Dashboard** | One page for everything: mode, journeys, task queue with controls, experiments, recovery, graph, code health, usage, live issues, learning, security, competitions, history. | `/evolve/` | working |
+
+Run the extra tools:
+
+```sh
+node evolve/maintain.mjs code        # code health
+node evolve/maintain.mjs docs        # documentation drift
+node evolve/maintain.mjs docs-fix    # regenerate the settings table
+node evolve/cli.mjs experiment       # test every candidate fix for the top problem (needs Chromium)
+```
+
 ## Hard limits and safety
+
+<!-- evolve:settings:start (generated from core/config.js; edit there) -->
+| Setting | Default | What it does |
+|---|---|---|
+| `EVOLVE_INTERVAL_SECONDS` | `120` | one cycle every two minutes (the Worker cron is */2) |
+| `EVOLVE_MAX_INPUT_TOKENS` | `400` | per AI call, estimated before the call; the call is skipped if over |
+| `EVOLVE_MAX_OUTPUT_TOKENS` | `8` | per AI call; an answer is two short codes like "2b" |
+| `EVOLVE_DAILY_USD_LIMIT` | `0.10` | estimated spend per UTC day across both agents |
+| `EVOLVE_MONTHLY_USD_LIMIT` | `2.00` | hard ceiling per calendar month (UTC) |
+| `EVOLVE_MODE` | `"economy"` | economy | balanced | development (see core/resources.js) |
+| `EVOLVE_MIN_SCORE` | `4` | proposals scoring below this are pointless and never offered |
+| `EVOLVE_DAILY_CALL_LIMIT` | `200` | AI calls per UTC day |
+| `EVOLVE_DAILY_CYCLE_LIMIT` | `720` | cycles per UTC day (720 = every 2 minutes) |
+| `EVOLVE_MAX_CHANGES_PER_CYCLE` | `1` | proposals applied per cycle |
+| `EVOLVE_MAX_OPEN_CHANGES` | `1` | unmerged change branches at once; no new proposals until it resolves |
+| `EVOLVE_MAX_CONSECUTIVE_FAILURES` | `3` | validation or CI failures in a row before the engine pauses itself |
+| `EVOLVE_MAX_DIFF_LINES` | `12` | changed lines a single proposal may touch |
+| `EVOLVE_MAX_FILES_PER_CHANGE` | `1` |  |
+| `EVOLVE_CYCLE_DEADLINE_MS` | `60000` | a cycle gives up after this, so cycles never overlap |
+| `EVOLVE_LOCK_TTL_SECONDS` | `110` |  |
+| `EVOLVE_HEARTBEAT_MINUTES` | `15` | write state at least this often even when nothing changes (KV write budget) |
+| `EVOLVE_COOLDOWN_HOURS` | `24` | a rejected proposal can't be proposed again for this long |
+| `EVOLVE_AUTO_MERGE` | `false` | true: CI merges a change branch once every check passes |
+| `EVOLVE_MODEL_CHEAP` | `"claude-haiku-5-5"` |  |
+| `EVOLVE_MODEL_ESCALATE` | `"claude-sonnet-5-5"` |  |
+| `EVOLVE_KILL` | `false` | global emergency stop (env only; the dashboard cannot clear it) |
+<!-- evolve:settings:end -->
+
 
 Defaults are in `core/config.js`; override any of them with an `EVOLVE_*` variable on the Worker. Budgets are checked **before** each call, using the worst-case cost of the call. Each call is then booked with the token counts the API reports.
 

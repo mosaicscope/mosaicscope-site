@@ -8,6 +8,7 @@ export const DEFAULTS = {
   MAX_OUTPUT_TOKENS: 8,           // per AI call; an answer is two short codes like "2b"
   DAILY_USD_LIMIT: 0.10,          // estimated spend per UTC day across both agents
   MONTHLY_USD_LIMIT: 2.00,        // hard ceiling per calendar month (UTC)
+  MODE: "economy",                // economy | balanced | development (see core/resources.js)
   MIN_SCORE: 4,                   // proposals scoring below this are pointless and never offered
   DAILY_CALL_LIMIT: 200,          // AI calls per UTC day
   DAILY_CYCLE_LIMIT: 720,         // cycles per UTC day (720 = every 2 minutes)
