@@ -1,0 +1,58 @@
+# Lil Wooski: the score
+
+Lil Wooski composes the game's music. Everything is original, synthesised live with Web Audio (no samples, no files, no paid tools, nothing imitates a real song or artist). It starts after the first click or key, **N mutes it**, and effects stay on.
+
+Code: `src/audio/Music.ts` (the player), `src/audio/Score.ts` (scenes, themes, leitmotifs, moods, inspo, live tint), `src/audio/LiveVibe.ts` + `functions/api/vibe.js` (live data). Hunter S Bombson owns diegetic and ambient sound effects (`Audio.ts`); this file is music only.
+
+## Scenes
+One theme per scene, chosen by priority: chase, Terrance, nightlife, recycling centre, the Studio, interiors, 2D street, rain/storm, dawn, then the plain city (day, dusk, night follow the in-game clock, and heat or low health bends any of them to dread).
+
+| Scene | When | Sound |
+|---|---|---|
+| chase | wanted 2+ | dread scale, fast, driving drums, brass tritone siren motif |
+| terrance | near the red NPC | dread, brass, an insistent slightly wrong 4-note ostinato |
+| nightlife | party on, or inside a club | night scale, four-on-the-floor, keys hook |
+| recycling | at or inside the recycling centre | bouncy marimba and mallets, clink-clink motif |
+| studio | at or inside the Studio | warm keys, rising arpeggio every 4th bar |
+| interior | inside any other building | muffled "through the wall" keys |
+| street2d | zoomed in to the street | dusty boom-bap shuffle |
+| rain | rain over 0.4 or a storm | thin, soft, bells |
+| dawn | 05:00 to 07:30 | slow, sparse, bells |
+| city | otherwise | lazy jangle, moods follow the clock |
+
+**Transitions:** a new scene must hold for 2 bars before the music changes (no whiplash walking past a door), changes land on the bar line with the pad overlapping the old chord, and a filtered noise sweep rises into intense scenes and falls away from them. The chase is the exception and cuts in on the next bar.
+
+## Giving Lil Wooski inspiration
+Edit `src/audio/inspo.json` (or drop notes in the inbox below and he turns them into config on his next run).
+
+```json
+{
+  "live": true,
+  "tempo": 1,
+  "density": 1,
+  "scenes": {
+    "studio": { "mood": "tender" },
+    "street2d": { "mood": "swagger", "tempo": 1.1 },
+    "chase": { "density": 1.4 }
+  }
+}
+```
+
+- `live`: `false` ignores real-world weather/time.
+- `tempo` and `density` (global, 0.7..1.3 and 0.3..2), per scene `tempo` and `density`, and per scene `flavour` (`day`, `dusk`, `night`, `dread`).
+- `mood` names: `lonely`, `swagger`, `dreamy`, `hype`, `tender`, `mischief`, `noir`, `dread`.
+- Scene names: `city`, `dawn`, `rain`, `street2d`, `interior`, `nightlife`, `chase`, `recycling`, `terrance`, `studio`.
+- Unknown keys are ignored and numbers are clamped; a bad file can never break the game.
+
+### Inspo inbox
+Write vibes here in plain words (a scene, a feeling, a film mood, "more lonely at 3am"). No song or artist to copy, describe the feeling instead.
+
+- (empty)
+
+## Live data
+`/api/vibe` (a Cloudflare Pages Function) reads Christchurch's current weather from Open-Meteo (free, no key) and answers `{weather, isDay, temp, wind, hour, source}`, cached 10 minutes. The game asks once when the music starts and every 15 minutes. Real rain thins and softens the music, a cold snap darkens it, a warm day brightens it, and the small hours slow it. If the function or network is unavailable it falls back to the clock (`source: "clock"`) with no error shown.
+
+Rules: live data only drives audio, never the simulation (so saves, tests and the sim stay deterministic); the request is a bare GET with no parameters, cookies or user data.
+
+## Routine
+"HQ Lil Wooski: composer" runs twice a day just before a Christa gate: read the inbox and `inspo.json`, deepen one scene or motif, keep it original and mobile-friendly, run `cd game && npx tsc --noEmit -p . && npx vitest run && npm run build`, open a PR on `lilwooski/YYYY-MM-DD`, never merge.

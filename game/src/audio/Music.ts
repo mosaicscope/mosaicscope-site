@@ -5,6 +5,9 @@
  * dusty boom-bap shuffle. Everything below `Music` is pure so it can be tested without an AudioContext.
  */
 
+import { THEMES, SceneTracker, sceneFor, resolveTheme, motifNote, liveTint, parseInspo, type Theme, type Place, type Scene, type Live, type Inspo, type Timbre } from "./Score";
+import inspoRaw from "./inspo.json";
+
 export interface Mood {
   /** 0..24 */ hour: number;
   /** 0..1 */ rain: number;
@@ -12,6 +15,9 @@ export interface Mood {
   /** 0..1 dread: police heat, low health, a brawl nearby */ tension: number;
   /** street view (2D) rather than the iso city */ street: boolean;
   party: boolean;
+  /** inside a building (the walk-in interior view) */ indoors?: boolean;
+  /** a notable place or character is near, which brings in its leitmotif */ place?: Place;
+  /** the cops are properly after you (wanted 2+) */ chase?: boolean;
 }
 
 export type Flavour = "day" | "dusk" | "night" | "dread";
@@ -36,9 +42,10 @@ const SCALES: Record<Flavour, Scale> = {
   dread: { name: "dread", root: 36, steps: [0, 1, 3, 6, 7, 8, 12], chords: [[0, 3, 7, 8], [1, 5, 8, 12], [0, 3, 6, 10], [6, 9, 12, 15]], bpm: 64 },
 };
 
-/** Pick the musical flavour: dread wins over everything, otherwise follow the clock. */
-export function flavourFor(m: Mood): Flavour {
+/** Pick the musical flavour: dread wins over everything, then the scene's own colour, otherwise follow the clock. */
+export function flavourFor(m: Mood, theme?: Theme): Flavour {
   if (m.tension > 0.55) return "dread";
+  if (theme?.flavour) return theme.flavour;
   const h = ((m.hour % 24) + 24) % 24;
   if (h >= 6 && h < 17) return "day";
   if (h >= 17 && h < 21) return "dusk";
@@ -51,27 +58,34 @@ export interface Step {
   bass: number | null;     // midi
   lead: number | null;     // midi
   kick: boolean; snare: boolean; hat: 0 | 1 | 2;
+  /** a leitmotif note (midi) for this step, if the scene has one and it is due */ motif: number | null;
   /** seconds to push this step late (swing) */ swing: number;
 }
 
-/** One 16th-note step of the groove. `bar` and `step` count from zero; `pad` (0..1) is how busy the lead is. */
-export function planStep(m: Mood, f: Flavour, bar: number, step: number, rand: () => number): Step {
+/** One 16th-note step of the groove. `bar` and `step` count from zero; the theme (default: the scene's) sets drums, busyness and leitmotif. */
+export function planStep(m: Mood, f: Flavour, bar: number, step: number, rand: () => number, theme: Theme = THEMES[sceneFor(m)]): Step {
   const sc = SCALES[f], chord = sc.chords[bar % sc.chords.length];
   const beat = step % 4 === 0, offbeat = step % 4 === 2;
   const dread = f === "dread";
-  // drums: street view gets a boom-bap shuffle, the iso city only ticks softly, party/dread override
-  const busy = m.street || m.party;
-  const kick = busy ? (step === 0 || step === 7 || step === 10 || (m.party && beat)) : step === 0 && bar % 2 === 0;
-  const snare = busy ? step === 4 || step === 12 : false;
-  const hat: 0 | 1 | 2 = busy ? (step % 2 === 0 ? 1 : (rand() < 0.4 ? 2 : 0)) : (offbeat && !dread && m.rain < 0.5 ? 2 : 0);
+  let kick = false, snare = false, hat: 0 | 1 | 2 = 0;
+  switch (theme.drums) {
+    case "shuffle": kick = step === 0 || step === 7 || step === 10; snare = step === 4 || step === 12; hat = step % 2 === 0 ? 1 : (rand() < 0.4 ? 2 : 0); break;
+    case "club": kick = beat; snare = step === 4 || step === 12; hat = offbeat ? 1 : (rand() < 0.3 ? 2 : 0); break;
+    case "chase": kick = step === 0 || step === 6 || step === 8 || step === 14; snare = step === 4 || step === 12; hat = step % 2 === 0 ? 1 : 0; break;
+    case "mallet": kick = step === 0 && bar % 2 === 0; hat = offbeat ? 2 : 0; break;
+    case "tick": kick = step === 0 && bar % 2 === 0; hat = offbeat && !dread && m.rain < 0.5 ? 2 : 0; break;
+    case "none": break;
+  }
   const bass = beat && (step === 0 || rand() < 0.45) ? sc.root - 12 + chord[0] + (step === 8 && rand() < 0.5 ? 7 : 0) : null;
-  const density = (dread ? 0.12 : f === "night" ? 0.2 : 0.3) * (m.street ? 1.3 : 1) * (1 - m.rain * 0.5);
+  const density = (dread ? 0.12 : f === "night" ? 0.2 : 0.3) * theme.density * (1 - m.rain * 0.5);
+  const mo = motifNote(theme.motif, bar, step);
+  const motif = mo === null ? null : sc.root + chord[0] + 12 + mo;
   let lead: number | null = null;
-  if (step % 2 === 0 && rand() < density) {
+  if (step % 2 === 0 && rand() < density && motif === null) {
     const deg = sc.steps[Math.floor(rand() * sc.steps.length)];
     lead = sc.root + 12 + deg + (rand() < 0.15 ? 12 : 0);
   }
-  return { bass, lead, kick, snare, hat, swing: step % 2 === 1 ? 0.035 : 0 };
+  return { bass, lead, kick, snare, hat, motif, swing: step % 2 === 1 ? 0.035 : 0 };
 }
 
 export const stepSeconds = (bpm: number): number => 60 / bpm / 4;
@@ -88,11 +102,19 @@ export class Music {
   private pad: { oscs: OscillatorNode[]; gain: GainNode; filter: BiquadFilterNode } | null = null;
   private drone: { osc: OscillatorNode; gain: GainNode } | null = null;
   private out: GainNode;
+  private tracker = new SceneTracker();
+  private theme: Theme = THEMES.city;
+  /** the score Chris art-directs through inspo.json */
+  inspo: Inspo = parseInspo(inspoRaw);
+  /** real Christchurch conditions; audio only, the simulation never sees this */
+  live: Live | null = null;
   mood: Mood = { hour: 17, rain: 0, storm: false, tension: 0, street: false, party: false };
 
   constructor(private ctx: AudioContext, dest: AudioNode) {
     this.out = ctx.createGain(); this.out.gain.value = 0.55; this.out.connect(dest);
   }
+
+  get scene(): Scene { return this.tracker.scene; }
 
   start(): void {
     if (this.timer) return;
@@ -104,11 +126,13 @@ export class Music {
 
   setLevel(v: number): void { this.out.gain.setTargetAtTime(v, this.ctx.currentTime, 0.2); }
 
+  setLive(l: Live | null): void { this.live = l; }
+
   setMood(m: Mood): void {
     this.mood = m;
-    const t = this.ctx.currentTime;
+    const t = this.ctx.currentTime, rain = Math.min(1, m.rain + (this.inspo.live ? liveTint(this.live).rain : 0));
     if (this.drone) this.drone.gain.gain.setTargetAtTime(Math.max(m.tension * 0.35, m.storm ? 0.12 : 0), t, 1.5);
-    if (this.pad) this.pad.filter.frequency.setTargetAtTime(600 + (1 - m.rain * 0.6) * 900 + (m.street ? 300 : 0), t, 1);
+    if (this.pad) this.pad.filter.frequency.setTargetAtTime((600 + (1 - rain * 0.6) * 900) * this.theme.bright, t, 1);
   }
 
   private pump(): void {
@@ -116,26 +140,44 @@ export class Music {
     if (ctx.state !== "running") { this.nextAt = ctx.currentTime + 0.1; return; }
     while (this.nextAt < ctx.currentTime + 0.25) {
       if (this.step === 0) this.newBar();
-      const f = this.flavour, sc = SCALES[f], s = planStep(this.mood, f, this.bar, this.step, this.rand);
-      const t = this.nextAt + s.swing * (this.mood.street ? 1 : 0.4);
+      const f = this.flavour, sc = SCALES[f], th = this.theme, s = planStep(this.mood, f, this.bar, this.step, this.rand, th);
+      const t = this.nextAt + s.swing * (th.drums === "shuffle" ? 1 : 0.4);
       if (s.kick) this.kick(t);
       if (s.snare) this.snare(t);
       if (s.hat) this.hat(t, s.hat === 2 ? 0.05 : 0.09);
-      if (s.bass !== null) this.bass(t, s.bass, stepSeconds(sc.bpm) * 3);
-      if (s.lead !== null) this.lead(t, s.lead, f);
-      this.nextAt += stepSeconds(sc.bpm);
+      if (s.bass !== null) this.bass(t, s.bass, stepSeconds(sc.bpm * th.bpm) * 3);
+      if (s.lead !== null) this.lead(t, s.lead, f, th.timbre);
+      if (s.motif !== null) this.lead(t, s.motif, f, th.timbre, 1.6);
+      this.nextAt += stepSeconds(sc.bpm * th.bpm);
       if (++this.step >= 16) { this.step = 0; this.bar++; }
     }
   }
 
-  /** Bar boundary: re-read the mood, swap scale when it changes, retune the pad. */
+  /** Bar boundary: pick the scene (with hold), resolve its theme, swap scale when it changes, retune the pad. */
   private newBar(): void {
-    const f = flavourFor(this.mood);
+    const prev = this.tracker.update(this.mood);
+    this.theme = resolveTheme(this.tracker.scene, this.inspo, this.live);
+    if (prev) this.swell(prev, this.tracker.scene);
+    const f = flavourFor(this.mood, this.theme);
     this.flavour = f;
     const sc = SCALES[f], chord = sc.chords[this.bar % sc.chords.length];
     const key = f + ":" + (this.bar % sc.chords.length);
     if (key !== this.chordKey) { this.chordKey = key; this.setPad(sc.root + chord[0], chord.slice(1), f); }
     this.ensureDrone(sc.root - 12);
+  }
+
+  /** Scene change: a filtered noise sweep, rising into the intense scenes and falling away from them. */
+  private swell(from: Scene, to: Scene): void {
+    const rank: Record<Scene, number> = { dawn: 0, rain: 0, interior: 0, city: 1, studio: 1, street2d: 2, recycling: 2, terrance: 3, nightlife: 3, chase: 4 };
+    const up = rank[to] >= rank[from], ctx = this.ctx, t = ctx.currentTime, dur = 1.2, n = Math.ceil(ctx.sampleRate * dur);
+    const buf = ctx.createBuffer(1, n, ctx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.Q.value = 1.2;
+    f.frequency.setValueAtTime(up ? 300 : 3000, t); f.frequency.exponentialRampToValueAtTime(up ? 3000 : 300, t + dur);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(up ? 0.07 : 0.04, t + (up ? dur * 0.9 : 0.15)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f); f.connect(g); g.connect(this.out); src.start(t);
   }
 
   private setPad(root: number, tones: number[], f: Flavour): void {
@@ -199,14 +241,22 @@ export class Music {
     const g = this.env(t, 0.32, dur); o.connect(g); o.start(t); o.stop(t + dur + 0.05);
   }
 
-  /** Kalimba-ish pluck by day, glassy detuned bell at night and in dread. */
-  private lead(t: number, midi: number, f: Flavour): void {
-    const ctx = this.ctx, dur = f === "day" ? 0.5 : 1.1, g = this.env(t, f === "dread" ? 0.07 : 0.1, dur);
-    const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = mtof(midi);
-    o.connect(g); o.start(t); o.stop(t + dur + 0.05);
-    if (f !== "day") {
-      const o2 = ctx.createOscillator(); o2.type = "sine"; o2.frequency.value = mtof(midi) * (f === "dread" ? 1.4142 : 2.005);
-      const g2 = this.env(t, 0.03, dur * 0.8); o2.connect(g2); o2.start(t); o2.stop(t + dur);
+  /** Pluck by day, glassy detuned bell at night and in dread; brass, marimba and keys colour the special scenes. */
+  private lead(t: number, midi: number, f: Flavour, timbre: Timbre = "pluck", gain = 1): void {
+    const ctx = this.ctx, fq = mtof(midi), tone = (type: OscillatorType, mul: number, peak: number, dur: number, lp?: number): void => {
+      const o = ctx.createOscillator(); o.type = type; o.frequency.value = fq * mul;
+      const g = this.env(t, peak * gain, dur);
+      if (lp) { const fl = ctx.createBiquadFilter(); fl.type = "lowpass"; fl.frequency.value = lp; o.connect(fl); fl.connect(g); } else o.connect(g);
+      o.start(t); o.stop(t + dur + 0.05);
+    };
+    switch (timbre) {
+      case "brass": tone("sawtooth", 1, 0.06, 0.28, 1400); tone("square", 1.003, 0.03, 0.28, 900); break;
+      case "marimba": tone("sine", 1, 0.12, 0.22); tone("triangle", 4, 0.03, 0.08); break;
+      case "keys": tone("triangle", 1, 0.09, 0.7); tone("sine", 2, 0.03, 0.4); break;
+      case "bell": tone("sine", 1, 0.1, 1.2); tone("sine", f === "dread" ? 1.4142 : 2.005, 0.03, 0.9); break;
+      default:
+        tone("sine", 1, f === "dread" ? 0.07 : 0.1, f === "day" ? 0.5 : 1.1);
+        if (f !== "day") tone("sine", f === "dread" ? 1.4142 : 2.005, 0.03, 0.9);
     }
   }
 }

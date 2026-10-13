@@ -1,6 +1,8 @@
 import type { Simulation } from "../sim/Simulation";
 import type { Camera } from "../render/Camera";
 import { Music } from "./Music";
+import { fetchVibe, VIBE_REFRESH_MS } from "./LiveVibe";
+import type { Place } from "./Score";
 
 /**
  * Synthesised audio (no files to load): material-specific impact blips, whooshes, boings, rain and a
@@ -20,6 +22,7 @@ export class AudioSystem {
   private music: Music | null = null;
   /** the generative soundtrack; N toggles it, the sound setting still gates everything */
   musicOn = true;
+  private place: Place = ""; private placeT = 0; private vibeTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(private getCam: () => Camera) {}
 
@@ -28,7 +31,32 @@ export class AudioSystem {
 
   private syncMusic(): void {
     if (!this.music) return;
-    if (this.enabled && this.musicOn) this.music.start(); else this.music.stop();
+    if (this.enabled && this.musicOn) { this.music.start(); this.refreshVibe(); } else this.music.stop();
+  }
+
+  /** Pull real Christchurch weather/time for the score (audio only), then again every 15 minutes while music plays. */
+  private refreshVibe(): void {
+    if (this.vibeTimer || !this.music) return;
+    const go = (): void => { void fetchVibe().then((v) => this.music?.setLive(v)); };
+    go();
+    this.vibeTimer = setInterval(go, VIBE_REFRESH_MS);
+  }
+
+  /** Which notable place or character is near the player: brings in that leitmotif. Throttled, it scans the world. */
+  private placeFor(sim: Simulation, interior: string | null): Place {
+    if (interior === "nightclub" || interior === "stripclub" || interior === "velvet") return "nightlife";
+    if (interior === "recycling") return "recycling";
+    if (interior === "studio") return "studio";
+    if (interior) return "";
+    const now = performance.now();
+    if (now - this.placeT < 500) return this.place;
+    this.placeT = now;
+    const p = sim.player;
+    let place: Place = "";
+    if (sim.chars.some((c) => c.role === "overcoder" && Math.hypot(c.x - p.x, c.y - p.y) < 7)) place = "terrance";
+    else if (sim.world.areaAt(p.x, p.y)?.kind === "studio") place = "studio";
+    else if (sim.world.buildings.some((b) => b.kind === "recycling" && Math.hypot((b.x0 + b.x1) / 2 - p.x, (b.y0 + b.y1) / 2 - p.y) < 7)) place = "recycling";
+    return (this.place = place);
   }
 
   attach(sim: Simulation): void {
@@ -65,7 +93,7 @@ export class AudioSystem {
   setVolume(v: number): void { this.volume = v; if (this.master) this.master.gain.value = v; }
 
   /** Per-frame ambience: rain level and the party beat near the stage. */
-  update(sim: Simulation): void {
+  update(sim: Simulation, interior: string | null = null): void {
     if (!this.enabled || !this.ctx || !this.rainGain) return;
     this.rainGain.gain.value = sim.env.rain * 0.08;
     if (this.music && this.musicOn) {
@@ -74,6 +102,7 @@ export class AudioSystem {
         hour: sim.hour, rain: sim.env.rain, storm: sim.env.weather === "storm",
         tension: Math.min(1, (p.wanted ?? 0) / 4 + (hurt > 0.6 ? (hurt - 0.6) : 0)),
         street: this.getCam().zoom > 3, party: sim.env.party,
+        indoors: interior !== null, place: this.placeFor(sim, interior), chase: (p.wanted ?? 0) >= 2,
       });
     }
     if (sim.env.party) {
