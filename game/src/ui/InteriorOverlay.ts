@@ -8,6 +8,7 @@ import { moveInside, zoneAt } from "../content/interiorNav";
 import { InteriorView, type ViewActor, type ViewState } from "../render/InteriorView";
 import { InteriorCrowd } from "./InteriorCrowd";
 import { fmtCash } from "../sim/Society";
+import { gameWeek, paintingCard, paintingOfWeek } from "../render/ArtSecrets";
 
 /**
  * Walk-in interior scene. Opens for every building kind from Places.enter; specialised overlays
@@ -85,6 +86,7 @@ export class InteriorOverlay {
     this.me.look = p.look; this.me.style = p.style || "normal";
     this.me.x = def.door.x; this.me.y = def.door.y; this.me.dir = 1; this.me.pose = "idle"; this.me.speed = 0;
     this.titleEl.textContent = b.name; this.zoneEl.textContent = def.title;
+    this.view.week = gameWeek(sim.env.startHour, sim.tick);
     this.view.setDef(def);
     this.t0 = performance.now(); this.t = 0; this.last = this.t0; this.closeCheck = 0; this.cool.clear();
     this.held.clear(); this.stick.x = this.stick.y = 0;
@@ -165,7 +167,7 @@ export class InteriorOverlay {
 
   private activate(it: Interactable): void {
     const b = this.b!, sim = this.host.sim(), p = sim.player;
-    this.say(it.text, 7);
+    this.say(it.id === "weekly" ? paintingCard(paintingOfWeek(gameWeek(sim.env.startHour, sim.tick)), gameWeek(sim.env.startHour, sim.tick)) : it.text, 9);
     const now = this.t, cd = this.cool.get(it.id) ?? 0;
     if (it.effect && now >= cd) {
       this.cool.set(it.id, now + 25);

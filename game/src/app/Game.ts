@@ -44,6 +44,8 @@ import { MOSAIC } from "../content/mosaicscope";
 import { carried, detach } from "../inventory/Inventory";
 import { BUILDINGS } from "../content/buildings";
 import { billAbsence, collect } from "../sim/Arrears";
+import { MURALS } from "../render/ArtSecrets";
+import { NS } from "../persistence/storage";
 
 /** Wires simulation, renderer, input, audio, UI and persistence together and runs the loop. */
 /** People who ring you. Lines can mention {place} and {cash}. */
@@ -111,6 +113,7 @@ export class Game {
     this.settings = loadSettings(this.store);
     this.sim = new Simulation({ backgroundCount: Math.min(this.settings.density, 300) });
     this.renderer = new Renderer(canvas, this.sim);
+    this.watchMurals();
     this.audio = new AudioSystem(() => this.renderer.cam);
     this.audio.attach(this.sim);
     this.ui = root;
@@ -1132,6 +1135,16 @@ export class Game {
     setImpactIntensity(s.gentle ? 0.55 : 1);
     const q = s.quality === "low" ? 0 : s.quality === "medium" ? 1 : s.quality === "high" ? 2 : s.quality === "ultra" ? 3 : this.quality;
     if (q !== this.quality || s.quality !== "auto") { this.quality = q as Quality; this.renderer.resize(this.quality); }
+  }
+
+  /** Golden-hour murals in the 2D street: remember which you have found, and cheer each new one. */
+  private watchMurals(): void {
+    const KEY = NS + "murals", street = this.renderer.street;
+    try { street.seen = new Set((JSON.parse(this.store.get(KEY) || "[]") as unknown[]).filter((x): x is string => typeof x === "string")); } catch { /* fresh start */ }
+    street.onMural = (_id, name) => {
+      this.store.set(KEY, JSON.stringify([...street.seen]));
+      this.toast(`Golden hour: a hidden mural, “${name}”. ${street.seen.size} of ${MURALS.length} found.`, "acid");
+    };
   }
 
   private persistSettings(): void { saveSettings(this.store, this.settings); }
