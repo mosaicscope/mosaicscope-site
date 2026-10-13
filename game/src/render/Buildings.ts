@@ -247,8 +247,10 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
   const floors = b.floors;
   const floorBase = (f: number) => (f === 0 ? 0 : GROUND_H + (f - 1) * FLOOR_H);
   const floorH = (f: number) => (f === 0 ? GROUND_H : FLOOR_H);
-  const lit = (f: number, k: number) => night && hash(tx * 7 + ty * 13 + f * 3 + k + (face === "e" ? 50 : 0), b.id) < (st === "flats" || st === "tower" ? 0.55 : 0.45);
-  const litCol = (f: number, k: number) => { const r = hash(f * 11 + k, tx + ty * 3); return r < 0.15 ? "#9fe8ff" : r < 0.55 ? "#ffd27a" : "#fff0c0"; };
+  // a cleaner block lights more of its windows and warms them; a littered one goes dim (0.35 is the old look)
+  const shine = b.shine ?? 0.35, glow = (shine - 0.35) * 0.5;
+  const lit = (f: number, k: number) => night && hash(tx * 7 + ty * 13 + f * 3 + k + (face === "e" ? 50 : 0), b.id) < (st === "flats" || st === "tower" ? 0.55 : 0.45) + glow;
+  const litCol = (f: number, k: number) => { const r = hash(f * 11 + k, tx + ty * 3); return shine > 0.7 && r > 0.4 ? "#fff6c8" : r < 0.15 ? "#9fe8ff" : r < 0.55 ? "#ffd27a" : "#fff0c0"; };
   const quad = (t0: number, t1: number, h0: number, h1: number) => { const A = at(t0, h0), B = at(t1, h0), C = at(t1, h1), D = at(t0, h1); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.lineTo(C[0], C[1]); g.lineTo(D[0], D[1]); g.closePath(); };
   const doorHere = b.door.face === face && (face === "s" ? b.door.x === tx && b.door.y === ty + 1 : b.door.x === tx + 1 && b.door.y === ty);
 
@@ -327,7 +329,7 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
     batch(frames, "rgba(238,228,211,.22)");
     batch(dark, night ? "rgba(10,12,20,.85)" : "rgba(28,38,56,.85)");
     for (const [col, rs] of litBy) batch(rs, col);
-    batch(refl, "rgba(200,225,255,.16)");
+    batch(refl, `rgba(200,225,255,${(0.09 + shine * 0.22).toFixed(2)})`);
     batch(sills, "rgba(238,228,211,.35)");
     if (st === "flats" && z >= 0.8 && floors > 2) {
       const seed = hash(tx * 5 + ty * 11 + (face === "e" ? 9 : 0), b.id);

@@ -198,6 +198,8 @@ export interface Character {
   cash: number;                  // NZD in their wallet
   /** redeemable cans and bottles in their sack (see sim/Litter.ts) */
   scrap?: { can: number; bottle: number };
+  /** wrappers and cups picked up for the community compost bin */
+  compost?: number;
   hunger: number;                // 1 = full, 0 = starving
   /** building id they are inside (hidden from the street), or -1 */
   inside: number;

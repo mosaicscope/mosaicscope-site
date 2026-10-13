@@ -148,6 +148,7 @@ export function collectPiece(sim: Simulation, c: Character, p: Piece): "ok" | "f
   p.taken = true;
   addScrap(c, p.kind);
   sim.bus.emit("sound", { kind: "clink", x: c.x, y: c.y, vol: 0.5 });
+  if (c.tier === "player") sim.tidy.bump(sim, c);
   sim.bus.emit("sound", { kind: `plink_${scrapCount(c)}`, x: c.x, y: c.y, vol: 0.3 }); // pitch climbs with the sack
   return "ok";
 }
@@ -164,6 +165,7 @@ export function rummageBin(sim: Simulation, c: Character, bin: Poi): { can: numb
   st.stock.set(bin.id, left);
   if (got.can + got.bottle) sim.bus.emit("sound", { kind: "bin", x: c.x, y: c.y, vol: 0.6 });
   if (got.can + got.bottle) sim.bus.emit("sound", { kind: `plink_${scrapCount(c)}`, x: c.x, y: c.y, vol: 0.3 });
+  if (got.can + got.bottle && c.tier === "player") sim.tidy.bump(sim, c);
   return got;
 }
 
@@ -175,7 +177,7 @@ export function cashIn(sim: Simulation, c: Character): { n: number; base: number
   if (n > 0) {
     c.scrap = { can: 0, bottle: 0 };
     c.cash += total;
-    if (c.tier === "player") sim.litter.recycled += n;
+    if (c.tier === "player") { sim.litter.recycled += n; sim.tidy.bump(sim, c); }
     sim.bus.emit("sound", { kind: "recycle", x: c.x, y: c.y, vol: 0.8 });
     sim.bus.emit("sound", { kind: n >= BULK_MIN ? "jackpot" : "cashin", x: c.x, y: c.y, vol: 0.5 });
     sim.bus.emit("fx", { kind: "cash", x: c.x, y: c.y, z: 1.2, n: Math.min(12, 3 + Math.floor(n / 3)) });

@@ -8,6 +8,8 @@ import { buy, pawnPrice, fmtCash, evaluateTrade, executeTrade, book, commitCrime
 import { carried, detach } from "../inventory/Inventory";
 import { cashIn, scrapCount, scrapValue } from "../sim/Litter";
 import { LITTER, BULK_MIN, BULK_BONUS } from "../content/litter";
+import { TRINKETS, ART_COST, SET_BONUS, verdictFor } from "../content/reuse";
+import { swapFor, assembleArt, sellArt } from "../sim/Tidy";
 import { makeVehicle } from "../sim/Traffic";
 import type { Building } from "../world/World";
 import type { Character } from "../entities/types";
@@ -72,6 +74,36 @@ export class Places {
             h("button.btn", { disabled: n === 0, onclick: () => { const before = sim.litter.recycled, r = cashIn(sim, p); if (r.n >= 10) this.photos?.moment("recycle", String(r.n)); this.toast(`Returned ${r.n} for ${fmtCash(r.total)}${r.bonus ? ` (incl. ${fmtCash(r.bonus)} bonus)` : ""}`, "acid.spark"); if (Math.floor(sim.litter.recycled / 25) > Math.floor(before / 25)) this.toast(`${Math.floor(sim.litter.recycled / 25) * 25} returned. The street is noticeably tidier.`, "acid.spark"); render(); document.querySelector(".wallet")?.classList.add("bump"); }, text: "Cash in" })]),
         ]),
         h("p", { style: { color: "var(--dim)" }, text: sim.litter.recycled ? `You've returned ${sim.litter.recycled} so far. The street thanks you.` : "First return? Welcome to the cleanest side hustle in town." }),
+        h("div.row", null, [h("button.btn", { onclick: () => this.swapMeet(b), text: "Reuse stall and swap meet" })]),
+      ], "shop");
+    };
+    render();
+  }
+
+  /** The reuse stall: swap sack pieces for odd little trinkets, or assemble found-object art for Louis to appraise. */
+  swapMeet(b: Building): void {
+    const sim = this.sim(), p = sim.player, st = sim.tidy;
+    const render = () => {
+      const n = scrapCount(p);
+      const owned = TRINKETS.filter((t) => st.trinkets[t.id]).length;
+      this.show(`${b.name}: reuse stall`, [
+        h("p", { style: { color: "var(--dim)" }, text: `Swap what's in your sack (${n} piece${n === 1 ? "" : "s"}) for trinkets, or build something and let Louis name its worth. Collect all ${TRINKETS.length} trinkets for a ${fmtCash(SET_BONUS)} set bonus (${owned}/${TRINKETS.length}).` }),
+        this.wallet(),
+        h("h3", { text: "Swap meet" }),
+        h("ul.items", null, TRINKETS.map((t) => h("li.item", null, [
+          h("div", null, [h("b", { text: t.name }), h("small", { text: ` ${t.blurb} Louis: "${t.louis}"` })]),
+          h("span.price", { text: `${t.cost} pcs${st.trinkets[t.id] ? ` · own ${st.trinkets[t.id]}` : ""}` }),
+          h("button.btn", { disabled: n < t.cost, onclick: () => { const r = swapFor(sim, p, t.id); this.toast(r.ok ? (r.setBonus ? `Set complete! Louis weeps. +${fmtCash(r.setBonus)}` : `Swapped for a ${t.name}`) : r.reason!, r.ok ? "acid" : undefined); render(); }, text: "Swap" }),
+        ]))),
+        h("h3", { text: "Found-object art" }),
+        h("p", { style: { color: "var(--dim)" }, text: `${ART_COST} pieces make one artwork. Glass reads better than aluminium; Louis's mood does the rest.` }),
+        h("button.btn.red", { disabled: n < ART_COST, onclick: () => { const r = assembleArt(sim, p); if (r.ok) this.toast(`You made "${r.piece!.title}"`, "acid"); else this.toast(r.reason!); render(); }, text: `Assemble (${ART_COST} pcs)` }),
+        h("ul.items", null, st.art.length ? st.art.map((a, i) => h("li.item", null, [
+          h("div", null, [h("b", { text: `"${a.title}"` }), h("small", { text: ` ${a.cans} can${a.cans === 1 ? "" : "s"}, ${a.bottles} bottle${a.bottles === 1 ? "" : "s"}. Louis: "${verdictFor(a.q)}"` })]),
+          h("span.price", { text: fmtCash(a.price) }),
+          h("button.btn", { onclick: () => { const s = sellArt(sim, p, i); if (s) this.toast(`Louis hung "${s.title}" and paid ${fmtCash(s.price)}`, "acid"); render(); }, text: "Sell to Louis" }),
+        ])) : [h("li", { style: { color: "var(--dim)" }, text: "No artworks yet." })]),
+        h("div.row", null, [h("button.btn", { onclick: () => this.recycling(b), text: "Back to the recycling counter" })]),
       ], "shop");
     };
     render();

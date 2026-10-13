@@ -46,3 +46,18 @@ export function drawBin(g: CanvasRenderingContext2D, sx: number, sy: number, z: 
   g.fillStyle = "#14140f"; g.beginPath(); g.arc(sx - 4.5 * z, sy, 1.6 * z, 0, 6.283); g.arc(sx + 4.5 * z, sy, 1.6 * z, 0, 6.283); g.fill();
   if (full) { g.fillStyle = "#d8b24a"; g.beginPath(); g.arc(sx - 3 * z, sy - 21.5 * z, 1.7 * z, 0, 6.283); g.fill(); g.fillStyle = "#eee4d3"; g.beginPath(); g.arc(sx + 2 * z, sy - 21.8 * z, 1.4 * z, 0, 6.283); g.fill(); }
 }
+
+/** A community compost bin: a slatted timber box with a lid, a leaf on the front and a few peelings spilling out. */
+export function drawCompost(g: CanvasRenderingContext2D, sx: number, sy: number, z: number, bloom: number): void {
+  g.fillStyle = "rgba(0,0,0,.3)"; g.beginPath(); g.ellipse(sx, sy + z, 11 * z, 4 * z, 0, 0, 6.283); g.fill();
+  g.fillStyle = "#5a3a1c"; g.fillRect(sx - 9 * z, sy - 15 * z, 18 * z, 15 * z);
+  g.strokeStyle = "#3a2410"; g.lineWidth = Math.max(1, z); g.beginPath();
+  for (const dy of [5, 10]) { g.moveTo(sx - 9 * z, sy - dy * z); g.lineTo(sx + 9 * z, sy - dy * z); }
+  g.stroke();
+  g.fillStyle = "#7a5a2c"; g.fillRect(sx - 10 * z, sy - 18 * z, 20 * z, 3.5 * z);
+  g.fillStyle = "#7bd36b"; g.beginPath(); g.ellipse(sx, sy - 8 * z, 3.4 * z, 2 * z, -0.7, 0, 6.283); g.fill();
+  g.strokeStyle = "#245a22"; g.lineWidth = Math.max(1, 0.9 * z); g.beginPath(); g.moveTo(sx - 2.6 * z, sy - 6.4 * z); g.lineTo(sx + 2.6 * z, sy - 9.6 * z); g.stroke();
+  g.fillStyle = "#c08040"; g.beginPath(); g.arc(sx - 4 * z, sy - 18.8 * z, 1.5 * z, 0, 6.283); g.fill();
+  g.fillStyle = "#c6ff3d"; g.beginPath(); g.arc(sx + 3 * z, sy - 19 * z, 1.2 * z, 0, 6.283); g.fill();
+  if (bloom > 0.15) { g.fillStyle = "#ff7ad9"; g.beginPath(); g.arc(sx + 11 * z, sy - 1.5 * z, 1.8 * z, 0, 6.283); g.fill(); g.fillStyle = "#f6b62c"; g.beginPath(); g.arc(sx + 11 * z, sy - 1.5 * z, 0.8 * z, 0, 6.283); g.fill(); }
+}

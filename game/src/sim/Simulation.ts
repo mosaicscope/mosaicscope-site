@@ -32,6 +32,7 @@ import { updateHealth, hospitalise, wound, useBandage, recomputeBleed } from "./
 import { clamp } from "../core/math";
 import { fireGun, startTurfWar, turfWarActive } from "./Turf";
 import { LitterState, updateLitter } from "./Litter";
+import { TidyState, updateTidy } from "./Tidy";
 
 export type FxKind = "dust" | "impact" | "spark" | "confetti" | "break" | "heart" | "rain_splash" | "text" | "spring" | "zzz" | "music" | "star" | "blood" | "spray" | "flash" | "paint" | "water" | "cash" | "gib";
 export interface SimSignals {
@@ -68,6 +69,8 @@ export class Simulation {
   toys: Toy[] = [];
   /** street litter, bins and the recycling run (sim/Litter.ts) */
   litter!: LitterState;
+  /** tidy streak, reuse stall and compost bins (sim/Tidy.ts) */
+  tidy!: TidyState;
   vehicles: Vehicle[] = [];
   names?: NameBook;
   usedLooks = new Set<string>();
@@ -127,6 +130,7 @@ export class Simulation {
     spawnAll(this);
     spawnVehicles(this);
     this.litter = new LitterState(this.world, this.cfg.seed);
+    this.tidy = new TidyState(this.world, this.cfg.seed);
     this.rebuildHash();
   }
 
@@ -212,7 +216,7 @@ export class Simulation {
     this.metrics.eventsMs = performance.now() - te;
     if (this.deferred.length) { const d = this.deferred; this.deferred = []; for (const fn of d) fn(); }
 
-    if (this.tick % 120 === 0) { this.groups.update(this.chars, this.tick); updateLitter(this); }
+    if (this.tick % 120 === 0) { this.groups.update(this.chars, this.tick); updateLitter(this); updateTidy(this); }
     if (this.tick % 30 === 0) this.policeTick();
     if (this.tick % 60 === 0) for (const [id, at] of this.pendingAmbulance) {
       const c = this.chars[id];

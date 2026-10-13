@@ -2,6 +2,7 @@ import type { Simulation } from "../sim/Simulation";
 import { Character, Lod, Phys, Toy } from "../entities/types";
 import { TOYS } from "../content/toys";
 import { drawLitter } from "./LitterArt";
+import { drawBlooms } from "./Bloom";
 import { T, TILE_HEIGHT, ROAD_W } from "../world/World";
 import { Camera } from "./Camera";
 import { Terrain, drawTallTile, drawPoi } from "./Terrain";
@@ -191,6 +192,7 @@ export class Renderer {
     }
     // water: drifting ripple crests (continuous across tiles, driven by world position) and sun glints
     this.drawWater(g, sim, o, minX, maxX, minY, maxY, time);
+    drawBlooms(g, sim.world, cam, z, time, minX, maxX, minY, maxY);
 
     // real street names painted on the road between intersections
     this.streetLabels(g, sim, z, inView);
@@ -334,7 +336,7 @@ export class Renderer {
         drawDecor(g, decorGrid(sim.world)[it.ref], it.sx, it.sy, z, time, 1 - sim.daylight, (it.ref * 0.618) % 1);
       } else {
         flush();
-        drawPoi(g, sim.world.pois[it.ref], it.sx, it.sy, z, time, party, isDark);
+        { const poi = sim.world.pois[it.ref]; drawPoi(g, poi, it.sx, it.sy, z, time, party, isDark, poi.kind === "compost" ? sim.world.bloom.get(poi.area) ?? 0 : 0); }
       }
     }
     flush();
