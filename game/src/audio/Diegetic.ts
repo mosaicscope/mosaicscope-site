@@ -37,6 +37,8 @@ export interface Scene {
 export const STREET: Scene = { interior: null, moving: false, running: false, in2D: false };
 
 export const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
+/** Stereo pan kept in the -1..1 range the panner accepts. */
+export const clamp01Pan = (v: number): number => (v < -1 ? -1 : v > 1 ? 1 : v);
 
 /** Which ground a footstep lands on. */
 export function surfaceOf(tile: number): Surface {
@@ -360,7 +362,7 @@ export class Diegetic {
   private prevInterior: BuildingKind | null | undefined;
   private stop: (() => void)[] = [];
   private voicePrefs: VoicePrefs = DEFAULT_VOICE; private voiceRecent: number[] = [];
-  private footPrefs: FootPrefs = DEFAULT_FOOT; private sneaking = false; private positional = true;
+  private footPrefs: FootPrefs = DEFAULT_FOOT; private sneaking = false; private positional = true; private width = 1;
   private ambPrefs: AmbiencePrefs = DEFAULT_AMBIENCE;
 
   constructor(private ctx: AudioContext, master: AudioNode, private lite: boolean) {
@@ -546,6 +548,8 @@ export class Diegetic {
   }
   /** 3D audio: when off, every effect plays centred (no left/right panning from where it is). */
   setPositional(on: boolean): void { this.positional = on; }
+  /** Stereo width: scales how far effects pan left and right (0 = centred, 1 = normal). */
+  setWidth(w: number): void { this.width = Number.isFinite(w) ? Math.min(1, Math.max(0, w)) : 1; }
   /** Audio debug read-out: live one-shot voices by priority, the ambience gain now, and recent blips in the last second. */
   debugStats(): { live: Record<Prio, number>; ambient: number; recentBlips: number; unheard: string[] } {
     return { live: { ...this.liveBy }, ambient: this.amb.gain.value, recentBlips: this.voiceRecent.length, unheard: [...this.unheard].sort() };
@@ -563,7 +567,7 @@ export class Diegetic {
     if (g < 0.01) return null;
     const ctx = this.ctx, gain = ctx.createGain(); gain.gain.value = g;
     const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-    if (pan) { pan.pan.value = this.positional ? sp.pan : 0; gain.connect(pan); pan.connect(this.input); } else gain.connect(this.input);
+    if (pan) { pan.pan.value = this.positional ? clamp01Pan(sp.pan * this.width) : 0; gain.connect(pan); pan.connect(this.input); } else gain.connect(this.input);
     return { node: gain, t: ctx.currentTime };
   }
   /** A short speech blip for someone talking: pitch set by who they are, so each person sounds a little different. */
