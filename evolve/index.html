@@ -78,9 +78,27 @@
   .bar i { position: absolute; top: 0; bottom: 0; background: var(--acid); }
   .bar i.neg { background: var(--red); }
   @media (prefers-reduced-motion: no-preference) { .pulse { animation: p 2s ease-in-out infinite; } @keyframes p { 50% { opacity: .45; } } }
+  .lock { position: fixed; inset: 0; z-index: 50; background: var(--ink); display: grid; place-items: center; padding: 16px; }
+  .lock form { display: flex; flex-wrap: wrap; gap: 10px; width: min(360px, 100%); }
+  .lock h1 { flex-basis: 100%; margin: 0 0 6px; }
+  html.locked main { visibility: hidden; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin: 0; }
+  .stats div { border: 1px solid var(--line); padding: 10px; }
+  .stats dt { font: 400 11px var(--f-mono); color: var(--dim); text-transform: uppercase; }
+  .stats dd { margin: 4px 0 0; font-size: 20px; }
 </style>
+<script>try { if (sessionStorage.getItem("evo-unlocked") !== "1") document.documentElement.classList.add("locked"); } catch (e) { document.documentElement.classList.add("locked"); }</script>
 </head>
 <body>
+<div class="lock" id="lock" hidden>
+  <form id="lock-f" autocomplete="off">
+    <h1>Evolution <span>engine</span></h1>
+    <label class="mono dim" for="pw" style="flex-basis:100%">Password</label>
+    <input type="password" id="pw" autofocus>
+    <button type="submit">Unlock</button>
+    <p class="mono dim" id="pw-msg" aria-live="polite" style="flex-basis:100%;margin:0"></p>
+  </form>
+</div>
 <main>
   <header>
     <div>
@@ -91,6 +109,16 @@
   </header>
 
   <div id="notice"></div>
+
+  <section class="grid">
+    <article class="card c6"><h2>Site stats (measured now)</h2><dl class="stats" id="site"></dl></article>
+    <article class="card c6"><h2>Engine totals</h2><dl class="stats" id="totals"></dl></article>
+  </section>
+
+  <section class="grid">
+    <article class="card c6"><h2>World (measured now)</h2><dl class="stats" id="world"></dl></article>
+    <article class="card c6"><h2>World preview</h2><div id="world-view"><button type="button" id="world-go">Load live preview</button> <a class="mono" href="/world/" target="_blank" rel="noopener">open world ↗</a></div></article>
+  </section>
 
   <section class="grid" aria-label="Agents">
     <article class="card c6 agent" id="a-innovator"></article>
@@ -176,6 +204,7 @@
   }
 
   function render() {
+    totals();
     if (!data || data.error) { $("status").innerHTML = '<span class="pill m-stopped">Dashboard API unreachable</span>'; return; }
     const s = data.state;
     next = data.nextCycle || 0;
@@ -371,7 +400,105 @@
     } catch (err) { $("ctl-msg").textContent = "Couldn't reach the API."; }
   });
 
+  // View lock. This only hides the page; the data at /api/evolve stays public and controls still need the admin token.
+  const PW = "5d7f15f2fce8ddb2dbef5c38be896c238ba7e0a432e396759030a853fa6b1151";
+  const sha = async (s) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)))].map((b) => b.toString(16).padStart(2, "0")).join("");
+  if (document.documentElement.classList.contains("locked")) $("lock").hidden = false;
+  $("lock-f").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const v = $("pw").value.trim();
+    if (await sha(v.toLowerCase()) !== PW) { $("pw-msg").textContent = "Wrong password."; $("pw").select(); return; }
+    try { sessionStorage.setItem("evo-unlocked", "1"); } catch (err) { /* storage blocked */ }
+    if (!$("tok").value) $("tok").value = v;
+    document.documentElement.classList.remove("locked");
+    $("lock").hidden = true;
+  });
+
+  const stat = (k, v) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`;
+  const kb = (n) => n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.round(n / 1024) + " KB";
+  async function siteStats() {
+    const files = ["/", "/styles.css", "/main.js", "/content.json"];
+    const out = await Promise.all(files.map(async (f) => {
+      const t0 = performance.now();
+      try { const r = await fetch(f, { cache: "no-store" }); const b = await r.arrayBuffer(); return { f, ok: r.ok, ms: performance.now() - t0, size: b.byteLength, ver: r.headers.get("cf-ray") }; }
+      catch (e) { return { f, ok: false, ms: 0, size: 0 }; }
+    }));
+    const home = out[0], total = out.reduce((a, o) => a + o.size, 0);
+    let work = "–", rates = "–";
+    try { const c = JSON.parse(new TextDecoder().decode(await (await fetch("/content.json", { cache: "no-store" })).arrayBuffer())); work = (c.work || c.projects || []).length || "–"; rates = (c.rates || []).length || "–"; } catch (e) { /* no content */ }
+    const nav = performance.getEntriesByType("navigation")[0];
+    $("site").innerHTML = [
+      stat("Site up", out.every((o) => o.ok) ? "yes" : "PROBLEM"),
+      stat("Home response", Math.round(home.ms) + " ms"),
+      stat("Slowest file", Math.round(Math.max(...out.map((o) => o.ms))) + " ms"),
+      stat("Core weight", kb(total)),
+      stat("HTML", kb(home.size)),
+      stat("CSS", kb(out[1].size)),
+      stat("JS", kb(out[2].size)),
+      stat("Work items", work),
+      stat("Rate cards", rates),
+      stat("This page load", nav ? Math.round(nav.duration) + " ms" : "–"),
+      stat("Checked", new Date().toLocaleTimeString()),
+    ].join("");
+  }
+
+  function totals() {
+    const s = data && data.state;
+    const H = (s && s.history) || [];
+    const n = (o) => H.filter((h) => h.outcome === o).length;
+    const day = H.filter((h) => h.at > Date.now() - 86400000).length;
+    const acc = n("accepted"), rej = H.length - acc;
+    const A = (s && s.agents) || {};
+    $("totals").innerHTML = [
+      stat("Changes tried", H.length),
+      stat("Accepted", acc),
+      stat("Rejected / reverted", rej),
+      stat("Win rate", H.length ? Math.round(acc / H.length * 100) + "%" : "–"),
+      stat("Last 24 h", day),
+      stat("Open issues", (s && s.issues || []).length),
+      stat("Queued tasks", (s && s.backlog || []).length),
+      stat("Journeys passing", s && s.journeys ? s.journeys.filter((j) => j.ok !== false && j.pass !== false).length + " / " + s.journeys.length : "–"),
+      stat("Innovator pts", A.innovator?.points ?? 0),
+      stat("Optimiser pts", A.optimiser?.points ?? 0),
+      stat("Spend today", usd(s && s.ledger && s.ledger.usd)),
+      stat("Engine", s ? (s.mode || "running") : "not deployed"),
+    ].join("");
+  }
+
+  async function worldStats() {
+    const timed = async (u) => { const t0 = performance.now(); try { const r = await fetch(u, { cache: "no-store" }); const b = await r.arrayBuffer(); return { ok: r.ok, ms: performance.now() - t0, size: b.byteLength, body: b, status: r.status }; } catch (e) { return { ok: false, ms: 0, size: 0, status: 0 }; } };
+    const page = await timed("/world/");
+    const html = page.body ? new TextDecoder().decode(page.body) : "";
+    const assets = [...html.matchAll(/(?:src|href)="(\/world\/assets\/[^"]+|\.?\/?assets\/[^"]+)"/g)].map((m) => m[1].startsWith("/") ? m[1] : "/world/" + m[1].replace(/^\.?\//, ""));
+    const got = await Promise.all(assets.map(timed));
+    const map = await timed("/api/chch-map");
+    let ways = [], mapErr = "";
+    try { const j = JSON.parse(new TextDecoder().decode(map.body)); ways = j.ways || []; mapErr = j.error || ""; } catch (e) { mapErr = "bad reply"; }
+    const by = {}; for (const w of ways) by[w.k] = (by[w.k] || 0) + 1;
+    const ok = page.ok && got.every((g) => g.ok);
+    $("world").innerHTML = [
+      stat("World up", ok ? "yes" : "PROBLEM"),
+      stat("Page response", Math.round(page.ms) + " ms"),
+      stat("Bundle weight", kb(got.reduce((a, g) => a + g.size, 0))),
+      stat("Bundle load", Math.round(Math.max(0, ...got.map((g) => g.ms))) + " ms"),
+      stat("Map feed", map.ok && !mapErr ? "ok" : "fallback (" + (mapErr || map.status) + ")"),
+      stat("Map response", Math.round(map.ms) + " ms"),
+      stat("Map shapes", ways.length),
+      stat("Buildings", by.building || 0),
+      stat("Streets", (by.street || 0) + (by.major || 0)),
+      stat("Parks / water", (by.park || 0) + " / " + (by.water || 0)),
+      stat("Checked", new Date().toLocaleTimeString()),
+    ].join("");
+  }
+  $("world-go").addEventListener("click", () => {
+    $("world-view").innerHTML = '<iframe src="/world/" title="Live world preview" loading="lazy" style="width:100%;aspect-ratio:16/10;border:1px solid var(--line);background:#000"></iframe><p class="mono dim"><a href="/world/" target="_blank" rel="noopener">open full screen ↗</a></p>';
+  });
+
   load();
+  siteStats();
+  worldStats();
+  setInterval(worldStats, 120000);
+  setInterval(siteStats, 60000);
   setInterval(load, 30000);
   setInterval(tick, 1000);
 })();
