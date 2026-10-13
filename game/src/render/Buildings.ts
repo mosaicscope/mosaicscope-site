@@ -463,11 +463,12 @@ function roofTop(g: CanvasRenderingContext2D, b: Building, x: number, y: number,
   g.textAlign = "start";
 }
 
-/** Rooftop ads: MosaicScope (logo + one short line, clickable) or the casino's own board. */
+/** Rooftop ads: the casino's own board, MosaicScope (logo + one short line, clickable) on galleries, and Kiwi brands elsewhere. */
 function billboard(g: CanvasRenderingContext2D, b: Building, x: number, y: number, z: number, time: number, dark: number): void {
   const w = 100 * z, h = 34 * z;
   g.strokeStyle = "#3a3430"; g.lineWidth = 2 * z;
   g.beginPath(); g.moveTo(x - w * 0.3, y); g.lineTo(x - w * 0.3, y - 12 * z); g.moveTo(x + w * 0.3, y); g.lineTo(x + w * 0.3, y - 12 * z); g.stroke();
   if (dark > 0.3) { g.fillStyle = "rgba(255,240,190,.12)"; g.beginPath(); g.moveTo(x - w * 0.3, y - 12 * z); g.lineTo(x - w / 2, y - 12 * z - h); g.lineTo(x + w / 2, y - 12 * z - h); g.lineTo(x + w * 0.3, y - 12 * z); g.closePath(); g.fill(); }
-  drawAd(g, b.kind === "casino" ? "casino" : "mosaic", x, y - 12 * z, w, h, b.id + Math.floor(time / 10), dark);
+  const kind = b.kind === "casino" ? "casino" : b.kind === "gallery" || b.id % 4 === 0 ? "mosaic" : "kiwi";
+  drawAd(g, kind, x, y - 12 * z, w, h, b.id + Math.floor(time / 10), dark);
 }
