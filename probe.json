@@ -1,0 +1,435 @@
+{
+ "at": 1791906340262,
+ "target": "https://mosaicscope.pages.dev",
+ "results": [
+  {
+   "page": "/",
+   "url": "https://mosaicscope.pages.dev/",
+   "width": 390,
+   "errors": [],
+   "consoleErrors": [
+    {
+     "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
+     "own": false
+    },
+    {
+     "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
+     "own": false
+    },
+    {
+     "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
+     "own": false
+    },
+    {
+     "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
+     "own": false
+    },
+    {
+     "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
+     "own": false
+    },
+    {
+     "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
+     "own": false
+    }
+   ],
+   "failed": [
+    {
+     "url": "https://www.youtube-nocookie.com/embed/cZFXA3scOC4",
+     "own": false,
+     "why": "net::ERR_ABORTED"
+    }
+   ],
+   "requests": 70,
+   "bytes": 4031,
+   "ownBytes": 77,
+   "thirdParty": 65,
+   "status": 200,
+   "perf": {
+    "domContentLoadedMs": 516,
+    "loadMs": 516,
+    "lcpMs": 1056,
+    "cls": 0.087,
+    "tbtMs": 447,
+    "longTasks": 3,
+    "heapMB": 9.5,
+    "domNodes": 1218,
+    "renderBlocking": 3,
+    "resourceEntries": 13,
+    "screens": 10.7
+   },
+   "ui": {
+    "overflowPx": 0,
+    "smallTargets": [
+     {
+      "el": "#hero-plate",
+      "w": 127,
+      "h": 20
+     },
+     {
+      "el": "a.follow",
+      "w": 119,
+      "h": 23
+     },
+     {
+      "el": "a.tag-link",
+      "w": 98,
+      "h": 14
+     },
+     {
+      "el": "a.tag-link",
+      "w": 84,
+      "h": 14
+     }
+    ],
+    "smallText": [
+     {
+      "el": "small.mono",
+      "px": 10
+     },
+     {
+      "el": "span.slate > span",
+      "px": 9
+     },
+     {
+      "el": "span.tag-yt",
+      "px": 10
+     },
+     {
+      "el": "span.slide__label > span",
+      "px": 11
+     },
+     {
+      "el": "a.tag-link",
+      "px": 11
+     },
+     {
+      "el": "span.reel-tag",
+      "px": 10
+     },
+     {
+      "el": "a.prop",
+      "px": 8
+     }
+    ],
+    "lowContrast": [
+     {
+      "el": "span.tag-yt",
+      "ratio": 4.27
+     }
+    ],
+    "noFocusStyle": []
+   },
+   "interactions": {
+    "clicked": 6,
+    "broken": [],
+    "newErrors": 0
+   }
+  },
+  {
+   "page": "/",
+   "url": "https://mosaicscope.pages.dev/",
+   "width": 1280,
+   "errors": [],
+   "consoleErrors": [
+    {
+     "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
+     "own": false
+    },
+    {
+     "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
+     "own": false
+    },
+    {
+     "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
+     "own": false
+    },
+    {
+     "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
+     "own": false
+    },
+    {
+     "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
+     "own": false
+    },
+    {
+     "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
+     "own": false
+    }
+   ],
+   "failed": [
+    {
+     "url": "https://scontent-sjc6-1.cdninstagram.com/o1/v/t2/f2/m86/AQNDUUgO31IRKJPm8WOZqi4iB7DgRO8CES7QqzBGxnKZEG2twP8PrQl8TQl8uQaL",
+     "own": false,
+     "why": "net::ERR_ABORTED"
+    },
+    {
+     "url": "https://www.youtube-nocookie.com/embed/cZFXA3scOC4",
+     "own": false,
+     "why": "net::ERR_ABORTED"
+    }
+   ],
+   "requests": 72,
+   "bytes": 4063,
+   "ownBytes": 77,
+   "thirdParty": 67,
+   "status": 200,
+   "perf": {
+    "domContentLoadedMs": 207,
+    "loadMs": 1112,
+    "lcpMs": 244,
+    "cls": 0.096,
+    "tbtMs": 537,
+    "longTasks": 3,
+    "heapMB": 31.6,
+    "domNodes": 1559,
+    "renderBlocking": 3,
+    "resourceEntries": 18,
+    "screens": 9.7
+   },
+   "ui": {
+    "overflowPx": 0,
+    "smallTargets": [
+     {
+      "el": "#hero-plate",
+      "w": 127,
+      "h": 20
+     },
+     {
+      "el": "a.follow",
+      "w": 119,
+      "h": 23
+     },
+     {
+      "el": "a.tag-link",
+      "w": 98,
+      "h": 14
+     },
+     {
+      "el": "a.tag-link",
+      "w": 84,
+      "h": 14
+     }
+    ],
+    "smallText": [
+     {
+      "el": "small.mono",
+      "px": 10
+     },
+     {
+      "el": "span.slate > span",
+      "px": 11
+     },
+     {
+      "el": "span.cat-photo",
+      "px": 11
+     },
+     {
+      "el": "span.cat-film",
+      "px": 11
+     },
+     {
+      "el": "span.tag-yt",
+      "px": 10
+     },
+     {
+      "el": "span.slide__label > span",
+      "px": 11
+     },
+     {
+      "el": "a.tag-link",
+      "px": 11
+     },
+     {
+      "el": "span.reel-tag",
+      "px": 10
+     },
+     {
+      "el": "p.stage__label",
+      "px": 10
+     },
+     {
+      "el": "a.prop",
+      "px": 9
+     }
+    ],
+    "lowContrast": [
+     {
+      "el": "span.tag-yt",
+      "ratio": 4.27
+     }
+    ],
+    "noFocusStyle": []
+   },
+   "interactions": {
+    "clicked": 7,
+    "broken": [],
+    "newErrors": 0
+   }
+  },
+  {
+   "page": "/house/",
+   "url": "https://mosaicscope.pages.dev/house/",
+   "width": 390,
+   "errors": [],
+   "consoleErrors": [],
+   "failed": [
+    {
+     "url": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r160/three.min.js",
+     "own": false,
+     "why": "net::ERR_BLOCKED_BY_ORB"
+    }
+   ],
+   "requests": 3,
+   "bytes": 15,
+   "ownBytes": 4,
+   "thirdParty": 2,
+   "status": 200,
+   "perf": {
+    "domContentLoadedMs": 354,
+    "loadMs": 354,
+    "lcpMs": 352,
+    "cls": 0,
+    "tbtMs": 0,
+    "longTasks": 0,
+    "heapMB": 9.5,
+    "domNodes": 19,
+    "renderBlocking": 0,
+    "resourceEntries": 3,
+    "screens": 1
+   },
+   "ui": {
+    "overflowPx": 0,
+    "smallTargets": [],
+    "smallText": [],
+    "lowContrast": [],
+    "noFocusStyle": []
+   },
+   "interactions": {
+    "clicked": 0,
+    "broken": [],
+    "newErrors": 0
+   }
+  },
+  {
+   "page": "/house/",
+   "url": "https://mosaicscope.pages.dev/house/",
+   "width": 1280,
+   "errors": [],
+   "consoleErrors": [],
+   "failed": [
+    {
+     "url": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r160/three.min.js",
+     "own": false,
+     "why": "net::ERR_BLOCKED_BY_ORB"
+    }
+   ],
+   "requests": 3,
+   "bytes": 15,
+   "ownBytes": 4,
+   "thirdParty": 2,
+   "status": 200,
+   "perf": {
+    "domContentLoadedMs": 110,
+    "loadMs": 110,
+    "lcpMs": 64,
+    "cls": 0,
+    "tbtMs": 0,
+    "longTasks": 0,
+    "heapMB": 9.5,
+    "domNodes": 19,
+    "renderBlocking": 0,
+    "resourceEntries": 3,
+    "screens": 1
+   },
+   "ui": {
+    "overflowPx": 0,
+    "smallTargets": [],
+    "smallText": [],
+    "lowContrast": [],
+    "noFocusStyle": []
+   },
+   "interactions": {
+    "clicked": 0,
+    "broken": [],
+    "newErrors": 0
+   }
+  },
+  {
+   "page": "/404.html",
+   "url": "https://mosaicscope.pages.dev/404.html",
+   "width": 390,
+   "errors": [],
+   "consoleErrors": [],
+   "failed": [],
+   "requests": 8,
+   "bytes": 63,
+   "ownBytes": 1,
+   "thirdParty": 6,
+   "status": 200,
+   "perf": {
+    "domContentLoadedMs": 282,
+    "loadMs": 318,
+    "lcpMs": 292,
+    "cls": 0.013,
+    "tbtMs": 0,
+    "longTasks": 0,
+    "heapMB": 9.5,
+    "domNodes": 16,
+    "renderBlocking": 1,
+    "resourceEntries": 3,
+    "screens": 1.1
+   },
+   "ui": {
+    "overflowPx": 0,
+    "smallTargets": [],
+    "smallText": [],
+    "lowContrast": [],
+    "noFocusStyle": []
+   },
+   "interactions": {
+    "clicked": 0,
+    "broken": [],
+    "newErrors": 0
+   }
+  },
+  {
+   "page": "/404.html",
+   "url": "https://mosaicscope.pages.dev/404.html",
+   "width": 1280,
+   "errors": [],
+   "consoleErrors": [],
+   "failed": [],
+   "requests": 8,
+   "bytes": 63,
+   "ownBytes": 1,
+   "thirdParty": 6,
+   "status": 200,
+   "perf": {
+    "domContentLoadedMs": 254,
+    "loadMs": 291,
+    "lcpMs": 272,
+    "cls": 0.15,
+    "tbtMs": 0,
+    "longTasks": 0,
+    "heapMB": 9.5,
+    "domNodes": 16,
+    "renderBlocking": 1,
+    "resourceEntries": 3,
+    "screens": 1.1
+   },
+   "ui": {
+    "overflowPx": 0,
+    "smallTargets": [],
+    "smallText": [],
+    "lowContrast": [],
+    "noFocusStyle": []
+   },
+   "interactions": {
+    "clicked": 0,
+    "broken": [],
+    "newErrors": 0
+   }
+  }
+ ]
+}

@@ -1,0 +1,431 @@
+{
+ "at": 1791906340419,
+ "counts": {
+  "critical": 0,
+  "high": 0,
+  "medium": 0,
+  "low": 61
+ },
+ "findings": [
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 160,
+   "fp": "dom:inner-html|evolve/index.html|140fkbh"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 164,
+   "fp": "dom:inner-html|evolve/index.html|1e997jy"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 165,
+   "fp": "dom:inner-html|evolve/index.html|1g91vzu"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 166,
+   "fp": "dom:inner-html|evolve/index.html|ntlidd"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 170,
+   "fp": "dom:inner-html|evolve/index.html|1qyhi4j"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 176,
+   "fp": "dom:inner-html|evolve/index.html|1oaszr3"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 179,
+   "fp": "dom:inner-html|evolve/index.html|1asycuu"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 180,
+   "fp": "dom:inner-html|evolve/index.html|q5omxa"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 186,
+   "fp": "dom:inner-html|evolve/index.html|11guocr"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 191,
+   "fp": "dom:inner-html|evolve/index.html|mvofoh"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 207,
+   "fp": "dom:inner-html|evolve/index.html|pcs813"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 213,
+   "fp": "dom:inner-html|evolve/index.html|1p5lc9z"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 220,
+   "fp": "dom:inner-html|evolve/index.html|a7rkat"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 231,
+   "fp": "dom:inner-html|evolve/index.html|12vl6p6"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 238,
+   "fp": "dom:inner-html|evolve/index.html|ib2khy"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 243,
+   "fp": "dom:inner-html|evolve/index.html|1tvres2"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 249,
+   "fp": "dom:inner-html|evolve/index.html|1i271c0"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 253,
+   "fp": "dom:inner-html|evolve/index.html|1nkzlp4"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 260,
+   "fp": "dom:inner-html|evolve/index.html|t3ckyw"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "game/src/app/Game.ts",
+   "line": 1280,
+   "fp": "dom:inner-html|game/src/app/Game.ts|1t7ww1h"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "game/src/main.ts",
+   "line": 37,
+   "fp": "dom:inner-html|game/src/main.ts|icsfg8"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "game/src/ui/Touch.ts",
+   "line": 119,
+   "fp": "dom:inner-html|game/src/ui/Touch.ts|wezgjd"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "game/src/ui/Touch.ts",
+   "line": 132,
+   "fp": "dom:inner-html|game/src/ui/Touch.ts|1dl2a01"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "game/src/ui/Touch.ts",
+   "line": 148,
+   "fp": "dom:inner-html|game/src/ui/Touch.ts|13v3cy5"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "game/src/ui/Touch.ts",
+   "line": 167,
+   "fp": "dom:inner-html|game/src/ui/Touch.ts|1dl2a01"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "game/src/ui/Touch.ts",
+   "line": 229,
+   "fp": "dom:inner-html|game/src/ui/Touch.ts|tbnlyq"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 163,
+   "fp": "dom:inner-html|main.js|eztwb9"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 274,
+   "fp": "dom:inner-html|main.js|1gk00rs"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 286,
+   "fp": "dom:inner-html|main.js|16q1dhn"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 289,
+   "fp": "dom:inner-html|main.js|1c5hhz8"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 297,
+   "fp": "dom:inner-html|main.js|a2vs1y"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 314,
+   "fp": "dom:inner-html|main.js|nut56m"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 331,
+   "fp": "dom:inner-html|main.js|12jjzr4"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 351,
+   "fp": "dom:inner-html|main.js|1sdapln"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 362,
+   "fp": "dom:inner-html|main.js|622zc"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 406,
+   "fp": "dom:inner-html|main.js|1kdzxcv"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 731,
+   "fp": "dom:inner-html|main.js|1gp570k"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 808,
+   "fp": "dom:inner-html|main.js|ijkjm6"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 929,
+   "fp": "dom:inner-html|main.js|1dkef5x"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1088,
+   "fp": "dom:inner-html|main.js|12h88mv"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1098,
+   "fp": "dom:inner-html|main.js|a0dmtc"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1129,
+   "fp": "dom:inner-html|main.js|196ixl7"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1213,
+   "fp": "dom:inner-html|main.js|3np27g"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1302,
+   "fp": "dom:inner-html|main.js|bo7oui"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1320,
+   "fp": "dom:inner-html|main.js|1migzms"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1341,
+   "fp": "dom:inner-html|main.js|1lhzex1"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1368,
+   "fp": "dom:inner-html|main.js|1sgk127"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1612,
+   "fp": "dom:inner-html|main.js|1mhoi4m"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1949,
+   "fp": "dom:inner-html|main.js|b119ge"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1954,
+   "fp": "dom:inner-html|main.js|y7pmxg"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1965,
+   "fp": "dom:inner-html|main.js|f9e2yt"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1986,
+   "fp": "dom:inner-html|main.js|1tnqrwq"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 2083,
+   "fp": "dom:inner-html|main.js|15m0cpg"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 2090,
+   "fp": "dom:inner-html|main.js|5d5y3f"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 2094,
+   "fp": "dom:inner-html|main.js|tnbh51"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 2377,
+   "fp": "dom:inner-html|main.js|18fc14e"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 2398,
+   "fp": "dom:inner-html|main.js|1ba2sa3"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 2628,
+   "fp": "dom:inner-html|main.js|neivn8"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "stats/screen.html",
+   "line": 280,
+   "fp": "dom:inner-html|stats/screen.html|1svp09y"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "stats/screen.html",
+   "line": 285,
+   "fp": "dom:inner-html|stats/screen.html|ts8gvs"
+  }
+ ]
+}
