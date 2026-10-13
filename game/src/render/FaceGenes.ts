@@ -7,7 +7,10 @@
 export interface FaceCtx { x: number; y: number; k: number; dir: number; lw: number; col: string; alpha: number; fx: number; ey: number; my: number; rx: number; ry: number; covered: boolean }
 type Draw = (g: CanvasRenderingContext2D, c: FaceCtx, t: string) => void;
 
-const TONES = ["#3dd6ff", "#ff4fa3", "#f6b62c", "#7be34a", "#a35bff", "#ff6a3d", "#f4f1ea", "#1fd1b8"];
+// 24 bright markings colours: paint, ink, glitter and tattoo tones, picked per slot per face
+const TONES = ["#3dd6ff", "#ff4fa3", "#f6b62c", "#7be34a", "#a35bff", "#ff6a3d", "#f4f1ea", "#1fd1b8",
+  "#ff2e63", "#00e5ff", "#ffe600", "#b8ff3d", "#ff8c00", "#7b2cff", "#ff9ad5", "#2ee6a6", "#0077ff", "#ffffff",
+  "#ff3838", "#c6ff3d", "#ff00c8", "#00ffa3", "#8a5a2b", "#1a1a1a"];
 export const FACE_SLOT_COUNT = 14;
 
 const ln = (g: CanvasRenderingContext2D, pts: number[]): void => { g.beginPath(); g.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]); g.stroke(); };
@@ -100,7 +103,11 @@ const SLOTS: Draw[][] = [
     (g, c, t) => { g.strokeStyle = t; ln(g, [c.fx + 2 * c.k, c.my + 0.6 * c.k, c.fx + 6.5 * c.k * c.dir, c.my - 0.6 * c.k]); },
     (g, c, t) => { g.strokeStyle = t; ring(g, c.fx + 5.5 * c.k * c.dir, c.my - 2.4 * c.k, 1.3 * c.k); },
     (g, c, t) => { g.fillStyle = t; g.globalAlpha = c.alpha * 0.55; g.beginPath(); g.arc(c.fx + 4 * c.k * c.dir, c.my - 1 * c.k, 2.2 * c.k, 0, 6.283); g.fill(); g.globalAlpha = c.alpha; },
-    (g, c, t) => { g.strokeStyle = t; ln(g, [c.fx - 4 * c.k, c.my + 3.6 * c.k, c.fx + 4 * c.k, c.my + 3.6 * c.k]); }],
+    (g, c, t) => { g.strokeStyle = t; ln(g, [c.fx - 4 * c.k, c.my + 3.6 * c.k, c.fx + 4 * c.k, c.my + 3.6 * c.k]); },
+    // a cigarette hanging from the mouth corner: white stick, orange lit tip, a thin smoke thread
+    (g, c) => { const x0 = c.fx + 2 * c.k, y0 = c.my + 0.6 * c.k, x1 = c.fx + 9 * c.k * c.dir, y1 = c.my + 1.8 * c.k; g.strokeStyle = "#f4f1ea"; g.lineWidth = Math.max(1, c.lw * 0.8); ln(g, [x0, y0, x1, y1]); g.strokeStyle = "#ff7a1a"; ln(g, [x1 - 1 * c.k * c.dir, y1 - 0.2 * c.k, x1, y1]); g.strokeStyle = "rgba(230,230,235,.5)"; g.lineWidth = Math.max(0.6, c.lw * 0.3); ln(g, [x1 + 1 * c.k * c.dir, y1 - 1 * c.k, x1 + 3 * c.k * c.dir, y1 - 4 * c.k]); },
+    // a cold sore: a small red-pink blister on the lip edge
+    (g, c) => { g.fillStyle = "#e0607a"; g.globalAlpha = c.alpha * 0.9; dot(g, c.fx + 3.2 * c.k * c.dir, c.my + 0.4 * c.k, 1.3 * c.k); g.fillStyle = "#ffd0d8"; dot(g, c.fx + 3.2 * c.k * c.dir, c.my + 0.1 * c.k, 0.5 * c.k); g.globalAlpha = c.alpha; }],
   // 9 ear bits
   [() => {}, (g, c, t) => { g.fillStyle = t; for (const s of [-1, 1]) dot(g, c.x + s * c.rx * 1.02, c.y + 3 * c.k, 0.8 * c.k); },
     (g, c, t) => { g.strokeStyle = t; for (const s of [-1, 1]) ring(g, c.x + s * c.rx * 1.02, c.y + 4.4 * c.k, 1.9 * c.k); },
@@ -121,7 +128,11 @@ const SLOTS: Draw[][] = [
     const a = [[-4, -4, -7, 3], [4, -4, 7, 3], [-7, 3, 7, 4], [-6, 6, -2, 9], [3, 5, 8, 6], [-2, -6, 3, -3], [-7, 0, -5, 8], [5, -1, 6, 8]][v];
     ln(g, [c.fx + a[0] * c.k, c.y + a[1] * c.k, c.fx + a[2] * c.k, c.y + a[3] * c.k]);
     for (let i = 1; i <= 2; i++) { const m = i / 3, mx = a[0] + (a[2] - a[0]) * m, my = a[1] + (a[3] - a[1]) * m; ln(g, [c.fx + (mx - 0.9) * c.k, c.y + (my - 0.4) * c.k, c.fx + (mx + 0.9) * c.k, c.y + (my + 0.4) * c.k]); }
-  })],
+  }),
+    // a sticking plaster over a cut
+    (g, c) => { g.fillStyle = "#e9d9b8"; g.save(); g.translate(c.fx - 3 * c.k, c.y - 2 * c.k); g.rotate(-0.4); g.fillRect(-4 * c.k, -1.4 * c.k, 8 * c.k, 2.8 * c.k); g.fillStyle = "#c9a878"; g.fillRect(-1.2 * c.k, -1.4 * c.k, 2.4 * c.k, 2.8 * c.k); g.restore(); },
+    // a fresh cut with a bead of dried blood
+    (g, c) => { g.strokeStyle = "#b0101a"; g.lineWidth = Math.max(1, c.lw * 0.7); ln(g, [c.fx + 1 * c.k, c.y - 6 * c.k, c.fx + 4 * c.k, c.y - 3 * c.k]); g.fillStyle = "#7a0a14"; dot(g, c.fx + 4 * c.k, c.y - 2.6 * c.k, 0.9 * c.k); }],
   // 12 small tattoos
   [() => {}, ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((v): Draw => (g, c, t) => {
     g.strokeStyle = t; g.fillStyle = t; const bx = c.fx + (v % 2 ? 6.4 : -6.4) * c.k, by = c.y + 3.4 * c.k;
@@ -148,7 +159,8 @@ export const FACE_PART_COUNT = FACE_SLOT_SIZES.reduce((a, b) => a + b - 1, 0);
 export const FACE_COMBINATIONS = FACE_SLOT_SIZES.reduce((a, b) => a * b, 1) * TONES.length ** 4;
 
 /** Odds that a slot is used at all (so most faces stay readable at 100px). */
-const USE: number[] = [0.7, 0.35, 0.3, 0.14, 0.12, 0.3, 0.16, 0.18, 0.22, 0.28, 0.2, 0.14, 0.12, 0.3];
+// more of the faces get markings now: about 1.6x the old odds, capped so faces stay readable
+const USE: number[] = [0.85, 0.55, 0.5, 0.3, 0.28, 0.5, 0.3, 0.32, 0.4, 0.5, 0.36, 0.3, 0.3, 0.5];
 
 function mix(a: number): number { a = (a ^ 61) ^ (a >>> 16); a = (a + (a << 3)) | 0; a ^= a >>> 4; a = Math.imul(a, 0x27d4eb2d); return (a ^ (a >>> 15)) >>> 0; }
 
