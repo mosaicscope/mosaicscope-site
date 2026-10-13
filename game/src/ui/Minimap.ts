@@ -19,7 +19,7 @@ function lerpLine(arr: number[], c: number): number {
 }
 export const toLatLon = (x: number, y: number) => ({ lat: lerpLine(LAT, y), lon: lerpLine(LON, x) });
 
-interface OsmData { ways: { k: string; p: [number, number][] }[]; attribution: string }
+interface OsmData { ways: { k: string; p: [number, number][]; n?: string }[]; attribution: string }
 
 export class Minimap {
   el: HTMLCanvasElement;
@@ -117,13 +117,26 @@ export class Minimap {
       const lon0 = LON[0] - 0.002, lon1 = LON[LON.length - 1] + 0.003, lat0 = LAT[0] + 0.002, lat1 = LAT[LAT.length - 1] - 0.002;
       const kx = W / (lon1 - lon0), ky = W / (lat1 - lat0) * 0.72;
       const P = (lat: number, lon: number) => [(lon - lon0) * kx, (lat - lat0) * ky + W * 0.12];
+      const marks: { n: string; x: number; y: number }[] = [];
       for (const way of this.osm.ways) {
+        if (way.k === "landmark") {
+          // landmarks are drawn after the streets so their labels sit on top
+          const pts = way.p.map(([la, lo]) => P(la, lo));
+          const cx = pts.reduce((s, q) => s + q[0], 0) / pts.length, cy = pts.reduce((s, q) => s + q[1], 0) / pts.length;
+          g.strokeStyle = g.fillStyle = "#c6ff3d"; g.lineWidth = 2;
+          if (pts.length > 2) { g.beginPath(); pts.forEach((q, i) => (i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]))); g.closePath(); g.globalAlpha = 0.35; g.fill(); g.globalAlpha = 1; g.stroke(); }
+          else { g.beginPath(); g.arc(cx, cy, 5, 0, 6.283); g.fill(); }
+          marks.push({ n: way.n || "", x: cx, y: cy });
+          continue;
+        }
         g.strokeStyle = way.k === "water" ? "#1d6a8a" : way.k === "park" ? "#2d4a24" : way.k === "building" ? "#3a3430" : way.k === "major" ? "#eee4d3" : "#8a8580";
         g.fillStyle = way.k === "park" ? "#1d2a18" : way.k === "building" ? "#2a2622" : "transparent";
         g.lineWidth = way.k === "major" ? 3 : way.k === "water" ? 4 : 1.2;
         g.beginPath(); way.p.forEach(([la, lo], i) => { const q = P(la, lo); if (i) g.lineTo(q[0], q[1]); else g.moveTo(q[0], q[1]); });
         if (way.k === "park" || way.k === "building") g.fill(); else g.stroke();
       }
+      g.font = "600 12px 'IBM Plex Mono', monospace"; g.textAlign = "center"; g.fillStyle = "#c6ff3d";
+      for (const m of marks) g.fillText(m.n, m.x, m.y - 10);
       const me = toLatLon(p.x, p.y), q = P(me.lat, me.lon);
       g.fillStyle = "#ec2a1c"; g.beginPath(); g.arc(q[0], q[1], 8, 0, 6.283); g.fill();
       g.strokeStyle = "#eee4d3"; g.lineWidth = 2; g.stroke();
