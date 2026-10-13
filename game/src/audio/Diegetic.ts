@@ -18,6 +18,8 @@ import type { BuildingKind } from "../content/buildings";
 import type { VehicleClass } from "../content/vehicles";
 import type { Simulation } from "../sim/Simulation";
 import type { Camera } from "../render/Camera";
+import { DEFAULT_VOICE, DEFAULT_FOOT, DEFAULT_AMBIENCE, voiceAllowed, voicePitch, voiceDuration, voiceGain, footGain, shoePitch, ambienceGain } from "./Prefs";
+import type { VoicePrefs, FootPrefs, AmbiencePrefs } from "./Prefs";
 
 // ------------------------------------------------------------------ pure planning
 
@@ -357,6 +359,9 @@ export class Diegetic {
   private lightning = -1; private interiorStep = 0; private leak = 0;
   private prevInterior: BuildingKind | null | undefined;
   private stop: (() => void)[] = [];
+  private voicePrefs: VoicePrefs = DEFAULT_VOICE; private voiceRecent: number[] = [];
+  private footPrefs: FootPrefs = DEFAULT_FOOT; private sneaking = false;
+  private ambPrefs: AmbiencePrefs = DEFAULT_AMBIENCE;
 
   constructor(private ctx: AudioContext, master: AudioNode, private lite: boolean) {
     this.caps = mixCaps(lite);
@@ -519,8 +524,21 @@ export class Diegetic {
   private duck(): void {
     this.onDuck?.(DUCK.music, DUCK.secs + 0.15);
     const t = this.ctx.currentTime, g = this.amb.gain;
-    g.cancelScheduledValues(t); g.setTargetAtTime(AMBIENT_LEVEL * (1 - DUCK.amount), t, 0.03); g.setTargetAtTime(AMBIENT_LEVEL, t + DUCK.secs, 0.4);
+    const level = AMBIENT_LEVEL * ambienceGain(this.ambPrefs);
+    g.cancelScheduledValues(t); g.setTargetAtTime(level * (1 - DUCK.amount), t, 0.03); g.setTargetAtTime(level, t + DUCK.secs, 0.4);
   }
+  /** Ambience mute and fade time (the fade is a smooth ramp, so a change never clicks). */
+  setAmbience(p: AmbiencePrefs): void {
+    this.ambPrefs = p;
+    const t = this.ctx.currentTime, g = this.amb.gain;
+    g.cancelScheduledValues(t); g.setTargetAtTime(AMBIENT_LEVEL * ambienceGain(p), t, Math.max(0.01, p.fadeSecs) / 3);
+  }
+  /** Speech blip settings: who is muted, pitch, volume, speed, and the blip frequency limit. */
+  setVoice(p: VoicePrefs): void { this.voicePrefs = p; }
+  /** Footstep settings: volume, shoe sound, and whether sneaking quiets the steps. */
+  setFoot(p: FootPrefs): void { this.footPrefs = p; }
+  /** Whether the player is sneaking right now; the game calls this when it knows. */
+  setSneaking(on: boolean): void { this.sneaking = on; }
   /** For the older effects in Audio.ts (impacts, gunfire): the same cap and spacing, with the slot freed after a short while. */
   allow(prio: Prio = "event"): boolean {
     if (!this.on || !this.begin(prio)) return false;
@@ -539,11 +557,11 @@ export class Diegetic {
   }
   /** A short speech blip for someone talking: pitch set by who they are, so each person sounds a little different. */
   voice(id: number, indoors: boolean): void {
-    if (indoors) return;
+    if (indoors || !voiceAllowed(this.voicePrefs, id, this.ctx.currentTime, this.voiceRecent)) return;
     const o = this.flat(0.2);
     if (!this.begin("event")) return;
-    const f = 220 + ((id * 37) % 260);
-    this.blip(o, "triangle", f, f * 1.25, 0.07, 0.12);
+    const f = voicePitch(id, this.voicePrefs), d = voiceDuration(this.voicePrefs);
+    this.blip(o, this.voicePrefs.shape, f, f * 1.25, d, voiceGain(this.voicePrefs));
     this.end();
   }
 
@@ -649,8 +667,9 @@ export class Diegetic {
 
   /** A footstep on a surface. wet: rain on hard ground adds a splashy edge. */
   private step(o: Out | null, surface: Surface, wet: number, jitter: number, soft = false, rain = wet / 1.6): void {
-    if (!o || !this.begin("foley")) return;
-    const r = FOOT[surface], [f, q, d, v, type] = r.noise, k = 1 + jitter, vol = 1.0;
+    const vol = footGain(this.footPrefs, this.sneaking);
+    if (!o || vol <= 0 || !this.begin("foley")) return;
+    const r = FOOT[surface], [f, q, d, v, type] = r.noise, k = (1 + jitter) * shoePitch(this.footPrefs.shoe);
     // everyone else's steps are a soft tap (low-passed, no squeak); only yours has the full detail
     const n = soft ? this.hit(o, "lowpass", Math.min(2400, f) * k, 0.5, d * 1.2, v * vol * 1.4) : this.hit(o, type, f * k * (1 + wet * 0.3), q, d * (1 + wet * 0.8), v * vol * (1 + wet * 0.35));
     if (r.thud) this.blip(o, r.thud[4], r.thud[0] * k, r.thud[1] * k, r.thud[2], r.thud[3] * vol);
