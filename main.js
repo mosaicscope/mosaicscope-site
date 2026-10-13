@@ -2127,7 +2127,7 @@
       if (!visible || document.hidden) return;
       hung += 1;
       if (hung % 5 === 0) { try { localStorage.setItem("ms-crew-time", hung); } catch (e) { /* ignore */ } }
-      var want = Math.min(max, 2 + Math.floor(hung / 12));
+      var want = max;
       if (crew.length < want) addPerson(crew.length, true);
       STAGES.forEach(function (s) { if (hung >= s.at) buildProp(s.prop); });
       if (pending && !busy) { var p = pending; pending = null; react(p); }
@@ -2527,7 +2527,7 @@
     };
 
     // start: Tiles and Glitter are always there; returning visitors find more of the crew
-    var start = Math.min(max, 2 + Math.floor(hung / 12));
+    var start = max;
     for (var i = 0; i < start; i++) addPerson(i, false);
     STAGES.forEach(function (s) { if (hung >= s.at) buildProp(s.prop); });
 

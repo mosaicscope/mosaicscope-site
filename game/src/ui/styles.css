@@ -6,6 +6,8 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--ink); color: var(--paper); font: calc(13px * var(--ts)) / 1.45 var(--mono); -webkit-font-smoothing: antialiased; }
+/* mobile: no rubber-band bounce, no grey tap flash, and the browser keeps its own pinch-zoom and address bar */
+html, body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
 #world { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block; touch-action: none; cursor: crosshair; }
 #ui { position: fixed; inset: 0; pointer-events: none; }
 #ui > * { pointer-events: auto; }
@@ -361,3 +363,5 @@ input, textarea { -webkit-user-select: text; user-select: text; }
 .title-tag i { font: italic clamp(15px, 3vw, 22px) / 1 "Instrument Serif", serif; letter-spacing: 0; color: var(--paper); text-transform: none; }
 .title-skip { position: absolute; left: 0; right: 0; bottom: max(18px, env(safe-area-inset-bottom)); text-align: center; font: 500 10px / 1 "IBM Plex Mono", monospace; letter-spacing: .2em; text-transform: uppercase; color: var(--dim); opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .title { transition: none; } }
+/* colour-blind palette: the red/green accents swap to blue/orange, which stay distinct for most colour vision types */
+html.cb { --red: #d55e00; --acid: #56b4e9; --gold: #e69f00; --pink: #cc79a7; --cyan: #56b4e9; }

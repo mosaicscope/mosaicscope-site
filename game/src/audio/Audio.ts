@@ -6,6 +6,7 @@ import { fetchVibe, VIBE_REFRESH_MS } from "./LiveVibe";
 import type { Place } from "./Score";
 import { BuskerVoice } from "./Busker";
 import { stepWalk, dreamLevel, lateLevel, layersFor } from "./Moods";
+import type { UiTone } from "./Prefs";
 
 /**
  * Synthesised audio (no files to load): material-specific impact blips, whooshes, boings, rain and a
@@ -76,6 +77,12 @@ export class AudioSystem {
     return (this.place = place);
   }
 
+  /** A UI tone for an interface event (click, tab, error, save and so on). Silent until the audio context is on. */
+  ui(tone: UiTone): void { this.dg?.uiTone(tone); }
+
+  /** Victory or defeat sting for the soundtrack. Only plays while the music is on. */
+  stinger(kind: "victory" | "defeat"): void { if (this.musicOn) this.music?.stinger(kind); }
+
   /** Set the world-sound mute and volume (separate from the soundtrack and the master volume). */
   setSfx(on: boolean, vol: number): void { this.sfxOn = on; this.sfxVolume = vol; this.dg?.setLevel(on, vol); }
 
@@ -104,6 +111,8 @@ export class AudioSystem {
         if (c === p || c.inside >= 0) continue;
         const d = Math.hypot(c.x - p.x, c.y - p.y);
         if (d < 10) crowd++;
+        // a new speech bubble close by gets a short voice blip
+        if (c.bubble && c.bubble !== this.seenBubble.get(c.id) && d < 12) { this.seenBubble.set(c.id, c.bubble); this.dg?.voice(c.id, interior !== null); }
         if (c.role === "busker" && d < bd) { bd = d; bx = c.x - p.x; }
       }
       this.crowd = Math.min(1, crowd / 8); this.buskerDist = interior ? Infinity : bd; this.buskerPan = bx / 14;
@@ -112,6 +121,7 @@ export class AudioSystem {
     this.music?.setLayers(layers);
     this.busker?.update(this.buskerDist, this.buskerPan, sim.hour, sim.env.rain);
   }
+  private seenBubble = new Map<number, unknown>();
   private moodT = 0; private crowd = 0; private buskerDist = Infinity; private buskerPan = 0;
 
   attach(sim: Simulation): void {
