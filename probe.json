@@ -1,7 +1,7 @@
 {
- "at": 1791931839068,
+ "at": 1791932363485,
  "target": "https://mosaicscope.pages.dev",
- "sha": "8695a187cfa81460d125e3e0fb61a1234d1c674c",
+ "sha": "ebeebf2d463ce0b98da7534c9c11c31cd3890da8",
  "results": [
   {
    "page": "/",
@@ -22,6 +22,10 @@
      "own": false
     },
     {
+     "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+     "own": false
+    },
+    {
      "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
      "own": false
     },
@@ -34,23 +38,29 @@
      "own": false
     }
    ],
-   "failed": [],
-   "requests": 71,
-   "bytes": 4016,
+   "failed": [
+    {
+     "url": "https://api-widget.soundcloud.com/media/soundcloud:tracks:2385994953/a4438f4e-d2f1-4dbd-9112-db5b4ec37663/stream/hls?cli",
+     "own": false,
+     "why": "HTTP 404"
+    }
+   ],
+   "requests": 70,
+   "bytes": 4020,
    "ownBytes": 77,
-   "thirdParty": 66,
+   "thirdParty": 65,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 542,
-    "loadMs": 3653,
-    "lcpMs": 920,
-    "cls": 0.154,
-    "tbtMs": 329,
-    "longTasks": 3,
-    "heapMB": 37.8,
-    "domNodes": 1270,
+    "domContentLoadedMs": 417,
+    "loadMs": 480,
+    "lcpMs": 768,
+    "cls": 0.206,
+    "tbtMs": 220,
+    "longTasks": 2,
+    "heapMB": 9.5,
+    "domNodes": 1205,
     "renderBlocking": 3,
-    "resourceEntries": 17,
+    "resourceEntries": 10,
     "screens": 10.6
    },
    "ui": {
@@ -153,6 +163,10 @@
      "own": false
     },
     {
+     "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+     "own": false
+    },
+    {
      "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
      "own": false
     },
@@ -165,23 +179,29 @@
      "own": false
     }
    ],
-   "failed": [],
-   "requests": 71,
-   "bytes": 4049,
+   "failed": [
+    {
+     "url": "https://api-widget.soundcloud.com/media/soundcloud:tracks:2385994953/a4438f4e-d2f1-4dbd-9112-db5b4ec37663/stream/hls?cli",
+     "own": false,
+     "why": "HTTP 404"
+    }
+   ],
+   "requests": 72,
+   "bytes": 4084,
    "ownBytes": 77,
-   "thirdParty": 66,
+   "thirdParty": 67,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 274,
-    "loadMs": 967,
-    "lcpMs": 288,
-    "cls": 0.096,
-    "tbtMs": 357,
+    "domContentLoadedMs": 198,
+    "loadMs": 259,
+    "lcpMs": 216,
+    "cls": 0.095,
+    "tbtMs": 238,
     "longTasks": 3,
-    "heapMB": 33.5,
-    "domNodes": 1546,
+    "heapMB": 9.5,
+    "domNodes": 1481,
     "renderBlocking": 3,
-    "resourceEntries": 18,
+    "resourceEntries": 17,
     "screens": 9.6
    },
    "ui": {
@@ -296,9 +316,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 208,
-    "loadMs": 208,
-    "lcpMs": 208,
+    "domContentLoadedMs": 290,
+    "loadMs": 291,
+    "lcpMs": 216,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -343,9 +363,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 193,
-    "loadMs": 193,
-    "lcpMs": 120,
+    "domContentLoadedMs": 153,
+    "loadMs": 153,
+    "lcpMs": 96,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -384,10 +404,10 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 237,
-    "loadMs": 354,
-    "lcpMs": 256,
-    "cls": 0.007,
+    "domContentLoadedMs": 347,
+    "loadMs": 391,
+    "lcpMs": 336,
+    "cls": 0.01,
     "tbtMs": 0,
     "longTasks": 0,
     "heapMB": 9.5,
@@ -425,10 +445,10 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 264,
-    "loadMs": 358,
-    "lcpMs": 284,
-    "cls": 0.147,
+    "domContentLoadedMs": 301,
+    "loadMs": 314,
+    "lcpMs": 272,
+    "cls": 0.15,
     "tbtMs": 0,
     "longTasks": 0,
     "heapMB": 9.5,
@@ -507,85 +527,85 @@
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 390,
-   "ms": 2620,
+   "ms": 2415,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 390,
-   "ms": 1952,
+   "ms": 1779,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 390,
-   "ms": 2127,
-   "status": "pass"
-  },
-  {
-   "id": "faq-opens",
-   "name": "An FAQ answer opens",
-   "width": 390,
-   "ms": 1931,
-   "status": "pass"
-  },
-  {
-   "id": "work-viewer",
-   "name": "A work tile opens and closes",
-   "width": 390,
-   "ms": 2422,
-   "status": "pass"
-  },
-  {
-   "id": "lost-visitor",
-   "name": "404 page leads back home",
-   "width": 390,
-   "ms": 1168,
-   "status": "pass"
-  },
-  {
-   "id": "nav-to-rates",
-   "name": "Header link jumps to Rates",
-   "width": 1280,
-   "ms": 2100,
-   "status": "pass"
-  },
-  {
-   "id": "quote-builder",
-   "name": "Quote builder updates the total",
-   "width": 1280,
-   "ms": 1985,
-   "status": "pass"
-  },
-  {
-   "id": "contact-validation",
-   "name": "Enquiry form refuses an empty send",
-   "width": 1280,
-   "ms": 1732,
+   "ms": 1561,
    "status": "fail",
    "why": "no validation shown"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
+   "width": 390,
+   "ms": 1672,
+   "status": "pass"
+  },
+  {
+   "id": "work-viewer",
+   "name": "A work tile opens and closes",
+   "width": 390,
+   "ms": 2232,
+   "status": "pass"
+  },
+  {
+   "id": "lost-visitor",
+   "name": "404 page leads back home",
+   "width": 390,
+   "ms": 1056,
+   "status": "pass"
+  },
+  {
+   "id": "nav-to-rates",
+   "name": "Header link jumps to Rates",
    "width": 1280,
-   "ms": 2263,
+   "ms": 2495,
+   "status": "pass"
+  },
+  {
+   "id": "quote-builder",
+   "name": "Quote builder updates the total",
+   "width": 1280,
+   "ms": 1405,
+   "status": "pass"
+  },
+  {
+   "id": "contact-validation",
+   "name": "Enquiry form refuses an empty send",
+   "width": 1280,
+   "ms": 1951,
+   "status": "pass"
+  },
+  {
+   "id": "faq-opens",
+   "name": "An FAQ answer opens",
+   "width": 1280,
+   "ms": 1852,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 1280,
-   "ms": 2479,
+   "ms": 2245,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 1280,
-   "ms": 2016,
+   "ms": 1075,
    "status": "pass"
   }
  ]
