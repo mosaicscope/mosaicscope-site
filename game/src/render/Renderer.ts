@@ -388,6 +388,8 @@ export class Renderer {
       }
       g.stroke();
     }
+    // reflections of the lit shore: neon signs and street lamps smear down the water as wobbling, broken streaks (night) and a soft sky sheen (day)
+    this.drawReflections(g, sim, minX, maxX, minY, maxY, t);
     // sun / street-light glints that twinkle and slide
     g.fillStyle = "rgba(255,255,255,.55)";
     const gl = q >= 3 ? 3 : 2;
@@ -402,6 +404,81 @@ export class Renderer {
       }
     }
     g.lineCap = "butt";
+  }
+
+  /** Per water tile: how strongly and in what colour the nearest lit shore reflects (cached; the shoreline never moves). */
+  private reflTiles: { idx: Int32Array; col: Uint8Array; str: Uint8Array; cols: string[] } | null = null; private reflFor: unknown = null;
+  private reflCache(sim: Simulation) {
+    if (this.reflTiles && this.reflFor === sim.world) return this.reflTiles;
+    const w = sim.world, S = w.size, R = 3, idx: number[] = [], col: number[] = [], str: number[] = [], cols: string[] = ["#ffd88a"];
+    for (let ty = 0; ty < S; ty++) for (let tx = 0; tx < S; tx++) {
+      if (w.tiles[ty * S + tx] !== T.WATER) continue;
+      let best = 0, bc = -1, bd = 99;
+      for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+        const x = tx + dx, y = ty + dy, d = Math.abs(dx) + Math.abs(dy);
+        if (d >= bd || !w.inBounds(x, y)) continue;
+        const t = w.tiles[y * S + x];
+        if (t === T.WATER) continue;
+        let c = -1;
+        if (t === T.BUILDING) { const b = w.buildings[w.buildingOf[y * S + x]]; if (b) { c = cols.indexOf(b.sign); if (c < 0) { cols.push(b.sign); c = cols.length - 1; } } }
+        else if (t === T.PAVE || t === T.STREET || t === T.PATH || t === T.ROAD) c = 0;
+        if (c < 0) continue;
+        bd = d; bc = c; best = 4 - Math.min(3, Math.floor(d / 2));
+      }
+      if (bc >= 0) { idx.push(ty * S + tx); col.push(bc); str.push(best); }
+    }
+    this.reflFor = w;
+    return (this.reflTiles = { idx: Int32Array.from(idx), col: Uint8Array.from(col), str: Uint8Array.from(str), cols });
+  }
+
+  private drawReflections(g: CanvasRenderingContext2D, sim: Simulation, minX: number, maxX: number, minY: number, maxY: number, t: number): void {
+    const cam = this.cam, z = cam.zoom, pt = this.pt, S = sim.world.size, night = 1 - Math.min(1, Math.max(0, (sim.daylight - 0.15) / 0.5));
+    // day: a broad pale sheen band sliding across the surface
+    if (night < 0.9) {
+      g.fillStyle = `rgba(255,236,200,${(0.07 * (1 - night)).toFixed(3)})`;
+      for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
+        if (sim.world.tiles[ty * S + tx] !== T.WATER || Math.sin((tx - ty) * 0.9 + t * 0.4) < 0.55) continue;
+        cam.toScreen(tx + 0.5, ty + 0.5, 0, pt);
+        g.beginPath(); g.ellipse(pt.x, pt.y, 20 * z, 6 * z, 0, 0, 6.283); g.fill();
+      }
+    }
+    if (night < 0.15) return;
+    // moon and sky: pale slivers drifting over every water tile, so ponds with no lit shore still shimmer
+    g.fillStyle = `rgba(200,225,255,${(0.7 * night).toFixed(3)})`;
+    for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
+      if (sim.world.tiles[ty * S + tx] !== T.WATER) continue;
+      const ph = Math.sin(t * 0.8 + tx * 5.3 + ty * 9.1);
+      if (ph < 0.3) continue;
+      cam.toScreen(tx + 0.5 + Math.sin(t * 0.5 + ty) * 0.15, ty + 0.5, 0, pt);
+      g.beginPath(); g.ellipse(pt.x, pt.y, (4 + ph * 6) * z, (0.8 + ph) * z, 0, 0, 6.283); g.fill();
+    }
+    const rc = this.reflCache(sim), by = new Map<number, number[]>();
+    for (let i = 0; i < rc.idx.length; i++) {
+      const ty = (rc.idx[i] / S) | 0, tx = rc.idx[i] - ty * S;
+      if (tx < minX || tx > maxX || ty < minY || ty > maxY) continue;
+      let a = by.get(rc.col[i]); if (!a) by.set(rc.col[i], a = []);
+      a.push(tx, ty, rc.str[i]);
+    }
+    g.lineCap = "round";
+    for (const [c, a] of by) {
+      g.strokeStyle = rc.cols[c]; g.globalAlpha = 0.5 * night;
+      g.lineWidth = Math.max(1, 2 * z);
+      g.beginPath();
+      for (let i = 0; i < a.length; i += 3) {
+        const tx = a[i], ty = a[i + 1], s = a[i + 2];
+        const ph = t * 1.4 + tx * 2.1 + ty * 3.7;
+        cam.toScreen(tx + 0.5, ty + 0.5, 0, pt);
+        const x = pt.x + Math.sin(ph) * 3 * z, len = (3 + s * 2.2) * z;
+        // broken into three dashes that shimmer in and out
+        for (let k = 0; k < 3; k++) {
+          if (Math.sin(ph * 1.7 + k * 2.3) < -0.35) continue;
+          const y0 = pt.y - 8 * z + k * len * 1.2;
+          g.moveTo(x + Math.sin(ph + k) * 2 * z, y0); g.lineTo(x + Math.sin(ph + k + 1) * 2 * z, y0 + len);
+        }
+      }
+      g.stroke();
+    }
+    g.globalAlpha = 1; g.lineCap = "butt";
   }
 
   private poseName(c: Character, moving: boolean, spd: number): string {
