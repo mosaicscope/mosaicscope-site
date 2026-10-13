@@ -45,6 +45,8 @@ import { MOSAIC } from "../content/mosaicscope";
 import { carried, detach } from "../inventory/Inventory";
 import { BUILDINGS } from "../content/buildings";
 import { billAbsence, collect } from "../sim/Arrears";
+import { Photos } from "../ui/Photos";
+import { MOMENTS } from "../content/photos";
 
 /** Wires simulation, renderer, input, audio, UI and persistence together and runs the loop. */
 /** People who ring you. Lines can mention {place} and {cash}. */
@@ -100,7 +102,7 @@ export class Game {
   private raf = 0;
   private reduceMotionOS = false;
   private touches = new Map<number, { x: number; y: number }>();
-  casino: Casino; places: Places; radio: Radio; interior: InteriorOverlay;
+  photos!: Photos; casino: Casino; places: Places; radio: Radio; interior: InteriorOverlay;
   private hudEl: HTMLElement;
   private areaEl: HTMLElement = h("div.areaname", { "aria-live": "polite" }); private lastArea = ""; private bustedEl: HTMLElement; private lastBusted = -1;
   private gestured = false;
@@ -141,6 +143,12 @@ export class Game {
       keys: () => ({ up: this.settings.keys.up, down: this.settings.keys.down, left: this.settings.keys.left, right: this.settings.keys.right, use: this.settings.keys.pickup }),
     });
     this.places.openInterior = (b) => this.interior.show(b);
+    this.photos = new Photos({
+      world: () => this.renderer.canvas, interior: () => (this.interior.open ? this.interior.canvas : null),
+      show: (t, b, cls) => this.modal.show(t, b, cls), close: () => this.modal.close(), toast: (t, k) => this.toast(t, k),
+      where: () => { const p = this.sim.player; return this.sim.world.streetName(p.x, p.y) || ""; }, simRep: () => this.sim.player.reputation,
+    }, this.store);
+    this.places.photos = this.photos;
     this.dialogue.onTrade = (id) => this.places.trade(this.sim.chars[id]);
     this.radio = new Radio(MOSAIC.soundcloud);
     this.hudEl = h("div.hud", { "aria-live": "polite" });
@@ -226,6 +234,7 @@ export class Game {
       const f = this.interior.footing;
       this.audio.scene = { interior: this.interior.building?.kind ?? null, moving: f.moving, running: f.running, in2D: this.renderer.street2D };
       this.audio.update(this.sim, this.interior.kind);
+      this.canvas.style.filter = this.audio.dream > 0.01 && !this.reduceMotion ? `hue-rotate(${(this.audio.dream * 28).toFixed(1)}deg) saturate(${(1 + this.audio.dream * 0.12).toFixed(2)})` : "";
     });
     this.fpsAvg = this.fpsAvg * 0.95 + (1 / Math.max(dt, 0.001)) * 0.05;
     this.adaptQuality(dt);
@@ -578,6 +587,7 @@ export class Game {
       else if (key === k.dev || key === "~") this.dev.toggle();
       else if (key === "c") { this.renderer.cam.follow = this.sim.playerId; }
       else if (key === "v") this.toggle2D();
+      else if (key === "o") this.photos.open();
       else if (key === "=" || key === "+") this.renderer.cam.setZoom(this.renderer.cam.targetZoom * 1.2);
       else if (key === "-") this.renderer.cam.setZoom(this.renderer.cam.targetZoom / 1.2);
     });
@@ -716,6 +726,7 @@ export class Game {
         };
         const f = F[e.type]?.();
         if (f) this.focus(f[0], f[1], 3.6);
+        if (e.type in MOMENTS && (e.type !== "crime" || e.actors[0] === p.id)) this.photos.moment(e.type, street, on ? on.name.split(" ")[0] : "");
       }
     });
   }
@@ -1094,6 +1105,7 @@ export class Game {
       h("div.seg", { role: "group", "aria-label": "Simulation speed" }, this.speedEls),
       this.soundBtn,
       h("button.btn", { onclick: () => this.luxury.show(), text: "Luxury", title: "Velvet & Co. Luxury: property, rides, animals" }),
+      h("button.btn", { onclick: () => this.photos.open(), text: "Photo", title: "Photo mode (O)" }),
       h("button.btn", { onclick: () => this.toggle2D(), text: "2D/3D", title: "Street view (V)" }),
       h("button.btn", { onclick: () => this.log.toggle(), text: "Log" }),
       h("button.btn", { onclick: () => this.select(this.selected === this.sim.playerId ? -1 : this.sim.playerId), text: "Me", class: "btn wide" }),

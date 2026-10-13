@@ -8,8 +8,10 @@ import { TICKS_PER_HOUR } from "../sim/Environment";
 import { T, TILE_HEIGHT, ROAD_W } from "../world/World";
 import { Camera } from "./Camera";
 import { Terrain, drawTallTile, drawPoi } from "./Terrain";
+import { decorGrid, drawDecor } from "./StreetDecor";
 import { Particles } from "./Particles";
 import { Lighting, Rain } from "./Lighting";
+import { NightFX } from "./NightFX";
 import { pose, solve, drawFigure, pathSilhouette, J } from "./StickFigure";
 import { drawToy, drawIsoBox } from "./ToyArt";
 import { INK } from "./palette";
@@ -27,7 +29,7 @@ import { LOD_NAMES } from "../entities/types";
 import { StreetView } from "./Street2D";
 
 export type Quality = 0 | 1 | 2 | 3; // low, medium, high, ultra
-interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter, 7 hidden place (ref >= 1000: rooftop garden of building ref-1000)
+interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 11; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter, 7 street decor, 11 hidden place (ref >= 1000: rooftop garden of building ref-1000)
 interface Decal { x: number; y: number; r: number; color: string; born: number; life: number; rot: number }
 
 export interface RenderOptions { selected: number; hovered: number; debug: DebugFlags; reduceMotion: boolean; quality: Quality; showNames: boolean }
@@ -47,6 +49,7 @@ export class Renderer {
   private glowCv = document.createElement("canvas");
   private glowG: CanvasRenderingContext2D | null = null;
   private rain = new Rain();
+  private nightFx = new NightFX();
   private items: Item[] = [];
   private nItems = 0;
   private pt = { x: 0, y: 0 };
@@ -180,6 +183,15 @@ export class Renderer {
       if (!inView(pt.x, pt.y, 120 * z)) continue;
       this.push(p.x + p.y, 3, p.id, pt.x, pt.y);
     }
+    // street dressing (kerb trees, planters, bollards, bike racks, cafe tables); skipped when zoomed far out
+    if (z >= 0.5) {
+      const dg = decorGrid(sim.world);
+      for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
+        if (!dg[ty * S + tx]) continue;
+        cam.toScreen(tx + 0.5, ty + 0.5, 0, pt);
+        if (inView(pt.x, pt.y, 70 * z)) this.push(tx + ty + 1, 7, ty * S + tx, pt.x, pt.y);
+      }
+    }
     // water: drifting ripple crests (continuous across tiles, driven by world position) and sun glints
     this.drawWater(g, sim, o, minX, maxX, minY, maxY, time);
 
@@ -211,12 +223,12 @@ export class Renderer {
       if (!spotLive(hs, sim.hour)) continue;
       cam.toScreen(hs.x, hs.y, 0, pt);
       if (!inView(pt.x, pt.y, 120 * z)) continue;
-      this.push(this.behind(hs.x, hs.y, hs.x + hs.y + 0.04), 7, i, pt.x, pt.y);
+      this.push(this.behind(hs.x, hs.y, hs.x + hs.y + 0.04), 11, i, pt.x, pt.y);
     }
     const garden = pickGardenBuilding(sim.world);
     if (garden && !((this.cut.get(garden.id) ?? 0) > 0.01)) {
       cam.toScreen((garden.x0 + garden.x1 + 1) / 2, (garden.y0 + garden.y1 + 1) / 2, garden.height, pt);
-      if (inView(pt.x, pt.y, 200 * z)) this.push(garden.x1 + garden.y1 + 1.6, 7, 1000 + garden.id, pt.x, pt.y);
+      if (inView(pt.x, pt.y, 200 * z)) this.push(garden.x1 + garden.y1 + 1.6, 11, 1000 + garden.id, pt.x, pt.y);
     }
     this.pickBoxes.length = 0;
     AD_BOXES.length = 0;
@@ -336,6 +348,9 @@ export class Renderer {
         drawLitter(g, l.kind, l.tone, l.rot, it.sx, it.sy, z);
       } else if (it.kind === 7) {
         flush();
+        drawDecor(g, decorGrid(sim.world)[it.ref], it.sx, it.sy, z, time, 1 - sim.daylight, (it.ref * 0.618) % 1);
+      } else if (it.kind === 11) {
+        flush();
         if (it.ref >= 1000) drawRoofGarden(g, sim.world.buildings[it.ref - 1000], it.sx, it.sy, z, time, 1 - sim.daylight);
         else drawHidden(g, hiddenList[it.ref], it.sx, it.sy, z, { time, dark: 1 - sim.daylight, day: dayOf(sim.env.startHour, sim.tick, TICKS_PER_HOUR), tags: hiddenState.tags });
       } else {
@@ -350,6 +365,7 @@ export class Renderer {
     this.particles.draw(g, cam);
     if (party && !o.reduceMotion && Math.random() < dt * 6) this.particles.spawn("music", sim.stagePoint.x - 2 + Math.random() * 2, sim.stagePoint.y + Math.random() * 2, 1.5, 1, ["#c6ff3d", "#ff7ad9", "#3dd6ff"][Math.floor(Math.random() * 3)]);
     this.lighting.draw(g, sim, cam, time, o.quality, o.reduceMotion);
+    this.nightFx.draw(g, sim, cam, time, o.quality, o.reduceMotion, minX, maxX, minY, maxY);
     if (GLOW.length) {
       // emissive pass: windows, bloom and spill go on their own layer so nearer buildings can wipe what is behind them
       const cv = this.glowCv, W = this.canvas.width, H = this.canvas.height;
