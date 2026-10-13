@@ -17,7 +17,12 @@ export interface TouchHost {
   inCar(): boolean;
   /** Optional: Brake button held state in a car (Space on PC). Without it, Brake maps to move y = +1. */
   brake?(held: boolean): void;
+  /** Zoom the camera in (+1) or out (-1); used by the on-screen zoom buttons. */
+  zoom?(dir: number): void;
 }
+
+/** The joystick is off: its touch handlers must not swallow taps on the left half (that also broke pinch zoom). */
+const STICK_ON = false;
 
 const SVG = (d: string) => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const ICONS: Record<string, string> = {
@@ -86,7 +91,7 @@ export class TouchControls {
     this.zone.append(this.base);
     // the stick starts from a touch anywhere on the left half that isn't a button, so it works wherever the thumb lands
     window.addEventListener("pointerdown", (e) => {
-      if (e.pointerType !== "touch" || this.stickId >= 0 || e.clientX > innerWidth * 0.5) return;
+      if (!STICK_ON || e.pointerType !== "touch" || this.stickId >= 0 || e.clientX > innerWidth * 0.5) return;
       const t = e.target;
       if (!(t instanceof Element) || t.closest("button, .tc-btn, .tc-sheet, .tc-cluster, .tc-sheet *")) return;
       if (this.el.classList.contains("hidden") || !this.el.classList.contains("on")) return;
@@ -96,7 +101,7 @@ export class TouchControls {
     // Safari fallback: raw touch events drive the same stick, in case Safari drops the pointer events mid-drag
     const asPointer = (t: Touch, target: EventTarget | null): PointerEvent => ({ pointerId: 9000 + t.identifier, clientX: t.clientX, clientY: t.clientY, target, preventDefault: () => {}, stopPropagation: () => {} }) as unknown as PointerEvent;
     window.addEventListener("touchstart", (e) => {
-      if (this.stickId >= 0 || e.touches.length === 0) return;
+      if (!STICK_ON || this.stickId >= 0 || e.touches.length === 0) return;
       const t = e.changedTouches[0]; if (!t || t.clientX > innerWidth * 0.5) return;
       const target = e.target; if (!(target instanceof Element) || target.closest("button, .tc-btn, .tc-sheet, .tc-cluster")) return;
       if (this.el.classList.contains("hidden") || !this.el.classList.contains("on")) return;
@@ -170,7 +175,14 @@ export class TouchControls {
     );
 
     cluster.append(...foot, ...car, more, this.ctxBtn, gasBtn, this.sheet);
-    this.el.append(this.zone, cluster);
+    // on-screen zoom buttons: pinch can fail on some phones, these always work
+    const zoomBox = el("div", "tc-zoom");
+    for (const [txt, dir, label] of [["+", 1, "Zoom in"], ["\u2212", -1, "Zoom out"]] as const) {
+      const b = el("button", "tc-zbtn", txt); b.setAttribute("aria-label", label);
+      b.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); this.host.zoom?.(dir); });
+      zoomBox.append(b);
+    }
+    this.el.append(this.zone, cluster, zoomBox);
 
     // nothing we touch leaks into the canvas / page handlers
     for (const t of ["pointerdown", "pointerup", "pointermove", "click", "dblclick", "contextmenu", "touchstart", "touchend", "touchmove", "wheel"]) {

@@ -955,6 +955,7 @@ export class Game {
   private touch = new TouchControls({
     move: (x, y) => { this.touchMove.x = x; this.touchMove.y = y; },
     brake: (held: boolean) => { this.touchBrake = held; },
+    zoom: (dir: number) => { const c = this.renderer.cam; c.setZoom(c.targetZoom * (dir > 0 ? 1.4 : 1 / 1.4)); },
     inCar: () => this.sim.player.inCar >= 0,
     action: (n) => {
       const sim = this.sim, p = sim.player;
@@ -1271,7 +1272,7 @@ export class Game {
     const touchUI = TouchControls.wanted();
     const steps: [string, string][] = [
       ["Welcome to <i>our world</i>", "You're the stranger in white and red. Tiles, Glitter and the rest of the Mosaics live here with a few hundred locals. Nothing is scripted."],
-      ["Move & look", touchUI ? "Drag the stick at the bottom left to walk. Tap the ground to walk there. Pinch to zoom. Tap anyone to see what they're feeling, what they remember and who they can't stand." : "WASD or arrow keys to walk, or click the ground. Drag to pan, scroll or pinch to zoom. Click anyone to see what they're feeling, what they remember and who they can't stand."],
+      ["Move & look", touchUI ? "Tap the ground to walk there. Use + and \u2212 (or pinch) to zoom. Tap anyone to see what they're feeling, what they remember and who they can't stand." : "WASD or arrow keys to walk, or click the ground. Drag to pan, scroll or pinch to zoom. Click anyone to see what they're feeling, what they remember and who they can't stand."],
       ["Toys", "E picks up the nearest toy. F (or right-click) throws it at your cursor, Space swings a foam sword. Hits have consequences: people remember who threw what."],
       ["Talk", "T talks to the nearest person. They only know what they've seen or heard, and they'll tell you where they heard it. Press L for the event log, and ? for all controls."],
     ];
