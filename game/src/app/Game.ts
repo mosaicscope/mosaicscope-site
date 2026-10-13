@@ -9,6 +9,7 @@ import { RoastBattle } from "../ui/minigames/Roast";
 import { BurgerShift } from "../ui/minigames/Burger";
 import "../ui/minigames/minigames.css";
 import { Travel } from "../ui/Travel";
+import { HeistUI } from "../ui/Heist";
 import "../ui/travel.css";
 import { Minimap } from "../ui/Minimap";
 import { ROLE_LABEL } from "../content/names";
@@ -1038,6 +1039,7 @@ export class Game {
   private minimap = new Minimap(() => this.sim);
   private roast = new RoastBattle((r) => { if (r.won) { this.sim.player.cash += 150; this.focus("You won the roast", `Crowd ${Math.round(r.crowd)}% · +$150 · Roastie respects you now`, 3.5); } else this.focus("Roasted", "Roastie Malone wins this one. Run it back.", 3); });
   private burger = new BurgerShift((r) => { this.sim.player.cash += r.pay; this.toast(`Shift done: ${r.orders} orders, ${r.perfect} perfect. Paid ${fmtCash(r.pay)}`, "acid"); this.focus("Shift over", `Lyttelton Diner paid you ${fmtCash(r.pay)}`, 3); });
+  private heist = new HeistUI(this.modal);
   private travel = new Travel({
     getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; },
     companions: () => this.sim.chars.filter((c) => c.tier === "principal" && c.name !== "Chris").map((c) => ({ name: c.name, color: c.look.color })),
@@ -1126,6 +1128,7 @@ export class Game {
       h("div.seg", { role: "group", "aria-label": "Simulation speed" }, this.speedEls),
       this.soundBtn,
       h("button.btn", { onclick: () => this.luxury.show(), text: "Luxury", title: "Velvet & Co. Luxury: property, rides, animals" }),
+      h("button.btn", { onclick: () => this.heist.open(), text: "Heist", title: "Velvet Heist Night: the crew's three-act mission" }),
       h("button.btn", { onclick: () => this.photos.open(), text: "Photo", title: "Photo mode (O)" }),
       h("button.btn", { onclick: () => this.toggle2D(), text: "2D/3D", title: "Street view (V)" }),
       h("button.btn", { onclick: () => this.log.toggle(), text: "Log" }),
