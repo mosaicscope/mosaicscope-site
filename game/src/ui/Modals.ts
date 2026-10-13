@@ -24,7 +24,7 @@ export const KEY_HELP: [string, string][] = [
   ["WASD / arrows", "walk (or click the ground)"], ["Click a person", "inspect them"], ["T", "talk to the selected or nearest person"],
   ["E", "pick up / enter a shop or car / get out"], ["R", "rob the nearest person (crime!)"], ["B", "bandage yourself or someone bleeding"], ["H", "horn (while driving)"], ["F / right-click", "throw your toy at the cursor"], ["Space", "swing a foam sword / noodle (or throw)"],
   ["Q", "drop what you're holding"], ["Wheel / pinch", "zoom"], ["Drag", "pan the camera (C re-centres on you)"], ["P", "pause"], ["1–4", "pick a reply in conversations"],
-  ["L", "event log"], ["I", "inspect yourself"], ["`", "developer panel"], ["Esc", "close panels"],
+  ["O", "photo mode: filters, frames, polaroids"], ["L", "event log"], ["I", "inspect yourself"], ["`", "developer panel"], ["Esc", "close panels"],
 ];
 
 export function keysList(keys: Record<string, string>): HTMLElement {

@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { T } from "../src/world/World";
 import {
   surfaceOf, strideFor, FOOT, spatialize, dopplerRate, ENGINE, engineFreq, sirenFreq, sirenKindFor, busyness, birdRate, cricketLevel, windLevel,
-  voiceBlips, doorKind, roomFor, interiorSurface, isOpenNow, Diegetic, STREET, type Surface,
+  voiceBlips, doorKind, JINGLES, jingleFor, jingleFreqs, puddleChance, dripEchoes, dripRate, trainSwell, trainReach, trainClack, roomFor, interiorSurface, isOpenNow, Diegetic, STREET, type Surface,
+  admit, mixCaps, pickSteps, MIX_GAP, BUS_LEVEL, type Prio,
 } from "../src/audio/Diegetic";
 import type { VehicleClass } from "../src/content/vehicles";
 import { Camera } from "../src/render/Camera";
@@ -94,6 +95,97 @@ describe("Hunter's sound design (pure parts)", () => {
     expect(interiorSurface("diner")).toBe("tile"); expect(interiorSurface("house")).toBe("wood");
     expect(isOpenNow([7, 19], 8)).toBe(true); expect(isOpenNow([7, 19], 21)).toBe(false);
     expect(isOpenNow([20, 4], 23)).toBe(true); expect(isOpenNow([20, 4], 12)).toBe(false);
+  });
+});
+
+describe("the central mix rule", () => {
+  const none: Record<Prio, number> = { critical: 0, event: 0, foley: 0 };
+  it("drops foley first, then events, and always leaves headroom for critical sounds", () => {
+    for (const lite of [false, true]) {
+      const c = mixCaps(lite);
+      expect(admit("foley", none, c)).toBe(true);
+      // fill with foley until it is refused, long before the total cap
+      let n = 0; while (admit("foley", { ...none, foley: n }, c)) n++;
+      expect(n).toBeLessThanOrEqual(c.foley);
+      // a crowded street (at the total cap) refuses events and foley but not a crash
+      const full = { ...none, event: c.total };
+      expect(admit("foley", full, c)).toBe(false);
+      expect(admit("event", full, c)).toBe(false);
+      expect(admit("critical", full, c)).toBe(true);
+      expect(admit("critical", { ...none, critical: c.total + 2 }, c)).toBe(false); // still bounded
+    }
+    expect(mixCaps(true).total).toBeLessThan(mixCaps(false).total);
+    expect(MIX_GAP.foley).toBeGreaterThan(MIX_GAP.critical);
+    expect(BUS_LEVEL).toBeLessThan(0.8); // sits under the soundtrack
+  });
+
+  it("footsteps: yours always, at most two others, only close and quiet", () => {
+    const crowd = Array.from({ length: 40 }, (_, i) => ({ id: i + 1, dist: 1 + i * 0.5, player: false }));
+    const picked = pickSteps([{ id: 0, dist: 0, player: true }, ...crowd], false, false);
+    expect(picked.filter((p) => p.id === 0)).toHaveLength(1);
+    expect(picked.length).toBe(3);
+    const others = picked.filter((p) => p.id !== 0);
+    expect(others.map((p) => p.id)).toEqual([1, 2]); // the nearest two
+    for (const o of others) expect(o.gain).toBeLessThan(picked.find((p) => p.id === 0)!.gain * 0.5);
+    // far people are never heard; 2D and phones allow only one other
+    expect(pickSteps([{ id: 5, dist: 12, player: false }], false, false)).toEqual([]);
+    expect(pickSteps(crowd, true, false).length).toBe(1);
+    expect(pickSteps(crowd, false, true).length).toBe(1);
+    expect(pickSteps([], false, false)).toEqual([]);
+  });
+});
+
+describe("shop jingles, wet streets and the train", () => {
+  const SHOP_KINDS = ["diner", "pizza", "sushi", "bakery", "cafe", "fishchips", "dairy", "toyshop", "sports", "pawn", "records", "barber", "gym", "bank", "gallery", "dealership", "studio"] as const;
+  it("every shop that rings a bell has its own jingle, and no two are alike", () => {
+    const seen = new Set<string>();
+    for (const k of SHOP_KINDS) {
+      expect(doorKind(k) === "bell" || doorKind(k) === "heavy").toBe(true);
+      const j = jingleFor(k); expect(j, k).not.toBeNull();
+      const fs = jingleFreqs(j!);
+      expect(fs.length).toBeGreaterThanOrEqual(3); expect(fs.length).toBeLessThanOrEqual(5);
+      for (const f of fs) { expect(f).toBeGreaterThan(100); expect(f).toBeLessThan(4000); }
+      expect(j!.step * fs.length).toBeLessThan(0.8); // tiny
+      const sig = `${j!.wave}|${Math.round(j!.root)}|${j!.notes.join(",")}`;
+      expect(seen.has(sig), k).toBe(false); seen.add(sig);
+    }
+    expect(Object.keys(JINGLES).length).toBe(SHOP_KINDS.length);
+    expect(jingleFor("house")).toBeNull();
+  });
+  it("puddles splash only when properly wet on hard ground", () => {
+    expect(puddleChance("pave", 0.1)).toBe(0); expect(puddleChance("grass", 1)).toBe(0); expect(puddleChance("wood", 1)).toBe(0);
+    expect(puddleChance("road", 1)).toBeGreaterThan(puddleChance("road", 0.5));
+    expect(puddleChance("pave", 1)).toBeLessThanOrEqual(1);
+  });
+  it("drips: none in the dry, more in a downpour, echoes fade", () => {
+    expect(dripRate(0)).toBe(0); expect(dripRate(1)).toBeGreaterThan(dripRate(0.3));
+    const e = dripEchoes(0.9);
+    expect(e.length).toBe(3); expect(dripEchoes(0.1).length).toBe(1);
+    for (let i = 1; i < e.length; i++) { expect(e[i].at).toBeGreaterThan(e[i - 1].at); expect(e[i].vol).toBeLessThan(e[i - 1].vol); }
+  });
+  it("the train comes and goes on a schedule, and the station is louder up close", () => {
+    let ran = 0, quiet = 0;
+    for (let t = 0; t < 190; t += 0.5) { const s = trainSwell(t); expect(s).toBeGreaterThanOrEqual(0); expect(s).toBeLessThanOrEqual(1); s > 0 ? ran++ : quiet++; }
+    expect(ran).toBeGreaterThan(20); expect(quiet).toBeGreaterThan(ran);
+    expect(trainSwell(31 + 8)).toBeGreaterThan(0.9); expect(trainSwell(5)).toBe(0);
+    expect(trainSwell(31 + 8 + 95)).toBeCloseTo(trainSwell(31 + 8), 6);
+    expect(trainReach(2)).toBeGreaterThan(trainReach(30)); expect(trainReach(500)).toBeGreaterThan(0);
+    expect(trainClack(1)).toBeGreaterThan(trainClack(0));
+  });
+  it("a rainy, trainy headless run builds the new sounds without throwing", () => {
+    const sim = small(7);
+    const { ctx, made } = fakeContext();
+    const dg = new Diegetic(ctx, (ctx as any).createGain(), false);
+    dg.attach(sim);
+    const cam = new Camera(); cam.lookAt(sim.player.x, sim.player.y, true);
+    sim.env.rain = 1; sim.env.raining = true;
+    (ctx as any).currentTime = 30;
+    const before = made.nodes;
+    for (let i = 0; i < 600; i++) { sim.step(); (ctx as any).currentTime += 1 / 30; dg.update(sim, cam, STREET); }
+    expect(made.nodes).toBeGreaterThan(before);
+    for (const k of SHOP_KINDS) dg.update(sim, cam, { ...STREET, interior: k });
+    dg.update(sim, cam, STREET);
+    dg.dispose();
   });
 });
 

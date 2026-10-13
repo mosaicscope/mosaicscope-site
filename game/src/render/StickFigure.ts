@@ -1,9 +1,10 @@
-import type { Character } from "../entities/types";
+import type { Character, Face } from "../entities/types";
 import { Phys } from "../entities/types";
 import { dressOf } from "../mind/Dress";
 import type { Dress } from "../mind/Dress";
 import { isResident, drawResident } from "./Residents";
 import { modelOf, modelLook, drawModelBody, drawModelHeadGear, MODEL_INK } from "./Models";
+import { drawFaceGenes } from "./FaceGenes";
 
 /**
  * Procedural stick figures in the style of the MosaicScope footer crew (same proportions as the
@@ -112,6 +113,24 @@ export let hdBudget = 0;
 export function resetHdBudget(n: number): void { hdBudget = n; }
 export const HEAD_R = 10.5;
 
+/**
+ * Inverse kinematics for one arm: aim the hand at a point (tx, ty) in figure space (before solve's screen transform,
+ * y down, shoulder at the origin of the arm). Two-bone law of cosines; the elbow bends so the hand reaches out in front.
+ * Writes armL/foreL (side 0) or armR/foreR (side 1) into `a`. Targets beyond reach are clamped to a straight arm.
+ */
+export function reachArm(a: Angles, side: 0 | 1, shx: number, shy: number, tx: number, ty: number): void {
+  const UP = 17, FORE = 14;
+  const dx = tx - shx, dy = ty - shy;
+  const d = Math.min(Math.max(Math.hypot(dx, dy), 1e-3), UP + FORE - 1e-3);
+  const base = Math.atan2(dx, dy);                       // direction from shoulder to target, same convention as solve
+  const alpha = Math.acos(Math.min(1, Math.max(-1, (UP * UP + d * d - FORE * FORE) / (2 * UP * d))));
+  const a1 = base - alpha;                               // upper arm: elbow bends forward (toward the target side)
+  const ex = shx + Math.sin(a1) * UP, ey = shy + Math.cos(a1) * UP;
+  const a12 = Math.atan2(tx - ex, ty - ey);              // forearm direction from elbow to target
+  const a2 = a12 - a1;
+  if (side === 0) { a.armL = a1 - a.lean; a.foreL = a2; } else { a.armR = a1 - a.lean; a.foreR = a2; }
+}
+
 export function solve(a: Angles, sx: number, sy: number, k: number, dir: number): void {
   const T = 44, TORSO = 42, UP = 17, FORE = 14, TH = 22, SH = 21, NECK = 13;
   let hx = a.hipX, hy = -T + a.bob;
@@ -139,14 +158,14 @@ export function solve(a: Angles, sx: number, sy: number, k: number, dir: number)
 export interface ItemDraw { (g: CanvasRenderingContext2D, x: number, y: number, k: number, dir: number, angle: number): void }
 
 /** Full-detail figure (principal, mid, player). */
-export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: number, _sy: number, k: number, dir: number, t: number, flash: number, alpha: number): void {
+export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: number, _sy: number, k: number, dir: number, t: number, flash: number, alpha: number, hdOverride?: boolean): void {
   const L = c.look, girl = L.kind === "girl";
   const lw = Math.max(1.1, 3.2 * k * (L.build ?? 1));
   g.globalAlpha = alpha;
   g.lineCap = "round"; g.lineJoin = "round";
   const col = flash > 0 ? "#ffffff" : L.color;
   // HD pass when you're close: soft neon glow, a crisp ink outline under every limb, then the line
-  const hd = k >= 1.05 && hdBudget-- > 0;
+  const hd = hdOverride ?? (k >= 1.05 && hdBudget-- > 0);
   if (isResident(c)) {   // the everyday local: egg belly, long neck, big nose (see Residents.ts)
     drawResident(g, J, c, k, dir, alpha, hd, flash > 0, lw);
     if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 18 * k, k, t);
@@ -265,7 +284,7 @@ function drawDress(g: CanvasRenderingContext2D, D: Dress, L: Character["look"], 
 }
 
 function drawHead(g: CanvasRenderingContext2D, L: Character["look"], x: number, y: number, k: number, dir: number, lw: number, col: string, alpha: number, hat: Character["look"]["hat"] = L.hat, skin?: string, inkRing = false): void {
-  const F = L.face ?? { eyes: "shades", brows: "none", mouth: L.kind === "girl" ? "smile" : "smile", nose: "none", facial: "none", extra: "none", head: "round" } as const;
+  const F: Face = L.face ?? { eyes: "shades", brows: "none", mouth: L.kind === "girl" ? "smile" : "smile", nose: "none", facial: "none", extra: "none", head: "round" } as const;
   const r = HEAD_R * k;
   const rx = F.head === "wide" ? r * 1.12 : r, ry = F.head === "oval" ? r * 1.12 : r;
   g.lineCap = "round";
@@ -371,6 +390,7 @@ function drawHead(g: CanvasRenderingContext2D, L: Character["look"], x: number, 
     case "scar": g.strokeStyle = "#ec2a1c"; g.beginPath(); g.moveTo(fx + 3 * k, ey - 4 * k); g.lineTo(fx + 6 * k, ey + 3 * k); g.stroke(); break;
     case "mole": g.fillStyle = col; g.beginPath(); g.arc(fx + 5 * k * dir, my - 1 * k, 0.8 * k, 0, 6.283); g.fill(); break;
   }
+  if (F.gene !== undefined) drawFaceGenes(g, F.gene, { x, y, k, dir, lw, col, alpha, fx, ey, my, rx, ry, covered: F.eyes === "shades" || F.eyes === "visor" || F.eyes === "aviator" || F.eyes === "shutter" });
   if (L.glam) { g.strokeStyle = "#f6b62c"; g.beginPath(); g.arc(x - rx * 1.05, y + 6 * k, 2.4 * k, 0, 6.283); g.arc(x + rx * 1.05, y + 6 * k, 2.4 * k, 0, 6.283); g.stroke(); }
 }
 

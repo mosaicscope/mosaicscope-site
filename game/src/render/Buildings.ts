@@ -269,6 +269,7 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
     g.fillStyle = shade(b.color, 0.55 * lightK); g.beginPath(); quad(0, 1, GROUND_H * 0.82, GROUND_H); g.fill();
     // striped awning sticking out over the footpath
     if (st !== "fuel") awning(g, P, ax, ay, bx, by, face, b.sign, lightK, z);
+    if (st !== "fuel" && z >= 1) bladeSign(g, P, ax, ay, bx, by, face, b.sign, lightK, z, night, tx * 31 + ty * 17 + b.id);
   } else if (st === "tower" || st === "civic") {
     // lobby glass
     g.fillStyle = night ? "rgba(255,226,170,.75)" : "rgba(40,52,70,.9)";
@@ -384,6 +385,22 @@ function windows(g: CanvasRenderingContext2D, quad: (t0: number, t1: number, h0:
   if (!night) { g.fillStyle = "rgba(200,225,255,.16)"; g.beginPath(); for (const [a, b] of spans) quad(a, a + (b - a) * 0.35, h0 + (h1 - h0) * 0.4, h1); g.fill(); }
   // sill
   g.fillStyle = "rgba(238,228,211,.35)"; g.beginPath(); for (const [a, b] of spans) quad(a - 0.04, b + 0.04, h0 - 0.06, h0 - 0.01); g.fill();
+  // window box under the ground-floor windows: dark planter, green spill, one bloom
+  if (h0 < 0.4) {
+    g.fillStyle = "#3a2c24"; g.beginPath(); for (const [a, b] of spans) quad(a - 0.02, b + 0.02, h0 - 0.14, h0 - 0.06); g.fill();
+    g.fillStyle = "#2a5f2a"; g.beginPath(); for (const [a, b] of spans) quad(a - 0.02, b + 0.02, h0 - 0.07, h0 - 0.01); g.fill();
+  }
+}
+
+/** A blade sign hanging from a bracket at the end of the shop front: a small board in the shop's sign colour. */
+function bladeSign(g: CanvasRenderingContext2D, P: (x: number, y: number, h: number) => [number, number], ax: number, ay: number, bx: number, by: number, face: "s" | "e", col: string, lightK: number, z: number, night: boolean, seed: number): void {
+  const t = hash(seed, 5) < 0.5 ? 0.88 : 0.12, ox = face === "e" ? 0.3 : 0, oy = face === "s" ? 0.3 : 0;
+  const x = ax + (bx - ax) * t, y = ay + (by - ay) * t;
+  const wall = P(x, y, GROUND_H * 1.02), tip = P(x + ox, y + oy, GROUND_H * 1.02), top = P(x + ox, y + oy, GROUND_H * 0.99), bot = P(x + ox, y + oy, GROUND_H * 0.74);
+  g.strokeStyle = "#0e0b0a"; g.lineWidth = Math.max(1, 1.4 * z); g.beginPath(); g.moveTo(wall[0], wall[1]); g.lineTo(tip[0], tip[1]); g.stroke();
+  g.fillStyle = night ? shade(col, 0.85) : shade(col, 0.95 * lightK);
+  g.fillRect(tip[0] - 4 * z, top[1] + 1 * z, 8 * z, bot[1] - top[1]);
+  g.fillStyle = "rgba(238,228,211,.7)"; g.fillRect(tip[0] - 2.4 * z, top[1] + 4 * z, 4.8 * z, 1.4 * z);
 }
 
 function awning(g: CanvasRenderingContext2D, P: (x: number, y: number, h: number) => [number, number], ax: number, ay: number, bx: number, by: number, face: "s" | "e", col: string, lightK: number, z: number): void {
