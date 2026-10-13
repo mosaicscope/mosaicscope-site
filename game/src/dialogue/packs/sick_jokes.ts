@@ -1,0 +1,27 @@
+import type { Exchange } from "../exchanges";
+
+/** Sick jokes: dark, deadpan and daft. Nobody gets hurt, but everybody gets a laugh (or a groan). */
+export const SICK_JOKES: Exchange[] = [
+  { id: "sjok_hospital_waiting", tags: ["strangers", "day", "@hospital", "a:hurt", "b:local"], lines: ["How long have you been waiting?", "Long enough to start a little garden on my chair.", "Better than my last date. At least the plants talk."] },
+  { id: "sjok_ambulance_slow", tags: ["strangers", "day", "@street", "a:hurt", "b:medic"], lines: ["Is the ambulance coming? I've got a bruise.", "We've got a queue. You're in the bruise section.", "Then I'll just sit here and bruise politely."] },
+  { id: "sjok_bandage_wit", tags: ["friends", "day", "@hospital", "a:hurt", "b:friends"], lines: ["Be honest, does this bandage make my arm look fat?", "It makes it look like a very sad sausage.", "A sausage with a hobby. I respect that."] },
+  { id: "sjok_fracture_joke", tags: ["friends", "day", "@park", "a:hurt", "b:friends"], lines: ["I think I broke my ankle doing parkour.", "You fell off the swing. That's not parkour.", "It's Christchurch parkour. Much more dignified."] },
+  { id: "sjok_undertaker_slow", tags: ["strangers", "day", "@street", "a:office", "b:local"], lines: ["Excuse me, is this the hearse waiting room?", "No, that's the bus. The hearse is out the back.", "Good. I'm not in a hurry. Neither is the hearse."] },
+  { id: "sjok_chef_burnt", tags: ["friends", "day", "@food", "a:chef", "b:local"], lines: ["Why's the toast black?", "It's artisan. Very moody. Very cheap.", "It's the first thing I've ever eaten that's angry at me."] },
+  { id: "sjok_bin_chicken_sick", tags: ["strangers", "day", "@street", "a:local", "b:local"], lines: ["That seagull's got a cold.", "It's not a cold, it's a fishy ego.", "Bless you, mate. Bless the fishy ego too."] },
+  { id: "sjok_dentist_joke", tags: ["friends", "day", "@hospital", "a:hurt", "b:friends"], lines: ["The dentist said I've got a sweet tooth.", "You told him you eat sherbet on the stairs.", "Sherbet is a food group, mate. He's hating on the stairs."] },
+  { id: "sjok_cold_snap", tags: ["friends", "morning", "@street", "a:tired", "b:friends"], lines: ["My nose is so cold it's gone numb.", "That's not cold, that's your nose being dramatic.", "A dramatic nose. I'm booking it a cinema trip."] },
+  { id: "sjok_wedding_speech", tags: ["friends", "day", "@plaza", "a:local", "b:friends"], lines: ["My best man speech went off a bit.", "You told the whole room about the seafood.", "It was a very frank seafood story. Lots of detail."] },
+  { id: "sjok_flu_cure", tags: ["friends", "day", "@residential", "a:tired", "b:friends"], lines: ["I've got the flu. I'm dying.", "Drink some water, have a nap, and stop saying dying.", "Fine. I'm dying gently. Like a candle."] },
+  { id: "sjok_sheep_joke", tags: ["strangers", "day", "@park", "a:local", "b:local"], lines: ["That sheep's staring at me like it owes money.", "It's the wool. It's on a payment plan.", "Then it's a loan shark with a jumper."] },
+  { id: "sjok_dad_joke_shop", tags: ["strangers", "day", "@shops", "a:shopkeeper", "b:student"], lines: ["What's a shopkeeper's favourite dance?", "I give up. What?", "The stock-shuffle. Be sure to dance in aisle four."] },
+  { id: "sjok_fish_chips_ouch", tags: ["friends", "evening", "@food", "a:local", "b:friends"], lines: ["The fish is so greasy it's sliding off the plate.", "That's a fish with a swimming lesson on the plate.", "Sounds like a fish that never learned to say no."] },
+  { id: "sjok_parking_fine", tags: ["strangers", "day", "@street", "a:angry", "b:cop"], lines: ["You fined me for parking near my own shadow?", "Your shadow was in a no-parking zone, sir.", "Then the shadow should be fined. Not me."] },
+  { id: "sjok_ice_cream_sad", tags: ["friends", "day", "@street", "a:sad", "b:friends"], lines: ["My ice cream fell on the footpath. Heartbreak.", "The pigeons are having a party now.", "At least something's enjoying my tragedy."] },
+  { id: "sjok_vet_confused", tags: ["friends", "day", "@residential", "a:local", "b:local"], lines: ["The vet says my cat has a personality disorder.", "She tried to bite the mailman and then apologised.", "That's not a disorder. That's a cat with manners."] },
+  { id: "sjok_sunburn_bet", tags: ["friends", "clear", "day", "@park", "a:hurt", "b:friends"], lines: ["I went outside without sunscreen. I'm a lobster now.", "A pink, sizzling, foolish lobster.", "Fine. Slap me with aloe and call me a delicacy."] },
+  { id: "sjok_drop_bear", tags: ["strangers", "night", "@park", "a:local", "b:tourist"], lines: ["Did you just hear something fall from a tree?", "Probably a kiwi. They fall for anything.", "A drop bear, surely. Please tell me you're joking."] },
+  { id: "sjok_hamster_wedding", tags: ["friends", "day", "@residential", "a:local", "b:local"], lines: ["My hamster just got married. Super small wedding.", "Did you cry?", "No. I was too busy holding the tiny cake."] },
+  { id: "sjok_gravity_joke", tags: ["strangers", "day", "@street", "a:local", "b:local"], lines: ["Gravity's been really rubbish lately.", "It's always been rubbish. It just pulls you down.", "Then I'll fall with style. Very dignified."] },
+  { id: "sjok_bread_crime", tags: ["friends", "morning", "@shops", "a:local", "b:friends"], lines: ["I bought bread so old it's got a family tree.", "Then you've got a loaf with ancestors.", "They were all sliced and sent to prison."] }
+];

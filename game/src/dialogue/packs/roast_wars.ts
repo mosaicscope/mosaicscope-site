@@ -1,0 +1,23 @@
+import type { Exchange } from "../exchanges";
+
+/** Roast wars: friendly rivals taking shots at each other. Cheeky, never cruel. Crowd-friendly. */
+export const ROAST_WARS: Exchange[] = [
+  { id: "rwar_haircut_roast", tags: ["rivals", "day", "@street", "a:local", "b:local"], lines: ["Your haircut looks like a lawnmower had a rough night.", "At least my head's got a lawn. Yours is a car park.", "Sure, but my car park's full. Yours is empty."] },
+  { id: "rwar_car_roast", tags: ["rivals", "day", "@street", "a:local", "b:car_enthusiast"], lines: ["Is that your car or a shopping trolley with a bonnet?", "It's a classic. Shopping trolleys don't have a V8.", "It's got a V8 but it's been coughing since 1998."] },
+  { id: "rwar_ego_roast", tags: ["rivals", "day", "@plaza", "a:local", "b:local"], lines: ["You talk like you're the mayor of the pigeons.", "The pigeons vote for me every morning.", "They vote with their poop, mate. That's a no."] },
+  { id: "rwar_singing_roast", tags: ["rivals", "night", "@stage", "a:musician", "b:musician"], lines: ["Your singing could get a dog to leave the room.", "The dog's just shy. You should hear him sing.", "He sounds better than your bass. Harsh, but true."] },
+  { id: "rwar_skate_roast", tags: ["rivals", "day", "@court", "a:skater", "b:skater"], lines: ["Your kickflip looks like a sad pancake.", "At least I land. You're still in the air from 2019.", "I'm in a moment of self-reflection. Shut up."] },
+  { id: "rwar_chef_roast", tags: ["rivals", "day", "@food", "a:chef", "b:chef"], lines: ["Your burgers are so dry, they need a lifeguard.", "Yours are so wet, they should be on the weather report.", "Fine. We'll call it a tie. Both of us smell like chips."] },
+  { id: "rwar_dress_roast", tags: ["rivals", "day", "@shops", "a:local", "b:local"], lines: ["You've got a jumper that's seen three generations.", "It's vintage. Great-grandma wore it to the Avon.", "Then it's older than the Avon. Respect."] },
+  { id: "rwar_dance_roast", tags: ["rivals", "night", "party", "a:local", "b:local"], lines: ["You dance like a fridge falling down the stairs.", "And you dance like a fridge that's been unplugged.", "We're both appliances. Let's call it a draw."] },
+  { id: "rwar_job_roast", tags: ["rivals", "day", "@office", "a:office", "b:office"], lines: ["Your spreadsheets look like a cat walked on them.", "At least I can spell 'spreadsheet'. You spelt it 'spredsheet'.", "Okay. Your emails are shorter. That's the only win."] },
+  { id: "rwar_fishing_roast", tags: ["rivals", "morning", "@park", "a:local", "b:local"], lines: ["You've caught nothing for three hours.", "I'm catching patience. It's a rare fish.", "Then you've caught a boot. Congratulations, sir."] },
+  { id: "rwar_gym_roast", tags: ["rivals", "morning", "@court", "a:local", "b:local", "a:tired"], lines: ["You've got arms like a roast chicken's legs.", "You've got a gut like a beanbag on sale.", "Okay. We're both carrying the weight of Christchurch."] },
+  { id: "rwar_cook_roast", tags: ["rivals", "evening", "@residential", "a:local", "b:local"], lines: ["Your curry smells like a wet dog in a sauna.", "Your curry smells like a dog with an opinion.", "Fine. We'll eat them both and see who passes out."] },
+  { id: "rwar_phone_roast", tags: ["rivals", "day", "@street", "a:local", "b:student"], lines: ["Your phone's older than my nan's pension.", "It's vintage. Like the bus route you're on.", "That bus is still running. Your phone isn't."] },
+  { id: "rwar_gossip_roast", tags: ["rivals", "day", "@street", "a:local", "b:local"], lines: ["You're the reason the group chat has a mute button.", "And you're the reason the mute button got a break.", "We're both legends in the wrong way."] },
+  { id: "rwar_tattoo_roast", tags: ["rivals", "day", "@street", "a:local", "b:local"], lines: ["Your tattoo of a toaster is not a masterpiece.", "Your tattoo of a cat is just a sad smudge.", "Then we're both artists. Abstract ones."] },
+  { id: "rwar_bike_roast", tags: ["rivals", "day", "@street", "a:local", "b:local"], lines: ["You cycle like a potato rolling down a hill.", "You cycle like a chicken being chased by a car.", "Let's agree we're both going to be late."] },
+  { id: "rwar_pizza_roast", tags: ["rivals", "night", "@food", "a:local", "b:local"], lines: ["This pizza has less cheese than my love life.", "Your love life has less cheese than this pizza.", "Ouch. That's a stale crust of a comeback, mate."] },
+  { id: "rwar_handshake_roast", tags: ["rivals", "day", "@plaza", "a:local", "b:local", "a:angry"], lines: ["Your handshake feels like a wet noodle.", "Your handshake feels like a warm fish.", "At least I'm reliable. I always disappoint on time."] }
+];

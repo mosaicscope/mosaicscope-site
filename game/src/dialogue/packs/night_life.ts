@@ -1,0 +1,24 @@
+import type { Exchange } from "../exchanges";
+
+/** Night life: the club, the casino, the late kebab, and the people who make it messy. */
+export const NIGHT_LIFE: Exchange[] = [
+  { id: "nlif_bouncer_list", tags: ["strangers", "night", "@casino", "a:bouncer", "b:local"], lines: ["Are you on the list?", "I'm on the list, the other list, and my mum's list.", "Then you're on the list of people who need a coffee."] },
+  { id: "nlif_cover_charge", tags: ["strangers", "night", "@casino", "a:bouncer", "b:local", "a:tired"], lines: ["Cover charge is twenty dollars.", "For what, the lights?", "For the lights and the sad fish in the bowl."] },
+  { id: "nlif_pokie_luck", tags: ["strangers", "night", "@casino", "a:gambler", "b:gambler"], lines: ["This pokie's been cold since lunch.", "It's warm now. Look, it's blinking at you.", "It's blinking at the bloke with my drink, mate."] },
+  { id: "nlif_dance_floor", tags: ["strangers", "night", "party", "@stage", "a:local", "b:local"], lines: ["Is this the dance floor or a traffic jam?", "Both. We're all just going slowly in circles.", "Then I'll be the traffic cop with the glow stick."] },
+  { id: "nlif_drink_spill", tags: ["friends", "night", "party", "a:local", "b:friends", "a:angry"], lines: ["You spilled my drink on my shoes!", "Your shoes were in the wrong place. Blame the shoes.", "They're still wet. And so is my soul."] },
+  { id: "nlif_kebab_shop_queue", tags: ["strangers", "late", "@food", "a:local", "b:local", "a:hungry"], lines: ["Is the chilli sauce still here at this hour?", "Only if you're brave enough to lift the bottle.", "I'm brave. I'm also starving. Give me the chilli."] },
+  { id: "nlif_taxi_split", tags: ["friends", "late", "@street", "a:local", "b:taxi"], lines: ["Can you take three of us to Sydenham?", "Three people, one bag of chips, and a goat?", "The goat's not coming. He's on the bus."] },
+  { id: "nlif_lost_shoe", tags: ["friends", "late", "@street", "a:local", "b:friends"], lines: ["I lost one shoe somewhere on Colombo Street.", "Which one? The left or the right?", "The one with my dignity in it."] },
+  { id: "nlif_pub_quiz", tags: ["friends", "night", "@casino", "a:local", "b:local"], lines: ["Question one: how many pokies in this room?", "Forty-two. And one of them owes me money.", "You're banned from the quiz. Go home."] },
+  { id: "nlif_karaoke_mic", tags: ["friends", "night", "party", "@stage", "a:musician", "b:friends"], lines: ["I'm doing a duet with the mic. It's not going well.", "The mic's been singing since 2008.", "Then it's got more soul than my ex."] },
+  { id: "nlif_fire_alarm_party", tags: ["friends", "night", "party", "a:local", "b:friends"], lines: ["Why is the fire alarm singing a song?", "It's a remix. The DJ got carried away.", "That's not a DJ. That's a smoke detector with stage fright."] },
+  { id: "nlif_cloakroom", tags: ["strangers", "night", "@casino", "a:bouncer", "b:local"], lines: ["Can I leave my coat in the cloakroom?", "You can, but the cloakroom's been closed since Tuesday.", "Then the coat's gone to live with the lost cat."] },
+  { id: "nlif_bar_tab", tags: ["friends", "night", "@casino", "a:shopkeeper", "b:friends"], lines: ["Can I start a tab? I've got nothing.", "Mate, your tab's been open since the Eighties.", "Then I'm the most loyal customer in the city."] },
+  { id: "nlif_bathroom_queue", tags: ["strangers", "night", "party", "a:local", "b:local", "a:angry"], lines: ["How long's the bathroom queue?", "Three hours. Someone's been singing in there.", "Then I'll use the fountain like a true legend."] },
+  { id: "nlif_shoes_back", tags: ["friends", "late", "@street", "a:local", "b:friends", "a:happy"], lines: ["Found my shoe in the bin behind the kebab place!", "Good. Now you can walk home like a person.", "I'll walk home like a person with one new story."] },
+  { id: "nlif_bouncer_friends", tags: ["friends", "night", "@casino", "a:bouncer", "b:local"], lines: ["Are you friends with the bloke who fell in the fountain?", "He's my cousin. I'm just here for the drama.", "Then you're on the list of people who get the good seats."] },
+  { id: "nlif_late_night_philosophy", tags: ["friends", "late", "@street", "a:local", "b:local", "a:tired"], lines: ["Do you think the night ever ends?", "Only when the kebab shop closes.", "Then the night's going to be very long, mate."] },
+  { id: "nlif_dj_request", tags: ["strangers", "night", "party", "@stage", "a:local", "b:musician"], lines: ["Can you play something from 1997?", "I can play something from 1997, but it'll sound like a dial-up.", "Perfect. I'm nostalgic for the dial-up tone."] },
+  { id: "nlif_dance_off", tags: ["rivals", "night", "party", "@stage", "a:local", "b:local"], lines: ["Dance-off! Winner buys the next round.", "You're on. I've been practising in the mirror.", "Mirror's going to lose. It's been cracked since you last danced."] }
+];
