@@ -2,7 +2,7 @@ import type { Character } from "../entities/types";
 import { dressOf } from "../mind/Dress";
 import { NOIR, SHOP_NAMES, hash01, pickOf, shade, muted, worldWall } from "./noir";
 import type { Simulation } from "../sim/Simulation";
-import { pose, solve, J } from "./StickFigure";
+import { pose, solve, J, drawFigure } from "./StickFigure";
 
 /**
  * The 2D street view, in Louis's noir pixel style (render/noir.ts): a dusk-blue city street with brick tenements,
@@ -14,6 +14,9 @@ import { pose, solve, J } from "./StickFigure";
  * that band, or the 8th nearest, simply popped out of existence. The cast now has a wide band, a
  * soft fade at its edge, hysteresis on the cap and smoothed positions.
  */
+
+// neon line colours from LOOK.md, one per person (same set as the zoomed-out figures)
+const NEON = ["#c6ff3d", "#ff7ad9", "#3dd6ff", "#f6b62c", "#ec2a1c", "#eee4d3", "#b48cff"] as const;
 
 // ------------------------------------------------------------------ who is on screen (pure)
 export interface CastChar { id: number; x: number; y: number; inside: number; inCar: number }
@@ -106,7 +109,7 @@ export class StreetView {
     const drawn: { c: Character; x: number; y: number; k: number; dv: number }[] = [];
     for (const s of slots) {
       const c = sim.chars[s.id]; if (!c) continue;
-      const k = kk * c.look.scale * (1 + s.dv * 0.035), sy = ground + H * 0.1 + s.dv * 6;
+      const k = kk * c.look.scale * (1 + s.dv * 0.035), sy = ground + H * 0.1 + s.dv * 6 * (kk / 0.62);
       const moving = Math.abs(c.x - c.px) + Math.abs(c.y - c.py) > 0.0005, spd = Math.hypot(c.x - c.px, c.y - c.py) * 60;
       c.anim.phase += spd * dt * 5.5;
       const dir = (Math.cos(c.facing) - Math.sin(c.facing)) >= 0 ? 1 : -1;
@@ -158,10 +161,8 @@ export class StreetView {
   // ---- sky, far skyline, telegraph poles and wires
   private backdrop(g: CanvasRenderingContext2D, sim: Simulation, W: number, pu: number, pv: number, S: number, ground: number, day: number, time: number): void {
     const sky = g.createLinearGradient(0, 0, 0, ground);
-    if (day > 0.85) { sky.addColorStop(0, "#5d7fb0"); sky.addColorStop(1, "#c9d0da"); }
-    else if (day > 0.6) { sky.addColorStop(0, "#4a5f8a"); sky.addColorStop(1, "#d6a27c"); }
-    else if (day > 0.2) { sky.addColorStop(0, NOIR.skyTop); sky.addColorStop(0.7, NOIR.skyLow); sky.addColorStop(1, NOIR.skyDusk); }
-    else { sky.addColorStop(0, "#0c0b1c"); sky.addColorStop(1, "#2e2848"); }
+    // LOOK.md: a near-black street at every hour, lit by people and lamps (no blue or brown washes)
+    sky.addColorStop(0, NOIR.skyTop); sky.addColorStop(0.7, NOIR.skyLow); sky.addColorStop(1, NOIR.skyDusk);
     g.fillStyle = sky; g.fillRect(0, 0, W, ground);
     if (day < 0.4) { g.fillStyle = "rgba(240,230,210,.8)"; for (let i = 0; i < 40; i++) g.fillRect(((hash(i) * W + pu * S * 0.04) % W + W) % W, hash(i + 90) * ground * 0.35, 2, 2); }
     // two hazy layers of far city behind everything, so the horizon is never bare sky
@@ -437,6 +438,28 @@ export class StreetView {
 
   /** A small noir figure: muted coat, fedora or flat cap, one-unit outline, flat two-tone shading. Joints come from `solve`. */
   private person(g: CanvasRenderingContext2D, c: Character, k: number, dir: number, flash: boolean, pix: number, night: number): void {
+    // the same figure as the zoomed-out view: drawn from the joints `solve` already placed
+    void pix; void night;
+    drawFigure(g, c, 0, 0, k, dir, 0, flash ? 1 : 0, 1);
+  }
+
+  /** LOOK.md: people are neon stick figures, one colour each, same as the zoomed-out view. Joints come from `solve`. */
+  neonPerson(g: CanvasRenderingContext2D, c: Character, k: number, flash: boolean, night: number): void {
+    const col = flash ? "#ffffff" : NEON[c.id % NEON.length];
+    const w = Math.max(1.6, 2.2 * k);
+    g.save();
+    g.strokeStyle = col; g.fillStyle = col; g.lineWidth = w; g.lineCap = "round"; g.lineJoin = "round";
+    if (night > 0.3) { g.shadowColor = col; g.shadowBlur = 6 * k; }
+    const seg = (a: number, b: number) => { g.beginPath(); g.moveTo(J[a], J[a + 1]); g.lineTo(J[b], J[b + 1]); g.stroke(); };
+    seg(0, 2);                              // torso
+    seg(6, 8); seg(8, 10); seg(6, 12); seg(12, 14);   // arms
+    seg(0, 16); seg(16, 18); seg(0, 20); seg(20, 22); // legs
+    g.beginPath(); g.arc(J[4], J[5], 4 * k, 0, 6.283); g.fill();   // head
+    g.restore();
+  }
+
+  personOutlined(g: CanvasRenderingContext2D, c: Character, k: number, _dir: number, flash: boolean, _pix: number, night: number): void {
+    const dir = _dir, pix = _pix;
     const L = c.look, D = dressOf(c), skin = flash ? "#fff" : NOIR.skin[c.id % NOIR.skin.length], build = L.build ?? 1;
     const coat = flash ? "#fff" : muted(L.color, 0.5), pants = flash ? "#fff" : shade(muted(L.accent, 0.4), 0.7), lamp = night > 0.3 ? 1.25 : 1.1;
     const lw = 8 * k * build, ol = pix * 0.9;
