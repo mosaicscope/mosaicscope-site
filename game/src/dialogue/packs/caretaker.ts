@@ -1,0 +1,33 @@
+import type { Exchange } from "../exchanges";
+
+/** Mark's pack: the neighbourhood notices who comes and goes, and how long they've been away. */
+export const CARETAKER: Exchange[] = [
+  { id: "care_away_barista", tags: ["a:barista", "b:mosaic", "morning"], lines: ["Long time no see. Your usual went cold on the shelf.", "I was away. Did anyone miss me?", "The milk frother did. It's been sulking."] },
+  { id: "care_away_vendor", tags: ["a:vendor", "b:mosaic", "@market"], lines: ["Your regular spot got taken by a man selling lemons.", "Just lemons?", "Lemons and opinions. Both are sour."] },
+  { id: "care_away_local", tags: ["a:local", "b:mosaic", "friends"], lines: ["Haven't seen you in ages. We thought you'd moved to Dunedin.", "Never. Too many hills.", "Christchurch has hills now? Since when?"] },
+  { id: "care_away_crew", tags: ["a:mosaic", "b:mosaic", "a:hungry"], lines: ["Who's been eating the leftovers?", "Not me. I was being responsible.", "Responsible people don't have gravy on their sleeve."] },
+  { id: "care_away_rent", tags: ["a:local", "b:mosaic", "b:broke"], lines: ["Rent comes out whether you're home or not, you know.", "Tell that to my bank balance.", "I did. It left the room."] },
+  { id: "care_neglect_thin", tags: ["a:local", "b:mosaic", "b:hungry"], lines: ["You've gone a bit thin, love.", "I've been busy. Food slipped my mind.", "Pies don't slip. They wait. Come on."] },
+  { id: "care_neglect_dust", tags: ["a:local", "b:mosaic", "@residential"], lines: ["Your flat's got a layer of dust on it.", "That's not dust, it's atmosphere.", "It's atmosphere with a cat footprint in it."] },
+  { id: "care_neglect_plant", tags: ["a:student", "b:mosaic", "@residential"], lines: ["Your pot plant sent a postcard.", "From where?", "From the windowsill. It says wish you were here."] },
+  { id: "care_gossip_crew", tags: ["a:local", "b:local", "@plaza"], lines: ["Reckon the Mosaics are off on another adventure.", "They were off last week too.", "That's the thing about adventures. They keep happening."] },
+  { id: "care_gossip_return", tags: ["a:vendor", "b:shopkeeper", "morning"], lines: ["Saw one of the crew back in town this morning.", "Looking guilty?", "Looking hungry. Same thing, really."] },
+  { id: "care_gossip_cop", tags: ["a:cop", "b:cop", "evening"], lines: ["Any sign of the Mosaics lately?", "Quiet as a library, which worries me.", "Quiet's when they're planning something."] },
+  { id: "care_weather_rain", tags: ["a:local", "b:mosaic", "rain"], lines: ["You came back just in time for the rain.", "I brought it with me. Souvenir.", "Next time bring sunshine. We'd pay."] },
+  { id: "care_weather_clear", tags: ["a:local", "b:mosaic", "clear", "day"], lines: ["Nice day for turning up after a week away.", "I had a good excuse.", "Does it fit on a postcard?"] },
+  { id: "care_night_late", tags: ["a:taxi", "b:mosaic", "late"], lines: ["Haven't picked you up in a while.", "I've been walking. For my health.", "You've been walking home from the pub. For your balance."] },
+  { id: "care_kin_call", tags: ["a:local", "b:mosaic", "a:sad"], lines: ["Your nan rang the shop looking for you.", "Did she leave a message?", "Eat something, ring her back, and wear a jersey."] },
+  { id: "care_kin_proud", tags: ["a:local", "b:mosaic", "a:happy"], lines: ["Your nan's telling everyone you're doing well.", "I mostly am.", "She said that's the part she's been exaggerating."] },
+  { id: "care_cleaner_street", tags: ["a:cleaner", "b:mosaic", "@street"], lines: ["Someone left a shopping trolley with your name on it.", "Why my name?", "It was written in marker. Spelt wrong, but yours."] },
+  { id: "care_mechanic_ute", tags: ["a:mechanic", "b:mosaic", "@dealership"], lines: ["Your car's been parked so long it's got moss.", "That's heritage.", "That's a green mohawk. It needs a service."] },
+  { id: "care_chef_fridge", tags: ["a:chef", "b:mosaic", "@food"], lines: ["Your tab's still open. I admire the confidence.", "How long has it been?", "Long enough to qualify for a loyalty award."] },
+  { id: "care_busker_song", tags: ["a:busker", "b:mosaic", "@plaza"], lines: ["I wrote a song about you while you were gone.", "Is it flattering?", "It's called Where Did They Go, and it's four minutes of one chord."] },
+  { id: "care_medic_check", tags: ["a:medic", "b:mosaic", "b:tired"], lines: ["You look like you haven't slept since Tuesday.", "Which Tuesday?", "Exactly. Sit down, drink water, and don't argue."] },
+  { id: "care_shop_dairy", tags: ["a:shopkeeper", "b:mosaic", "@shops"], lines: ["You owe me a packet of chips from last month.", "I thought that was a gift.", "It was a loan with a very polite deadline."] },
+  { id: "care_student_notes", tags: ["a:student", "b:student", "morning"], lines: ["Did you see the flatmate come back last night?", "I heard keys, a sigh and the fridge opening.", "Classic return. Some things never change."] },
+  { id: "care_tourist_lost", tags: ["a:tourist", "b:mosaic", "@street"], lines: ["Locals keep saying you were away. Where do locals go?", "Mostly to the next block.", "Wow. Adventurous."] },
+  { id: "care_couple_missed", tags: ["a:mosaic", "b:local", "couple"], lines: ["Did you miss me while I was out?", "I counted the minutes. Then I lost count.", "That's the nicest thing you've said in days."] },
+  { id: "care_crush_shy", tags: ["a:local", "b:mosaic", "crush"], lines: ["Oh. You're back. I definitely wasn't watching the door.", "Not even a little?", "Only for the draught. It's very draughty."] },
+  { id: "care_rival_smug", tags: ["a:local", "b:mosaic", "rivals"], lines: ["Your turf's been very peaceful while you were away.", "So you've been looking after it?", "I've been looking at it. Different thing entirely."] },
+  { id: "care_broke_pie", tags: ["a:local", "b:mosaic", "a:broke", "@food"], lines: ["Spot me a pie and I'll tell you everything that happened.", "Everything?", "A bit. The rest is made up. You'll never know which."] },
+];
