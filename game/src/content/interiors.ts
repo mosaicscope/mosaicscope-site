@@ -7,20 +7,18 @@
  * the collision/path helpers in src/content/interiorNav.ts.
  *
  * ---------------------------------------------------------------------------------------------
- * COVERAGE (Agent C). Hand-built interiors: hospital, mentalhealth (Putahi), police, bank, office,
- * apartments, house, hotel.
+ * COVERAGE. Hand-built interiors: hospital, mentalhealth (Putahi), police, bank, office, apartments,
+ * house, hotel (this file) and the high-street kinds in interiorsShops.ts: cafe, bakery, pizza,
+ * sushi, fishchips, dairy, toyshop, sports, pawn, records, garage, barber, gym, nightclub, gallery,
+ * dealership.
  *
- * NOT COVERED (these use FALLBACK, a generic shopfront; Agent D takes them):
- *   food:      pizza, sushi, bakery, cafe, fishchips            (diner opens the burger shift game)
- *   retail:    dairy, toyshop, sports, pawn, records, dealership, studio, gallery
- *   nightlife: nightclub                                        (stripclub, velvet open Club.ts)
- *   other:     gym, barber, garage
- *   Specialised overlays reached BEFORE the interior (Game.enterPlace): casino, airport,
- *   stripclub, velvet, diner. They still work and need no interior.
+ * NOT COVERED (these use FALLBACK, a generic shopfront): studio (MosaicScope Studio has its own
+ * flow). Specialised overlays reached BEFORE the interior (Game.enterPlace): casino, airport,
+ * stripclub, velvet, diner. They still work and need no interior.
  * Kinds that do not exist in buildings.ts (so nothing to cover): fire station, civic centre, town
  * hall, library, school, university.
  *
- * HOW TO ADD A KIND: write a def with `def(kind, ...)` in the INTERIORS table below, using the
+ * HOW TO ADD A KIND: write a def (or a `shopfront()` in interiorsShops.ts) and add it to the INTERIORS table below, using the
  * `p()` / `wp()` prop helpers, then delete the kind from the list above. tests/interiors.test.ts
  * checks bounds, zones, door-to-everything reachability, spots and JSON round-trip for you.
  *  - Wall-mounted props (poster, sign, clock, screen, board, window, vent) go on the visible
@@ -83,18 +81,8 @@ export interface InteriorDef {
   flavour: string[];
 }
 
-// ------------------------------------------------------------------ builders
-const p = (type: PropType, x: number, y: number, w: number, h: number, color = "#888", label?: string, material?: Prop["material"]): Prop => ({ type, x, y, w, h, color, ...(label ? { label } : {}), ...(material ? { material } : {}) });
-/** Wall-mounted prop. `side` n = north wall at position `at`, w = west wall. `len` is its width along the wall. */
-const wp = (type: PropType, side: "n" | "w", at: number, len: number, color: string, label?: string): Prop =>
-  side === "n" ? p(type, at, 0, len, 0, color, label) : p(type, 0, at, 0, len, color, label);
-const z = (id: string, name: string, x: number, y: number, w: number, h: number, floor: FloorMat, color: string): Zone => ({ id, name, x, y, w, h, floor, color });
-const wallV = (x: number, y0: number, y1: number, color = "#2b3340"): Prop => p("partition", x - 0.1, y0, 0.2, y1 - y0, color);
-const wallH = (y: number, x0: number, x1: number, color = "#2b3340"): Prop => p("partition", x0, y - 0.1, x1 - x0, 0.2, color);
-/** A row of n chairs starting at (x, y) stepping dx/dy. */
-const row = (type: PropType, n: number, x: number, y: number, dx: number, dy: number, w: number, h: number, color: string, label?: string): Prop[] =>
-  Array.from({ length: n }, (_, i) => p(type, x + dx * i, y + dy * i, w, h, color, i === 0 ? label : undefined));
-const spot = (x: number, y: number, doing: SpotDoing, face: Spot["face"], group?: string): Spot => ({ x, y, doing, face, ...(group ? { group } : {}) });
+import { p, wp, z, wallV, wallH, row, spot } from "./interiorKit";
+import { SHOP_INTERIORS } from "./interiorsShops";
 
 // ------------------------------------------------------------------ HOSPITAL (Christchurch Public Hospital)
 const hospital: InteriorDef = {
@@ -541,7 +529,7 @@ const recycling: InteriorDef = {
 };
 
 /** Hand-built plans by kind. Anything missing resolves to FALLBACK (see header for who is missing). */
-export const INTERIORS: Partial<Record<BuildingKind, InteriorDef>> = { hospital, mentalhealth, police, bank, office, apartments, house, hotel, recycling };
+export const INTERIORS: Partial<Record<BuildingKind, InteriorDef>> = { hospital, mentalhealth, police, bank, office, apartments, house, hotel, recycling, ...SHOP_INTERIORS };
 export const FALLBACK: InteriorDef = fallback;
 export function interiorFor(kind: BuildingKind): InteriorDef { return INTERIORS[kind] ?? FALLBACK; }
 export function hasOwnInterior(kind: BuildingKind): boolean { return !!INTERIORS[kind]; }

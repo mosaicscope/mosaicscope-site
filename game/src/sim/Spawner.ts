@@ -214,6 +214,24 @@ export function spawnAll(sim: Simulation): void {
     if (c.role === "skater") { const t = sim.spawnToy("skateboard", c.x, c.y); if (t) { t.owner = c.id; sim.pickupToy(c, t); } }
     if (c.role === "photographer") { const t = sim.spawnToy("camera", c.x, c.y); if (t) { t.owner = c.id; sim.pickupToy(c, t); } }
   }
+
+  // Terrance the overcoder: completely red, always standing in front of the Studio, never wanders (see ui/Terrance.ts)
+  {
+    const door = world.pois.find((q) => q.kind === "door" && q.name === "MosaicScope Studio");
+    if (door) {
+      const spot = [[1.5, -1.2], [1.5, 1.2], [2.5, 0], [1.5, 2.5], [3, -2]].map(([dx, dy]) => ({ x: door.x + dx, y: door.y + dy })).find((q) => world.walkable(q.x, q.y));
+      if (spot) {
+        names.reserve?.("Terrance");
+        const t = addChar(sim, "Terrance", "mid", spot.x, spot.y,
+          { kind: "guy", color: "#ec2a1c", accent: "#ec2a1c", hat: "none", hair: "none", scale: 1.04, build: 1, face: { eyes: "wide", brows: "worried", mouth: "flat", nose: "dot", facial: "none", extra: "none", head: "round" } },
+          { boldness: 0.5, kindness: 0.5, temper: 0.6, sociability: 0.5, curiosity: 0.95, playfulness: 0.3, honesty: 0.95 }, new Rng(sim.cfg.seed ^ 0x7e44)); // own stream: the rest of the world spawns exactly as before
+        t.role = "overcoder"; t.homeArea = door.area; t.cash = 0; t.style = "sharp"; t.catchphrase = "BOBONUT.";
+        t.pathGoalX = spot.x; t.pathGoalY = spot.y; t.facing = Math.PI;
+        enculture(sim, t, "studio", false);
+        t.bio = "Completely red. Stands in front of the Studio and reads the code one last time before anything ships. Frugal, intense, and quietly hoping the game makes him real.";
+      }
+    }
+  }
 }
 
 export function spawnBackground(sim: Simulation, n: number): void {
@@ -253,8 +271,8 @@ export function streetSpot(sim: Simulation): { x: number; y: number } {
   return w.nearestWalkable(w.size / 2, w.size / 2);
 }
 
-export function addChar(sim: Simulation, name: string, tier: Tier, x: number, y: number, look: Look, pers: Personality): Character {
-  const c = makeCharacter(sim.chars.length, name, tier, x, y, look, pers, sim.rng);
+export function addChar(sim: Simulation, name: string, tier: Tier, x: number, y: number, look: Look, pers: Personality, rng: Rng = sim.rng): Character {
+  const c = makeCharacter(sim.chars.length, name, tier, x, y, look, pers, rng);
   sim.chars.push(c);
   return c;
 }

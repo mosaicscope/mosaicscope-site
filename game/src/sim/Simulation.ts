@@ -171,6 +171,7 @@ export class Simulation {
         continue;
       }
       c.px = c.x; c.py = c.y;
+      if (c.role === "overcoder") { c.vx = c.vy = 0; c.x = c.pathGoalX; c.y = c.pathGoalY; c.mode = "idle"; continue; } // Terrance holds his post
       if (updateCustody(this, c) || this.tick < c.stunUntil) {
         if (this.tick < c.stunUntil) { c.vx = c.vy = 0; c.anim.pose = "stunned"; }
         this.moveCharacter(c, dt);
