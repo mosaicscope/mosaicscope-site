@@ -58,3 +58,7 @@ export function worldWall(material: string, buildingColor: string | undefined): 
   if (!buildingColor) return material;
   return mix(material, shade(buildingColor, 2.1), 0.55);
 }
+
+/** The website's own tokens (styles.css :root) and neon colours (main.js COL): the source of truth for every view. */
+export const SITE = { ink: "#0e0b0a", ink2: "#1a1412", paper: "#eee4d3", dim: "#9a8d80", red: "#ec2a1c", acid: "#c6ff3d", sodium: "#f6b62c" } as const;
+export const NEONS = ["#c6ff3d", "#ff7ad9", "#3dd6ff", "#f6b62c", "#ec2a1c", "#eee4d3", "#b48cff"] as const;

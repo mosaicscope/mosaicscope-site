@@ -26,3 +26,15 @@ describe("noir palette", () => {
     for (const n of SHOP_NAMES) expect(n.length).toBeLessThanOrEqual(15);
   });
 });
+
+describe("site tokens", () => {
+  it("SITE matches the website's own :root tokens, so the game cannot drift from the site", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { SITE, NEONS } = await import("../src/render/noir");
+    const css = readFileSync(new URL("../../styles.css", import.meta.url), "utf8");
+    const tok = (n: string) => css.match(new RegExp(`--${n}:\\s*(#[0-9a-fA-F]{6})`))?.[1]?.toLowerCase();
+    expect(SITE.ink).toBe(tok("ink")); expect(SITE.ink2).toBe(tok("ink-2")); expect(SITE.paper).toBe(tok("paper")); expect(SITE.dim).toBe(tok("dim"));
+    expect(SITE.red).toBe(tok("red")); expect(SITE.acid).toBe(tok("acid")); expect(SITE.sodium).toBe(tok("sodium"));
+    expect(NEONS.length).toBeGreaterThanOrEqual(7);
+  });
+});
