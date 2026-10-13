@@ -1,8 +1,9 @@
-import type { Character } from "../entities/types";
+import type { Character, Face } from "../entities/types";
 import { Phys } from "../entities/types";
 import { dressOf } from "../mind/Dress";
 import type { Dress } from "../mind/Dress";
 import { modelOf, modelLook, drawModelBody, drawModelHeadGear, MODEL_INK } from "./Models";
+import { drawFaceGenes } from "./FaceGenes";
 
 /**
  * Procedural stick figures in the style of the MosaicScope footer crew (same proportions as the
@@ -259,7 +260,7 @@ function drawDress(g: CanvasRenderingContext2D, D: Dress, L: Character["look"], 
 }
 
 function drawHead(g: CanvasRenderingContext2D, L: Character["look"], x: number, y: number, k: number, dir: number, lw: number, col: string, alpha: number, hat: Character["look"]["hat"] = L.hat, skin?: string, inkRing = false): void {
-  const F = L.face ?? { eyes: "shades", brows: "none", mouth: L.kind === "girl" ? "smile" : "smile", nose: "none", facial: "none", extra: "none", head: "round" } as const;
+  const F: Face = L.face ?? { eyes: "shades", brows: "none", mouth: L.kind === "girl" ? "smile" : "smile", nose: "none", facial: "none", extra: "none", head: "round" } as const;
   const r = HEAD_R * k;
   const rx = F.head === "wide" ? r * 1.12 : r, ry = F.head === "oval" ? r * 1.12 : r;
   g.lineCap = "round";
@@ -365,6 +366,7 @@ function drawHead(g: CanvasRenderingContext2D, L: Character["look"], x: number, 
     case "scar": g.strokeStyle = "#ec2a1c"; g.beginPath(); g.moveTo(fx + 3 * k, ey - 4 * k); g.lineTo(fx + 6 * k, ey + 3 * k); g.stroke(); break;
     case "mole": g.fillStyle = col; g.beginPath(); g.arc(fx + 5 * k * dir, my - 1 * k, 0.8 * k, 0, 6.283); g.fill(); break;
   }
+  if (F.gene !== undefined) drawFaceGenes(g, F.gene, { x, y, k, dir, lw, col, alpha, fx, ey, my, rx, ry, covered: F.eyes === "shades" || F.eyes === "visor" || F.eyes === "aviator" || F.eyes === "shutter" });
   if (L.glam) { g.strokeStyle = "#f6b62c"; g.beginPath(); g.arc(x - rx * 1.05, y + 6 * k, 2.4 * k, 0, 6.283); g.arc(x + rx * 1.05, y + 6 * k, 2.4 * k, 0, 6.283); g.stroke(); }
 }
 
