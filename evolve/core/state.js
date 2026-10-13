@@ -18,6 +18,8 @@ export function blankState() {
     proposals: [],            // latest competitions, newest first
     health: [],               // live-site samples { at, status, ms, kb }
     weaknesses: [],           // things the checks see but won't fix
+    audit: null,              // latest weekly speed audit { at, url, scores, metrics }
+    auditCheckedAt: 0,
     priorities: [],           // current ranked opportunities (for the dashboard)
     scanKey: "",              // hash of the file versions last scanned (skip unchanged files)
     findings: [],             // findings from that scan

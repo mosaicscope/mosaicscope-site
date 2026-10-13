@@ -245,10 +245,129 @@ export const RULES = [
       { id: "a", label: "defer", meta: { benefit: 2, perf: 3, a11y: 0, rel: 0, complexity: 1, risk: 2 }, apply: (fs, f) => editTag(fs, f, (t) => t.raw.replace(/<script\b/i, "<script defer")) },
     ],
   },
+  {
+    kind: "charset", area: "rel", weight: 3, label: "page doesn't declare its character set",
+    detect(files) {
+      const out = [];
+      for (const [p, text] of Object.entries(files)) if (isHtml(p) && /<head\b/i.test(text) && !scanTags(text).some((t) => t.name === "meta" && ("charset" in t.attrs || /content-type/i.test(t.attrs["http-equiv"] || "")))) out.push(headFinding(this.kind, p, text));
+      return out;
+    },
+    remedies: [
+      { id: "a", label: "utf-8 charset", meta: { benefit: 2, perf: 0, a11y: 1, rel: 3, complexity: 0, risk: 0 }, apply: (fs, f) => {
+        const text = fs[f.path], head = scanTags(text).find((t) => t.name === "head");
+        return head ? { path: f.path, text: text.slice(0, head.end) + '\n<meta charset="utf-8">' + text.slice(head.end) } : null;
+      } },
+    ],
+  },
+  {
+    kind: "link-name", area: "a11y", weight: 3, label: "link has no accessible name",
+    detect(files) {
+      const out = [];
+      for (const [p, text] of Object.entries(files)) if (isHtml(p)) {
+        const tags = scanTags(text);
+        for (const t of tags) {
+          if (t.name !== "a" || !t.attrs.href || "hidden" in t.attrs || t.attrs["aria-label"] || t.attrs["aria-labelledby"] || t.attrs["aria-hidden"] === "true") continue;
+          const inner = innerOf(text, t);
+          if (textContent(inner.replace(/<[^>]*aria-hidden="true"[^>]*>[\s\S]*?<\/[a-z]+>/gi, "")) || /<img\b[^>]*\balt="[^"]+"/i.test(inner)) continue;
+          let host = "";
+          try { host = new URL(t.attrs.href, SITE).hostname.replace(/^www\./, ""); } catch { /* bad href */ }
+          if (t.attrs.title || host) out.push(tagFinding(this.kind, p, text, t, tags, { title: t.attrs.title || "", host }));
+        }
+      }
+      return out;
+    },
+    remedies: [
+      { id: "a", label: "aria-label from title", meta: { benefit: 2, perf: 0, a11y: 3, rel: 0, complexity: 0, risk: 0 }, apply: (fs, f) => f.data.title ? editTag(fs, f, (t) => addAttr(t.raw, "aria-label", f.data.title)) : null },
+      { id: "b", label: "aria-label from the link's site", meta: { benefit: 1, perf: 0, a11y: 2, rel: 0, complexity: 0, risk: 1 }, apply: (fs, f) => f.data.host ? editTag(fs, f, (t) => addAttr(t.raw, "aria-label", f.data.host === "mosaicscope.pages.dev" ? "MosaicScope" : f.data.host)) : null },
+    ],
+  },
+  {
+    kind: "og-title", area: "ux", weight: 1, label: "indexable page has no share title",
+    detect(files) {
+      const out = [];
+      for (const [p, text] of Object.entries(files)) if (isHtml(p) && p !== "404.html" && /<head\b/i.test(text) && !isNoindex(text)) {
+        const tags = scanTags(text);
+        if (tags.some((t) => t.name === "meta" && (t.attrs.property || "") === "og:title")) continue;
+        const title = tags.find((t) => t.name === "title");
+        const words = title ? textContent(innerOf(text, title)) : "";
+        if (words) out.push(headFinding(this.kind, p, text, { title: words }));
+      }
+      return out;
+    },
+    remedies: [
+      { id: "a", label: "og:title from the title", meta: { benefit: 2, perf: 0, a11y: 0, rel: 1, complexity: 0, risk: 0 }, apply: (fs, f) => insertInHead(fs, f.path, `<meta property="og:title" content="${f.data.title.replace(/"/g, "&quot;")}">`) },
+    ],
+  },
+  {
+    kind: "og-image", area: "ux", weight: 1, label: "shareable page has no share image",
+    detect(files) {
+      const out = [];
+      for (const [p, text] of Object.entries(files)) if (isHtml(p) && p !== "404.html" && /<head\b/i.test(text) && !isNoindex(text)) {
+        const tags = scanTags(text);
+        if (!tags.some((t) => t.name === "meta" && (t.attrs.property || "") === "og:image")) out.push(headFinding(this.kind, p, text));
+      }
+      return out;
+    },
+    remedies: [
+      { id: "a", label: "the site's og.jpg", meta: { benefit: 2, perf: 0, a11y: 0, rel: 1, complexity: 0, risk: 0 }, apply: (fs, f) => insertInHead(fs, f.path, `<meta property="og:image" content="${SITE}/og.jpg">`) },
+    ],
+  },
+  {
+    kind: "css-focus", area: "a11y", weight: 3, label: "stylesheet has no visible keyboard focus style",
+    detect(files) {
+      return Object.entries(files).filter(([p, t]) => p.endsWith(".css") && !/:focus-visible|:focus\b/.test(t))
+        .map(([p]) => ({ kind: this.kind, path: p, line: 1, fp: `css-focus|${p}`, data: {} }));
+    },
+    remedies: [
+      { id: "a", label: "outline on :focus-visible", meta: { benefit: 2, perf: 0, a11y: 3, rel: 0, complexity: 1, risk: 1 }, apply: (fs, f) => appendCss(fs, f.path, ":focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }") },
+    ],
+  },
+  {
+    kind: "css-motion", area: "a11y", weight: 2, label: "animations ignore the reduced-motion setting",
+    detect(files) {
+      return Object.entries(files).filter(([p, t]) => p.endsWith(".css") && /@keyframes|animation\s*:/.test(t) && !/prefers-reduced-motion/.test(t))
+        .map(([p]) => ({ kind: this.kind, path: p, line: 1, fp: `css-motion|${p}`, data: {} }));
+    },
+    remedies: [
+      { id: "a", label: "calm animations when reduced motion is on", meta: { benefit: 2, perf: 1, a11y: 3, rel: 0, complexity: 1, risk: 1 }, apply: (fs, f) => appendCss(fs, f.path, "@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }") },
+    ],
+  },
 ];
 
 // Weaknesses the engine reports but never fixes on its own (they need a person).
 export const REPORT_ONLY = [
+  {
+    kind: "dead-anchor", label: "in-page link points at a missing id",
+    detect(files) {
+      const out = [];
+      for (const [p, text] of Object.entries(files)) if (isHtml(p)) {
+        const tags = scanTags(text);
+        const ids = new Set(tags.filter((t) => t.attrs.id).map((t) => t.attrs.id));
+        for (const t of tags) {
+          const m = t.name === "a" && /^#([\w-]+)$/.exec(t.attrs.href || "");
+          if (m && m[1] !== "top" && !ids.has(m[1]) && !text.includes(`id="${m[1]}"`)) out.push({ kind: this.kind, path: p, line: lineOf(text, t.start), fp: `dead-anchor|${p}|${m[1]}`, data: { href: "#" + m[1] } });
+        }
+      }
+      return out;
+    },
+  },
+  {
+    kind: "heading-skip", label: "heading level skipped",
+    detect(files) {
+      const out = [];
+      for (const [p, text] of Object.entries(files)) if (isHtml(p)) {
+        let prev = 0;
+        for (const t of scanTags(text)) {
+          const m = /^h([1-6])$/.exec(t.name);
+          if (!m) continue;
+          const n = Number(m[1]);
+          if (prev && n > prev + 1) { out.push({ kind: this.kind, path: p, line: lineOf(text, t.start), fp: `heading-skip|${p}|${prev}-${n}`, data: { from: "h" + prev, to: "h" + n } }); }
+          prev = n;
+        }
+      }
+      return out;
+    },
+  },
   {
     kind: "dup-id", label: "duplicate id",
     detect(files) {
@@ -276,6 +395,12 @@ export const REPORT_ONLY = [
     },
   },
 ];
+
+function appendCss(files, path, rule) {
+  const text = files[path];
+  if (text == null || text.includes(rule)) return null;
+  return { path, text: text.replace(/\s*$/, "") + "\n\n/* added by the evolution engine */\n" + rule + "\n" };
+}
 
 function addToSitemap(files, url, freq, prio) {
   const text = files["sitemap.xml"];

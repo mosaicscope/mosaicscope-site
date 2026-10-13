@@ -33,7 +33,7 @@ export const PRICES = {
 // Paths a proposal may change. Everything else (functions/, evolve/, .github/, game/, world/,
 // content.json, wrangler config, .pages.yml, images) is off limits, whatever an agent says.
 export const ALLOWED_PATHS = [
-  "index.html", "404.html", "house/index.html", "stats/index.html", "stats/screen.html", "sitemap.xml",
+  "index.html", "404.html", "house/index.html", "stats/index.html", "stats/screen.html", "sitemap.xml", "styles.css",
 ];
 export const PROTECTED_PREFIXES = [
   "functions/", "evolve/", ".github/", ".claude/", "game/", "world/", "images/", ".git",

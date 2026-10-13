@@ -194,6 +194,11 @@
       <div class="spark" role="img" aria-label="Response times for the last ${hs.length} samples">${hs.map((x) => `<i class="${x.status === 200 ? "" : "bad"}" style="height:${Math.max(6, (x.ms / max) * 100)}%" title="${x.ms} ms, HTTP ${x.status}"></i>`).join("")}</div>
       <p class="mono dim">Sampled every cycle; saved every 15 min or when something looks off.</p>` : '<p class="empty">No health samples yet (set SITE_URL on the Worker).</p>';
 
+    const au = s.audit;
+    $("health").innerHTML += au && au.scores ? `<h2 style="margin-top:18px">Weekly audit</h2>
+      <dl>${[["Speed", au.scores.performance], ["Access", au.scores.accessibility], ["Practices", au.scores.bestPractices], ["SEO", au.scores.seo]].map(([k, v]) => `<div><dt>${k}</dt><dd class="${v >= .9 ? "ok" : v >= .7 ? "warn" : "bad"}">${v == null ? "–" : Math.round(v * 100)}</dd></div>`).join("")}</dl>
+      <p class="mono dim" style="margin-top:10px">${au.metrics ? `LCP ${Math.round(au.metrics.lcpMs)} ms · CLS ${au.metrics.cls} · TBT ${Math.round(au.metrics.tbtMs)} ms · ` : ""}Lighthouse mobile, ${ago(au.at)}. Low areas get pushed up the engine's priorities.</p>` : '<p class="mono dim" style="margin-top:14px">No weekly audit yet (the evolve-audit workflow runs on Sundays, or start it by hand in GitHub Actions).</p>';
+
     const props = s.proposals || [];
     $("proposals").innerHTML = props.length ? `<table><thead><tr><th>When</th><th>Innovator</th><th>Optimiser</th><th>Winner</th></tr></thead><tbody>${props.map((x) => `<tr>
       <td class="mono">${ago(x.at)}</td><td>${pick(x.innovator)}</td><td>${pick(x.optimiser)}</td><td class="mono ok">${esc(x.winner)}</td></tr>`).join("")}</tbody></table>` : '<p class="empty">No competitions yet. The agents are only asked when there\'s a verified fix to choose between.</p>';

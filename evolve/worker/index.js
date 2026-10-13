@@ -89,6 +89,26 @@ export function workerIo(env, fetchImpl = fetch) {
         throw e;
       }
     },
+    // Undo a merged change: restore its file to the version before the merge, on its own PR.
+    async revert(acc) {
+      const n = String(acc.ref).replace("#", "");
+      const pr = await (await gh(`/pulls/${n}`)).json();
+      const merge = pr.merge_commit_sha;
+      if (!merge) throw new Error("change was never merged");
+      const parent = (await (await gh(`/commits/${merge}`)).json()).parents?.[0]?.sha;
+      const old = await (await gh(`/contents/${acc.path}?ref=${parent}`, { headers: { Accept: "application/vnd.github.raw+json" } })).text();
+      const base = (await (await gh(`/commits/${branch}`, { headers: { Accept: "application/vnd.github.sha" } })).text()).trim();
+      const meta = await (await gh(`/contents/${acc.path}?ref=${base}`)).json();
+      const name = `evolve/revert-${merge}`;
+      await gh(`/git/refs`, { method: "POST", body: JSON.stringify({ ref: `refs/heads/${name}`, sha: base }) });
+      await gh(`/contents/${acc.path}`, { method: "PUT", body: JSON.stringify({ message: `evolve: undo ${acc.ref} (site broke after it merged)`, content: b64(old), sha: meta.sha, branch: name }) });
+      const r = await (await gh(`/pulls`, { method: "POST", body: JSON.stringify({ title: `evolve: undo ${acc.ref} — ${acc.label}`, head: name, base: branch, body: `The live site stopped answering 200 within 30 minutes of ${acc.ref} merging, so the engine is undoing it and has paused itself.\n\nCI checks this restores \`${acc.path}\` exactly to its version before the merge. Resume the engine from /evolve/ once the site is healthy.` }) })).json();
+      return { ref: `#${r.number}`, url: r.html_url };
+    },
+    async audit() {
+      const r = await gh(`/contents/audit.json?ref=evolve-data`, { headers: { Accept: "application/vnd.github.raw+json" } });
+      return r.ok ? r.json() : null;
+    },
     async checkPending(p) {
       const n = String(p.ref).replace("#", "");
       const r = await gh(`/pulls/${n}`);

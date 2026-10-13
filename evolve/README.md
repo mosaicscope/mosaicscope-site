@@ -8,7 +8,10 @@ Dashboard: **/evolve/** (for example https://mosaicscope.pages.dev/evolve/). It 
 
 A Cloudflare Worker cron (`*/2 * * * *`) runs one cycle every two minutes.
 
-1. **Health.** It fetches the live site and records status, time and size. A failure within 30 minutes of a merged change counts as a regression: the agent that proposed the change loses points and the engine trips into a stopped state until someone resumes it.
+1. **Health.** It fetches the live site and records status, time and size. A failure within 30 minutes of a merged change counts as a regression:
+   - the agent that proposed the change loses points
+   - the engine opens an undo PR on `evolve/revert-<merge sha>`; CI only passes it if it restores the file exactly to its pre-merge version
+   - the engine trips into a stopped state until someone resumes it
 2. **Change in flight?** If a change is still waiting on CI or a merge, the cycle only checks its PR and stops. A merge counts as accepted and a close as rejected, and both update what the engine has learned.
 3. **Local checks (no AI).** It runs `core/rules.js` over the editable pages. If the head commit hasn't changed since the last scan, no files are read at all.
 4. **Rank.** Findings are ranked by rule weight × what's been learned. Anything already proposed, rejected in the last 24 h, or using a remedy that failed 3 times without ever landing is skipped.
@@ -21,6 +24,8 @@ A Cloudflare Worker cron (`*/2 * * * *`) runs one cycle every two minutes.
    - If they pass, the change waits for you to merge it. With `EVOLVE_AUTO_MERGE=true` it merges itself instead.
 
 When nothing needs fixing, the cycle ends at step 4: no AI, no writes.
+
+**Weekly audit.** `.github/workflows/evolve-audit.yml` runs Lighthouse (mobile) on the live site every Sunday and saves the scores to `audit.json` on the `evolve-data` branch. The engine reads it every 6 hours. An area scoring under 0.9 gets its checks' priority ×1.5, and under 0.7 ×2. The dashboard shows the scores, LCP, CLS and TBT.
 
 ## What it can change
 
@@ -40,8 +45,13 @@ Agents never write code. They choose a finding and one of that finding's fixed r
 | no theme colour | theme colour from the manifest |
 | public page missing from the sitemap | add (monthly 0.5 / weekly 0.8) |
 | render-blocking head script | `defer` |
+| no `<meta charset>` | utf-8 charset |
+| link with no accessible name | aria-label from title / from the link's site |
+| indexable page without share title / image | `og:title` from the title / the site's `og.jpg` |
+| stylesheet with no keyboard focus style | `:focus-visible` outline (appended to `styles.css`) |
+| animations without a reduced-motion rule | reduced-motion block (appended to `styles.css`) |
 
-It also reports things it won't fix (duplicate ids, missing h1, very heavy pages) under "Needs a person" on the dashboard.
+It also reports things it won't fix (in-page links to missing ids, skipped heading levels, duplicate ids, missing h1, very heavy pages) under "Needs a person" on the dashboard.
 
 Add a check by adding a rule to `core/rules.js` with its remedies; the test suite runs every remedy through validation.
 
@@ -68,7 +78,7 @@ Calls are limited as follows:
 - No agent can start another agent.
 - Cycles are cut off after 60 s, so two never overlap.
 
-Only `index.html`, `404.html`, `house/index.html`, `stats/*.html` and `sitemap.xml` can be edited. `functions/`, `evolve/`, `.github/`, `game/`, `world/`, `content.json`, images and all config are protected. An edit is also rejected if it does any of the following:
+Only `index.html`, `404.html`, `house/index.html`, `stats/*.html`, `sitemap.xml` and `styles.css` can be edited. CSS edits may only append; they can't add `url()`, `@import` or expressions, and braces must balance. `functions/`, `evolve/`, `.github/`, `game/`, `world/`, `content.json`, images and all config are protected. An edit is also rejected if it does any of the following:
 - adds a script, an inline handler, a `javascript:` or `http://` URL, a form, embed or base tag, or anything that looks like a credential
 - changes the count of any tag except one added `<meta>`
 - leaves the original finding in place

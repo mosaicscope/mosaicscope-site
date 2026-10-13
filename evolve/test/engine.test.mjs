@@ -172,7 +172,7 @@ test("rejections are penalised, never re-proposed, and trip the engine after the
 test("nothing to fix: no AI calls, no file reads on unchanged files, few writes", async () => {
   const io = fakeIo();
   for (const k of Object.keys(io.fs)) delete io.fs[k];
-  io.fs["index.html"] = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta name="theme-color" content="#000"><meta name="description" content="x"><title>x</title></head><body><h1>x</h1></body></html>\n';
+  io.fs["index.html"] = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta name="theme-color" content="#000"><meta name="description" content="x"><meta property="og:title" content="x"><meta property="og:image" content="x"><title>x</title></head><body><h1>x</h1></body></html>\n';
   assert.equal((await runCycle(io, cfg)).result, "nothing to improve");
   const reads = io.reads, writes = io.writes;
   for (let i = 0; i < 5; i++) { io.tick(); assert.equal((await runCycle(io, cfg)).result, "nothing to improve"); }
@@ -219,9 +219,11 @@ test("a broken site right after a merge counts as a regression and trips the eng
   await runCycle(io, cfg);
   const winner = io.state.history[0].agent;
   const before = io.state.agents[winner].points;
-  const broken = Object.assign(io, { health: async () => ({ status: 500, ms: 50, kb: 1 }) });
+  const undone = [];
+  const broken = Object.assign(io, { health: async () => ({ status: 500, ms: 50, kb: 1 }), revert: async (acc) => { undone.push(acc.ref); return { ref: "#99" }; } });
   broken.tick();
-  assert.match((await runCycle(broken, cfg)).result, /regression/);
+  assert.match((await runCycle(broken, cfg)).result, /regression: tripped, undo #99 opened/);
+  assert.deepEqual(undone, ["#1"]);
   assert.equal(io.state.mode, "tripped");
   assert.ok(io.state.agents[winner].points < before);
 });
@@ -286,4 +288,36 @@ test("dashboard API: public read, controls need the admin token", async () => {
   assert.equal((await post("letmein", "explode")).status, 400);
   assert.equal((await post("letmein", "stop")).status, 200);
   assert.equal(JSON.parse(EGG.m.get("evo:control")).mode, "stopped");
+});
+
+test("new checks: charset, link names, share tags, CSS focus and reduced motion", () => {
+  const fs = {
+    "index.html": '<!doctype html>\n<html lang="en">\n<head>\n<title>Shop</title>\n</head>\n<body>\n<h1>x</h1>\n<a href="https://instagram.com/x"></a>\n<a href="#gone">x</a>\n<h4>skip</h4>\n</body>\n</html>\n',
+    "styles.css": "a { color: red; }\n@keyframes spin { to { transform: rotate(1turn); } }\n.x { animation: spin 1s; }\n",
+  };
+  const r = runChecks(fs);
+  const kinds = r.findings.map((f) => f.kind);
+  for (const k of ["charset", "link-name", "og-title", "css-focus", "css-motion"]) assert.ok(kinds.includes(k), k);
+  assert.ok(r.weaknesses.some((w) => w.kind === "dead-anchor") && r.weaknesses.some((w) => w.kind === "heading-skip"));
+  for (const f of r.findings) for (const rem of ruleByKind(f.kind).remedies) {
+    const ch = rem.apply(fs, f);
+    if (ch) assert.ok(validateChange(fs, ch, f, cfg).ok, `${f.kind}/${rem.id}: ${validateChange(fs, ch, f, cfg).reasons}`);
+  }
+  const f = r.findings.find((x) => x.kind === "css-focus");
+  assert.ok(!validateChange(fs, { path: "styles.css", text: fs["styles.css"] + "a{background:url(//evil)}\n:focus{}\n" }, f, cfg).ok);
+});
+
+test("the weekly audit pushes its weakest area up the priority list", async () => {
+  const { auditBoost } = await import("../core/score.js");
+  const s = blankState();
+  const fs = files();
+  const lazy = runChecks(fs).findings.find((x) => x.kind === "img-lazy");
+  const before = priority(lazy, s);
+  s.audit = { at: 1, scores: { performance: 0.62, accessibility: 0.98, seo: 1, bestPractices: 1 } };
+  assert.equal(priority(lazy, s), before * 2);
+  assert.equal(auditBoost("a11y", s.audit), 1);
+  const io = fakeIo();
+  io.audit = async () => ({ at: 5, scores: { performance: 0.8 } });
+  await runCycle(io, cfg);
+  assert.equal(io.state.audit.at, 5);
 });

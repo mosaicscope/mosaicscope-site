@@ -53,6 +53,12 @@ export function validateChange(files, change, finding, cfg) {
     }
     for (const close of ["</html>", "</head>", "</body>"]) if (before.includes(close) && !change.text.includes(close)) reasons.push(`lost ${close}`);
   }
+  if (change.path.endsWith(".css")) {
+    const bal = (t) => (t.match(/{/g) || []).length - (t.match(/}/g) || []).length;
+    if (bal(change.text) !== 0) reasons.push("unbalanced CSS braces");
+    if (/url\(|@import|expression\(|(^|[^-])behavior\s*:/i.test(added)) reasons.push("adds a CSS url, import or expression");
+    if (change.text.length < before.length) reasons.push("removes CSS");
+  }
   if (change.path.endsWith(".xml") && !/<\/urlset>\s*$/.test(change.text)) reasons.push("sitemap no longer ends with </urlset>");
 
   // the target is fixed, and nothing new is broken (accessibility and security checks included)

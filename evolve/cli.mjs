@@ -65,11 +65,23 @@ export function localIo({ dry = false, root = ROOT, env = process.env } = {}) {
       } catch (e) {
         git(["worktree", "remove", "--force", dir], root);
         git(["branch", "-D", branch], root); // roll back
-        throw new Error("validation failed on the branch: " + String(e.stderr || e.message).split("\n").find(Boolean));
+        throw new Error("validation failed on the branch: " + String(e.stdout || "").trim().split("\n").pop() || String(e.stderr || e.message).split("\n").find(Boolean));
       }
       const sha = git(["rev-parse", "HEAD"], dir);
       git(["worktree", "remove", "--force", dir], root);
       return { ref: branch, sha };
+    },
+    async revert(acc) {
+      const sha = acc.sha || acc.ref;
+      const branch = `evolve/revert-${git(["rev-parse", sha], root)}`;
+      const dir = join(tmpdir(), "mosaicscope-" + branch.replace(/\W/g, "-"));
+      git(["worktree", "add", "-q", "-b", branch, dir, "HEAD"], root);
+      try { git(["-c", "user.name=mosaicscope-evolve", "-c", "user.email=evolve@users.noreply.github.com", "revert", "--no-edit", sha], dir); }
+      finally { git(["worktree", "remove", "--force", dir], root); }
+      return { ref: branch };
+    },
+    async audit() {
+      try { return JSON.parse(execFileSync("git", ["show", "origin/evolve-data:audit.json"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })); } catch { return null; }
     },
     async checkPending(p) {
       // by commit, not branch name: a merged branch is often deleted right after
@@ -97,9 +109,19 @@ export function localIo({ dry = false, root = ROOT, env = process.env } = {}) {
 }
 
 /** CI gate: HEAD differs from base in exactly one allowed file, and that diff is a valid fix for one finding. */
-export function verify(base, root = ROOT, cfg = loadConfig(process.env)) {
+export function verify(base, root = ROOT, cfg = loadConfig(process.env), headRef = process.env.GITHUB_HEAD_REF || "") {
   const changed = git(["diff", "--name-only", base, "HEAD"], root).split("\n").filter(Boolean);
   if (changed.length === 0) return { ok: false, reasons: ["no changes"] };
+  // an undo: every changed file must be exactly its version from before the commit being undone
+  const undo = /^evolve\/revert-([0-9a-f]{7,40})$/.exec(headRef);
+  if (undo) {
+    const sha = undo[1];
+    let touched;
+    try { touched = git(["diff", "--name-only", `${sha}^1`, sha], root).split("\n").filter(Boolean); } catch { return { ok: false, reasons: ["unknown commit to undo"] }; }
+    const raw = (ref, p) => { try { return execFileSync("git", ["show", `${ref}:${p}`], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }); } catch { return null; } };
+    const bad = changed.filter((p) => !touched.includes(p) || !pathAllowed(p) || raw("HEAD", p) !== raw(`${sha}^1`, p));
+    return bad.length ? { ok: false, reasons: ["undo doesn't restore: " + bad.join(", ")] } : { ok: true, reasons: [], lines: 0 };
+  }
   if (changed.length > cfg.MAX_FILES_PER_CHANGE) return { ok: false, reasons: [`${changed.length} files changed`] };
   const path = changed[0];
   if (!pathAllowed(path)) return { ok: false, reasons: [`${path} is protected`] };

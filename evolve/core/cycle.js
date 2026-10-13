@@ -96,8 +96,25 @@ async function body(io, cfg, state, now) {
       recordOutcome(state, { ...acc, fp: `regression|${acc.at}`, risk: 0 }, "regression", now, `site returned ${h.status} after this change`);
       state.mode = "tripped";
       state.modeReason = `site returned ${h.status} after "${acc.label}" on ${acc.path}`;
+      // open an undo for that change straight away (CI checks it restores the file exactly)
+      if (io.revert && acc.ref) {
+        try {
+          const u = await io.revert(acc);
+          state.history[0].note += ` · undo opened: ${u.ref}`;
+          return `health regression: tripped, undo ${u.ref} opened`;
+        } catch (e) {
+          state.history[0].note += " · undo failed: " + String(e?.message || e).slice(0, 80);
+        }
+      }
       return "health regression: tripped";
     }
+  }
+
+  // weekly speed audit results (written by the evolve-audit workflow); looked up every 6 hours
+  if (io.audit && now - (state.auditCheckedAt || 0) > 6 * 3600000) {
+    state.auditCheckedAt = now;
+    const a = await io.audit().catch(() => null);
+    if (a && a.at && a.at !== state.audit?.at) state.audit = a;
   }
 
   // 2. a change already in flight blocks new proposals until it lands or is rejected

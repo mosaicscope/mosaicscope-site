@@ -1,0 +1,44 @@
+# Weekly speed and accessibility audit of the live site (Lighthouse, mobile). The scores go to
+# audit.json on the "evolve-data" branch; the evolution engine reads them and pushes its weakest
+# area up the priority list, and the /evolve/ dashboard shows them. Free: runs on GitHub's runners.
+name: evolve-audit
+on:
+  schedule:
+    - cron: "41 15 * * 0"   # Sundays 15:41 UTC (early Monday in NZ)
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Lighthouse
+        run: |
+          npx -y lighthouse@12.2.1 "https://mosaicscope.pages.dev/" --quiet \
+            --only-categories=performance,accessibility,best-practices,seo \
+            --chrome-flags="--headless=new --no-sandbox" --output=json --output-path=lh.json
+      - name: Summarise
+        run: |
+          node -e '
+            const r = require("./lh.json"), c = r.categories, a = r.audits;
+            const n = (k) => a[k] && a[k].numericValue != null ? Math.round(a[k].numericValue * 1000) / 1000 : null;
+            const out = {
+              at: Date.now(), url: r.finalDisplayedUrl || r.finalUrl,
+              scores: { performance: c.performance.score, accessibility: c.accessibility.score, bestPractices: c["best-practices"].score, seo: c.seo.score },
+              metrics: { lcpMs: n("largest-contentful-paint"), cls: n("cumulative-layout-shift"), tbtMs: n("total-blocking-time"), fcpMs: n("first-contentful-paint"), bytes: n("total-byte-weight") },
+              failing: Object.values(a).filter((x) => x.score !== null && x.score < 0.9 && x.scoreDisplayMode === "binary").map((x) => x.id).slice(0, 15),
+            };
+            require("fs").writeFileSync("audit.json", JSON.stringify(out, null, 1));
+            console.log(JSON.stringify(out.scores));'
+      - name: Save to evolve-data
+        run: |
+          mkdir out && mv audit.json out/
+          cd out
+          git init -q -b evolve-data
+          git config user.name "evolve-audit"; git config user.email "evolve-audit@users.noreply.github.com"
+          git add audit.json && git commit -qm "audit $(date -u +%F)"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" evolve-data

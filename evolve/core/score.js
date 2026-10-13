@@ -23,7 +23,19 @@ export const fixKey = (kind, id) => `${kind}:${id}`;
 /** Priority of a finding: rule weight times what we've learned about that kind of fix. */
 export function priority(finding, state) {
   const rule = ruleByKind(finding.kind);
-  return (rule?.weight || 1) * learned(state.stats.kinds[finding.kind]);
+  return (rule?.weight || 1) * learned(state.stats.kinds[finding.kind]) * auditBoost(rule?.area, state.audit);
+}
+
+/**
+ * The weekly speed audit (Lighthouse on the live site) pushes up whichever area it scores lowest:
+ * x1.5 when an area is under its bar, x2 when it's well under.
+ */
+export function auditBoost(area, audit) {
+  const sc = audit?.scores;
+  if (!sc) return 1;
+  const v = { perf: sc.performance, a11y: sc.accessibility, ux: sc.accessibility, seo: sc.seo, rel: sc.bestPractices }[area];
+  if (typeof v !== "number") return 1;
+  return v < 0.7 ? 2 : v < 0.9 ? 1.5 : 1;
 }
 
 /** Score of one proposal (finding + remedy), the number both agents compete on. */
@@ -55,7 +67,7 @@ export function recordOutcome(state, p, outcome, now, note = "") {
     if (good) a.accepted++; else if (outcome === "regression") a.regressions++; else a.rejected++;
   }
   state.seen[`${p.fp}#${p.remedy}`] = { at: now, outcome };
-  state.history.unshift({ at: now, kind: p.kind, path: p.path, remedy: p.remedy, label: p.label, agent: p.agent, score: p.score, outcome, note, ref: p.ref || "" });
+  state.history.unshift({ at: now, kind: p.kind, path: p.path, remedy: p.remedy, label: p.label, agent: p.agent, score: p.score, outcome, note, ref: p.ref || "", sha: p.sha || "", url: p.url || "" });
 }
 
 export const round = (n) => Math.round(n * 100) / 100;
