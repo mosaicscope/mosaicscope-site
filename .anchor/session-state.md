@@ -1,6 +1,6 @@
 # Session state (auto-saved — last known reality)
 
-_Updated: 2026-10-13 21:03:55_  ·  branch: `claude/llm-brain-backends`
+_Updated: 2026-10-13 21:04:11_  ·  branch: `claude/llm-brain-backends`
 
 ## Uncommitted changes
 ```
@@ -9,12 +9,13 @@ _Updated: 2026-10-13 21:03:55_  ·  branch: `claude/llm-brain-backends`
 
 Diff stat:
 ```
- .anchor/session-state.md | 22 ++--------------------
- 1 file changed, 2 insertions(+), 20 deletions(-)
+ .anchor/session-state.md | 21 +--------------------
+ 1 file changed, 1 insertion(+), 20 deletions(-)
 ```
 
 ## Recent commits
 ```
+c32647b chore: update .anchor session checkpoint
 f207f44 chore: add .anchor session checkpoint
 3513cf4 game: wire LLM brain end to end and test the wiring
 d584136 game: optional LLM brain for principals (HF Worker, local GGUF, WebLLM)
@@ -22,7 +23,6 @@ d584136 game: optional LLM brain for principals (HF Worker, local GGUF, WebLLM)
 b94533e Merge pull request #115 from mosaicscope/claude/evolve-engine
 487b11d Merge claude/practical-turing-4imazb: punches, security guards, phone controls, face detail
 f0a2923 evolve: show the real reason when branch validation fails
-72c51b9 evolve: shareable page has no share image (house/index.html) — the site's og.jpg
 ```
 
 ## Resume
