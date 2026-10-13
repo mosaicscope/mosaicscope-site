@@ -41,6 +41,8 @@ export class Renderer {
   terrain: Terrain;
   particles: Particles;
   private lighting = new Lighting();
+  private glowCv = document.createElement("canvas");
+  private glowG: CanvasRenderingContext2D | null = null;
   private rain = new Rain();
   private items: Item[] = [];
   private nItems = 0;
@@ -327,8 +329,16 @@ export class Renderer {
     this.particles.draw(g, cam);
     if (party && !o.reduceMotion && Math.random() < dt * 6) this.particles.spawn("music", sim.stagePoint.x - 2 + Math.random() * 2, sim.stagePoint.y + Math.random() * 2, 1.5, 1, ["#c6ff3d", "#ff7ad9", "#3dd6ff"][Math.floor(Math.random() * 3)]);
     this.lighting.draw(g, sim, cam, time, o.quality, o.reduceMotion);
-    for (const f of GLOW) f();
-    GLOW.length = 0;
+    if (GLOW.length) {
+      // emissive pass: windows, bloom and spill go on their own layer so nearer buildings can wipe what is behind them
+      const cv = this.glowCv, W = this.canvas.width, H = this.canvas.height;
+      if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+      const lg = this.glowG ?? (this.glowG = cv.getContext("2d")!);
+      lg.setTransform(1, 0, 0, 1, 0, 0); lg.clearRect(0, 0, W, H); lg.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      for (const f of GLOW) f(lg);
+      GLOW.length = 0;
+      g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(cv, 0, 0); g.restore();
+    }
     // the player's private zoo
     if (this.zooAnimals.length) {
       const a = sim.world.areas.find((x) => x.name === "Velvet Zoo") ?? sim.world.areas.find((x) => x.name === "Botanic Gardens");
