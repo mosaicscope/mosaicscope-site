@@ -1677,3 +1677,11 @@ a.prop--sign:hover, a.prop--sign:focus-visible { color: #c6ff3d; border-color: #
 .raver.fx-slow .rv, .raver.fx-slow .rv * { animation-duration: 2.2s !important; }
 .raver.fx-slow .rv__head { rotate: 18deg; }
 @keyframes fx-slow { 0%, 100% { rotate: -3deg; translate: 0 2px; } 50% { rotate: 4deg; translate: 0 3px; } }
+
+/* added by the evolution engine */
+/* evolve:tap nav.bar__nav > a */
+nav.bar__nav > a { padding-block: 6px; margin-block: -6px; }
+
+/* added by the evolution engine */
+/* evolve:tap a.scrollcue */
+a.scrollcue { padding-block: 2px; margin-block: -2px; }

@@ -1,11 +1,11 @@
-# Gate for changes the evolution engine proposes (branches evolve/*), plus its own tests on any PR
-# that touches the engine. A failing evolve/* PR is closed and its branch deleted (the rollback).
+# Gate for every PR that touches the site or the engine, and the full gate for changes the evolution
+# engine proposes (branches evolve/*). A failing evolve/* PR is closed and its branch deleted (rollback).
 # Set the repository variable EVOLVE_AUTO_MERGE=true to let passing changes merge on their own;
-# otherwise they wait for a person to merge them.
+# micro-features (label evolve:needs-approval) always wait for a person.
 name: evolve-ci
 on:
   pull_request:
-    paths: ["evolve/**", "functions/api/evolve.js", "index.html", "404.html", "house/**", "stats/**", "sitemap.xml"]
+    paths: ["evolve/**", "functions/**", ".github/workflows/**", "index.html", "404.html", "main.js", "styles.css", "house/**", "stats/**", "sitemap.xml"]
 permissions:
   contents: write
   pull-requests: write
@@ -15,7 +15,7 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,11 +25,35 @@ jobs:
           node-version: 22
       - name: Engine tests
         run: node --test evolve/test/engine.test.mjs
-      - name: Verify the proposed change
+      - name: Security gate (no new high or critical findings)
+        run: node evolve/security.mjs gate "origin/${{ github.base_ref }}"
+      - name: Verify the proposed change is exactly one engine remedy
+        id: verify
         if: startsWith(github.head_ref, 'evolve/')
         run: node evolve/cli.mjs verify "origin/${{ github.base_ref }}"
-      - name: Merge (auto-merge on)
-        if: success() && startsWith(github.head_ref, 'evolve/') && vars.EVOLVE_AUTO_MERGE == 'true'
+      - name: Install the browser for the probe
+        if: startsWith(github.head_ref, 'evolve/') && !startsWith(github.head_ref, 'evolve/revert-')
+        run: |
+          npm i --no-save --prefix evolve playwright-core@1.64.0
+          npx -y playwright@1.64.0 install --with-deps chromium
+      - name: Visual, performance and bug gate (base vs this change)
+        if: startsWith(github.head_ref, 'evolve/') && !startsWith(github.head_ref, 'evolve/revert-')
+        env:
+          EVOLVE_AREA: ${{ steps.verify.outputs.area }}
+          EVOLVE_MAX_VISUAL: ${{ steps.verify.outputs.approval == 'true' && '0.15' || '0.02' }}
+          EVOLVE_SHOTS: shots
+        run: |
+          git worktree add ../base "origin/${{ github.base_ref }}"
+          node evolve/probe.mjs gate ../base .
+      - name: Upload before/after screenshots (the preview)
+        if: always() && startsWith(github.head_ref, 'evolve/') && hashFiles('shots/*.png') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: evolve-preview
+          path: shots/
+          retention-days: 14
+      - name: Merge (auto-merge on, not a feature)
+        if: success() && startsWith(github.head_ref, 'evolve/') && vars.EVOLVE_AUTO_MERGE == 'true' && steps.verify.outputs.approval != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh pr merge "${{ github.event.pull_request.number }}" --squash --delete-branch

@@ -15,7 +15,9 @@ import { pathAllowed } from "./config.js";
 import { RULES, ruleByKind, runChecks } from "./rules.js";
 import { normalise, prune } from "./state.js";
 import { rollLedger, canCycle } from "./budget.js";
-import { priority, scoreProposal, recordOutcome, retired, fixKey, round } from "./score.js";
+import { priority, scoreProposal, recordOutcome, recordEffect, retired, fixKey, round } from "./score.js";
+import { classify, critical, probeSummary, metricFor } from "./issues.js";
+import { updateBacklog } from "./memory.js";
 import { ask } from "./agents.js";
 import { validateChange } from "./validate.js";
 import { hash } from "./html.js";
@@ -132,12 +134,23 @@ async function body(io, cfg, state, now) {
   const versions = await io.listFiles();
   const key = hash(Object.entries(versions).sort().map((e) => e.join("@")).join("|"));
   let files = null;
+  let probe = null;
   if (key !== state.scanKey) {
     files = await io.readFiles(Object.keys(versions));
     const r = runChecks(files);
     state.findings = r.findings;
     state.weaknesses = r.weaknesses.map(({ kind, path, line, data }) => ({ kind, path, line, data }));
     state.scanKey = key;
+    probe = parseJson(files["@probe"]);
+    const sec = parseJson(files["@security"]);
+    if (sec && sec.at !== state.security?.at) state.security = { at: sec.at, counts: sec.counts, deps: sec.deps || null, top: (sec.findings || []).filter((f) => f.severity !== "low").slice(0, 10) };
+    // a new probe of the live site: grade it, measure what recent changes did, and react to breakage
+    if (probe && probe.at && probe.at !== state.probeAt) {
+      const outcome = absorbProbe(io, state, probe, now);
+      updateBacklog(state, { findings: state.findings.filter((f) => pathAllowed(f.path)), weaknesses: state.weaknesses, issues: state.issues, security: state.security?.top || null }, now);
+      if (outcome) return outcome;
+    }
+    updateBacklog(state, { findings: state.findings.filter((f) => pathAllowed(f.path)), weaknesses: state.weaknesses, issues: probe ? state.issues : null, security: state.security?.top || null }, now);
   }
 
   // 4. rank what's left after dedupe, cooldowns and retired remedies (this is where history steers)
@@ -146,9 +159,10 @@ async function body(io, cfg, state, now) {
     const seen = state.seen[`${f.fp}#${rem.id}`];
     return !seen || (seen.outcome !== "accepted" && now - seen.at > cfg.COOLDOWN_HOURS * 3600000);
   };
+  const worth = (f) => (rem) => open(f)(rem) && scoreProposal(f, rem, state, now) >= cfg.MIN_SCORE; // nothing pointless
   const ranked = state.findings
-    .filter((f) => pathAllowed(f.path) && ruleByKind(f.kind)?.remedies.some(open(f)))
-    .map((f) => ({ f, p: priority(f, state) }))
+    .filter((f) => pathAllowed(f.path) && ruleByKind(f.kind)?.remedies.some(worth(f)))
+    .map((f) => ({ f, p: priority(f, state, now) }))
     .sort((a, b) => b.p - a.p || a.f.path.localeCompare(b.f.path) || a.f.line - b.f.line);
   state.priorities = ranked.slice(0, 8).map(({ f, p }) => ({ kind: f.kind, path: f.path, line: f.line, priority: round(p) }));
   if (!ranked.length) return "nothing to improve";
@@ -159,7 +173,7 @@ async function body(io, cfg, state, now) {
   for (const { f } of ranked) {
     if (options.length >= OPTIONS_SHOWN) break;
     const rule = ruleByKind(f.kind);
-    const remedies = rule.remedies.filter(open(f)).filter((rem) => validateChange(files, rem.apply(files, f), f, cfg).ok);
+    const remedies = rule.remedies.filter(worth(f)).filter((rem) => validateChange(files, rem.apply(files, f), f, cfg, rem).ok);
     if (remedies.length) options.push({ finding: f, area: rule.area, remedies });
     else rule.remedies.forEach((rem) => { state.seen[`${f.fp}#${rem.id}`] = { at: now, outcome: "unverifiable" }; });
   }
@@ -174,18 +188,20 @@ async function body(io, cfg, state, now) {
     A = owner === "innovator" ? only : null;
     B = owner === "optimiser" ? only : null;
   } else {
-    A = await ask("innovator", options, state, cfg, io.llm);
-    B = await ask("optimiser", options, state, cfg, io.llm, A && code(options, A));
+    A = await ask("innovator", options, state, cfg, io.llm, null, null, now);
+    B = await ask("optimiser", options, state, cfg, io.llm, A && code(options, A), A, now);
   }
-  const entry = (x) => x && { code: code(options, x), kind: x.o.finding.kind, path: x.o.finding.path, label: x.r.label, score: scoreProposal(x.o.finding, x.r, state), via: x.via, model: x.model || "", note: x.note || "" };
+  const entry = (x) => x && { code: code(options, x), kind: x.o.finding.kind, path: x.o.finding.path, label: x.r.label, score: scoreProposal(x.o.finding, x.r, state, now), via: x.via, model: x.model || "", note: x.note || "" };
   const a = entry(A), b = entry(B);
   if (A) state.agents.innovator.proposals++;
   if (B) state.agents.optimiser.proposals++;
   let winner;
   if (!a || !b) winner = a ? "innovator" : "optimiser";
   else if (a.score !== b.score) winner = a.score > b.score ? "innovator" : "optimiser";
-  else if (a.code === b.code) winner = "innovator"; // same pick: the one who found it first
-  else winner = (B.r.meta.risk || 0) < (A.r.meta.risk || 0) ? "optimiser" : "innovator";
+  else if (a.code === b.code) winner = "innovator"; // same pick: no credit for copying, the one who found it wins
+  else if ((B.r.meta.risk || 0) !== (A.r.meta.risk || 0)) winner = (B.r.meta.risk || 0) < (A.r.meta.risk || 0) ? "optimiser" : "innovator";
+  else winner = (state.agents.optimiser.elo ?? 1000) > (state.agents.innovator.elo ?? 1000) ? "optimiser" : "innovator";
+  if (a && b && a.code === b.code) b.note = (b.note ? b.note + "; " : "") + "agreed with A (no credit)";
   state.agents[winner].wins++;
   const W = winner === "innovator" ? A : B;
   const w = winner === "innovator" ? a : b;
@@ -194,17 +210,22 @@ async function body(io, cfg, state, now) {
   // 7. apply only if it still validates, then checkpoint it on its own branch
   const f = W.o.finding;
   const change = W.r.apply(files, f);
-  const v = validateChange(files, change, f, cfg);
-  const p = { fp: f.fp, kind: f.kind, path: f.path, line: f.line, remedy: W.r.id, label: W.r.label, risk: W.r.meta.risk || 0, agent: winner, score: w.score, at: now };
+  const v = validateChange(files, change, f, cfg, W.r);
+  const rule = ruleByKind(f.kind);
+  const rival = winner === "innovator" ? (b && b.code !== a.code ? "optimiser" : "") : (a ? "innovator" : "");
+  const p = { fp: f.fp, kind: f.kind, path: f.path, line: f.line, remedy: W.r.id, label: W.r.label, risk: W.r.meta.risk || 0, agent: winner, rival, score: w.score, at: now, area: rule.area, approval: !!rule.approval };
+  probe ||= parseJson(files["@probe"]);
+  p.before = metricFor(rule.area, probe); // measured again on the next probe after it lands
   if (!v.ok) { recordOutcome(state, p, "rejected", now, v.reasons.join("; ")); return "rejected: " + v.reasons.join("; "); }
   let pub;
   try {
-    pub = await io.publish({ ...p, change, lines: v.lines, title: `evolve: ${ruleByKind(f.kind).label} (${f.path}) — ${W.r.label}` });
+    pub = await io.publish({ ...p, change, lines: v.lines, title: `${p.approval ? "[needs approval] " : ""}evolve: ${rule.label} (${f.path}) — ${W.r.label}` });
   } catch (e) {
     state.failStreak++;
     return "publish failed: " + String(e?.message || e).slice(0, 120);
   }
   p.ref = pub.ref;
+  if (pub.rejected) { recordOutcome(state, p, "rejected", now, pub.rejected); return `rejected ${p.ref}: ${pub.rejected}`; }
   p.url = pub.url || "";
   if (pub.sha) p.sha = pub.sha;
   if (pub.accepted) { recordOutcome(state, p, "accepted", now, "validated and committed locally"); state.scanKey = ""; return `accepted ${p.ref}`; }
@@ -213,6 +234,38 @@ async function body(io, cfg, state, now) {
 }
 
 const code = (options, x) => `${options.indexOf(x.o) + 1}${x.r.id}`;
+const parseJson = (t) => { try { return t ? JSON.parse(t) : null; } catch { return null; } };
+
+/**
+ * A fresh probe of the live site: store graded issues, measure the effect of changes that landed
+ * since the last probe, and on a critical failure pause everything and undo the latest change.
+ */
+function absorbProbe(io, state, probe, now) {
+  const prevAt = state.probeAt || 0;
+  const issues = classify(probe);
+  state.issues = issues.slice(0, 40).map(({ fp, kind, severity, page, detail, fixable }) => ({ fp, kind, severity, page, detail, fixable }));
+  state.probe = probeSummary(probe);
+  state.probeAt = probe.at;
+  for (const h of state.history) {
+    if (h.outcome !== "accepted" || h.measured || h.before == null || h.at > probe.at) continue;
+    const sign = recordEffect(state, h, h.before, metricFor(h.area, probe), now);
+    if (sign === -1 && h.area === "perf") {
+      recordOutcome(state, { ...h, fp: `perf-regression|${h.at}`, risk: 0 }, "perf-regression", now, `measured worse after it landed (${h.measured.before} -> ${h.measured.after})`);
+    }
+  }
+  const crit = critical(issues);
+  if (crit.length && state.mode === "running") {
+    state.mode = "tripped";
+    state.modeReason = `critical: ${crit[0].kind} on ${crit[0].page} (${crit[0].detail.slice(0, 60)})`;
+    const last = state.history.find((h) => h.outcome === "accepted");
+    if (last && last.at > prevAt && io.revert && last.ref && !last.reverted) {
+      last.reverted = true;
+      return io.revert(last).then((u) => `critical failure: paused, undo ${u.ref} opened`, (e) => `critical failure: paused (undo failed: ${String(e?.message || e).slice(0, 60)})`);
+    }
+    return "critical failure: paused";
+  }
+  return null;
+}
 function median(a) {
   if (!a.length) return 0;
   const s = [...a].sort((x, y) => x - y);

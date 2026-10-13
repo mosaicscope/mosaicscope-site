@@ -14,9 +14,10 @@ import { execFileSync } from "node:child_process";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
+import { createRequire } from "node:module";
 import { loadConfig, ALLOWED_PATHS, pathAllowed } from "./core/config.js";
 import { runCycle } from "./core/cycle.js";
-import { runChecks } from "./core/rules.js";
+import { runChecks, ruleByKind } from "./core/rules.js";
 import { validateChange } from "./core/validate.js";
 import { publicView } from "./core/state.js";
 
@@ -47,9 +48,10 @@ export function localIo({ dry = false, root = ROOT, env = process.env } = {}) {
     async listFiles() {
       const out = {};
       for (const p of READ_PATHS) if (existsSync(join(root, p))) out[p] = git(["hash-object", p], root);
+      for (const [k, t] of Object.entries(dataFiles(root, env))) out[k] = String(t.length) + ":" + t.slice(0, 40);
       return out;
     },
-    readFiles: async (paths) => readLocal(paths, root),
+    readFiles: async (paths) => ({ ...readLocal(paths.filter((p) => !p.startsWith("@")), root), ...dataFiles(root, env) }),
     async publish(p) {
       if (dry) return { ref: "dry-run", accepted: true };
       // checkpoint: an isolated worktree on a new branch; the working tree you're in is never touched
@@ -62,10 +64,22 @@ export function localIo({ dry = false, root = ROOT, env = process.env } = {}) {
         git(["-c", "user.name=mosaicscope-evolve", "-c", "user.email=evolve@users.noreply.github.com", "commit", "-q", "-m", p.title], dir);
         execFileSync(process.execPath, [join(dir, "evolve/cli.mjs"), "verify", "HEAD~1"], { cwd: dir, stdio: "pipe" });
         execFileSync(process.execPath, ["--test", "evolve/test/engine.test.mjs"], { cwd: dir, stdio: "pipe" });
+        // EVOLVE_LOCAL_GATE=1: also run the browser gate (visual, performance, bugs) like CI does
+        if (env.EVOLVE_LOCAL_GATE) {
+          const base = dir + "-base";
+          git(["worktree", "add", "-q", "--detach", base, "HEAD"], root);
+          try {
+            let pwPath = env.EVOLVE_PLAYWRIGHT || "";
+            try { pwPath ||= createRequire(join(root, "game", "package.json")).resolve("playwright-core"); } catch { /* CI-style install */ }
+            execFileSync(process.execPath, [join(dir, "evolve/probe.mjs"), "gate", base, dir], { cwd: dir, stdio: "pipe", timeout: 240000, env: { ...env, EVOLVE_PLAYWRIGHT: pwPath, EVOLVE_AREA: p.area || "", EVOLVE_MAX_VISUAL: p.approval ? "0.15" : "0.02" } });
+          } finally { git(["worktree", "remove", "--force", base], root); }
+        }
       } catch (e) {
         git(["worktree", "remove", "--force", dir], root);
         git(["branch", "-D", branch], root); // roll back
-        throw new Error("validation failed on the branch: " + (String(e.stdout || "").trim().split("\n").pop() || String(e.stderr || e.message).split("\n").find(Boolean)));
+        // the change itself failed a gate: a rejection of this proposal (learned from), not an outage
+        const why = String(e.stdout || "").trim().split("\n").filter((l) => /^- |FAILED/.test(l)).slice(-2).join(" ") || String(e.stderr || e.message).split("\n").find(Boolean);
+        return { ref: branch, rejected: "failed validation on its branch: " + why.slice(0, 200) };
       }
       const sha = git(["rev-parse", "HEAD"], dir);
       git(["worktree", "remove", "--force", dir], root);
@@ -108,6 +122,17 @@ export function localIo({ dry = false, root = ROOT, env = process.env } = {}) {
   };
 }
 
+/** Probe and security results: EVOLVE_PROBE / EVOLVE_SECURITY files, else the evolve-data branch. */
+export function dataFiles(root = ROOT, env = process.env) {
+  const out = {};
+  for (const [key, file, envKey] of [["@probe", "probe.json", "EVOLVE_PROBE"], ["@security", "security.json", "EVOLVE_SECURITY"]]) {
+    try {
+      out[key] = env[envKey] ? readFileSync(env[envKey], "utf8") : execFileSync("git", ["show", `origin/evolve-data:${file}`], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    } catch { /* not there yet */ }
+  }
+  return out;
+}
+
 /** CI gate: HEAD differs from base in exactly one allowed file, and that diff is a valid fix for one finding. */
 export function verify(base, root = ROOT, cfg = loadConfig(process.env), headRef = process.env.GITHUB_HEAD_REF || "") {
   const changed = git(["diff", "--name-only", base, "HEAD"], root).split("\n").filter(Boolean);
@@ -126,21 +151,26 @@ export function verify(base, root = ROOT, cfg = loadConfig(process.env), headRef
   const path = changed[0];
   if (!pathAllowed(path)) return { ok: false, reasons: [`${path} is protected`] };
   const show = (ref, p) => { try { return execFileSync("git", ["show", `${ref}:${p}`], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }); } catch { return null; } };
-  const before = {};
+  const before = { ...dataFiles(root) };
   for (const p of READ_PATHS) { const t = show(base, p); if (t != null) before[p] = t; }
   const after = show("HEAD", path);
   if (after == null || before[path] == null) return { ok: false, reasons: ["file added or removed"] };
   const now = runChecks({ ...before, [path]: after });
   const fixed = runChecks(before).findings.filter((f) => f.path === path && !now.findings.some((g) => g.fp === f.fp));
   if (!fixed.length) return { ok: false, reasons: ["the diff fixes no known finding"] };
-  return validateChange(before, { path, text: after }, fixed[0], cfg);
+  // the diff must be byte-for-byte what one of the engine's own remedies produces: no hand edits slip through
+  for (const f of fixed) for (const rem of ruleByKind(f.kind).remedies) {
+    const ch = rem.apply(before, f);
+    if (ch && ch.path === path && ch.text === after) return { ...validateChange(before, { path, text: after }, f, cfg, rem), kind: f.kind, area: ruleByKind(f.kind).area, approval: !!ruleByKind(f.kind).approval };
+  }
+  return { ok: false, reasons: ["the diff isn't exactly any remedy's output"] };
 }
 
 async function main() {
   const [cmd, arg] = process.argv.slice(2);
   const cfg = loadConfig(process.env);
   if (cmd === "check") {
-    const r = runChecks(readLocal(READ_PATHS));
+    const r = runChecks({ ...readLocal(READ_PATHS), ...dataFiles() });
     for (const f of r.findings) console.log(`fix   ${f.kind.padEnd(13)} ${f.path}:${f.line}${pathAllowed(f.path) ? "" : "  (read-only)"}`);
     for (const f of r.weaknesses) console.log(`note  ${f.kind.padEnd(13)} ${f.path}:${f.line} ${JSON.stringify(f.data)}`);
     if (!r.findings.length && !r.weaknesses.length) console.log("nothing found");
@@ -153,7 +183,9 @@ async function main() {
     console.log(JSON.stringify(existsSync(STATE) ? publicView(JSON.parse(readFileSync(STATE, "utf8"))) : { note: "no local state yet" }, null, 1));
   } else if (cmd === "verify") {
     const r = verify(arg || "origin/main");
-    console.log(r.ok ? `ok: ${r.lines} changed lines` : "FAILED: " + r.reasons.join("; "));
+    console.log(r.ok ? `ok: ${r.kind || "undo"}, ${r.lines} changed lines${r.approval ? ", needs approval" : ""}` : "FAILED: " + r.reasons.join("; "));
+    // tell the workflow what kind of change this is (performance changes must prove a measured gain)
+    if (process.env.GITHUB_OUTPUT) writeFileSync(process.env.GITHUB_OUTPUT, `area=${r.area || ""}\napproval=${r.approval ? "true" : "false"}\n`, { flag: "a" });
     process.exitCode = r.ok ? 0 : 1;
   } else {
     console.log("usage: node evolve/cli.mjs check | cycle [--dry] | status | verify <base-ref>");

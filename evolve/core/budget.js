@@ -6,6 +6,8 @@ export const today = (now) => new Date(now).toISOString().slice(0, 10);
 
 /** Roll the ledger over at UTC midnight, keeping past days for the dashboard. */
 export function rollLedger(state, now) {
+  const mo = today(now).slice(0, 7);
+  if (state.month?.id !== mo) state.month = { id: mo, usd: 0, calls: 0 };
   const d = today(now);
   if (state.ledger.day === d) return;
   if (state.ledger.day) state.days.unshift({ ...state.ledger });
@@ -27,6 +29,7 @@ export function canCall(state, cfg, model, inTok) {
   if (state.ledger.calls >= cfg.DAILY_CALL_LIMIT) return "daily call limit";
   const worst = price(model, inTok, cfg.MAX_OUTPUT_TOKENS);
   if (state.ledger.usd + worst > cfg.DAILY_USD_LIMIT) return "daily spend limit";
+  if ((state.month?.usd || 0) + worst > cfg.MONTHLY_USD_LIMIT) return "monthly spend limit";
   return "";
 }
 
@@ -35,7 +38,9 @@ export function bookCall(state, model, inTok, outTok) {
   state.ledger.calls++;
   state.ledger.inTok += inTok;
   state.ledger.outTok += outTok;
-  state.ledger.usd = Math.round((state.ledger.usd + price(model, inTok, outTok)) * 1e6) / 1e6;
+  const usd = price(model, inTok, outTok);
+  state.ledger.usd = Math.round((state.ledger.usd + usd) * 1e6) / 1e6;
+  if (state.month) { state.month.usd = Math.round((state.month.usd + usd) * 1e6) / 1e6; state.month.calls++; }
 }
 
 /** May a cycle run at all? */

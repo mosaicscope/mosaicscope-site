@@ -5,7 +5,7 @@ import { runChecks, ruleByKind } from "../core/rules.js";
 import { validateChange, changedLines } from "../core/validate.js";
 import { loadConfig, pathAllowed } from "../core/config.js";
 import { blankState } from "../core/state.js";
-import { priority, recordOutcome, scoreProposal, learned } from "../core/score.js";
+import { priority, recordOutcome, scoreProposal, learned, retired } from "../core/score.js";
 import { canCall, rollLedger } from "../core/budget.js";
 import { ask, parsePick } from "../core/agents.js";
 import { runCycle, applyControl } from "../core/cycle.js";
@@ -246,6 +246,7 @@ test("worker cycle: reads the repo, opens one PR on its own branch, never touche
     log.push(`${method} ${u.pathname}`);
     const path = u.pathname.replace("/repos/mosaicscope/mosaicscope-site", "");
     if (path === "/commits/main") return new Response("abc123");
+    if (path === "/commits/evolve-data") return new Response("", { status: 404 });
     if (method === "GET" && path.startsWith("/contents/")) {
       const p = path.slice(10);
       if (!(p in fs)) return new Response("", { status: 404 });
@@ -320,4 +321,164 @@ test("the weekly audit pushes its weakest area up the priority list", async () =
   io.audit = async () => ({ at: 5, scores: { performance: 0.8 } });
   await runCycle(io, cfg);
   assert.equal(io.state.audit.at, 5);
+});
+
+// ---- Evolution 3.0: probe, issues, learning, memory, security, features, cost ----
+import { classify, metricFor, critical } from "../core/issues.js";
+import { decayed, recordEffect, elo } from "../core/score.js";
+import { updateBacklog } from "../core/memory.js";
+import { scanSecurity, newFindings } from "../core/security.js";
+import { bookCall } from "../core/budget.js";
+
+const probeOf = (over = {}) => ({
+  at: 1000, target: "https://site", results: [
+    { page: "/", width: 390, status: 200, errors: [], consoleErrors: [], failed: [], requests: 6, ownBytes: 300,
+      perf: { lcpMs: 1200, cls: 0.13, tbtMs: 100, renderBlocking: 3, domNodes: 900, heapMB: 20, screens: 9 },
+      ui: { overflowPx: 0, smallTargets: [{ el: "nav.bar > a", w: 30, h: 13 }], smallText: [], lowContrast: [], noFocusStyle: ["nav.bar > a"] },
+      interactions: { clicked: 3, broken: [] }, ...over },
+  ],
+});
+const SITE3 = {
+  "index.html": '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width">\n<meta name="theme-color" content="#000">\n<meta name="description" content="x">\n<meta property="og:title" content="x">\n<meta property="og:image" content="x">\n<title>x</title>\n</head>\n<body>\n<header><nav class="bar"><a href="#a">a</a></nav></header>\n<main id="top"><h1>x</h1></main>\n</body>\n</html>\n',
+  "styles.css": "a { color: red; }\n:focus-visible { outline: 1px solid; }\n",
+};
+
+test("probe results are graded by severity; breakage is critical", () => {
+  const ok = classify(probeOf());
+  assert.ok(ok.some((i) => i.kind === "small-target" && i.severity === "medium" && i.fixable));
+  assert.ok(ok.some((i) => i.kind === "layout-shift"));
+  assert.equal(critical(ok).length, 0);
+  const broken = classify(probeOf({ errors: ["TypeError: x is undefined"], failed: [{ url: "https://site/main.js", own: true, why: "HTTP 404" }] }));
+  assert.equal(critical(broken).length, 2);
+  assert.ok(metricFor("ux", probeOf()) >= 2 && metricFor("perf", probeOf()) > 300 && metricFor("seo", probeOf()) === null);
+});
+
+test("probe-driven UI fixes: detected from live data, fixed by appended CSS, gone afterwards", () => {
+  const fs = { ...SITE3, "@probe": JSON.stringify(probeOf()) };
+  const r = runChecks(fs);
+  const tap = r.findings.find((f) => f.kind === "tap-target"), foc = r.findings.find((f) => f.kind === "focus-style");
+  assert.ok(tap && foc);
+  for (const f of [tap, foc]) for (const rem of ruleByKind(f.kind).remedies) {
+    const ch = rem.apply(fs, f);
+    const v = validateChange(fs, ch, f, cfg, rem);
+    assert.ok(v.ok, `${f.kind}/${rem.id}: ${v.reasons}`);
+    assert.ok(ch.text.startsWith(fs["styles.css"].trimEnd()), "append-only");
+  }
+  // a selector that could inject CSS is ignored
+  const evil = probeOf({ ui: { overflowPx: 0, smallTargets: [{ el: "a{} body{display:none", w: 1, h: 1 }], smallText: [], lowContrast: [], noFocusStyle: [] } });
+  assert.equal(runChecks({ ...SITE3, "@probe": JSON.stringify(evil) }).findings.filter((f) => f.kind === "tap-target").length, 0);
+});
+
+test("micro-features need evidence, declare their extra tags, and always need approval", () => {
+  const page = SITE3["index.html"];
+  const f = runChecks({ "index.html": page }).findings.find((x) => x.kind === "feature-skip-link");
+  assert.ok(f, "page with a header and main but no skip link");
+  const rem = ruleByKind("feature-skip-link").remedies[0];
+  const ch = rem.apply({ "index.html": page }, f);
+  assert.ok(validateChange({ "index.html": page }, ch, f, cfg, rem).ok);
+  assert.ok(!validateChange({ "index.html": page }, ch, f, cfg, null).ok, "without the remedy's allowance the new tags are refused");
+  assert.equal(ruleByKind("feature-skip-link").approval, true);
+  const withSkip = page.replace("<body>", '<body>\n<a class="skip" href="#top">Skip to the work</a>');
+  assert.equal(runChecks({ "index.html": withSkip }).findings.filter((x) => x.kind === "feature-skip-link").length, 0, "no evidence, no feature");
+  const short = probeOf({ perf: { ...probeOf().results[0].perf, screens: 2 } });
+  assert.equal(runChecks({ "index.html": page.replace('id="top"', 'id="m"'), "@probe": JSON.stringify(short) }).findings.filter((x) => x.kind === "feature-back-to-top").length, 0);
+});
+
+test("security guard finds secrets and unsafe DOM, and validation blocks new ones", () => {
+  const found = scanSecurity({
+    "a.js": "const k = 'ghp_" + "a".repeat(36) + "';\neval(userInput);\nel.innerHTML = data;\n",
+    ".github/workflows/x.yml": "on: pull_request_target\nsteps:\n - uses: actions/checkout@v4\n",
+    "page.html": '<img src="http://x/y.png">',
+  });
+  const kinds = found.map((f) => f.kind);
+  for (const k of ["secret:github-token", "dom:eval", "dom:inner-html", "workflow:pr-target-checkout", "insecure-url"]) assert.ok(kinds.includes(k), k);
+  assert.equal(newFindings(found, found).length, 0);
+  assert.equal(scanSecurity({ "b.js": "el.innerHTML = '';\n" }).length, 0, "a constant string is fine");
+  const fs = files();
+  const f = runChecks(fs).findings.find((x) => x.kind === "img-alt");
+  const sneaky = { path: "index.html", text: fs["index.html"].replace('<img src="photos', '<img alt="" data-k="sk-ant-' + "x".repeat(30) + '" src="photos') };
+  assert.ok(!validateChange(fs, sneaky, f, cfg).ok);
+});
+
+test("learning: outcomes fade, effects are measured, ratings move", () => {
+  const s = blankState();
+  assert.equal(decayed({ ok: 4, fail: 0, at: 0 }, 14 * 24 * 3600 * 1000).ok, 2);
+  const item = { kind: "tap-target", remedy: "a" };
+  assert.equal(recordEffect(s, item, 5, 3, 1), 1);
+  assert.ok(s.stats.kinds["tap-target"].effect > 0);
+  const f = runChecks({ ...SITE3, "@probe": JSON.stringify(probeOf()) }).findings.find((x) => x.kind === "tap-target");
+  const plain = blankState();
+  assert.ok(priority(f, s) > priority(f, plain), "a fix that measurably helped ranks higher");
+  for (let i = 0; i < 3; i++) recordEffect(s, { kind: "img-lazy", remedy: "a" }, 10, 10, 1);
+  assert.ok(retired(s.stats.fixes["img-lazy:a"]), "a remedy that never moves the numbers is retired");
+  elo(s, "optimiser", "innovator");
+  assert.ok(s.agents.optimiser.elo > 1000 && s.agents.innovator.elo < 1000);
+});
+
+test("cycle: a new probe measures landed changes and a critical failure pauses and undoes", async () => {
+  const io = fakeIo();
+  Object.assign(io.fs, { "@probe": JSON.stringify(probeOf()) });
+  await runCycle(io, cfg);
+  const p = io.state.pending;
+  assert.ok(p && "before" in p);
+  merge(io, 1);
+  io.tick();
+  await runCycle(io, cfg);
+  assert.equal(io.state.history[0].outcome, "accepted");
+  // a later probe: the site now throws on load
+  const undone = [];
+  io.revert = async (acc) => { undone.push(acc.ref); return { ref: "#50" }; };
+  io.fs["@probe"] = JSON.stringify({ ...probeOf({ errors: ["ReferenceError: boom"] }), at: io.now() + 1 });
+  io.tick();
+  const r = await runCycle(io, cfg);
+  assert.match(r.result, /critical failure: paused, undo #50 opened/);
+  assert.equal(io.state.mode, "tripped");
+  assert.deepEqual(undone, ["#1"]);
+  assert.ok(io.state.issues.some((i) => i.severity === "critical"));
+  assert.ok(io.state.backlog.some((b) => b.severity === "critical"));
+});
+
+test("strategic memory: one deduplicated, ranked backlog that forgets what's fixed", () => {
+  const s = blankState();
+  const fs = files();
+  const r = runChecks(fs);
+  updateBacklog(s, { findings: [...r.findings, ...r.findings], weaknesses: [], issues: classify(probeOf()), security: [] }, 1000);
+  const n = s.backlog.length;
+  assert.equal(new Set(s.backlog.map((b) => b.id)).size, n, "no duplicates");
+  assert.ok(s.backlog[0].rank >= s.backlog[n - 1].rank);
+  updateBacklog(s, { findings: r.findings.slice(1), weaknesses: [], issues: [], security: [] }, 2000);
+  assert.ok(s.backlog.length < n, "fixed problems drop out");
+  assert.equal(s.backlog.find((b) => b.id === r.findings[1].fp).firstSeen, 1000, "first seen is kept");
+});
+
+test("zero-waste: cached answers, a monthly ceiling, and no pointless proposals", async () => {
+  const s = blankState();
+  rollLedger(s, Date.now());
+  let calls = 0;
+  const llm = async () => { calls++; return { text: "1a", inTok: 50, outTok: 2 }; };
+  const options = [{ finding: { kind: "img-lazy", path: "index.html", line: 9 }, area: "perf", remedies: ruleByKind("img-lazy").remedies }];
+  await ask("innovator", options, s, cfg, llm);
+  const again = await ask("innovator", options, s, cfg, llm);
+  assert.equal(calls, 1);
+  assert.equal(again.via, "cache");
+  s.month.usd = cfg.MONTHLY_USD_LIMIT;
+  assert.match(canCall(s, cfg, cfg.MODEL_CHEAP, 50), /monthly/);
+  const before = s.month.calls;
+  bookCall(s, cfg.MODEL_CHEAP, 100, 2);
+  assert.equal(s.month.calls, before + 1);
+  const io = fakeIo();
+  const strict = loadConfig({ EVOLVE_MIN_SCORE: "1000" });
+  assert.equal((await runCycle(io, strict)).result, "nothing to improve");
+  assert.equal(io.calls, 0);
+});
+
+test("competition: the Optimiser doesn't copy A when a near-equal alternative exists", async () => {
+  const { heuristicPick } = await import("../core/agents.js");
+  const s = blankState();
+  const options = [
+    { finding: { kind: "blank-rel", path: "index.html", line: 1 }, area: "rel", remedies: ruleByKind("blank-rel").remedies },
+  ];
+  const first = heuristicPick("optimiser", options, s);
+  const second = heuristicPick("optimiser", options, s, first);
+  assert.notEqual(first.r.id, second.r.id);
 });

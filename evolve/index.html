@@ -71,6 +71,11 @@
   .spark { display: flex; align-items: end; gap: 2px; height: 36px; margin-top: 8px; }
   .spark i { flex: 1; background: var(--acid); min-height: 2px; opacity: .8; }
   .spark i.bad { background: var(--red); }
+  .sev { display: inline-block; min-width: 64px; font: 500 11px/1.6 var(--f-mono); text-transform: uppercase; }
+  .sev-critical { color: var(--red); font-weight: 700; } .sev-high { color: var(--red); } .sev-medium { color: var(--sodium); } .sev-low { color: var(--dim); }
+  .bar { height: 6px; background: var(--ink); border: 1px solid var(--line); margin-top: 4px; position: relative; }
+  .bar i { position: absolute; top: 0; bottom: 0; background: var(--acid); }
+  .bar i.neg { background: var(--red); }
   @media (prefers-reduced-motion: no-preference) { .pulse { animation: p 2s ease-in-out infinite; } @keyframes p { 50% { opacity: .45; } } }
 </style>
 </head>
@@ -108,6 +113,16 @@
   <section class="grid">
     <article class="card c6"><h2>Usage today</h2><div id="usage"></div></article>
     <article class="card c6"><h2>Website health</h2><div id="health"></div></article>
+  </section>
+
+  <section class="grid">
+    <article class="card c6"><h2>Live site: bugs, UI and speed</h2><div id="issues"></div></article>
+    <article class="card c6"><h2>Learning progress</h2><div id="learning"></div></article>
+  </section>
+
+  <section class="grid">
+    <article class="card c8"><h2>Strategic backlog</h2><div class="scroll" id="backlog"></div></article>
+    <article class="card c4"><h2>Security</h2><div id="security"></div></article>
   </section>
 
   <section class="grid">
@@ -183,7 +198,7 @@
         <div><dt>Out / call</dt><dd>${L.calls ? (L.outTok / L.calls).toFixed(1) : "–"}</dd></div>
         <div><dt>Cycles</dt><dd>${L.cycles || 0}<span class="dim">/${lim.cycles}</span></dd></div>
       </dl>
-      <p class="mono dim" style="margin-top:12px">Limits: ${lim.maxIn} in / ${lim.maxOut} out tokens per call · ${lim.failures} failures in a row trips the engine · ${lim.changes} change per cycle · every ${lim.interval}s.
+      <p class="mono dim" style="margin-top:12px">This month: ${usd(s.month?.usd)} of ${usd(lim.monthUsd)} · ${s.month?.calls || 0} calls.<br>Limits: ${lim.maxIn} in / ${lim.maxOut} out tokens per call · ${lim.failures} failures in a row trips the engine · ${lim.changes} change per cycle · every ${lim.interval}s.
       ${(s.days || []).slice(0, 7).map((d) => `<br>${esc(d.day)}: ${d.calls} calls, ${usd(d.usd)}, ${d.cycles} cycles`).join("")}</p>`;
 
     const hs = (s.health || []).slice(0, 24).reverse();
@@ -198,6 +213,37 @@
     $("health").innerHTML += au && au.scores ? `<h2 style="margin-top:18px">Weekly audit</h2>
       <dl>${[["Speed", au.scores.performance], ["Access", au.scores.accessibility], ["Practices", au.scores.bestPractices], ["SEO", au.scores.seo]].map(([k, v]) => `<div><dt>${k}</dt><dd class="${v >= .9 ? "ok" : v >= .7 ? "warn" : "bad"}">${v == null ? "–" : Math.round(v * 100)}</dd></div>`).join("")}</dl>
       <p class="mono dim" style="margin-top:10px">${au.metrics ? `LCP ${Math.round(au.metrics.lcpMs)} ms · CLS ${au.metrics.cls} · TBT ${Math.round(au.metrics.tbtMs)} ms · ` : ""}Lighthouse mobile, ${ago(au.at)}. Low areas get pushed up the engine's priorities.</p>` : '<p class="mono dim" style="margin-top:14px">No weekly audit yet (the evolve-audit workflow runs on Sundays, or start it by hand in GitHub Actions).</p>';
+
+    // live site: graded issues from the browser probe, plus measured speed
+    const iss = s.issues || [], pr0 = s.probe;
+    const sevCount = ["critical", "high", "medium", "low"].map((k) => [k, iss.filter((i) => i.severity === k).length]);
+    $("issues").innerHTML = s.probeAt ? `
+      <p class="mono">${sevCount.map(([k, n]) => `<span class="sev sev-${k}">${n} ${k}</span>`).join(" ")}</p>
+      ${pr0?.mobile ? `<dl style="margin:10px 0 12px"><div><dt>Phone LCP</dt><dd>${pr0.mobile.lcpMs} ms</dd></div><div><dt>Layout shift</dt><dd class="${pr0.mobile.cls > .1 ? "warn" : "ok"}">${pr0.mobile.cls}</dd></div><div><dt>Blocked</dt><dd>${pr0.mobile.tbtMs} ms</dd></div><div><dt>Own KB</dt><dd>${pr0.mobile.kb}</dd></div><div><dt>JS heap</dt><dd>${pr0.mobile.heapMB ?? "–"} MB</dd></div></dl>` : ""}
+      <ul class="plain">${iss.slice(0, 10).map((i) => `<li><span class="sev sev-${esc(i.severity)}">${esc(i.severity)}</span> ${esc(i.kind)} <span class="mono dim">${esc(i.page)} · ${esc(i.detail)}${i.fixable ? " · engine can fix" : ""}</span></li>`).join("")}</ul>
+      <p class="mono dim">Headless Chrome probe of the live site, ${ago(s.probeAt)}. Runs after every deploy and every 6 h. Critical problems pause the engine and undo its last change.</p>`
+      : '<p class="empty">No probe yet. The evolve-probe workflow runs after the next deploy to main (or start it in GitHub Actions).</p>';
+
+    // learning: what outcomes and measurements have taught it
+    const kinds = Object.entries(s.stats?.kinds || {}).sort((x, y) => (y[1].ok + y[1].fail) - (x[1].ok + x[1].fail)).slice(0, 10);
+    const A2 = s.agents || {};
+    const areaLine = (a) => Object.entries(a?.areas || {}).map(([k, v]) => `${esc(k)} ${Math.round((v.ok / Math.max(0.01, v.ok + v.fail)) * 100)}%`).join(" · ") || "no record yet";
+    $("learning").innerHTML = `
+      <dl style="grid-template-columns:repeat(2,1fr);margin-bottom:12px"><div><dt>Innovator rating</dt><dd>${A2.innovator?.elo ?? 1000}</dd></div><div><dt>Optimiser rating</dt><dd>${A2.optimiser?.elo ?? 1000}</dd></div></dl>
+      <p class="mono dim">Innovator lands: ${areaLine(A2.innovator)}<br>Optimiser lands: ${areaLine(A2.optimiser)}</p>
+      ${kinds.length ? `<table><thead><tr><th>Check</th><th>Landed / failed</th><th>Measured effect</th></tr></thead><tbody>${kinds.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="mono">${v.ok} / ${v.fail}</td><td>${v.measured ? `<span class="mono ${v.effect > 0 ? "ok" : v.effect < 0 ? "bad" : "dim"}">${v.effect > 0 ? "+" : ""}${v.effect} (${v.measured}×)</span><div class="bar"><i class="${v.effect < 0 ? "neg" : ""}" style="left:${v.effect < 0 ? 50 + v.effect * 50 : 50}%;width:${Math.abs(v.effect) * 50}%"></i></div>` : '<span class="dim mono">not measured yet</span>'}</td></tr>`).join("")}</tbody></table>` : '<p class="empty">Nothing learned yet.</p>'}
+      <p class="mono dim" style="margin-top:10px">Outcomes fade with a two-week half-life. Measured effects compare probes before and after each change landed. ${s.cacheSize || 0} cached agent answers.</p>`;
+
+    const bl = s.backlog || [];
+    $("backlog").innerHTML = bl.length ? `<table><thead><tr><th>Rank</th><th>Problem</th><th>Status</th></tr></thead><tbody>${bl.slice(0, 15).map((b) => `<tr>
+      <td class="mono">${b.rank}</td><td><span class="sev sev-${esc(b.severity)}">${esc(b.severity)}</span> ${esc(b.title)}<br><span class="mono dim">${esc(b.where)} · ${esc(b.source)} · seen since ${ago(b.firstSeen)}${b.lastOutcome ? " · last try " + esc(b.lastOutcome) : ""}</span></td>
+      <td class="mono ${b.status === "fixable" ? "ok" : "warn"}">${esc(b.status)}</td></tr>`).join("")}</tbody></table>` : '<p class="empty">Backlog is empty.</p>';
+
+    const sec = s.security;
+    $("security").innerHTML = sec ? `<p class="mono">${["critical", "high", "medium", "low"].map((k) => `<span class="sev sev-${k}">${sec.counts?.[k] ?? 0} ${k}</span>`).join(" ")}</p>
+      ${sec.deps ? `<p class="mono dim">Dependencies: ${esc(JSON.stringify(sec.deps))}</p>` : ""}
+      <ul class="plain">${(sec.top || []).map((f) => `<li><span class="sev sev-${esc(f.severity)}">${esc(f.severity)}</span> ${esc(f.kind)} <span class="mono dim">${esc(f.path)}:${f.line}</span></li>`).join("") || '<li class="dim">Nothing above low.</li>'}</ul>
+      <p class="mono dim">Scanned ${ago(sec.at)}. CI blocks any change that adds a high or critical finding.</p>` : '<p class="empty">No scan yet (runs with the probe).</p>';
 
     const props = s.proposals || [];
     $("proposals").innerHTML = props.length ? `<table><thead><tr><th>When</th><th>Innovator</th><th>Optimiser</th><th>Winner</th></tr></thead><tbody>${props.map((x) => `<tr>

@@ -34,11 +34,17 @@ jobs:
             };
             require("fs").writeFileSync("audit.json", JSON.stringify(out, null, 1));
             console.log(JSON.stringify(out.scores));'
-      - name: Save to evolve-data
+      - name: Save to evolve-data (keeps the probe's files)
         run: |
-          mkdir out && mv audit.json out/
-          cd out
-          git init -q -b evolve-data
-          git config user.name "evolve-audit"; git config user.email "evolve-audit@users.noreply.github.com"
-          git add audit.json && git commit -qm "audit $(date -u +%F)"
-          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" evolve-data
+          git config --global user.name "evolve-audit"; git config --global user.email "evolve-audit@users.noreply.github.com"
+          url="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          for i in 1 2 3; do
+            rm -rf data
+            if git clone -q --depth 1 --branch evolve-data "$url" data 2>/dev/null; then :; else mkdir data && git -C data init -q -b evolve-data && git -C data remote add origin "$url"; fi
+            cp audit.json data/
+            git -C data add audit.json
+            git -C data commit -qm "audit $(date -u +%F)" || exit 0
+            git -C data push -q origin evolve-data && exit 0
+            sleep $((i * 5))
+          done
+          exit 1

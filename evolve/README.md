@@ -55,6 +55,34 @@ It also reports things it won't fix (in-page links to missing ids, skipped headi
 
 Add a check by adding a rule to `core/rules.js` with its remedies; the test suite runs every remedy through validation.
 
+## Evolution 3.0: the browser probe, learning, memory, security
+
+The Cloudflare Worker can't run a browser, so anything that needs one runs in GitHub Actions. The results go to the `evolve-data` branch, which the Worker reads every cycle (one tiny request).
+
+| Part | What it does | Where |
+|---|---|---|
+| **Browser probe** | Headless Chrome at 390 px and 1280 px on `/`, `/house/` and `/404.html`. It records page errors, console errors and failed requests, clicks every button and watches for new errors, and measures requests, KB, render-blocking files, LCP, CLS, long-task time, JS heap and DOM size. It also checks for horizontal overflow, tap targets under 24 px, text under 12 px, low contrast and invisible keyboard focus. | `evolve/probe.mjs`; `evolve-probe` workflow after every deploy and every 6 h |
+| **Issues** | Probe results are graded critical / high / medium / low, and marked fixable or needs a person. | `core/issues.js` |
+| **Critical recovery** | A critical issue on the live site (JS error on load, missing own JS/CSS, site down) pauses the engine and opens an undo PR for its latest change. | `core/cycle.js` |
+| **UI fixes** | Probe-driven rules: a layout-neutral tap-target fix (padding plus matching negative margin) and focus outlines. Both are append-only CSS with a marker comment so they're never repeated. | `core/rules.js` |
+| **Visual / performance / bug gate** | CI serves the base and the change side by side in Chrome. The change fails if it adds errors or failed requests, adds UI issues, adds requests, gets heavier, adds render-blocking files or layout shift, moves any text (animated text is filtered out by loading the base twice), or changes over 2% of pixels (15% for features). Before/after screenshots are uploaded as the PR's preview. | `probe.mjs gate`; `evolve-ci` |
+| **Measured, not assumed** | A performance change must show a measured gain in the gate. After any change lands, the next probe measures it again: the perf cost metric (KB, render-blocking, CLS) or the UI-issue count. | `metricFor`, `recordEffect` |
+| **Learning** | Landed/failed counts fade with a 14-day half-life. Measured effects raise or sink a fix type's priority. A remedy that never moves the numbers 3 times is retired. Each agent's own success per area steers its own picks. A head-to-head Elo rating moves on real outcomes. | `core/score.js` |
+| **Competition rules** | The Optimiser is told to pick differently from A, and its local stand-in avoids A's pick when a near-equal option exists. Copying A earns nothing. Proposals scoring under `MIN_SCORE` are never offered. Rewards are capped and come only from CI, merges and probes, never from the agents. | `core/agents.js`, `core/cycle.js` |
+| **Strategic memory** | One deduplicated backlog from checks, probe and security. It keeps first-seen dates, links each item to the latest attempt, ages out what's fixed or stale, and slowly raises long-unresolved items. Agents only ever see the top 5. | `core/memory.js` |
+| **Micro-features** | Offered only on evidence: a skip link for a page with a header and `<main>` but none, and a back-to-top link for a page over 6 phone screens long. Each declares exactly which extra tags it adds and is marked `[needs approval]`. CI never auto-merges one; you approve it from the screenshots and the Cloudflare preview. | `core/rules.js` |
+| **Security guard** | Scans for leaked keys (GitHub, Anthropic, OpenAI, AWS, private keys, Slack, Cloudflare), eval / new Function / document.write / string timers / innerHTML, http:// assets, tab-nabbing, risky workflow patterns, and unauthenticated writes in functions. Every engine edit is re-scanned. CI fails any PR that adds a high or critical finding. `npm audit` of `game/` runs daily. | `core/security.js`, `security.mjs` |
+| **Zero-waste AI** | Identical questions reuse a cached answer for free. There's a monthly ceiling (`EVOLVE_MONTHLY_USD_LIMIT`, default $2) on top of the daily one. Nothing is re-read while the commit and the probe are unchanged. | `core/agents.js`, `core/budget.js` |
+| **CI exactness** | `verify` only passes a diff that is byte-for-byte what one of the engine's own remedies produces, so hand edits on an `evolve/*` branch fail. | `cli.mjs verify` |
+
+Running it locally with the full browser gate:
+
+```sh
+node evolve/probe.mjs report . probe.json      # probe a folder (or a URL)
+EVOLVE_PROBE=probe.json EVOLVE_LOCAL_GATE=1 EVOLVE_CYCLE_DEADLINE_MS=300000 node evolve/cli.mjs cycle
+node evolve/security.mjs scan
+```
+
 ## Hard limits and safety
 
 Defaults are in `core/config.js`; override any of them with an `EVOLVE_*` variable on the Worker. Budgets are checked **before** each call, using the worst-case cost of the call. Each call is then booked with the token counts the API reports.
@@ -64,6 +92,8 @@ Defaults are in `core/config.js`; override any of them with an `EVOLVE_*` variab
 | `EVOLVE_INTERVAL_SECONDS` | 120 |
 | `EVOLVE_MAX_INPUT_TOKENS` / `EVOLVE_MAX_OUTPUT_TOKENS` | 400 / 8 per call |
 | `EVOLVE_DAILY_USD_LIMIT` | 0.10 (estimated) |
+| `EVOLVE_MONTHLY_USD_LIMIT` | 2.00 |
+| `EVOLVE_MIN_SCORE` | 4: weaker proposals are never offered |
 | `EVOLVE_DAILY_CALL_LIMIT` | 200 |
 | `EVOLVE_DAILY_CYCLE_LIMIT` | 720 |
 | `EVOLVE_MAX_CHANGES_PER_CYCLE` / `EVOLVE_MAX_OPEN_CHANGES` | 1 / 1 |

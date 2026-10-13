@@ -20,7 +20,7 @@ export async function onRequestGet({ env }) {
     nextCycle: Math.ceil((now + 1) / every) * every, // the cron fires on every even minute
     control: control || null,
     limits: {
-      interval: cfg.INTERVAL_SECONDS, maxIn: cfg.MAX_INPUT_TOKENS, maxOut: cfg.MAX_OUTPUT_TOKENS, usd: cfg.DAILY_USD_LIMIT,
+      interval: cfg.INTERVAL_SECONDS, maxIn: cfg.MAX_INPUT_TOKENS, maxOut: cfg.MAX_OUTPUT_TOKENS, usd: cfg.DAILY_USD_LIMIT, monthUsd: cfg.MONTHLY_USD_LIMIT,
       calls: cfg.DAILY_CALL_LIMIT, cycles: cfg.DAILY_CYCLE_LIMIT, failures: cfg.MAX_CONSECUTIVE_FAILURES, changes: cfg.MAX_CHANGES_PER_CYCLE,
     },
     state: state ? publicView(state) : null,

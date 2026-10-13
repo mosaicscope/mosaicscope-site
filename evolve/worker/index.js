@@ -61,12 +61,16 @@ export function workerIo(env, fetchImpl = fetch) {
       // one tiny request: the head commit. Same head as last scan = nothing to re-read.
       const r = await gh(`/commits/${branch}`, { headers: { Accept: "application/vnd.github.sha" } });
       head = (await r.text()).trim();
-      return Object.fromEntries(READ_PATHS.map((p) => [p, head]));
+      // plus the probe and security results the workflows keep on the evolve-data branch
+      const d = await gh(`/commits/evolve-data`, { headers: { Accept: "application/vnd.github.sha" } });
+      const data = d.ok ? (await d.text()).trim() : "";
+      return { ...Object.fromEntries(READ_PATHS.map((p) => [p, head])), ...(data ? { "@probe": data, "@security": data } : {}) };
     },
     async readFiles(paths) {
       const out = {};
       await Promise.all(paths.map(async (p) => {
-        const r = await gh(`/contents/${p}?ref=${head || branch}`, { headers: { Accept: "application/vnd.github.raw+json" } });
+        const data = { "@probe": "probe.json", "@security": "security.json" }[p];
+        const r = await gh(data ? `/contents/${data}?ref=evolve-data` : `/contents/${p}?ref=${head || branch}`, { headers: { Accept: "application/vnd.github.raw+json" } });
         if (r.ok) out[p] = await r.text();
       }));
       return out;
@@ -83,6 +87,8 @@ export function workerIo(env, fetchImpl = fetch) {
           body: `Automatic change from the MosaicScope evolution engine.\n\n- Check: \`${p.kind}\` at \`${p.path}:${p.line}\`\n- Fix: ${p.label}\n- Won by: **${p.agent}** (score ${p.score})\n- Changed lines: ${p.lines}\n\nCI (\`evolve-ci\`) re-validates this diff, runs the engine tests, and closes this PR and deletes the branch if anything fails.`,
         }) })).json();
         if (!pr.number) throw new Error("PR was not created");
+        // features never merge themselves: a person approves them from the PR's preview
+        if (p.approval) await gh(`/issues/${pr.number}/labels`, { method: "POST", body: JSON.stringify({ labels: ["evolve:needs-approval"] }) }).catch(() => {});
         return { ref: `#${pr.number}`, url: pr.html_url, pr: pr.number, branch: name };
       } catch (e) {
         await gh(`/git/refs/heads/${name}`, { method: "DELETE" }).catch(() => {}); // roll back the branch

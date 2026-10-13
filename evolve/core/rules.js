@@ -6,6 +6,12 @@
 // complexity (cost to review), risk (chance of a visible regression).
 
 import { scanTags, addAttr, setAttr, lineOf, hash, textContent, innerOf } from "./html.js";
+import { classify } from "./issues.js";
+
+// The latest browser-probe report travels with the files as "@probe" (JSON), so probe-driven
+// rules work the same way as the static ones and are re-checked the same way after an edit.
+const probeOf = (files) => { try { return files["@probe"] ? JSON.parse(files["@probe"]) : null; } catch { return null; } };
+const SAFE_SEL = /^[#.\w\s>:-]{1,80}$/;
 
 const SITE = "https://mosaicscope.pages.dev";
 const isHtml = (p) => p.endsWith(".html");
@@ -330,6 +336,85 @@ export const RULES = [
     },
     remedies: [
       { id: "a", label: "calm animations when reduced motion is on", meta: { benefit: 2, perf: 1, a11y: 3, rel: 0, complexity: 1, risk: 1 }, apply: (fs, f) => appendCss(fs, f.path, "@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }") },
+    ],
+  },
+
+  {
+    kind: "tap-target", area: "ux", weight: 2, label: "tap target smaller than 24px on phones",
+    detect(files) {
+      const css = files["styles.css"];
+      if (css == null) return [];
+      const seen = new Map();
+      for (const i of classify(probeOf(files)).filter((x) => x.kind === "small-target" && SAFE_SEL.test(x.data.sel))) {
+        if (css.includes(`/* evolve:tap ${i.data.sel} */`)) continue;
+        const cur = seen.get(i.data.sel);
+        if (!cur || i.data.h < cur.data.h) seen.set(i.data.sel, { kind: this.kind, path: "styles.css", line: 1, fp: `tap-target|${i.data.sel}`, data: { sel: i.data.sel, h: i.data.h, page: i.page } });
+      }
+      return [...seen.values()];
+    },
+    remedies: [
+      // padding grows the tap area; the matching negative margin keeps everything around it where it was
+      { id: "a", label: "grow the tap area without moving anything", meta: { benefit: 2, perf: 0, a11y: 2, rel: 0, complexity: 1, risk: 1 }, apply: (fs, f) => { const n = Math.max(1, Math.ceil((24 - f.data.h) / 2)); return appendCss(fs, f.path, `/* evolve:tap ${f.data.sel} */\n${f.data.sel} { padding-block: ${n}px; margin-block: -${n}px; }`); } },
+      { id: "b", label: "min-height 24px", meta: { benefit: 2, perf: 0, a11y: 3, rel: 0, complexity: 1, risk: 2 }, apply: (fs, f) => appendCss(fs, f.path, `/* evolve:tap ${f.data.sel} */\n${f.data.sel} { min-height: 24px; display: inline-flex; align-items: center; }`) },
+    ],
+  },
+  {
+    kind: "focus-style", area: "a11y", weight: 3, label: "keyboard focus is invisible on an element",
+    detect(files) {
+      const css = files["styles.css"];
+      if (css == null) return [];
+      return [...new Set(classify(probeOf(files)).filter((x) => x.kind === "no-focus-style" && SAFE_SEL.test(x.data.sel)).map((x) => x.data.sel))]
+        .filter((sel) => !css.includes(`/* evolve:focus ${sel} */`))
+        .map((sel) => ({ kind: this.kind, path: "styles.css", line: 1, fp: `focus-style|${sel}`, data: { sel } }));
+    },
+    remedies: [
+      { id: "a", label: "outline on :focus-visible", meta: { benefit: 2, perf: 0, a11y: 3, rel: 0, complexity: 0, risk: 0 }, apply: (fs, f) => appendCss(fs, f.path, `/* evolve:focus ${f.data.sel} */\n${f.data.sel}:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }`) },
+    ],
+  },
+  // ---- micro-features: only offered when evidence says visitors need them; never auto-merged
+  {
+    kind: "feature-skip-link", area: "feature", weight: 2, approval: true, label: "keyboard users can't skip past the header",
+    detect(files) {
+      const out = [];
+      for (const [p, text] of Object.entries(files)) if (isHtml(p) && !isNoindex(text)) {
+        const tags = scanTags(text);
+        const main = tags.find((t) => t.name === "main" && t.attrs.id);
+        const nav = tags.some((t) => t.name === "nav" || t.name === "header");
+        const skip = tags.some((t) => t.name === "a" && /^#/.test(t.attrs.href || "") && /skip/i.test(t.attrs.class || "") ) || /skip to/i.test(text);
+        if (main && nav && !skip) out.push({ kind: this.kind, path: p, line: lineOf(text, main.start), fp: `feature-skip-link|${p}`, data: { id: main.attrs.id } });
+      }
+      return out;
+    },
+    remedies: [
+      { id: "a", label: "visually hidden skip link, shown on focus", meta: { benefit: 3, perf: 0, a11y: 3, rel: 0, complexity: 1, risk: 1, allow: { a: 1, style: 1 } }, apply: (fs, f) => {
+        const text = fs[f.path], body = scanTags(text).find((t) => t.name === "body");
+        if (!body || !/^[\w-]+$/.test(f.data.id)) return null;
+        const snip = `\n<!-- evolve:feature skip-link --><a class="evolve-skip" href="#${f.data.id}">Skip to content</a><style>.evolve-skip{position:absolute;left:-9999px}.evolve-skip:focus{left:16px;top:16px;z-index:1000;background:#eee4d3;color:#0e0b0a;padding:8px 12px}</style>`;
+        return { path: f.path, text: text.slice(0, body.end) + snip + text.slice(body.end) };
+      } },
+    ],
+  },
+  {
+    kind: "feature-back-to-top", area: "feature", weight: 1, approval: true, label: "long page with no way back to the top",
+    detect(files) {
+      const probe = probeOf(files);
+      if (!probe) return [];
+      const out = [];
+      for (const r of probe.results || []) {
+        if (r.width > 500 || !(r.perf?.screens >= 6)) continue;
+        const p = r.page === "/" ? "index.html" : r.page.replace(/^\//, "").replace(/\/$/, "/index.html");
+        const text = files[p];
+        if (text == null || /href="#(top)?"[^>]*>[^<]*top/i.test(text) || text.includes('href="#top"') || out.some((o) => o.path === p)) continue;
+        out.push({ kind: this.kind, path: p, line: 1, fp: `feature-back-to-top|${p}`, data: { screens: r.perf.screens } });
+      }
+      return out;
+    },
+    remedies: [
+      { id: "a", label: "a 'back to top' link at the end", meta: { benefit: 2, perf: 0, a11y: 1, rel: 0, complexity: 1, risk: 1, allow: { p: 1, a: 1 } }, apply: (fs, f) => {
+        const text = fs[f.path];
+        if (!text.includes("</body>")) return null;
+        return { path: f.path, text: text.replace("</body>", '<!-- evolve:feature back-to-top --><p class="evolve-top"><a href="#">Back to top ↑</a></p>\n</body>') };
+      } },
     ],
   },
 ];
