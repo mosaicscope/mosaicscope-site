@@ -551,8 +551,8 @@ export class Diegetic {
   /** Stereo width: scales how far effects pan left and right (0 = centred, 1 = normal). */
   setWidth(w: number): void { this.width = Number.isFinite(w) ? Math.min(1, Math.max(0, w)) : 1; }
   /** Audio debug read-out: live one-shot voices by priority, the ambience gain now, and recent blips in the last second. */
-  debugStats(): { live: Record<Prio, number>; ambient: number; recentBlips: number; unheard: string[] } {
-    return { live: { ...this.liveBy }, ambient: this.amb.gain.value, recentBlips: this.voiceRecent.length, unheard: [...this.unheard].sort() };
+  debugStats(): { live: Record<Prio, number>; bus: number; ambient: number; recentBlips: number; unheard: string[] } {
+    return { live: { ...this.liveBy }, bus: this.input.gain.value, ambient: this.amb.gain.value, recentBlips: this.voiceRecent.length, unheard: [...this.unheard].sort() };
   }
   /** For the older effects in Audio.ts (impacts, gunfire): the same cap and spacing, with the slot freed after a short while. */
   allow(prio: Prio = "event"): boolean {
