@@ -4,9 +4,14 @@
  * painted once into a cached sprite; each frame only blits those plus the living things on top,
  * depth-sorted. Scale and camera are derived from the CSS size, so phones get a following camera
  * at a readable tile size instead of a tiny whole-room fit.
+ *
+ * Louis's warm cutaway look (art-requests/007, 009, 010): walnut wainscot and picture rails, thick cut-wall
+ * slabs, lamp light pools on a dark floor, per-plank wood, framed pictures, clutter on every surface, and
+ * chunky pixels (the cached layers are drawn at half resolution with smoothing off on roomy screens).
  */
 import { PROP_INFO, type InteriorDef, type Prop, type FloorMat } from "../content/interiors";
 import { fillTextured } from "./Textures";
+import { wallSconces, wallPictures } from "./interiorDecor";
 import { pose, solve, drawFigure } from "./StickFigure";
 import type { Character, Look } from "../entities/types";
 
@@ -63,6 +68,8 @@ export class InteriorView {
   private def: InteriorDef | null = null;
   private cssW = 300; private cssH = 200; private dpr = 1;
   s = 24; private Zh = 22;
+  /** Cached layers render at this fraction of device resolution; below 1 gives chunky pixels. */
+  private get pixF(): number { return this.s >= 30 ? 0.5 : 1; }
   private camX = 0; private camY = 0;
   private staticLayer: { cv: HTMLCanvasElement; ox: number; oy: number; w: number; h: number; day: boolean } | null = null;
   private sprites = new Map<number, Sprite>();
@@ -108,8 +115,8 @@ export class InteriorView {
     const pad = 12;
     const ox = H * s + pad, oy = WALL_H * Zh + pad;
     const w = Math.ceil((W + H) * s + pad * 2), h = Math.ceil((W + H) * s * 0.5 + WALL_H * Zh + pad * 2 + s * 0.4);
-    const cv = document.createElement("canvas"); cv.width = Math.ceil(w * d); cv.height = Math.ceil(h * d);
-    const g = cv.getContext("2d")!; g.scale(d, d);
+    const f = this.pixF, cv = document.createElement("canvas"); cv.width = Math.ceil(w * d * f); cv.height = Math.ceil(h * d * f);
+    const g = cv.getContext("2d")!; g.scale(d * f, d * f);
     const P = this.proj(ox, oy);
     this.paintFloor(g, P, def);
     this.paintWalls(g, P, def, ox, oy, day);
@@ -122,6 +129,7 @@ export class InteriorView {
     g.fillStyle = "#0b0908";
     g.beginPath(); const a = P(0, H, 0), b = P(W, H, 0), c = P(W, 0, 0);
     g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(c[0], c[1] + s * 0.28); g.lineTo(b[0], b[1] + s * 0.28); g.lineTo(a[0], a[1] + s * 0.28); g.closePath(); g.fill();
+    g.strokeStyle = "rgba(224,160,96,.55)"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.stroke();   // lit lip of the cut slab
     for (const zn of def.zones) {
       const quad = () => { g.beginPath(); const q = [P(zn.x, zn.y), P(zn.x + zn.w, zn.y), P(zn.x + zn.w, zn.y + zn.h), P(zn.x, zn.y + zn.h)]; g.moveTo(q[0][0], q[0][1]); for (let i = 1; i < 4; i++) g.lineTo(q[i][0], q[i][1]); g.closePath(); };
       g.save(); quad(); g.fillStyle = zn.color; g.fill(); quad(); g.clip();
@@ -148,11 +156,16 @@ export class InteriorView {
     const full = () => { g.beginPath(); const q = [P(x, y), P(x + w, y), P(x + w, y + h), P(x, y + h)]; g.moveTo(q[0][0], q[0][1]); for (let i = 1; i < 4; i++) g.lineTo(q[i][0], q[i][1]); g.closePath(); };
     switch (m) {
       case "tile":
-        for (let i = 0; i < w; i++) for (let j = 0; j < h; j++) if ((Math.floor(x + i) + Math.floor(y + j)) % 2 === 0) { g.beginPath(); const q = [P(x + i, y + j), P(x + i + 1, y + j), P(x + i + 1, y + j + 1), P(x + i, y + j + 1)]; g.moveTo(q[0][0], q[0][1]); for (let k = 1; k < 4; k++) g.lineTo(q[k][0], q[k][1]); g.closePath(); g.fillStyle = "rgba(255,255,255,.07)"; g.fill(); }
-        grid(1, "rgba(0,0,0,.14)"); break;
+        for (let i = 0; i < w; i++) for (let j = 0; j < h; j++) if ((Math.floor(x + i) + Math.floor(y + j)) % 2 === 0) { g.beginPath(); const q = [P(x + i, y + j), P(x + i + 1, y + j), P(x + i + 1, y + j + 1), P(x + i, y + j + 1)]; g.moveTo(q[0][0], q[0][1]); for (let k = 1; k < 4; k++) g.lineTo(q[k][0], q[k][1]); g.closePath(); g.fillStyle = "rgba(255,225,180,.11)"; g.fill(); }
+        grid(1, "rgba(0,0,0,.18)"); break;
       case "lino": grid(2, "rgba(0,0,0,.10)"); full(); fillTextured(g, "concrete", 0.35); break;
       case "carpet": full(); fillTextured(g, "concrete", 0.9); g.beginPath(); for (let j = 0; j < h; j += 3) line(x, y + j, x + w, y + j); g.strokeStyle = "rgba(0,0,0,.05)"; g.lineWidth = 1; g.stroke(); break;
       case "wood": {
+        for (let j = 0; j < h; j += 0.33) for (let i = -r() * 2; i < w; ) {   // every plank its own value, like the Zomboid floor
+          const len = 1.6 + r() * 2.2, a0 = Math.max(0, i), a1 = Math.min(w, i + len);
+          if (a1 > a0) { const q = [P(x + a0, y + j), P(x + a1, y + j), P(x + a1, y + Math.min(h, j + 0.33)), P(x + a0, y + Math.min(h, j + 0.33))]; g.beginPath(); g.moveTo(q[0][0], q[0][1]); for (let k = 1; k < 4; k++) g.lineTo(q[k][0], q[k][1]); g.closePath(); g.fillStyle = r() < 0.5 ? `rgba(255,190,120,${(r() * 0.1).toFixed(3)})` : `rgba(0,0,0,${(r() * 0.14).toFixed(3)})`; g.fill(); }
+          i += len;
+        }
         g.beginPath(); for (let j = 0; j <= h; j += 0.33) line(x, y + j, x + w, y + j); g.strokeStyle = "rgba(0,0,0,.22)"; g.lineWidth = 1; g.stroke();
         g.beginPath(); for (let j = 0; j < h; j += 0.33) { const k = r() * 3; for (let i = k; i < w; i += 2 + r() * 2) line(x + i, y + j, x + i, y + j + 0.33); } g.strokeStyle = "rgba(0,0,0,.18)"; g.stroke();
         full(); fillTextured(g, "brick", 0.18); break;
@@ -193,7 +206,8 @@ export class InteriorView {
 
   private paintWalls(g: CanvasRenderingContext2D, P: Proj, def: InteriorDef, _ox: number, _oy: number, day: boolean): void {
     const W = def.size.w, H = def.size.h, base = def.zones[0].color;
-    const wallN = mix(shade(base, 0.45), "#2a2630", 0.45), wallW = shade(wallN, 0.78);
+    const warm = def.light === "cool" ? 0.18 : def.light === "neon" ? 0.12 : 0.5;
+    const wallN = mix(mix(shade(base, 0.5), "#2a2630", 0.4), "#8a5a3a", warm), wallW = shade(wallN, 0.78);
     const quadW = (pts: [number, number][], col: string) => { g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); g.closePath(); g.fillStyle = col; g.fill(); };
     // north wall (y = 0)
     quadW([P(0, 0, 0), P(W, 0, 0), P(W, 0, WALL_H), P(0, 0, WALL_H)], wallN);
@@ -206,6 +220,23 @@ export class InteriorView {
     quadW([P(0, d0, 2.1), P(0, d1, 2.1), P(0, d1, WALL_H), P(0, d0, WALL_H)], wallW);
     quadW([P(0, 0, 0), P(0, H, 0), P(0, H, 0.18), P(0, 0, 0.18)], shade(wallW, 0.6));
     quadW([P(0, 0, WALL_H - 0.12), P(0, H, WALL_H - 0.12), P(0, H, WALL_H), P(0, 0, WALL_H)], shade(wallW, 1.3));
+    // walnut wainscot, a picture rail and panel lines on both back walls
+    const wood = mix(wallN, "#4a2a1e", 0.65);
+    for (const side of ["n", "w"] as const) {
+      const len = side === "n" ? W : H, at = (t: number, z: number) => (side === "n" ? P(t, 0, z) : P(0, t, z));
+      const strips: [number, number, string][] = [[0.18, 0.95, side === "n" ? wood : shade(wood, 0.78)], [0.95, 1.03, shade(wood, 1.5)], [1.03, 1.08, shade(wood, 0.55)]];
+      for (const [z0, z1, col] of strips) quadW([at(0, z0), at(len, z0), at(len, z1), at(0, z1)], col);
+      g.strokeStyle = "rgba(14,8,14,.35)"; g.lineWidth = 1; g.beginPath();
+      for (let t = 1; t < len; t += 1) { const a = at(t, 0.22), b = at(t, 0.92); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); }
+      g.stroke();
+    }
+    // the cut walls are thick slabs: their lit tops show
+    const T = 0.2;
+    quadW([P(0, -T, WALL_H), P(W, -T, WALL_H), P(W, 0, WALL_H), P(0, 0, WALL_H)], shade(wallN, 1.6));
+    quadW([P(-T, 0, WALL_H), P(0, 0, WALL_H), P(0, H, WALL_H), P(-T, H, WALL_H)], shade(wallW, 1.45));
+    // wall lamps and framed pictures
+    for (const sc of wallSconces(def)) this.sconce(g, P, sc.side, sc.at);
+    for (const pc of wallPictures(def)) this.picture(g, P, pc.side, pc.at, pc.len, pc.seed);
     // wall texture
     for (const [pts] of [[[P(0, 0, 0), P(W, 0, 0), P(W, 0, WALL_H), P(0, 0, WALL_H)]], [[P(0, 0, 0), P(0, H, 0), P(0, H, WALL_H), P(0, 0, WALL_H)]]] as [[number, number][]][]) {
       g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); g.closePath(); fillTextured(g, "concrete", 0.4);
@@ -221,6 +252,35 @@ export class InteriorView {
     g.font = "800 10px 'IBM Plex Mono', monospace"; g.fillStyle = "#6bff9a"; g.textAlign = "center"; g.fillText("EXIT", len / 2, -3); g.restore();
     // wall-mounted props
     for (const p of def.props) if (PROP_INFO[p.type].wall) this.wallProp(g, P, p, day);
+  }
+
+  /** A brass wall lamp with a pool of light thrown up and down the wall. */
+  private sconce(g: CanvasRenderingContext2D, P: Proj, side: "n" | "w", at: number): void {
+    g.save(); this.wallMatrix(g, P, side, at, 0.5, 1.5);
+    const cone = g.createLinearGradient(0, 0, 0, 40); cone.addColorStop(0, "rgba(255,196,110,.42)"); cone.addColorStop(1, "rgba(255,196,110,0)");
+    g.fillStyle = cone; g.beginPath(); g.moveTo(3, 0); g.lineTo(13, 0); g.lineTo(26, 40); g.lineTo(-10, 40); g.closePath(); g.fill();
+    const up = g.createLinearGradient(0, -2, 0, -22); up.addColorStop(0, "rgba(255,196,110,.3)"); up.addColorStop(1, "rgba(255,196,110,0)");
+    g.fillStyle = up; g.beginPath(); g.moveTo(4, -9); g.lineTo(12, -9); g.lineTo(20, -24); g.lineTo(-4, -24); g.closePath(); g.fill();
+    g.fillStyle = "#120d16"; g.fillRect(6, -2, 4, 3); g.fillRect(2, -13, 12, 12);
+    g.fillStyle = "#c98a3a"; g.beginPath(); g.moveTo(3, -2); g.lineTo(13, -2); g.lineTo(11, -11); g.lineTo(5, -11); g.closePath(); g.fill();
+    g.fillStyle = "#ffe3a0"; g.fillRect(6, -7, 4, 4);
+    g.restore();
+  }
+
+  /** A framed picture: dusk landscape, harbour or a head-and-shoulders silhouette, all hand-made shapes. */
+  private picture(g: CanvasRenderingContext2D, P: Proj, side: "n" | "w", at: number, len: number, seed: number): void {
+    const r = srand(seed), L = len * 32, h = 22 + Math.floor(r() * 8), kind = Math.floor(r() * 3);
+    g.save(); this.wallMatrix(g, P, side, at, len, 1.3);
+    g.fillStyle = "#120d16"; g.fillRect(0, -h - 3, L, h + 3);
+    g.fillStyle = ["#6a4428", "#3a2a22", "#7a5a30"][Math.floor(r() * 3)]; g.fillRect(1.5, -h - 1.5, L - 3, h);
+    const ix = 4, iw = L - 8, iy = -h + 1, ih = h - 6;
+    const sky = g.createLinearGradient(0, iy, 0, iy + ih); sky.addColorStop(0, kind === 2 ? "#3a3a4a" : "#3a2f5a"); sky.addColorStop(1, kind === 2 ? "#6a5a4a" : "#d08a5a");
+    g.fillStyle = sky; g.fillRect(ix, iy, iw, ih);
+    g.fillStyle = "#1a1626";
+    if (kind === 0) { g.beginPath(); g.moveTo(ix, iy + ih); g.lineTo(ix + iw * 0.3, iy + ih * 0.45); g.lineTo(ix + iw * 0.55, iy + ih * 0.75); g.lineTo(ix + iw * 0.8, iy + ih * 0.35); g.lineTo(ix + iw, iy + ih); g.closePath(); g.fill(); }
+    else if (kind === 1) { g.fillRect(ix, iy + ih * 0.7, iw, ih * 0.3); g.fillStyle = "#e8d8a8"; g.fillRect(ix + iw * 0.6, iy + ih * 0.2, 4, 4); g.fillStyle = "#1a1626"; g.fillRect(ix + iw * 0.25, iy + ih * 0.5, 2, ih * 0.25); g.beginPath(); g.moveTo(ix + iw * 0.25, iy + ih * 0.5); g.lineTo(ix + iw * 0.45, iy + ih * 0.7); g.lineTo(ix + iw * 0.25, iy + ih * 0.7); g.fill(); }
+    else { g.beginPath(); g.arc(ix + iw / 2, iy + ih * 0.42, ih * 0.22, 0, 6.283); g.fill(); g.fillRect(ix + iw * 0.28, iy + ih * 0.62, iw * 0.44, ih * 0.38); }
+    g.restore();
   }
 
   private wallProp(g: CanvasRenderingContext2D, P: Proj, p: Prop, day: boolean): void {
@@ -259,8 +319,8 @@ export class InteriorView {
     const minX = Math.min(...corners.map((c) => c[0])) - pad, maxX = Math.max(...corners.map((c) => c[0])) + pad;
     const minY = Math.min(...corners.map((c) => c[1])) - pad, maxY = Math.max(...corners.map((c) => c[1])) + pad;
     const w = Math.ceil(maxX - minX), h = Math.ceil(maxY - minY);
-    const cv = document.createElement("canvas"); cv.width = Math.ceil(w * d); cv.height = Math.ceil(h * d);
-    const g = cv.getContext("2d")!; g.scale(d, d);
+    const f = this.pixF, cv = document.createElement("canvas"); cv.width = Math.ceil(w * d * f); cv.height = Math.ceil(h * d * f);
+    const g = cv.getContext("2d")!; g.scale(d * f, d * f);
     this.paintProp(g, this.proj(-minX, -minY), p);
     sp = { cv, dx: minX, dy: minY, w, h }; this.sprites.set(i, sp);
     return sp;
@@ -270,12 +330,24 @@ export class InteriorView {
     const info = PROP_INFO[p.type], z1 = info.ht, c = p.color, s = this.s;
     const poly = (pts: [number, number][], fill: string, stroke?: string) => { g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); g.closePath(); g.fillStyle = fill; g.fill(); if (stroke) { g.strokeStyle = stroke; g.lineWidth = 1; g.stroke(); } };
     const box = (x: number, y: number, w: number, h: number, za: number, zb: number, col: string, top = 1.14) => {
-      poly([P(x, y + h, za), P(x + w, y + h, za), P(x + w, y + h, zb), P(x, y + h, zb)], shade(col, 0.84), "rgba(0,0,0,.35)");
-      poly([P(x + w, y + h, za), P(x + w, y, za), P(x + w, y, zb), P(x + w, y + h, zb)], shade(col, 0.6), "rgba(0,0,0,.35)");
-      poly([P(x, y, zb), P(x + w, y, zb), P(x + w, y + h, zb), P(x, y + h, zb)], shade(col, top), "rgba(255,255,255,.12)");
+      poly([P(x, y + h, za), P(x + w, y + h, za), P(x + w, y + h, zb), P(x, y + h, zb)], shade(col, 0.84), "rgba(14,8,14,.62)");
+      poly([P(x + w, y + h, za), P(x + w, y, za), P(x + w, y, zb), P(x + w, y + h, zb)], shade(col, 0.6), "rgba(14,8,14,.62)");
+      poly([P(x, y, zb), P(x + w, y, zb), P(x + w, y + h, zb), P(x, y + h, zb)], shade(col, top), "rgba(255,232,190,.3)");
+      const e0 = P(x, y + h, zb), e1 = P(x + w, y + h, zb), e2 = P(x + w, y, zb); g.strokeStyle = "rgba(255,226,170,.38)"; g.lineWidth = 1; g.beginPath(); g.moveTo(e0[0], e0[1] + 1); g.lineTo(e1[0], e1[1] + 1); g.lineTo(e2[0], e2[1] + 1); g.stroke();   // edge light on the top face
     };
     const topGrain = (x: number, y: number, w: number, h: number, z: number, a: number) => { g.beginPath(); const q = [P(x, y, z), P(x + w, y, z), P(x + w, y + h, z), P(x, y + h, z)]; g.moveTo(q[0][0], q[0][1]); for (let i = 1; i < 4; i++) g.lineTo(q[i][0], q[i][1]); g.closePath(); fillTextured(g, "concrete", a); };
     const shadow = (x: number, y: number, w: number, h: number) => poly([P(x - 0.05, y + 0.05, 0), P(x + w + 0.28, y + 0.05, 0), P(x + w + 0.28, y + h + 0.28, 0), P(x - 0.05, y + h + 0.28, 0)], "rgba(0,0,0,.22)");
+    const clutter = (cx: number, cy: number, cw: number, ch: number, z: number): void => {
+      const r = srand(hashSeed(Math.round(cx * 17), Math.round(cy * 17))), n = Math.min(6, Math.floor(cw * ch * 1.4) + 1);
+      for (let i = 0; i < n; i++) {
+        const a = P(cx + 0.2 + r() * Math.max(0.1, cw - 0.4), cy + 0.2 + r() * Math.max(0.1, ch - 0.4), z), k = r();
+        g.fillStyle = "#120d16";
+        if (k < 0.3) { const col = ["#3a7a4a", "#b86a2a", "#4a3a2a"][Math.floor(r() * 3)]; g.fillRect(a[0] - 2, a[1] - 8, 4, 8); g.fillRect(a[0] - 1, a[1] - 11, 2, 3); g.fillStyle = col; g.fillRect(a[0] - 1, a[1] - 7, 2, 6); }
+        else if (k < 0.55) { g.fillRect(a[0] - 3, a[1] - 6, 6, 6); g.fillStyle = "rgba(210,225,240,.8)"; g.fillRect(a[0] - 2, a[1] - 5, 4, 4); g.fillStyle = "#d8a050"; g.fillRect(a[0] - 2, a[1] - 3, 4, 2); }
+        else if (k < 0.8) { g.beginPath(); g.ellipse(a[0], a[1] - 1, 5, 2.4, 0, 0, 6.283); g.fill(); g.fillStyle = "#eee4d3"; g.beginPath(); g.ellipse(a[0], a[1] - 1.5, 3.8, 1.7, 0, 0, 6.283); g.fill(); }
+        else { g.fillRect(a[0] - 4, a[1] - 5, 8, 5); g.fillStyle = ["#a63030", "#2f5a6a", "#d8c8a0"][Math.floor(r() * 3)]; g.fillRect(a[0] - 3, a[1] - 4, 6, 3); }
+      }
+    };
     const { x, y, w, h } = p;
     const fS = (u: number, v: number) => P(x + u * w, y + h, v * z1);       // south face
     const fE = (u: number, v: number) => P(x + w, y + h - u * h, v * z1);   // east face
@@ -284,7 +356,7 @@ export class InteriorView {
     switch (p.type) {
       case "partition": box(x, y, w, h, 0, z1, c, 1.25); break;
       case "counter": case "desk": case "cabinet": {
-        box(x, y, w, h, 0, z1, c, 1.1); topGrain(x, y, w, h, z1, 0.5);
+        box(x, y, w, h, 0, z1, c, 1.1); topGrain(x, y, w, h, z1, 0.5); if (p.type !== "cabinet") clutter(x, y, w, h, z1);
         const L = Math.max(w, h) > 1.2; if (L && p.type !== "cabinet") { // panels
           const n = Math.floor(w); for (let i = 1; i < n; i++) { const a = fS(i / n, 0.05), b = fS(i / n, 0.8); g.strokeStyle = "rgba(0,0,0,.25)"; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
           const a = fS(0, 0.9), b = fS(1, 0.9); g.strokeStyle = "rgba(255,255,255,.18)"; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke();
@@ -324,7 +396,7 @@ export class InteriorView {
       }
       case "table": {
         for (const [lx, ly] of [[0.08, 0.08], [w - 0.08, 0.08], [0.08, h - 0.08], [w - 0.08, h - 0.08]]) { const a = P(x + lx, y + ly, 0), b = P(x + lx, y + ly, z1 * 0.95); g.strokeStyle = shade(c, 0.5); g.lineWidth = 2.2; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
-        box(x, y, w, h, z1 * 0.9, z1, c, 1.15); topGrain(x, y, w, h, z1, 0.5);
+        box(x, y, w, h, z1 * 0.9, z1, c, 1.15); topGrain(x, y, w, h, z1, 0.5); clutter(x, y, w, h, z1);
         break;
       }
       case "shelf": case "locker": {
@@ -440,6 +512,7 @@ export class InteriorView {
     const day = st.hour >= 7 && st.hour < 19;
     if (!this.staticLayer || this.staticLayer.day !== day) this.buildStatic(day);
     g.setTransform(d, 0, 0, d, 0, 0);
+    g.imageSmoothingEnabled = this.pixF === 1;
     g.fillStyle = "#07050a"; g.fillRect(0, 0, this.cssW, this.cssH);
     // camera: whole room if it fits, else follow the player (clamped to the room)
     const P0 = this.proj(0, 0);
@@ -483,7 +556,7 @@ export class InteriorView {
       const [sx, sy] = P(it.x, it.y, 0);
       this.tag(g, it.label, sx, sy - s * 2.15, "#c6ff3d");
     }
-    this.lighting(g, def, st);
+    this.lighting(g, def, st, P);
   }
 
   private liveBits(g: CanvasRenderingContext2D, P: Proj, p: Prop, t: number): void {
@@ -511,8 +584,18 @@ export class InteriorView {
     else if (st.nearActor === a.id && a.name) this.tag(g, a.name, sx, sy - 122 * k - 6, "#eee4d3");
   }
 
-  private lighting(g: CanvasRenderingContext2D, def: InteriorDef, st: ViewState): void {
-    const w = this.cssW, h = this.cssH;
+  private lighting(g: CanvasRenderingContext2D, def: InteriorDef, st: ViewState, P: Proj): void {
+    const w = this.cssW, h = this.cssH, s = this.s;
+    // warm light pools from lamps and wall sconces, lighting props and people too
+    const night = st.hour < 7 || st.hour >= 19, a = night ? 0.3 : 0.16;
+    const pool = (sx: number, sy: number, rad: number, al: number): void => {
+      const gr = g.createRadialGradient(sx, sy, 0, sx, sy, rad); gr.addColorStop(0, `rgba(255,170,80,${al})`); gr.addColorStop(1, "rgba(255,170,80,0)");
+      g.fillStyle = gr; g.fillRect(sx - rad, sy - rad, rad * 2, rad * 2);
+    };
+    g.globalCompositeOperation = "lighter";
+    for (const sc of wallSconces(def)) { const [sx, sy] = sc.side === "n" ? P(sc.at + sc.len / 2, 1.1, 0) : P(1.1, sc.at + sc.len / 2, 0); pool(sx, sy, s * 3.4, a); }
+    for (const p of def.props) if (p.type === "lamp") { const [sx, sy] = P(p.x + p.w / 2, p.y + p.h / 2, 0.2); pool(sx, sy, s * 3, a * 1.2); }
+    g.globalCompositeOperation = "source-over";
     const tint = { cool: "rgba(120,190,255,.07)", warm: "rgba(255,190,110,.09)", dim: "rgba(40,20,70,.28)", soft: "rgba(180,255,210,.06)", neon: "rgba(255,70,200,.12)" }[def.light];
     g.fillStyle = tint; g.fillRect(0, 0, w, h);
     const flick = def.ambience.includes("fluorescent") ? 0.02 * Math.max(0, Math.sin(st.t * 31) * Math.sin(st.t * 1.7)) : 0;
