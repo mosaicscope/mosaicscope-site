@@ -18,6 +18,8 @@ export class Places {
 
   /** Set by Game: opens the walk-in interior scene. Without it (headless/tests) the old panels open directly. */
   openInterior: ((b: Building) => void) | null = null;
+  /** Set by Game: photo mode and the two walls. */
+  photos: import("./Photos").Photos | null = null;
 
   enter(b: Building | null, studio = false): void {
     const sim = this.sim();
@@ -49,6 +51,9 @@ export class Places {
     if (what === "shop") return this.shop(b);
     if (what === "dealership") return this.dealership(b);
     if (what === "gallery") return this.gallery();
+    if (what === "photospot") return this.photos?.open(true, b.name);
+    if (what === "repwall") return this.photos?.reputationWall();
+    if (what === "gallerywall") return this.photos?.galleryWall();
     this.enterLegacy(b);
   }
 
@@ -64,7 +69,7 @@ export class Places {
         h("ul.items", null, [
           h("li.item", null, [h("div", null, [h("b", { text: "Your sack" }), h("small", { text: n ? `${can} can${can === 1 ? "" : "s"}, ${bottle} bottle${bottle === 1 ? "" : "s"}${bonus ? ` · bulk bonus ${fmtCash(bonus)}` : ""}` : "Empty. Cans and bottles are on every street; bins hide a few more." })]),
             h("span.price", { text: fmtCash(worth + bonus) }),
-            h("button.btn", { disabled: n === 0, onclick: () => { const r = cashIn(sim, p); this.toast(`Returned ${r.n} for ${fmtCash(r.total)}${r.bonus ? ` (incl. ${fmtCash(r.bonus)} bonus)` : ""}`, "acid"); render(); }, text: "Cash in" })]),
+            h("button.btn", { disabled: n === 0, onclick: () => { const r = cashIn(sim, p); if (r.n >= 10) this.photos?.moment("recycle", String(r.n)); this.toast(`Returned ${r.n} for ${fmtCash(r.total)}${r.bonus ? ` (incl. ${fmtCash(r.bonus)} bonus)` : ""}`, "acid"); render(); }, text: "Cash in" })]),
         ]),
         h("p", { style: { color: "var(--dim)" }, text: sim.litter.recycled ? `You've returned ${sim.litter.recycled} so far. The street thanks you.` : "First return? Welcome to the cleanest side hustle in town." }),
       ], "shop");
