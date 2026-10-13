@@ -189,6 +189,7 @@ async function body(io, cfg, state, now) {
   }
   p.ref = pub.ref;
   p.url = pub.url || "";
+  if (pub.sha) p.sha = pub.sha;
   if (pub.accepted) { recordOutcome(state, p, "accepted", now, "validated and committed locally"); state.scanKey = ""; return `accepted ${p.ref}`; }
   state.pending = p;
   return `proposed ${p.ref} (${winner} won ${w.score})`;

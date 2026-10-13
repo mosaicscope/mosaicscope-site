@@ -67,12 +67,15 @@ export function localIo({ dry = false, root = ROOT, env = process.env } = {}) {
         git(["branch", "-D", branch], root); // roll back
         throw new Error("validation failed on the branch: " + String(e.stderr || e.message).split("\n").find(Boolean));
       }
+      const sha = git(["rev-parse", "HEAD"], dir);
       git(["worktree", "remove", "--force", dir], root);
-      return { ref: branch };
+      return { ref: branch, sha };
     },
     async checkPending(p) {
-      try { git(["rev-parse", "--verify", "-q", p.ref], root); } catch { return "closed"; }
-      try { git(["merge-base", "--is-ancestor", p.ref, "HEAD"], root); return "merged"; } catch { return "open"; }
+      // by commit, not branch name: a merged branch is often deleted right after
+      const ref = p.sha || p.ref;
+      try { git(["merge-base", "--is-ancestor", ref, "HEAD"], root); return "merged"; } catch { /* not in HEAD */ }
+      try { git(["rev-parse", "--verify", "-q", p.ref], root); return "open"; } catch { return "closed"; }
     },
     health: env.EVOLVE_SITE_URL ? async () => {
       const t = Date.now();
