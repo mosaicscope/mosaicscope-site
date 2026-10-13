@@ -68,5 +68,8 @@ export const EVENT_DEFS: EventDef[] = [
   { type: "breakup", label: "Break-up", priority: 6, severity: 3, radius: 10, cooldown: 600, propagation: "sound", topic: "love" },
   { type: "purchase", label: "Purchase", priority: 3, severity: 1, radius: 6, cooldown: 10, propagation: "sight" },
   { type: "towed", label: "Towed", priority: 2, severity: 1, radius: 8, cooldown: 60, propagation: "sight" },
+  { type: "festival", label: "Lantern festival", priority: 6, severity: 2, radius: 999, cooldown: 3600, propagation: "global", topic: "party", key: () => "festival" },
+  { type: "festival_end", label: "Festival over", priority: 3, severity: 1, radius: 999, cooldown: 3600, propagation: "global", topic: "party", key: () => "festival_end" },
+  { type: "rent_day", label: "Rent day", priority: 5, severity: 2, radius: 999, cooldown: 600, propagation: "global", key: (e) => `rent:${e.data.stage}` },
   { type: "rare_meteor", label: "Shooting star", priority: 6, severity: 2, radius: 999, cooldown: 20000, propagation: "global", topic: "wonder", key: () => "meteor" },
 ];

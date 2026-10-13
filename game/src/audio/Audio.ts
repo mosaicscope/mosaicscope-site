@@ -172,7 +172,7 @@ export class AudioSystem {
       this.music.setMood({
         hour: sim.hour, rain: sim.env.rain, storm: sim.env.weather === "storm",
         tension: Math.min(1, (p.wanted ?? 0) / 4 + (hurt > 0.6 ? (hurt - 0.6) : 0)),
-        street: this.getCam().zoom > 3, party: sim.env.party,
+        street: this.getCam().zoom > 3, party: sim.env.party || sim.gigs.festival,
         indoors: interior !== null, place: this.placeFor(sim, interior), chase: (p.wanted ?? 0) >= 2,
       });
     }

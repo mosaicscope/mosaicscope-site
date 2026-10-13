@@ -18,6 +18,7 @@ import { DialogueEngine } from "../dialogue/DialogueEngine";
 import { think, thinkBackground } from "../ai/brain";
 import { Choice } from "../ai/goals";
 import { LodManager } from "../crowd/LodManager";
+import { GigState } from "./Gigs";
 import { EnvState, newEnv, updateEnvironment, TICKS_PER_HOUR, daylight } from "./Environment";
 import { spawnAll, streetSpot, spawnBackground } from "./Spawner";
 import { installRules } from "./Rules";
@@ -68,6 +69,8 @@ export class Simulation {
   toys: Toy[] = [];
   /** street litter, bins and the recycling run (sim/Litter.ts) */
   litter!: LitterState;
+  /** courier parcels, the can crew, festival and rent day (sim/Gigs.ts) */
+  gigs!: GigState;
   vehicles: Vehicle[] = [];
   names?: NameBook;
   usedLooks = new Set<string>();
@@ -127,6 +130,7 @@ export class Simulation {
     spawnAll(this);
     spawnVehicles(this);
     this.litter = new LitterState(this.world, this.cfg.seed);
+    this.gigs = new GigState(this.cfg.seed);
     this.rebuildHash();
   }
 
@@ -342,6 +346,7 @@ export class Simulation {
       const c = this.chars[i];
       if (c.tier === "principal" || c.tier === "mid") decayRelations(c, tick, 3600);
     }
+    this.gigs.update(this);
     // restock toy chests when the world runs low on usable toys
     if (tick % 1800 === 0) {
       const usable = this.toys.filter((t) => t.state !== "broken" && TOYS[t.def].portable).length;

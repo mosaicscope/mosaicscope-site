@@ -7,6 +7,7 @@ import { MOSAIC, captionLine } from "../content/mosaicscope";
 import { buy, pawnPrice, fmtCash, evaluateTrade, executeTrade, book, commitCrime } from "../sim/Society";
 import { carried, detach } from "../inventory/Inventory";
 import { cashIn, scrapCount, scrapValue } from "../sim/Litter";
+import { CREW_NAME, JOIN_BONUS, ROUND_DAYS, roundOf, type CrewSide } from "../sim/Gigs";
 import { LITTER, BULK_MIN, BULK_BONUS } from "../content/litter";
 import { makeVehicle } from "../sim/Traffic";
 import type { Building } from "../world/World";
@@ -60,6 +61,14 @@ export class Places {
   /** The recycling centre: swap the cans and bottles in your sack for cash. */
   recycling(b: Building): void {
     const sim = this.sim(), p = sim.player;
+    const crewCard = (): HTMLElement => {
+      const g = sim.gigs, day = g.day(sim);
+      const pick = (side: CrewSide) => h("button.btn", { onclick: () => { g.joinCrew(side, sim); this.toast(side === "join" ? `You're riding with ${CREW_NAME}. +${Math.round(JOIN_BONUS * 100)}% on every return.` : `You're racing ${CREW_NAME} for the round.`, "acid"); render(); }, text: side === "join" ? "Join them" : "Race them" });
+      if (g.crew === "none") return h("div.item", null, [h("div", null, [h("b", { text: `The can crew: ${CREW_NAME}` }), h("small", { text: `Join them for +${Math.round(JOIN_BONUS * 100)}% on every return and a share of the pot, or race them for a prize. Rounds last ${ROUND_DAYS} days.` })]), pick("join"), pick("rival")]);
+      const left = (roundOf(day) + 1) * ROUND_DAYS - day;
+      const score = g.crew === "rival" ? `You ${g.mine} · Tigers ${g.rival(sim)}` : `You've handed in ${g.mine} this round`;
+      return h("div.item", null, [h("div", null, [h("b", { text: g.crew === "join" ? `Riding with ${CREW_NAME}` : `Racing ${CREW_NAME}` }), h("small", { text: `${score} · ${left} day${left === 1 ? "" : "s"} left in the round` })]), h("button.btn", { onclick: () => { g.crew = "none"; this.toast("You left the crew."); render(); }, text: "Leave" })]);
+    };
     const render = () => {
       const can = p.scrap?.can ?? 0, bottle = p.scrap?.bottle ?? 0, n = scrapCount(p), worth = scrapValue(p);
       const bonus = n >= BULK_MIN ? worth * BULK_BONUS : 0;
@@ -69,8 +78,9 @@ export class Places {
         h("ul.items", null, [
           h("li.item", null, [h("div", null, [h("b", { text: "Your sack" }), h("small", { text: n ? `${can} can${can === 1 ? "" : "s"}, ${bottle} bottle${bottle === 1 ? "" : "s"}${bonus ? ` · bulk bonus ${fmtCash(bonus)}` : ""}` : "Empty. Cans and bottles are on every street; bins hide a few more." })]),
             h("span.price", { text: fmtCash(worth + bonus) }),
-            h("button.btn", { disabled: n === 0, onclick: () => { const before = sim.litter.recycled, r = cashIn(sim, p); if (r.n >= 10) this.photos?.moment("recycle", String(r.n)); this.toast(`Returned ${r.n} for ${fmtCash(r.total)}${r.bonus ? ` (incl. ${fmtCash(r.bonus)} bonus)` : ""}`, "acid.spark"); if (Math.floor(sim.litter.recycled / 25) > Math.floor(before / 25)) this.toast(`${Math.floor(sim.litter.recycled / 25) * 25} returned. The street is noticeably tidier.`, "acid.spark"); render(); document.querySelector(".wallet")?.classList.add("bump"); }, text: "Cash in" })]),
+            h("button.btn", { disabled: n === 0, onclick: () => { const before = sim.litter.recycled, r = cashIn(sim, p); if (r.n >= 10) this.photos?.moment("recycle", String(r.n)); this.toast(`Returned ${r.n} for ${fmtCash(r.total)}${r.bonus + r.crew ? ` (incl. ${fmtCash(r.bonus + r.crew)} bonus)` : ""}`, "acid.spark"); if (Math.floor(sim.litter.recycled / 25) > Math.floor(before / 25)) this.toast(`${Math.floor(sim.litter.recycled / 25) * 25} returned. The street is noticeably tidier.`, "acid.spark"); render(); document.querySelector(".wallet")?.classList.add("bump"); }, text: "Cash in" })]),
         ]),
+        crewCard(),
         h("p", { style: { color: "var(--dim)" }, text: sim.litter.recycled ? `You've returned ${sim.litter.recycled} so far. The street thanks you.` : "First return? Welcome to the cleanest side hustle in town." }),
       ], "shop");
     };
