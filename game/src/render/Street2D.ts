@@ -148,12 +148,21 @@ export class StreetView {
       g.globalAlpha = s.alpha * 0.45; g.fillStyle = NOIR.night; g.beginPath(); g.ellipse(s.x, sy, 22 * k, 4.5 * k, 0, 0, 6.283); g.fill();
       g.globalAlpha = s.alpha;
       // mood-based animation: a happy figure swings its arms wider and leans forward; a low one slumps
-      const A = pose(poseName(c, moving, spd), c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT);
+      // each walker has their own stride: the seed keeps neighbours from stepping in lockstep
+      const A = pose(poseName(c, moving, spd), c.style, time + c.seedPhase, c.anim.phase + c.seedPhase * 0.7, spd, c.anim.poseT);
       const mood = c.emo ? c.emo.mood : 0;
       A.armL *= 1 + 0.25 * mood; A.armR *= 1 + 0.25 * mood;
       A.lean += 0.06 * mood;
       // inverse kinematics: someone close to you reaches a hand toward you (in front, waist high)
-      if (c.phys === Phys.OK && Math.hypot(c.x - f.x, c.y - f.y) < 6) reachArm(A, 1, A.hipX + 0.83 * 42 * Math.sin(A.lean), -44 - 0.83 * 42 * Math.cos(A.lean), 20 * dir, -66);
+      // close to you, they reach out, but eased in with distance and by their own amount, so nobody snaps or lunges in unison
+      const dist = Math.hypot(c.x - f.x, c.y - f.y), w = c.phys === Phys.OK ? Math.max(0, Math.min(1, (6 - dist) / 2.5)) : 0;
+      if (w > 0) {
+        const reach = hash(c.id * 7 + 3), shx = A.hipX + 0.83 * 42 * Math.sin(A.lean), shy = -44 - 0.83 * 42 * Math.cos(A.lean);
+        const R: Angles = { ...A };
+        reachArm(R, 1, shx, shy, dir * (14 + reach * 10), -58 - reach * 14);
+        const k2 = w * (0.55 + 0.45 * reach);
+        A.armR += (R.armR - A.armR) * k2; A.foreR += (R.foreR - A.foreR) * k2;
+      }
       // ragdoll blend: ease toward limp while knocked down, back to the pose when recovered
       const target = c.phys === Phys.DOWN ? 1 : 0, r0 = ragdoll.get(c.id) ?? 0;
       const r = r0 + (target - r0) * 0.15;
