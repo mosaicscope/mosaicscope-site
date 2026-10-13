@@ -18,6 +18,9 @@ import type { BuildingKind } from "../content/buildings";
 import type { VehicleClass } from "../content/vehicles";
 import type { Simulation } from "../sim/Simulation";
 import type { Camera } from "../render/Camera";
+import { DEFAULT_VOICE, DEFAULT_FOOT, DEFAULT_AMBIENCE, voiceAllowed, voicePitch, voiceDuration, voiceTone, footGain, shoePitch, ambienceGain } from "./Prefs";
+import { UI_TONES, uiGain } from "./Prefs";
+import type { VoicePrefs, FootPrefs, AmbiencePrefs, UiTone } from "./Prefs";
 
 // ------------------------------------------------------------------ pure planning
 
@@ -35,6 +38,8 @@ export interface Scene {
 export const STREET: Scene = { interior: null, moving: false, running: false, in2D: false };
 
 export const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
+/** Stereo pan kept in the -1..1 range the panner accepts. */
+export const clamp01Pan = (v: number): number => (v < -1 ? -1 : v > 1 ? 1 : v);
 
 /** Which ground a footstep lands on. */
 export function surfaceOf(tile: number): Surface {
@@ -357,6 +362,9 @@ export class Diegetic {
   private lightning = -1; private interiorStep = 0; private leak = 0;
   private prevInterior: BuildingKind | null | undefined;
   private stop: (() => void)[] = [];
+  private voicePrefs: VoicePrefs = DEFAULT_VOICE; private voiceRecent: number[] = [];
+  private footPrefs: FootPrefs = DEFAULT_FOOT; private sneaking = false; private positional = true; private width = 1;
+  private ambPrefs: AmbiencePrefs = DEFAULT_AMBIENCE;
 
   constructor(private ctx: AudioContext, master: AudioNode, private lite: boolean) {
     this.caps = mixCaps(lite);
@@ -519,7 +527,40 @@ export class Diegetic {
   private duck(): void {
     this.onDuck?.(DUCK.music, DUCK.secs + 0.15);
     const t = this.ctx.currentTime, g = this.amb.gain;
-    g.cancelScheduledValues(t); g.setTargetAtTime(AMBIENT_LEVEL * (1 - DUCK.amount), t, 0.03); g.setTargetAtTime(AMBIENT_LEVEL, t + DUCK.secs, 0.4);
+    const level = AMBIENT_LEVEL * ambienceGain(this.ambPrefs);
+    g.cancelScheduledValues(t); g.setTargetAtTime(level * (1 - DUCK.amount), t, 0.03); g.setTargetAtTime(level, t + DUCK.secs, 0.4);
+  }
+  /** Ambience mute and fade time (the fade is a smooth ramp, so a change never clicks). */
+  setAmbience(p: AmbiencePrefs): void {
+    this.ambPrefs = p;
+    const t = this.ctx.currentTime, g = this.amb.gain;
+    g.cancelScheduledValues(t); g.setTargetAtTime(AMBIENT_LEVEL * ambienceGain(p), t, Math.max(0.01, p.fadeSecs) / 3);
+  }
+  /** Speech blip settings: who is muted, pitch, volume, speed, and the blip frequency limit. */
+  setVoice(p: VoicePrefs): void { this.voicePrefs = p; }
+  /** Footstep settings: volume, shoe sound, and whether sneaking quiets the steps. */
+  setFoot(p: FootPrefs): void { this.footPrefs = p; }
+  /** Whether the player is sneaking right now; the game calls this when it knows. */
+  setSneaking(on: boolean): void { this.sneaking = on; }
+  /** A UI tone (button, tab, error, save, level-up and so on): not spatial, so it always plays centred. */
+  uiTone(tone: UiTone): void {
+    if (!this.on) return;
+    const spec = UI_TONES[tone], o = this.flat(uiGain(tone, this.vol));
+    if (!this.begin("event")) return;
+    this.end(this.blip(o, spec.shape, spec.freq, spec.freqEnd, spec.dur, 1));
+  }
+  /** Quiet mode: mutes ambience and speech blips, keeping footsteps and one-shot effects. */
+  setQuiet(on: boolean): void {
+    this.setAmbience({ ...this.ambPrefs, muted: on });
+    this.voicePrefs = { ...this.voicePrefs, enabled: !on };
+  }
+  /** 3D audio: when off, every effect plays centred (no left/right panning from where it is). */
+  setPositional(on: boolean): void { this.positional = on; }
+  /** Stereo width: scales how far effects pan left and right (0 = centred, 1 = normal). */
+  setWidth(w: number): void { this.width = Number.isFinite(w) ? Math.min(1, Math.max(0, w)) : 1; }
+  /** Audio debug read-out: live one-shot voices by priority, the ambience gain now, and recent blips in the last second. */
+  debugStats(): { live: Record<Prio, number>; bus: number; ambient: number; recentBlips: number; unheard: string[] } {
+    return { live: { ...this.liveBy }, bus: this.input.gain.value, ambient: this.amb.gain.value, recentBlips: this.voiceRecent.length, unheard: [...this.unheard].sort() };
   }
   /** For the older effects in Audio.ts (impacts, gunfire): the same cap and spacing, with the slot freed after a short while. */
   allow(prio: Prio = "event"): boolean {
@@ -534,9 +575,21 @@ export class Diegetic {
     if (g < 0.01) return null;
     const ctx = this.ctx, gain = ctx.createGain(); gain.gain.value = g;
     const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-    if (pan) { pan.pan.value = sp.pan; gain.connect(pan); pan.connect(this.input); } else gain.connect(this.input);
+    if (pan) { pan.pan.value = this.positional ? clamp01Pan(sp.pan * this.width) : 0; gain.connect(pan); pan.connect(this.input); } else gain.connect(this.input);
     return { node: gain, t: ctx.currentTime };
   }
+  /** A short speech blip for someone talking: pitch set by who they are, so each person sounds a little different. */
+  voice(id: number, indoors: boolean): void {
+    if (indoors || !voiceAllowed(this.voicePrefs, id, this.ctx.currentTime, this.voiceRecent)) return;
+    const o = this.flat(0.2);
+    if (!this.begin("event")) return;
+    const wobble = this.voicePrefs.randomTone ? 1 + (Math.random() - 0.5) * 0.1 : 1;
+    const f = voicePitch(id, this.voicePrefs) * wobble, d = voiceDuration(this.voicePrefs);
+    const tone = voiceTone(this.voicePrefs);
+    this.blip(o, tone.shape, f, f * 1.25, d, tone.gain);
+    this.end();
+  }
+
   private flat(vol: number): Out { const g = this.ctx.createGain(); g.gain.value = vol; g.connect(this.input); return { node: g, t: this.ctx.currentTime }; }
 
   private blip(o: Out, type: OscillatorType, f0: number, f1: number, dur: number, vol = 0.5, at = 0): OscillatorNode {
@@ -559,6 +612,8 @@ export class Diegetic {
   onSound(kind: string, x: number, y: number, vol: number, cam: Camera, scene: Scene): void {
     if (!this.on || !this.sim) return;
     if (scene.interior && !(kind === "till")) vol *= 0.35;
+    this.soundLog.push({ kind, t: this.ctx.currentTime, vol });
+    if (this.soundLog.length > 50) this.soundLog.shift();
     const o0 = () => this.route(x, y, vol, cam, scene.in2D);
     switch (kind) {
       case "horn": return this.horn(o0(), this.nearestClass(x, y));
@@ -570,7 +625,34 @@ export class Diegetic {
       case "recycle": return this.recycleChunk(o0());
       case "taser": return this.zap(o0());
       case "squirt": case "paintball": return this.squirt(o0());
+      case "creak": case "shatter": case "crackle": case "spark":
+      case "whoosh": case "chime": case "loot": case "crunch":
+        return this.tone(o0(), kind);
+      default: this.unheard.add(kind);
     }
+  }
+  /** Sound kinds the sim sent that no effect plays for yet (a missing-sound report for the debug console). */
+  private unheard = new Set<string>();
+  /** The last fifty sound events from the sim, newest last: a sound log for the debug console. */
+  private soundLog: { kind: string; t: number; vol: number }[] = [];
+  soundHistory(): { kind: string; t: number; vol: number }[] { return this.soundLog.slice(); }
+
+  /** Entity and combat one-shots: hinges, glass, fire, sparks, dodges, parries, loot and breakages. */
+  private tone(o: Out | null, kind: string): void {
+    if (!o || !this.begin()) return;
+    const parts: AudioScheduledSourceNode[] = [];
+    if (kind === "creak") { parts.push(this.blip(o, "sawtooth", 180, 260, 0.35, 0.12), this.hit(o, "bandpass", 600, 4, 0.3, 0.15)); }
+    else if (kind === "shatter") {
+      for (let i = 0; i < 6; i++) parts.push(this.blip(o, "sine", 2000 + Math.random() * 2200, 1800, 0.5, 0.14, Math.random() * 0.03));
+      parts.push(this.hit(o, "highpass", 5200, 0.7, 0.45, 0.3, 0.03));
+    }
+    else if (kind === "crackle") { for (let i = 0; i < 8; i++) parts.push(this.hit(o, "highpass", 3000 + Math.random() * 2000, 1, 0.02, 0.15, i * 0.05 + Math.random() * 0.03)); }
+    else if (kind === "spark") { parts.push(this.hit(o, "bandpass", 4000, 2, 0.06, 0.3), this.blip(o, "square", 1800, 900, 0.04, 0.12)); }
+    else if (kind === "whoosh") { parts.push(this.hit(o, "bandpass", 800, 0.7, 0.35, 0.3)); }
+    else if (kind === "chime") { parts.push(this.blip(o, "sine", 1760, 1760, 0.25, 0.15), this.blip(o, "sine", 2637, 2637, 0.2, 0.1, 0.06)); }
+    else if (kind === "loot") { [1318, 1568, 2093].forEach((f, i) => parts.push(this.blip(o, "sine", f, f, 0.12, 0.12, i * 0.07))); }
+    else if (kind === "crunch") { parts.push(this.hit(o, "lowpass", 900, 1, 0.12, 0.5), this.blip(o, "triangle", 220, 90, 0.08, 0.35)); }
+    this.end(...parts);
   }
 
   private nearestClass(x: number, y: number): VehicleClass {
@@ -639,10 +721,12 @@ export class Diegetic {
 
   /** A footstep on a surface. wet: rain on hard ground adds a splashy edge. */
   private step(o: Out | null, surface: Surface, wet: number, jitter: number, soft = false, rain = wet / 1.6): void {
-    if (!o || !this.begin("foley")) return;
-    const r = FOOT[surface], [f, q, d, v, type] = r.noise, k = 1 + jitter, vol = 0.6;
-    // everyone else's steps are a muted tap (low-passed, no squeak); only yours has the full detail
-    const n = soft ? this.hit(o, "lowpass", Math.min(1100, f) * k, 0.5, d * 1.2, v * vol * 0.8) : this.hit(o, type, f * k * (1 + wet * 0.3), q, d * (1 + wet * 0.8), v * vol * (1 + wet * 0.35));
+    const vol = footGain(this.footPrefs, this.sneaking);
+    if (!o || vol <= 0 || !this.begin("foley")) return;
+    o.t += Math.max(0, this.footPrefs.delay);
+    const r = FOOT[surface], [f, q, d, v, type] = r.noise, k = (1 + jitter) * shoePitch(this.footPrefs.shoe);
+    // everyone else's steps are a soft tap (low-passed, no squeak); only yours has the full detail
+    const n = soft ? this.hit(o, "lowpass", Math.min(2400, f) * k, 0.5, d * 1.2, v * vol * 1.4) : this.hit(o, type, f * k * (1 + wet * 0.3), q, d * (1 + wet * 0.8), v * vol * (1 + wet * 0.35));
     if (r.thud) this.blip(o, r.thud[4], r.thud[0] * k, r.thud[1] * k, r.thud[2], r.thud[3] * vol);
     if (!soft && r.squeak && Math.random() < r.squeak) this.blip(o, "sine", 1100 + Math.random() * 300, 1700, 0.07, 0.05, 0.01);
     const parts: AudioScheduledSourceNode[] = [n];

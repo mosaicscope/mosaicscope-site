@@ -1,7 +1,13 @@
-import type { Character } from "../entities/types";
+import { Phys, type Character } from "../entities/types";
 import { SITE, NEONS, SHOP_NAMES, hash01, pickOf, mix } from "./noir";
 import type { Simulation } from "../sim/Simulation";
-import { pose, solve, drawFigure } from "./StickFigure";
+import { pose, solve, drawFigure, reachArm, type Angles } from "./StickFigure";
+
+// ragdoll: a fallen figure goes limp, and blends back to its normal pose when it recovers
+const LIMP: Partial<Angles> = { lean: 0.9, lying: 1, tilt: 0.6, armL: 2.4, armR: 2.7, foreL: 0.6, foreR: 0.6, thighL: 0.5, thighR: -0.4, bendL: 0.3, bendR: 0.2, bob: -2, hipX: 0 };
+const ragdoll = new Map<number, number>();
+/** px per lateral unit used to place people. Fixed (the zoom-3 value) so zooming never slides people across the screen. */
+const LAYOUT_S = 18 * (3 - 1.2);
 
 
 /**
@@ -128,20 +134,45 @@ export class StreetView {
     this.backdrop(g, sim, W, ground, pu, pv, S, day, night, time);
     this.facades(g, sim, W, H, off, pv, S, ground, day, time);
     this.street(g, W, H, off, ground, night, rain, time);
+    // kerb bushes, and pigeons pecking along the pavement (LOOK.md neon line for the animals)
+    for (let i = 0; i < 16; i++) {
+      const bx = hash(i + 700) * W, by = ground + 2 + hash(i + 710) * 6, br = 14 + hash(i + 720) * 16;
+      g.fillStyle = "#14321f"; g.beginPath(); g.ellipse(bx, by, br, br * 0.7, 0, 0, 6.283); g.fill();
+      g.fillStyle = "#2c5a36"; g.beginPath(); g.ellipse(bx - br * 0.2, by - br * 0.2, br * 0.6, br * 0.4, 0, 0, 6.283); g.fill();
+    }
+    for (let i = 0; i < 6; i++) {
+      const px = ((hash(i + 800) * W + time * (6 + hash(i + 810) * 6)) % (W + 40)) - 20, py = ground + 14 + hash(i + 820) * 8;
+      g.strokeStyle = NEONS[(i + 3) % NEONS.length]; g.lineWidth = 1.4; g.beginPath(); g.ellipse(px, py, 5, 3, 0, 0, 6.283); g.stroke();
+      g.beginPath(); g.moveTo(px + 4, py - 1); g.lineTo(px + 8, py - 3); g.stroke();
+    }
     this.lights(g, W, H, off, ground, night, time);
     // the people: the same neon stick figures as the iso world
-    const kk = (1 + (zoom - 3) * 0.3) * 0.95;
-    const slots = this.cast.pick(sim.chars, f, W, S, kk / 0.95, dt, W < 700 ? 8 : 11);
+    // figure size is fixed, and who is on the street and their spacing come from the world, not the zoom
+    const kk = 0.95;
+    const slots = this.cast.pick(sim.chars, f, W, LAYOUT_S, 1, dt, W < 700 ? 8 : 11);
     const drawn: { c: Character; x: number; y: number; k: number; dv: number }[] = [];
     for (const s of slots) {
       const c = sim.chars[s.id]; if (!c) continue;
-      const k = kk * c.look.scale * (1 + s.dv * 0.035), sy = ground + H * 0.1 + s.dv * 6;
+      // no depth perspective: everyone stands on the same line at the same size, so walking never shifts them
+      const k = kk * c.look.scale, sy = ground + H * 0.1;
       const moving = Math.abs(c.x - c.px) + Math.abs(c.y - c.py) > 0.0005, spd = Math.hypot(c.x - c.px, c.y - c.py) * 60;
       c.anim.phase += spd * dt * 5.5;
       const dir = (Math.cos(c.facing) - Math.sin(c.facing)) >= 0 ? 1 : -1;
       g.globalAlpha = s.alpha * 0.16; g.fillStyle = c.look.color; g.beginPath(); g.ellipse(s.x, sy, 26 * k, 5 * k, 0, 0, 6.283); g.fill();   // a pool of its own colour
-      solve(pose(poseName(c, moving, spd), c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT), s.x, sy, k, dir);
-      drawFigure(g, c, s.x, sy, k, dir, time, c.anim.flash, s.alpha);
+      // mood-based animation: a happy figure swings its arms wider and leans forward; a low one slumps
+      const A = pose(poseName(c, moving, spd), c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT);
+      const mood = c.emo ? c.emo.mood : 0;
+      A.armL *= 1 + 0.25 * mood; A.armR *= 1 + 0.25 * mood;
+      A.lean += 0.06 * mood;
+      // inverse kinematics: someone close to you reaches a hand toward you (in front, waist high)
+      if (c.phys === Phys.OK && Math.hypot(c.x - f.x, c.y - f.y) < 6) reachArm(A, 1, A.hipX + 0.83 * 42 * Math.sin(A.lean), -44 - 0.83 * 42 * Math.cos(A.lean), 20 * dir, -66);
+      // ragdoll blend: ease toward limp while knocked down, back to the pose when recovered
+      const target = c.phys === Phys.DOWN ? 1 : 0, r0 = ragdoll.get(c.id) ?? 0;
+      const r = r0 + (target - r0) * 0.15;
+      ragdoll.set(c.id, r);
+      if (r > 0.001) for (const key of Object.keys(LIMP) as (keyof Angles)[]) A[key] = A[key] * (1 - r) + (LIMP[key] as number) * r;
+      solve(A, s.x, sy, k, dir);
+      drawFigure(g, c, s.x, sy, k, dir, time, c.anim.flash, s.alpha, true);   // street people always get the HD pass (glow and ink outline)
       g.globalAlpha = 1;
       drawn.push({ c, x: s.x, y: sy, k, dv: s.dv });
     }
