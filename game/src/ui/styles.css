@@ -358,3 +358,5 @@ input, textarea { -webkit-user-select: text; user-select: text; }
 .clock.streaking { text-shadow: 0 0 calc(var(--streak) * 10px) rgba(242,178,76,calc(var(--streak) * .7)); }
 .clock.streaking b { color: color-mix(in srgb, var(--paper) calc(100% - var(--streak) * 45%), #f2b24c); }
 .toast.gold { background: #f2b24c; color: var(--ink); }
+/* Gilbert: glow trail and all-calm glow (half-res overlay canvas, never intercepts the pointer) */
+.glow { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none !important; z-index: 2; }

@@ -65,3 +65,31 @@ export function streakLine(count: number): string {
   if (count === 1) return "";
   return `Day ${count} in a row. The glow's getting warmer.`;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Glow trail and the all-calm glow (Bertha's round 4, approved by Chris). Both are drawn by ui/Glow.ts.
+
+/** The trail behind the player: a point every TRAIL.step tiles, each fading over TRAIL.life seconds. */
+export const TRAIL = { step: 0.18, life: 0.85, max: 14, peak: 0.55 } as const;
+
+/** Alpha of a trail point `age` seconds old: a quick bloom then a smooth fade to nothing. Quadratic, so the tail vanishes softly. */
+export function trailAlpha(age: number): number {
+  if (age <= 0 || age >= TRAIL.life) return 0;
+  const k = 1 - age / TRAIL.life;
+  return TRAIL.peak * k * k;
+}
+
+/** The calm glow: the player has been still this long, in a tended spot, before it starts. */
+export const CALM = { still: 2.5, rise: 1.8, fall: 0.5, peak: 0.2, radius: 5 } as const;
+
+/** A spot is tended when no litter is lying within CALM.radius tiles. */
+export function isTended(pieces: ReadonlyArray<{ x: number; y: number; taken: boolean }>, x: number, y: number): boolean {
+  for (const p of pieces) if (!p.taken && Math.hypot(p.x - x, p.y - y) < CALM.radius) return false;
+  return true;
+}
+
+/** Advance the calm level (0..1): rises over CALM.rise once still for CALM.still in a tended spot, drops in CALM.fall otherwise. */
+export function calmStep(level: number, stillFor: number, tended: boolean, dt: number): number {
+  const on = tended && stillFor >= CALM.still;
+  return Math.max(0, Math.min(1, level + (on ? dt / CALM.rise : -dt / CALM.fall)));
+}

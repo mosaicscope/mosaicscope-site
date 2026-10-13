@@ -4,17 +4,17 @@
  * Pure data and helpers so the street and interior renderers share one palette and the tests can pin it.
  */
 export const NOIR = {
-  ink: "#120d16",          // the one outline colour, never pure black
+  ink: "#0e0b0a",          // the one outline colour, never pure black
   skyTop: "#2c2744", skyLow: "#7a6483", skyDusk: "#d08a6a",
   night: "#0b0a18",
   wallBrick: ["#7a3f36", "#6a3532", "#8a4a3c", "#5d2f30"],
   wallStone: ["#8c8a96", "#6f7488", "#5a6078", "#a39a8c"],
   wallPlaster: ["#b49c7c", "#9c8672", "#a8a0a4"],
-  trim: "#2a2230", sill: "#9d93a0",
-  glassDark: "#1d1b2e", glassLit: "#f2b24c", glassGlow: "#ffe39a",
-  road: "#2b2838", roadFar: "#201e2c", kerb: "#7c748a", pave: "#4e4a5e", paveJoint: "#363246",
+  trim: "#2a2420", sill: "#9d93a0",
+  glassDark: "#1e1b22", glassLit: "#f2b24c", glassGlow: "#ffe39a",
+  road: "#24211f", roadFar: "#1b1918", kerb: "#7a7068", pave: "#4a443e", paveJoint: "#34302c",
   lane: "#c9bfa8", puddle: "#4a5d86",
-  lampPost: "#2a2630", lampLight: "#ffd37a",
+  lampPost: "#2a2522", lampLight: "#ffd37a",
   cars: ["#1e1c24", "#2a3a58", "#5a2630", "#2c4a3c", "#3a3440", "#6a5a44"],
   awning: ["#a63030", "#2f5a6a", "#d8c8a0", "#3a6a48"],
   skin: ["#e8b48a", "#d99a6c", "#b97a52", "#8a5a3a", "#f0c8a0"],
@@ -42,4 +42,19 @@ export function shade(hex: string, m: number): string {
 export function muted(hex: string, amount = 0.55): string {
   const [r, g, b] = parse(hex), l = (r + g + b) / 3;
   return toHex((l + (r - l) * amount) * 0.7, (l + (g - l) * amount) * 0.68, (l + (b - l) * amount) * 0.78);
+}
+
+/** Blend two hex colours (t=0 gives a, t=1 gives b). */
+export function mix(a: string, b: string, t: number): string {
+  const [ar, ag, ab] = parse(a), [br, bg, bb] = parse(b);
+  return toHex(ar + (br - ar) * t, ag + (bg - ag) * t, ab + (bb - ab) * t);
+}
+
+/**
+ * The 2D street takes its wall colour from the world's own building beside the player, so both views are one place.
+ * The world colours are dark, so lift them to a readable wall and keep 45% of the noir material for texture and warmth.
+ */
+export function worldWall(material: string, buildingColor: string | undefined): string {
+  if (!buildingColor) return material;
+  return mix(material, shade(buildingColor, 2.1), 0.55);
 }

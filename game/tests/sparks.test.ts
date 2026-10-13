@@ -40,3 +40,29 @@ describe("play streak", () => {
     expect(dayKey(new Date(2026, 9, 3))).toBe("2026-10-03");
   });
 });
+
+import { TRAIL, trailAlpha, calmStep, isTended, CALM } from "../src/app/sparks";
+
+describe("glow trail and calm glow", () => {
+  it("trail dots fade out inside a second and never go negative", () => {
+    expect(TRAIL.life).toBeLessThan(1);
+    expect(trailAlpha(0)).toBe(0);
+    expect(trailAlpha(0.01)).toBeGreaterThan(trailAlpha(0.4));
+    expect(trailAlpha(0.4)).toBeGreaterThan(trailAlpha(0.8));
+    expect(trailAlpha(TRAIL.life)).toBe(0);
+    expect(trailAlpha(5)).toBe(0);
+  });
+  it("calm waits for stillness in a tended spot, rises over CALM.rise, and drops fast on moving", () => {
+    let c = 0;
+    c = calmStep(c, CALM.still - 0.1, true, 1); expect(c).toBe(0);
+    c = calmStep(c, CALM.still, false, 1); expect(c).toBe(0);
+    for (let i = 0; i < 60; i++) c = calmStep(c, CALM.still + i / 60, true, 1 / 30);
+    expect(c).toBe(1);
+    c = calmStep(c, 0, true, CALM.fall); expect(c).toBe(0);
+  });
+  it("a spot is tended only when no litter lies within the radius", () => {
+    const near = { x: 3, y: 0, taken: false }, taken = { x: 1, y: 0, taken: true }, far = { x: 9, y: 0, taken: false };
+    expect(isTended([taken, far], 0, 0)).toBe(true);
+    expect(isTended([near], 0, 0)).toBe(false);
+  });
+});
