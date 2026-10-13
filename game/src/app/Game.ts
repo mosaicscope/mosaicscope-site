@@ -224,6 +224,7 @@ export class Game {
       const f = this.interior.footing;
       this.audio.scene = { interior: this.interior.building?.kind ?? null, moving: f.moving, running: f.running, in2D: this.renderer.street2D };
       this.audio.update(this.sim, this.interior.kind);
+      this.canvas.style.filter = this.audio.dream > 0.01 && !this.reduceMotion ? `hue-rotate(${(this.audio.dream * 28).toFixed(1)}deg) saturate(${(1 + this.audio.dream * 0.12).toFixed(2)})` : "";
     });
     this.fpsAvg = this.fpsAvg * 0.95 + (1 / Math.max(dt, 0.001)) * 0.05;
     this.adaptQuality(dt);
