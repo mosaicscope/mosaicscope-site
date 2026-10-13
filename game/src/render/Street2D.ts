@@ -1,8 +1,12 @@
-import type { Character } from "../entities/types";
+import { Phys, type Character } from "../entities/types";
 import { dressOf } from "../mind/Dress";
-import { NOIR, SHOP_NAMES, hash01, pickOf, shade, muted } from "./noir";
+import { NOIR, SHOP_NAMES, hash01, pickOf, shade, muted, worldWall } from "./noir";
 import type { Simulation } from "../sim/Simulation";
-import { pose, solve, J } from "./StickFigure";
+import { pose, solve, J, drawFigure, reachArm, type Angles } from "./StickFigure";
+
+// ragdoll: a fallen figure goes limp, and blends back to its normal pose when it recovers
+const LIMP: Partial<Angles> = { lean: 0.9, lying: 1, tilt: 0.6, armL: 2.4, armR: 2.7, foreL: 0.6, foreR: 0.6, thighL: 0.5, thighR: -0.4, bendL: 0.3, bendR: 0.2, bob: -2, hipX: 0 };
+const ragdoll = new Map<number, number>();
 
 /**
  * The 2D street view, in Louis's noir pixel style (render/noir.ts): a dusk-blue city street with brick tenements,
@@ -15,6 +19,9 @@ import { pose, solve, J } from "./StickFigure";
  * soft fade at its edge, hysteresis on the cap and smoothed positions.
  */
 
+// neon line colours from LOOK.md, one per person (same set as the zoomed-out figures)
+const NEON = ["#c6ff3d", "#ff7ad9", "#3dd6ff", "#f6b62c", "#ec2a1c", "#eee4d3", "#b48cff"] as const;
+
 // ------------------------------------------------------------------ who is on screen (pure)
 export interface CastChar { id: number; x: number; y: number; inside: number; inCar: number }
 export interface CastSlot { id: number; x: number; dv: number; alpha: number }
@@ -24,6 +31,8 @@ export const BAND_FULL = 2.6;
 export const BAND_OUT = 5;
 const HYST = 1.6;   // a person already on screen counts this much closer than they are, so the cap never flickers
 const MIN_GAP_K = 56;
+/** px per lateral unit used to place people. Fixed (the zoom-3 value) so zooming never slides people across the screen. */
+const LAYOUT_S = 18 * (3 - 1.2);
 
 export class StreetCast {
   private shown = new Set<number>();
@@ -95,24 +104,50 @@ export class StreetView {
     const rain = sim.env.raining, off = pu * S;
     this.nGlow = 0;
     this.backdrop(g, sim, W, pu, pv, S, ground, day, time);
-    this.facades(g, W, H, off, ground, day, time);
+    this.facades(g, sim, W, H, off, pv, S, ground, day, time);
     this.street(g, W, H, off, ground, night, rain, time);
+    // kerb bushes, and pigeons pecking along the pavement (LOOK.md neon line for the animals)
+    for (let i = 0; i < 16; i++) {
+      const bx = hash(i + 700) * W, by = ground + 2 + hash(i + 710) * 6, br = 14 + hash(i + 720) * 16;
+      g.fillStyle = "#14321f"; g.beginPath(); g.ellipse(bx, by, br, br * 0.7, 0, 0, 6.283); g.fill();
+      g.fillStyle = "#2c5a36"; g.beginPath(); g.ellipse(bx - br * 0.2, by - br * 0.2, br * 0.6, br * 0.4, 0, 0, 6.283); g.fill();
+    }
+    for (let i = 0; i < 6; i++) {
+      const px = ((hash(i + 800) * W + time * (6 + hash(i + 810) * 6)) % (W + 40)) - 20, py = ground + 14 + hash(i + 820) * 8;
+      g.strokeStyle = NEON[(i + 3) % NEON.length]; g.lineWidth = 1.4; g.beginPath(); g.ellipse(px, py, 5, 3, 0, 0, 6.283); g.stroke();
+      g.beginPath(); g.moveTo(px + 4, py - 1); g.lineTo(px + 8, py - 3); g.stroke();
+    }
     // dusk settles over the set; the lamps and lit windows then burn through it
     if (night > 0.05) { g.fillStyle = `rgba(14,10,36,${0.55 * night})`; g.fillRect(0, 0, W, H); }
     this.lights(g, W, H, off, ground, night, time);
     // people
-    const kk = (1 + (zoom - 3) * 0.3) * 0.62;
-    const slots = this.cast.pick(sim.chars, f, W, S, kk / 0.62, dt, W < 700 ? 8 : 11);
+    // figure size is fixed: zooming in and out does not change how big people are drawn
+    const kk = 0.62;
+    // who is on the street and their spacing come from the world, not the zoom: zoom does not change figure size or spacing
+    const slots = this.cast.pick(sim.chars, f, W, LAYOUT_S, 1, dt, W < 700 ? 8 : 11);
     const drawn: { c: Character; x: number; y: number; k: number; dv: number }[] = [];
     for (const s of slots) {
       const c = sim.chars[s.id]; if (!c) continue;
-      const k = kk * c.look.scale * (1 + s.dv * 0.035), sy = ground + H * 0.1 + s.dv * 6;
+      // no depth perspective: everyone stands on the same line at the same size, so walking never shifts them
+      const k = kk * c.look.scale, sy = ground + H * 0.1;
       const moving = Math.abs(c.x - c.px) + Math.abs(c.y - c.py) > 0.0005, spd = Math.hypot(c.x - c.px, c.y - c.py) * 60;
       c.anim.phase += spd * dt * 5.5;
       const dir = (Math.cos(c.facing) - Math.sin(c.facing)) >= 0 ? 1 : -1;
       g.globalAlpha = s.alpha * 0.45; g.fillStyle = NOIR.night; g.beginPath(); g.ellipse(s.x, sy, 22 * k, 4.5 * k, 0, 0, 6.283); g.fill();
       g.globalAlpha = s.alpha;
-      solve(pose(poseName(c, moving, spd), c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT), s.x, sy, k, dir);
+      // mood-based animation: a happy figure swings its arms wider and leans forward; a low one slumps
+      const A = pose(poseName(c, moving, spd), c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT);
+      const mood = c.emo ? c.emo.mood : 0;
+      A.armL *= 1 + 0.25 * mood; A.armR *= 1 + 0.25 * mood;
+      A.lean += 0.06 * mood;
+      // inverse kinematics: someone close to you reaches a hand toward you (in front, waist high)
+      if (c.phys === Phys.OK && Math.hypot(c.x - f.x, c.y - f.y) < 6) reachArm(A, 1, A.hipX + 0.83 * 42 * Math.sin(A.lean), -44 - 0.83 * 42 * Math.cos(A.lean), 20 * dir, -66);
+      // ragdoll blend: ease toward limp while knocked down, back to the pose when recovered
+      const target = c.phys === Phys.DOWN ? 1 : 0, r0 = ragdoll.get(c.id) ?? 0;
+      const r = r0 + (target - r0) * 0.15;
+      ragdoll.set(c.id, r);
+      if (r > 0.001) for (const key of Object.keys(LIMP) as (keyof Angles)[]) A[key] = A[key] * (1 - r) + (LIMP[key] as number) * r;
+      solve(A, s.x, sy, k, dir);
       this.person(g, c, k, dir, c.anim.flash > 0, pix, night);
       g.globalAlpha = 1;
       drawn.push({ c, x: s.x, y: sy, k, dv: s.dv });
@@ -158,14 +193,12 @@ export class StreetView {
   // ---- sky, far skyline, telegraph poles and wires
   private backdrop(g: CanvasRenderingContext2D, sim: Simulation, W: number, pu: number, pv: number, S: number, ground: number, day: number, time: number): void {
     const sky = g.createLinearGradient(0, 0, 0, ground);
-    if (day > 0.85) { sky.addColorStop(0, "#5d7fb0"); sky.addColorStop(1, "#c9d0da"); }
-    else if (day > 0.6) { sky.addColorStop(0, "#4a5f8a"); sky.addColorStop(1, "#d6a27c"); }
-    else if (day > 0.2) { sky.addColorStop(0, NOIR.skyTop); sky.addColorStop(0.7, NOIR.skyLow); sky.addColorStop(1, NOIR.skyDusk); }
-    else { sky.addColorStop(0, "#0c0b1c"); sky.addColorStop(1, "#2e2848"); }
+    // LOOK.md: a near-black street at every hour, lit by people and lamps (no blue or brown washes)
+    sky.addColorStop(0, NOIR.skyTop); sky.addColorStop(0.7, NOIR.skyLow); sky.addColorStop(1, NOIR.skyDusk);
     g.fillStyle = sky; g.fillRect(0, 0, W, ground);
     if (day < 0.4) { g.fillStyle = "rgba(240,230,210,.8)"; for (let i = 0; i < 40; i++) g.fillRect(((hash(i) * W + pu * S * 0.04) % W + W) % W, hash(i + 90) * ground * 0.35, 2, 2); }
     // two hazy layers of far city behind everything, so the horizon is never bare sky
-    const farCol = day > 0.85 ? ["#9aa6bd", "#7f8aa6"] : day > 0.4 ? ["#8a6a80", "#6a4f70"] : day > 0.2 ? ["#4c3e66", "#35294f"] : ["#1d1a36", "#141226"];
+    const farCol = day > 0.85 ? ["#9aa6bd", "#7f8aa6"] : day > 0.4 ? ["#8a6e70", "#6c5560"] : day > 0.2 ? ["#4a3c52", "#33283e"] : ["#1c1a26", "#13111a"];
     for (let layer = 0; layer < 2; layer++) {
       const SW = 150 - layer * 30, o = pu * S * (0.05 + layer * 0.07), j0 = Math.floor((o - W / 2) / SW) - 1;
       for (let i = j0; i < j0 + Math.ceil(W / SW) + 3; i++) {
@@ -176,7 +209,7 @@ export class StreetView {
         if (day < 0.5) { g.fillStyle = day < 0.25 ? `rgba(255,196,110,${0.5 - layer * 0.15})` : "rgba(255,196,110,.22)"; for (let r = 0; r < h / 16; r++) for (let c = 0; c < w / 14; c++) if (hash(i * 31 + r * 7 + c + layer * 99) < 0.22) g.fillRect(x + 5 + c * 14, ground - h + 8 + r * 16, 4, 6); }
       }
     }
-    const base = day > 0.4 ? "#5a4a62" : "#171428";
+    const base = day > 0.4 ? "#5c4e54" : "#16131c";
     const bs = sim.world.buildings.map((b) => ({ b, u: ((b.x0 + b.x1 + 1) / 2 - (b.y0 + b.y1 + 1) / 2) / 1.414, v: (b.x0 + b.x1 + b.y0 + b.y1 + 2) / 2, w: (b.x1 - b.x0 + b.y1 - b.y0 + 2) / 1.6 }))
       .filter((q) => q.v < pv + 4 && q.v > pv - 40).sort((a, c) => a.v - c.v);
     for (const q of bs) {
@@ -205,7 +238,7 @@ export class StreetView {
   }
 
   /** The long street wall: tenements, shopfronts, a stone bank, alley mouths with fire escapes. */
-  private facades(g: CanvasRenderingContext2D, W: number, H: number, off: number, ground: number, day: number, time: number): void {
+  private facades(g: CanvasRenderingContext2D, sim: Simulation, W: number, H: number, off: number, pv: number, S: number, ground: number, day: number, time: number): void {
     const SEG = 280, i0 = Math.floor((off - W / 2) / SEG) - 1, n = Math.ceil(W / SEG) + 3;
     const wallH = H * 0.54, dim = day > 0.4 ? 1 : 0.85;
     for (let i = i0; i < i0 + n; i++) {
@@ -215,7 +248,8 @@ export class StreetView {
       const hh = wallH * (0.7 + hash(i * 5) * 0.68), top = ground - hh;
       if (kind === 3) { this.alley(g, x, SEG, top, ground, i); continue; }
       const mat = kind === 2 ? NOIR.wallStone : kind === 4 ? NOIR.wallPlaster : NOIR.wallBrick;
-      const col = shade(pickOf(mat, i * 31), dim);
+      const wb = this.neighbour(sim, (i + 0.5) * SEG / S, pv);                // the real building this stretch of wall stands for
+      const col = shade(worldWall(pickOf(mat, i * 31), wb?.color), dim);
       box(g, x, top, SEG, hh, col, 2);
       // brick coursing: faint horizontal joints and a few lighter bricks, no bitmap needed
       if (kind !== 2) { g.fillStyle = "rgba(20,10,20,.22)"; for (let y = top + 6; y < ground; y += 8) g.fillRect(x, y, SEG, 1); g.fillStyle = "rgba(255,210,170,.1)"; for (let k = 0; k < 14; k++) g.fillRect(x + hash(i * 9 + k) * (SEG - 10), top + 6 + Math.floor(hash(i * 13 + k) * (hh / 8)) * 8, 9, 3); }
@@ -231,7 +265,7 @@ export class StreetView {
         }
       }
       const dy = ground - H * 0.17;                                   // ground floor
-      if (kind === 1) { this.shop(g, x, dy, SEG, ground, i, col); this.bladeSign(g, x + SEG - 34, dy - 74, i, day); }
+      if (kind === 1) { this.shop(g, x, dy, SEG, ground, i, col, wb?.sign); this.bladeSign(g, x + SEG - 34, dy - 74, i, day); }
       else this.entry(g, x, dy, ground, i, col);
       if (kind === 0 && hash(i * 17) < 0.5) this.fireEscape(g, x + SEG - 70, top + 20, ground - H * 0.17 - top - 20);
       // drainpipe and the dark foot of the wall
@@ -239,6 +273,15 @@ export class StreetView {
       this.band(g, x, ground - H * 0.06, SEG, H * 0.06, 0.3);
     }
     g.fillStyle = INK; g.fillRect(0, ground - 3, W, 5);
+  }
+
+  /** The world building closest to the street wall at street position u (scene units), looked for either side of the road. */
+  private neighbour(sim: Simulation, u: number, pv: number): { color: string; sign: string } | undefined {
+    for (const d of [-3, 3, -4.5, 4.5]) {
+      const p = pv + d, tx = Math.round((p + u * 1.414) / 2), ty = Math.round((p - u * 1.414) / 2), b = sim.world.buildingAt(tx, ty);
+      if (b) return b;
+    }
+    return undefined;
   }
 
   private window(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number, day: number): void {
@@ -263,11 +306,11 @@ export class StreetView {
     void col;
   }
 
-  private shop(g: CanvasRenderingContext2D, x: number, dy: number, SEG: number, ground: number, i: number, col: string): void {
-    const dh = ground - dy, name = pickOf(SHOP_NAMES, i * 7 + 1), aw = pickOf(NOIR.awning, i * 3);
+  private shop(g: CanvasRenderingContext2D, x: number, dy: number, SEG: number, ground: number, i: number, col: string, sign?: string): void {
+    const dh = ground - dy, name = pickOf(SHOP_NAMES, i * 7 + 1), aw = sign ? muted(sign, 0.8) : pickOf(NOIR.awning, i * 3);
     box(g, x + 8, dy - 26, SEG - 16, 22, NOIR.trim, 1.5);                             // fascia board
     g.fillStyle = "#e8d8a8"; g.font = "800 19px 'IBM Plex Mono', monospace"; g.textAlign = "center"; g.fillText(name, x + SEG / 2, dy - 9); g.textAlign = "start";
-    box(g, x + 8, dy, SEG - 16, dh, "#241f30", 1.5);
+    box(g, x + 8, dy, SEG - 16, dh, "#241f1c", 1.5);
     const g2 = [x + 16, x + SEG / 2 + 28];
     for (let q = 0; q < 2; q++) { box(g, g2[q], dy + 8, SEG / 2 - 44, dh - 16, hash(i + q) < 0.75 ? NOIR.glassLit : NOIR.glassDark, 1.5); this.lit(g2[q], dy + 8, SEG / 2 - 44, dh - 16); g.fillStyle = INK; g.fillRect(g2[q] + 8, dy + dh - 34, 30, 22); g.fillRect(g2[q] + 50, dy + dh - 44, 22, 32); }  // shelves and stock in silhouette
     box(g, x + SEG / 2 - 22, dy + 10, 44, dh - 10, "#3a2a1e", 1.5); g.fillStyle = NOIR.glassLit; g.fillRect(x + SEG / 2 - 16, dy + 14, 32, 14);   // door
@@ -279,7 +322,7 @@ export class StreetView {
   private alley(g: CanvasRenderingContext2D, x: number, SEG: number, top: number, ground: number, i: number): void {
     // the mouth of an alley: the back of the next street, a long way off, with a life of its own
     const ax = x + 14, aw = SEG - 28, ah = ground - top - 10, ay = top + 10, r = hash(i * 3), fy = Math.max(ay, ground - 470);   // fy: the lived-in part of the wall, within sight of the pavement
-    const wall = g.createLinearGradient(0, ay, 0, ground); wall.addColorStop(0, "#2c2646"); wall.addColorStop(0.6, "#3a2f4c"); wall.addColorStop(1, "#1a1428");
+    const wall = g.createLinearGradient(0, ay, 0, ground); wall.addColorStop(0, "#2e2630"); wall.addColorStop(0.6, "#3c3038"); wall.addColorStop(1, "#1a1418");
     g.fillStyle = INK; g.fillRect(ax - 2, ay - 2, aw + 4, ah + 2); g.fillStyle = wall; g.fillRect(ax, ay, aw, ah);
     g.fillStyle = "rgba(10,6,20,.3)"; for (let y = ay + 6; y < ground; y += 8) g.fillRect(ax, y, aw, 1);                       // back-wall brick joints
     g.fillStyle = "#171124"; g.fillRect(ax, ay, 16, ah); g.fillRect(ax + aw - 16, ay, 16, ah);                                    // the side walls fall away in shadow
@@ -310,7 +353,7 @@ export class StreetView {
       g.fillStyle = INK; g.fillRect(x + 90, top - 50, 3, 48); g.fillRect(x + 78, top - 44, 28, 2); g.fillRect(x + 82, top - 34, 20, 2); g.fillRect(x + 86, top - 24, 12, 2);
       if (day < 0.3 && Math.sin(time * 2.4 + i) > 0) { g.fillStyle = "#ff3b2f"; g.fillRect(x + 89, top - 55, 5, 5); }
     } else if (r < 0.76) {   // a painted roof sign
-      box(g, x + 40, top - 40, SEG - 80, 28, "#2a2238", 1.5); g.fillStyle = day < 0.4 ? "#ffd27a" : "#e8d8a8"; for (let k = 0; k < 7; k++) g.fillRect(x + 54 + k * 22, top - 32, 14 + (k % 3) * 2, 12);
+      box(g, x + 40, top - 40, SEG - 80, 28, "#2a2224", 1.5); g.fillStyle = day < 0.4 ? "#ffd27a" : "#e8d8a8"; for (let k = 0; k < 7; k++) g.fillRect(x + 54 + k * 22, top - 32, 14 + (k % 3) * 2, 12);
       g.fillStyle = INK; g.fillRect(x + 60, top - 12, 4, 10); g.fillRect(x + SEG - 64, top - 12, 4, 10);
     }
   }
@@ -427,6 +470,28 @@ export class StreetView {
 
   /** A small noir figure: muted coat, fedora or flat cap, one-unit outline, flat two-tone shading. Joints come from `solve`. */
   private person(g: CanvasRenderingContext2D, c: Character, k: number, dir: number, flash: boolean, pix: number, night: number): void {
+    // the same figure as the zoomed-out view: drawn from the joints `solve` already placed
+    void pix; void night;
+    drawFigure(g, c, 0, 0, k, dir, 0, flash ? 1 : 0, 1, true);   // street people always get the HD pass (glow and ink outline)
+  }
+
+  /** LOOK.md: people are neon stick figures, one colour each, same as the zoomed-out view. Joints come from `solve`. */
+  neonPerson(g: CanvasRenderingContext2D, c: Character, k: number, flash: boolean, night: number): void {
+    const col = flash ? "#ffffff" : NEON[c.id % NEON.length];
+    const w = Math.max(1.6, 2.2 * k);
+    g.save();
+    g.strokeStyle = col; g.fillStyle = col; g.lineWidth = w; g.lineCap = "round"; g.lineJoin = "round";
+    if (night > 0.3) { g.shadowColor = col; g.shadowBlur = 6 * k; }
+    const seg = (a: number, b: number) => { g.beginPath(); g.moveTo(J[a], J[a + 1]); g.lineTo(J[b], J[b + 1]); g.stroke(); };
+    seg(0, 2);                              // torso
+    seg(6, 8); seg(8, 10); seg(6, 12); seg(12, 14);   // arms
+    seg(0, 16); seg(16, 18); seg(0, 20); seg(20, 22); // legs
+    g.beginPath(); g.arc(J[4], J[5], 4 * k, 0, 6.283); g.fill();   // head
+    g.restore();
+  }
+
+  personOutlined(g: CanvasRenderingContext2D, c: Character, k: number, _dir: number, flash: boolean, _pix: number, night: number): void {
+    const dir = _dir, pix = _pix;
     const L = c.look, D = dressOf(c), skin = flash ? "#fff" : NOIR.skin[c.id % NOIR.skin.length], build = L.build ?? 1;
     const coat = flash ? "#fff" : muted(L.color, 0.5), pants = flash ? "#fff" : shade(muted(L.accent, 0.4), 0.7), lamp = night > 0.3 ? 1.25 : 1.1;
     const lw = 8 * k * build, ol = pix * 0.9;

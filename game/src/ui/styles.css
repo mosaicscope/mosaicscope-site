@@ -6,6 +6,8 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--ink); color: var(--paper); font: calc(13px * var(--ts)) / 1.45 var(--mono); -webkit-font-smoothing: antialiased; }
+/* mobile: no rubber-band bounce, no grey tap flash, and the browser keeps its own pinch-zoom and address bar */
+html, body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
 #world { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block; touch-action: none; cursor: crosshair; }
 #ui { position: fixed; inset: 0; pointer-events: none; }
 #ui > * { pointer-events: auto; }
@@ -358,3 +360,5 @@ input, textarea { -webkit-user-select: text; user-select: text; }
 .rent-stress .gigbar { border-color: var(--red); }
 .rent-stress::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; box-shadow: inset 0 0 calc(40px + 120px * var(--stress, 0)) rgba(236, 42, 28, calc(.35 * var(--stress, 0))); }
 @media (prefers-reduced-motion: no-preference) { .rent-stress .gigbar { animation: rentpulse 1.2s ease-in-out infinite; } @keyframes rentpulse { 50% { transform: translateX(-50%) scale(1.04); } } }
+/* colour-blind palette: the red/green accents swap to blue/orange, which stay distinct for most colour vision types */
+html.cb { --red: #d55e00; --acid: #56b4e9; --gold: #e69f00; --pink: #cc79a7; --cyan: #56b4e9; }

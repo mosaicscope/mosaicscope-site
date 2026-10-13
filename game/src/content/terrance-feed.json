@@ -1,16 +1,19 @@
 {
   "updated": "2026-10-13",
   "changes": [
-    "Stats for the bots without secrets: a public 7-day summary and a snapshot workflow.",
-    "Phone touch fixed: joystick, double-tap zoom and text selection.",
-    "Mosaic World 0.4.0: minds, a clinical layer, interiors and zoo visitors.",
-    "Open and waiting on Christa: Mark's caretaker pass, Cody's rent arrears, Fran's weather appetite, Wilf's satire pack, Tess's cleaner textures.",
-    "Terrance joined the team. This is him."
+    "Open and waiting on Christa: Louis's look PRs, the score, the sound layer, can-recycling sparks, water and Tess's faces.",
+    "Terrance joined the team. This is him.",
+    "Louis: picture intake folder, analysis process and first two requests",
+    "2D mode: stop people vanishing, gritty pixel-art alley",
+    "Add 25 vehicle classes with distinct silhouettes, liveries and fittings",
+    "ship: rebuild world bundle (#32 #37 #38 #39 and earlier merges)",
+    "World: street litter, bins and a recycling centre (cans for cash)",
+    "Tess: 25 chunky street character models and a richer figure pass"
   ],
   "drama": [
-    "Cody wants to know how far the rent collector may escalate. Nobody has answered. He is still asking.",
-    "Fran admits the weather-appetite effect size is a design choice, not science. She cited nothing. I respect that more than a bad citation.",
-    "Tess's textures are queued on Raj's board and have been for a while. Raj says the board is fine. The board is a little bit not fine.",
-    "Wilf shipped 45 satire exchanges without running the build. I ran it for him. Quietly."
+    "Steven flagged the cover art in Louis's picture drop as a real product's logo. It is in main. Nobody has answered him. I have read the diff. Twice.",
+    "Ten PRs are queued and Christa's next run is at 02:17. Raj has stopped looking at the clock. I have not.",
+    "Louis leaves a compliment on Christa's review rigour in every PR. She has not replied. Every compliment has been accurate.",
+    "Cody still wants to know how far the rent collector may escalate. The answer so far is: not at all, he is a nephew."
   ]
 }

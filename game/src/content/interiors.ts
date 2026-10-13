@@ -56,7 +56,7 @@ export const PROP_INFO: Record<PropType, PropInfo> = {
 
 export interface Prop { type: PropType; x: number; y: number; w: number; h: number; color: string; material?: FloorMat | "metal" | "glass" | "fabric" | "wood"; label?: string }
 export interface Zone { id: string; name: string; x: number; y: number; w: number; h: number; floor: FloorMat; color: string }
-export type Launch = "legacy" | "police" | "putahi" | "shop" | "dealership" | "gallery";
+export type Launch = "legacy" | "police" | "putahi" | "shop" | "dealership" | "gallery" | "photospot" | "repwall" | "gallerywall";
 export type Effect = "treat" | "vend" | "rest" | "cuppa";
 export interface Interactable { id: string; label: string; x: number; y: number; text: string; launch?: Launch; effect?: Effect; cost?: number }
 export type SpotDoing = "queue" | "sit" | "stand" | "work" | "browse" | "lie" | "phone" | "talk";
@@ -416,7 +416,7 @@ const house: InteriorDef = {
     wallV(4, 0, 2.5), wallV(4, 4.5, 8.5), wallV(4, 10.5, 12), wallH(7, 4, 18), wallV(11, 0, 2), wallV(11, 5, 7), wallV(11, 7, 8.2), wallV(11, 10, 12), wallV(14, 7, 8.2), wallV(14, 10, 12),
     // hall
     p("rack", 0.4, 8.6, 1.8, 0.7, "#6b4a2a", "Shoe rack (jandals)"), p("cabinet", 0.4, 0.4, 1, 1.4, "#6b4a2a", "Coats"), p("mat", 0.4, 5.2, 2.2, 2.6, "#ec2a1c", "Welcome mat"),
-    wp("poster", "w", 2.5, 1.2, "#eee4d3", "Family photo"), wp("clock", "w", 9.5, 0.8, "#eee4d3", "Clock"),
+    wp("poster", "w", 2.5, 1.2, "#eee4d3", "Family photo"), wp("clock", "w", 9.5, 0.8, "#eee4d3", "Clock"), wp("board", "w", 5.2, 2.2, "#c9a26b", "Reputation wall"),
     // lounge
     p("rug", 5.2, 2.2, 4.6, 3.4, "#7a3a3a", "Rug"), p("sofa", 5.4, 5.6, 3.6, 1, "#4a5a4a", "Couch"), p("table", 6.2, 3.4, 1.8, 1, "#6b4a2a", "Coffee table"), p("sofa", 4.4, 2.4, 0.9, 1.6, "#4a5a4a"),
     p("cabinet", 5.5, 0.3, 3, 0.8, "#6b4a2a", "TV unit"), p("machine", 9.2, 0.3, 1.4, 1, "#c55a1c", "Wood burner"), p("lamp", 4.5, 6.2, 0.4, 0.4, "#f6e8a8"),
@@ -434,6 +434,7 @@ const house: InteriorDef = {
     p("machine", 14.3, 7.4, 1, 1, "#d8d8d8", "Washing machine"), p("cabinet", 16.2, 7.4, 1.4, 1.4, "#c9a07a", "Hot water cylinder"),
   ],
   interactables: [
+    { id: "repwall", label: "Reputation wall", x: 2.4, y: 5.0, launch: "repwall", text: "Polaroids pinned with a mix of tape and optimism." },
     { id: "couch", label: "Couch", x: 7.2, y: 4.9, effect: "rest", text: "You sink into the couch. The dog (not yours) approves." },
     { id: "kettle", label: "Kettle", x: 14.3, y: 1.8, effect: "cuppa", text: "Jug on. Tea, with the good biscuits you were saving." },
     { id: "bed", label: "Bed", x: 6.5, y: 10.8, effect: "rest", text: "A neatly made bed with a hot-water bottle, which is the only reasonable thing at 3 degrees." },
