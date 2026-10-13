@@ -105,7 +105,8 @@ export class StreetView {
     this.lights(g, W, H, off, ground, night, time);
     // people
     const kk = (1 + (zoom - 3) * 0.3) * 0.62;
-    const slots = this.cast.pick(sim.chars, f, W, S, kk / 0.62, dt, W < 700 ? 8 : 11);
+    // who is on the street and their spacing come from the world, not the zoom: zoom only changes figure size
+    const slots = this.cast.pick(sim.chars, f, W, S, 1, dt, W < 700 ? 8 : 11);
     const drawn: { c: Character; x: number; y: number; k: number; dv: number }[] = [];
     for (const s of slots) {
       const c = sim.chars[s.id]; if (!c) continue;
@@ -440,7 +441,7 @@ export class StreetView {
   private person(g: CanvasRenderingContext2D, c: Character, k: number, dir: number, flash: boolean, pix: number, night: number): void {
     // the same figure as the zoomed-out view: drawn from the joints `solve` already placed
     void pix; void night;
-    drawFigure(g, c, 0, 0, k, dir, 0, flash ? 1 : 0, 1);
+    drawFigure(g, c, 0, 0, k, dir, 0, flash ? 1 : 0, 1, true);   // street people always get the HD pass (glow and ink outline)
   }
 
   /** LOOK.md: people are neon stick figures, one colour each, same as the zoomed-out view. Joints come from `solve`. */
