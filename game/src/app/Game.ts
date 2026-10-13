@@ -20,6 +20,7 @@ import { Renderer, Quality } from "../render/Renderer";
 import { AudioSystem } from "../audio/Audio";
 import { LocalStorageProvider } from "../persistence/storage";
 import { SaveSystem, SaveError } from "../persistence/SaveSystem";
+import { setGravityScale, gravityScale } from "../physics/PhysicsWorld";
 import { Settings, loadSettings, saveSettings } from "../persistence/Settings";
 import { newDebugFlags } from "../debug/flags";
 import { DevPanel } from "../debug/DevPanel";
@@ -45,6 +46,8 @@ import { MOSAIC } from "../content/mosaicscope";
 import { carried, detach } from "../inventory/Inventory";
 import { BUILDINGS } from "../content/buildings";
 import { billAbsence, collect } from "../sim/Arrears";
+import { Photos } from "../ui/Photos";
+import { MOMENTS } from "../content/photos";
 
 /** Wires simulation, renderer, input, audio, UI and persistence together and runs the loop. */
 /** People who ring you. Lines can mention {place} and {cash}. */
@@ -91,7 +94,8 @@ export class Game {
   private moveTarget: { x: number; y: number } | null = null;
   private pendingTalk = -1;
   private pendingEnter: { building: number; studio: boolean } | null = null;
-  private quality: Quality = 1; // auto starts at medium and steps up only if frames stay fast
+  // auto starts at medium on desktop and high on phones (full detail, more battery), and steps down only if frames drop
+  private quality: Quality = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches ? 2 : 1;
   private fpsAvg = 60; private slowFor = 0; private fastFor = 0;
   private ticksThisSecond = 0; private tickRate = 0; private tickWindow = 0;
   private toastEl: HTMLElement; private hintEl: HTMLElement; private clockEl: HTMLElement; private speedEls: HTMLButtonElement[] = [];
@@ -100,7 +104,7 @@ export class Game {
   private raf = 0;
   private reduceMotionOS = false;
   private touches = new Map<number, { x: number; y: number }>();
-  casino: Casino; places: Places; radio: Radio; interior: InteriorOverlay;
+  photos!: Photos; casino: Casino; places: Places; radio: Radio; interior: InteriorOverlay;
   private hudEl: HTMLElement;
   private areaEl: HTMLElement = h("div.areaname", { "aria-live": "polite" }); private lastArea = ""; private bustedEl: HTMLElement; private lastBusted = -1;
   private gestured = false;
@@ -126,6 +130,26 @@ export class Game {
       fps: () => this.fpsAvg, tickRate: () => this.tickRate, reset: (seed) => this.reset(seed), toast: (t) => this.toast(t),
       teleport: () => { const p = this.renderer.cam.toWorld(this.mouse.x, this.mouse.y); const w = this.sim.world.nearestWalkable(p.x, p.y); this.sim.player.x = w.x; this.sim.player.y = w.y; },
     });
+    // debug console: type mosaics.help() in the browser console
+    (window as unknown as { mosaics: object }).mosaics = {
+      help: () => "mosaics.gravity(v) sets toy gravity (0.1 to 2); mosaics.toast(text) shows a toast; mosaics.saveSlots() lists slots; mosaics.colourBlind(true|false) switches the palette; mosaics.toys() lists toy states; mosaics.people() counts people near you; mosaics.save('1') saves to a slot; mosaics.toyCount(), saveList(), clearSlot(slot), colourBlindState(), restart(), gravityToast(), helpers() lists all helpers",
+      gravity: (v: number) => { setGravityScale(v); return `gravity ${gravityScale}`; },
+      toast: (text: string) => this.toast(text),
+      saveSlots: () => ["1", "2", "3"].map((s) => ({ slot: s, info: this.saves.info(s) })),
+      repairToys: () => { let n = 0; for (const t of this.sim.toys) if (this.sim.physics.repairToy(t)) n++; return `repaired ${n} toy(s)`; },
+      toys: () => this.sim.toys.map((t) => ({ def: t.def, state: t.state, durability: Math.round(t.durability), max: t.maxDurability })),
+      people: () => ({ total: this.sim.chars.length, nearby: this.sim.chars.filter((c) => c !== this.sim.player && Math.hypot(c.x - this.sim.player.x, c.y - this.sim.player.y) < 12).length }),
+      save: (slot: string) => { const r = this.saves.save(this.sim, slot); return r.ok ? `saved to slot ${slot} (${Math.round(r.bytes / 1024)} KB)` : `couldn't save: ${r.error}`; },
+      toyCount: () => ({ total: this.sim.toys.length, broken: this.sim.toys.filter((t) => t.state === "broken").length }),
+      saveList: () => ["1", "2", "3"].map((slot) => { const i = this.saves.info(slot); return { slot, when: i ? i.savedAt : "empty" }; }),
+      clearSlot: (slot: string) => { this.saves.remove(slot); return `cleared slot ${slot}`; },
+      colourBlindState: () => document.documentElement.classList.contains("cb") ? "on" : "off",
+      restart: () => { this.reset(Math.floor(Math.random() * 1e9)); return "world restarted"; },
+      gravityToast: () => { this.toast(`gravity ${gravityScale}`); return `gravity ${gravityScale}`; },
+      helpers: () => ["help", "gravity", "toast", "saveSlots", "toys", "people", "save", "colourBlind", "repairToys", "toyCount", "saveList", "clearSlot", "colourBlindState", "restart", "gravityToast", "helpers"],
+      colourBlind: (on: boolean) => { try { localStorage.setItem("ms-colourblind", on ? "1" : "0"); } catch { /* storage blocked */ } document.documentElement.classList.toggle("cb", on); return `colour-blind ${on ? "on" : "off"}`; },
+    };
+    try { if (localStorage.getItem("ms-colourblind") === "1") document.documentElement.classList.add("cb"); } catch { /* storage blocked: default palette */ }
     this.toastEl = h("div.toasts", { "aria-live": "polite" });
     this.hintEl = h("div.hint");
     this.clockEl = h("span.clock");
@@ -140,6 +164,12 @@ export class Game {
       keys: () => ({ up: this.settings.keys.up, down: this.settings.keys.down, left: this.settings.keys.left, right: this.settings.keys.right, use: this.settings.keys.pickup }),
     });
     this.places.openInterior = (b) => this.interior.show(b);
+    this.photos = new Photos({
+      world: () => this.renderer.canvas, interior: () => (this.interior.open ? this.interior.canvas : null),
+      show: (t, b, cls) => this.modal.show(t, b, cls), close: () => this.modal.close(), toast: (t, k) => this.toast(t, k),
+      where: () => { const p = this.sim.player; return this.sim.world.streetName(p.x, p.y) || ""; }, simRep: () => this.sim.player.reputation,
+    }, this.store);
+    this.places.photos = this.photos;
     this.dialogue.onTrade = (id) => this.places.trade(this.sim.chars[id]);
     this.radio = new Radio(MOSAIC.soundcloud);
     this.hudEl = h("div.hud", { "aria-live": "polite" });
@@ -285,7 +315,12 @@ export class Game {
     this.speedEls.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.speed === (this.clock.paused ? "0" : String(this.clock.speed)))));
     // toasts for notable events near the player
     for (const t of sim.toasts.splice(0)) this.toast(t.text, t.kind);
+    // zone splash: name the district when the player walks into a different area
+    const here = sim.world.areaAt(sim.player.x, sim.player.y);
+    if (here && here.id !== this.zoneId) { this.zoneId = here.id; this.toast(here.name, "zone"); }
   }
+  /** id of the district the player was last in (-1 before the first frame), for the zone splash */
+  private zoneId = -1;
 
   private adaptQuality(dt: number): void {
     if (this.settings.quality !== "auto") return;
@@ -591,6 +626,7 @@ export class Game {
       else if (key === k.dev || key === "~") this.dev.toggle();
       else if (key === "c") { this.renderer.cam.follow = this.sim.playerId; }
       else if (key === "v") this.toggle2D();
+      else if (key === "o") this.photos.open();
       else if (key === "=" || key === "+") this.renderer.cam.setZoom(this.renderer.cam.targetZoom * 1.2);
       else if (key === "-") this.renderer.cam.setZoom(this.renderer.cam.targetZoom / 1.2);
     });
@@ -731,6 +767,7 @@ export class Game {
         };
         const f = F[e.type]?.();
         if (f) this.focus(f[0], f[1], 3.6);
+        if (e.type in MOMENTS && (e.type !== "crime" || e.actors[0] === p.id)) this.photos.moment(e.type, street, on ? on.name.split(" ")[0] : "");
       }
     });
   }
@@ -1109,6 +1146,7 @@ export class Game {
       h("div.seg", { role: "group", "aria-label": "Simulation speed" }, this.speedEls),
       this.soundBtn,
       h("button.btn", { onclick: () => this.luxury.show(), text: "Luxury", title: "Velvet & Co. Luxury: property, rides, animals" }),
+      h("button.btn", { onclick: () => this.photos.open(), text: "Photo", title: "Photo mode (O)" }),
       h("button.btn", { onclick: () => this.toggle2D(), text: "2D/3D", title: "Street view (V)" }),
       h("button.btn", { onclick: () => this.log.toggle(), text: "Log" }),
       h("button.btn", { onclick: () => this.select(this.selected === this.sim.playerId ? -1 : this.sim.playerId), text: "Me", class: "btn wide" }),
@@ -1178,10 +1216,37 @@ export class Game {
         h("div", null, [h("b", { text: `Slot ${s}` }), h("small", { text: info ? `${info.savedAt === "corrupted" ? "damaged" : new Date(info.savedAt).toLocaleString()} · day time ${fmtHour((this.sim.env.startHour + info.tick / 3600) % 24)}` : "empty" })]),
         h("button.btn", { onclick: () => { const r = this.saves.save(this.sim, s); msg.textContent = r.ok ? `Saved to slot ${s} (${Math.round(r.bytes / 1024)} KB).` : `Couldn't save: ${r.error}`; msg.className = r.ok ? "" : "err"; render(); }, text: "Save" }),
         h("button.btn", { disabled: !info, onclick: () => this.load(s, msg), text: "Load" }),
+        h("button.btn", { disabled: !info, onclick: () => this.exportSave(s, msg), text: "Export" }),
+        h("button.btn", { onclick: () => this.importSave(s, msg, render), text: "Import" }),
       ]);
     }));
     render();
     this.modal.show("Save & load", [h("p", { style: { color: "var(--dim)" }, text: "Saves live in this browser only (local storage). They keep everyone's memories, friendships, grudges and toys." }), body, msg]);
+  }
+
+  /** Download a slot's save as a .json file. */
+  private exportSave(slot: string, msg: HTMLElement): void {
+    const raw = this.saves.raw(slot);
+    if (!raw) { msg.textContent = "There is no save in that slot."; msg.className = "err"; return; }
+    const url = URL.createObjectURL(new Blob([raw], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = `mosaics-save-${slot}.json`; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    msg.textContent = `Exported slot ${slot}.`; msg.className = "";
+  }
+
+  /** Load a .json save file into a slot, after checking it is a valid save. */
+  private importSave(slot: string, msg: HTMLElement, done: () => void): void {
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = ".json,application/json";
+    input.onchange = () => {
+      const file = input.files?.[0]; if (!file) return;
+      file.text().then((t) => {
+        try { this.saves.importRaw(slot, t); msg.textContent = `Imported into slot ${slot}.`; msg.className = ""; done(); }
+        catch (e) { msg.textContent = `Couldn't import: ${(e as Error).message}`; msg.className = "err"; }
+      });
+    };
+    input.click();
   }
 
   private load(slot: string, msg: HTMLElement): void {

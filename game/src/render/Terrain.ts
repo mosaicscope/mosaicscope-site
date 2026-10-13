@@ -1,4 +1,6 @@
-import { World, T, TILE_HEIGHT, Poi, ROAD_W, CROSS_W } from "../world/World";
+import { World, T, TILE_HEIGHT, Poi, ROAD_W, CROSS_W, PERIOD } from "../world/World";
+import { decorGrid, D } from "./StreetDecor";
+import { hash01 } from "./noir";
 import { drawBin, drawCompost } from "./LitterArt";
 import { TILE_W, TILE_H, Z_PX } from "../world/iso";
 import { GROUND } from "./palette";
@@ -57,7 +59,7 @@ export class Terrain {
       const [c1, c2] = GROUND[base] ?? ["#1a1614", "#1e1a17"];
       const sx = (tx - ty) * hw - ox, sy = (tx + ty) * hh - oy;
       // soft tonal variation: blend the two ground colours smoothly (no checkerboard)
-      g.fillStyle = base === T.WATER ? waterShade(g, sx, sy, w, tx, ty) : mix(c1, c2, this.smooth(tx, ty));
+      g.fillStyle = base === T.WATER ? waterShade(g, sx, sy, w, tx, ty) : mix(c1, c2, this.smooth(tx, ty), base === T.GRASS ? 0 : zoneAt(w, tx, ty));
       g.beginPath(); diamond(sx, sy); g.fill();
       const mat = MAT_OF[base];
       if (mat) { const k = mat[0] + mat[1]; let e = grit.get(k); if (!e) grit.set(k, e = { m: mat[0], a: mat[1], at: [] }); e.at.push(sx, sy); }
@@ -92,9 +94,34 @@ export class Terrain {
   }
 }
 
-function mix(a: string, b: string, t: number): string {
+function mix(a: string, b: string, t: number, zone = 0): string {
   const p = (c: string, i: number) => parseInt(c.slice(1 + i * 2, 3 + i * 2), 16);
-  return `rgb(${Math.round(p(a, 0) + (p(b, 0) - p(a, 0)) * t)},${Math.round(p(a, 1) + (p(b, 1) - p(a, 1)) * t)},${Math.round(p(a, 2) + (p(b, 2) - p(a, 2)) * t)})`;
+  // zone: warm (+) pushes red up and blue down, cool (-) the other way; a few levels, never a different material
+  const r = p(a, 0) + (p(b, 0) - p(a, 0)) * t + zone * 5, gr = p(a, 1) + (p(b, 1) - p(a, 1)) * t + zone * 1.5, bl = p(a, 2) + (p(b, 2) - p(a, 2)) * t - zone * 5;
+  return `rgb(${Math.round(Math.max(0, r))},${Math.round(Math.max(0, gr))},${Math.round(Math.max(0, bl))})`;
+}
+
+const ZONE_OF: Partial<Record<string, number>> = { market: 0.9, food: 0.8, shops: 0.6, residential: 0.5, playground: 0.4, nightlife: 0.2, plaza: 0.3, gallery: 0.1, park: 0, office: -0.5, studio: -0.4, court: -0.5, airport: -0.8, hospital: -0.6, police: -0.6, casino: 0.3 };
+const zones = new WeakMap<World, Float32Array>();
+/** Warm/cool tone of each city block (from its district), blended smoothly across the roads between blocks. -1 cool .. +1 warm. */
+function zoneAt(w: World, tx: number, ty: number): number {
+  let z = zones.get(w);
+  const nb = Math.ceil(w.size / PERIOD);
+  if (!z) {
+    z = new Float32Array(nb * nb);
+    for (let by = 0; by < nb; by++) for (let bx = 0; bx < nb; bx++) {
+      const cx = bx * PERIOD + (PERIOD + ROAD_W) / 2, cy = by * PERIOD + (PERIOD + ROAD_W) / 2;
+      const a = w.areas[w.areaOf[Math.min(w.size - 1, cy) * w.size + Math.min(w.size - 1, cx)]];
+      z[by * nb + bx] = Math.max(-1, Math.min(1, (ZONE_OF[a?.kind ?? "street"] ?? 0) + (hash01(bx * 31 + by * 57) - 0.5) * 0.5));
+    }
+    zones.set(w, z);
+  }
+  // bilinear between block centres
+  const gx = (tx - (PERIOD + ROAD_W) / 2) / PERIOD, gy = (ty - (PERIOD + ROAD_W) / 2) / PERIOD;
+  const x0 = Math.max(0, Math.min(nb - 1, Math.floor(gx))), y0 = Math.max(0, Math.min(nb - 1, Math.floor(gy)));
+  const x1 = Math.min(nb - 1, x0 + 1), y1 = Math.min(nb - 1, y0 + 1);
+  const fx = Math.max(0, Math.min(1, gx - x0)), fy = Math.max(0, Math.min(1, gy - y0));
+  return (z[y0 * nb + x0] * (1 - fx) + z[y0 * nb + x1] * fx) * (1 - fy) + (z[y1 * nb + x0] * (1 - fx) + z[y1 * nb + x1] * fx) * fy;
 }
 
 /** Smooth value noise at world position (tile units), 0..1. Pinned to the world so water colour flows across tile and chunk edges. */
@@ -245,6 +272,7 @@ function detail(g: CanvasRenderingContext2D, t: number, sx: number, sy: number, 
       break;
     }
     case T.SIDEWALK: {
+      sidewalkLife(g, w, sx, sy, n, tx, ty);
       const kerb = (dx: number, dy: number) => { const t = w.tile(tx + dx, ty + dy); return t === T.ROAD || t === T.CROSSWALK; };
       g.strokeStyle = "rgba(238,228,211,.28)"; g.lineWidth = 2; g.beginPath();
       if (kerb(0, 1)) { g.moveTo(sx - hw, sy + hh); g.lineTo(sx, sy + TILE_H); }
@@ -453,6 +481,37 @@ export function drawPoi(g: CanvasRenderingContext2D, p: Poi, sx: number, sy: num
         g.shadowBlur = 0; g.textAlign = "start";
       }
       break;
+    }
+  }
+}
+
+/** Small signs that people live here, baked into the ground: fallen leaves, worn paving, chalk, the odd manhole. */
+function sidewalkLife(g: CanvasRenderingContext2D, w: World, sx: number, sy: number, n: number, tx: number, ty: number): void {
+  const hw = TILE_W / 2, hh = TILE_H / 2, S = w.size, cx = sx, cy = sy + hh;
+  const h = hash01(tx * 2711 + ty * 9293);
+  // leaves drift around the trees
+  let near = false;
+  const dg = decorGrid(w);
+  for (let dy = -1; dy <= 1 && !near; dy++) for (let dx = -1; dx <= 1; dx++) { const X = tx + dx, Y = ty + dy; if (X >= 0 && Y >= 0 && X < S && Y < S && dg[Y * S + X] === D.TREE) { near = true; break; } }
+  if (near) {
+    const cols = ["#7a421a", "#a8651e", "#4a3a12", "#6a4a1c"];
+    for (let i = 0; i < 4; i++) { const a = hash01(tx * 31 + ty * 17 + i * 7), b = hash01(tx * 13 + ty * 41 + i * 3); g.fillStyle = cols[i]; g.globalAlpha = 0.75; g.fillRect(cx + (a - 0.5) * hw * 1.1, cy + (b - 0.5) * hh * 0.9, 2, 1.4); }
+    g.globalAlpha = 1;
+  }
+  // worn, darker patches where feet go, and a hairline crack
+  if (h < 0.1) { g.fillStyle = "rgba(14,11,10,.16)"; g.beginPath(); g.ellipse(cx + (n - 0.5) * 8, cy, hw * 0.45, hh * 0.4, 0.4, 0, 6.283); g.fill(); }
+  else if (h < 0.15) { g.strokeStyle = "rgba(14,11,10,.28)"; g.lineWidth = 1; g.beginPath(); g.moveTo(cx - hw * 0.3, cy - hh * 0.15); g.lineTo(cx - hw * 0.05, cy + hh * 0.05); g.lineTo(cx + hw * 0.1, cy - hh * 0.05); g.lineTo(cx + hw * 0.35, cy + hh * 0.2); g.stroke(); }
+  else if (h > 0.985) { // manhole cover
+    g.fillStyle = "rgba(90,85,80,.55)"; g.beginPath(); g.ellipse(cx, cy, hw * 0.2, hh * 0.2, 0, 0, 6.283); g.fill();
+    g.strokeStyle = "rgba(14,11,10,.45)"; g.lineWidth = 1; g.stroke();
+    g.beginPath(); g.moveTo(cx - hw * 0.14, cy); g.lineTo(cx + hw * 0.14, cy); g.moveTo(cx, cy - hh * 0.14); g.lineTo(cx, cy + hh * 0.14); g.stroke();
+  } else if (h > 0.96 && h < 0.97 && w.tile(tx, ty + 1) !== T.ROAD && w.tile(tx + 1, ty) !== T.ROAD) { // chalk on the inner footpath
+    g.strokeStyle = ["rgba(238,228,211,.4)", "rgba(255,122,217,.4)", "rgba(61,214,255,.38)"][Math.floor(n * 3) % 3]; g.lineWidth = 1.2;
+    if (n < 0.5) { // hopscotch: a ladder of squares
+      for (let i = 0; i < 4; i++) { const u = cx - hw * 0.35 + i * hw * 0.2, v = cy - hh * 0.2 + i * hh * 0.1; g.strokeRect(u, v, 6, 4); }
+    } else { // a little heart and a sun
+      g.beginPath(); g.moveTo(cx, cy + 3); g.bezierCurveTo(cx - 8, cy - 3, cx - 3, cy - 8, cx, cy - 3); g.bezierCurveTo(cx + 3, cy - 8, cx + 8, cy - 3, cx, cy + 3); g.stroke();
+      g.beginPath(); g.arc(cx + hw * 0.35, cy - hh * 0.1, 3, 0, 6.283); g.stroke();
     }
   }
 }
