@@ -18,7 +18,7 @@ import type { BuildingKind } from "../content/buildings";
 import type { VehicleClass } from "../content/vehicles";
 import type { Simulation } from "../sim/Simulation";
 import type { Camera } from "../render/Camera";
-import { DEFAULT_VOICE, DEFAULT_FOOT, DEFAULT_AMBIENCE, voiceAllowed, voicePitch, voiceDuration, voiceGain, footGain, shoePitch, ambienceGain } from "./Prefs";
+import { DEFAULT_VOICE, DEFAULT_FOOT, DEFAULT_AMBIENCE, voiceAllowed, voicePitch, voiceDuration, voiceTone, footGain, shoePitch, ambienceGain } from "./Prefs";
 import type { VoicePrefs, FootPrefs, AmbiencePrefs } from "./Prefs";
 
 // ------------------------------------------------------------------ pure planning
@@ -567,7 +567,8 @@ export class Diegetic {
     const o = this.flat(0.2);
     if (!this.begin("event")) return;
     const f = voicePitch(id, this.voicePrefs), d = voiceDuration(this.voicePrefs);
-    this.blip(o, this.voicePrefs.shape, f, f * 1.25, d, voiceGain(this.voicePrefs));
+    const tone = voiceTone(this.voicePrefs);
+    this.blip(o, tone.shape, f, f * 1.25, d, tone.gain);
     this.end();
   }
 

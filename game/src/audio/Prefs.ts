@@ -19,6 +19,8 @@ export interface VoicePrefs {
   maxPerSec: number;
   /** blip tone shape: "triangle" (soft), "square" (buzzy) or "sine" (pure) */
   shape: "triangle" | "square" | "sine";
+  /** radio / walkie-talkie: buzzier tone and quieter blips */
+  radio: boolean;
 }
 
 export const DEFAULT_VOICE: VoicePrefs = {
@@ -29,7 +31,14 @@ export const DEFAULT_VOICE: VoicePrefs = {
   speed: 1,
   maxPerSec: 6,
   shape: "triangle",
+  radio: false,
 };
+
+/** The tone shape and loudness a blip uses, with the radio filter applied when it is on. */
+export function voiceTone(prefs: VoicePrefs): { shape: VoicePrefs["shape"]; gain: number } {
+  const gain = voiceGain(prefs);
+  return prefs.radio ? { shape: "square", gain: gain * 0.6 } : { shape: prefs.shape, gain };
+}
 
 /** Footstep preferences: loudness, the shoe sound, and whether sneaking silences the steps. */
 export interface FootPrefs {
