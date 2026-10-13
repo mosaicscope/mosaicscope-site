@@ -1685,3 +1685,6 @@ nav.bar__nav > a { padding-block: 6px; margin-block: -6px; }
 /* added by the evolution engine */
 /* evolve:tap a.scrollcue */
 a.scrollcue { padding-block: 2px; margin-block: -2px; }
+
+/* evolve:cls hero__where: keep the scroll cue on its own line on phones so late text/font changes can't re-wrap the hero */
+@media (max-width: 600px) { .hero__where > .scrollcue { flex-basis: 100%; } }
