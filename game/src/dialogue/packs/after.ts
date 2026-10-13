@@ -1,0 +1,32 @@
+import type { Exchange } from "../exchanges";
+
+/** After-hours small talk. Ordinary people noticing small things that do not quite add up. Only fires at night, late, or in the quiet corners. */
+export const HOURS: Exchange[] = [
+  { id: "aft_lamp_count", tags: ["a:local", "b:local", "night"], lines: ["Is that lamp always on the left?", "It's on the right.", "Huh. It was on the left earlier.", "Walk faster."], w: 0.5 },
+  { id: "aft_same_man", tags: ["a:local", "b:local", "late"], lines: ["Same man on the bench as last night.", "He's a regular.", "Same coat. Same hands. Same sentence he's mouthing.", "Don't read his lips."], w: 0.5 },
+  { id: "aft_door_nine", tags: ["a:local", "b:local", "@residential", "night"], lines: ["Nobody's lived in number nine for years.", "The porch light's on.", "It's always on.", "Someone pays the power."], w: 0.5 },
+  { id: "aft_echo", tags: ["a:local", "b:tourist", "@alley"], lines: ["This alley has a funny echo.", "I said nothing.", "I know. I heard it answer."], w: 0.6 },
+  { id: "aft_window", tags: ["a:cleaner", "b:local", "late"], lines: ["I wipe the same window every night.", "And then?", "Someone wipes it from the other side first."], w: 0.5 },
+  { id: "aft_cop_radio", tags: ["a:cop", "b:cop", "late"], lines: ["Dispatch just read me my own badge number.", "Routine check.", "It said it twice. Different voices.", "Switch to channel two."], w: 0.5 },
+  { id: "aft_cop_count", tags: ["a:cop", "b:local", "night", "@alley"], lines: ["Did you see anyone come out of there?", "Just you.", "Funny. I went in alone and I'm counting two.", "Go home. Lock the door."], w: 0.5 },
+  { id: "aft_busker_requests", tags: ["a:busker", "b:local", "late"], lines: ["Got a request for a song nobody wrote.", "Who from?", "A coat with nobody in it. It hummed the first bar.", "Did you play it?", "I knew it. That's the worst part."], w: 0.5 },
+  { id: "aft_taxi_fare", tags: ["a:taxi", "b:taxi", "late"], lines: ["Fare asked for an address that isn't on the map.", "You took it?", "Meter says I've been driving there for an hour.", "Pull over. Don't look at the mirror."], w: 0.5 },
+  { id: "aft_neighbour", tags: ["a:local", "b:local", "@residential", "late"], lines: ["My neighbour waves from his window every night.", "Friendly.", "He's been away since March.", "...Still waving?", "Gentler now."], w: 0.5 },
+  { id: "aft_bouncer", tags: ["a:bouncer", "b:local", "late"], lines: ["Headcount is forty-one.", "You counted forty last time.", "I always count forty. The extra one doesn't leave."], w: 0.5 },
+  { id: "aft_vendor_stock", tags: ["a:vendor", "b:local", "night"], lines: ["Somebody keeps restocking my stall overnight.", "Nice of them.", "I don't sell any of this.", "Do you still eat it?", "No. Do you?"], w: 0.5 },
+  { id: "aft_student_notes", tags: ["a:student", "b:student", "late"], lines: ["My notes have a page I don't remember writing.", "What does it say?", "Today's date. Then a list of our names.", "Whose handwriting?", "Mine. Neater than usual."], w: 0.5 },
+  { id: "aft_mechanic", tags: ["a:mechanic", "b:local", "night"], lines: ["Car came in with the radio on. Keys nowhere.", "Odd.", "Station's off the dial. Same voice, every few minutes.", "What's it saying?", "The number plates of cars not yet on the road."], w: 0.5 },
+  { id: "aft_gallery", tags: ["a:local", "b:local", "@gallery", "night"], lines: ["Did the portraits in there always face the door?", "I thought they faced the wall.", "Let's not be the last ones out."], w: 0.5 },
+  { id: "aft_office_light", tags: ["a:office", "b:office", "late", "@office"], lines: ["Top floor light's on again.", "Cleaners?", "Cleaners clocked off at ten.", "Then who's working late?", "Don't ask what they're filing."], w: 0.5 },
+  { id: "aft_player_stranger", tags: ["a:local", "b:player", "late"], lines: ["You're out late. Everyone's out late.", "Everyone?", "Count the shadows on the footpath. Then count the people.", "Sleep well. Or don't. It makes no difference."], w: 0.4 },
+  { id: "aft_player_knew", tags: ["a:local", "b:player", "night", "strangers"], lines: ["Oh. You. We've met.", "I don't think so.", "No, you wouldn't remember. Nobody does.", "Remember what?", "Exactly."], w: 0.4 },
+  { id: "aft_scared_flat", tags: ["a:local", "a:scared", "b:local", "night"], lines: ["Something in the flat is rearranging my shoes.", "Mouse?", "Mice don't tie laces."], w: 0.5 },
+  { id: "aft_tourist_map", tags: ["a:tourist", "b:local", "night"], lines: ["My map shows a street here that I can't find.", "What's the street called?", "It's blank. But there's a house number.", "Don't look for it."], w: 0.5 },
+  { id: "aft_musician_loop", tags: ["a:musician", "b:local", "late"], lines: ["Recorded a loop and left it playing.", "Nice. Sounds good.", "I stopped the tape an hour ago.", "Then what's that?", "Still on beat. I'm leaving."], w: 0.5 },
+  { id: "aft_barista_cup", tags: ["a:barista", "b:local", "late"], lines: ["Cup with your name came off the machine.", "I didn't order.", "It was hot when it left the machine. And ready before you walked in."], w: 0.5 },
+  { id: "aft_photographer", tags: ["a:photographer", "b:local", "night"], lines: ["Every shot tonight has one extra person.", "Edge of frame?", "Always in front. Always out of focus. Always closer.", "Delete them.", "I did. They came back sharper."], w: 0.5 },
+  { id: "aft_graffiti", tags: ["a:graffiti", "b:local", "late"], lines: ["Found a tag I didn't paint.", "In your style?", "In my handwriting. Dated tomorrow."], w: 0.5 },
+  { id: "aft_mobster_quiet", tags: ["a:mobster", "b:mobster", "late"], lines: ["Why's the whole block so quiet?", "Even the dogs stopped.", "Good. Whatever it is, it's not ours."], w: 0.5 },
+  { id: "aft_medic", tags: ["a:medic", "b:cop", "late"], lines: ["Got a call for a collapse on a street that doesn't exist.", "Did you attend?", "I went. There was a bench, a streetlight and a patient seat.", "Who sat in it?", "I did. For a while."], w: 0.5 },
+  { id: "aft_comic", tags: ["a:comic", "b:local", "night"], lines: ["Told my best joke at the open mic.", "Did it land?", "Room went silent. Then someone in the dark laughed. Alone. Late.", "Who was it?", "No clue. They're still going."], w: 0.5 },
+];
