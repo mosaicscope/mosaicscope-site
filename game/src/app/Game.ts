@@ -130,7 +130,7 @@ export class Game {
     });
     // debug console: type mosaics.help() in the browser console
     (window as unknown as { mosaics: object }).mosaics = {
-      help: () => "mosaics.gravity(v) sets toy gravity (0.1 to 2); mosaics.toast(text) shows a toast; mosaics.saveSlots() lists slots; mosaics.colourBlind(true|false) switches the palette; mosaics.toys() lists toy states; mosaics.people() counts people near you; mosaics.save('1') saves to a slot",
+      help: () => "mosaics.gravity(v) sets toy gravity (0.1 to 2); mosaics.toast(text) shows a toast; mosaics.saveSlots() lists slots; mosaics.colourBlind(true|false) switches the palette; mosaics.toys() lists toy states; mosaics.people() counts people near you; mosaics.save('1') saves to a slot; mosaics.toyCount(), saveList(), clearSlot(slot), colourBlindState(), restart(), gravityToast(), helpers() lists all helpers",
       gravity: (v: number) => { setGravityScale(v); return `gravity ${gravityScale}`; },
       toast: (text: string) => this.toast(text),
       saveSlots: () => ["1", "2", "3"].map((s) => ({ slot: s, info: this.saves.info(s) })),
@@ -138,6 +138,13 @@ export class Game {
       toys: () => this.sim.toys.map((t) => ({ def: t.def, state: t.state, durability: Math.round(t.durability), max: t.maxDurability })),
       people: () => ({ total: this.sim.chars.length, nearby: this.sim.chars.filter((c) => c !== this.sim.player && Math.hypot(c.x - this.sim.player.x, c.y - this.sim.player.y) < 12).length }),
       save: (slot: string) => { const r = this.saves.save(this.sim, slot); return r.ok ? `saved to slot ${slot} (${Math.round(r.bytes / 1024)} KB)` : `couldn't save: ${r.error}`; },
+      toyCount: () => ({ total: this.sim.toys.length, broken: this.sim.toys.filter((t) => t.state === "broken").length }),
+      saveList: () => ["1", "2", "3"].map((slot) => { const i = this.saves.info(slot); return { slot, when: i ? i.savedAt : "empty" }; }),
+      clearSlot: (slot: string) => { this.saves.remove(slot); return `cleared slot ${slot}`; },
+      colourBlindState: () => document.documentElement.classList.contains("cb") ? "on" : "off",
+      restart: () => { this.reset(Math.floor(Math.random() * 1e9)); return "world restarted"; },
+      gravityToast: () => { this.toast(`gravity ${gravityScale}`); return `gravity ${gravityScale}`; },
+      helpers: () => ["help", "gravity", "toast", "saveSlots", "toys", "people", "save", "colourBlind", "repairToys", "toyCount", "saveList", "clearSlot", "colourBlindState", "restart", "gravityToast", "helpers"],
       colourBlind: (on: boolean) => { try { localStorage.setItem("ms-colourblind", on ? "1" : "0"); } catch { /* storage blocked */ } document.documentElement.classList.toggle("cb", on); return `colour-blind ${on ? "on" : "off"}`; },
     };
     try { if (localStorage.getItem("ms-colourblind") === "1") document.documentElement.classList.add("cb"); } catch { /* storage blocked: default palette */ }
