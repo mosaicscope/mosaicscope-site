@@ -354,6 +354,8 @@ export class Game {
     // touch stick: analog, push past ~94% to sprint
     if (this.touchMove.x || this.touchMove.y) { ix = this.touchMove.x; iy = this.touchMove.y; }
     if (ix || iy) {
+      // moving yourself brings the camera back to you (tapping someone to inspect had left it on them)
+      if (this.renderer.cam.follow !== p.id) this.renderer.cam.follow = p.id;
       // screen directions -> world: screen up = (-1,-1), screen right = (1,-1)
       const wx = ix - iy, wy = -ix - iy, l = Math.hypot(wx, wy);
       p.vx = (wx / l) * p.speed; p.vy = (wy / l) * p.speed;
