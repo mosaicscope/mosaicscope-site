@@ -2,7 +2,7 @@ import { World, Building, Graffiti } from "../world/World";
 import { TILE_W, TILE_H, Z_PX } from "../world/iso";
 import { drawAd } from "./Ads";
 import { GROUND_H, FLOOR_H } from "../content/buildings";
-import { fillTextured } from "./Textures";
+import { fillTextured, type TexAnchor } from "./Textures";
 
 /**
  * Buildings are drawn tile by tile (so depth sorting with people stays correct), but each tile knows
@@ -54,6 +54,8 @@ export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Build
   const top = (wx: number, wy: number) => H + roofRise(b, wx, wy);
   g.globalAlpha = alpha;
   const night = dark > 0.25;
+  // textures are pinned to the world origin so they travel with the building as the camera moves
+  const anchor: TexAnchor = { x: sx - (tx - ty) * hw, y: sy - (tx + ty) * hh, zoom: z };
 
   // ---- walls ----
   // facades read brighter by day; at night the neon and windows do the work
@@ -102,7 +104,7 @@ export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Build
       g.beginPath();
       pts.forEach(([x, y], i) => { const p = P(x, y, top(x, y)); if (i) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); });
       g.closePath(); g.fill();
-      if (z >= 0.8) fillTextured(g, "roof", 0.8);
+      if (z >= 0.8) fillTextured(g, "roof", 0.8, anchor);
       // tile courses
       g.strokeStyle = "rgba(14,11,10,.22)"; g.lineWidth = Math.max(1, 0.8 * z); g.beginPath();
       for (let k = 1; k < 4; k++) {
@@ -126,7 +128,7 @@ export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Build
     const R = [P(tx, ty, H), P(tx + 1, ty, H), P(tx + 1, ty + 1, H), P(tx, ty + 1, H)];
     g.fillStyle = shade(b.roof, 0.42 + hash(tx, ty) * 0.05);
     poly(g, R); g.fill();
-    if (z >= 0.8) fillTextured(g, "concrete", 0.7);
+    if (z >= 0.8) fillTextured(g, "concrete", 0.7, anchor);
     // gravel speckle / roof membrane seams
     g.strokeStyle = "rgba(255,255,255,.04)"; g.lineWidth = 1; g.beginPath(); g.moveTo(R[0][0], R[0][1]); g.lineTo(R[2][0], R[2][1]); g.stroke();
     // parapet: inner faces on the far edges, outer cornice on the near edges
@@ -210,6 +212,7 @@ function tank(g: CanvasRenderingContext2D, P: (x: number, y: number, h: number) 
 function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number, h: number) => [number, number], top: (x: number, y: number) => number,
   ax: number, ay: number, bx: number, by: number, lightK: number, face: "s" | "e", tx: number, ty: number, z: number, _dark: number, night: boolean, time: number): void {
   const st = styleOf(b), H = b.height;
+  const o0 = P(0, 0, 0), anchor: TexAnchor = { x: o0[0], y: o0[1], zoom: z };
   const at = (t: number, h: number) => P(ax + (bx - ax) * t, ay + (by - ay) * t, h);
   // outline, following a gable if the roof rises along this edge
   const steps = st === "house" ? 6 : 1;
@@ -218,7 +221,7 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
   g.fillStyle = shade(b.color, lightK);
   poly(g, outline); g.fill();
   // material: brick on shops/flats/houses, poured concrete on civic and clubs, glass streaks on towers
-  if (z >= 0.8) fillTextured(g, st === "tower" ? "glass" : st === "civic" || st === "club" || st === "fuel" ? "concrete" : "brick", st === "tower" ? 0.5 : 0.75);
+  if (z >= 0.8) fillTextured(g, st === "tower" ? "glass" : st === "civic" || st === "club" || st === "fuel" ? "concrete" : "brick", st === "tower" ? 0.5 : 0.75, anchor);
   // brick / siding texture on flats & houses (cheap: a few horizontal courses)
   if (st === "flats" || st === "house") {
     g.strokeStyle = `rgba(0,0,0,${st === "house" ? 0.12 : 0.1})`; g.lineWidth = 1; g.beginPath();
