@@ -4,6 +4,8 @@ import { TOYS } from "../content/toys";
 import { newPsy, updatePsy, psyBias, activate, mentalSummary, type Psy } from "./Psychopathology";
 import { appraise, baseline, COMPLEX_GOALS, emotionBias, ocean, performance, relaxAffect } from "./Affect";
 import { retention, rehearseAbout, sweepMemories, vividCount } from "./Memory";
+import { AttentionState, newAttention, refillAttention, requestAttention, pickFocus, FOCUS_GOALS } from "./Attention";
+import { Hyp, hypFor, testHyp } from "./Hypothesis";
 import { aversion, h01, habitStrength, labelOf, learnGoal, lossLambda, slotOf, SLOT_NAMES, socialLearn } from "./Learning";
 
 /**
@@ -47,6 +49,11 @@ export interface Mind {
   log: string[];
   /** clinical layer: diathesis-stress state (see Psychopathology.ts) */
   psy: Psy;
+  /** attention budget + focus (Attention.ts) and falsifiable beliefs (Hypothesis.ts) */
+  att?: AttentionState;
+  hyp?: Hyp[];
+  /** permanent belief milestones, never trimmed (unlike `log`, which keeps only the latest 8) */
+  journal?: string[];
 }
 
 export const newLog = (m: Mind, tick: number, text: string): void => {
@@ -113,6 +120,13 @@ export function goalBias(c: Character, goal: string, hour: number): number {
   else if (goal === "work" || goal === "craft") k *= 0.9 + 0.2 * alert;
   k *= psyBias(c, goal);
   if (goal === "gamble") k *= cl(1 + 0.9 * m.gamble.urge - 0.8 * m.gamble.caution, 0.15, 2);
+  // attention: whatever need is pressing holds focus and pulls toward the goals that answer it
+  const focus = m.att?.focus;
+  if (focus && focus !== "none" && FOCUS_GOALS[focus]?.includes(goal)) k *= 1.2;
+  // beliefs: goals this person has learned to expect to go well (or badly) get a nudge
+  const bel = m.hyp?.find((h) => h.cue === "goal:" + goal);
+  if (bel && bel.status === "supported") k *= 1.1;
+  else if (bel && bel.status === "refuted") k *= 0.9;
   return cl(k, 0.3, 2);
 }
 
@@ -128,6 +142,8 @@ export function updateMind(c: Character, sim: Simulation): void {
   const dt = Math.min(60, Math.max(0.1, (tick - m.last) / 60));
   m.last = tick;
   relaxAffect(c, tick, dt);
+  if (!m.att) m.att = newAttention();
+  m.att.focus = pickFocus(c);
 
   // needs -> stress -> burnout. Chronically unmet needs are what burn people out.
   let unmet = 0;
@@ -163,13 +179,34 @@ export function updateMind(c: Character, sim: Simulation): void {
     const o = sim.chars[c.talkWith];
     if (o) {
       rehearseAbout(c, o.id, tick);
-      if (tick - m.lastSocial > 1200 && o.tier !== "background") { m.lastSocial = tick; socialLearn(sim, c, o); }
+      if (tick - m.lastSocial > 1200 && o.tier !== "background") {
+        if (!m.att) m.att = newAttention();
+        refillAttention(m.att, tick);
+        if (requestAttention(m.att, tick, "social", c.needs.social < 0.4 ? 0.9 : 0.5)) { m.lastSocial = tick; socialLearn(sim, c, o); }
+      }
     }
   }
 }
 
 /** Hook for brain.finish. */
-export function onGoalDone(c: Character, goal: string, ok: boolean, sim: Simulation): void { learnGoal(c, goal, ok, sim.hour); activate(c, goal, ok); if (!ok) appraise(c, sim.tick, { rel: 0.15, cong: -0.3, ctrl: 0.6, blame: "none" }); }
+export function onGoalDone(c: Character, goal: string, ok: boolean, sim: Simulation): void {
+  // belief: "goal X tends to go well", predicted by what was learned; the outcome decides whether it held
+  const m = c.mind;
+  if (!m.hyp) m.hyp = [];
+  const bel = hypFor(m.hyp, "goal:" + goal, m.v["goal:" + goal] ?? 0, sim.tick);
+  const before = bel.status, firstTime = bel.tests === 0;
+  testHyp(bel, ok ? 1 : -1, sim.tick);
+  // memory is written at each milestone, stamped with the day it happened: first try, settled, changed mind.
+  // Milestones go to the permanent journal (never trimmed) as well as the short recent-lessons log.
+  if (!m.journal) m.journal = [];
+  const day = Math.floor(sim.tick / 3600 / 24) + 1;
+  const note = (text: string) => { newLog(m, sim.tick, text); m.journal!.push(`Day ${day}: ${text}`); };
+  if (firstTime) note(`Tried ${goal} for the first time: it ${ok ? "went well" : "went badly"}`);
+  if (bel.status !== before && bel.status !== "open") note(`${bel.status === "supported" ? "Found" : "Stopped trusting"} that ${goal} usually goes well`);
+  else if (before !== "open" && bel.status !== before) note(`Changed mind about ${goal}`);
+  learnGoal(c, goal, ok, sim.hour); activate(c, goal, ok);
+  if (!ok) appraise(c, sim.tick, { rel: 0.15, cong: -0.3, ctrl: 0.6, blame: "none" });
+}
 
 /* ============================ the inspector view ============================ */
 
@@ -205,6 +242,8 @@ export function describeMind(c: Character, tick = c.mind?.last ?? 0): string[] {
   if (g.urge > 0.15) out.push(`Itching to win it back at the tables (urge ${g.urge.toFixed(2)}).`);
   if (m.burnout > 0.35) out.push(`Burning out (${Math.round(m.burnout * 100)}%).`);
   else if (m.stress > 0.35) out.push(`Stressed (${Math.round(m.stress * 100)}%), coping ${m.coping === "problem" ? "by tackling it head on" : "by seeking comfort"}.`);
+  if (m.att?.focus && m.att.focus !== "none") out.push(`Focused on ${m.att.focus === "cash" ? "money" : m.att.focus}.`);
+  for (const b of (m.hyp ?? []).filter((x) => x.status !== "open").slice(0, 3)) out.push(`Believes ${b.cue.slice(5)} ${b.status === "supported" ? "tends to go well" : "tends to go badly"} (${b.support}/${b.tests} confirmed).`);
   const vivid = vividCount(c, tick);
   if (c.memories.length) out.push(`Remembers ${c.memories.length} things, ${vivid} vividly.`);
   out.push(...mentalSummary(c, tick));

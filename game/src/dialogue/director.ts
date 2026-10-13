@@ -9,7 +9,6 @@ import { CARETAKER } from "./packs/caretaker";
 import { SATIRE } from "./packs/satire";
 import { UPGRADES } from "./packs/upgrades";
 import { LORE } from "./packs/lore";
-import { LIFE } from "./packs/life";
 import { peek, friendship, hostility } from "../social/Social";
 import { loveOf } from "../sim/Romance";
 import { MOSAIC, captionLine } from "../content/mosaicscope";
@@ -23,7 +22,16 @@ import { cultureWeight, regionalise, toneOfExchange, Tone } from "../mind/Cultur
  * win more often; nobody repeats an exchange they've already had with the same person, and the town
  * as a whole avoids recently heard ones. Placeholders are filled from the real situation.
  */
-export const EXCHANGES: Exchange[] = [...CITY, ...HEARTS, ...STREET, ...SCENE, ...CARETAKER, ...SATIRE, ...UPGRADES, ...LORE, ...LIFE];
+/**
+ * The core exchanges load with the game. The large Life pack (~690 KB of source) is split into its own chunk and
+ * appended when it arrives, so first paint is not blocked by it. Director.pick() reads this array at call time with
+ * no index, so the town simply has quieter conversation for the first moments. Anything that needs the complete
+ * set (tests, the merge script) must await `exchangesReady`.
+ */
+export const EXCHANGES: Exchange[] = [...CITY, ...HEARTS, ...STREET, ...SCENE, ...CARETAKER, ...SATIRE, ...UPGRADES, ...LORE];
+export const exchangesReady: Promise<void> = import("./packs/life")
+  .then((m) => { EXCHANGES.push(...m.LIFE); })
+  .catch((err) => { console.warn("Life dialogue pack failed to load; the town keeps the core exchanges.", err); });
 
 /** Recent world events that make an "after:*" tag true (within this many ticks and tiles). */
 const AFTER: Record<string, string[]> = {
