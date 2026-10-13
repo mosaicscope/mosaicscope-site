@@ -42,7 +42,14 @@ const SLOTS: Draw[][] = [
     (g, c, t) => { g.strokeStyle = t; g.lineWidth = c.lw * 0.9; g.fillStyle = "#9ee7ff"; g.globalAlpha = c.alpha * 0.55; g.beginPath(); g.rect(c.fx - 10 * c.k, c.ey - 3 * c.k, 20 * c.k, 6.4 * c.k); g.fill(); g.globalAlpha = c.alpha; g.stroke(); },
     (g, c, t) => { g.strokeStyle = t; g.lineWidth = c.lw * 0.7; g.beginPath(); g.rect(c.fx - 10 * c.k, c.ey - 3.4 * c.k, 20 * c.k, 1.6 * c.k); g.stroke(); },
     (g, c, t) => { if (c.covered) return; g.strokeStyle = t; for (const s of sides(c, 4.6)) { ring(g, c.fx + s, c.ey + 0.8 * c.k, 3.8 * c.k); ring(g, c.fx + s, c.ey + 0.8 * c.k, 2.2 * c.k); } },
-    (g, c, t) => { if (c.covered) return; g.strokeStyle = t; for (const s of sides(c, 4.6)) { g.beginPath(); g.moveTo(c.fx + s - 3.6 * c.k, c.ey - 1.8 * c.k); g.lineTo(c.fx + s + 3.6 * c.k, c.ey - 2.4 * c.k); g.lineTo(c.fx + s + 2.4 * c.k, c.ey + 3 * c.k); g.lineTo(c.fx + s - 2.4 * c.k, c.ey + 3 * c.k); g.closePath(); g.stroke(); } }],
+    (g, c, t) => { if (c.covered) return; g.strokeStyle = t; for (const s of sides(c, 4.6)) { g.beginPath(); g.moveTo(c.fx + s - 3.6 * c.k, c.ey - 1.8 * c.k); g.lineTo(c.fx + s + 3.6 * c.k, c.ey - 2.4 * c.k); g.lineTo(c.fx + s + 2.4 * c.k, c.ey + 3 * c.k); g.lineTo(c.fx + s - 2.4 * c.k, c.ey + 3 * c.k); g.closePath(); g.stroke(); } },
+    // an eye patch over one eye, with its strap
+    (g, c) => { if (c.covered) return; g.fillStyle = "#0e0b0a"; g.beginPath(); g.ellipse(c.fx + 4.6 * c.k, c.ey + 0.8 * c.k, 3.4 * c.k, 2.8 * c.k, 0, 0, 6.283); g.fill(); g.strokeStyle = "#0e0b0a"; g.lineWidth = Math.max(0.7, c.lw * 0.45); ln(g, [c.fx + 1 * c.k, c.ey - 2 * c.k, c.fx - 9 * c.k, c.ey - 4 * c.k]); },
+    // a broken eye: cracked lines over the eye
+    (g, c) => { if (c.covered) return; g.strokeStyle = "#ff3838"; g.lineWidth = Math.max(0.6, c.lw * 0.3); ln(g, [c.fx + 4.6 * c.k - 3 * c.k, c.ey + 0.8 * c.k - 2 * c.k, c.fx + 4.6 * c.k + 1 * c.k, c.ey + 0.8 * c.k + 0.5 * c.k, c.fx + 4.6 * c.k + 3 * c.k, c.ey + 0.8 * c.k - 2.5 * c.k]); ln(g, [c.fx + 4.6 * c.k + 1 * c.k, c.ey + 0.8 * c.k + 0.5 * c.k, c.fx + 4.6 * c.k + 0.5 * c.k, c.ey + 0.8 * c.k + 3 * c.k]); },
+    // a bleeding eye: a red streak running down from the eye
+    (g, c) => { if (c.covered) return; g.fillStyle = "#b0101a"; g.globalAlpha = c.alpha * 0.9; g.beginPath(); g.ellipse(c.fx + 4.6 * c.k, c.ey + 0.8 * c.k, 2.2 * c.k, 1.4 * c.k, 0, 0, 6.283); g.fill(); g.fillRect(c.fx + 4.6 * c.k - 0.6 * c.k, c.ey + 2 * c.k, 1.2 * c.k, 5 * c.k); dot(g, c.fx + 4.6 * c.k, c.ey + 7.4 * c.k, 1 * c.k); g.globalAlpha = c.alpha; },
+],
   // 3 brow piercing / slit / scar
   [() => {}, (g, c, t) => { g.fillStyle = t; dot(g, c.fx + 6 * c.k, c.ey - 3.8 * c.k, 0.7 * c.k); dot(g, c.fx + 6 * c.k, c.ey - 1.8 * c.k, 0.7 * c.k); },
     (g, c, t) => { g.strokeStyle = t; ln(g, [c.fx - 5 * c.k, c.ey - 4.6 * c.k, c.fx - 4 * c.k, c.ey - 2.4 * c.k]); ln(g, [c.fx - 4 * c.k, c.ey - 4.6 * c.k, c.fx - 3 * c.k, c.ey - 2.4 * c.k]); },
@@ -107,7 +114,11 @@ const SLOTS: Draw[][] = [
     // a cigarette hanging from the mouth corner: white stick, orange lit tip, a thin smoke thread
     (g, c) => { const x0 = c.fx + 2 * c.k, y0 = c.my + 0.6 * c.k, x1 = c.fx + 9 * c.k * c.dir, y1 = c.my + 1.8 * c.k; g.strokeStyle = "#f4f1ea"; g.lineWidth = Math.max(1, c.lw * 0.8); ln(g, [x0, y0, x1, y1]); g.strokeStyle = "#ff7a1a"; ln(g, [x1 - 1 * c.k * c.dir, y1 - 0.2 * c.k, x1, y1]); g.strokeStyle = "rgba(230,230,235,.5)"; g.lineWidth = Math.max(0.6, c.lw * 0.3); ln(g, [x1 + 1 * c.k * c.dir, y1 - 1 * c.k, x1 + 3 * c.k * c.dir, y1 - 4 * c.k]); },
     // a cold sore: a small red-pink blister on the lip edge
-    (g, c) => { g.fillStyle = "#e0607a"; g.globalAlpha = c.alpha * 0.9; dot(g, c.fx + 3.2 * c.k * c.dir, c.my + 0.4 * c.k, 1.3 * c.k); g.fillStyle = "#ffd0d8"; dot(g, c.fx + 3.2 * c.k * c.dir, c.my + 0.1 * c.k, 0.5 * c.k); g.globalAlpha = c.alpha; }],
+    (g, c) => { g.fillStyle = "#e0607a"; g.globalAlpha = c.alpha * 0.9; dot(g, c.fx + 3.2 * c.k * c.dir, c.my + 0.4 * c.k, 1.3 * c.k); g.fillStyle = "#ffd0d8"; dot(g, c.fx + 3.2 * c.k * c.dir, c.my + 0.1 * c.k, 0.5 * c.k); g.globalAlpha = c.alpha; },
+    // buck teeth: two big front teeth over the lip
+    (g, c) => { g.fillStyle = "#f4f1ea"; g.strokeStyle = "#0e0b0a"; g.lineWidth = Math.max(0.6, c.lw * 0.35); for (const s of [-0.9, 0.9]) { g.beginPath(); g.rect(c.fx + s * c.k - 1 * c.k, c.my - 0.2 * c.k, 2 * c.k, 3.4 * c.k); g.fill(); g.stroke(); } },
+    // a broken front tooth: one tooth with a jagged chip
+    (g, c) => { g.fillStyle = "#f4f1ea"; g.strokeStyle = "#0e0b0a"; g.lineWidth = Math.max(0.6, c.lw * 0.35); g.beginPath(); g.moveTo(c.fx + 0.2 * c.k, c.my); g.lineTo(c.fx + 1.8 * c.k, c.my); g.lineTo(c.fx + 1.6 * c.k, c.my + 1 * c.k); g.lineTo(c.fx + 1.2 * c.k, c.my + 0.6 * c.k); g.lineTo(c.fx + 1 * c.k, c.my + 1.8 * c.k); g.lineTo(c.fx + 0.2 * c.k, c.my + 1.8 * c.k); g.closePath(); g.fill(); g.stroke(); }],
   // 9 ear bits
   [() => {}, (g, c, t) => { g.fillStyle = t; for (const s of [-1, 1]) dot(g, c.x + s * c.rx * 1.02, c.y + 3 * c.k, 0.8 * c.k); },
     (g, c, t) => { g.strokeStyle = t; for (const s of [-1, 1]) ring(g, c.x + s * c.rx * 1.02, c.y + 4.4 * c.k, 1.9 * c.k); },
