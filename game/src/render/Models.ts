@@ -39,7 +39,7 @@ const M = (id: string, label: string, kind: ModelSpec["kind"], skin: string, top
   ({ id, label, kind, skin, top, topColor, trim, bottom, bottomColor, shoes, shoeColor, sw, belly, limb, hair, hairColor, hat, hatColor, face, prop, gear });
 
 export const MODELS: readonly ModelSpec[] = [
-  M("wrap-brawler", "Wrap Brawler", "guy", SK.fair, "tee", "#f4f1ea", "trackies", "#9fb4c8", "sneakers", "#e8e0cf", 10.5, 1, 1.25, "spiky", "#2a2018", "none", { eyes: "wide", brows: "raised", mouth: "o", nose: "dot", facial: "none", extra: "blush", head: "round" }, ["wraps"]),
+  M("wrap-brawler", "Wrap Brawler", "guy", SK.fair, "tee", "#f4f1ea", "trackies", "#9fb4c8", "sneakers", "#e8e0cf", 10.5, 1, 1.25, "spiky", "#2a2018", "none", { eyes: "dots", brows: "none", mouth: "smile", nose: "dot", facial: "none", extra: "none", head: "round" }, ["wraps"]),
   M("singlet-slugger", "Singlet Slugger", "guy", SK.ruddy, "tank", "#efe6d2", "ripped", "#d96a3a", "bare", "#000", 10, 2, 1.2, "spiky", "#3a2a22", "none", { eyes: "dots", brows: "angry", mouth: "grin", nose: "hook", facial: "beard", extra: "scar", head: "wide" }, ["wraps"]),
   M("pub-regular", "Pub Regular", "guy", SK.fair, "long", "#a33b2f", "jeans", "#3b4f73", "jandals", "#2b7bd6", 9, 3.5, 1.1, "buzz", "#6b5a45", "none", { eyes: "sleepy", brows: "worried", mouth: "smirk", nose: "dot", facial: "stubble", extra: "none", head: "round" }, [], "bottle"),
   M("can-collector", "Can Collector", "guy", SK.tan, "vest", "#f08a1c", "jeans", "#55657a", "workboots", "#3a2a1e", 8.5, 0, 1.05, "none", "#000", "cap", { eyes: "round", brows: "straight", mouth: "flat", nose: "dot", facial: "stubble", extra: "none", head: "round" }, ["backpack"], "bag", "#e8f2f0"),
@@ -71,7 +71,7 @@ export const MODELS: readonly ModelSpec[] = [
  * tests/models.test.ts checks every model has one and that no two are the same.
  */
 export const EYE_SHAPES: Record<string, EyeShape> = {
-  "wrap-brawler": { kind: "ring", w: 1.0, h: 1.15, tilt: 0, pupil: 0, lid: 0, lash: false },
+  "wrap-brawler": { kind: "oval", w: 1.0, h: 0.9, tilt: 0, pupil: 0, lid: 0, lash: false },
   "singlet-slugger": { kind: "slit", w: 1.0, h: 1.0, tilt: 0, pupil: 0.2, lid: 0, lash: false },
   "pub-regular": { kind: "heavy", w: 1.1, h: 0.6, tilt: 0.1, pupil: 0.6, lid: 0.55, lash: false },
   "can-collector": { kind: "ring", w: 1.0, h: 1.0, tilt: 0, pupil: 0, lid: 0, lash: false },
@@ -147,6 +147,12 @@ export function drawModelBody(g: Ctx, J: Float32Array, _c: Character, M_: ModelS
   const limb = (a: number, b: number, cc: number, col: string, w: number) => {
     if (hd) { g.strokeStyle = neon; g.shadowColor = neon; g.shadowBlur = 8 * k; g.lineWidth = w + 2.6 * k; g.beginPath(); g.moveTo(J[a], J[a + 1]); g.lineTo(J[b], J[b + 1]); if (cc >= 0) g.lineTo(J[cc], J[cc + 1]); g.stroke(); g.shadowBlur = 0; }
     g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(J[a], J[a + 1]); g.lineTo(J[b], J[b + 1]); if (cc >= 0) g.lineTo(J[cc], J[cc + 1]); g.stroke();
+    if (hd) { // volume: a light edge on the lit side, a shadow edge on the other, following the limb
+      const dx = J[b] - J[a], dy = J[b + 1] - J[a + 1], ln = Math.hypot(dx, dy) || 1, nx = -dy / ln * w * 0.24, ny = dx / ln * w * 0.24;
+      g.lineWidth = Math.max(0.6, w * 0.22);
+      g.strokeStyle = "rgba(255,255,255,.35)"; g.beginPath(); g.moveTo(J[a] - nx, J[a + 1] - ny); g.lineTo(J[b] - nx, J[b + 1] - ny); g.stroke();
+      g.strokeStyle = "rgba(0,0,0,.28)"; g.beginPath(); g.moveTo(J[a] + nx, J[a + 1] + ny); g.lineTo(J[b] + nx, J[b + 1] + ny); g.stroke();
+    }
   };
   g.globalAlpha = alpha; g.lineCap = "round"; g.lineJoin = "round";
   const hx = J[0], hy = J[1], sx = J[6], sy = J[7];
@@ -213,6 +219,12 @@ export function drawModelBody(g: Ctx, J: Float32Array, _c: Character, M_: ModelS
   const torsoStroke = (col: string, w: number) => { g.strokeStyle = col; g.lineWidth = w; g.lineCap = "round"; g.beginPath(); g.moveTo(sx, sy); g.lineTo(tEndX, tEndY); g.stroke(); };
   if (hd) { g.shadowColor = neon; g.shadowBlur = 10 * k; torsoStroke(neon, tw + 2.2 * k); g.shadowBlur = 0; } // neon outline underneath
   torsoStroke(M_.top === "bare" ? skin : top, tw);
+  if (hd) { // torso volume: light on the lit side, shade on the other
+    const ox = px * tw * 0.26, oy = py * tw * 0.26;
+    g.lineWidth = Math.max(0.6, tw * 0.2); g.lineCap = "round";
+    g.strokeStyle = "rgba(255,255,255,.35)"; g.beginPath(); g.moveTo(sx - ox, sy - oy); g.lineTo(tEndX - ox, tEndY - oy); g.stroke();
+    g.strokeStyle = "rgba(0,0,0,.3)"; g.beginPath(); g.moveTo(sx + ox, sy + oy); g.lineTo(tEndX + ox, tEndY + oy); g.stroke();
+  }
   if (hd) {
     // shading down the back side, a hem line, and a collar
     g.fillStyle = "rgba(0,0,0,.22)"; P(g, [sx - px * sw, sy - py * sw, sx - px * sw * 0.35, sy - py * sw * 0.35, hx - px * hw * 0.35 + fx * 0.3, hy - py * hw * 0.35, hx - px * hw + fx * 0.3, hy - py * hw]); g.fill();

@@ -166,7 +166,7 @@ export const HEAD_R = 8;
 const HEAD_DESIGN = 10.5;
 export const HEAD_SCALE = HEAD_R / HEAD_DESIGN;
 /** Street models wear a bigger, rounder head, as in the cartoon reference (big head, big expressive eyes). */
-export const MODEL_HEAD = 1.45;
+export const MODEL_HEAD = 1.0;
 
 /**
  * Inverse kinematics for one arm: aim the hand at a point (tx, ty) in figure space (before solve's screen transform,
@@ -245,8 +245,7 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
   if (M) {
     // chunky street model: filled body over the solved skeleton, skin-tone head with thick ink outline
     drawModelBody(g, J, c, M, k, dir, alpha, hd, flash > 0);
-    const ML = modelLook(L, M);
-    drawHead(g, ML, J[4], J[5], k * HEAD_SCALE * MODEL_HEAD, dir, Math.max(1.4, lw * 1.05), MODEL_INK, alpha, M.hat, flash > 0 ? "#ffffff" : M.skin, hd);
+    drawHead(g, expressionLook(modelLook(L, M), c), J[4], J[5], k * HEAD_SCALE * MODEL_HEAD, dir, Math.max(1.4, lw * 1.05), MODEL_INK, alpha, M.hat, flash > 0 ? "#ffffff" : M.skin, hd);
     drawModelHeadGear(g, M, J[4], J[5], k * HEAD_SCALE * MODEL_HEAD, dir, hd);
     if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 14 * k, k, t);
     return;
@@ -317,6 +316,24 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
   if (D) drawDress(g, D, L, k, dir, lw, alpha);
   drawHead(g, L, J[4], J[5], k * HEAD_SCALE, dir, lw, col, alpha, D ? D.hat : L.hat);
   if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 14 * k, k, t);
+}
+
+/**
+ * The face follows the person's feelings right now (c.emo, and knocked-down state): the eyes, brows and mouth change
+ * as fear, anger, happiness, sadness or a knock-out come and go. The model's own eye shape is kept as the base.
+ */
+function expressionLook(L: Character["look"], c: Character): Character["look"] {
+  const e = c.emo;
+  if (!e) return L;
+  const F: Face = L.face ?? { eyes: "dots", brows: "none", mouth: "smile", nose: "none", facial: "none", extra: "none", head: "round" };
+  const base: EyeShape = F.shape ?? { kind: "oval", w: 1, h: 0.9, tilt: 0, pupil: 0, lid: 0, lash: false };
+  let shape: EyeShape = base, mouth: Face["mouth"] = "smile", brows: Face["brows"] = "none";
+  if (c.phys === Phys.DOWN || e.composure < 0.2) { shape = { ...base, kind: "cross" }; mouth = "o"; brows = "raised"; }
+  else if (e.fear > 0.6) { shape = { ...base, kind: "ring", h: base.h * 1.15 }; mouth = "o"; brows = "raised"; }
+  else if (e.frustration > 0.6) { shape = { ...base, lid: 0.35, tilt: -0.25 }; mouth = "frown"; brows = "angry"; }
+  else if (e.mood > 0.4) { shape = { ...base, kind: "closed", tilt: 0.1 }; mouth = "grin"; brows = "raised"; }
+  else if (e.mood < -0.4) { shape = { ...base, tilt: -0.25 }; mouth = "frown"; brows = "worried"; }
+  return { ...L, face: { ...F, shape, mouth, brows } };
 }
 
 /** Outer layers by climate (see src/mind/Dress.ts): coats, bare legs in shorts, gumboots, scarf, umbrella. */
@@ -475,7 +492,7 @@ function drawEyeShape(g: CanvasRenderingContext2D, s: EyeShape, fx: number, ey: 
   const SCLERA = "#f6f1e6", INK = "#0e0b0a";
   g.globalAlpha = alpha; g.strokeStyle = col; g.lineWidth = Math.max(0.8, lw * 0.5);
   for (const side of [-1, 1]) {
-    const ex = fx + side * 4.6 * k, hw = 2.3 * k * s.w * 1.6, hh = 2.0 * k * s.h * 1.6; // 1.35: bigger eyes read at street size
+    const ex = fx + side * 4.6 * k, hw = 2.3 * k * s.w * 1.25, hh = 2.0 * k * s.h * 1.25; // 1.35: bigger eyes read at street size
     const pr = Math.max(0.9 * k, hh * 0.42), px = ex + s.pupil * hw * 0.35 * dir;
     const dot = (x: number, y: number, rr: number, c: string) => { g.fillStyle = c; g.beginPath(); g.arc(x, y, rr, 0, 6.283); g.fill(); };
     const outer = ex + side * hw, outerY = ey - s.tilt * hw, innerX = ex - side * hw, innerY = ey + s.tilt * hw * 0.3;
