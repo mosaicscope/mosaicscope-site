@@ -35,7 +35,7 @@ body {
   color: var(--paper);
   font: 400 var(--step-0)/1.55 var(--f-body);
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 img, video, canvas { max-width: 100%; display: block; }
 a { color: inherit; }
