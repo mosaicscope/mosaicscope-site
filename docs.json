@@ -1,6 +1,6 @@
 {
- "at": 1791996769794,
- "key": "1nvr2sd",
+ "at": 1791997101029,
+ "key": "1plvvao",
  "findings": [
   {
    "kind": "doc-dead-path",
@@ -29,6 +29,13 @@
    "where": "game/art-requests/README.md",
    "detail": "mentions `analysis.md`, which doesn't exist",
    "fp": "doc-dead-path|lhfrhs"
+  },
+  {
+   "kind": "doc-missing-api",
+   "severity": "low",
+   "where": "functions/api/reddit.js",
+   "detail": "/api/reddit isn't mentioned in any README",
+   "fp": "doc-missing-api|1y9jtr6"
   }
  ]
 }
