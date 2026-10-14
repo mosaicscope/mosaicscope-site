@@ -17,6 +17,30 @@ const INK = "#121010", WHITE = "#f7f4ee";
 const LIMB = "#eee4d3";
 const REAL_GENES = [1, 2, 3, 4, 9, 10, 11, 13] as const;
 
+const SKINS = ["#f1c9a5", "#d9a173", "#c78d5f", "#a06a43", "#6e452b", "#efe3d6", "#dd9a7c", "#e8b48c"];
+const SPECS = new WeakMap<Character, ModelSpec>();
+/**
+ * A reference-look spec for someone without a street model (the Mosaics, the player, the locals), built from their
+ * own look: their line colour becomes their top, their accent their shorts, plus their hair, hat and face.
+ */
+export function lookSpec(c: Character): ModelSpec {
+  let m = SPECS.get(c);
+  if (m) return m;
+  const L = c.look, h = Math.imul(c.id + 7, 0x9e3779b1) >>> 0, F = L.face;
+  m = {
+    id: `look-${c.id}`, label: c.name, kind: L.kind === "girl" ? "girl" : "guy",
+    skin: SKINS[h % SKINS.length], top: "tee", topColor: L.color, trim: L.accent,
+    bottom: "shorts", bottomColor: L.accent, shoes: "sneakers", shoeColor: L.accent,
+    sw: 10, belly: (h >>> 8) % 3, limb: L.build ?? 1,
+    hair: L.hair === "none" && L.hat === "none" ? "spiky" : L.hair, hairColor: ["#1a1410", "#3a2a1e", "#6b4a2a", "#c9a56a", "#2a2018", "#8a8a8a"][(h >>> 4) % 6],
+    hat: L.hat, hatColor: L.accent,
+    face: F ?? { eyes: "dots", brows: "none", mouth: "smile", nose: "none", facial: "none", extra: "none", head: "round" },
+    gear: [],
+  };
+  SPECS.set(c, m);
+  return m;
+}
+
 type Mood = "neutral" | "happy" | "sad" | "angry" | "scared" | "stunned";
 export function moodOf(c: Character): Mood {
   const e = c.emo;
