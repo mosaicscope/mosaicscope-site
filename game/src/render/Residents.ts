@@ -1,6 +1,8 @@
 import type { Character } from "../entities/types";
 import { dressOf } from "../mind/Dress";
-import { HEAD_R } from "./StickFigure";
+
+/** Residents keep the big head from their art request (the rest of the figure uses HEAD_R from StickFigure). */
+const RESIDENT_HEAD_R = 10.5;
 
 /**
  * RESIDENTS: the everyday Christchurch local, drawn the way Louis read the "pink guy" references
@@ -91,7 +93,7 @@ export function drawResident(g: Ctx, J: Float32Array, c: Character, k: number, d
   if (hd) { g.strokeStyle = "rgba(255,255,255,.28)"; g.lineWidth = Math.max(0.6, lw * 0.3); g.beginPath(); for (let i = 0; i <= 8; i++) { const p = at(0.1 + 0.8 * (i / 8), dir > 0 ? -1 : 1); i ? g.lineTo(p[0] + 1.2 * k, p[1] - 0.8 * k) : g.moveTo(p[0] + 1.2 * k, p[1] - 0.8 * k); } g.stroke(); }
 
   // ---- long neck into a tall head
-  const x = J[4], y = J[5], rx = HEAD_R * k * 1.12, ry = HEAD_R * k * 1.36;
+  const x = J[4], y = J[5], rx = RESIDENT_HEAD_R * k * 1.12, ry = RESIDENT_HEAD_R * k * 1.36;
   g.strokeStyle = col; g.lineWidth = thin;
   g.beginPath(); g.moveTo(nx + px * nw, ny + py * nw); g.lineTo(x + rx * 0.42, y + ry * 0.8); g.moveTo(nx - px * nw, ny - py * nw); g.lineTo(x - rx * 0.42, y + ry * 0.8); g.stroke();
   // the big ear on the far side

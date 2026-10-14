@@ -9,7 +9,7 @@ import { decorGrid, drawDecor } from "./StreetDecor";
 import { Particles } from "./Particles";
 import { Lighting, Rain } from "./Lighting";
 import { NightFX } from "./NightFX";
-import { pose, solve, drawFigure, pathSilhouette, J } from "./StickFigure";
+import { pose, solve, drawFigure, pathSilhouette, J, HEAD_R, gaitOf, applyGait } from "./StickFigure";
 import { drawToy, drawIsoBox } from "./ToyArt";
 import { INK } from "./palette";
 import { drawBuildingTile, GLOW } from "./Buildings";
@@ -108,7 +108,9 @@ export class Renderer {
   resize(quality: Quality): void {
     const w = this.canvas.clientWidth || window.innerWidth, h = this.canvas.clientHeight || window.innerHeight;
     const native = window.devicePixelRatio || 1;
-    this.dpr = quality === 0 ? Math.min(1, native) * 0.75 : quality === 1 ? Math.min(1.25, native) : quality === 2 ? Math.min(1.5, native) : Math.min(3, native); // fill-rate is the real cost: ultra goes to full native sharpness
+    // Never render below device pixels: a sub-native canvas is upscaled by the browser and reads as blur on the ground and figures.
+    // Lower tiers cap the pixel count instead (fill-rate is the real cost on weak machines); ultra stays at full native sharpness.
+    this.dpr = quality === 0 ? Math.min(1.5, native) : quality === 1 ? Math.min(1.5, native) : quality === 2 ? Math.min(2, native) : native;
     this.canvas.width = Math.round(w * this.dpr); this.canvas.height = Math.round(h * this.dpr);
     this.cam.resize(w, h);
     this.particles.scale = quality === 0 ? 0.35 : quality === 1 ? 0.7 : quality === 2 ? 1 : 1.4;
@@ -276,7 +278,8 @@ export class Renderer {
         const k = 0.44 * z * c.look.scale;
         const moving = Math.abs(c.x - c.px) + Math.abs(c.y - c.py) > 0.0005;
         const spd = Math.hypot(c.x - c.px, c.y - c.py) * 60;
-        c.anim.phase += spd * dt * 5.5;
+        const G = gaitOf(c.id);
+        c.anim.phase += spd * dt * 5.5 * G.cadence;
         const name = this.poseName(c, moving, spd);
         if (this.lastPose.get(c.id) !== name) { this.lastPose.set(c.id, name); c.anim.poseT = 0; } else c.anim.poseT += dt;
         if (c.anim.flash > 0) c.anim.flash -= dt;
@@ -285,6 +288,7 @@ export class Renderer {
         if (bg) {
           // background: cheap animation (sine idle, simple walk), batched strokes
           const a = pose(moving ? "walk" : c.anim.pose === "dance" ? "dance" : c.anim.pose === "panic" ? "panic" : "idle", "loose", time + c.seedPhase, c.anim.phase, spd, 0);
+          applyGait(a, G);
           solve(a, it.sx, it.sy - zOff, k, dir);
           const col = c.look.color;
           if (!batching || col !== batchColor) { flush(); g.strokeStyle = col; g.globalAlpha = 0.42; g.lineWidth = Math.max(0.9, 2.6 * k); g.lineCap = "round"; g.beginPath(); batching = true; batchColor = col; }
@@ -295,6 +299,7 @@ export class Renderer {
         }
         flush();
         const a = pose(name, c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT);
+        applyGait(a, G);
         solve(a, it.sx, it.sy - zOff, k, dir);
         // held toy behind or in front depending on hand
         drawFigure(g, c, it.sx, it.sy - zOff, k, dir, time, c.anim.flash, 1);
@@ -732,7 +737,7 @@ export class Renderer {
     const g = this.g;
     for (const w of c.wounds) {
       const [x, y] = w.part === "head" ? [J[4], J[5]] : w.part === "torso" ? [(J[0] + J[2]) / 2, (J[1] + J[3]) / 2] : w.part === "arm" ? [J[12], J[13]] : [J[20], J[21]];
-      if (w.bandaged) { g.strokeStyle = "#eee4d3"; g.lineWidth = Math.max(1.5, 3 * k); g.beginPath(); if (w.part === "head") g.arc(x, y, 10.5 * k, Math.PI * 1.1, Math.PI * 1.9); else { g.moveTo(x - 3 * k * dir, y - 2 * k); g.lineTo(x + 3 * k * dir, y + 2 * k); } g.stroke(); continue; }
+      if (w.bandaged) { g.strokeStyle = "#eee4d3"; g.lineWidth = Math.max(1.5, 3 * k); g.beginPath(); if (w.part === "head") g.arc(x, y, HEAD_R * k, Math.PI * 1.1, Math.PI * 1.9); else { g.moveTo(x - 3 * k * dir, y - 2 * k); g.lineTo(x + 3 * k * dir, y + 2 * k); } g.stroke(); continue; }
       if (!this.fakeBlood) continue;
       g.fillStyle = "#b3121b";
       g.beginPath(); g.ellipse(x + 2 * k * dir, y + (w.part === "head" ? -3 * k : 0), (1.5 + w.severity) * k, (1 + w.severity * 0.7) * k, 0.4, 0, 6.283); g.fill();
