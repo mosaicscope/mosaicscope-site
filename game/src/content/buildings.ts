@@ -2,7 +2,7 @@
 export type BuildingKind =
   | "casino" | "studio" | "gallery" | "police" | "dealership" | "diner" | "pizza" | "sushi" | "bakery" | "cafe" | "fishchips" | "dairy"
   | "toyshop" | "sports" | "pawn" | "bank" | "nightclub" | "apartments" | "house" | "office" | "garage" | "hospital" | "records" | "barber" | "gym" | "hotel" | "airport"
-  | "stripclub" | "velvet" | "mentalhealth" | "recycling";
+  | "stripclub" | "velvet" | "mentalhealth" | "recycling" | "hellkitchen";
 
 export interface BuildingDef {
   kind: BuildingKind;
@@ -26,6 +26,7 @@ export const BUILDINGS: Record<BuildingKind, BuildingDef> = {
   dealership: { kind: "dealership", names: ["Moorhouse Motors", "Riccarton Motors"], floors: [2, 2], colors: ["#3a3430", "#2f2925"], roof: "#eee4d3", open: [8, 19], sells: "cars", enterable: true, sign: "#c6ff3d", job: "mechanic" },
   diner: { kind: "diner", names: ["Lyttelton Diner", "The Burger Joint"], floors: [2, 2], colors: ["#3a1c2a", "#4a2030"], roof: "#ec2a1c", open: [7, 24], menu: ["burger", "fish_chips", "lp", "hokey_pokey"], enterable: true, sign: "#ec2a1c", job: "chef" },
   pizza: { kind: "pizza", names: ["Slice of Heaven", "Pizza Pizza"], floors: [2, 3], colors: ["#3a2c22"], roof: "#b0641c", open: [11, 2], menu: ["pizza", "lp", "energy_drink"], enterable: true, sign: "#f6b62c", job: "chef" },
+  hellkitchen: { kind: "hellkitchen", names: ["Hell's Kitchenette"], floors: [2, 3], colors: ["#1a1214", "#221418"], roof: "#ec2a1c", open: [11, 24], menu: ["burger", "pizza", "sushi"], enterable: true, sign: "#ff3b1f", job: "chef" },
   sushi: { kind: "sushi", names: ["Hana Sushi", "Sushi Train"], floors: [2, 3], colors: ["#1d2a38"], roof: "#3a1c2a", open: [10, 21], menu: ["sushi", "bao", "lp"], enterable: true, sign: "#ff7ad9", job: "chef" },
   bakery: { kind: "bakery", names: ["Kiwi Bakehouse", "Hot Pies"], floors: [2, 2], colors: ["#4a3a2e"], roof: "#9a5a1c", open: [5, 17], menu: ["pie", "donut", "flat_white"], enterable: true, sign: "#f6b62c", job: "chef" },
   cafe: { kind: "cafe", names: ["Grain & Grind", "Flat White Club"], floors: [2, 3], colors: ["#33252c", "#2b2521"], roof: "#6b3a12", open: [6, 16], menu: ["flat_white", "donut", "bao", "pie"], enterable: true, sign: "#eee4d3", job: "barista" },

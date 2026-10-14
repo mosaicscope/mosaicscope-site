@@ -114,6 +114,7 @@ export function generateWorld(opts: GenOptions): World {
     return w.buildings[id];
   };
 
+  let hellKitchen = false;
   for (let by = 0; by < BLOCKS; by++) for (let bx = 0; bx < BLOCKS; bx++) {
     const plan = PLAN[by][bx];
     const SW = SIDEWALK_W;
@@ -289,6 +290,8 @@ export function generateWorld(opts: GenOptions): World {
       case "food": case "food2": {
         fill(ix0, iy0, ix1, iy1, T.PAVE);
         const kinds: BuildingKind[] = plan === "food" ? ["diner", "pizza", "sushi", "fishchips", "cafe", "dairy"] : ["bakery", "pizza", "diner", "sushi", "cafe", "dairy"];
+        // one food block hosts Hell's Kitchenette, the shouty restaurant, in place of its corner dairy
+        if (plan === "food" && !hellKitchen) { kinds[5] = "hellkitchen"; hellKitchen = true; }
         let k = 0;
         for (const ly of [iy0, iy0 + 7]) for (const lx of [ix0, ix0 + 4, ix0 + 8]) building(kinds[k++], lx, ly, lx + 3, ly + 4, a, ly === iy0 ? "s" : "n");
         poi("foodtruck", Math.floor(a.cx), Math.floor(a.cy) + 0, a, { name: "Kebab Kingz", menu: ["kebab", "lp", "energy_drink"] });

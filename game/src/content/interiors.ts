@@ -10,7 +10,7 @@
  * COVERAGE. Hand-built interiors: hospital, mentalhealth (Putahi), police, bank, office, apartments,
  * house, hotel (this file) and the high-street kinds in interiorsShops.ts: cafe, bakery, pizza,
  * sushi, fishchips, dairy, toyshop, sports, pawn, records, garage, barber, gym, nightclub, gallery,
- * dealership.
+ * dealership, and hellkitchen (Hell's Kitchenette, below).
  *
  * NOT COVERED (these use FALLBACK, a generic shopfront): studio (MosaicScope Studio has its own
  * flow). Specialised overlays reached BEFORE the interior (Game.enterPlace): casino, airport,
@@ -58,7 +58,7 @@ export interface Prop { type: PropType; x: number; y: number; w: number; h: numb
 export interface Zone { id: string; name: string; x: number; y: number; w: number; h: number; floor: FloorMat; color: string }
 export type Launch = "legacy" | "police" | "putahi" | "shop" | "dealership" | "gallery" | "photospot" | "repwall" | "gallerywall";
 export type Effect = "treat" | "vend" | "rest" | "cuppa";
-export interface Interactable { id: string; label: string; x: number; y: number; text: string; launch?: Launch; effect?: Effect; cost?: number }
+export interface Interactable { id: string; label: string; x: number; y: number; text: string; launch?: Launch; effect?: Effect; cost?: number; /** said instead of `text`, a different one each time */ lines?: string[] }
 export type SpotDoing = "queue" | "sit" | "stand" | "work" | "browse" | "lie" | "phone" | "talk";
 export interface Spot { x: number; y: number; doing: SpotDoing; face: "n" | "e" | "s" | "w"; group?: string }
 export type LightTone = "cool" | "warm" | "dim" | "soft" | "neon";
@@ -79,6 +79,8 @@ export interface InteriorDef {
   interactables: Interactable[];
   spots: Spot[];
   flavour: string[];
+  /** shouted across the room every so often while you're inside (a kitchen in full service) */
+  shouts?: string[];
 }
 
 import { p, wp, z, wallV, wallH, row, spot } from "./interiorKit";
@@ -530,7 +532,92 @@ const recycling: InteriorDef = {
 };
 
 /** Hand-built plans by kind. Anything missing resolves to FALLBACK (see header for who is missing). */
-export const INTERIORS: Partial<Record<BuildingKind, InteriorDef>> = { hospital, mentalhealth, police, bank, office, apartments, house, hotel, recycling, ...SHOP_INTERIORS };
+// ------------------------------------------------------------------ HELL'S KITCHENETTE (a cooking-show restaurant set)
+// A parody of the TV cooking-competition set: dining room, the pass, red and blue team kitchens side by side and a
+// walk-in fridge. The head chef is an original character (Chef Gordo Rambottom), not any real person.
+const CHEF = [
+  "Chef Gordo: 'This risotto is so undercooked it's still in the paddy field!'",
+  "Chef Gordo: 'Who plated this? A seagull? A SEAGULL plated this!'",
+  "Chef Gordo: 'It's RAW! I've seen livelier fish in the Avon!'",
+  "Chef Gordo: 'Taste it. TASTE IT. Now tell me why it tastes like a jandal.'",
+  "Chef Gordo: 'You call that a scallop? That's a hockey puck with ambition!'",
+  "Chef Gordo: 'Red team, you're slower than the Lyttelton tunnel at rush hour!'",
+  "Chef Gordo: 'Blue team, that beef Wellington is wearing gumboots. Soggy bottom!'",
+  "Chef Gordo: 'Get your jacket off. Hand it to me. Now go stand in the walk-in and think.'",
+  "Chef Gordo: 'You donkey! You absolute flat white with no coffee in it!'",
+  "Chef Gordo: '...oh. Oh, that's beautiful. Well done. Don't get used to it.'",
+  "Chef Gordo: 'Right, listen up! Table four's waited forty minutes for a salad. A SALAD!'",
+  "Chef Gordo: 'The lamb's so pink it's still trying to get back to the farm!'",
+];
+const hellkitchen: InteriorDef = {
+  kind: "hellkitchen", title: "Hell's Kitchenette", size: { w: 26, h: 16 }, door: { x: 1.5, y: 8 },
+  light: "warm", ambience: ["sizzle", "shouting", "tickets", "murmur"], busy: 0.85, staff: { color: "#ffffff", hat: "chef" },
+  zones: [
+    z("dining", "Dining room", 0, 0, 10, 16, "carpet", "#3a1820"),
+    z("pass", "The pass", 10, 0, 3.5, 16, "tile", "#d8d2c8"),
+    z("red", "Red team kitchen", 13.5, 0, 12.5, 7, "tile", "#e9c9c4"),
+    z("aisle", "Back corridor", 13.5, 7, 12.5, 2, "concrete", "#9aa0a6"),
+    z("blue", "Blue team kitchen", 13.5, 9, 12.5, 7, "tile", "#c4d2e9"),
+  ],
+  props: [
+    // the kitchens are split by the back corridor that runs to the walk-in
+    wallH(7, 14.5, 22.5, "#5a1a1a"), wallH(9, 14.5, 22.5, "#1a2a5a"),
+    // the pass: a long steel counter between dining room and kitchens, with a gap to walk through
+    p("counter", 10.1, 1.5, 0.9, 5.3, "#cfd3d6", "The pass", "metal"), p("counter", 10.1, 9.2, 0.9, 5.3, "#cfd3d6", undefined, "metal"),
+    wp("screen", "n", 10.3, 2.8, "#1b1b1b", "Tickets: 14 waiting"),
+    // red kitchen: ranges along the north wall, prep tables in the middle
+    ...row("machine", 4, 14.2, 0.25, 2.6, 0, 2.2, 0.8, "#c8261c", "Red team ranges"),
+    p("table", 15, 3.6, 3.2, 1, "#cfd3d6", "Red prep table", "metal"), p("table", 19.5, 3.6, 3.2, 1, "#cfd3d6", undefined, "metal"),
+    p("fridge", 24.6, 1.2, 1.1, 1.6, "#d8dde0", "Red lowboy"), p("bin", 24.9, 5.4, 0.6, 0.6, "#555", "Bin (full of risotto)"),
+    wp("sign", "n", 16, 4, "#ec2a1c", "RED TEAM"),
+    // blue kitchen: mirror image along the south wall
+    ...row("machine", 4, 14.2, 15, 2.6, 0, 2.2, 0.8, "#1f4fc8", "Blue team ranges"),
+    p("table", 15, 11.4, 3.2, 1, "#cfd3d6", "Blue prep table", "metal"), p("table", 19.5, 11.4, 3.2, 1, "#cfd3d6", undefined, "metal"),
+    p("fridge", 24.6, 13.2, 1.1, 1.6, "#d8dde0", "Blue lowboy"), p("bin", 24.9, 10, 0.6, 0.6, "#555", "Bin (full of scallops)"),
+    // walk-in fridge at the end of the back corridor
+    p("fridge", 23.6, 7.15, 2.2, 1.7, "#e6ecef", "Walk-in fridge"),
+    // dining room: tables with white cloths, a central aisle to the pass
+    p("table", 2.2, 1.4, 1.6, 1.6, "#f2efe8", "Table 1"), p("table", 6, 1.4, 1.6, 1.6, "#f2efe8", "Table 2"),
+    p("table", 2.2, 4.6, 1.6, 1.6, "#f2efe8", "Table 3"), p("table", 6, 4.6, 1.6, 1.6, "#f2efe8", "Table 4"),
+    p("table", 2.2, 10.6, 1.6, 1.6, "#f2efe8", "Table 5"), p("table", 6, 10.6, 1.6, 1.6, "#f2efe8", "Table 6"),
+    p("table", 4.1, 13.4, 1.6, 1.6, "#f2efe8", "Chef's table"),
+    p("chair", 1.3, 1.75, 0.7, 0.7, "#7a1c22"), p("chair", 4.0, 1.75, 0.7, 0.7, "#7a1c22"), p("chair", 5.1, 1.75, 0.7, 0.7, "#7a1c22"), p("chair", 7.8, 1.75, 0.7, 0.7, "#7a1c22"),
+    p("chair", 1.3, 4.95, 0.7, 0.7, "#7a1c22"), p("chair", 4.0, 4.95, 0.7, 0.7, "#7a1c22"), p("chair", 5.1, 4.95, 0.7, 0.7, "#7a1c22"), p("chair", 7.8, 4.95, 0.7, 0.7, "#7a1c22"),
+    p("chair", 1.3, 10.95, 0.7, 0.7, "#7a1c22"), p("chair", 4.0, 10.95, 0.7, 0.7, "#7a1c22"), p("chair", 5.1, 10.95, 0.7, 0.7, "#7a1c22"), p("chair", 7.8, 10.95, 0.7, 0.7, "#7a1c22"),
+    wp("sign", "n", 2.5, 5, "#ff3b1f", "HELL'S KITCHENETTE"),
+    wp("poster", "w", 2.5, 1.4, "#ec2a1c", "Tonight: 2 teams, 1 chef, 0 mercy"),
+    wp("clock", "w", 12.5, 0.8, "#eee4d3", "Service clock"),
+    p("plant", 8.9, 0.4, 0.7, 0.7, "#3f8f4a"), p("plant", 8.9, 15, 0.7, 0.7, "#3f8f4a"),
+  ],
+  interactables: [
+    { id: "chef", label: "Chef Gordo", x: 11.9, y: 8, text: CHEF[0], lines: CHEF },
+    { id: "red", label: "Red team", x: 17, y: 5.4, text: "Red team: 'Behind! Hot pan! HOT PAN!'", lines: [
+      "Red team: 'Behind! Hot pan! HOT PAN!'", "Red team: 'Who moved my tongs? Who MOVED my tongs?'", "Red team: 'Two minutes on the Wellington, Chef!' (It is eleven minutes.)", "Red team: 'Yes, Chef! Sorry, Chef! Never again, Chef!'",
+    ] },
+    { id: "blue", label: "Blue team", x: 17, y: 10.6, text: "Blue team: 'Where's my garnish? WHO ATE MY GARNISH?'", lines: [
+      "Blue team: 'Where's my garnish? WHO ATE MY GARNISH?'", "Blue team: 'The scallops are... resting. Emotionally.'", "Blue team: 'Heard, Chef! Heard! What did he say?'", "Blue team: 'If we lose tonight it's because Kevin salted the dessert.'",
+    ] },
+    { id: "walkin", label: "Walk-in fridge", x: 22.6, y: 8, text: "It's freezing. Someone in a chef's jacket is in here crying into a crate of lettuce. 'He said my risotto had no soul.'" },
+    { id: "chefstable", label: "Chef's table", x: 4.9, y: 12.9, text: "A front-row seat to the chaos. A diner whispers: 'I come every week. Not for the food. For the yelling.'" },
+    { id: "order", label: "Order dinner", x: 8.8, y: 9.6, launch: "shop", text: "A waiter appears, sweating. 'Can I get you anything? Please say something simple.'" },
+    { id: "diner", label: "Table 4", x: 6.8, y: 6.7, text: "A couple has been waiting 52 minutes for starters. They are having the best night of their lives." },
+  ],
+  spots: [
+    spot(11.9, 6.5, "work", "w"), spot(15.8, 2.4, "work", "n"), spot(18.4, 2.4, "work", "n"), spot(21, 2.4, "work", "n"),
+    spot(15.8, 13.6, "work", "s"), spot(18.4, 13.6, "work", "s"), spot(21, 13.6, "work", "s"), spot(16.6, 5.2, "work", "n"), spot(16.6, 10.8, "work", "s"),
+    spot(1.65, 2.1, "sit", "e"), spot(4.35, 2.1, "sit", "w"), spot(5.45, 2.1, "sit", "e"), spot(8.15, 2.1, "sit", "w"),
+    spot(1.65, 5.3, "sit", "e"), spot(4.35, 5.3, "sit", "w"), spot(5.45, 5.3, "sit", "e"), spot(8.15, 5.3, "sit", "w"),
+    spot(1.65, 11.3, "sit", "e"), spot(4.35, 11.3, "sit", "w"), spot(5.45, 11.3, "sit", "e"), spot(8.15, 11.3, "sit", "w"),
+    spot(8.5, 8, "stand", "e"), spot(3.5, 8.6, "phone", "e"), spot(12.2, 4, "talk", "s"),
+  ],
+  flavour: [
+    "Tickets are screaming off the printer. Somewhere behind the pass, a man in chef's whites is turning a colour usually reserved for beetroot.",
+    "Two kitchens, red and blue, a pass with heat lamps, and a head chef with the lungs of a rugby crowd. The diners look thrilled.",
+  ],
+  shouts: CHEF,
+};
+
+export const INTERIORS: Partial<Record<BuildingKind, InteriorDef>> = { hospital, mentalhealth, police, bank, office, apartments, house, hotel, recycling, hellkitchen, ...SHOP_INTERIORS };
 export const FALLBACK: InteriorDef = fallback;
 export function interiorFor(kind: BuildingKind): InteriorDef { return INTERIORS[kind] ?? FALLBACK; }
 export function hasOwnInterior(kind: BuildingKind): boolean { return !!INTERIORS[kind]; }

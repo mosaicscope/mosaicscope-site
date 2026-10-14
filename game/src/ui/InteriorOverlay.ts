@@ -37,7 +37,7 @@ export class InteriorOverlay {
   private def: InteriorDef | null = null;
   private b: Building | null = null;
   private crowd: InteriorCrowd | null = null;
-  private raf = 0; private last = 0; private t0 = 0; private t = 0; private closeCheck = 0;
+  private raf = 0; private last = 0; private t0 = 0; private t = 0; private closeCheck = 0; private shoutAt = 8;
   private held = new Set<string>();
   private stick = { x: 0, y: 0, id: -1, ox: 0, oy: 0 };
   private me: ViewActor = { id: "you", look: null as never, x: 0, y: 0, dir: 1, pose: "idle", phase: 0, poseT: 0, speed: 0, seed: 0, style: "normal", isPlayer: true };
@@ -88,7 +88,7 @@ export class InteriorOverlay {
     this.me.x = def.door.x; this.me.y = def.door.y; this.me.dir = 1; this.me.pose = "idle"; this.me.speed = 0;
     this.titleEl.textContent = b.name; this.zoneEl.textContent = def.title;
     this.view.setDef(def);
-    this.t0 = performance.now(); this.t = 0; this.last = this.t0; this.closeCheck = 0; this.cool.clear();
+    this.t0 = performance.now(); this.t = 0; this.last = this.t0; this.closeCheck = 0; this.shoutAt = 8; this.cool.clear();
     this.held.clear(); this.stick.x = this.stick.y = 0;
     this.el.classList.remove("hidden");
     this.say(def.flavour[b.id % def.flavour.length], 7);
@@ -167,7 +167,7 @@ export class InteriorOverlay {
 
   private activate(it: Interactable): void {
     const b = this.b!, sim = this.host.sim(), p = sim.player;
-    this.say(it.text, 7);
+    this.say(it.lines?.length ? it.lines[Math.floor(Math.random() * it.lines.length)] : it.text, 7);
     const now = this.t, cd = this.cool.get(it.id) ?? 0;
     if (it.effect && now >= cd) {
       this.cool.set(it.id, now + 25);
@@ -229,6 +229,8 @@ export class InteriorOverlay {
     const label = best ? `${m.use.toUpperCase()} · ${best.label}` : this.exitNear ? `${m.use.toUpperCase()} · Leave` : "";
     if (label) { if (this.promptBtn.textContent !== label) this.promptBtn.textContent = label; this.promptBtn.classList.remove("hidden"); } else this.promptBtn.classList.add("hidden");
     if (this.capUntil && this.t > this.capUntil) { this.capEl.classList.add("hidden"); this.capUntil = 0; }
+    // a kitchen in full service: the head chef's voice carries across the room every so often
+    if (def.shouts?.length && !this.capUntil && this.t > this.shoutAt) { this.say(def.shouts[Math.floor(Math.random() * def.shouts.length)], 5); this.shoutAt = this.t + 10 + Math.random() * 8; }
     if (this.t - this.closeCheck > 1) {
       this.closeCheck = this.t;
       if (!isOpen(BUILDINGS[this.b.kind], sim.hour)) { this.host.toast(`${this.b.name} is closing. Out you go.`); this.close(); return; }
