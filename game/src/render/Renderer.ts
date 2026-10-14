@@ -15,6 +15,7 @@ import { INK } from "./palette";
 import { drawBuildingTile, GLOW } from "./Buildings";
 import { ZooRenderer } from "./Zoo";
 import { resetHdBudget } from "./StickFigure";
+import { hurtOf } from "../sim/Life";
 import { setTextureTier } from "./Textures";
 import { AD_BOXES, AdBox } from "./Ads";
 import { drawCar, headlights } from "./Cars";
@@ -308,6 +309,14 @@ export class Renderer {
         flush();
         const a = pose(name, c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT);
         applyGait(a, G);
+        if (c.wounds.length && !a.lying) {
+          // a bad leg barely swings and the body drops onto the good one; a hurt torso hunches; a head knock lolls
+          const h = hurtOf(c);
+          if (h.leg > 0 && moving) { const k = Math.min(0.7, h.leg * 0.25); a.thighR *= 1 - k; a.bendR *= 1 - k; a.bob += Math.max(0, Math.sin(c.anim.phase)) * 3 * k; }
+          if (h.torso > 0) { a.lean += Math.min(0.35, h.torso * 0.1); a.armL = Math.max(a.armL, 0.6); a.foreL = Math.max(a.foreL, 1.6); }
+          if (h.head >= 2) a.tilt += Math.sin(time * 1.3 + c.id) * Math.min(0.3, h.head * 0.08);
+          if (h.arm > 0 && name !== "throw" && name !== "swing") { a.armR *= 0.3; a.foreR = Math.max(a.foreR, 1.4); }
+        }
         if (moving && (name === "walk" || name === "run" || name === "panic")) this.foreshorten(a, c);
         solve(a, it.sx, it.sy - zOff, k, dir);
         // held toy behind or in front depending on hand

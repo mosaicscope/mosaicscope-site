@@ -23,12 +23,12 @@ import { spawnAll, streetSpot, spawnBackground } from "./Spawner";
 import { installRules } from "./Rules";
 import { pickUp, drop, transfer, craftable, detach, PickupResult, carried } from "../inventory/Inventory";
 import { Vehicle } from "../entities/types";
-import { spawnVehicles, updateVehicles, unseat, laneCoord, clearLaneState, walkSignal, carVel } from "./Traffic";
+import { spawnVehicles, updateVehicles, unseat, laneCoord, clearLaneState, walkSignal, carVel, bump } from "./Traffic";
 import { Crime, Booking, exitBuilding, insideOutcome, updateCustody, commitCrime, evaluateTrade, executeTrade, fmtCash } from "./Society";
 import { NameBook } from "./Spawner";
 import { VEHICLES } from "../content/vehicles";
 import { forceGoal } from "../ai/brain";
-import { updateHealth, hospitalise, wound, useBandage, recomputeBleed } from "./Life";
+import { updateHealth, hospitalise, wound, useBandage, recomputeBleed, hurtOf } from "./Life";
 import { clamp } from "../core/math";
 import { fireGun, startTurfWar, turfWarActive } from "./Turf";
 import { LitterState, updateLitter } from "./Litter";
@@ -240,6 +240,12 @@ export class Simulation {
     if (c.phys === Phys.DOWN || c.phys === Phys.RECOVER) { c.vx = 0; c.vy = 0; }
     let vx = c.vx, vy = c.vy;
     if (c.phys === Phys.STUMBLE) { vx *= 0.2; vy *= 0.2; }
+    // a hurt body moves like one: a bad leg limps and slows, a hurt torso hunches and slows, a knock to the head weaves
+    if (c.wounds.length && (vx !== 0 || vy !== 0)) {
+      const h = hurtOf(c), slow = Math.max(0.4, 1 - h.leg * 0.14 - h.torso * 0.06);
+      vx *= slow; vy *= slow;
+      if (h.head >= 2) { const w = Math.sin(this.tick * 0.06 + c.id) * 0.35 * Math.min(1, h.head / 4), sp = Math.hypot(vx, vy) || 1; const ox = -vy / sp, oy = vx / sp; vx += ox * w * sp; vy += oy * w * sp; }
+    }
     if (c.tier !== "player" && c.mode !== "panic") {
       const h = this.hour, park = this.world.areaAt(c.x, c.y)?.kind === "park";
       const pace = (h >= 7 && h < 9.5 ? 1.12 : h >= 18 ? 0.9 : 1) * (park ? 0.82 : 1) * (0.75 + c.needs.energy * 0.3);
@@ -334,10 +340,13 @@ export class Simulation {
     const onRoad = this.world.tile(Math.floor(c.x), Math.floor(c.y));
     if (onRoad === 16 || onRoad === 18) return false; // already crossing: keep going
     if (t === 18 && c.pursuing < 0 && !(c.wanted > 0) && walkSignal(this.world, ntx, nty, this.tick) !== "walk") return true;
+    // nerves: someone scared, or who was hit by a car not long ago, leaves a much bigger gap before stepping out
+    const hitByCar = c.lastHitBy <= -100 && this.tick - c.lastHitTick < 60 * 60 * 3;
+    const wary = 1 + c.emo.fear * 1.2 + (hitByCar ? 1.5 : 0);
     for (const v of this.vehicles) {
       if (Math.abs(v.speed) < 0.5) continue;
       const dx = c.x - v.x, dy = c.y - v.y, d = Math.hypot(dx, dy);
-      if (d > 2 + Math.abs(v.speed) * 0.9) continue;
+      if (d > (2 + Math.abs(v.speed) * 0.9) * wary) continue;
       if ((dx * Math.cos(v.heading) + dy * Math.sin(v.heading)) / (d || 1) > 0.3) return true;
     }
     return false;
@@ -437,6 +446,7 @@ export class Simulation {
     v.speed *= 1 - Math.min(0.25, 0.09 / d.mass);
     if (v.vx !== undefined && v.vy !== undefined) { const k = 1 - Math.min(0.25, 0.09 / d.mass); v.vx *= k; v.vy *= k; }
     v.damage = Math.min(1, v.damage + 0.03);
+    bump(v, Math.cos(v.heading), Math.sin(v.heading), Math.min(0.08, speed * 0.008));
     this.bus.emit("sound", { kind: "carhit", x: c.x, y: c.y, vol: Math.min(1, speed / 8) });
     if (speed > 3.5) { const part = speed > 7 && this.rng.chance(0.4) ? "head" : this.rng.chance(0.5) ? "leg" : "torso"; wound(this, c, part, speed > 7 ? 3 : 2, part === "head" ? "gash" : "cut", v.driver, v.x, v.y); }
     const driver = v.driver >= 0 ? this.chars[v.driver] : null;

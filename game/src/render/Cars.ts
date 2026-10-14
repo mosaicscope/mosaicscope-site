@@ -203,7 +203,10 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const k: Ctx = { g, cam, x, y, c: Math.cos(ang), s: Math.sin(ang) };
   // drawn size only: the simulation still uses the class dimensions, so movement and collisions are unchanged
   const L = d.length * M.scale, hw = (d.width / 2) * M.scale, H = d.height * 1.08 * M.scale;
-  const x0 = -L / 2, x1 = L / 2;
+  // crumple zones: a hit end is pushed in (Traffic.bump records where the car was hit)
+  const dF = v.dmgF ?? 0, dR = v.dmgR ?? 0, dL = v.dmgL ?? 0, dS = v.dmgS ?? 0;
+  const x0 = -L / 2 + dR * 0.16 * L, x1 = L / 2 - dF * 0.18 * L;
+  const deadLamp = dF > 0.35 ? (v.plate.charCodeAt(1) % 2 ? 1 : -1) : 0, deadTail = dR > 0.35 ? (v.plate.charCodeAt(2) % 2 ? 1 : -1) : 0;
   const night = dark > 0.35;
   const ST = STYLE[v.cls] ?? {};
   const PT = patinaOf(v.cls, v.plate, d.price, v.damage);   // this car's own story: age, rust, dents, stickers (CarPatina.ts)
@@ -493,7 +496,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const lampH = (S.hood + 0.02) * H * 0.82, tailH = S.deck * H * 0.8;
   for (const side of [-1, 1]) {
     if (frontVisible) {
-      fillPoly(k, [[x1 + 0.005, side * hw * 0.42, lampH - 0.04], [x1 + 0.005, side * hw * 0.72, lampH - 0.03], [x1 + 0.005, side * hw * 0.72, lampH + 0.03], [x1 + 0.005, side * hw * 0.42, lampH + 0.03]], hl);
+      fillPoly(k, [[x1 + 0.005, side * hw * 0.42, lampH - 0.04], [x1 + 0.005, side * hw * 0.72, lampH - 0.03], [x1 + 0.005, side * hw * 0.72, lampH + 0.03], [x1 + 0.005, side * hw * 0.42, lampH + 0.03]], side === deadLamp ? "#2a2622" : hl);
     } else {
       fillPoly(k, [[x0 - 0.005, side * hw * 0.45, tailH - 0.035], [x0 - 0.005, side * hw * 0.82, tailH - 0.035], [x0 - 0.005, side * hw * 0.82, tailH + 0.03], [x0 - 0.005, side * hw * 0.45, tailH + 0.03]], brake ? "#ff3b2f" : night ? "#c8241a" : "#8a1a14");
     }
@@ -506,9 +509,33 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     const tail = !frontVisible;
     const col = tail ? "255,59,47" : PT.yellowLamps ? "255,222,140" : "255,246,210", r = (tail ? 6 : 8) * M.scale * z, a = tail && !brake ? 0.3 : 0.55;
     for (const side of [-1, 1]) {
+      if (side === (tail ? deadTail : deadLamp)) continue; // smashed lamp: no light
       const P0 = W3(k, [tail ? x0 : x1, side * hw * (tail ? 0.63 : 0.57), tail ? tailH : lampH]);
       const sx = P0[0], sy = P0[1];
       GLOW.push(() => { g.globalCompositeOperation = "lighter"; const grd = g.createRadialGradient(sx, sy, 0, sx, sy, r); grd.addColorStop(0, `rgba(${col},${a})`); grd.addColorStop(1, `rgba(${col},0)`); g.fillStyle = grd; g.beginPath(); g.arc(sx, sy, r, 0, 6.283); g.fill(); g.globalCompositeOperation = "source-over"; });
+    }
+  }
+
+  // crash damage you can read: creases along a hit side, a hanging bumper, and a smoking bonnet once the front is bad
+  for (const [sd, amt] of [[-1, dL], [1, dS]] as [number, number][]) {
+    if (amt < 0.2) continue;
+    g.strokeStyle = `rgba(14,11,10,${Math.min(0.8, 0.35 + amt * 0.5).toFixed(2)})`; g.lineWidth = Math.max(1, 1.3 * z);
+    for (let i = 0; i < 1 + Math.round(amt * 3); i++) {
+      const u = -0.25 + i * 0.18, zz = H * (0.32 + (i % 2) * 0.08);
+      const A = W3(k, [u * L, sd * hw * 1.01, zz]), B = W3(k, [(u + 0.06) * L, sd * hw * 1.01, zz + 0.05]), C = W3(k, [(u + 0.12) * L, sd * hw * 1.01, zz - 0.02]);
+      g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.lineTo(C[0], C[1]); g.stroke();
+    }
+  }
+  if (dF > 0.5 && frontVisible) {
+    const A = W3(k, [x1 + 0.01, -hw * 0.7, 0.1]), B = W3(k, [x1 + 0.04, hw * 0.5, 0.03]);
+    g.strokeStyle = "#1a1714"; g.lineWidth = Math.max(1.5, 2.2 * z); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke();
+  }
+  if (dF > 0.45 || v.damage > 0.75) {
+    for (let i = 0; i < 4; i++) {
+      const ph = (time * 0.5 + i / 4) % 1;
+      const p = W3(k, [x1 - L * 0.18, (i % 2 ? 0.08 : -0.08), bodyTop(x1 - L * 0.18) + ph * 0.9]);
+      g.fillStyle = `rgba(${dF > 0.75 ? "40,36,34" : "190,186,180"},${((1 - ph) * 0.35).toFixed(3)})`;
+      g.beginPath(); g.arc(p[0] + Math.sin(time * 2 + i) * 3 * z, p[1], (0.06 + ph * 0.16) * z * 10, 0, 6.283); g.fill();
     }
   }
 

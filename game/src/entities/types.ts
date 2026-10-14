@@ -298,4 +298,6 @@ export interface Vehicle {
   /** Free-body dynamics (player driving, joyriders, crashed cars sliding): world velocity, yaw rate, the tick they
    *  were last integrated (stale values are re-seeded from heading and speed) and sideways slip for skid marks. */
   vx?: number; vy?: number; yaw?: number; dynT?: number; slip?: number;
+  /** Where the car has been hit, 0..1 each: front, rear, left, right (the body crumples there; see Traffic.bump). */
+  dmgF?: number; dmgR?: number; dmgL?: number; dmgS?: number;
 }

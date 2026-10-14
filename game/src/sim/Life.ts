@@ -67,8 +67,21 @@ export function useBandage(sim: Simulation, user: Character, target: Character):
 }
 
 /** Per AI tick: blood loss, collapse, slow recovery, healing over time. */
+/** How badly each part of a body is hurt right now (open wounds count fully, bandaged ones half): 0 = fine, 3+ = bad. */
+export function hurtOf(c: Character): { head: number; torso: number; arm: number; leg: number; total: number } {
+  const h = { head: 0, torso: 0, arm: 0, leg: 0, total: 0 };
+  for (const w of c.wounds) { const v = w.severity * (w.bandaged ? 0.5 : 1); h[w.part] += v; h.total += v; }
+  return h;
+}
+
 export function updateHealth(sim: Simulation, c: Character, dt: number): void {
   if (!c.wounds.length && c.blood >= 1) return;
+  // pain wears you down: the more it hurts, the lower the mood and the shorter the fuse
+  if (c.wounds.length) {
+    const pain = hurtOf(c).total;
+    c.emo.mood = Math.max(-1, c.emo.mood - pain * dt * 0.003);
+    c.emo.composure = Math.max(0, c.emo.composure - pain * dt * 0.0015);
+  }
   if (c.bleed > 0) {
     c.blood = Math.max(0, c.blood - c.bleed * dt * 0.012);
     c.emo.fear = Math.min(1, c.emo.fear + c.bleed * dt * 0.01);
