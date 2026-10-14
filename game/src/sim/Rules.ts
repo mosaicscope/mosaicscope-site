@@ -9,6 +9,7 @@ import { commitCrime } from "./Society";
 import { drop } from "../inventory/Inventory";
 import { wound, pickPart } from "./Life";
 import { bulletHit, bulletBounce, isBullet, registerTurfEvents, ensureGangs, updateTurf } from "./Turf";
+import { registerRepEvents, updateRep } from "./Rep";
 
 /**
  * Causal rules: physical outcomes become world events; world events change minds, memories and goals;
@@ -21,6 +22,7 @@ export function installRules(sim: Simulation): void {
   const name = (id: number) => sim.chars[id]?.name ?? "someone";
   const fx = sim.bus;
   registerTurfEvents(sim);
+  registerRepEvents(sim);
 
   sim.hooks = {
     onToyHitChar(t: Toy, c: Character, impulse: number, nx: number, ny: number) {
@@ -315,6 +317,7 @@ export function installRules(sim: Simulation): void {
     if (tick % 600 === 0 && sim.isDark && sim.env.weather === "clear" && sim.rng.chance(0.04)) sim.emit({ type: "rare_meteor", x: sim.world.size / 2, y: sim.world.size / 2, summary: "A shooting star crossed the sky" });
     if (tick % 1200 === 0) competitionCheck();
     updateTurf(sim);
+    updateRep(sim);
   };
   ensureGangs(sim);
 

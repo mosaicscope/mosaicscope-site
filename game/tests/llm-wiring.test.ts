@@ -4,6 +4,7 @@ import { chooseGoal } from "../src/ai/brain";
 import { LlmBrain, llmFromQuery, setLlm, getLlm } from "../src/ai/llm";
 // @ts-expect-error plain JS worker, typed by its own contract in the test
 import worker from "../llm-worker/index.js";
+import { GOAL_LABELS } from "../src/ai/llm/context";
 
 afterEach(() => { setLlm(null); vi.unstubAllGlobals(); });
 
@@ -61,10 +62,11 @@ describe("model pick reaches the sim", () => {
     expect(seen.length).toBe(1);
     const menu = seen[0].split("\n").filter((l) => /^\d\. /.test(l));
     expect(menu.length).toBeGreaterThanOrEqual(2);
-    const pickedId = menu[0].replace(/^1\. /, "");
+    const pickedLabel = menu[0].replace(/^1\. /, "");
     c.goal = null;
     chooseGoal(c, sim); // second decision: uses the model's pick if it is still valid
-    expect((c.goal as { id: string } | null)?.id).toBe(pickedId);
+    const id = (c.goal as { id: string } | null)?.id ?? "";
+    expect(pickedLabel.startsWith(GOAL_LABELS[id] ?? id)).toBe(true);
   });
 
   it("non-principals never ask the model", async () => {
@@ -156,5 +158,26 @@ describe("Ollama cloud (free ollama.com account)", () => {
     expect(await b!.test()).toBe(true);
     expect(seen![0]).toBe("https://ollama.com/api/chat");
     expect((seen![1].headers as Record<string, string>).authorization).toBe("Bearer ok-key");
+  });
+});
+
+describe("what the models are told", () => {
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+  it("system prompt explains the world; each request carries the character card and readable options", async () => {
+    const sim = small(5);
+    const c = sim.chars.find((x) => x.tier === "principal")!;
+    const seen: { system: string; user: string }[] = [];
+    setLlm(new LlmBrain(async (system, user) => { seen.push({ system, user }); return "1"; }));
+    chooseGoal(c, sim);
+    await flush();
+    const { system, user } = seen[0];
+    expect(system).toMatch(/The Mosaics/);
+    expect(system).toMatch(/Christchurch/);
+    expect(system).toMatch(/only the number/);
+    expect(user).toContain(`You are ${c.name}`);
+    expect(user).toMatch(/Right now you feel/);
+    expect(user).toMatch(/It's \d\d:\d\d/);
+    expect(user).toMatch(/What do you do next\?\n1\. /);
+    expect(user).not.toMatch(/^1\. [a-z]+$/m); // labels are sentences, not bare ids like "ballgame"
   });
 });
