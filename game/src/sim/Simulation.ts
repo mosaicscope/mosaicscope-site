@@ -51,8 +51,12 @@ export interface Metrics {
  * The whole simulation, independent of rendering. `step()` advances exactly one fixed tick.
  * Headless-safe: no DOM access anywhere under sim/, ai/, physics/, social/, events/, dialogue/.
  */
-/** Step kinds that are just standing about: never done in a traffic lane. */
-const ROAD_LOITER = new Set(["wait", "watch", "cheer", "dance", "talk", "sit", "music", "craft", "skate", "busk", "pose", "eat", "book", "trade", "buy", "flirt", "kiss", "date", "spray", "photo", "goto", "wander"]);
+/**
+ * Step kinds that are just standing about with no spot of their own: never done in a traffic lane. Steps that walk
+ * to a spot (goto, wander, dance, pose, watch...) are not here: their spot is moved to the kerb instead, because
+ * nudging them while the step walks them back makes them flip back and forth on the spot.
+ */
+const ROAD_LOITER = new Set(["wait", "talk", "sit", "music", "craft", "eat", "book", "trade", "buy", "flirt", "kiss", "date"]);
 
 export class Simulation {
   readonly cfg: SimConfig;

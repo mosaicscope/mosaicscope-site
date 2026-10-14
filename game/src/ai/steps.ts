@@ -41,7 +41,7 @@ export function moveTo(c: Character, x: number, y: number, sim: Simulation, arri
 
 export function stop(c: Character): void { c.vx = 0; c.vy = 0; }
 /** Step kinds that end with someone standing at (x, y). */
-const LOITER_AT = new Set(["goto", "wander", "watch", "cheer", "dance"]);
+const LOITER_AT = new Set(["goto", "wander", "watch", "cheer", "dance", "pose"]);
 function face(c: Character, x: number, y: number): void { c.facing = Math.atan2(y - c.y, x - c.x); }
 
 /** Execute one primitive step for one AI tick. dt = simulated seconds since the last think. */
@@ -474,7 +474,11 @@ export function runCityStep(c: Character, s: Step, g: ActiveGoal, sim: Simulatio
       const o = sim.chars[s.target!];
       if (!o || o.inside >= 0) return DONE;
       c.anim.pose = "auto";
-      moveTo(c, o.x - Math.cos(o.facing) * 0.9, o.y - Math.sin(o.facing) * 0.9, sim, 0.6, 1.15);
+      // trail a step behind on the side you're already on: aiming at "behind the way they face" flips the target to
+      // the other side every time the leader turns their head, and the follower jitters back and forth
+      const dx = o.x - c.x, dy = o.y - c.y, d = Math.hypot(dx, dy) || 1;
+      if (d < 1.3) { stop(c); face(c, o.x, o.y); }
+      else moveTo(c, o.x - (dx / d) * 0.9, o.y - (dy / d) * 0.9, sim, 0.3, 1.15);
       return g.stepTimer > (s.time ?? 60) ? DONE : RUN;
     }
     case "book": {

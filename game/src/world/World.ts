@@ -157,6 +157,9 @@ export class World {
   nearestFoot(x: number, y: number, maxR = 8): { x: number; y: number } {
     if (!this.carriageway(x, y) && this.walkable(x, y)) return { x, y };
     const cx = Math.floor(x), cy = Math.floor(y);
+    // keep the spot's own place within its tile, so a crowd moved off the road spreads along the kerb instead of
+    // piling onto one tile centre and shoving each other back and forth
+    const fx = 0.15 + (x - cx) * 0.7, fy = 0.15 + (y - cy) * 0.7;
     let alt: { x: number; y: number } | null = null;
     for (let r = 1; r <= maxR; r++) {
       for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
@@ -164,8 +167,8 @@ export class World {
         const tx = cx + dx, ty = cy + dy;
         if (!this.walkableTile(tx, ty)) continue;
         const t = this.tiles[ty * this.size + tx];
-        if (t === T.SIDEWALK) return { x: tx + 0.5, y: ty + 0.5 };
-        if (!alt && t !== T.ROAD && t !== T.CROSSWALK) alt = { x: tx + 0.5, y: ty + 0.5 };
+        if (t === T.SIDEWALK) return { x: tx + fx, y: ty + fy };
+        if (!alt && t !== T.ROAD && t !== T.CROSSWALK) alt = { x: tx + fx, y: ty + fy };
       }
       if (alt) return alt;
     }
