@@ -1,3 +1,4 @@
+import { buzz, buzzOpener, BUZZ_REPLIES } from "../content/buzz";
 import type { Simulation } from "../sim/Simulation";
 import { Character, Memory, Phys } from "../entities/types";
 import { TOYS } from "../content/toys";
@@ -20,7 +21,7 @@ import { repLine } from "../sim/Rep";
  * short exchanges with consequences: relationships, gossip transfer, toy disputes, reconciliation.
  * No language model is used; an optional one could later rewrite `text` without changing outcomes.
  */
-export interface Conversation { id: number; a: number; b: number; topic: string; turn: number; maxTurns: number; nextAt: number; log: { who: number; text: string }[]; outcome: string; script?: string[] }
+export interface Conversation { id: number; a: number; b: number; topic: string; turn: number; maxTurns: number; nextAt: number; log: { who: number; text: string }[]; outcome: string; script?: string[]; buzz?: boolean; wantBuzz?: boolean }
 
 export interface PlayerOption { id: string; label: string }
 export interface PlayerLink { label: string; href: string }
@@ -146,7 +147,9 @@ export class DialogueEngine {
     if (hostility(r) > 0.55 && topic !== "dispute" && topic !== "apology") { this.sim.say(b, this.bark(b, "greet", a), "say", 1.5); return false; }
     const conv: Conversation = { id: this.nextId++, a: a.id, b: b.id, topic, turn: 0, maxTurns: topic === "chat" ? 3 + this.sim.rng.int(0, 3) : 3, nextAt: this.sim.tick + 10, log: [], outcome: "" };
     // small talk and plugs run as an authored exchange: every reply answers the line before it
-    if (topic === "chat" || topic === "plug") {
+    // now and then a chat is someone passing on what the real town is talking about (see content/buzz.ts)
+    if (topic === "chat" && buzz.length && this.sim.rng.chance(0.12)) conv.wantBuzz = true;
+    else if (topic === "chat" || topic === "plug") {
       const script = this.director.pick(a, b, topic === "plug" ? (e) => e.id.startsWith("scene_") : undefined);
       if (script) { conv.script = script; conv.maxTurns = script.length; }
     }
@@ -214,7 +217,10 @@ export class DialogueEngine {
     s.needs.social = Math.min(1, s.needs.social + 0.12); l.needs.social = Math.min(1, l.needs.social + 0.08);
     if (t === "chat") {
       const c = this.ctx(s, l);
+      // the reply to a bit of hearsay reacts to it, in character
+      if (conv.turn % 2 === 1 && conv.buzz) { conv.buzz = false; const pool = l && (c.hostile > 0.3 || s.pers.kindness < 0.3) ? BUZZ_REPLIES.cold : BUZZ_REPLIES.warm; return pool[sim.rng.int(0, pool.length - 1)]; }
       if (conv.turn % 2 === 1) return this.line(c.hostile > 0.3 ? "reply" : "reply", c);
+      if (conv.wantBuzz && buzz.length) { conv.wantBuzz = false; conv.buzz = true; const b = buzz[sim.rng.int(0, buzz.length - 1)]; return buzzOpener(b.title, (n) => sim.rng.int(0, n - 1)); }
       // playful people joke, hostile people tease; teasing can tip into an argument
       if (c.hostile > 0.35 && s.pers.kindness < 0.6 && sim.rng.chance(0.6)) {
         applyInteraction(l, s, "insult", true, tick);

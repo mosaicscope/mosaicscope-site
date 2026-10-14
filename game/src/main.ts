@@ -1,6 +1,7 @@
 import "./ui/styles.css";
 import { Game } from "./app/Game";
 import { setMosaicData, MOSAIC } from "./content/mosaicscope";
+import { loadBuzz } from "./content/buzz";
 
 /**
  * Pull the live business details from the main site (content.json) and the real Instagram feed
@@ -44,6 +45,7 @@ try {
   const ui = document.getElementById("ui")!;
   if (!canvas.getContext("2d")) throw new Error("Your browser can't draw the world (canvas is unavailable).");
   const game = new Game(canvas, ui);
+  loadBuzz(); // what the real town is talking about, for small talk
   game.start();
   loadMosaicScope();
   (window as any).__mosaics = game; // handy for debugging and the smoke test
