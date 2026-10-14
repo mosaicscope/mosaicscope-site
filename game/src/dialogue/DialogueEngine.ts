@@ -11,6 +11,7 @@ import { ROLE_LABEL } from "../content/names";
 import { Director, readSecs } from "./director";
 import { TalkState, TOPIC_BY_ID, answerTopic, rankTopics, talkCtx } from "./playerTalk";
 import { LORE } from "../content/lore";
+import { swear } from "./swear";
 import { repLine } from "../sim/Rep";
 
 /**
@@ -103,7 +104,12 @@ export class DialogueEngine {
     recent.push(pick.k); if (recent.length > 8) recent.shift();
     this.recent.set(c.s.id, recent);
     this.lastUse.set(t.id, sim.tick);
-    return this.fill(pick.l, c);
+    return this.foul(this.fill(pick.l, c), c.s);
+  }
+
+  /** Every spoken line goes through the town's mouth: some people swear a lot (see swear.ts). The player's own lines are left alone. */
+  private foul(text: string, speaker: Character): string {
+    return speaker.tier === "player" ? text : swear(text, speaker, () => this.sim.rng.next());
   }
 
   /** A line about MosaicScope using real posts and prices. Returns the post it mentions (if any). */
@@ -188,7 +194,7 @@ export class DialogueEngine {
     }
     s.needs.social = Math.min(1, s.needs.social + 0.1); l.needs.social = Math.min(1, l.needs.social + 0.07);
     if (conv.turn === (conv.script?.length ?? 0) - 1 && s.pers.playfulness > 0.5) { applyInteraction(l, s, "joke", true, tick); }
-    return conv.script?.[conv.turn] ?? "";
+    return this.foul(conv.script?.[conv.turn] ?? "", s);
   }
 
   /** One utterance with its consequences. Returns the text said. */
@@ -405,7 +411,7 @@ export class DialogueEngine {
     const [id, arg] = optId.split(":");
     const c = (extra: Partial<LineCtx> = {}) => this.ctx(npc, p, extra);
     if (TOPIC_BY_ID.has(id)) {
-      text = answerTopic(talkCtx(sim, npc, this.talk), id);
+      text = this.foul(answerTopic(talkCtx(sim, npc, this.talk), id), npc);
       applyInteraction(npc, p, "talk", true, tick);
       npc.needs.social = Math.min(1, npc.needs.social + 0.04);
       sim.say(npc, text, "say", readSecs(text));
