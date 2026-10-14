@@ -641,7 +641,7 @@ export class Game {
       else if (key === k.inspect) this.select(this.sim.playerId);
       else if (key === k.log) this.log.toggle();
       else if (key === "m") this.minimap.toggle();
-      else if (key === "j") { this.settings.sfx = !this.settings.sfx; this.applySettings(); this.persistSettings(); this.toast(this.settings.sfx ? "World sounds on (J)" : "World sounds off (J). N still mutes the music", ""); }
+      else if (key === "j") { this.settings.sfx = !this.settings.sfx; this.applySettings(); this.persistSettings(); this.toast(this.settings.sfx ? "World sounds on (J)" : "World sounds off (J)", ""); }
       else if (key === k.dev || key === "~") this.dev.toggle();
       else if (key === "c") { this.renderer.cam.follow = this.sim.playerId; }
       else if (key === "o") this.photos.open();

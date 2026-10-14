@@ -1,20 +1,15 @@
 import type { Simulation } from "../sim/Simulation";
 import type { Camera } from "../render/Camera";
-import { Music } from "./Music";
 import { Diegetic, STREET, type Scene, type Prio } from "./Diegetic";
-import { fetchVibe, VIBE_REFRESH_MS } from "./LiveVibe";
-import type { Place } from "./Score";
-import { BuskerVoice } from "./Busker";
-import { stepWalk, dreamLevel, lateLevel, layersFor } from "./Moods";
+import { stepWalk, dreamLevel } from "./Moods";
 import type { UiTone } from "./Prefs";
 
 /**
  * Synthesised audio (no files to load): material-specific impact blips, whooshes, boings, rain and a
  * simple party beat. Off until the player turns it on (browsers require a gesture anyway).
  * Sounds are panned by screen position and attenuated by distance; a rate limiter stops pile-ups.
+ * There is no background soundtrack: what you hear is the world itself (and the radio, if you press play).
  */
-/** the soundtrack's resting level (Music starts at this) */
-const MUSIC_LEVEL = 0.4;
 
 export class AudioSystem {
   private ctx: AudioContext | null = null;
@@ -25,13 +20,9 @@ export class AudioSystem {
   enabled = false;
   volume = 0.6;
   private unsub: (() => void) | null = null;
-  private music: Music | null = null;
-  private busker: BuskerVoice | null = null;
   private walked = 0; private lastX = NaN; private lastY = NaN; private lastT = 0;
   /** 0..1 how deep into the dream the walk has taken the player; the renderer drifts the colours by it */
   dream = 0;
-  /** the generative soundtrack; N toggles it, the sound setting still gates everything */
-  musicOn = true;
   /** Hunter's in-world sound layer: footsteps, cars, weather, doors, machines (own bus, own mute: J) */
   private dg: Diegetic | null = null;
   private sim: Simulation | null = null;
@@ -40,89 +31,35 @@ export class AudioSystem {
   sfxOn = true; sfxVolume = 0.8;
   /** where the player is (the game sets this each frame): street, 2D street view or inside a building */
   scene: Scene = STREET;
-  private place: Place = ""; private placeT = 0; private vibeTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(private getCam: () => Camera) {}
-
-  /** N mutes/unmutes just the soundtrack (effects stay on). */
-  toggleMusic(): boolean { this.musicOn = !this.musicOn; this.syncMusic(); return this.musicOn; }
-
-  private syncMusic(): void {
-    if (!this.music) return;
-    if (this.enabled && this.musicOn) { this.music.start(); this.busker?.start(); this.refreshVibe(); } else { this.music.stop(); this.busker?.stop(); }
-  }
-
-  /** Pull real Christchurch weather/time for the score (audio only), then again every 15 minutes while music plays. */
-  private refreshVibe(): void {
-    if (this.vibeTimer || !this.music) return;
-    const go = (): void => { void fetchVibe().then((v) => this.music?.setLive(v)); };
-    go();
-    this.vibeTimer = setInterval(go, VIBE_REFRESH_MS);
-  }
-
-  /** Which notable place or character is near the player: brings in that leitmotif. Throttled, it scans the world. */
-  private placeFor(sim: Simulation, interior: string | null): Place {
-    if (interior === "nightclub" || interior === "stripclub" || interior === "velvet") return "nightlife";
-    if (interior === "recycling") return "recycling";
-    if (interior === "studio") return "studio";
-    if (interior) return "";
-    const now = performance.now();
-    if (now - this.placeT < 500) return this.place;
-    this.placeT = now;
-    const p = sim.player;
-    let place: Place = "";
-    if (sim.chars.some((c) => c.role === "overcoder" && Math.hypot(c.x - p.x, c.y - p.y) < 7)) place = "terrance";
-    else if (sim.world.areaAt(p.x, p.y)?.kind === "studio") place = "studio";
-    else if (sim.world.buildings.some((b) => b.kind === "recycling" && Math.hypot((b.x0 + b.x1) / 2 - p.x, (b.y0 + b.y1) / 2 - p.y) < 7)) place = "recycling";
-    return (this.place = place);
-  }
 
   /** A UI tone for an interface event (click, tab, error, save and so on). Silent until the audio context is on. */
   ui(tone: UiTone): void { this.dg?.uiTone(tone); }
 
-  /** Victory or defeat sting for the soundtrack. Only plays while the music is on. */
-  stinger(kind: "victory" | "defeat"): void { if (this.musicOn) this.music?.stinger(kind); }
-
   /** Set the world-sound mute and volume (separate from the soundtrack and the master volume). */
   setSfx(on: boolean, vol: number): void { this.sfxOn = on; this.sfxVolume = vol; this.dg?.setLevel(on, vol); }
-
-  /** Dip the soundtrack briefly when something important happens in the street (crashes, horns, gunfire). */
-  private duckMusic(amount: number, secs: number): void {
-    if (!this.music) return;
-    this.music.setLevel(MUSIC_LEVEL * (1 - amount));
-    if (this.duckTimer) clearTimeout(this.duckTimer);
-    this.duckTimer = setTimeout(() => this.music?.setLevel(MUSIC_LEVEL), secs * 1000);
-  }
-  private duckTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** Terrance's voice for the dialogue panel. */
   speak(text: string): void { this.dg?.speak(text, this.getCam(), this.scene); }
 
-  /** Dream (long walks), rain on the glass, the 3am hush and the busker's tune. Throttled scans, audio only. */
-  private moods(sim: Simulation, interior: string | null, tension: number): void {
+  /** How far the long walk has drifted into the dream, plus short voice blips for nearby speech bubbles. Throttled scans. */
+  private moods(sim: Simulation, interior: string | null): void {
     const p = sim.player, now = performance.now(), dt = (now - this.lastT) / 1000;
     if (this.lastT && Number.isFinite(this.lastX)) this.walked = stepWalk(this.walked, Math.hypot(p.x - this.lastX, p.y - this.lastY) / Math.max(dt, 0.001), dt);
     this.lastX = p.x; this.lastY = p.y; this.lastT = now;
     this.dream = dreamLevel(this.walked);
     if (now - this.moodT > 500) {
       this.moodT = now;
-      let crowd = 0, bd = Infinity, bx = 0;
       for (const c of sim.chars) {
         if (c === p || c.inside >= 0) continue;
-        const d = Math.hypot(c.x - p.x, c.y - p.y);
-        if (d < 10) crowd++;
         // a new speech bubble close by gets a short voice blip
-        if (c.bubble && c.bubble !== this.seenBubble.get(c.id) && d < 12) { this.seenBubble.set(c.id, c.bubble); this.dg?.voice(c.id, interior !== null); }
-        if (c.role === "busker" && d < bd) { bd = d; bx = c.x - p.x; }
+        if (c.bubble && c.bubble !== this.seenBubble.get(c.id) && Math.hypot(c.x - p.x, c.y - p.y) < 12) { this.seenBubble.set(c.id, c.bubble); this.dg?.voice(c.id, interior !== null); }
       }
-      this.crowd = Math.min(1, crowd / 8); this.buskerDist = interior ? Infinity : bd; this.buskerPan = bx / 14;
     }
-    const layers = layersFor({ dream: this.dream, late: lateLevel(sim.hour, tension, this.crowd), rain: sim.env.rain, indoors: interior !== null });
-    this.music?.setLayers(layers);
-    this.busker?.update(this.buskerDist, this.buskerPan, sim.hour, sim.env.rain);
   }
   private seenBubble = new Map<number, unknown>();
-  private moodT = 0; private crowd = 0; private buskerDist = Infinity; private buskerPan = 0;
+  private moodT = 0;
 
   attach(sim: Simulation): void {
     this.unsub?.();
@@ -146,36 +83,18 @@ export class AudioSystem {
         this.dg = new Diegetic(this.ctx, this.master, lite);
         this.fx = this.dg.input; this.dg.setLevel(this.sfxOn, this.sfxVolume);
         if (this.sim) this.dg.attach(this.sim);
-        this.dg.onDuck = (amt, secs) => this.duckMusic(amt, secs);
-        this.music = new Music(this.ctx, this.master);
-        this.busker = new BuskerVoice(this.ctx, this.master);
-        window.addEventListener("keydown", (e) => {
-          const t = e.target as HTMLElement | null;
-          if (e.key.toLowerCase() !== "n" || e.ctrlKey || e.metaKey || e.altKey || t?.closest("input,textarea,select,[contenteditable]")) return;
-          this.toggleMusic();
-        });
       } catch { this.ctx = null; this.enabled = false; }
     }
     if (this.ctx) on ? this.ctx.resume() : this.ctx.suspend();
-    this.syncMusic();
   }
 
   setVolume(v: number): void { this.volume = v; if (this.master) this.master.gain.value = v; }
 
-  /** Per-frame ambience: the world's sounds, the soundtrack's mood and the party beat near the stage. */
+  /** Per-frame ambience: the world's sounds and the party beat near the stage. */
   update(sim: Simulation, interior: string | null = null): void {
     if (!this.enabled || !this.ctx || !this.dg) return;
     this.dg.update(sim, this.getCam(), this.scene);
-    if (this.music && this.musicOn) {
-      const p = sim.player, hurt = 1 - Math.min(1, p.blood);
-      this.moods(sim, interior, Math.min(1, (p.wanted ?? 0) / 4 + (hurt > 0.6 ? (hurt - 0.6) : 0)));
-      this.music.setMood({
-        hour: sim.hour, rain: sim.env.rain, storm: sim.env.weather === "storm",
-        tension: Math.min(1, (p.wanted ?? 0) / 4 + (hurt > 0.6 ? (hurt - 0.6) : 0)),
-        street: this.getCam().zoom > 3, party: sim.env.party,
-        indoors: interior !== null, place: this.placeFor(sim, interior), chase: (p.wanted ?? 0) >= 2,
-      });
-    }
+    this.moods(sim, interior);
     if (sim.env.party) {
       const cam = this.getCam();
       const d = Math.hypot(cam.x - sim.stagePoint.x, cam.y - sim.stagePoint.y);

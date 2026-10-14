@@ -14,10 +14,10 @@ const context = await model.createContext({ contextSize: 2048 });
 
 let queue = Promise.resolve(); // one prompt at a time: the context is shared
 
-async function pick(system, user) {
+async function pick(system, user, maxTokens = 8, temperature = 0) {
   const session = new LlamaChatSession({ contextSequence: context.getSequence(), systemPrompt: system });
   try {
-    return await session.prompt(user, { maxTokens: 8, temperature: 0 });
+    return await session.prompt(user, { maxTokens, temperature });
   } finally {
     session.dispose();
   }
@@ -34,7 +34,7 @@ http.createServer((req, res) => {
     try { body = JSON.parse(raw); } catch { res.writeHead(400, cors); return res.end("bad json"); }
     queue = queue.then(async () => {
       try {
-        const text = await pick(String(body.system ?? ""), String(body.user ?? ""));
+        const text = await pick(String(body.system ?? ""), String(body.user ?? ""), Math.max(1, Math.min(200, Number(body.max_tokens) || 8)), Math.max(0, Math.min(1, Number(body.temperature) || 0)));
         res.writeHead(200, { ...cors, "content-type": "application/json" });
         res.end(JSON.stringify({ text }));
       } catch (e) {
