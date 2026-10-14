@@ -1,5 +1,5 @@
 {
- "at": 1791937753763,
+ "at": 1791937973493,
  "totals": {
   "duplicate-code": 2,
   "long-function": 13,
@@ -106,10 +106,10 @@
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/render/RefFigure.ts:151",
+   "where": "game/src/render/RefFigure.ts:175",
    "detail": "163 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1q9niha"
+   "fp": "long-function|1eyobwg"
   },
   {
    "kind": "oversized-module",
