@@ -210,6 +210,9 @@ for (const [i, parts] of ISSUES) SLOTS[i].push(...parts);
 
 /** Odds that a slot is used at all (so most faces stay readable at 100px). */
 // more of the faces get markings now: about 1.6x the old odds, capped so faces stay readable
+/** Slot 8 is the mouth bit; these of its parts look like smoking (stick, stick with tip, puff, cigarette). */
+const MOUTH_SLOT = 8, CIG = 10;
+const SMOKE_LOOK = [5, 6, 8, CIG];
 const USE: number[] = [0.85, 0.55, 0.5, 0.3, 0.28, 0.5, 0.3, 0.32, 0.4, 0.5, 0.36, 0.3, 0.3, 0.5];
 
 function mix(a: number): number { a = (a ^ 61) ^ (a >>> 16); a = (a + (a << 3)) | 0; a ^= a >>> 4; a = Math.imul(a, 0x27d4eb2d); return (a ^ (a >>> 15)) >>> 0; }
@@ -228,7 +231,12 @@ export function faceGenes(seed: number): FaceGenes {
   let s = mix(seed | 0);
   for (let i = 0; i < SLOTS.length; i++) {
     s = mix(s + i + 1); const use = (s & 1023) / 1024 < USE[i];
-    s = mix(s); parts.push(use ? 1 + (s % (SLOTS[i].length - 1)) : 0);
+    s = mix(s);
+    let part = use ? 1 + (s % (SLOTS[i].length - 1)) : 0;
+    // mouth bits: the sticks and the puff read as smoking at street size, and the cigarette is kept rare,
+    // so the town isn't a sea of smokers (about 1 face in 300 has one)
+    if (i === MOUTH_SLOT && SMOKE_LOOK.includes(part)) part = part === CIG && (s >>> 8) % 12 === 0 ? CIG : 0;
+    parts.push(part);
     s = mix(s); tones.push(TONES[s % TONES.length]);
   }
   G = { parts, tones };
