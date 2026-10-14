@@ -1,4 +1,4 @@
-import { buzz, buzzOpener, BUZZ_REPLIES } from "../content/buzz";
+import { buzz, buzzOpener, buzzFeel, BUZZ_REPLIES } from "../content/buzz";
 import type { Simulation } from "../sim/Simulation";
 import { Character, Memory, Phys } from "../entities/types";
 import { TOYS } from "../content/toys";
@@ -21,7 +21,7 @@ import { repLine } from "../sim/Rep";
  * short exchanges with consequences: relationships, gossip transfer, toy disputes, reconciliation.
  * No language model is used; an optional one could later rewrite `text` without changing outcomes.
  */
-export interface Conversation { id: number; a: number; b: number; topic: string; turn: number; maxTurns: number; nextAt: number; log: { who: number; text: string }[]; outcome: string; script?: string[]; buzz?: boolean; wantBuzz?: boolean }
+export interface Conversation { id: number; a: number; b: number; topic: string; turn: number; maxTurns: number; nextAt: number; log: { who: number; text: string }[]; outcome: string; script?: string[]; buzz?: boolean; wantBuzz?: boolean; buzzTitle?: string }
 
 export interface PlayerOption { id: string; label: string }
 export interface PlayerLink { label: string; href: string }
@@ -218,9 +218,15 @@ export class DialogueEngine {
     if (t === "chat") {
       const c = this.ctx(s, l);
       // the reply to a bit of hearsay reacts to it, in character
-      if (conv.turn % 2 === 1 && conv.buzz) { conv.buzz = false; const pool = l && (c.hostile > 0.3 || s.pers.kindness < 0.3) ? BUZZ_REPLIES.cold : BUZZ_REPLIES.warm; return pool[sim.rng.int(0, pool.length - 1)]; }
+      if (conv.turn % 2 === 1 && conv.buzz) {
+        conv.buzz = false;
+        // news lands on the listener: good news lifts them, grating news drags; either way it's something to chew on
+        const f = buzzFeel(conv.buzzTitle ?? "");
+        s.emo.mood = Math.max(-1, Math.min(1, s.emo.mood + f * 0.04)); s.needs.curiosity = Math.min(1, s.needs.curiosity + 0.08);
+        const pool = l && (c.hostile > 0.3 || s.pers.kindness < 0.3) ? BUZZ_REPLIES.cold : BUZZ_REPLIES.warm; return pool[sim.rng.int(0, pool.length - 1)];
+      }
       if (conv.turn % 2 === 1) return this.line(c.hostile > 0.3 ? "reply" : "reply", c);
-      if (conv.wantBuzz && buzz.length) { conv.wantBuzz = false; conv.buzz = true; const b = buzz[sim.rng.int(0, buzz.length - 1)]; return buzzOpener(b.title, (n) => sim.rng.int(0, n - 1)); }
+      if (conv.wantBuzz && buzz.length) { conv.wantBuzz = false; conv.buzz = true; const b = buzz[sim.rng.int(0, buzz.length - 1)]; conv.buzzTitle = b.title; return buzzOpener(b.title, (n) => sim.rng.int(0, n - 1)); }
       // playful people joke, hostile people tease; teasing can tip into an argument
       if (c.hostile > 0.35 && s.pers.kindness < 0.6 && sim.rng.chance(0.6)) {
         applyInteraction(l, s, "insult", true, tick);

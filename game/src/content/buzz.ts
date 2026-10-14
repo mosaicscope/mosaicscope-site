@@ -37,6 +37,15 @@ function lowerFirst(s: string): string {
   return s.charAt(0).toLowerCase() + s.slice(1);
 }
 
+/** How a bit of news lands: + lifts the mood (events, wins, openings), - grates (prices, closures, traffic). */
+export function buzzFeel(t: string): number {
+  const s = t.toLowerCase();
+  let f = 0;
+  if (/(festival|concert|market|opening|opens|new |free|win|wins|won|record|celebrat|best|cute|dog|cat|sunny|summer)/.test(s)) f += 1;
+  if (/(price|cost|rent|fare|rates|closing|closed|closure|cuts|traffic|roadworks|delay|strike|rain|cold|broken|stolen|crime)/.test(s)) f -= 1;
+  return f;
+}
+
 export const BUZZ_REPLIES = {
   warm: ["Yeah, I saw that.", "No way, really?", "Ha, classic.", "Huh. Didn't know that.", "Everyone's been on about that.", "That's so Christchurch."],
   cold: ["Who cares.", "Sounds made up.", "Mate, that's old news.", "Can't believe people get worked up about that."],

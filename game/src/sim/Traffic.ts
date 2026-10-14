@@ -226,7 +226,9 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const powerOver = TAIL_HAPPY.has(v.cls) && inp.throttle > 0 && lon > 1 ? inp.throttle * Math.min(1, s / 5) : 0;
   const rearLoose = inp.brake && s > 2 ? 1 : powerOver;
   const wheelbase = d.length * 0.62, lock = 0.6 * (1 - 0.55 * Math.min(1, s / top));
-  const want = lon * Math.tan(inp.steer * lock) / wheelbase;
+  // a bent side (wheel knocked out of line) drags the car toward it
+  const bent = ((v.dmgS ?? 0) - (v.dmgL ?? 0)) * 0.12;
+  const want = lon * Math.tan(inp.steer * lock + bent) / wheelbase;
   const cap = (grip * (1 + 1.2 * rearLoose)) / Math.max(s, 1);   // a loose rear lets the nose swing past the grip line
   const yawWant = clamp(want, -cap, cap);
   v.yaw = (v.yaw ?? 0) + (yawWant - (v.yaw ?? 0)) * Math.min(1, dt * (3 + grip * 0.6));
@@ -245,6 +247,19 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   v.speed = lon; v.slip = lat;
   skidMarks(sim, v, lat, braking && s > 4 ? s : 0);
   moveBlocked(sim, v, dt);
+}
+
+/**
+ * Damage lands where the car was hit. (nx, ny) is the direction the blow came FROM, in world space; amount is the
+ * share of the car's overall damage it caused. The body crumples there (renderer), a hit front knocks out a lamp and
+ * then smokes, and a bent side drags the steering toward it.
+ */
+export function bump(v: Vehicle, nx: number, ny: number, amount: number): void {
+  const c = Math.cos(v.heading), s = Math.sin(v.heading);
+  const along = nx * c + ny * s, side = -nx * s + ny * c;
+  const add = (cur: number | undefined, w: number) => Math.min(1, (cur ?? 0) + amount * w * 2.2);
+  if (along > 0.35) v.dmgF = add(v.dmgF, along); else if (along < -0.35) v.dmgR = add(v.dmgR, -along);
+  if (side > 0.35) v.dmgS = add(v.dmgS, side); else if (side < -0.35) v.dmgL = add(v.dmgL, -side);
 }
 
 /** A crashed car keeps its momentum: it slides on locked tyres and spins down, it does not just stop. */
@@ -318,10 +333,14 @@ function moveBlocked(sim: Simulation, v: Vehicle, dt: number): void {
   const fx = nx + Math.cos(v.heading) * (d.length / 2) * Math.sign(v.speed || 1), fy = ny + Math.sin(v.heading) * (d.length / 2) * Math.sign(v.speed || 1);
   const side = v.heading + Math.PI / 2, hw = d.width / 2 * 0.9;
   const blocked = (x: number, y: number) => !sim.world.walkable(x, y) && sim.world.tile(Math.floor(x), Math.floor(y)) !== T.CRATE || !sim.world.inBounds(Math.floor(x), Math.floor(y));
-  if (blocked(fx + Math.cos(side) * hw, fy + Math.sin(side) * hw) || blocked(fx - Math.cos(side) * hw, fy - Math.sin(side) * hw)) {
+  // also probe the way the car is actually moving: a drifting or spinning car slides sideways into things too
+  const ms = Math.hypot(vel.x, vel.y), mx = ms > 1e-3 ? vel.x / ms : 0, my = ms > 1e-3 ? vel.y / ms : 0;
+  const sideways = blocked(nx, ny) || ms > 1e-3 && blocked(nx + mx * hw, ny + my * hw);
+  if (sideways || blocked(fx + Math.cos(side) * hw, fy + Math.sin(side) * hw) || blocked(fx - Math.cos(side) * hw, fy - Math.sin(side) * hw)) {
     const hit = Math.hypot(vel.x, vel.y);
     if (hit > 3) {
       v.damage = Math.min(1, v.damage + hit * 0.015);
+      const sg = Math.sign(v.speed || 1); bump(v, Math.cos(v.heading) * sg, Math.sin(v.heading) * sg, hit * 0.015);
       sim.bus.emit("sound", { kind: "crash", x: v.x, y: v.y, vol: Math.min(1, hit / 10) });
       sim.bus.emit("fx", { kind: "spark", x: fx, y: fy, z: 0.4, n: 8, color: "#f6b62c" });
     }
@@ -640,6 +659,7 @@ function crashImpulse(sim: Simulation, a: Vehicle, b: Vehicle, va: { x: number; 
   for (const [v, vel, m, sgn] of [[a, va, ma, -1], [b, vb, mb, 1]] as [Vehicle, { x: number; y: number }, number, number][]) {
     if (v.state === "parked") continue;
     v.vx = vel.x + sgn * nx * j / m; v.vy = vel.y + sgn * ny * j / m; v.dynT = sim.tick;
+    bump(v, -sgn * nx, -sgn * ny, Math.min(0.4, j * 0.03 / m));
     // the hit lands off the car's centre line: that lever arm turns into spin
     const L = VEHICLES[v.cls].length, side = -Math.sin(v.heading) * nx + Math.cos(v.heading) * ny;
     const along = Math.cos(v.heading) * nx + Math.sin(v.heading) * ny;
