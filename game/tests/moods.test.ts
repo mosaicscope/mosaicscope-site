@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { rng } from "../src/audio/Music";
+// a small seeded generator (the soundtrack that used to export one is gone)
+function rng(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
 import { dreamLevel, stepWalk, lateLevel, layersFor, buskerTune, buskerNote, buskerGain, BUSKER_RANGE, DREAM_FROM, DREAM_FULL, BASE_CRACKLE } from "../src/audio/Moods";
 
 describe("Lil Wooski's mood layers", () => {

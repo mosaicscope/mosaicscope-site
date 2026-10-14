@@ -41,6 +41,21 @@ export class LlmBrain {
       .finally(() => this.inflight.delete(id));
   }
 
+  private talking = false;
+
+  /**
+   * One line of player chat, in character. The persona is the system prompt; the transcript is the user turn.
+   * Not counted against the goal budget (the player is waiting for it), but only one reply is in flight at a time.
+   * Null when busy, failed or empty, so the caller can fall back to a built-in line.
+   */
+  async chat(persona: string, transcript: string, speaker: string): Promise<string | null> {
+    if (this.talking) return null;
+    this.talking = true;
+    try { return cleanChatLine(await this.chooser(persona, transcript, { maxTokens: 90, temperature: 0.8 }), speaker); }
+    catch { return null; }
+    finally { this.talking = false; }
+  }
+
   /** Check the backend answers. Does not count against the budget. */
   test(): Promise<boolean> { return testLlm(this.chooser); }
 
@@ -105,4 +120,14 @@ export async function llmFromQuery(search: string): Promise<LlmBrain | null> {
 /** One tiny request to check the backend answers in the expected format. */
 export async function testLlm(chooser: (system: string, user: string) => Promise<string>): Promise<boolean> {
   try { return parseChoice(await chooser(SYSTEM_PROMPT, "1. wander\n2. rest\nReply with one number."), 2) !== null; } catch { return false; }
+}
+
+/** Turn a model's reply into one spoken line: no thinking tags, no "Name:" prefix, no quotes or stage directions, short. */
+export function cleanChatLine(raw: string, speaker: string): string | null {
+  let t = String(raw ?? "").replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/\*[^*]{0,80}\*/g, "").trim();
+  t = t.split(/\n+/).map((l) => l.trim()).filter(Boolean)[0] ?? "";
+  const esc = speaker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  t = t.replace(new RegExp(`^(${esc}|you|me)\\s*:\\s*`, "i"), "").replace(/^["'“”‘’]+|["'“”‘’]+$/g, "").trim();
+  if (t.length > 220) { const cut = t.slice(0, 220); const end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? ")); t = end > 40 ? cut.slice(0, end + 1) : cut.replace(/\s+\S*$/, "") + "…"; }
+  return t || null;
 }
