@@ -1,5 +1,5 @@
 {
- "at": 1791979759855,
+ "at": 1791982233664,
  "totals": {
   "duplicate-code": 2,
   "long-function": 13,
@@ -163,9 +163,9 @@
    "kind": "long-function",
    "severity": "low",
    "where": "game/src/world/WorldGenerator.ts:58",
-   "detail": "349 lines",
+   "detail": "352 lines",
    "fix": "split into named steps",
-   "fp": "long-function|svxeru"
+   "fp": "long-function|10uwsee"
   },
   {
    "kind": "oversized-module",
