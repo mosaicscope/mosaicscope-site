@@ -1,5 +1,5 @@
 {
- "at": 1791949784171,
+ "at": 1791951568375,
  "totals": {
   "duplicate-code": 2,
   "long-function": 13,
@@ -122,10 +122,10 @@
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/sim/Rules.ts:18",
-   "detail": "345 lines",
+   "where": "game/src/sim/Rules.ts:19",
+   "detail": "347 lines",
    "fix": "split into named steps",
-   "fp": "long-function|qgw46t"
+   "fp": "long-function|uxrel6"
   },
   {
    "kind": "oversized-module",
