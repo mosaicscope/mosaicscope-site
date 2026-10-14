@@ -1,4 +1,5 @@
 import type { Simulation } from "./Simulation";
+import { onPlayerCrime } from "./Rep";
 import { Character, Phys, Toy } from "../entities/types";
 import { TOYS, valueOf } from "../content/toys";
 import { BUILDINGS, isOpen } from "../content/buildings";
@@ -198,6 +199,7 @@ export function commitCrime(sim: Simulation, perp: Character, type: CrimeType, v
     const r = sim.relate(w, perp.id); r.trust = Math.max(-1, r.trust - 0.3); r.grudge = Math.min(1, r.grudge + (isVictim ? 0.5 : 0.1));
   }
   const noticed = crime.witnesses.length > 0;
+  if (perp.tier === "player") onPlayerCrime(sim, perp, type, victim, noticed);
   const label = CRIME_LABEL[type];
   const ev = sim.emit({ type: "crime", x: perp.x, y: perp.y, actors: victim ? [perp.id, victim.id] : [perp.id], toy: item, priority: noticed ? 7 : 2, severity: noticed ? 3 : 1, data: { crime: crime.id, kind: type, noticed: noticed ? 1 : 0 },
     summary: noticed ? `${perp.name} was seen ${type === "vandalism" ? "tagging a wall" : type === "gunfire" ? "firing a gun" : "committing " + label}${victim ? ` (victim: ${victim.name})` : ""}` : `Unseen ${label}${victim ? ` on ${victim.name}` : ""}` });

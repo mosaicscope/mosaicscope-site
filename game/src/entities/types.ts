@@ -225,6 +225,8 @@ export interface Character {
   arrestedBy: number;            // cop id while being escorted, or -1
   jailUntil: number;             // tick released from custody (0 = free)
   wanted: number;                // 0..5 stars (player and known criminals)
+  /** player only: street rep with each crew, -100..100 (sim/Rep.ts) */
+  rep?: Record<string, number>;
   stunUntil: number;
   nickname: string;
   /** street crew ("famiglia", "riccarton") or "" for none */

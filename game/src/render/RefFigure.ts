@@ -41,6 +41,69 @@ export function lookSpec(c: Character): ModelSpec {
   return m;
 }
 
+/** A shirt pattern inside the clipped body: stripes, a centre stripe, a chest logo, two-tone, a chevron, a pocket, dots. */
+function drawPattern(g: Ctx, n: number, col: string, hx: number, hy: number, ux: number, uy: number, px: number, py: number, bw: number, k: number): void {
+  g.fillStyle = col; g.strokeStyle = col;
+  const at = (t: number, w: number): [number, number] => [hx + ux * t + px * bw * w, hy + uy * t + py * bw * w];
+  const band = (t0: number, t1: number) => { const a = at(t0, 2), b = at(t0, -2), c = at(t1, -2), d = at(t1, 2); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d[0], d[1]); g.closePath(); g.fill(); };
+  switch (n) {
+    case 1: for (const t of [0.45, 0.62, 0.79]) band(t, t + 0.07); break;                                           // stripes
+    case 2: { const a = at(0.3, 0.18), b = at(1, 0.18), c = at(1, -0.18), d = at(0.3, -0.18); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d[0], d[1]); g.closePath(); g.fill(); break; } // centre stripe
+    case 3: { const c = at(0.72, 0.25); g.beginPath(); g.arc(c[0], c[1], bw * 0.32, 0, 6.283); g.fill(); break; }  // chest logo
+    case 4: { const a = at(0.2, 0), b = at(1.1, 0), c = at(1.1, 2), d = at(0.2, 2); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d[0], d[1]); g.closePath(); g.fill(); break; } // two-tone
+    case 5: { const a = at(0.95, 1.2), b = at(0.7, 0), c = at(0.95, -1.2); g.lineWidth = bw * 0.35; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.stroke(); break; } // chevron
+    case 6: { const c = at(0.75, -0.35); g.fillRect(c[0] - bw * 0.25, c[1] - bw * 0.2, bw * 0.5, bw * 0.45); break; } // pocket
+    case 7: for (const [t, w] of [[0.5, 0.4], [0.62, -0.4], [0.75, 0.35], [0.88, -0.3], [0.62, 0.6], [0.85, 0.65]]) { const c = at(t, w); g.beginPath(); g.arc(c[0], c[1], Math.max(0.6, 0.7 * k), 0, 6.283); g.fill(); } break; // dots
+  }
+}
+
+const TOPS = ["#e8554f", "#2b7bd6", "#19b3a8", "#f6b62c", "#7b4fd6", "#ff7ad9", "#c6ff3d", "#3dd6ff", "#1a1a1e", "#efe6d2", "#5b4a3a", "#d9382c", "#2f7d3a", "#f08a1c", "#8aa0b4", "#b48cff", "#ffd1dc", "#4a5a3a", "#a33b2f", "#0e7c86"];
+const BOTTOMS = ["#3b4f73", "#1a1a1e", "#55657a", "#2a2f3a", "#6a4a2a", "#9fb4c8", "#3a3a30", "#d9c9a0", "#7a1c2c", "#2c4a8a", "#4a4f5a", "#e8e0cf"];
+const HAIRS = ["#1a1410", "#2a2018", "#3a2a1e", "#6b4a2a", "#8a6a3a", "#c9a56a", "#e8d9a8", "#8a8a8a", "#d9d9d9", "#a0402a", "#ff4fa3", "#3dd6ff", "#c6ff3d", "#7b2cff"];
+const SHOES = ["#1a1a1e", "#efefef", "#e8554f", "#2b7bd6", "#f6b62c", "#6b4a2a", "#3dd6ff", "#ff7ad9"];
+const GUY_HAIR = ["spiky", "buzz", "curly", "mohawk", "afro", "none", "sidepart", "long", "big"] as const;
+const GIRL_HAIR = ["long", "bob", "pony", "braids", "pigtails", "bun", "curly", "afro", "topknot", "spiky"] as const;
+const HATS = ["cap", "beanie", "bucket", "bandana", "beret", "snapback", "headphones", "cowboy", "hood"] as const;
+const FACIAL = ["mustache", "goatee", "beard", "stubble", "soulpatch"] as const;
+const PERSONAL = new WeakMap<Character, ModelSpec>();
+
+/**
+ * Per-person variation on top of a model, from the person's id: shirt colour and pattern, shorts, shoes, skin, hair
+ * colour and style, hats on and off, build and face extras. With the 20-value face plan on top, no two people match.
+ * The Mosaics and the player keep their own look untouched.
+ */
+export function personalize(M: ModelSpec, c: Character): ModelSpec {
+  if (c.tier === "principal" || c.mode === "player" || c.look.main) return M;
+  let v = PERSONAL.get(c);
+  if (v) return v;
+  let h = (Math.imul(c.id + 0x51ed, 0x2c1b3c6d) ^ 0x6a09e667) | 0;
+  const r = () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return (h >>> 0) / 4294967296; };
+  const pick = <T>(a: readonly T[]): T => a[Math.floor(r() * a.length)];
+  const girl = M.kind === "girl" || (M.kind === "any" && c.look.kind === "girl");
+  const face = { ...M.face };
+  if (r() < 0.3) face.head = pick(["round", "oval", "wide"] as const);
+  const ex = r();
+  face.extra = ex < 0.14 ? "freckles" : ex < 0.22 ? "mole" : ex < 0.28 ? "scar" : ex < 0.4 ? "earrings" : ex < 0.46 ? "nosering" : ex < 0.52 ? "blush" : face.extra ?? "none";
+  if (!girl && r() < 0.35) face.facial = pick(FACIAL);
+  const hatRoll = r();
+  v = {
+    ...M,
+    topColor: r() < 0.55 ? pick(TOPS) : M.topColor,
+    pattern: Math.floor(r() * 8), patternColor: pick(TOPS),
+    bottomColor: r() < 0.5 ? pick(BOTTOMS) : M.bottomColor,
+    shoeColor: pick(SHOES),
+    skin: r() < 0.6 ? pick(SKINS) : M.skin,
+    hairColor: pick(HAIRS),
+    hair: r() < 0.45 ? pick(girl ? GIRL_HAIR : GUY_HAIR) : M.hair,
+    hat: M.hat === "none" ? (hatRoll < 0.22 ? pick(HATS) : "none") : hatRoll < 0.3 ? "none" : M.hat,
+    hatColor: pick(TOPS),
+    belly: Math.floor(r() * 4), wide: 0.85 + r() * 0.35,
+    face,
+  };
+  PERSONAL.set(c, v);
+  return v;
+}
+
 type Mood = "neutral" | "happy" | "sad" | "angry" | "scared" | "stunned";
 export function moodOf(c: Character): Mood {
   const e = c.emo;
@@ -65,7 +128,7 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
   // body frame: spine direction and its perpendicular (screen sideways for an upright figure)
   const hx = J[0], hy = J[1], sx = J[6], sy = J[7];
   const ux = sx - hx, uy = sy - hy, len = Math.hypot(ux, uy) || 1, px = -uy / len, py = ux / len;
-  const bw = 5.2 * k * (0.9 + M.belly * 0.08); // half width
+  const bw = 5.2 * k * (0.9 + M.belly * 0.08) * (M.wide ?? 1); // half width
 
   // A limb point relative to its root: keep the part along the spine, send the sideways part out to its own side,
   // so the figure stands open and front-facing like the drawing while poses still move it.
@@ -106,8 +169,9 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
   if (hd) { g.globalAlpha = alpha * 0.35; g.strokeStyle = "#eee4d3"; g.lineWidth = lw + 3 * k; body(0); g.stroke(); g.globalAlpha = alpha; }
   g.fillStyle = flash ? "#ffffff" : M.top === "bare" ? M.skin : M.topColor === "#f4f1ea" ? WHITE : M.topColor;
   body(0); g.fill(); g.strokeStyle = ink; g.lineWidth = lw * 0.9; g.stroke();
-  // shorts: the lower third of the body in the model's bottom colour
+  // shorts: the lower third of the body in the model's bottom colour (the shirt pattern goes on first, under them)
   g.save(); body(0); g.clip();
+  if (M.pattern && hd) drawPattern(g, M.pattern, flash ? "#ffffff" : M.patternColor ?? M.trim, hx, hy, ux, uy, px, py, bw, k);
   g.fillStyle = flash ? "#ffffff" : M.bottomColor;
   const cut = 0.32;
   g.beginPath(); g.moveTo(hx + ux * cut + px * bw * 2, hy + uy * cut + py * bw * 2); g.lineTo(hx + ux * cut - px * bw * 2, hy + uy * cut - py * bw * 2);

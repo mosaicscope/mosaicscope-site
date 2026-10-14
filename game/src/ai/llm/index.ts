@@ -24,14 +24,15 @@ export class LlmBrain {
 
   constructor(private chooser: Chooser, private budget: LlmBudget = DEFAULT_BUDGET, private now: () => number = Date.now) {}
 
-  request(id: number, items: MenuItem[], tick: number): void {
+  /** Ask for this character's next pick. `context` is the character card (who they are, how they feel, where they are). */
+  request(id: number, items: MenuItem[], tick: number, context = ""): void {
     if (items.length < 2 || this.inflight.has(id)) return;
     const t = this.now();
     this.calls = this.calls.filter((x) => t - x < 60_000);
     if (this.calls.length >= this.budget.maxPerMinute) return;
     this.calls.push(t);
     this.inflight.add(id);
-    const user = `${buildMenu(items)}\nReply with one number.`;
+    const user = `${context ? context + "\n\n" : ""}What do you do next?\n${buildMenu(items)}\nReply with one number.`;
     this.chooser(SYSTEM_PROMPT, user)
       .then((text) => {
         const k = parseChoice(text, items.length);

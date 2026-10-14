@@ -37,3 +37,21 @@ describe("photo lore", () => {
     expect(new LoreBook(store).found.has(3)).toBe(true);
   });
 });
+
+import { personalize, lookSpec } from "../src/render/RefFigure";
+import { MODELS } from "../src/render/Models";
+
+describe("per-person variation", () => {
+  const mid = (id: number) => ({ id, tier: "mid", name: "x", look: { kind: id % 2 ? "girl" : "guy", color: "#fff", accent: "#000", hat: "none", hair: "none", scale: 1 } }) as any;
+  it("makes people sharing a model look different from each other", () => {
+    const M = MODELS[0], seen = new Set<string>();
+    for (let id = 0; id < 3000; id++) seen.add(JSON.stringify(personalize(M, mid(id))) + JSON.stringify(facePlan(id * 2654435761)));
+    expect(seen.size).toBe(3000);
+  });
+  it("leaves the Mosaics and the player as they are", () => {
+    const mosaic = { ...mid(1), tier: "principal" }, M = lookSpec(mosaic);
+    expect(personalize(M, mosaic)).toBe(M);
+    const player = { ...mid(2), mode: "player" }, P = lookSpec(player);
+    expect(personalize(P, player)).toBe(P);
+  });
+});

@@ -7,6 +7,7 @@ import { enterBuilding } from "../sim/Society";
 import { goalBias, onGoalDone, updateMind } from "../mind/Mind";
 import { violentBlocked, setForceGoal } from "../mind/Psychopathology";
 import { getLlm } from "./llm";
+import { characterCard, goalLabel } from "./llm/context";
 
 /**
  * Top-level hierarchical state machine:
@@ -89,7 +90,7 @@ export function chooseGoal(c: Character, sim: Simulation): void {
     const said = llm.take(c.id, now, new Set(candidates.map((x) => x.g.id)));
     const hit = said && candidates.find((x) => x.g.id === said);
     if (hit && startGoal(c, sim, hit.g, hit.ch)) return;
-    llm.request(c.id, top.map((x) => ({ id: x.g.id, label: x.g.id })), now);
+    llm.request(c.id, top.map((x) => ({ id: x.g.id, label: goalLabel(x.g.id, sim, x.ch.target) })), now, characterCard(c, sim));
   }
   const w = top.map((x, i) => Math.max(0.001, x.ch.u) ** 3 * (i === 0 ? 1.5 : 1));
   const pick = top[Math.max(0, sim.rng.weighted(w))];

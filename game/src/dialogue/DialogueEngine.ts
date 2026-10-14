@@ -10,6 +10,8 @@ import { receptive, addLove, loveOf, getTogether, onGossip, attracted, kiss } fr
 import { ROLE_LABEL } from "../content/names";
 import { Director, readSecs } from "./director";
 import { TalkState, TOPIC_BY_ID, answerTopic, rankTopics, talkCtx } from "./playerTalk";
+import { LORE } from "../content/lore";
+import { repLine } from "../sim/Rep";
 
 /**
  * Structured, deterministic dialogue. Lines are chosen from templates whose conditions match the
@@ -350,11 +352,13 @@ export class DialogueEngine {
     return [
       `You are ${npc.name}, ${job} in a cartoon stick-figure version of Christchurch, New Zealand. Stay in character as ${npc.name} at all times.`,
       npc.bio ? `About you: ${npc.bio}` : "",
+      repLine(npc, sim),
       traits.length ? `Personality: ${traits.join(", ")}.` : "",
       npc.catchphrase ? `Your catchphrase (use rarely): "${npc.catchphrase}"` : "",
       `Right now: it's ${time}${t.rain ? ", raining" : ""}${t.party ? ", there's a party on" : ""}. You're at ${t.place}, ${GOAL_TEXT[t.goal] ?? "hanging around"}. You feel ${mood}.`,
       mems.length ? `Things you know about: ${mems.join("; ")}.` : "",
       `You're talking to the player, who is ${you}.${them.length ? " About them: " + them.join(", ") + "." : ""}`,
+      "The story so far (stay consistent with it, but only bring it up if it fits):\n" + LORE,
       "Reply with ONE short spoken line (1 or 2 sentences, under 30 words). Casual Kiwi slang is fine. No narration, no actions in asterisks, no quotes, don't start with your own name. Keep it PG-13. Never mention being an AI or a game.",
     ].filter(Boolean).join("\n");
   }

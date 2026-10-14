@@ -3,7 +3,7 @@
 
 export interface MenuItem { id: string; label: string }
 
-export const SYSTEM_PROMPT = "You control one character in a small town sim. Pick the single best next goal for them. Reply with only the option number.";
+export { WORLD_PROMPT as SYSTEM_PROMPT } from "./context";
 
 export function buildMenu(items: MenuItem[]): string {
   return items.map((m, i) => `${i + 1}. ${m.label}`).join("\n");
