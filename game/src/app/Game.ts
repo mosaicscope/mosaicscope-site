@@ -1,3 +1,4 @@
+import type { Character } from "../entities/types";
 import { nearestRecyclable, nearestBin, collectPiece, rummageBin, scrapCount, scrapValue } from "../sim/Litter";
 import { LITTER, SACK_CAP } from "../content/litter";
 import { Club } from "../ui/Club";
@@ -168,6 +169,17 @@ export class Game {
       world: () => this.renderer.canvas, interior: () => (this.interior.open ? this.interior.canvas : null),
       show: (t, b, cls) => this.modal.show(t, b, cls), close: () => this.modal.close(), toast: (t, k) => this.toast(t, k),
       where: () => { const p = this.sim.player; return this.sim.world.streetName(p.x, p.y) || ""; }, simRep: () => this.sim.player.reputation,
+      subjects: () => { // the Mosaics on screen, nearest the middle of the frame first
+        const cv = this.renderer.canvas, w = cv.clientWidth || window.innerWidth, hh = cv.clientHeight || window.innerHeight, pt = { x: 0, y: 0 };
+        const seen: { c: Character; d: number }[] = [];
+        for (const c of this.sim.chars) {
+          if (c.tier !== "principal" || c === this.sim.player) continue;
+          this.renderer.cam.toScreen(c.x, c.y, c.z, pt);
+          if (pt.x < 0 || pt.y < 0 || pt.x > w || pt.y > hh) continue;
+          seen.push({ c, d: Math.hypot(pt.x - w / 2, pt.y - hh / 2) });
+        }
+        return seen.sort((a, b) => a.d - b.d).map(({ c }) => ({ id: c.id, name: c.name, nickname: c.nickname, bio: c.bio, catchphrase: c.catchphrase, likes: c.likes, style: c.style }));
+      },
     }, this.store);
     this.places.photos = this.photos;
     this.dialogue.onTrade = (id) => this.places.trade(this.sim.chars[id]);

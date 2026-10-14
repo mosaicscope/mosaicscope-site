@@ -3,8 +3,9 @@ import { Phys } from "../entities/types";
 import { dressOf } from "../mind/Dress";
 import type { Dress } from "../mind/Dress";
 import { isResident, drawResident } from "./Residents";
-import { modelOf, modelLook, drawModelBody, drawModelHeadGear, MODEL_INK } from "./Models";
+import { modelOf } from "./Models";
 import { drawFaceGenes } from "./FaceGenes";
+import { drawRefFigure } from "./RefFigure";
 
 /**
  * Procedural stick figures in the style of the MosaicScope footer crew (single-stroke limbs, neon
@@ -243,11 +244,9 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
   }
   const M = modelOf(c);
   if (M) {
-    // chunky street model: filled body over the solved skeleton, skin-tone head with thick ink outline
-    drawModelBody(g, J, c, M, k, dir, alpha, hd, flash > 0);
-    drawHead(g, expressionLook(modelLook(L, M), c), J[4], J[5], k * HEAD_SCALE * MODEL_HEAD, dir, Math.max(1.4, lw * 1.05), MODEL_INK, alpha, M.hat, flash > 0 ? "#ffffff" : M.skin, hd);
-    drawModelHeadGear(g, M, J[4], J[5], k * HEAD_SCALE * MODEL_HEAD, dir, hd);
-    if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 14 * k, k, t);
+    // street model drawn after the reference cartoon (see RefFigure.ts); the face follows the person's emotion
+    drawRefFigure(g, J, c, M, k, dir, alpha, hd, flash > 0);
+    if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 28 * k, k, t);
     return;
   }
   const skel = () => {
@@ -316,24 +315,6 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
   if (D) drawDress(g, D, L, k, dir, lw, alpha);
   drawHead(g, L, J[4], J[5], k * HEAD_SCALE, dir, lw, col, alpha, D ? D.hat : L.hat);
   if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 14 * k, k, t);
-}
-
-/**
- * The face follows the person's feelings right now (c.emo, and knocked-down state): the eyes, brows and mouth change
- * as fear, anger, happiness, sadness or a knock-out come and go. The model's own eye shape is kept as the base.
- */
-function expressionLook(L: Character["look"], c: Character): Character["look"] {
-  const e = c.emo;
-  if (!e) return L;
-  const F: Face = L.face ?? { eyes: "dots", brows: "none", mouth: "smile", nose: "none", facial: "none", extra: "none", head: "round" };
-  const base: EyeShape = F.shape ?? { kind: "oval", w: 1, h: 0.9, tilt: 0, pupil: 0, lid: 0, lash: false };
-  let shape: EyeShape = base, mouth: Face["mouth"] = "smile", brows: Face["brows"] = "none";
-  if (c.phys === Phys.DOWN || e.composure < 0.2) { shape = { ...base, kind: "cross" }; mouth = "o"; brows = "raised"; }
-  else if (e.fear > 0.6) { shape = { ...base, kind: "ring", h: base.h * 1.15 }; mouth = "o"; brows = "raised"; }
-  else if (e.frustration > 0.6) { shape = { ...base, lid: 0.35, tilt: -0.25 }; mouth = "frown"; brows = "angry"; }
-  else if (e.mood > 0.4) { shape = { ...base, kind: "closed", tilt: 0.1 }; mouth = "grin"; brows = "raised"; }
-  else if (e.mood < -0.4) { shape = { ...base, tilt: -0.25 }; mouth = "frown"; brows = "worried"; }
-  return { ...L, face: { ...F, shape, mouth, brows } };
 }
 
 /** Outer layers by climate (see src/mind/Dress.ts): coats, bare legs in shorts, gumboots, scarf, umbrella. */

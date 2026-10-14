@@ -15,6 +15,27 @@ export interface PhotosHost {
   where(): string;
   /** The sim's own -1..1 public standing for the player. */
   simRep(): number;
+  /** The Mosaics in the shot right now, nearest the middle of the frame first. */
+  subjects?(): Subject[];
+}
+
+/** A Mosaic caught in a photo, with the lore that drops when you snap them. */
+export interface Subject { id: number; name: string; nickname: string; bio: string; catchphrase: string; likes: string[]; style: string }
+
+const LORE_KEY = "lore-found";
+
+/** Which Mosaics you have photographed (their lore is unlocked). Lives in the album's storage so it survives new worlds. */
+export class LoreBook {
+  found = new Set<number>();
+  constructor(private store: StorageProvider | null = null) {
+    try { const raw = store?.get(LORE_KEY); if (raw) for (const id of JSON.parse(raw) as number[]) this.found.add(id); } catch { /* bad save: start fresh */ }
+  }
+  /** Record a sighting; true the first time this Mosaic is caught. */
+  catch(id: number): boolean {
+    if (this.found.has(id)) return false;
+    this.found.add(id); this.store?.set(LORE_KEY, JSON.stringify([...this.found]));
+    return true;
+  }
 }
 
 const stampNow = (): string => new Date().toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" });
@@ -26,8 +47,9 @@ const load = (src: string, then: (im: HTMLImageElement) => void): void => { cons
  */
 export class Photos {
   album: Album;
+  lore: LoreBook;
   private gate = new MomentGate();
-  constructor(private host: PhotosHost, store: StorageProvider | null) { this.album = new Album(store); }
+  constructor(private host: PhotosHost, store: StorageProvider | null) { this.album = new Album(store); this.lore = new LoreBook(store); }
 
   private source(): HTMLCanvasElement { return this.host.interior() ?? this.host.world(); }
 
@@ -37,7 +59,10 @@ export class Photos {
     if (!src.width || !src.height) { this.host.toast("Nothing to photograph yet."); return; }
     let raw: HTMLCanvasElement;
     try { raw = capture(src, src.width, src.height, "none"); } catch { this.host.toast("The camera jammed. Try again."); return; }
-    const st = { filter: "none" as FilterId, frame: "cream" as FrameId, caption: spot ? place : this.host.where() };
+    // who is in the shot is fixed at the moment the shutter opens, like the picture itself
+    const who = this.host.interior() ? [] : this.host.subjects?.() ?? [];
+    const where = spot ? place : this.host.where();
+    const st = { filter: "none" as FilterId, frame: "cream" as FrameId, caption: who.length ? `${who[0].name}${where ? " · " + where : ""}` : where };
     const prev = h("div.ph-prev"), name = h("small.ph-name");
     let out: HTMLCanvasElement | null = null;
     const redraw = () => {
@@ -67,9 +92,25 @@ export class Photos {
           this.album.add({ kind: "photo", frame: st.frame, filter: st.filter, caption: st.caption, score: MOMENTS.photo.score, deed: "photo", img });
           this.host.toast(spot ? "Developed and pinned. It's on your reputation wall." : "Snapped. Pinned to your reputation wall.", "acid");
           this.host.close();
+          if (who.length) this.loreDrop(who);
         } }),
         h("button.btn", { type: "button", text: "Save PNG", onclick: () => this.download(out, st.caption) }),
       ]),
+    ], "photo");
+  }
+
+  /** Name the Mosaic in the shot; the first time you catch one, their lore drops. */
+  private loreDrop(who: Subject[]): void {
+    const m = who[0], first = this.lore.catch(m.id);
+    for (const o of who.slice(1)) this.lore.catch(o.id);
+    const also = who.length > 1 ? `Also in the shot: ${who.slice(1).map((o) => o.name).join(", ")}.` : "";
+    if (!first) { this.host.toast(`📷 That's ${m.name}. ${also}`.trim(), ""); return; }
+    this.host.show(`Lore unlocked: ${m.name}`, [
+      h("p.ph-lede", null, [h("b", { text: m.nickname ? `"${m.nickname}"` : m.name }), ` · ${this.lore.found.size} Mosaics caught on camera`]),
+      m.bio ? h("p", { text: m.bio }) : null,
+      m.catchphrase ? h("p", null, [h("i", { text: `"${m.catchphrase}"` })]) : null,
+      m.likes.length ? h("p", { style: { color: "var(--dim)" }, text: `Into: ${m.likes.join(", ")} · moves: ${m.style}` }) : null,
+      also ? h("p", { style: { color: "var(--dim)" }, text: also }) : null,
     ], "photo");
   }
 
