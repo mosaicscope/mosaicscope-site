@@ -2,10 +2,9 @@ import type { Character, EyeShape, Face } from "../entities/types";
 import { Phys } from "../entities/types";
 import { dressOf } from "../mind/Dress";
 import type { Dress } from "../mind/Dress";
-import { isResident, drawResident } from "./Residents";
 import { modelOf } from "./Models";
 import { drawFaceGenes } from "./FaceGenes";
-import { drawRefFigure } from "./RefFigure";
+import { drawRefFigure, lookSpec } from "./RefFigure";
 
 /**
  * Procedural stick figures in the style of the MosaicScope footer crew (single-stroke limbs, neon
@@ -237,12 +236,9 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
   // HD pass when you're close: soft neon glow, a crisp ink outline under every limb, then the line
   // very close people always get the HD face, whatever the quality budget says
   const hd = hdOverride ?? (k >= 1.05 && (hdBudget-- > 0 || k >= 1.6));
-  if (isResident(c)) {   // the everyday local: egg belly, long neck, big nose (see Residents.ts)
-    drawResident(g, J, c, k, dir, alpha, hd, flash > 0, lw);
-    if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 18 * k, k, t);
-    return;
-  }
-  const M = modelOf(c);
+  // Everyone drawn up close uses the reference look: street models wear their model, the Mosaics, the player and
+  // the locals get a spec built from their own look (their colours, hair, hat and face genes).
+  const M = modelOf(c) ?? lookSpec(c);
   if (M) {
     // street model drawn after the reference cartoon (see RefFigure.ts); the face follows the person's emotion
     drawRefFigure(g, J, c, M, k, dir, alpha, hd, flash > 0);
