@@ -30,6 +30,10 @@ import { EventLog } from "../ui/EventLog";
 import { DialogueUI } from "../ui/DialogueUI";
 import { TerranceUI } from "../ui/Terrance";
 import { ModalHost, settingsBody, keysList } from "../ui/Modals";
+import { LlmBrain, LlmChoice, LlmKind, choiceFromQuery, llmFromChoice, setLlmPool } from "../ai/llm";
+import { brainsBody } from "../ui/BrainsPanel";
+import { BRAIN_IDS } from "../persistence/Settings";
+import { OPENAI_COMPAT_PRESETS } from "../ai/llm/backends";
 import { h, fmtHour } from "../ui/dom";
 import { moveTo, stop } from "../ai/steps";
 import { canPickUp } from "../inventory/Inventory";
@@ -192,6 +196,7 @@ export class Game {
     window.addEventListener("pointerdown", firstGesture, { once: false, capture: true });
     window.addEventListener("keydown", firstGesture, { capture: true });
     this.applySettings();
+    this.connectLlm();
     this.bindInput();
     this.bindSim();
     this.bindStats();
@@ -1145,6 +1150,7 @@ export class Game {
       h("button.btn", { onclick: () => this.log.toggle(), text: "Log" }),
       h("button.btn", { onclick: () => this.select(this.selected === this.sim.playerId ? -1 : this.sim.playerId), text: "Me", class: "btn wide" }),
       h("button.btn", { onclick: () => this.openSaves(), text: "Save" }),
+      h("button.btn", { onclick: () => this.openBrains(), "aria-label": "AI brains", title: "AI brains", text: "🧠 AI" }),
       h("button.btn", { onclick: () => this.openSettings(), text: "Settings" }),
       h("button.btn.iconbtn", { onclick: () => this.openHelp(), "aria-label": "Help", text: "?" }),
     ]);
@@ -1188,6 +1194,77 @@ export class Game {
   }
 
   private persistSettings(): void { saveSettings(this.store, this.settings); }
+
+  // ---- optional model brains (the 🧠 tab) ----
+  private brainStatus = new Map<string, string>();
+  private brainKeys = new Map<string, string>();
+  private brains = new Map<string, LlmBrain>();
+  private gguf: File | null = null;
+  private brainRetry = 0;
+
+  /** The enabled brains as backend choices. A ?llm= URL parameter adds one more, which is handy for testing. */
+  private brainChoices(): [string, LlmChoice][] {
+    const out: [string, LlmChoice][] = [];
+    for (const id of BRAIN_IDS) {
+      const b = this.settings.brains[id];
+      if (!b?.on) continue;
+      const p = OPENAI_COMPAT_PRESETS.find((x) => x.id === id);
+      out.push([id, {
+        kind: id as LlmKind,
+        url: b.url || p?.url,
+        model: b.model || p?.model,
+        token: b.key,
+        file: id === "gguf" ? this.gguf ?? undefined : undefined,
+      }]);
+    }
+    const q = choiceFromQuery(location.search);
+    if (q) out.push(["url:" + q.kind, q]);
+    return out;
+  }
+
+  /**
+   * Connect every enabled brain that isn't connected yet (or whose settings changed), test it, and hand the working
+   * ones to the sim. Failed ones are retried every 30 s, so starting Ollama later just works.
+   */
+  private connectLlm(): void {
+    const wanted = this.brainChoices();
+    const ids = new Set(wanted.map(([id]) => id));
+    for (const id of [...this.brains.keys()]) if (!ids.has(id)) { this.brains.delete(id); this.brainKeys.delete(id); }
+    for (const id of [...this.brainStatus.keys()]) if (!ids.has(id)) this.brainStatus.delete(id);
+    const publish = () => setLlmPool([...this.brains.values()]);
+    publish();
+    for (const [id, c] of wanted) {
+      const key = JSON.stringify({ ...c, file: c.file ? (c.file as File).name + c.file.size : null });
+      if (this.brainKeys.get(id) === key && (this.brains.has(id) || this.brainStatus.get(id)?.startsWith("connecting"))) continue;
+      this.brainKeys.set(id, key);
+      this.brains.delete(id);
+      publish();
+      if (c.kind === "gguf" && !c.file) { this.brainStatus.set(id, "drop a .gguf file"); continue; }
+      this.brainStatus.set(id, c.kind === "webllm" || c.kind === "gguf" ? "connecting… (loading the model)" : "connecting…");
+      llmFromChoice(c).then(async (b) => {
+        if (this.brainKeys.get(id) !== key) return; // settings changed while connecting
+        if (!b) { this.brainStatus.set(id, "needs a key / model / address"); return; }
+        const ok = await b.test();
+        if (this.brainKeys.get(id) !== key) return;
+        if (ok) { this.brains.set(id, b); this.brainStatus.set(id, "connected ✓"); this.toast(`AI brain connected: ${id}`); }
+        else { this.brainStatus.set(id, "not reachable (will retry)"); this.brainKeys.delete(id); }
+        publish();
+      });
+    }
+    clearInterval(this.brainRetry);
+    if (wanted.length) this.brainRetry = window.setInterval(() => this.connectLlm(), 30_000);
+  }
+
+  private openBrains(): void {
+    this.modal.show("AI brains", brainsBody({
+      settings: this.settings,
+      status: (id) => this.brainStatus.get(id) ?? (this.settings.brains[id]?.on ? "waiting…" : "off"),
+      ggufName: () => (this.gguf ? this.gguf.name : ""),
+      setGguf: (f) => { this.gguf = f; },
+      save: () => this.persistSettings(),
+      reconnect: () => this.connectLlm(),
+    }), "brains");
+  }
 
   private openSettings(): void {
     this.modal.show("Settings", [

@@ -357,3 +357,15 @@ input, textarea { -webkit-user-select: text; user-select: text; }
 
 /* colour-blind palette: the red/green accents swap to blue/orange, which stay distinct for most colour vision types */
 html.cb { --red: #d55e00; --acid: #56b4e9; --gold: #e69f00; --pink: #cc79a7; --cyan: #56b4e9; }
+
+/* AI brains tab */
+.modal.brains { max-width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow-y: auto; }
+.brain { border-top: 1px solid var(--line); padding: 8px 0; }
+.brain summary { cursor: pointer; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 32px; }
+.brain p { margin: 6px 0; font-size: calc(12px * var(--ts)); }
+.brain .muted, .brain-summary { color: var(--dim); }
+.brain label { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
+.brain input[type=text], .brain input[type=password], .brain select { width: 100%; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--ink2); min-height: 32px; }
+.brain-status { margin-left: auto; font-size: calc(11px * var(--ts)); color: var(--dim); }
+.brain-drop { border: 1px dashed var(--line); border-radius: 8px; padding: 14px; margin: 8px 0; text-align: center; cursor: pointer; font-size: calc(12px * var(--ts)); }
+.brain-drop:focus-visible, .brain-drop:hover { border-color: var(--acid); }
