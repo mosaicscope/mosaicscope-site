@@ -148,6 +148,30 @@ export class World {
   }
 
   /** Nearest walkable tile centre to (x, y), spiralling outward. */
+  /** Car space: the road and its crossings. Parking bays are fine to stand in. */
+  carriageway(x: number, y: number): boolean { const t = this.tile(Math.floor(x), Math.floor(y)); return t === T.ROAD || t === T.CROSSWALK; }
+  /**
+   * The nearest place to stand that is out of the traffic: the footpath first, then anything walkable that is not
+   * road. People who stop (to wait, chat, watch, dance) do it here, not in a lane.
+   */
+  nearestFoot(x: number, y: number, maxR = 8): { x: number; y: number } {
+    if (!this.carriageway(x, y) && this.walkable(x, y)) return { x, y };
+    const cx = Math.floor(x), cy = Math.floor(y);
+    let alt: { x: number; y: number } | null = null;
+    for (let r = 1; r <= maxR; r++) {
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const tx = cx + dx, ty = cy + dy;
+        if (!this.walkableTile(tx, ty)) continue;
+        const t = this.tiles[ty * this.size + tx];
+        if (t === T.SIDEWALK) return { x: tx + 0.5, y: ty + 0.5 };
+        if (!alt && t !== T.ROAD && t !== T.CROSSWALK) alt = { x: tx + 0.5, y: ty + 0.5 };
+      }
+      if (alt) return alt;
+    }
+    return this.nearestWalkable(x, y);
+  }
+
   nearestWalkable(x: number, y: number): { x: number; y: number } {
     const cx = Math.floor(x), cy = Math.floor(y);
     if (this.walkableTile(cx, cy)) return { x, y };

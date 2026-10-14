@@ -51,6 +51,9 @@ export interface Metrics {
  * The whole simulation, independent of rendering. `step()` advances exactly one fixed tick.
  * Headless-safe: no DOM access anywhere under sim/, ai/, physics/, social/, events/, dialogue/.
  */
+/** Step kinds that are just standing about: never done in a traffic lane. */
+const ROAD_LOITER = new Set(["wait", "watch", "cheer", "dance", "talk", "sit", "music", "craft", "skate", "busk", "pose", "eat", "book", "trade", "buy", "flirt", "kiss", "date", "spray", "photo", "goto", "wander"]);
+
 export class Simulation {
   readonly cfg: SimConfig;
   readonly flags: FeatureFlags;
@@ -268,6 +271,9 @@ export class Simulation {
       const m = Math.hypot(sx, sy); if (m > 1) { sx /= m; sy /= m; }
       vx += sx * 1.2; vy += sy * 1.2;
     }
+    // nobody stands about in the road: someone stopped in a lane (chatting, waiting, idling, getting up after a fall)
+    // steps up onto the footpath. Not people on a job there: cops on a chase, medics, anyone fighting or fleeing.
+    if (this.kerbStep(c)) { vx = this.kerb.x; vy = this.kerb.y; }
     if ((vx !== 0 || vy !== 0) && c.tier !== "player" && this.trafficAhead(c, vx, vy)) { vx = 0; vy = 0; c.vx = 0; c.vy = 0; }
     if (vx !== 0 || vy !== 0) {
       const blocked = this.physics.moveCircle(c, vx * dt, vy * dt);
@@ -298,6 +304,23 @@ export class Simulation {
    * (whoever is already on it when it changes keeps going), and never step out in front of a moving
    * car. Cops on a chase and people on the run ignore the signal, not the cars.
    */
+  private kerb = { x: 0, y: 0 };
+  /** Someone standing still in a lane who has no business there: the velocity that takes them onto the footpath. */
+  private kerbStep(c: Character): boolean {
+    if (c.vx !== 0 || c.vy !== 0 || c.tier === "player" || c.phys !== Phys.OK || c.pursuing >= 0 || c.wanted > 0) return false;
+    if (!this.world.carriageway(c.x, c.y) || !this.loiteringInRoad(c)) return false;
+    const p = this.world.nearestFoot(c.x, c.y), d = Math.hypot(p.x - c.x, p.y - c.y) || 1, sp = c.speed * 1.15;
+    this.kerb.x = ((p.x - c.x) / d) * sp; this.kerb.y = ((p.y - c.y) / d) * sp; c.facing = Math.atan2(this.kerb.y, this.kerb.x);
+    return true;
+  }
+
+  /** Is this person just hanging about (so should not be doing it in a lane), rather than busy with something there? */
+  private loiteringInRoad(c: Character): boolean {
+    if (c.mode === "idle" || c.mode === "talk") return true;
+    const st = c.goal?.plan[c.goal.stepIdx];
+    return !!st && ROAD_LOITER.has(st.kind);
+  }
+
   trafficAhead(c: Character, vx: number, vy: number, reach = 0.6): boolean {
     const sp = Math.hypot(vx, vy) || 1;
     const nx = c.x + (vx / sp) * reach, ny = c.y + (vy / sp) * reach;
@@ -317,11 +340,13 @@ export class Simulation {
   }
 
   private moveSimple(c: Character, dt: number): void {
-    if (c.vx === 0 && c.vy === 0) return;
-    if (this.trafficAhead(c, c.vx, c.vy, Math.max(0.6, Math.hypot(c.vx, c.vy) * dt + 0.3))) return;
+    let vx = c.vx, vy = c.vy;
+    if (this.kerbStep(c)) { vx = this.kerb.x; vy = this.kerb.y; }
+    if (vx === 0 && vy === 0) return;
+    if (this.trafficAhead(c, vx, vy, Math.max(0.6, Math.hypot(vx, vy) * dt + 0.3))) return;
     const lim = this.world.size - 0.3;
-    const nx = Math.min(lim, Math.max(0.3, c.x + c.vx * dt)), ny = Math.min(lim, Math.max(0.3, c.y + c.vy * dt));
-    if (this.world.walkable(nx, ny)) { c.x = nx; c.y = ny; c.facing = Math.atan2(c.vy, c.vx); }
+    const nx = Math.min(lim, Math.max(0.3, c.x + vx * dt)), ny = Math.min(lim, Math.max(0.3, c.y + vy * dt));
+    if (this.world.walkable(nx, ny)) { c.x = nx; c.y = ny; c.facing = Math.atan2(vy, vx); }
     else { c.vx = 0; c.vy = 0; c.stuck += 1; }
   }
 

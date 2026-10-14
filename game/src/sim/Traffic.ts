@@ -262,13 +262,52 @@ function slide(sim: Simulation, v: Vehicle, dt: number): void {
   moveBlocked(sim, v, dt);
 }
 
+/** When each person last dived out of the way, per simulation (so separate games and tests never share it). */
+const dodges = new WeakMap<Simulation, Map<number, number>>();
+/**
+ * Someone standing in the path of a car that is coming on fast dives for the kerb, swears at the driver, and the
+ * driver leans on the horn. Under half a second away is too late: that is a hit, not a dodge.
+ */
+function dodge(sim: Simulation, v: Vehicle, c: Character, gap: number, side: number, sp: number): void {
+  if (sp < 3 || c.tier === "player" || c.phys !== Phys.OK || c.inCar >= 0) return;
+  const tti = gap / sp;
+  if (tti > 0.9 || tti < 0.12) return;
+  let dodgedAt = dodges.get(sim);
+  if (!dodgedAt) dodges.set(sim, dodgedAt = new Map());
+  if ((dodgedAt.get(c.id) ?? -1e9) > sim.tick - 90) return;
+  dodgedAt.set(c.id, sim.tick);
+  // jump to whichever side of the car's path they're already on, toward the kerb if it's close
+  const foot = sim.world.nearestFoot(c.x, c.y, 3), cos = Math.cos(v.heading), sin = Math.sin(v.heading);
+  const fs = -(foot.x - c.x) * sin + (foot.y - c.y) * cos;
+  const s = Math.abs(fs) > 0.2 ? Math.sign(fs) : Math.sign(side || 1);
+  const jump = 3.2 + (1 - tti) * 2.5;
+  c.kx += -sin * s * jump; c.ky += cos * s * jump; c.vz = Math.max(c.vz, 1.6);
+  c.phys = Phys.STUMBLE; c.physTimer = 0.45;
+  c.emo.fear = Math.min(1, c.emo.fear + 0.35);
+  if (sim.tick > v.honkAt) { v.honkAt = sim.tick + 180; sim.bus.emit("sound", { kind: "horn", x: v.x, y: v.y, vol: 0.7 }); }
+  const driver = v.driver >= 0 ? sim.chars[v.driver] : null;
+  sim.say(c, driver && driver.tier === "player" ? "Oi! Watch where you're driving!" : sim.rng.pick(["Whoa!", "Oi! Slow down!", "Jesus, mate!", "Watch it!"]), "shout", 1.6);
+  if (driver && c.tier !== "background") { const r = sim.relate(c, driver.id); r.grudge = Math.min(1, r.grudge + 0.15); }
+}
+
+/** A squealing skid turns heads: everyone close by looks at the car and gets a fright. */
+function startle(sim: Simulation, v: Vehicle): void {
+  const n = sim.charHash.query(v.x, v.y, 7, tmp);
+  for (let i = 0; i < n; i++) {
+    const c = sim.chars[tmp[i]];
+    if (!c || c.inCar >= 0 || c.tier === "player" || c.phys !== Phys.OK) continue;
+    c.facing = Math.atan2(v.y - c.y, v.x - c.x);
+    c.emo.fear = Math.min(1, c.emo.fear + 0.08);
+  }
+}
+
 /** Tyre marks and smoke while a car is sliding or locking its brakes (the renderer turns "skid" into marks). */
 function skidMarks(sim: Simulation, v: Vehicle, lat: number, lock: number): void {
   const amt = Math.max(Math.abs(lat) - 1.2, lock > 0 ? 0.6 : 0);
   if (amt <= 0 || (sim.tick + v.id) % 4 !== 0) return;
   const d = VEHICLES[v.cls], bx = v.x - Math.cos(v.heading) * d.length * 0.32, by = v.y - Math.sin(v.heading) * d.length * 0.32;
   sim.bus.emit("fx", { kind: "skid", x: bx, y: by, z: 0, n: Math.min(4, 1 + Math.round(amt)), color: "rgba(14,11,10,.5)" });
-  if ((sim.tick + v.id) % 24 === 0) sim.bus.emit("sound", { kind: "skid", x: v.x, y: v.y, vol: Math.min(1, amt / 4) });
+  if ((sim.tick + v.id) % 24 === 0) { sim.bus.emit("sound", { kind: "skid", x: v.x, y: v.y, vol: Math.min(1, amt / 4) }); startle(sim, v); }
 }
 
 /** Move with the car's velocity; solid tiles stop the car, bounce it back and dent it. */
@@ -555,7 +594,7 @@ function collisions(sim: Simulation): void {
     if (v.state === "parked") continue;
     const sp = Math.abs(v.speed);
     const d = VEHICLES[v.cls];
-    const n = sim.charHash.query(v.x, v.y, d.length / 2 + 0.6, tmp);
+    const n = sim.charHash.query(v.x, v.y, d.length / 2 + 0.6 + Math.min(4, sp * 0.45), tmp);
     const cos = Math.cos(v.heading), sin = Math.sin(v.heading);
     for (let i = 0; i < n; i++) {
       const c = sim.chars[tmp[i]];
@@ -564,6 +603,7 @@ function collisions(sim: Simulation): void {
       if (v.state === "drive" && !sim.world.drivable(c.x, c.y)) continue;
       const dx = c.x - v.x, dy = c.y - v.y;
       const lx = dx * cos + dy * sin, ly = -dx * sin + dy * cos;
+      if (lx > d.length / 2 && Math.abs(ly) < d.width / 2 + 0.5) { dodge(sim, v, c, lx - d.length / 2, ly, sp); continue; }
       if (Math.abs(lx) > d.length / 2 + c.radius * 0.5 || Math.abs(ly) > d.width / 2 + c.radius * 0.5) continue;
       if (sp < 1.4) {
         // nudge people out of the way at walking pace

@@ -40,6 +40,8 @@ export function moveTo(c: Character, x: number, y: number, sim: Simulation, arri
 }
 
 export function stop(c: Character): void { c.vx = 0; c.vy = 0; }
+/** Step kinds that end with someone standing at (x, y). */
+const LOITER_AT = new Set(["goto", "wander", "watch", "cheer", "dance"]);
 function face(c: Character, x: number, y: number): void { c.facing = Math.atan2(y - c.y, x - c.x); }
 
 /** Execute one primitive step for one AI tick. dt = simulated seconds since the last think. */
@@ -50,6 +52,11 @@ export function runStep(c: Character, s: Step, g: ActiveGoal, sim: Simulation, d
   const target = s.target !== undefined ? sim.chars[s.target] : undefined;
   if (s.target !== undefined && (!target || target.lod === 4 /* sleeping far away */)) return FAIL;
 
+  // somewhere to stand (a wander spot, a place to watch from, the dance floor) never goes in a lane: use the kerb.
+  // Steps with an explicit reach (closing in on someone) keep their target.
+  if (s.x !== undefined && s.y !== undefined && s.dist === undefined && LOITER_AT.has(s.kind) && sim.world.carriageway(s.x, s.y)) {
+    const p = sim.world.nearestFoot(s.x, s.y); s.x = p.x; s.y = p.y;
+  }
   switch (s.kind) {
     case "goto":
     case "wander": {

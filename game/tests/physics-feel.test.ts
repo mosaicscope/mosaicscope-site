@@ -65,7 +65,7 @@ describe("bodies and objects", () => {
   it("a car at speed throws a person up and forward, and they slide to a stop", () => {
     const { sim, v } = testCar("sedan" as "hatch");
     const c = byName(sim, "Kodak");
-    c.x = c.px = v.x + 3; c.y = c.py = v.y; c.goal = null; c.nextThink = 1e9; c.vx = c.vy = 0; c.inCar = -1; c.inside = -1;
+    c.x = c.px = v.x + 1.9; c.y = c.py = v.y; // too close to dive clear c.goal = null; c.nextThink = 1e9; c.vx = c.vy = 0; c.inCar = -1; c.inside = -1;
     sim.rebuildHash();
     v.speed = 8; v.vx = 8; v.vy = 0; v.dynT = sim.tick;
     let peakZ = 0, peakK = 0;
