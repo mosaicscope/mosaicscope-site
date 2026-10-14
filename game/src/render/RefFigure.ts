@@ -167,7 +167,7 @@ export function facePlan(seed: number): FacePlan {
     size: span(0.92, 1.08), wide: span(0.88, 1.08), tall: span(0.95, 1.12), jaw: span(0, 1),
     eyeR: span(0.22, 0.34), eyeSep: span(0.32, 0.42), eyeY: span(-0.08, 0.08), eyeTilt: span(-0.18, 0.18), pupil: span(0.38, 0.56), lid: span(0, 0.25),
     browW: span(0.7, 1.6), browY: span(1.5, 2.0), browLen: span(0.45, 0.75), browTilt: span(-0.25, 0.25),
-    nose: Math.floor(r() * 5), noseSize: span(0.8, 1.3), mouthW: span(0.18, 0.32), mouthY: span(0.48, 0.62), lip: span(0, 1),
+    nose: Math.floor(r() * 5), noseSize: span(0.8, 1.3), mouthW: span(0.42, 0.56), mouthY: span(0.5, 0.58), lip: span(0, 1),
     ear: span(0.15, 0.24), blush: span(0, 0.35), freckles: r() < 0.25 ? span(0.3, 1) : 0, spikes: 5 + Math.floor(r() * 7), spikeLen: span(0.7, 1.3),
   };
 }
@@ -305,7 +305,14 @@ function drawRefHead(g: Ctx, c: Character, M: ModelSpec, P: FacePlan, mood: Mood
       else if (F.mouth === "smirk") { g.moveTo(mx - mw * 0.6, my + mw * 0.05); g.quadraticCurveTo(mx + mw * 0.1, my + mw * 0.2, mx + mw * 0.7, my - mw * 0.25); }
       else if (F.mouth === "frown") { g.moveTo(mx - mw * 0.6, my + mw * 0.2); g.quadraticCurveTo(mx, my - mw * 0.25, mx + mw * 0.6, my + mw * 0.2); }
       else if (F.mouth === "o") { g.arc(mx, my, mw * 0.3, 0, 6.283); }
-      else { g.moveTo(mx - mw * 0.6, my - mw * 0.05); g.quadraticCurveTo(mx, my + mw * 0.45, mx + mw * 0.6, my - mw * 0.05); }
+      else { // the comic resting mouth: a big open smile with teeth and a tongue, like the reference
+        g.fillStyle = ink; g.moveTo(mx - mw * 0.85, my - mw * 0.2); g.quadraticCurveTo(mx, my + mw * 1.3, mx + mw * 0.85, my - mw * 0.2); g.closePath(); g.fill();
+        g.save(); g.clip();
+        g.fillStyle = WHITE; g.fillRect(mx - mw, my - mw * 0.3, mw * 2, mw * 0.28);
+        dot(mx, my + mw * 0.62, mw * 0.42, "#e0505a");
+        g.restore();
+        g.beginPath();
+      }
       g.stroke();
       if (F.mouth === "tongue") dot(mx + mw * 0.1, my + mw * 0.3, mw * 0.22, "#e0505a");
     }
