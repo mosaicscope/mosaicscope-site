@@ -1,8 +1,8 @@
 {
- "at": 1791934420932,
+ "at": 1791937753763,
  "totals": {
   "duplicate-code": 2,
-  "long-function": 12,
+  "long-function": 13,
   "oversized-module": 7,
   "unused-css": 1
  },
@@ -51,9 +51,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/app/Game.ts",
-   "detail": "1370 lines",
+   "detail": "1382 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|1mwg7wk"
+   "fp": "oversized-module|xtb44h"
   },
   {
    "kind": "oversized-module",
@@ -104,12 +104,20 @@
    "fp": "long-function|himwpi"
   },
   {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "game/src/render/RefFigure.ts:151",
+   "detail": "163 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|1q9niha"
+  },
+  {
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/render/Renderer.ts",
-   "detail": "968 lines",
+   "detail": "973 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|tl27ks"
+   "fp": "oversized-module|1qri0dc"
   },
   {
    "kind": "long-function",
