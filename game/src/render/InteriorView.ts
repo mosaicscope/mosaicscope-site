@@ -26,6 +26,10 @@ export interface ViewActor {
   name?: string;
   isPlayer?: boolean;
   lying?: boolean;
+  /** the real person (townsfolk and the player), so they look exactly as they do on the street */
+  char?: Character;
+  /** staff keep their uniform (whites, scrubs...) instead of a personalised outfit */
+  staff?: boolean;
 }
 export interface ViewState {
   t: number;
@@ -74,7 +78,22 @@ export class InteriorView {
   private staticLayer: { cv: HTMLCanvasElement; ox: number; oy: number; w: number; h: number; day: boolean } | null = null;
   private sprites = new Map<number, Sprite>();
   private order: { key: number; prop: number }[] = [];
-  private stub = { look: null as unknown as Look, phys: 0 } as unknown as Character;
+  /**
+   * One stand-in per walk-in visitor or staff member. Looks, models and outfits are cached per person and varied by id,
+   * so a single shared stand-in made a whole room of identical clones.
+   */
+  private stubs = new Map<string | number, Character>();
+  private figureOf(a: ViewActor): Character {
+    if (a.char) return a.char;
+    let c = this.stubs.get(a.id);
+    if (!c || c.look !== a.look) {
+      let h = 0; for (const ch of String(a.id)) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193);
+      c = { id: 100000 + ((h >>> 0) % 1000000), look: a.look, phys: 0, name: a.name ?? "", tier: a.staff ? "principal" : "background", mode: "normal" } as unknown as Character;
+      this.stubs.set(a.id, c);
+      if (this.stubs.size > 400) this.stubs.delete(this.stubs.keys().next().value as string | number);
+    }
+    return c;
+  }
 
   constructor(readonly canvas: HTMLCanvasElement) { this.g = canvas.getContext("2d")!; }
 
@@ -578,8 +597,7 @@ export class InteriorView {
     g.fillStyle = "rgba(0,0,0,.34)"; g.beginPath(); g.ellipse(sx, sy, 15 * k, 4.2 * k, 0, 0, 6.283); g.fill();
     const A = pose(a.pose, a.style, st.t + a.seed, a.phase, a.speed, a.poseT);
     solve(A, sx, sy, k, a.dir);
-    (this.stub as { look: Look }).look = a.look;
-    drawFigure(g, this.stub, sx, sy, k, a.dir, st.t, 0, 1);
+    drawFigure(g, this.figureOf(a), sx, sy, k, a.dir, st.t, 0, 1);
     if (a.isPlayer) { g.fillStyle = "#ec2a1c"; g.font = "700 10px 'IBM Plex Mono', monospace"; g.textAlign = "center"; g.fillText("You", sx, sy + 13); }
     else if (st.nearActor === a.id && a.name) this.tag(g, a.name, sx, sy - 122 * k - 6, "#eee4d3");
   }

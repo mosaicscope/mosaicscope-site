@@ -84,7 +84,7 @@ export class InteriorOverlay {
     this.b = b; this.def = def;
     this.crowd = new InteriorCrowd(def, sim, b);
     const p = sim.player;
-    this.me.look = p.look; this.me.style = p.style || "normal";
+    this.me.look = p.look; this.me.style = p.style || "normal"; this.me.char = p;
     this.me.x = def.door.x; this.me.y = def.door.y; this.me.dir = 1; this.me.pose = "idle"; this.me.speed = 0;
     this.titleEl.textContent = b.name; this.zoneEl.textContent = def.title;
     this.view.setDef(def);
