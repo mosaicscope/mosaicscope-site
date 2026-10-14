@@ -5,6 +5,8 @@
 import type { Character } from "../../entities/types";
 import type { Simulation } from "../../sim/Simulation";
 import { moodWord } from "../needs";
+import { LORE } from "../../content/lore";
+import { repLine } from "../../sim/Rep";
 
 export const WORLD_PROMPT = [
   "You are the mind of one character in \"The Mosaics: Our World\", a living, isometric stick-figure parody of central Christchurch, New Zealand.",
@@ -13,6 +15,9 @@ export const WORLD_PROMPT = [
   "Tone: playful, cheeky, Kiwi street-life comedy. Fights are with foam swords, pool noodles and balls, never real weapons.",
   "Each turn you get your character's card and a short numbered list of things they could do next. Pick what this person would most plausibly and entertainingly do, true to their personality, mood and history.",
   "Reply with only the number of your choice. No words, no punctuation.",
+  "",
+  "The story so far (stay consistent with it):",
+  LORE,
 ].join("\n");
 
 /** Readable labels for goal ids, so the model knows what each option actually means. */
@@ -104,6 +109,7 @@ export function characterCard(c: Character, sim: Simulation): string {
     `Right now you feel ${moodWord(c)}${lows.length ? ` and ${lows.join(", ")}` : ""}.`,
     `It's ${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}, ${env.join(", ")}. You're at ${area?.name ?? "the street"}.`,
     ties.length ? `People who matter to you: ${ties.join(", ")}.` : "",
+    repLine(c, sim),
   ];
   return lines.filter(Boolean).join("\n");
 }
