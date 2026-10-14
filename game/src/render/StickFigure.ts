@@ -1,16 +1,16 @@
-import type { Character, Face } from "../entities/types";
+import type { Character, EyeShape, Face } from "../entities/types";
 import { Phys } from "../entities/types";
 import { dressOf } from "../mind/Dress";
 import type { Dress } from "../mind/Dress";
-import { isResident, drawResident } from "./Residents";
-import { modelOf, modelLook, drawModelBody, drawModelHeadGear, MODEL_INK } from "./Models";
+import { modelOf } from "./Models";
 import { drawFaceGenes } from "./FaceGenes";
+import { drawRefFigure, lookSpec, personalize } from "./RefFigure";
 
 /**
- * Procedural stick figures in the style of the MosaicScope footer crew (same proportions as the
- * site's 100x140 SVG figure: round head, sunglasses, single-stroke limbs, neon colours).
- * A pose function produces joint angles; `solve` turns them into absolute screen points; draw
- * functions stroke them. No per-figure canvas transforms, so background figures can be batched.
+ * Procedural stick figures in the style of the MosaicScope footer crew (single-stroke limbs, neon
+ * colours) with real adult proportions. A pose function produces joint angles; `solve` turns them
+ * into absolute screen points; draw functions stroke them. No per-figure canvas transforms, so
+ * background figures can be batched.
  */
 export interface Angles {
   lean: number; bob: number; hipX: number;
@@ -58,11 +58,21 @@ export function pose(name: string, style: string, t: number, ph: number, speed: 
       if (style === "bouncy") A.bob = -Math.abs(c) * 4;
       break;
     }
-    case "run": case "panic": {
+    case "run": {
+      // Running responds to speed: stride reach, knee lift, lean and bounce all grow with f (0 = jog, 1 = flat out).
+      // Legs and arms swing opposite; the body is lowest at footfall, so the bounce runs at twice the stride rate.
+      const f = Math.min(1, Math.max(0, (speed - 2.6) / 4));
+      A.thighL = s * (0.6 + 0.35 * f); A.thighR = -s * (0.6 + 0.35 * f);
+      A.bendL = Math.max(0, -c) * (1.1 + 0.6 * f) + 0.15; A.bendR = Math.max(0, c) * (1.1 + 0.6 * f) + 0.15;
+      A.lean = 0.1 + 0.18 * f;
+      A.bob = -(1 - Math.cos(2 * ph)) * (1.5 + 3 * f);
+      A.armL = -s * (0.8 + 0.4 * f); A.armR = s * (0.8 + 0.4 * f); A.foreL = 1.5; A.foreR = 1.5; // elbows near a right angle
+      break;
+    }
+    case "panic": {
       A.thighL = s * 0.85; A.thighR = -s * 0.85; A.bendL = Math.max(0, -c) * 1.3 + 0.2; A.bendR = Math.max(0, c) * 1.3 + 0.2;
-      A.lean = 0.22; A.bob = -Math.abs(c) * 4;
-      if (name === "panic") { A.armL = 2.7 + Math.sin(t * 14) * 0.4; A.armR = 2.7 + Math.cos(t * 13) * 0.4; A.foreL = 0.3; A.foreR = 0.3; A.lean = 0.05; }
-      else { A.armL = -s * 0.9; A.armR = s * 0.9; A.foreL = 1.4; A.foreR = 1.4; }
+      A.lean = 0.05; A.bob = -Math.abs(c) * 4;
+      A.armL = 2.7 + Math.sin(t * 14) * 0.4; A.armR = 2.7 + Math.cos(t * 13) * 0.4; A.foreL = 0.3; A.foreR = 0.3;
       break;
     }
     case "dance": dance(style, t); break;
@@ -144,7 +154,19 @@ export const J = new Float32Array(24);
 /** How many figures may get the HD pass this frame (the renderer resets it; nearest first). */
 export let hdBudget = 0;
 export function resetHdBudget(n: number): void { hdBudget = n; }
-export const HEAD_R = 10.5;
+/**
+ * Bone lengths for a figure about 120 units tall (1 unit = 1 px at k=1). Ratios follow common adult
+ * anthropometry: head about 1/7.5 of height, hip joint at about half height, legs about half of height,
+ * upper arm and forearm about 0.19H and 0.15H, shoulders about 0.82H.
+ */
+export const BONES = { HIP: 61, TORSO: 37, NECK: 14, UP: 22, FORE: 17.5, TH: 30, SH: 31 };
+/** Head radius at k=1: 16 units tall, so the head is about a seventh of the figure. */
+export const HEAD_R = 8;
+/** The face art (eyes, brows, mouth, hair, hats) was drawn for a 10.5 head; drawHead gets k * HEAD_SCALE. */
+const HEAD_DESIGN = 10.5;
+export const HEAD_SCALE = HEAD_R / HEAD_DESIGN;
+/** Street models wear a bigger, rounder head, as in the cartoon reference (big head, big expressive eyes). */
+export const MODEL_HEAD = 1.0;
 
 /**
  * Inverse kinematics for one arm: aim the hand at a point (tx, ty) in figure space (before solve's screen transform,
@@ -152,7 +174,7 @@ export const HEAD_R = 10.5;
  * Writes armL/foreL (side 0) or armR/foreR (side 1) into `a`. Targets beyond reach are clamped to a straight arm.
  */
 export function reachArm(a: Angles, side: 0 | 1, shx: number, shy: number, tx: number, ty: number): void {
-  const UP = 17, FORE = 14;
+  const { UP, FORE } = BONES;
   const dx = tx - shx, dy = ty - shy;
   const d = Math.min(Math.max(Math.hypot(dx, dy), 1e-3), UP + FORE - 1e-3);
   const base = Math.atan2(dx, dy);                       // direction from shoulder to target, same convention as solve
@@ -164,13 +186,27 @@ export function reachArm(a: Angles, side: 0 | 1, shx: number, shy: number, tx: n
   if (side === 0) { a.armL = a1 - a.lean; a.foreL = a2; } else { a.armR = a1 - a.lean; a.foreR = a2; }
 }
 
+/** A personal way of moving, from the character id: each person gets their own stride, swing, cadence and carriage. */
+export interface Gait { cadence: number; stride: number; swing: number; lean: number; bob: number; tilt: number }
+export function gaitOf(id: number): Gait {
+  let h = Math.imul(id + 1, 0x9e3779b1) ^ 0x5bd1e995;
+  const r = () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return (h >>> 0) / 4294967296; };
+  return { cadence: 0.85 + r() * 0.3, stride: 0.8 + r() * 0.4, swing: 0.7 + r() * 0.6, lean: (r() - 0.5) * 0.16, bob: 0.6 + r() * 0.8, tilt: (r() - 0.5) * 0.12 };
+}
+/** Apply a personal gait to a pose. Lying poses keep their own geometry. */
+export function applyGait(A: Angles, G: Gait): void {
+  if (A.lying > 0) return;
+  A.thighL *= G.stride; A.thighR *= G.stride; A.armL *= G.swing; A.armR *= G.swing;
+  A.lean += G.lean; A.bob *= G.bob; A.tilt += G.tilt;
+}
+
 export function solve(a: Angles, sx: number, sy: number, k: number, dir: number): void {
-  const T = 44, TORSO = 42, UP = 17, FORE = 14, TH = 22, SH = 21, NECK = 13;
+  const { HIP: T, TORSO, NECK, UP, FORE, TH, SH } = BONES;
   let hx = a.hipX, hy = -T + a.bob;
   if (a.lying > 0) hy = -6;
   const lean = a.lean + a.lying * 1.45;
   const nx = hx + Math.sin(lean) * TORSO, ny = hy - Math.cos(lean) * TORSO;
-  const shx = hx + Math.sin(lean) * TORSO * 0.83, shy = hy - Math.cos(lean) * TORSO * 0.83;
+  const shx = hx + Math.sin(lean) * TORSO * 0.93, shy = hy - Math.cos(lean) * TORSO * 0.93;
   const headA = lean + a.tilt;
   const headx = nx + Math.sin(headA) * NECK, heady = ny - Math.cos(headA) * NECK;
   const limb = (ox: number, oy: number, a1: number, a2: number, l1: number, l2: number, i: number) => {
@@ -200,19 +236,13 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
   // HD pass when you're close: soft neon glow, a crisp ink outline under every limb, then the line
   // very close people always get the HD face, whatever the quality budget says
   const hd = hdOverride ?? (k >= 1.05 && (hdBudget-- > 0 || k >= 1.6));
-  if (isResident(c)) {   // the everyday local: egg belly, long neck, big nose (see Residents.ts)
-    drawResident(g, J, c, k, dir, alpha, hd, flash > 0, lw);
-    if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 18 * k, k, t);
-    return;
-  }
-  const M = modelOf(c);
+  // Everyone drawn up close uses the reference look: street models wear their model, the Mosaics, the player and
+  // the locals get a spec built from their own look (their colours, hair, hat and face genes).
+  const M = personalize(modelOf(c) ?? lookSpec(c), c);
   if (M) {
-    // chunky street model: filled body over the solved skeleton, skin-tone head with thick ink outline
-    drawModelBody(g, J, c, M, k, dir, alpha, hd, flash > 0);
-    const ML = modelLook(L, M);
-    drawHead(g, ML, J[4], J[5], k * 1.2, dir, Math.max(1.4, lw * 1.05), MODEL_INK, alpha, M.hat, flash > 0 ? "#ffffff" : M.skin, hd);
-    drawModelHeadGear(g, M, J[4], J[5], k * 1.2, dir, hd);
-    if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 14 * k, k, t);
+    // street model drawn after the reference cartoon (see RefFigure.ts); the face follows the person's emotion
+    drawRefFigure(g, J, c, M, k, dir, alpha, hd, flash > 0);
+    if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 28 * k, k, t);
     return;
   }
   const skel = () => {
@@ -279,7 +309,7 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
   }
   const D = dressOf(c);
   if (D) drawDress(g, D, L, k, dir, lw, alpha);
-  drawHead(g, L, J[4], J[5], k, dir, lw, col, alpha, D ? D.hat : L.hat);
+  drawHead(g, L, J[4], J[5], k * HEAD_SCALE, dir, lw, col, alpha, D ? D.hat : L.hat);
   if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 14 * k, k, t);
 }
 
@@ -317,10 +347,12 @@ function drawDress(g: CanvasRenderingContext2D, D: Dress, L: Character["look"], 
   g.globalAlpha = alpha;
 }
 
+/** k here is the head scale (figure scale × HEAD_SCALE): every feature below is drawn for a 10.5 head. */
 function drawHead(g: CanvasRenderingContext2D, L: Character["look"], x: number, y: number, k: number, dir: number, lw: number, col: string, alpha: number, hat: Character["look"]["hat"] = L.hat, skin?: string, inkRing = false): void {
   const F: Face = L.face ?? { eyes: "shades", brows: "none", mouth: L.kind === "girl" ? "smile" : "smile", nose: "none", facial: "none", extra: "none", head: "round" } as const;
-  const r = HEAD_R * k;
-  const rx = F.head === "wide" ? r * 1.12 : r, ry = F.head === "oval" ? r * 1.12 : r;
+  const r = HEAD_DESIGN * k;
+  // real heads are a little narrower than tall; "wide" and "oval" push the proportions either way
+  const rx = F.head === "wide" ? r * 1.05 : r * 0.9, ry = F.head === "oval" ? r * 1.12 : r;
   g.lineCap = "round";
   // ---- hair behind the head
   const H = L.hair;
@@ -331,7 +363,7 @@ function drawHead(g: CanvasRenderingContext2D, L: Character["look"], x: number, 
   if (H === "pigtails") { g.globalAlpha = alpha * 0.5; for (const sx of [-1, 1]) { g.beginPath(); g.arc(x + rx * 1.25 * sx, y - ry * 0.1, r * 0.45, 0, 6.283); g.fill(); } g.globalAlpha = alpha; }
   // ---- head
   g.fillStyle = skin ?? "#0e0b0a"; g.strokeStyle = col; g.lineWidth = lw;
-  if (inkRing) { g.lineWidth = lw + 2.2 * k; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 6.283); g.stroke(); g.lineWidth = lw; }
+  if (inkRing) { g.lineWidth = lw + 1.1 * k; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 6.283); g.stroke(); g.lineWidth = lw; }
   g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 6.283); g.fill(); g.stroke();
   if (skin && inkRing) { g.fillStyle = "rgba(0,0,0,.16)"; g.beginPath(); g.ellipse(x, y, rx * 0.98, ry * 0.98, 0, -0.6, 1.9); g.lineTo(x, y); g.fill(); g.fillStyle = skin; }
   // ---- hair on top
@@ -369,7 +401,8 @@ function drawHead(g: CanvasRenderingContext2D, L: Character["look"], x: number, 
   // ---- face (shifted slightly toward where they look)
   const fx = x + 2.2 * k * dir, ey = y - 1 * k;
   g.strokeStyle = col; g.fillStyle = "#0e0b0a"; g.lineWidth = Math.max(0.8, lw * 0.5);
-  switch (F.eyes) {
+  if (F.shape) drawEyeShape(g, F.shape, fx, ey, k, dir, skin ?? "#0e0b0a", col, alpha, lw);
+  else switch (F.eyes) {
     case "shades": g.beginPath(); g.rect(fx - 9.5 * k, ey - 1.5 * k, 8.5 * k, 4.5 * k); g.rect(fx + 0.8 * k, ey - 1.5 * k, 8.5 * k, 4.5 * k); g.fill(); g.stroke(); break;
     case "aviator": g.beginPath(); g.ellipse(fx - 4.8 * k, ey + 1 * k, 4 * k, 3 * k, 0, 0, 6.283); g.ellipse(fx + 4.8 * k, ey + 1 * k, 4 * k, 3 * k, 0, 0, 6.283); g.fill(); g.stroke(); break;
     case "round": g.beginPath(); g.arc(fx - 4.5 * k, ey + 0.5 * k, 3.2 * k, 0, 6.283); g.moveTo(fx + 7.7 * k, ey + 0.5 * k); g.arc(fx + 4.5 * k, ey + 0.5 * k, 3.2 * k, 0, 6.283); g.stroke(); g.fillStyle = col; g.beginPath(); g.arc(fx - 4.2 * k, ey + 0.5 * k, 1 * k, 0, 6.283); g.arc(fx + 4.8 * k, ey + 0.5 * k, 1 * k, 0, 6.283); g.fill(); break;
@@ -426,6 +459,68 @@ function drawHead(g: CanvasRenderingContext2D, L: Character["look"], x: number, 
   }
   if (F.gene !== undefined) drawFaceGenes(g, F.gene, { x, y, k, dir, lw, col, alpha, fx, ey, my, rx, ry, covered: F.eyes === "shades" || F.eyes === "visor" || F.eyes === "aviator" || F.eyes === "shutter" });
   if (L.glam) { g.strokeStyle = "#f6b62c"; g.beginPath(); g.arc(x - rx * 1.05, y + 6 * k, 2.4 * k, 0, 6.283); g.arc(x + rx * 1.05, y + 6 * k, 2.4 * k, 0, 6.283); g.stroke(); }
+}
+
+/**
+ * A unique eye from its parameters (see EyeShape). Two eyes at fx ± 4.6k, the same spacing as the
+ * other styles. `base` is the head colour, used to drop a heavy lid over the eye.
+ */
+function drawEyeShape(g: CanvasRenderingContext2D, s: EyeShape, fx: number, ey: number, k: number, dir: number, base: string, col: string, alpha: number, lw: number): void {
+  const SCLERA = "#f6f1e6", INK = "#0e0b0a";
+  g.globalAlpha = alpha; g.strokeStyle = col; g.lineWidth = Math.max(0.8, lw * 0.5);
+  for (const side of [-1, 1]) {
+    const ex = fx + side * 4.6 * k, hw = 2.3 * k * s.w * 1.25, hh = 2.0 * k * s.h * 1.25; // 1.35: bigger eyes read at street size
+    const pr = Math.max(0.9 * k, hh * 0.42), px = ex + s.pupil * hw * 0.35 * dir;
+    const dot = (x: number, y: number, rr: number, c: string) => { g.fillStyle = c; g.beginPath(); g.arc(x, y, rr, 0, 6.283); g.fill(); };
+    const outer = ex + side * hw, outerY = ey - s.tilt * hw, innerX = ex - side * hw, innerY = ey + s.tilt * hw * 0.3;
+    switch (s.kind) {
+      case "oval": case "heavy": {
+        g.fillStyle = SCLERA; g.beginPath(); g.ellipse(ex, ey, hw, hh, s.tilt * side, 0, 6.283); g.fill(); g.stroke();
+        dot(px, ey + hh * 0.15, pr, INK);
+        if (s.kind === "heavy") { // the lid drops over the top of the eye, painted in the head colour
+          const lidY = ey - hh + s.lid * 2 * hh;
+          g.save(); g.beginPath(); g.ellipse(ex, ey, hw, hh, s.tilt * side, 0, 6.283); g.clip();
+          g.fillStyle = base; g.fillRect(ex - hw * 2, ey - hh * 2, hw * 4, lidY - (ey - hh * 2)); g.restore();
+          g.strokeStyle = INK; g.lineWidth = lw * 0.9; g.beginPath(); g.moveTo(ex - hw * 1.05, lidY); g.lineTo(ex + hw * 1.05, lidY); g.stroke(); g.strokeStyle = col;
+        }
+        break;
+      }
+      case "almond": {
+        g.fillStyle = SCLERA; g.beginPath(); g.moveTo(innerX, innerY);
+        g.quadraticCurveTo(ex, ey - 2.1 * hh, outer, outerY); g.quadraticCurveTo(ex, ey + 1.3 * hh, innerX, innerY); g.closePath(); g.fill(); g.stroke();
+        dot(px, ey + hh * 0.1, pr, INK);
+        break;
+      }
+      case "slit": { // cat-like: narrow sclera, a slit of ink
+        g.fillStyle = SCLERA; g.beginPath(); g.ellipse(ex, ey, hw * 0.5, hh * 1.25, 0, 0, 6.283); g.fill(); g.stroke();
+        g.fillStyle = INK; g.beginPath(); g.ellipse(px, ey, hw * 0.2, hh * 1.05, 0, 0, 6.283); g.fill();
+        dot(ex - hw * 0.12, ey - hh * 0.5, Math.max(0.6, 0.6 * k), SCLERA);
+        break;
+      }
+      case "ring": { // big round eye: white sclera, ink ring, dot pupil
+        g.fillStyle = SCLERA; g.beginPath(); g.arc(ex, ey, hh * 0.85, 0, 6.283); g.fill(); g.stroke();
+        dot(px, ey, pr * 0.8, INK);
+        break;
+      }
+      case "closed": { // a shut, happy arc
+        g.beginPath(); g.moveTo(ex - hw * 0.9, ey - hh * 0.2 - s.tilt * hw * side); g.quadraticCurveTo(ex, ey + hh * 1.3, ex + hw * 0.9, ey - hh * 0.2 + s.tilt * hw * side); g.stroke();
+        break;
+      }
+      case "cross": { // knocked out: two crossed strokes
+        const cx = hw * 0.75, cy = hh * 0.75;
+        g.beginPath(); g.moveTo(ex - cx, ey - cy); g.lineTo(ex + cx, ey + cy); g.moveTo(ex + cx, ey - cy); g.lineTo(ex - cx, ey + cy); g.stroke();
+        break;
+      }
+    }
+    if (s.lash && (s.kind === "oval" || s.kind === "almond" || s.kind === "heavy")) { // a few lashes at the outer corner
+      g.lineWidth = Math.max(0.8, lw * 0.45); g.beginPath();
+      for (const t of [-0.25, 0, 0.25]) {
+        g.moveTo(outer, outerY - hh * 0.1 + t * hh); g.lineTo(outer + side * 2.2 * k, outerY - hh * 0.7 + t * hh);
+      }
+      g.stroke(); g.lineWidth = Math.max(0.8, lw * 0.5);
+    }
+  }
+  g.globalAlpha = alpha;
 }
 
 function stars(g: CanvasRenderingContext2D, x: number, y: number, k: number, t: number): void {

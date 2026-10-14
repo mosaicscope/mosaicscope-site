@@ -240,13 +240,18 @@ export function faceGenes(seed: number): FaceGenes {
 /** A compact string identifying how a seed renders: used for variety checks and look uniqueness. */
 export const faceGeneKey = (seed: number): string => faceGenes(seed).parts.join(".") + "~" + faceGenes(seed).tones.join("");
 
-export function drawFaceGenes(g: CanvasRenderingContext2D, seed: number, c: FaceCtx): void {
+/** `allow` limits which slots draw and `max` caps how many parts one face shows (for the realistic street faces). */
+export function drawFaceGenes(g: CanvasRenderingContext2D, seed: number, c: FaceCtx, opts?: { allow?: readonly number[]; max?: number }): void {
   const G = faceGenes(seed);
   g.save();
   g.lineCap = "round"; g.lineWidth = Math.max(0.7, c.lw * 0.45);
+  let shown = 0;
   for (let i = 0; i < SLOTS.length; i++) {
     const p = G.parts[i];
     if (!p) continue;
+    if (opts?.allow && !opts.allow.includes(i)) continue;
+    if (opts?.max !== undefined && shown >= opts.max) break;
+    shown++;
     // seeded variety: each slot's part is scaled and nudged by its own seed, so one part shows up in many versions
     const h = mix(seed + i * 977);
     const jit: FaceCtx = { ...c, k: c.k * (0.78 + (h % 50) / 100), fx: c.fx + (((h >>> 6) % 9) - 4) * 0.3 * c.k, my: c.my + (((h >>> 12) % 7) - 3) * 0.3 * c.k };

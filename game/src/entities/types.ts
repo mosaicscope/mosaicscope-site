@@ -20,6 +20,20 @@ export interface Face {
   head: "round" | "oval" | "wide";
   /** Face-gene seed (see render/FaceGenes.ts): layered procedural details. Absent on old saves. */
   gene?: number;
+  /** A unique eye drawn from its parameters (street models, see render/Models.ts). Overrides `eyes` when set. */
+  shape?: EyeShape;
+}
+export interface EyeShape {
+  kind: "oval" | "almond" | "slit" | "heavy" | "ring" | "closed" | "cross";
+  /** eye width and height multipliers */
+  w: number; h: number;
+  /** outer-corner tilt in radians (positive lifts the outer corner: friendly; negative drops it: angry) */
+  tilt: number;
+  /** pupil offset toward the facing side, -1..1 */
+  pupil: number;
+  /** how far the upper lid has dropped, 0..1 (heavy lids) */
+  lid: number;
+  lash: boolean;
 }
 export interface Look {
   kind: BodyKind;

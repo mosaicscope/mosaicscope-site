@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MODELS, modelOf } from "../src/render/Models";
+import { MODELS, EYE_SHAPES, modelOf } from "../src/render/Models";
 import type { Character } from "../src/entities/types";
 
 const fake = (id: number, tier: Character["tier"], kind: "guy" | "girl", extra: object = {}): Character =>
@@ -10,6 +10,11 @@ describe("character models", () => {
     expect(MODELS.length).toBe(25);
     expect(new Set(MODELS.map((m) => m.id)).size).toBe(25);
     expect(new Set(MODELS.map((m) => m.label)).size).toBe(25);
+  });
+  it("gives every model its own eye shape", () => {
+    for (const m of MODELS) expect(EYE_SHAPES[m.id], m.id).toBeDefined();
+    const shapes = MODELS.map((m) => JSON.stringify(EYE_SHAPES[m.id]));
+    expect(new Set(shapes).size).toBe(MODELS.length);
   });
   it("is deterministic, gender-compatible and spreads across the cast", () => {
     const seen = new Set<string>();
