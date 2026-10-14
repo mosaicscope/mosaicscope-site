@@ -9,7 +9,7 @@ import { decorGrid, drawDecor } from "./StreetDecor";
 import { Particles } from "./Particles";
 import { Lighting, Rain } from "./Lighting";
 import { NightFX } from "./NightFX";
-import { pose, solve, drawFigure, pathSilhouette, J, HEAD_R, gaitOf, applyGait } from "./StickFigure";
+import { pose, solve, drawFigure, pathSilhouette, J, HEAD_R, gaitOf, applyGait, Angles } from "./StickFigure";
 import { drawToy, drawIsoBox } from "./ToyArt";
 import { INK } from "./palette";
 import { drawBuildingTile, GLOW } from "./Buildings";
@@ -289,6 +289,7 @@ export class Renderer {
           // background: cheap animation (sine idle, simple walk), batched strokes
           const a = pose(moving ? "walk" : c.anim.pose === "dance" ? "dance" : c.anim.pose === "panic" ? "panic" : "idle", "loose", time + c.seedPhase, c.anim.phase, spd, 0);
           applyGait(a, G);
+          if (moving) this.foreshorten(a, c);
           solve(a, it.sx, it.sy - zOff, k, dir);
           const col = c.look.color;
           if (!batching || col !== batchColor) { flush(); g.strokeStyle = col; g.globalAlpha = 0.42; g.lineWidth = Math.max(0.9, 2.6 * k); g.lineCap = "round"; g.beginPath(); batching = true; batchColor = col; }
@@ -300,6 +301,7 @@ export class Renderer {
         flush();
         const a = pose(name, c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT);
         applyGait(a, G);
+        if (moving && (name === "walk" || name === "run" || name === "panic")) this.foreshorten(a, c);
         solve(a, it.sx, it.sy - zOff, k, dir);
         // held toy behind or in front depending on hand
         drawFigure(g, c, it.sx, it.sy - zOff, k, dir, time, c.anim.flash, 1);
@@ -524,6 +526,14 @@ export class Renderer {
   }
 
   /** +1 when the character faces screen-right, -1 for screen-left. */
+  /** The figures are drawn side-on, so a stride swings left and right across the screen. Someone walking toward or
+   *  away from the camera would scissor their legs sideways like a star jump; shorten the swing by how end-on they are. */
+  private foreshorten(a: Angles, c: Character): void {
+    const dx = Math.cos(c.facing) - Math.sin(c.facing), dy = (Math.cos(c.facing) + Math.sin(c.facing)) * 0.5;
+    const f = 0.25 + 0.75 * Math.abs(dx) / (Math.hypot(dx, dy) || 1);
+    a.thighL *= f; a.thighR *= f; a.armL *= f; a.armR *= f;
+  }
+
   private screenDir(c: Character): number {
     const sx = Math.cos(c.facing) - Math.sin(c.facing);
     return sx >= 0 ? 1 : -1;

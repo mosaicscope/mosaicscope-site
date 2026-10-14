@@ -218,16 +218,20 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   g.fillStyle = "rgba(0,0,0,.22)"; g.beginPath(); g.ellipse(pt.x, pt.y + 2 * z, L * 24 * z, L * 12.5 * z, 0, 0, 6.283); g.fill();
   g.fillStyle = "rgba(0,0,0,.3)"; g.beginPath(); g.ellipse(pt.x, pt.y + 1 * z, L * 18 * z, L * 9 * z, 0, 0, 6.283); g.fill();
 
-  // neon underglow on tuned cars at night (replayed over the darkness)
-  if (night && (v.cls === "jdm" || v.cls === "sports" || v.cls === "super" || v.cls === "muscle" || ST.neon)) {
+  // neon underglow on tuned cars at night (replayed over the darkness); off on a parked car nobody is in
+  if (night && !(v.state === "parked" && v.driver < 0) && (v.cls === "jdm" || v.cls === "sports" || v.cls === "super" || v.cls === "muscle" || ST.neon)) {
     const hue = ["255,122,217", "61,214,255", "198,255,61", "180,140,255"][v.plate.charCodeAt(0) % 4];
-    const sx = pt.x, sy = pt.y, rx = L * 26 * z, ry = L * 13 * z;
+    // a ring of light on the tarmac around the car: the glow layer sits on top of the body, so the middle stays clear
+    // (no coloured wash over the paint) and the gradient is squashed into the ground ellipse so it fades with no hard rim
+    const sx = pt.x, sy = pt.y + 2 * z, rx = L * 22 * z, sq = 0.5;
     GLOW.push(() => {
-      g.globalCompositeOperation = "lighter";
-      const grd = g.createRadialGradient(sx, sy, 0, sx, sy, rx);
-      grd.addColorStop(0, `rgba(${hue},.38)`); grd.addColorStop(1, `rgba(${hue},0)`);
-      g.fillStyle = grd; g.beginPath(); g.ellipse(sx, sy, rx, ry, 0, 0, 6.283); g.fill();
-      g.globalCompositeOperation = "source-over";
+      g.save(); g.globalCompositeOperation = "lighter";
+      g.translate(sx, sy); g.scale(1, sq);
+      const grd = g.createRadialGradient(0, 0, 0, 0, 0, rx);
+      grd.addColorStop(0, `rgba(${hue},0)`); grd.addColorStop(0.62, `rgba(${hue},0)`);
+      grd.addColorStop(0.8, `rgba(${hue},.2)`); grd.addColorStop(1, `rgba(${hue},0)`);
+      g.fillStyle = grd; g.beginPath(); g.arc(0, 0, rx, 0, 6.283); g.fill();
+      g.restore();
     });
   }
 
@@ -497,11 +501,15 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   // grille / plate
   if (frontVisible) fillPoly(k, [[x1 + 0.006, -hw * 0.3, lampH - 0.08], [x1 + 0.006, hw * 0.3, lampH - 0.08], [x1 + 0.006, hw * 0.3, lampH], [x1 + 0.006, -hw * 0.3, lampH]], "rgba(14,11,10,.75)");
   else fillPoly(k, [[x0 - 0.006, -hw * 0.22, tailH - 0.14], [x0 - 0.006, hw * 0.22, tailH - 0.14], [x0 - 0.006, hw * 0.22, tailH - 0.07], [x0 - 0.006, -hw * 0.22, tailH - 0.07]], "#eee4d3");
-  if (night) {
+  // lamp glow at night: a small halo on each lamp (not one big ball over the bonnet); a parked car nobody is in stays dark
+  if (night && !(v.state === "parked" && v.driver < 0)) {
     const tail = !frontVisible;
-    const P0 = W3(k, [tail ? x0 : x1, 0, tail ? tailH : lampH]);
-    const sx = P0[0], sy = P0[1], col = tail ? "255,59,47" : PT.yellowLamps ? "255,222,140" : "255,246,210", r = (tail ? 16 : 26) * z;
-    GLOW.push(() => { g.globalCompositeOperation = "lighter"; const grd = g.createRadialGradient(sx, sy, 0, sx, sy, r); grd.addColorStop(0, `rgba(${col},${tail && !brake ? 0.28 : 0.6})`); grd.addColorStop(1, `rgba(${col},0)`); g.fillStyle = grd; g.beginPath(); g.arc(sx, sy, r, 0, 6.283); g.fill(); g.globalCompositeOperation = "source-over"; });
+    const col = tail ? "255,59,47" : PT.yellowLamps ? "255,222,140" : "255,246,210", r = (tail ? 6 : 8) * M.scale * z, a = tail && !brake ? 0.3 : 0.55;
+    for (const side of [-1, 1]) {
+      const P0 = W3(k, [tail ? x0 : x1, side * hw * (tail ? 0.63 : 0.57), tail ? tailH : lampH]);
+      const sx = P0[0], sy = P0[1];
+      GLOW.push(() => { g.globalCompositeOperation = "lighter"; const grd = g.createRadialGradient(sx, sy, 0, sx, sy, r); grd.addColorStop(0, `rgba(${col},${a})`); grd.addColorStop(1, `rgba(${col},0)`); g.fillStyle = grd; g.beginPath(); g.arc(sx, sy, r, 0, 6.283); g.fill(); g.globalCompositeOperation = "source-over"; });
+    }
   }
 
   if (v.forSale) {
@@ -551,8 +559,11 @@ export function headlights(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle,
   const grd = g.createLinearGradient(a.x, a.y, c.x, c.y);
   grd.addColorStop(0, `rgba(255,240,190,${0.34 * strength})`); grd.addColorStop(1, "rgba(255,240,190,0)");
   g.fillStyle = grd; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(c.x, c.y); g.lineTo(e.x, e.y); g.lineTo(b.x, b.y); g.closePath(); g.fill();
-  // a bright core right at the lamps
-  const r = 12 * M.scale * cam.zoom, core = g.createRadialGradient(a.x, a.y, 0, a.x, a.y, r);
-  core.addColorStop(0, `rgba(255,250,220,${0.45 * strength})`); core.addColorStop(1, "rgba(255,250,220,0)");
-  g.fillStyle = core; g.fillRect(a.x - r, a.y - r, r * 2, r * 2);
+  // a small bright core at each lamp (not one big blob off to one side)
+  const r = 5 * M.scale * cam.zoom;
+  for (const p of [a, b]) {
+    const core = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+    core.addColorStop(0, `rgba(255,250,220,${0.3 * strength})`); core.addColorStop(1, "rgba(255,250,220,0)");
+    g.fillStyle = core; g.beginPath(); g.arc(p.x, p.y, r, 0, 6.283); g.fill();
+  }
 }
