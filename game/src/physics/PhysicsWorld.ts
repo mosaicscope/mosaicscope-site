@@ -10,6 +10,14 @@ export const GRAVITY = 14;
 export let gravityScale = 1;
 export function setGravityScale(v: number): void { gravityScale = Math.max(0.1, Math.min(2, v)); }
 export const CHAR_HEIGHT = 1.75;
+/** Quadratic air drag per unit of (radius / mass). */
+const AIR_DRAG = 0.05;
+/** Ground friction: deceleration in tiles/s² per unit of a toy's friction. */
+const GROUND_FRICTION = 2.2;
+/** A glancing wall hit keeps most, not all, of the speed along the wall. */
+const WALL_SCRUB = 0.88;
+/** People: how hard feet (standing) or a sliding body (down) brake a shove, in tiles/s². */
+const FEET_GRIP = 12, BODY_SLIDE = 7.5;
 
 export interface PhysicsHooks {
   onToyHitChar(toy: Toy, c: Character, impulse: number, nx: number, ny: number): void;
@@ -76,20 +84,24 @@ export class PhysicsWorld {
     const speed = Math.sqrt(t.vx * t.vx + t.vy * t.vy + t.vz * t.vz);
     const sub = clamp(Math.ceil((speed * dt) / (t.radius * 0.7)), 1, 10);
     const h = dt / sub;
+    // air drag grows with the square of speed; big light things (foam, plush) feel it, dense small ones barely do
+    const drag = AIR_DRAG * t.radius / Math.max(0.15, t.mass);
     for (let s = 0; s < sub; s++) {
       t.vz -= GRAVITY * gravityScale * h;
+      const v3 = Math.sqrt(t.vx * t.vx + t.vy * t.vy + t.vz * t.vz);
+      if (v3 > 0.5) { const k = Math.max(0, 1 - drag * v3 * h); t.vx *= k; t.vy *= k; t.vz *= k; }
       // X axis
       let nx = t.x + t.vx * h;
       if (this.blocked(nx + Math.sign(t.vx) * t.radius, t.y, t.z)) {
         const sp = Math.abs(t.vx);
-        t.vx = -t.vx * t.restitution; nx = t.x;
+        t.vx = -t.vx * t.restitution; nx = t.x; t.vy *= WALL_SCRUB; t.spin += t.vy * 2;
         if (sp > 1) hooks.onToyBounce(t, sp, true);
       }
       t.x = nx;
       let ny = t.y + t.vy * h;
       if (this.blocked(t.x, ny + Math.sign(t.vy) * t.radius, t.z)) {
         const sp = Math.abs(t.vy);
-        t.vy = -t.vy * t.restitution; ny = t.y;
+        t.vy = -t.vy * t.restitution; ny = t.y; t.vx *= WALL_SCRUB; t.spin -= t.vx * 2;
         if (sp > 1) hooks.onToyBounce(t, sp, true);
       }
       t.y = ny;
@@ -99,12 +111,18 @@ export class PhysicsWorld {
         t.z = gz;
         if (t.vz < -2) {
           hooks.onToyBounce(t, -t.vz, false);
+          // the contact patch grips during the bounce: the harder it lands, the more ground speed it loses
+          const vt = Math.hypot(t.vx, t.vy), loss = Math.min(vt, -t.vz * (1 + t.restitution) * Math.min(0.6, t.friction * 0.12));
+          if (vt > 1e-6) { const k = (vt - loss) / vt; t.vx *= k; t.vy *= k; t.spin += loss * 3 * Math.sign(t.vx + t.vy || 1); }
           t.vz = -t.vz * t.restitution * 0.8;
           if (t.vz < 1) t.vz = 0;
         } else t.vz = 0;
-        // rolling/sliding friction on the ground
-        const f = Math.max(0, 1 - t.friction * h * 1.6);
-        t.vx *= f; t.vy *= f;
+        // ground friction is a constant deceleration (Coulomb), not a fade: a ball rolls a long way, a crate grinds to
+        // a stop, and both actually stop instead of creeping forever
+        if (t.z <= gz + 1e-3) {
+          const vt = Math.hypot(t.vx, t.vy), dec = t.friction * GROUND_FRICTION * gravityScale * h;
+          if (vt <= dec) { t.vx = 0; t.vy = 0; } else { const k = (vt - dec) / vt; t.vx *= k; t.vy *= k; }
+        }
       }
       t.angle += t.spin * h;
       t.spin *= 1 - 1.5 * h;
@@ -248,18 +266,25 @@ export class PhysicsWorld {
 
   /** Characters: knockback decay and vertical motion (spring pads, hops). */
   stepCharacter(c: Character, dt: number, hooks: PhysicsHooks): void {
+    const airborne = c.z > this.world.groundZ(c.x, c.y) + 0.02 || c.vz > 0;
     if (c.kx !== 0 || c.ky !== 0) {
-      const hit = this.moveCircle(c, c.kx * dt, c.ky * dt);
-      if (hit) { c.kx *= -0.3; c.ky *= -0.3; }
-      const f = Math.max(0, 1 - 6 * dt);
-      c.kx *= f; c.ky *= f;
-      if (Math.abs(c.kx) < 0.02 && Math.abs(c.ky) < 0.02) { c.kx = 0; c.ky = 0; }
+      // move one axis at a time so a wall only bounces the part of the motion that hit it
+      if (c.kx !== 0 && this.moveCircle(c, c.kx * dt, 0)) c.kx *= -0.3;
+      if (c.ky !== 0 && this.moveCircle(c, 0, c.ky * dt)) c.ky *= -0.3;
+      // in the air nothing slows you but the air; on the ground it is feet bracing, or a body skidding on the tarmac
+      const sp = Math.hypot(c.kx, c.ky);
+      const dec = (airborne ? 0.3 * sp : c.phys === Phys.DOWN ? BODY_SLIDE : FEET_GRIP) * dt;
+      if (sp <= dec || sp < 0.02) { c.kx = 0; c.ky = 0; } else { const k = (sp - dec) / sp; c.kx *= k; c.ky *= k; }
     }
     if (c.z > 0 || c.vz !== 0) {
       c.vz -= GRAVITY * dt;
       c.z += c.vz * dt;
       const gz = this.world.groundZ(c.x, c.y);
-      if (c.z <= gz) { c.z = gz; c.vz = 0; }
+      if (c.z <= gz) {
+        c.z = gz;
+        // a hard landing bounces a little and knocks the wind out of the slide
+        if (c.vz < -5) { c.vz = -c.vz * 0.18; c.kx *= 0.8; c.ky *= 0.8; } else c.vz = 0;
+      }
     } else {
       const gz = this.world.groundZ(c.x, c.y);
       if (gz > 0) c.z = gz;

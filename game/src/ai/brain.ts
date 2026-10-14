@@ -160,7 +160,7 @@ function finish(c: Character, sim: Simulation, ok: boolean): void {
 export function thinkBackground(c: Character, sim: Simulation, dt: number): void {
   sim.metrics.bgThinks++;
   if (c.phys !== Phys.OK) { stop(c); return; }
-  if (sim.env.party && Math.hypot(c.x - sim.stagePoint.x, c.y - sim.stagePoint.y) < 12) { stop(c); c.anim.pose = "dance"; return; }
+  if (sim.env.party && Math.hypot(c.x - sim.stagePoint.x, c.y - sim.stagePoint.y) < 12 && !sim.world.carriageway(c.x, c.y)) { stop(c); c.anim.pose = "dance"; return; }
   if (c.emo.fear > 0.5) { c.anim.pose = "panic"; } else if (c.anim.pose === "panic" || c.anim.pose === "dance") c.anim.pose = "auto";
   c.emo.fear = Math.max(0, c.emo.fear - dt * 0.08);
   // commuting: work in the morning, home at night (real people, not wanderers)
@@ -188,7 +188,7 @@ export function thinkBackground(c: Character, sim: Simulation, dt: number): void
     let p = area.kind === "street" ? sim.streetPoint(c) : sim.world.randomPointIn(area, sim.rng);
     // stay on the footpath: short hops along it (or off the road if somehow standing in it)
     if (area.kind === "street") { const a = sim.rng.range(0, 6.28); const q = { x: c.x + Math.cos(a) * 4, y: c.y + Math.sin(a) * 4 }; if (sim.world.tile(Math.floor(q.x), Math.floor(q.y)) === 17) p = q; }
-    if (onRoad) p = sim.world.nearestWalkable(c.x + (sim.world.isRoadLine(Math.floor(c.x)) ? 2 : 0), c.y + (sim.world.isRoadLine(Math.floor(c.y)) ? 2 : 0));
+    if (onRoad) p = sim.world.nearestFoot(c.x, c.y); // (nearestWalkable said "stay put": a road is walkable)
     else if (!sim.nav.walkLine(c.x, c.y, p.x, p.y)) return;
     c.pathGoalX = p.x; c.pathGoalY = p.y;
   }

@@ -103,11 +103,12 @@ describe("traffic", () => {
       }
     }
   });
-  it("a car brakes for someone standing in its lane", () => {
+  it("a car brakes for someone lying in its lane", () => {
+    // (someone just standing about steps up onto the footpath now, so the case that matters is someone who can't)
     const sim = small(9);
     for (const v of sim.vehicles) if (v.state === "drive") { v.state = "parked"; v.x = -50; v.y = -50; }
     const v = makeVehicle(sim, "sedan", 27, laneCoord(0, 2), 0, "drive"); v.speed = 7;
-    const p = byName(sim, "Nova"); p.x = 34; p.y = laneCoord(0, 2); p.nextThink = 1e9;
+    const p = byName(sim, "Nova"); p.x = 34; p.y = laneCoord(0, 2); p.nextThink = 1e9; p.phys = Phys.DOWN; p.physTimer = 60;
     for (let i = 0; i < 120; i++) sim.step();
     expect(v.x).toBeLessThan(p.x - 1);
     expect(Math.abs(v.speed)).toBeLessThan(0.5);

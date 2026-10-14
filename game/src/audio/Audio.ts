@@ -164,6 +164,7 @@ export class AudioSystem {
     else if (kind === "boing") this.tone(o, "sine", 180, 720, 0.25);
     else if (kind === "pickup") this.tone(o, "square", 660, 880, 0.04);
     else if (kind === "kick") this.tone(o, "sine", 150, 80, 0.08);
+    else if (kind === "skid") { this.noise(o, 0.35, 3200); this.tone(o, "sine", 1150, 900, 0.3); } // tyre squeal
   }
 
   private kick(vol: number): void { const o = this.outAt(vol); if (o) this.tone(o, "sine", 120, 40, 0.18); }

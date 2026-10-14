@@ -159,7 +159,7 @@ export function updateVehicles(sim: Simulation, dt: number): void {
     v.px = v.x; v.py = v.y;
     if (v.state === "parked") continue;
     if (v.state === "crashed") {
-      v.speed *= 0.9;
+      slide(sim, v, dt);
       if (sim.tick > v.crashedUntil) v.state = v.driver === sim.playerId ? "free" : v.driver >= 0 ? (snapToLane(sim, v) ? "drive" : "free") : "parked";
       continue;
     }
@@ -175,35 +175,158 @@ export function updateVehicles(sim: Simulation, dt: number): void {
 export interface DriveInput { throttle: number; steer: number; brake: boolean }
 export const playerInput: DriveInput = { throttle: 0, steer: 0, brake: false };
 
+/** World velocity of a car: its free-body velocity when that is live, else straight along the heading. */
+export function carVel(sim: Simulation, v: Vehicle): { x: number; y: number } {
+  if (v.vx !== undefined && v.vy !== undefined && v.dynT !== undefined && sim.tick - v.dynT <= 1) return { x: v.vx, y: v.vy };
+  return { x: Math.cos(v.heading) * v.speed, y: Math.sin(v.heading) * v.speed };
+}
+
+/** Tyre grip in tiles/s² of sideways acceleration before the car starts to slide. */
+function tyreGrip(sim: Simulation, v: Vehicle): number {
+  const d = VEHICLES[v.cls];
+  return d.grip * 2.5 * (1 - v.damage * 0.3) * (1 - 0.35 * sim.env.rain);
+}
+
+/** Rear-driven cars that step the tail out under power. */
+const TAIL_HAPPY = new Set(["muscle", "hotrod", "coupe", "roadster", "super", "sports", "lowrider", "limo"]);
+
+/**
+ * Free driving as a simple tyre model: the car has a real velocity that is separate from where it points.
+ * Throttle fades out toward top speed; rolling resistance and air drag slow it when coasting. Steering asks for a
+ * yaw rate (from a bicycle model, softened at speed); the tyres can only push sideways up to their grip, so asking
+ * for more than that makes the car slide: understeer when the front gives up, a drift when braking or (in tail-happy
+ * cars) flooring it mid-corner unloads the rear. Rain and damage cost grip. Sliding scrubs speed and leaves marks.
+ */
 function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const d = VEHICLES[v.cls];
   const inp = v.driver === sim.playerId ? playerInput : { throttle: 0, steer: 0, brake: true };
-  if (inp.brake) v.speed = Math.abs(v.speed) < d.brake * dt ? 0 : v.speed - Math.sign(v.speed) * d.brake * dt;
-  else if (inp.throttle > 0) v.speed += (v.speed < 0 ? d.brake : d.accel) * inp.throttle * dt;
-  else if (inp.throttle < 0) v.speed -= (v.speed > 0 ? d.brake : d.accel * 0.6) * -inp.throttle * dt;
-  else v.speed *= 1 - 0.8 * dt; // coasting
   const top = d.topSpeed * (1 - v.damage * 0.5);
-  v.speed = clamp(v.speed, -top * 0.35, top);
-  const grip = d.grip * Math.min(1, Math.abs(v.speed) / 3) * (1 - Math.min(0.5, Math.abs(v.speed) / (top * 2.5)));
-  v.heading += inp.steer * grip * dt * Math.sign(v.speed || 1);
+  const vel = carVel(sim, v);
+  const fx = Math.cos(v.heading), fy = Math.sin(v.heading);
+  let lon = vel.x * fx + vel.y * fy, lat = -vel.x * fy + vel.y * fx;
+  const s = Math.abs(lon);
+
+  // ---- along the car: engine, brakes, rolling resistance, aero drag ----
+  let a = 0;
+  // Space is the handbrake: it locks the rear wheels, so it slows you less than full brakes but lets the tail go
+  if (inp.brake) a = -Math.sign(lon) * d.brake * (s > 2 ? 0.5 : 1);
+  else if (inp.throttle > 0) a = lon < -0.05 ? d.brake * inp.throttle : d.accel * inp.throttle * Math.max(0, 1 - (lon / top) ** 2);
+  else if (inp.throttle < 0) a = lon > 0.05 ? -d.brake * -inp.throttle : -d.accel * 0.6 * -inp.throttle * Math.max(0, 1 - (lon / (top * 0.35)) ** 2);
+  const resist = 0.35 + 1.4 * (lon / top) ** 2;
+  const braking = inp.brake || inp.throttle < 0 && lon > 0.05 || inp.throttle > 0 && lon < -0.05;
+  if (braking || a === 0) {
+    // brakes and drag can stop the car but never push it backwards
+    const dec = Math.abs(a) + resist;
+    lon = Math.abs(lon) <= dec * dt ? 0 : lon - Math.sign(lon) * dec * dt;
+  } else lon += (a - Math.sign(lon) * resist) * dt;
+
+  // ---- turning: yaw toward what the steering asks, capped by what the tyres can hold ----
+  const grip = tyreGrip(sim, v);
+  // how loose the rear is: a locked handbrake, or (tail-happy cars) too much throttle while turning
+  const powerOver = TAIL_HAPPY.has(v.cls) && inp.throttle > 0 && lon > 1 ? inp.throttle * Math.min(1, s / 5) : 0;
+  const rearLoose = inp.brake && s > 2 ? 1 : powerOver;
+  const wheelbase = d.length * 0.62, lock = 0.6 * (1 - 0.55 * Math.min(1, s / top));
+  const want = lon * Math.tan(inp.steer * lock) / wheelbase;
+  const cap = (grip * (1 + 1.2 * rearLoose)) / Math.max(s, 1);   // a loose rear lets the nose swing past the grip line
+  const yawWant = clamp(want, -cap, cap);
+  v.yaw = (v.yaw ?? 0) + (yawWant - (v.yaw ?? 0)) * Math.min(1, dt * (3 + grip * 0.6));
+  v.heading += v.yaw * dt;
+  // the body turned under the velocity: re-express it in the new frame, then let the tyres fight the sideways part
+  const nfx = Math.cos(v.heading), nfy = Math.sin(v.heading);
+  const vxW = fx * lon - fy * lat, vyW = fy * lon + fx * lat;
+  lon = vxW * nfx + vyW * nfy; lat = -vxW * nfy + vyW * nfx;
+  const latGrip = grip * (1 - 0.55 * rearLoose);
+  const pull = clamp(lat * 14, -latGrip, latGrip);
+  lat = Math.abs(lat) <= Math.abs(pull) * dt ? 0 : lat - pull * dt;
+  if (Math.abs(lat) > 0.8) lon -= Math.sign(lon) * Math.min(Math.abs(lon), Math.abs(pull) * 0.18 * dt);     // sliding scrubs speed
+  lon = clamp(lon, -top * 0.35, top);
+
+  v.vx = nfx * lon - nfy * lat; v.vy = nfy * lon + nfx * lat; v.dynT = sim.tick;
+  v.speed = lon; v.slip = lat;
+  skidMarks(sim, v, lat, braking && s > 4 ? s : 0);
   moveBlocked(sim, v, dt);
 }
 
-/** Move along the heading; solid tiles stop the car and dent it. */
+/** A crashed car keeps its momentum: it slides on locked tyres and spins down, it does not just stop. */
+function slide(sim: Simulation, v: Vehicle, dt: number): void {
+  const vel = carVel(sim, v);
+  let sp = Math.hypot(vel.x, vel.y);
+  const dec = tyreGrip(sim, v) * 0.8;
+  const k = sp > 1e-4 ? Math.max(0, sp - dec * dt) / sp : 0;
+  v.vx = vel.x * k; v.vy = vel.y * k; v.dynT = sim.tick; sp *= k;
+  v.yaw = (v.yaw ?? 0) * Math.max(0, 1 - 2.5 * dt);
+  v.heading += v.yaw * dt;
+  const fx = Math.cos(v.heading), fy = Math.sin(v.heading);
+  v.speed = v.vx * fx + v.vy * fy; v.slip = -v.vx * fy + v.vy * fx;
+  skidMarks(sim, v, sp > 2 ? sp : 0, 0);
+  moveBlocked(sim, v, dt);
+}
+
+/** When each person last dived out of the way, per simulation (so separate games and tests never share it). */
+const dodges = new WeakMap<Simulation, Map<number, number>>();
+/**
+ * Someone standing in the path of a car that is coming on fast dives for the kerb, swears at the driver, and the
+ * driver leans on the horn. Under half a second away is too late: that is a hit, not a dodge.
+ */
+function dodge(sim: Simulation, v: Vehicle, c: Character, gap: number, side: number, sp: number): void {
+  if (sp < 3 || c.tier === "player" || c.phys !== Phys.OK || c.inCar >= 0) return;
+  const tti = gap / sp;
+  if (tti > 0.9 || tti < 0.12) return;
+  let dodgedAt = dodges.get(sim);
+  if (!dodgedAt) dodges.set(sim, dodgedAt = new Map());
+  if ((dodgedAt.get(c.id) ?? -1e9) > sim.tick - 90) return;
+  dodgedAt.set(c.id, sim.tick);
+  // jump to whichever side of the car's path they're already on, toward the kerb if it's close
+  const foot = sim.world.nearestFoot(c.x, c.y, 3), cos = Math.cos(v.heading), sin = Math.sin(v.heading);
+  const fs = -(foot.x - c.x) * sin + (foot.y - c.y) * cos;
+  const s = Math.abs(fs) > 0.2 ? Math.sign(fs) : Math.sign(side || 1);
+  const jump = 3.2 + (1 - tti) * 2.5;
+  c.kx += -sin * s * jump; c.ky += cos * s * jump; c.vz = Math.max(c.vz, 1.6);
+  c.phys = Phys.STUMBLE; c.physTimer = 0.45;
+  c.emo.fear = Math.min(1, c.emo.fear + 0.35);
+  if (sim.tick > v.honkAt) { v.honkAt = sim.tick + 180; sim.bus.emit("sound", { kind: "horn", x: v.x, y: v.y, vol: 0.7 }); }
+  const driver = v.driver >= 0 ? sim.chars[v.driver] : null;
+  sim.say(c, driver && driver.tier === "player" ? "Oi! Watch where you're driving!" : sim.rng.pick(["Whoa!", "Oi! Slow down!", "Jesus, mate!", "Watch it!"]), "shout", 1.6);
+  if (driver && c.tier !== "background") { const r = sim.relate(c, driver.id); r.grudge = Math.min(1, r.grudge + 0.15); }
+}
+
+/** A squealing skid turns heads: everyone close by looks at the car and gets a fright. */
+function startle(sim: Simulation, v: Vehicle): void {
+  const n = sim.charHash.query(v.x, v.y, 7, tmp);
+  for (let i = 0; i < n; i++) {
+    const c = sim.chars[tmp[i]];
+    if (!c || c.inCar >= 0 || c.tier === "player" || c.phys !== Phys.OK) continue;
+    c.facing = Math.atan2(v.y - c.y, v.x - c.x);
+    c.emo.fear = Math.min(1, c.emo.fear + 0.08);
+  }
+}
+
+/** Tyre marks and smoke while a car is sliding or locking its brakes (the renderer turns "skid" into marks). */
+function skidMarks(sim: Simulation, v: Vehicle, lat: number, lock: number): void {
+  const amt = Math.max(Math.abs(lat) - 1.2, lock > 0 ? 0.6 : 0);
+  if (amt <= 0 || (sim.tick + v.id) % 4 !== 0) return;
+  const d = VEHICLES[v.cls], bx = v.x - Math.cos(v.heading) * d.length * 0.32, by = v.y - Math.sin(v.heading) * d.length * 0.32;
+  sim.bus.emit("fx", { kind: "skid", x: bx, y: by, z: 0, n: Math.min(4, 1 + Math.round(amt)), color: "rgba(14,11,10,.5)" });
+  if ((sim.tick + v.id) % 24 === 0) { sim.bus.emit("sound", { kind: "skid", x: v.x, y: v.y, vol: Math.min(1, amt / 4) }); startle(sim, v); }
+}
+
+/** Move with the car's velocity; solid tiles stop the car, bounce it back and dent it. */
 function moveBlocked(sim: Simulation, v: Vehicle, dt: number): void {
   const d = VEHICLES[v.cls];
-  const nx = v.x + Math.cos(v.heading) * v.speed * dt, ny = v.y + Math.sin(v.heading) * v.speed * dt;
+  const vel = carVel(sim, v);
+  const nx = v.x + vel.x * dt, ny = v.y + vel.y * dt;
   const fx = nx + Math.cos(v.heading) * (d.length / 2) * Math.sign(v.speed || 1), fy = ny + Math.sin(v.heading) * (d.length / 2) * Math.sign(v.speed || 1);
   const side = v.heading + Math.PI / 2, hw = d.width / 2 * 0.9;
   const blocked = (x: number, y: number) => !sim.world.walkable(x, y) && sim.world.tile(Math.floor(x), Math.floor(y)) !== T.CRATE || !sim.world.inBounds(Math.floor(x), Math.floor(y));
   if (blocked(fx + Math.cos(side) * hw, fy + Math.sin(side) * hw) || blocked(fx - Math.cos(side) * hw, fy - Math.sin(side) * hw)) {
-    const hit = Math.abs(v.speed);
+    const hit = Math.hypot(vel.x, vel.y);
     if (hit > 3) {
       v.damage = Math.min(1, v.damage + hit * 0.015);
       sim.bus.emit("sound", { kind: "crash", x: v.x, y: v.y, vol: Math.min(1, hit / 10) });
       sim.bus.emit("fx", { kind: "spark", x: fx, y: fy, z: 0.4, n: 8, color: "#f6b62c" });
     }
     v.speed = -v.speed * 0.25;
+    if (v.vx !== undefined && v.vy !== undefined) { v.vx *= -0.25; v.vy *= -0.25; v.yaw = (v.yaw ?? 0) * 0.4 + (v.slip ?? 0) * 0.15; }
     v.stuck += dt;
     return;
   }
@@ -471,7 +594,7 @@ function collisions(sim: Simulation): void {
     if (v.state === "parked") continue;
     const sp = Math.abs(v.speed);
     const d = VEHICLES[v.cls];
-    const n = sim.charHash.query(v.x, v.y, d.length / 2 + 0.6, tmp);
+    const n = sim.charHash.query(v.x, v.y, d.length / 2 + 0.6 + Math.min(4, sp * 0.45), tmp);
     const cos = Math.cos(v.heading), sin = Math.sin(v.heading);
     for (let i = 0; i < n; i++) {
       const c = sim.chars[tmp[i]];
@@ -480,6 +603,7 @@ function collisions(sim: Simulation): void {
       if (v.state === "drive" && !sim.world.drivable(c.x, c.y)) continue;
       const dx = c.x - v.x, dy = c.y - v.y;
       const lx = dx * cos + dy * sin, ly = -dx * sin + dy * cos;
+      if (lx > d.length / 2 && Math.abs(ly) < d.width / 2 + 0.5) { dodge(sim, v, c, lx - d.length / 2, ly, sp); continue; }
       if (Math.abs(lx) > d.length / 2 + c.radius * 0.5 || Math.abs(ly) > d.width / 2 + c.radius * 0.5) continue;
       if (sp < 1.4) {
         // nudge people out of the way at walking pace
@@ -495,11 +619,31 @@ function collisions(sim: Simulation): void {
     const dx = b.x - a.x, dy = b.y - a.y, dd = dx * dx + dy * dy;
     const r = (VEHICLES[a.cls].length + VEHICLES[b.cls].length) * 0.5;
     if (dd > r * r || !bodiesTouch(a, b)) continue;
-    const rel = Math.hypot(Math.cos(a.heading) * a.speed - Math.cos(b.heading) * b.speed, Math.sin(a.heading) * a.speed - Math.sin(b.heading) * b.speed);
+    const va = carVel(sim, a), vb = carVel(sim, b);
+    const rel = Math.hypot(va.x - vb.x, va.y - vb.y);
     const dl = Math.sqrt(dd) || 0.01, push = (r - dl) / 2;
     if (a.state !== "parked") { a.x -= (dx / dl) * push; a.y -= (dy / dl) * push; }
     if (b.state !== "parked") { b.x += (dx / dl) * push; b.y += (dy / dl) * push; }
-    if (rel > 2.5) sim.onCarCrash(a, b, rel);
+    if (rel > 2.5) { crashImpulse(sim, a, b, va, vb, dx / dl, dy / dl); sim.onCarCrash(a, b, rel); }
+  }
+}
+
+/**
+ * Momentum exchange in a crash: an impulse along the line between the cars, shared by mass (a parked car has its
+ * handbrake on, so it counts as much heavier), and an off-centre hit spins the car round.
+ */
+function crashImpulse(sim: Simulation, a: Vehicle, b: Vehicle, va: { x: number; y: number }, vb: { x: number; y: number }, nx: number, ny: number): void {
+  const ma = VEHICLES[a.cls].mass * (a.state === "parked" ? 3 : 1), mb = VEHICLES[b.cls].mass * (b.state === "parked" ? 3 : 1);
+  const vn = (vb.x - va.x) * nx + (vb.y - va.y) * ny;
+  if (vn >= 0) return;
+  const j = -(1 + 0.25) * vn / (1 / ma + 1 / mb);
+  for (const [v, vel, m, sgn] of [[a, va, ma, -1], [b, vb, mb, 1]] as [Vehicle, { x: number; y: number }, number, number][]) {
+    if (v.state === "parked") continue;
+    v.vx = vel.x + sgn * nx * j / m; v.vy = vel.y + sgn * ny * j / m; v.dynT = sim.tick;
+    // the hit lands off the car's centre line: that lever arm turns into spin
+    const L = VEHICLES[v.cls].length, side = -Math.sin(v.heading) * nx + Math.cos(v.heading) * ny;
+    const along = Math.cos(v.heading) * nx + Math.sin(v.heading) * ny;
+    v.yaw = (v.yaw ?? 0) + clamp(sgn * side * along * j / (m * L * 0.35), -6, 6);
   }
 }
 

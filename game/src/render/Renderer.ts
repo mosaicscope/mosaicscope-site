@@ -90,6 +90,13 @@ export class Renderer {
   private onFx(f: { kind: string; x: number; y: number; z: number; n?: number; color?: string; text?: string }): void {
     if (Math.hypot(f.x - this.cam.x, f.y - this.cam.y) > 40 / Math.max(0.5, this.cam.zoom)) return;
     if (f.kind === "blood" && !this.fakeBlood) return;
+    if (f.kind === "skid") {
+      // two dark tyre stripes under the rear axle and a little tyre smoke
+      for (let i = 0; i < 2; i++) this.decals.push({ x: f.x + (i - 0.5) * 0.35, y: f.y - (i - 0.5) * 0.35, r: 0.07, color: "rgba(14,11,10,.45)", born: this.time, life: 25, rot: 0 });
+      if (this.decals.length > 220) this.decals.splice(0, this.decals.length - 220);
+      this.particles.spawn("dust", f.x, f.y, 0.1, f.n ?? 2, "#cfc8c0");
+      return;
+    }
     this.particles.spawn(f.kind as any, f.x, f.y, f.z, f.n, f.color, f.text);
     if (f.kind === "blood" || f.kind === "paint" || f.kind === "water") {
       const n = f.kind === "blood" ? 3 : 2;
