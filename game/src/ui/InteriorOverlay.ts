@@ -3,7 +3,9 @@ import "./interior.css";
 import type { Simulation } from "../sim/Simulation";
 import type { Building } from "../world/World";
 import { BUILDINGS, isOpen } from "../content/buildings";
-import { interiorFor, type InteriorDef, type Interactable, type Launch } from "../content/interiors";
+import type { InteriorDef, Interactable, Launch } from "../content/interiors";
+import { interiorForBuilding, FEEDS } from "../content/interiorVariety";
+import { applyEffect } from "../content/interiorEffects";
 import { moveInside, zoneAt } from "../content/interiorNav";
 import { InteriorView, type ViewActor, type ViewState } from "../render/InteriorView";
 import { InteriorCrowd } from "./InteriorCrowd";
@@ -32,6 +34,7 @@ export class InteriorOverlay {
   private cv: HTMLCanvasElement;
   private view: InteriorView;
   private titleEl: HTMLElement; private zoneEl: HTMLElement; private clockEl: HTMLElement; private cashEl: HTMLElement;
+  private needsEl: HTMLElement; private bars: Record<string, HTMLElement> = {}; private wantEl: HTMLElement; private hudAt = -9;
   private promptBtn: HTMLButtonElement; private capEl: HTMLElement;
   private stickEl: HTMLElement; private knobEl: HTMLElement;
   private def: InteriorDef | null = null;
@@ -55,6 +58,12 @@ export class InteriorOverlay {
     this.promptBtn = h("button.iv-prompt.hidden", { type: "button" }) as HTMLButtonElement;
     this.promptBtn.addEventListener("click", () => this.use());
     this.capEl = h("div.iv-cap.hidden", { "aria-live": "polite" });
+    // Sims-style needs panel: what you need, and the nearest thing in this room that fixes it
+    this.wantEl = h("div.iv-want");
+    this.needsEl = h("div.iv-needs", { "aria-label": "Your needs" }, [
+      ...(["hunger", "energy", "social", "fun"] as const).map((k) => { const fill = h("i"); this.bars[k] = fill; return h("div.iv-need", { title: k }, [h("span", { text: k }), h("b", null, [fill])]); }),
+      this.wantEl,
+    ]);
     this.knobEl = h("i.iv-knob");
     this.stickEl = h("div.iv-stick.hidden", null, [this.knobEl]);
     const zone = h("div.iv-touch", { "aria-hidden": "true" });
@@ -63,7 +72,7 @@ export class InteriorOverlay {
     this.el = h("div.iv.hidden", { role: "dialog", "aria-label": "Interior" }, [
       this.cv,
       h("div.iv-top", null, [h("div.iv-head", null, [this.titleEl, this.zoneEl]), h("div.iv-meta", null, [this.clockEl, this.cashEl]), leave]),
-      this.capEl, zone, this.stickEl, this.promptBtn,
+      this.needsEl, this.capEl, zone, this.stickEl, this.promptBtn,
     ]);
     // never let gestures reach the world canvas beneath, and never let the page zoom
     for (const ev of ["wheel", "contextmenu", "dblclick", "gesturestart"]) this.el.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
@@ -80,7 +89,7 @@ export class InteriorOverlay {
   get footing(): { moving: boolean; running: boolean } { return { moving: this.open && this.me.speed > 0.2, running: this.open && this.me.speed > 3.6 }; }
 
   show(b: Building): void {
-    const sim = this.host.sim(), def = interiorFor(b.kind);
+    const sim = this.host.sim(), def = interiorForBuilding(b);
     this.b = b; this.def = def;
     this.crowd = new InteriorCrowd(def, sim, b);
     const p = sim.player;
@@ -162,6 +171,7 @@ export class InteriorOverlay {
   private use(): void {
     if (!this.def || !this.b) return;
     if (this.near) { this.activate(this.near); return; }
+    if (this.nearActor !== null) { this.chat(); return; }
     if (this.exitNear) this.close();
   }
 
@@ -170,13 +180,46 @@ export class InteriorOverlay {
     this.say(it.text, 7);
     const now = this.t, cd = this.cool.get(it.id) ?? 0;
     if (it.effect && now >= cd) {
-      this.cool.set(it.id, now + 25);
-      if (it.effect === "treat") { p.bleed = 0; p.emo.composure = 1; p.emo.fear = Math.max(0, p.emo.fear - 0.4); this.host.toast("Patched up. Public healthcare: free.", "acid"); }
-      else if (it.effect === "vend") { const cost = it.cost ?? 3; if (p.cash < cost) { this.host.toast(`Needs ${fmtCash(cost)}. You're short.`, "red"); this.cool.delete(it.id); } else { p.cash -= cost; p.emo.mood = Math.min(1, p.emo.mood + 0.08); p.needs.energy = Math.min(1, p.needs.energy + 0.06); this.host.toast(`-${fmtCash(cost)}. Snack acquired.`); } }
-      else if (it.effect === "rest") { p.needs.energy = Math.min(1, p.needs.energy + 0.18); p.emo.fear = Math.max(0, p.emo.fear - 0.2); p.emo.mood = Math.min(1, p.emo.mood + 0.04); this.host.toast("You feel a little better.", "acid"); }
-      else if (it.effect === "cuppa") { p.emo.mood = Math.min(1, p.emo.mood + 0.07); p.needs.social = Math.min(1, p.needs.social + 0.05); this.host.toast("A cuppa. Mood up."); }
+      const r = applyEffect(it.effect, p, { wage: sim.wagePerHour(p), worksHere: p.workplace === b.id, cost: it.cost });
+      if (r.ok) this.cool.set(it.id, now + r.cooldown);
+      this.host.toast(r.toast, r.tone);
+      this.hudAt = -9;
     } else if (it.effect && now < cd) this.host.toast("Give it a minute.");
     if (it.launch) this.host.launch(it.launch, b);
+  }
+
+  private static CHAT = [
+    "'Yeah, good, busy. You?'", "'Have you tried the thing by the window? Life-changing.'", "'Don't tell anyone, but the owner's selling up.'",
+    "'Saw you on the street before. You walk like you're late.'", "'I come here every day. Same seat. Don't take it.'", "'Did you hear what happened down by the river?'",
+    "'Mean shirt. Where'd you get it?'", "'I'm only here for the wifi, honestly.'",
+  ];
+  private chat(): void {
+    const sim = this.host.sim(), p = sim.player, id = this.nearActor!, key = `chat:${id}`;
+    const a = this.crowd?.actors.find((q) => q.id === id);
+    if ((this.cool.get(key) ?? 0) > this.t) { this.say(`${a?.name ?? "They"} gives you a polite nod. You've already talked.`, 4); return; }
+    this.cool.set(key, this.t + 40);
+    const seed = (typeof id === "number" ? id : id.length * 31) + Math.floor(this.t / 40);
+    this.say(`${a?.name ?? "Someone"}: ${InteriorOverlay.CHAT[seed % InteriorOverlay.CHAT.length]}`, 6);
+    p.needs.social = Math.min(1, p.needs.social + 0.12); p.needs.fun = Math.min(1, p.needs.fun + 0.03);
+    // a real local remembers you a little more fondly
+    if (typeof id === "number") { const c = sim.chars[id]; const r = c?.rel.get(p.id); if (r) { r.aff = Math.min(1, r.aff + 0.05); r.fam = Math.min(1, r.fam + 0.05); } }
+    this.host.toast("Chatted. Social up."); this.hudAt = -9;
+  }
+
+  private hud(): void {
+    if (this.t - this.hudAt < 0.5 || !this.def) return;
+    this.hudAt = this.t;
+    const p = this.host.sim().player, v: Record<string, number> = { hunger: p.hunger, energy: p.needs.energy, social: p.needs.social, fun: p.needs.fun };
+    for (const k in v) { const el = this.bars[k]; el.style.width = `${Math.round(v[k] * 100)}%`; el.className = v[k] < 0.25 ? "low" : v[k] < 0.5 ? "mid" : ""; }
+    const worst = Object.entries(v).sort((a, b) => a[1] - b[1])[0];
+    let want = "";
+    if (worst[1] < 0.5) {
+      const need = worst[0], me = this.me;
+      const fix = this.def.interactables.filter((i) => (i.effect && FEEDS[i.effect] === need) || (need === "hunger" && i.launch === "shop")).sort((a, b) => Math.hypot(a.x - me.x, a.y - me.y) - Math.hypot(b.x - me.x, b.y - me.y))[0];
+      const word = { hunger: "Hungry", energy: "Tired", social: "Lonely", fun: "Bored" }[need];
+      want = fix ? `${word}: try ${fix.label}` : need === "social" && this.crowd?.actors.length ? `${word}: talk to someone` : `${word}: nothing for that here`;
+    }
+    this.wantEl.textContent = want;
   }
 
   private say(text: string, secs: number): void {
@@ -233,6 +276,7 @@ export class InteriorOverlay {
       this.closeCheck = this.t;
       if (!isOpen(BUILDINGS[this.b.kind], sim.hour)) { this.host.toast(`${this.b.name} is closing. Out you go.`); this.close(); return; }
     }
+    this.hud();
     const st: ViewState = { t: this.t, hour: sim.hour, player: me, actors: people, near: best?.id ?? null, nearActor: this.nearActor, exitNear: this.exitNear };
     this.view.render(st, def);
     this.raf = requestAnimationFrame(this.loop);
