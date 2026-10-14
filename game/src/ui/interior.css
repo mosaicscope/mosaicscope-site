@@ -18,3 +18,14 @@
 .toasts { z-index: 7; }
 @media (max-height: 460px) { .iv-title { font-size: 16px; } .iv-cap { top: 52px; padding: 6px 10px; } .iv-touch { width: 55%; height: 80%; } }
 @media (prefers-reduced-motion: reduce) { .iv-prompt { transition: none; } }
+
+/* Sims-style needs panel */
+.iv-needs { position: absolute; left: 12px; top: 64px; width: 170px; padding: 8px 10px; border-radius: 10px; background: rgba(14, 12, 18, .72); color: #eee4d3; font: 600 11px/1.2 system-ui, sans-serif; pointer-events: none; display: grid; gap: 5px; z-index: 3; }
+.iv-need { display: grid; grid-template-columns: 52px 1fr; align-items: center; gap: 6px; text-transform: capitalize; }
+.iv-need b { display: block; height: 7px; border-radius: 4px; background: rgba(255,255,255,.14); overflow: hidden; }
+.iv-need i { display: block; height: 100%; width: 50%; background: #6fe3b0; transition: width .4s ease; }
+.iv-need i.mid { background: #f6b62c; }
+.iv-need i.low { background: #ec2a1c; }
+.iv-want { color: #f6b62c; min-height: 1em; font-weight: 700; }
+.iv-want:empty { display: none; }
+@media (max-width: 560px) { .iv-needs { width: 140px; top: 58px; font-size: 10px; } }

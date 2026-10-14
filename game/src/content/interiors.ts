@@ -57,7 +57,7 @@ export const PROP_INFO: Record<PropType, PropInfo> = {
 export interface Prop { type: PropType; x: number; y: number; w: number; h: number; color: string; material?: FloorMat | "metal" | "glass" | "fabric" | "wood"; label?: string }
 export interface Zone { id: string; name: string; x: number; y: number; w: number; h: number; floor: FloorMat; color: string }
 export type Launch = "legacy" | "police" | "putahi" | "shop" | "dealership" | "gallery" | "photospot" | "repwall" | "gallerywall";
-export type Effect = "treat" | "vend" | "rest" | "cuppa";
+export type Effect = "treat" | "vend" | "rest" | "cuppa" | "eat" | "sit" | "wash" | "workout" | "play" | "browse" | "work" | "dance" | "read" | "music";
 export interface Interactable { id: string; label: string; x: number; y: number; text: string; launch?: Launch; effect?: Effect; cost?: number }
 export type SpotDoing = "queue" | "sit" | "stand" | "work" | "browse" | "lie" | "phone" | "talk";
 export interface Spot { x: number; y: number; doing: SpotDoing; face: "n" | "e" | "s" | "w"; group?: string }
