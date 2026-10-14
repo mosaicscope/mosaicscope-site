@@ -7,6 +7,8 @@ import type { Simulation } from "../../sim/Simulation";
 import { moodWord } from "../needs";
 import { LORE } from "../../content/lore";
 import { repLine } from "../../sim/Rep";
+import { hurtOf } from "../../sim/Life";
+import { buzz } from "../../content/buzz";
 
 export const WORLD_PROMPT = [
   "You are the mind of one character in \"The Mosaics: Our World\", a living, isometric stick-figure parody of central Christchurch, New Zealand.",
@@ -110,6 +112,18 @@ export function characterCard(c: Character, sim: Simulation): string {
     `It's ${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}, ${env.join(", ")}. You're at ${area?.name ?? "the street"}.`,
     ties.length ? `People who matter to you: ${ties.join(", ")}.` : "",
     repLine(c, sim),
+    ...livedLines(c, sim),
   ];
   return lines.filter(Boolean).join("\n");
+}
+
+/** What this person has just lived through, for every AI prompt about them: their body, the street, the town. */
+export function livedLines(c: Character, sim: Simulation): string[] {
+  return [
+    (() => { const h = hurtOf(c); return h.total ? `Your body: ${[h.leg && "a hurt leg (limping)", h.torso && "a hurt side", h.head && "a sore head (dizzy)", h.arm && "a hurt arm"].filter(Boolean).join(", ")}${c.bleed > 0 ? ", bleeding" : ""}.` : ""; })(),
+    c.lastHitBy <= -100 && sim.tick - c.lastHitTick < 60 * 60 * 3 ? "A car hit you earlier today; you're jumpy around traffic." : "",
+    (() => { const v = c.inCar >= 0 ? sim.vehicles[c.inCar] : null; return v && v.damage > 0.3 ? `You're driving a banged-up car (${Math.round(v.damage * 100)}% damaged).` : ""; })(),
+    (() => { const e = sim.events.history.slice(-40).reverse().find((e) => (e.type === "car_crash" || e.type === "car_hit") && Math.hypot(e.x - c.x, e.y - c.y) < 14); return e ? `You just saw this nearby: ${e.summary}.` : ""; })(),
+    buzz.length ? `Something people around town are talking about: "${buzz[(c.id + Math.floor(sim.tick / 3600)) % buzz.length].title}" (mention it only if it fits, never say where you heard it).` : "",
+  ];
 }

@@ -1,3 +1,4 @@
+import { livedLines } from "../ai/llm/context";
 import { buzz, buzzOpener, buzzFeel, BUZZ_REPLIES } from "../content/buzz";
 import type { Simulation } from "../sim/Simulation";
 import { Character, Memory, Phys } from "../entities/types";
@@ -382,6 +383,7 @@ export class DialogueEngine {
       npc.catchphrase ? `Your catchphrase (use rarely): "${npc.catchphrase}"` : "",
       `Right now: it's ${time}${t.rain ? ", raining" : ""}${t.party ? ", there's a party on" : ""}. You're at ${t.place}, ${GOAL_TEXT[t.goal] ?? "hanging around"}. You feel ${mood}.`,
       mems.length ? `Things you know about: ${mems.join("; ")}.` : "",
+      ...livedLines(npc, sim),
       `You're talking to the player, who is ${you}.${them.length ? " About them: " + them.join(", ") + "." : ""}`,
       "The story so far (stay consistent with it, but only bring it up if it fits):\n" + LORE,
       "Reply with ONE short spoken line (1 or 2 sentences, under 30 words). Casual Kiwi slang is fine. No narration, no actions in asterisks, no quotes, don't start with your own name. Swearing is fine when it suits your character; write swear words in full, never bleeped or starred out. No slurs, nothing sexual. Never mention being an AI or a game.",
