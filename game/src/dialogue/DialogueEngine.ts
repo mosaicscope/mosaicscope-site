@@ -109,7 +109,14 @@ export class DialogueEngine {
 
   /** Every spoken line goes through the town's mouth: some people swear a lot (see swear.ts). The player's own lines are left alone. */
   private foul(text: string, speaker: Character): string {
-    return speaker.tier === "player" ? text : swear(text, speaker, () => this.sim.rng.next());
+    return speaker.tier === "player" ? text : swear(text, speaker, () => this.swearRoll());
+  }
+  /** Swearing only changes words, so it has its own random stream and never shifts what the sim does next. */
+  private swearSeed = 0x9e3779b9;
+  private swearRoll(): number {
+    let t = (this.swearSeed = (this.swearSeed + 0x6d2b79f5) | 0);
+    t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   }
 
   /** A line about MosaicScope using real posts and prices. Returns the post it mentions (if any). */
