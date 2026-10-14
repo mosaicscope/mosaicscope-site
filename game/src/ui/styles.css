@@ -369,3 +369,13 @@ html.cb { --red: #d55e00; --acid: #56b4e9; --gold: #e69f00; --pink: #cc79a7; --c
 .brain-status { margin-left: auto; font-size: calc(11px * var(--ts)); color: var(--dim); }
 .brain-drop { border: 1px dashed var(--line); border-radius: 8px; padding: 14px; margin: 8px 0; text-align: center; cursor: pointer; font-size: calc(12px * var(--ts)); }
 .brain-drop:focus-visible, .brain-drop:hover { border-color: var(--acid); }
+/* typed chat (only when an AI brain is connected) */
+.dialogue .chatbox { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.dialogue .chatlog { max-height: 7.5em; overflow-y: auto; font-size: calc(14px * var(--ts)); line-height: 1.35; }
+.dialogue .chatlog:empty { display: none; }
+.dialogue .chatlog p { margin: 2px 0; }
+.dialogue .chatlog p.you b { color: var(--acid); }
+.dialogue .chatlog p.typing { opacity: 0.6; font-style: italic; }
+.dialogue .chat { display: flex; gap: 6px; margin-top: 6px; }
+.dialogue .chat input { flex: 1; min-width: 0; font-size: 16px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--ink2); color: inherit; }
+.dialogue .chat input:focus-visible { outline: none; border-color: var(--acid); }

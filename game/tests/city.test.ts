@@ -17,7 +17,7 @@ describe("city layout", () => {
   it("every building door is reachable and the key places exist", () => {
     const seen = reachableMask(sim.world);
     for (const b of sim.world.buildings) expect(seen[b.door.y * sim.world.size + b.door.x], b.name).toBe(1);
-    for (const k of ["casino", "police", "dealership", "gallery", "hospital", "pizza", "dairy", "toyshop", "pawn", "stripclub", "velvet"]) expect(sim.world.buildings.some((b) => b.kind === k), k).toBe(true);
+    for (const k of ["casino", "police", "dealership", "gallery", "hospital", "pizza", "dairy", "toyshop", "pawn", "stripclub", "velvet", "hellkitchen"]) expect(sim.world.buildings.some((b) => b.kind === k), k).toBe(true);
   });
   it("has the clubs and Hagley Park's zoo corner", () => {
     const w = sim.world;

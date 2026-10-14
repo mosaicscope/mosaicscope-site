@@ -57,7 +57,8 @@ Pick-up, drop, throw and talk keys can be remapped in Settings.
 - **Social graph**: sparse per-person edges for familiarity, trust, affection, respect, fear, rivalry, grudge, shared experiences and favours. Friend groups have leaders, reputations shift with what witnesses see, and characters reconcile.
 - **Information provenance**: people only talk about what they saw, were told or heard as a rumour, and they say which. Credibility drops with each retelling and with how honest the teller is.
 - **Dialogue**: 72 context-conditioned templates (228 lines) with repetition prevention, plus NPC-to-NPC conversations that have consequences (gossip, disputes, apologies, escalating arguments).
-  - The player dialogue UI lets you ask for news, ask opinions, broker peace, give or ask for toys, compliment, tease, or challenge someone to a toy fight.
+  - The player dialogue UI offers up to five things to say, chosen for the moment: who the person is (a barista, a cop, a tourist...), who you are to them (stranger, friend, enemy, partner), what they're doing (eating, skating, busking, partying...), how they feel (scared, angry, hurt, happy) and what's going on (rain, late night, a fight they just saw). Answers unlock follow-ups and nothing is asked twice, so it plays like a real back-and-forth. The classics are still in the mix: news, opinions, brokering peace, gifts, trades, flirting, teasing and toy fights.
+  - With an AI brain connected (Settings → Brains: Ollama, Claude, ChatGPT and the rest), a text box appears under the choices on phones and computers: type anything and the person answers in character, from their real mood, job, activity, memories and feelings about you. Insults and kindness you type still count socially. Without a brain it's choices only.
   - Everything is deterministic and works offline. No AI service is used.
 - **The world**: a seeded generator builds the Plaza, Park, Court, Market, After Hours Yard, Studio (building interior), Playground, Alley and the Street ring. Connectivity is guaranteed, so decoration never blocks a path.
   - Day and night run at one game hour per real minute. Weather follows a Markov chain (rain sends people to shelter; storms bring lightning and blackouts).
@@ -169,7 +170,7 @@ Without a GPU, the browser's rasterisation cost dominates. A normal desktop with
 - Pathfinding is single-level grid A*; there's no hierarchical pathfinding (the world is 64×64).
 - Saves cover dynamic state. The in-progress plans of characters are dropped on load and replanned.
 - Audio is synthesised blips, not recorded sound.
-- No multiplayer, and no language model. Dialogue is deterministic templates, by design.
+- No multiplayer. Without a brain connected, dialogue is deterministic templates; a connected brain only picks goals for the Mosaics and voices typed chat.
 - Browser numbers above come from software rendering only. GPU-backed and mobile performance hasn't been measured.
 
 See [ROADMAP.md](ROADMAP.md) for what's planned and [FEATURE_CATALOGUE.md](FEATURE_CATALOGUE.md) for the full catalogue.

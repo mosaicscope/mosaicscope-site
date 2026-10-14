@@ -9,7 +9,7 @@
  *
  * Positional (pan + distance falloff, with a flatter side-on mix for the 2D street view), a hard cap on
  * live one-shot voices, and a smaller pool on phones. It sits on its own bus: its own mute and volume,
- * separate from the soundtrack (N mutes music only; J mutes this).
+ * on its own bus (J mutes it).
  *
  * Everything above `Diegetic` is pure so it can be tested without an AudioContext.
  */

@@ -9,6 +9,10 @@ import { MOSAIC, PLUG_LINES, captionLine } from "../content/mosaicscope";
 import { receptive, addLove, loveOf, getTogether, onGossip, attracted, kiss } from "../sim/Romance";
 import { ROLE_LABEL } from "../content/names";
 import { Director, readSecs } from "./director";
+import { TalkState, TOPIC_BY_ID, answerTopic, rankTopics, talkCtx } from "./playerTalk";
+import { LORE } from "../content/lore";
+import { swear } from "./swear";
+import { repLine } from "../sim/Rep";
 
 /**
  * Structured, deterministic dialogue. Lines are chosen from templates whose conditions match the
@@ -33,6 +37,8 @@ export class DialogueEngine {
   /** global template cooldown */
   private lastUse = new Map<string, number>();
   playerTarget = -1;
+  /** where the current player conversation has got to: what was just asked, what's already been covered */
+  talk: TalkState = { last: null, used: new Set(), turn: 0 };
   readonly director: Director;
   constructor(private sim: Simulation) { this.director = new Director(sim); }
 
@@ -98,7 +104,19 @@ export class DialogueEngine {
     recent.push(pick.k); if (recent.length > 8) recent.shift();
     this.recent.set(c.s.id, recent);
     this.lastUse.set(t.id, sim.tick);
-    return this.fill(pick.l, c);
+    return this.foul(this.fill(pick.l, c), c.s);
+  }
+
+  /** Every spoken line goes through the town's mouth: some people swear a lot (see swear.ts). The player's own lines are left alone. */
+  private foul(text: string, speaker: Character): string {
+    return speaker.tier === "player" ? text : swear(text, speaker, () => this.swearRoll());
+  }
+  /** Swearing only changes words, so it has its own random stream and never shifts what the sim does next. */
+  private swearSeed = 0x9e3779b9;
+  private swearRoll(): number {
+    let t = (this.swearSeed = (this.swearSeed + 0x6d2b79f5) | 0);
+    t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   }
 
   /** A line about MosaicScope using real posts and prices. Returns the post it mentions (if any). */
@@ -183,7 +201,7 @@ export class DialogueEngine {
     }
     s.needs.social = Math.min(1, s.needs.social + 0.1); l.needs.social = Math.min(1, l.needs.social + 0.07);
     if (conv.turn === (conv.script?.length ?? 0) - 1 && s.pers.playfulness > 0.5) { applyInteraction(l, s, "joke", true, tick); }
-    return conv.script?.[conv.turn] ?? "";
+    return this.foul(conv.script?.[conv.turn] ?? "", s);
   }
 
   /** One utterance with its consequences. Returns the text said. */
@@ -287,32 +305,94 @@ export class DialogueEngine {
   }
 
   // ---------------- Player <-> NPC ----------------
+  /**
+   * What you can say right now: the special moves (gifts, trades, flirting, peace-making) and the conversation
+   * topics from playerTalk, all scored against who this person is, who you are to them and what's going on.
+   * The best few are offered, plus a way out; follow-ups of what was just said float to the top.
+   */
   playerOptions(npc: Character): PlayerOption[] {
-    const sim = this.sim, p = sim.player;
-    const o: PlayerOption[] = [
-      { id: "news", label: "What's been happening?" },
-      { id: "about", label: "Tell me about yourself." },
-    ];
+    const sim = this.sim, p = sim.player, st = this.talk;
+    const t = talkCtx(sim, npc, st);
+    const cand: (PlayerOption & { score: number })[] = [];
+    const add = (id: string, label: string, score: number) => { if (score > 0 && !st.used.has(id.split(":")[0])) cand.push({ id, label, score: score + sim.rng.next() * 0.2 }); };
+    const vary = (...a: string[]) => a[(npc.id + st.turn) % a.length];
+    add("news", vary("What's been happening?", "Heard any goss?", "What's the word on the street?"), npc.memories.some((m) => m.kind !== "talked" && Math.abs(m.val) > 0.1) ? 0.6 : 0.3);
+    add("about", t.stranger ? vary("Who are you, then?", "Tell me about yourself.") : vary("Tell me about yourself.", "What's your story?"), t.stranger ? 0.7 : 0.35);
     let other = -1, os = 0;
     for (const [id, r] of npc.rel) if (id !== p.id && sim.chars[id]?.tier === "principal" && Math.abs(friendship(r)) + hostility(r) > os) { os = Math.abs(friendship(r)) + hostility(r); other = id; }
-    if (other >= 0) o.push({ id: "opinion:" + other, label: `What do you think of ${sim.chars[other].name}?` });
+    if (other >= 0) add("opinion:" + other, vary(`What do you think of ${sim.chars[other].name}?`, `What's the deal with ${sim.chars[other].name}?`), 0.25 + os * 0.4);
     let grudge = -1;
     for (const [id, r] of npc.rel) if (id !== p.id && r.grudge > 0.2 && sim.chars[id]) { grudge = id; break; }
-    if (grudge >= 0) o.push({ id: "peace:" + grudge, label: `Make up with ${sim.chars[grudge].name}.` });
-    if (p.hand >= 0) o.push({ id: "give", label: `Here, have my ${TOYS[sim.toys[p.hand].def].name}.` });
-    if (npc.hand >= 0) o.push({ id: "ask", label: `Can I have your ${TOYS[sim.toys[npc.hand].def].name}?` });
-    if (p.hand >= 0 && TOYS[sim.toys[p.hand].def].uses.some((u) => u === "melee" || u === "throw")) o.push({ id: "duel", label: "Toy fight. You and me." });
-    o.push({ id: "mosaic", label: "What's MosaicScope?" });
+    if (grudge >= 0) add("peace:" + grudge, vary(`Make up with ${sim.chars[grudge].name}.`, `Just talk to ${sim.chars[grudge].name}, eh?`), 0.65);
+    if (p.hand >= 0) add("give", `Here, have my ${TOYS[sim.toys[p.hand].def].name}.`, t.sad || t.friend > 0.3 ? 0.55 : 0.3);
+    if (npc.hand >= 0) add("ask", `Can I have your ${TOYS[sim.toys[npc.hand].def].name}?`, 0.35);
+    if (p.hand >= 0 && TOYS[sim.toys[p.hand].def].uses.some((u) => u === "melee" || u === "throw")) add("duel", t.hostile > 0.3 ? "Want to settle this? Toy fight." : "Toy fight. You and me.", 0.2 + t.hostile * 0.6 + npc.pers.playfulness * 0.2);
+    add("mosaic", "What's MosaicScope?", npc.tier === "principal" || npc.role === "photographer" || npc.role === "model" ? 0.7 : 0.3);
     if (npc.attractedTo.includes(p.look.kind) && npc.tier !== "background") {
-      if (npc.partner === p.id) o.push({ id: "kiss", label: "Kiss" }, { id: "dateme", label: "Let's go on a date." });
-      else o.push({ id: "flirt", label: "You've got a great smile." });
-      if (npc.partner !== p.id && loveOf(npc, p.id) > 0.45) o.push({ id: "askout", label: "Want to go out sometime?" });
+      if (npc.partner === p.id) { add("kiss", "Kiss", 0.7); add("dateme", vary("Let's go on a date.", "Come walk with me."), 0.6); }
+      else add("flirt", vary("You've got a great smile.", "Has anyone told you you're stunning?", "Come here often?"), t.hostile > 0.3 || t.scared ? 0.1 : 0.5);
+      if (npc.partner !== p.id && loveOf(npc, p.id) > 0.45) add("askout", "Want to go out sometime?", 0.8);
     }
-    if (npc.tier !== "background" || npc.promoted) o.push({ id: "trade", label: "Want to trade?" });
-    if (npc.role === "cop") o.push({ id: "crime", label: "Any trouble around here?" });
-    o.push({ id: "compliment", label: "Love the fit." }, { id: "tease", label: "Nice hat. Did your nan knit it?" }, { id: "bye", label: "Later." });
+    if (npc.tier !== "background" || npc.promoted) add("trade", "Want to trade?", ["shopkeeper", "vendor", "smuggler", "thief"].includes(npc.role) ? 0.6 : 0.25);
+    if (npc.role === "cop") add("crime", "Any trouble around here?", 0.7);
+    add("compliment", vary("Love the fit.", "You've got good taste.", "Nice shoes."), t.sad ? 0.45 : 0.25);
+    add("tease", vary("Nice hat. Did your nan knit it?", "Did you get dressed in the dark?", "Bold choice, that outfit."), t.friend > 0.4 ? 0.3 : t.hostile > 0.3 ? 0.25 : 0.12);
+    for (const r of rankTopics(t)) cand.push(r);
+    cand.sort((a, b) => b.score - a.score);
+    // never more than five things to say, plus a way out
+    const o = cand.slice(0, 5).map(({ id, label }) => ({ id, label }));
+    o.push({ id: "bye", label: st.turn >= 3 ? vary("Anyway, I'll let you go.", "Good talk. Later.", "Catch you round.") : vary("Later.", "See ya.", "Gotta run.") });
     return o;
   }
+
+  /**
+   * Everything a language model needs to play this person in a typed conversation: who they are, how they
+   * feel, what they're doing, what they know and what they think of you. Facts only from the sim's state.
+   */
+  persona(npc: Character): string {
+    const sim = this.sim, p = sim.player, t = talkCtx(sim, npc, this.talk);
+    const pr = npc.pers;
+    const traits = [pr.kindness > 0.65 ? "kind" : pr.kindness < 0.35 ? "a bit mean" : "", pr.temper > 0.65 ? "hot-headed" : pr.temper < 0.3 ? "chill" : "", pr.playfulness > 0.6 ? "jokey" : "", pr.boldness > 0.65 ? "bold" : pr.boldness < 0.3 ? "timid" : "", pr.sociability > 0.65 ? "chatty" : pr.sociability < 0.3 ? "a loner" : "", pr.honesty > 0.7 ? "honest" : pr.honesty < 0.3 ? "a bit shifty" : ""].filter(Boolean);
+    const mood = t.scared ? "scared" : t.angry ? "angry" : t.hurt ? "hurt and sore" : t.happy ? "in a good mood" : t.sad ? "a bit down" : "fine";
+    const you = t.partner ? "your partner, you love them" : t.stranger ? "a stranger you've never met" : t.hostile > 0.5 ? "someone you can't stand" : t.hostile > 0.25 ? "someone you're annoyed with" : t.friend > 0.5 ? "a close friend" : t.friend > 0.2 ? "someone you like" : "someone you know a little";
+    const job = npc.role === "local" ? "a local" : `a ${ROLE_LABEL[npc.role]}`;
+    const mems = npc.memories.filter((m) => m.kind !== "talked" && Math.abs(m.val) > 0.1).sort((a, b) => b.t - a.t).slice(0, 3).map((m) => this.describe(m, npc));
+    const time = t.hour < 5 ? "the middle of the night" : t.hour < 12 ? "morning" : t.hour < 17 ? "afternoon" : t.hour < 21 ? "evening" : "late at night";
+    const them: string[] = [];
+    if (p.wanted > 0) them.push("the police are after them");
+    if (p.blood < 0.7) them.push("they look beaten up");
+    if (p.hand >= 0) them.push(`they're holding a ${TOYS[sim.toys[p.hand].def].name}`);
+    return [
+      `You are ${npc.name}, ${job} in a cartoon stick-figure version of Christchurch, New Zealand. Stay in character as ${npc.name} at all times.`,
+      npc.bio ? `About you: ${npc.bio}` : "",
+      repLine(npc, sim),
+      traits.length ? `Personality: ${traits.join(", ")}.` : "",
+      npc.catchphrase ? `Your catchphrase (use rarely): "${npc.catchphrase}"` : "",
+      `Right now: it's ${time}${t.rain ? ", raining" : ""}${t.party ? ", there's a party on" : ""}. You're at ${t.place}, ${GOAL_TEXT[t.goal] ?? "hanging around"}. You feel ${mood}.`,
+      mems.length ? `Things you know about: ${mems.join("; ")}.` : "",
+      `You're talking to the player, who is ${you}.${them.length ? " About them: " + them.join(", ") + "." : ""}`,
+      "The story so far (stay consistent with it, but only bring it up if it fits):\n" + LORE,
+      "Reply with ONE short spoken line (1 or 2 sentences, under 30 words). Casual Kiwi slang is fine. No narration, no actions in asterisks, no quotes, don't start with your own name. Swearing is fine when it suits your character; write swear words in full, never bleeped or starred out. No slurs, nothing sexual. Never mention being an AI or a game.",
+    ].filter(Boolean).join("\n");
+  }
+
+  /** The player typed something. Social consequences use simple cues; the words themselves come from the model. */
+  playerTyped(npc: Character, text: string): void {
+    const sim = this.sim, p = sim.player, tick = sim.tick, s = text.toLowerCase();
+    npc.needs.social = Math.min(1, npc.needs.social + 0.05);
+    if (/\b(idiot|stupid|ugly|loser|shut up|dumb|hate you|moron)\b/.test(s)) {
+      applyInteraction(npc, p, "insult", true, tick);
+      remember(npc, { t: tick, kind: "insulted_by", subj: p.id, obj: npc.id, toy: null, area: sim.world.areaAt(npc.x, npc.y)?.id ?? 0, val: -0.35, ev: -1, src: "did" });
+      sim.playerAct("teased", npc);
+    } else if (/\b(love|awesome|amazing|beautiful|cool|great|legend|thanks|thank you|nice|sorry)\b/.test(s)) {
+      applyInteraction(npc, p, "compliment", true, tick);
+      npc.emo.mood = Math.min(1, npc.emo.mood + 0.05);
+    } else applyInteraction(npc, p, "talk", true, tick);
+    this.talk.turn++;
+  }
+
+  /** A built-in answer when the model is slow or unreachable, so typing never leaves you hanging. */
+  typedFallback(npc: Character): string { return this.line("reply", this.ctx(npc, this.sim.player)); }
 
   playerOpen(npc: Character): PlayerReply {
     const sim = this.sim, p = sim.player;
@@ -320,6 +400,7 @@ export class DialogueEngine {
     if (busyNow) { const text = this.bark(npc, "p_busy", p); sim.say(npc, text, "say", 2); return { speaker: npc.name, text, options: [], ended: true }; }
     if (npc.talkWith >= 0) this.end(npc);
     npc.talkWith = p.id; p.talkWith = npc.id; this.playerTarget = npc.id;
+    this.talk = { last: null, used: new Set(), turn: 0 };
     npc.stats.talks++;
     applyInteraction(npc, p, "talk", true, sim.tick);
     // a short authored back-and-forth (them, then you) before your options appear
@@ -336,6 +417,15 @@ export class DialogueEngine {
     let text = "...", ended = false;
     const [id, arg] = optId.split(":");
     const c = (extra: Partial<LineCtx> = {}) => this.ctx(npc, p, extra);
+    if (TOPIC_BY_ID.has(id)) {
+      text = this.foul(answerTopic(talkCtx(sim, npc, this.talk), id), npc);
+      applyInteraction(npc, p, "talk", true, tick);
+      npc.needs.social = Math.min(1, npc.needs.social + 0.04);
+      sim.say(npc, text, "say", readSecs(text));
+      return { speaker: npc.name, text, options: this.playerOptions(npc), ended: false };
+    }
+    // the special moves count as covered too, so the next options move the conversation on
+    if (id !== "bye" && id !== "trade" && id !== "mosaic") { this.talk.used.add(id); this.talk.last = id; this.talk.turn++; }
     switch (id) {
       case "news": {
         // only things the NPC actually knows, phrased by provenance

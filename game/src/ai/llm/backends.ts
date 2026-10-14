@@ -1,7 +1,11 @@
 // Three ways to reach a model. Each returns a Chooser: (system, user) -> reply text.
 // Nothing here runs unless the page is opened with ?llm=... (see index.ts), so the default stays offline.
 
-export type Chooser = (system: string, user: string) => Promise<string>;
+/** Optional knobs: goal picks want one number (8 tokens, temperature 0); player chat wants a sentence or two. */
+export interface AskOpts { maxTokens?: number; temperature?: number }
+export type Chooser = (system: string, user: string, opts?: AskOpts) => Promise<string>;
+const toks = (o?: AskOpts) => o?.maxTokens ?? 8;
+const temp = (o?: AskOpts) => o?.temperature ?? 0;
 
 const REQUEST_TIMEOUT_MS = 8000;
 
@@ -20,12 +24,12 @@ async function postJson(url: string, body: unknown): Promise<string> {
 
 /** A. Hugging Face Inference via our Cloudflare Worker (game/llm-worker). The token never reaches the browser. */
 export function hfWorkerChooser(url: string): Chooser {
-  return (system, user) => postJson(url, { system, user });
+  return (system, user, o) => postJson(url, { system, user, max_tokens: toks(o), temperature: temp(o) });
 }
 
 /** C (local, Node). A small HTTP server wrapping a GGUF file through node-llama-cpp (game/scripts/llm-local.mjs). */
 export function localGgufChooser(url = "http://127.0.0.1:8787/chat"): Chooser {
-  return (system, user) => postJson(url, { system, user });
+  return (system, user, o) => postJson(url, { system, user, max_tokens: toks(o), temperature: temp(o) });
 }
 
 // Pinned so a CDN change cannot silently swap the code the page runs.
@@ -38,11 +42,11 @@ export async function webLlmChooser(model = WEBLLM_DEFAULT_MODEL): Promise<Choos
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const webllm: any = await import(/* @vite-ignore */ url);
   const engine = await webllm.CreateMLCEngine(model);
-  return async (system, user) => {
+  return async (system, user, o) => {
     const out = await engine.chat.completions.create({
       messages: [{ role: "system", content: system }, { role: "user", content: user }],
-      max_tokens: 8,
-      temperature: 0,
+      max_tokens: toks(o),
+      temperature: temp(o),
     });
     return String(out.choices?.[0]?.message?.content ?? "");
   };
@@ -65,13 +69,13 @@ export async function listOllamaModels(url = OLLAMA_DEFAULT_URL, key?: string): 
 
 export function ollamaChooser(model: string, url = OLLAMA_DEFAULT_URL, key?: string): Chooser {
   const base = url.replace(/\/$/, "");
-  return async (system, user) => {
+  return async (system, user, o) => {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 20000); // first call may load the model into memory
     try {
       const r = await fetch(`${base}/api/chat`, {
         method: "POST", headers: ollamaHeaders(key), signal: ctrl.signal,
-        body: JSON.stringify({ model, stream: false, messages: [{ role: "system", content: system }, { role: "user", content: user }], options: { temperature: 0, num_predict: 8 } }),
+        body: JSON.stringify({ model, stream: false, messages: [{ role: "system", content: system }, { role: "user", content: user }], options: { temperature: temp(o), num_predict: toks(o) } }),
       });
       if (!r.ok) throw new Error(`ollama ${r.status}`);
       const j = (await r.json()) as { message?: { content?: string } };
@@ -86,11 +90,11 @@ export function ollamaChooser(model: string, url = OLLAMA_DEFAULT_URL, key?: str
 
 /** Calls Hugging Face with the viewer's own token. The token stays in this browser only. */
 export function hfDirectChooser(token: string, model: string): Chooser {
-  return async (system, user) => {
+  return async (system, user, o) => {
     const r = await fetch("https://router.huggingface.co/v1/chat/completions", {
       method: "POST",
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: JSON.stringify({ model, messages: [{ role: "system", content: system }, { role: "user", content: user }], max_tokens: 8, temperature: 0 }),
+      body: JSON.stringify({ model, messages: [{ role: "system", content: system }, { role: "user", content: user }], max_tokens: toks(o), temperature: temp(o) }),
     });
     if (!r.ok) throw new Error(`hf ${r.status}`);
     const j = (await r.json()) as { choices?: { message?: { content?: string } }[] };
@@ -111,10 +115,10 @@ export async function ggufFileChooser(file: Blob): Promise<Chooser> {
     "multi-thread/wllama.wasm": `${base}/esm/multi-thread/wllama.wasm`,
   });
   await wllama.loadModel([file], { n_ctx: 1024 });
-  return async (system, user) => {
+  return async (system, user, o) => {
     const out = await wllama.createChatCompletion(
       [{ role: "system", content: system }, { role: "user", content: user }],
-      { nPredict: 8, sampling: { temp: 0 } },
+      { nPredict: toks(o), sampling: { temp: temp(o) } },
     );
     return String(out ?? "");
   };
@@ -132,13 +136,13 @@ export async function claudeChooser(apiKey: string, model = CLAUDE_DEFAULT_MODEL
   const mod: any = await import(/* @vite-ignore */ `https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@${ANTHROPIC_SDK_VERSION}/+esm`);
   const Anthropic = mod.default ?? mod.Anthropic;
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
-  return async (system, user) => {
+  return async (system, user, o) => {
     const res = await client.beta.messages.create({
       model,
-      max_tokens: 256,
+      max_tokens: Math.max(256, toks(o) * 4),
       system,
       messages: [{ role: "user", content: user }],
-      output_config: { effort: "low" }, // a one-number pick: shallow thinking is enough
+      output_config: { effort: "low" }, // a one-number pick or a line of chat: shallow thinking is enough
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default", // a safety decline re-runs on a fallback model instead of stopping
     });
@@ -158,11 +162,11 @@ export const OPENAI_COMPAT_PRESETS: { id: string; label: string; url: string; mo
 
 export function openAiCompatChooser(baseUrl: string, apiKey: string, model: string): Chooser {
   const base = baseUrl.replace(/\/$/, "");
-  return async (system, user) => {
+  return async (system, user, o) => {
     const r = await fetch(`${base}/chat/completions`, {
       method: "POST",
       headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ model, messages: [{ role: "system", content: system }, { role: "user", content: user }], max_tokens: 8, temperature: 0 }),
+      body: JSON.stringify({ model, messages: [{ role: "system", content: system }, { role: "user", content: user }], max_tokens: toks(o), temperature: temp(o) }),
     });
     if (!r.ok) throw new Error(`api ${r.status}`);
     const j = (await r.json()) as { choices?: { message?: { content?: string } }[] };

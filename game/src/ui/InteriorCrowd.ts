@@ -127,6 +127,7 @@ export class InteriorCrowd {
     if (idx < 0) idx = this.pick(this.freeSpots((s) => s.doing !== "work" && s.group !== "cell" && s.doing !== "lie"), hash(c.id, 9));
     if (idx < 0) idx = this.pick(this.freeSpots((s) => s.group !== "cell" && s.doing !== "lie"), c.id);
     const p = this.spawn(key, c.look, c.name, c.id, group, c.id, c.style || "normal", t);
+    p.char = c;
     this.assign(p, idx, t, t < 1.2);
   }
 
@@ -135,6 +136,7 @@ export class InteriorCrowd {
     const idx = staff ? this.pick(this.freeSpots((sp) => sp.doing === "work"), h) : this.pick(this.freeSpots((sp) => sp.doing !== "work" && sp.group !== "cell" && (sp.doing !== "lie" || unit(h) < 0.5)), h);
     if (idx < 0) return;
     const p = this.spawn((staff ? "as" : "av") + seed, this.lookFor(h, staff), undefined, -1, staff ? "staff" : "visit", seed, "normal", t);
+    p.staff = staff;
     this.assign(p, idx, t, t < 1.2);
     if (staff) p.until = t + 1e9;
   }

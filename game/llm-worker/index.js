@@ -1,4 +1,4 @@
-// Cloudflare Worker: proxies one short "pick a number" call to a Hugging Face model, so the token stays server-side.
+// Cloudflare Worker: proxies one short call (a "pick a number" goal choice, or a line of player chat) to a Hugging Face model, so the token stays server-side.
 // Secrets: HF_TOKEN. Vars (wrangler.toml): LLM_MODEL, ALLOWED_ORIGIN.
 // Route it under the site's /llm/pick path so the game's default endpoint works.
 
@@ -19,6 +19,9 @@ export default {
     const system = String(body.system ?? "").slice(0, MAX_CHARS);
     const user = String(body.user ?? "").slice(0, MAX_CHARS);
     if (!user) return new Response("missing user", { status: 400, headers: cors });
+    // capped so a visitor can't run up the owner's bill: a chat line is a sentence or two
+    const maxTokens = Math.max(1, Math.min(160, Number(body.max_tokens) || 8));
+    const temperature = Math.max(0, Math.min(1, Number(body.temperature) || 0));
 
     const r = await fetch("https://router.huggingface.co/v1/chat/completions", {
       method: "POST",
@@ -26,8 +29,8 @@ export default {
       body: JSON.stringify({
         model: env.LLM_MODEL,
         messages: [{ role: "system", content: system }, { role: "user", content: user }],
-        max_tokens: 8,
-        temperature: 0,
+        max_tokens: maxTokens,
+        temperature,
       }),
     });
     if (!r.ok) return new Response("upstream " + r.status, { status: 502, headers: cors });
