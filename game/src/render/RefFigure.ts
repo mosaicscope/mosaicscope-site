@@ -369,7 +369,15 @@ function drawRefHead(g: Ctx, c: Character, M: ModelSpec, P: FacePlan, mood: Mood
       else if (F.mouth === "smirk") { g.moveTo(mx - mw * 0.6, my + mw * 0.05); g.quadraticCurveTo(mx + mw * 0.1, my + mw * 0.2, mx + mw * 0.7, my - mw * 0.25); }
       else if (F.mouth === "frown") { g.moveTo(mx - mw * 0.6, my + mw * 0.2); g.quadraticCurveTo(mx, my - mw * 0.25, mx + mw * 0.6, my + mw * 0.2); }
       else if (F.mouth === "o") { g.arc(mx, my, mw * 0.3, 0, 6.283); }
-      else { // the comic resting mouth: a big open smile with teeth and a tongue, like the reference
+      else if ((c.emo?.mood ?? 0) < 0.2) {
+        // not everyone is grinning: a closed mouth that follows the mood, varied per person
+        const m = c.emo?.mood ?? 0, v = (Math.imul(c.id + 7, 2654435761) >>> 0) % 3;
+        if (m < -0.15) { g.moveTo(mx - mw * 0.55, my + mw * 0.15); g.quadraticCurveTo(mx, my - mw * 0.15, mx + mw * 0.55, my + mw * 0.15); }   // a bit down
+        else if (v === 0) { g.moveTo(mx - mw * 0.6, my); g.quadraticCurveTo(mx, my + mw * 0.35, mx + mw * 0.6, my); }                    // slight smile
+        else if (v === 1) { g.moveTo(mx - mw * 0.55, my + mw * 0.05); g.lineTo(mx + mw * 0.55, my + mw * 0.05); }                         // flat
+        else { g.moveTo(mx - mw * 0.55, my + mw * 0.05); g.quadraticCurveTo(mx + mw * 0.1, my + mw * 0.15, mx + mw * 0.6, my - mw * 0.2); } // smirk
+      }
+      else { // in a good mood: the comic big open smile with teeth and a tongue, like the reference
         g.fillStyle = ink; g.moveTo(mx - mw * 0.85, my - mw * 0.2); g.quadraticCurveTo(mx, my + mw * 1.3, mx + mw * 0.85, my - mw * 0.2); g.closePath(); g.fill();
         g.save(); g.clip();
         g.fillStyle = WHITE; g.fillRect(mx - mw, my - mw * 0.3, mw * 2, mw * 0.28);
