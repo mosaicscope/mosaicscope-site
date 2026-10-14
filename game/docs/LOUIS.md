@@ -32,7 +32,7 @@ The game is a Canvas2D isometric renderer (ADR 0002) with a deterministic sim. D
 - **Palette discipline.** Colours live in `src/render/palette.ts` as named constants. No scattered hex literals. Provide the new look as an alternate palette selectable by flag, defaults unchanged.
 - **Additive and opt-in.** A new look ships behind a flag in `src/debug/flags.ts` or a style option; the default look is untouched until Christa decides.
 - **Tests.** Add a vitest for any pure function (palette snap, texture generator output size and determinism). Run the full verify command below.
-- **Content.** PG-13, no real brands or people, never reference the 2019 Christchurch attack.
+- **Content.** PG-13 (but swearing is allowed and is never bleeped or censored anywhere in the game), no real brands or people, never reference the 2019 Christchurch attack.
 
 ## Verify
 

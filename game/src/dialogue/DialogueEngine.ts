@@ -359,7 +359,7 @@ export class DialogueEngine {
       mems.length ? `Things you know about: ${mems.join("; ")}.` : "",
       `You're talking to the player, who is ${you}.${them.length ? " About them: " + them.join(", ") + "." : ""}`,
       "The story so far (stay consistent with it, but only bring it up if it fits):\n" + LORE,
-      "Reply with ONE short spoken line (1 or 2 sentences, under 30 words). Casual Kiwi slang is fine. No narration, no actions in asterisks, no quotes, don't start with your own name. Keep it PG-13. Never mention being an AI or a game.",
+      "Reply with ONE short spoken line (1 or 2 sentences, under 30 words). Casual Kiwi slang is fine. No narration, no actions in asterisks, no quotes, don't start with your own name. Swearing is fine when it suits your character; write swear words in full, never bleeped or starred out. No slurs, nothing sexual. Never mention being an AI or a game.",
     ].filter(Boolean).join("\n");
   }
 

@@ -25,7 +25,8 @@
  *    north wall (y = 0, h = 0) or west wall (x = 0, w = 0); `wp()` does this for you.
  *  - Every interactable stands on a walkable, reachable (x, y). `launch` reuses an existing panel.
  *  - `spots` are where people stand/sit. `work` spots are for staff; the rest for visitors.
- *  - Keep copy PG-13, adult, no real brands or people.
+ *  - Keep copy adult, no real brands or people. Swearing is allowed and never bleeped or censored
+ *    (Hell's Kitchenette's chef swears freely); no slurs.
  * ---------------------------------------------------------------------------------------------
  */
 import type { BuildingKind } from "./buildings";
@@ -536,24 +537,24 @@ const recycling: InteriorDef = {
 // A parody of the TV cooking-competition set: dining room, the pass, red and blue team kitchens side by side and a
 // walk-in fridge. The head chef is an original character (Chef Gordo Rambottom), not any real person.
 const CHEF = [
-  "Chef Gordo: 'This risotto is so *BLEEP*ing undercooked it's still in the paddy field!'",
-  "Chef Gordo: 'Who plated this? A seagull? A *BLEEP*ing SEAGULL plated this!'",
-  "Chef Gordo: 'It's RAW! It's *BLEEP*ing RAW! I've seen livelier fish in the Avon!'",
-  "Chef Gordo: 'Taste it. TASTE IT. Now tell me why it tastes like a *BLEEP*ing jandal.'",
-  "Chef Gordo: 'You call that a scallop? That's a hockey puck with *BLEEP*ing ambition!'",
-  "Chef Gordo: 'Red team, you're slower than the Lyttelton tunnel at rush hour! MOVE YOUR *BLEEP*!'",
-  "Chef Gordo: 'Blue team, that beef Wellington's wearing gumboots! Soggy *BLEEP*ing bottom!'",
-  "Chef Gordo: 'Get your jacket off. Hand it to me. Get OUT of my *BLEEP*ing kitchen!'",
-  "Chef Gordo: 'You donkey! You absolute *BLEEP*ing flat white with no coffee in it!'",
-  "Chef Gordo: '...oh. Oh, that's beautiful. Well done. Don't get used to it, you *BLEEP*.'",
-  "Chef Gordo: 'Table four's waited forty minutes for a salad. A *BLEEP*ing SALAD!'",
-  "Chef Gordo: 'The lamb's so pink it's still trying to get back to the *BLEEP*ing farm!'",
-  "Chef Gordo: 'Look at me. LOOK at me. What are you? A *BLEEP*ing pavlova with legs! Say it!'",
-  "Chef Gordo: 'This sauce has split more times than the Mosaics' group chat. *BLEEP* ME!'",
-  "Chef Gordo: 'Where's the *BLEEP*ing gravy? Did it get a bus to Ashburton?!'",
-  "Chef Gordo: 'Shut it down! SHUT IT *BLEEP*ING DOWN! Everybody to the pass, NOW!'",
-  "Chef Gordo: 'My nan could cook this better, and she's been dead since 2011. *BLEEP*!'",
-  "Chef Gordo: 'Don't you *BLEEP*ing 'Yes Chef' me while your pan's on fire!'",
+  "Chef Gordo: 'This risotto is so fucking undercooked it's still in the paddy field!'",
+  "Chef Gordo: 'Who plated this? A seagull? A fucking SEAGULL plated this!'",
+  "Chef Gordo: 'It's RAW! It's fucking RAW! I've seen livelier fish in the Avon!'",
+  "Chef Gordo: 'Taste it. TASTE IT. Now tell me why it tastes like a fucking jandal.'",
+  "Chef Gordo: 'You call that a scallop? That's a hockey puck with fucking ambition!'",
+  "Chef Gordo: 'Red team, you're slower than the Lyttelton tunnel at rush hour! MOVE YOUR ARSE!'",
+  "Chef Gordo: 'Blue team, that beef Wellington's wearing gumboots! Soggy fucking bottom!'",
+  "Chef Gordo: 'Get your jacket off. Hand it to me. Get OUT of my fucking kitchen!'",
+  "Chef Gordo: 'You donkey! You absolute fucking flat white with no coffee in it!'",
+  "Chef Gordo: '...oh. Oh, that's beautiful. Well done. Don't get used to it, you muppet.'",
+  "Chef Gordo: 'Table four's waited forty minutes for a salad. A fucking SALAD!'",
+  "Chef Gordo: 'The lamb's so pink it's still trying to get back to the fucking farm!'",
+  "Chef Gordo: 'Look at me. LOOK at me. What are you? A fucking pavlova with legs! Say it!'",
+  "Chef Gordo: 'This sauce has split more times than the Mosaics' group chat. Shit!'",
+  "Chef Gordo: 'Where's the fucking gravy? Did it get a bus to Ashburton?!'",
+  "Chef Gordo: 'Shut it down! SHUT IT FUCKING DOWN! Everybody to the pass, NOW!'",
+  "Chef Gordo: 'My nan could cook this better, and she's been dead since 2011. Bollocks!'",
+  "Chef Gordo: 'Don't you fucking 'Yes Chef' me while your pan's on fire!'",
 ];
 const hellkitchen: InteriorDef = {
   kind: "hellkitchen", title: "Hell's Kitchenette", size: { w: 26, h: 16 }, door: { x: 1.5, y: 8 },
@@ -598,10 +599,10 @@ const hellkitchen: InteriorDef = {
   interactables: [
     { id: "chef", label: "Chef Gordo", x: 11.9, y: 8, text: CHEF[0], lines: CHEF },
     { id: "red", label: "Red team", x: 17, y: 5.4, text: "Red team: 'Behind! Hot pan! HOT PAN!'", lines: [
-      "Red team: 'Behind! Hot pan! HOT PAN!'", "Red team: 'Who moved my *BLEEP*ing tongs?'", "Red team: 'Two minutes on the Wellington, Chef!' (It is eleven minutes.)", "Red team: 'Yes, Chef! Sorry, Chef! Never again, Chef!'",
+      "Red team: 'Behind! Hot pan! HOT PAN!'", "Red team: 'Who moved my fucking tongs?'", "Red team: 'Two minutes on the Wellington, Chef!' (It is eleven minutes.)", "Red team: 'Yes, Chef! Sorry, Chef! Never again, Chef!'",
     ] },
     { id: "blue", label: "Blue team", x: 17, y: 10.6, text: "Blue team: 'Where's my garnish? WHO ATE MY GARNISH?'", lines: [
-      "Blue team: 'Where's my garnish? WHO ATE MY GARNISH?'", "Blue team: 'The scallops are... resting. Emotionally. Oh *BLEEP*, they're burnt.'", "Blue team: 'Heard, Chef! Heard! What did he say?'", "Blue team: 'If we lose tonight it's because Kevin salted the dessert.'",
+      "Blue team: 'Where's my garnish? WHO ATE MY GARNISH?'", "Blue team: 'The scallops are... resting. Emotionally. Oh shit, they're burnt.'", "Blue team: 'Heard, Chef! Heard! What did he say?'", "Blue team: 'If we lose tonight it's because Kevin salted the dessert.'",
     ] },
     { id: "walkin", label: "Walk-in fridge", x: 22.6, y: 8, text: "It's freezing. Someone in a chef's jacket is in here crying into a crate of lettuce. 'He said my risotto had no soul.'" },
     { id: "chefstable", label: "Chef's table", x: 4.9, y: 12.9, text: "A front-row seat to the chaos. A diner whispers: 'I come every week. Not for the food. For the yelling.'" },
