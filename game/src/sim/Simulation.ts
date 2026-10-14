@@ -23,7 +23,7 @@ import { spawnAll, streetSpot, spawnBackground } from "./Spawner";
 import { installRules } from "./Rules";
 import { pickUp, drop, transfer, craftable, detach, PickupResult, carried } from "../inventory/Inventory";
 import { Vehicle } from "../entities/types";
-import { spawnVehicles, updateVehicles, unseat, laneCoord, clearLaneState, walkSignal } from "./Traffic";
+import { spawnVehicles, updateVehicles, unseat, laneCoord, clearLaneState, walkSignal, carVel } from "./Traffic";
 import { Crime, Booking, exitBuilding, insideOutcome, updateCustody, commitCrime, evaluateTrade, executeTrade, fmtCash } from "./Society";
 import { NameBook } from "./Spawner";
 import { VEHICLES } from "../content/vehicles";
@@ -33,7 +33,7 @@ import { clamp } from "../core/math";
 import { fireGun, startTurfWar, turfWarActive } from "./Turf";
 import { LitterState, updateLitter } from "./Litter";
 
-export type FxKind = "dust" | "impact" | "spark" | "confetti" | "break" | "heart" | "rain_splash" | "text" | "spring" | "zzz" | "music" | "star" | "blood" | "spray" | "flash" | "paint" | "water" | "cash" | "gib";
+export type FxKind = "dust" | "impact" | "spark" | "confetti" | "break" | "heart" | "rain_splash" | "text" | "spring" | "zzz" | "music" | "star" | "blood" | "spray" | "flash" | "paint" | "water" | "cash" | "gib" | "skid";
 export interface SimSignals {
   fx: { kind: FxKind; x: number; y: number; z: number; color?: string; n?: number; text?: string };
   sound: { kind: string; x: number; y: number; vol: number };
@@ -398,8 +398,16 @@ export class Simulation {
     const d = VEHICLES[v.cls];
     const nx = Math.cos(v.heading), ny = Math.sin(v.heading);
     const res = applyImpact(c, Math.min(this.cfg.maxImpulse * 1.5, speed * d.mass * 1.1), nx, ny, false, this.cfg.maxImpulse * 1.5);
-    c.vz = 2 + speed * 0.2;
-    v.speed *= 0.55; v.damage = Math.min(1, v.damage + 0.03);
+    // a real pedestrian strike: past a jog the person is carried off at most of the car's speed and thrown up in an
+    // arc (they fly, land and slide; PhysicsWorld.stepCharacter does the rest). The car barely notices the mass.
+    if (speed > 3) {
+      const cv = carVel(this, v), sv = Math.hypot(cv.x, cv.y) || 1, carry = 0.82;
+      c.kx = cv.x / sv * speed * carry; c.ky = cv.y / sv * speed * carry;
+      c.vz = 1.2 + speed * 0.32;
+    } else c.vz = 2 + speed * 0.2;
+    v.speed *= 1 - Math.min(0.25, 0.09 / d.mass);
+    if (v.vx !== undefined && v.vy !== undefined) { const k = 1 - Math.min(0.25, 0.09 / d.mass); v.vx *= k; v.vy *= k; }
+    v.damage = Math.min(1, v.damage + 0.03);
     this.bus.emit("sound", { kind: "carhit", x: c.x, y: c.y, vol: Math.min(1, speed / 8) });
     if (speed > 3.5) { const part = speed > 7 && this.rng.chance(0.4) ? "head" : this.rng.chance(0.5) ? "leg" : "torso"; wound(this, c, part, speed > 7 ? 3 : 2, part === "head" ? "gash" : "cut", v.driver, v.x, v.y); }
     const driver = v.driver >= 0 ? this.chars[v.driver] : null;
@@ -422,8 +430,8 @@ export class Simulation {
     const e = this.emit({ type: "car_crash", x: a.x, y: a.y, actors: [da?.id ?? -1, db?.id ?? -1].filter((x) => x >= 0), severity: 3, summary: `Crash: ${da ? da.name : "a parked car"}'s ${VEHICLES[a.cls].name} and ${db ? db.name : "a parked car"}'s ${VEHICLES[b.cls].name}` });
     // both drivers get out and have words (road rage chain)
     if (da && db && da.tier !== "player" && db.tier !== "player") {
+      // both cars slide to a stop on their own momentum (state "crashed" parks them once nobody is in them)
       unseat(this, a); unseat(this, b);
-      a.state = "parked"; b.state = "parked";
       const ra = this.relate(da, db.id), rb = this.relate(db, da.id); ra.grudge = Math.min(1, ra.grudge + 0.3); rb.grudge = Math.min(1, rb.grudge + 0.3);
       this.emitArgument(da, db, e);
       this.carsToReclaim.push({ v: a.id, c: da.id, at: this.tick + 60 * 25 }, { v: b.id, c: db.id, at: this.tick + 60 * 25 });
