@@ -4,7 +4,7 @@ import { dressOf } from "../mind/Dress";
 import type { Dress } from "../mind/Dress";
 import { modelOf } from "./Models";
 import { drawFaceGenes } from "./FaceGenes";
-import { drawRefFigure, lookSpec } from "./RefFigure";
+import { drawRefFigure, lookSpec, personalize } from "./RefFigure";
 
 /**
  * Procedural stick figures in the style of the MosaicScope footer crew (single-stroke limbs, neon
@@ -238,7 +238,7 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
   const hd = hdOverride ?? (k >= 1.05 && (hdBudget-- > 0 || k >= 1.6));
   // Everyone drawn up close uses the reference look: street models wear their model, the Mosaics, the player and
   // the locals get a spec built from their own look (their colours, hair, hat and face genes).
-  const M = modelOf(c) ?? lookSpec(c);
+  const M = personalize(modelOf(c) ?? lookSpec(c), c);
   if (M) {
     // street model drawn after the reference cartoon (see RefFigure.ts); the face follows the person's emotion
     drawRefFigure(g, J, c, M, k, dir, alpha, hd, flash > 0);

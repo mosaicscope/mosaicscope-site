@@ -28,6 +28,8 @@ export interface ModelSpec {
   hair: HairStyle; hairColor: string; hat: HatStyle; hatColor?: string;
   face: Partial<Face>;
   prop?: Prop; gear: Gear[];
+  /** per-person extras (see personalize in RefFigure.ts): shirt pattern 0..7 and its colour, body width */
+  pattern?: number; patternColor?: string; wide?: number;
 }
 
 const INK = "#150f0d";
