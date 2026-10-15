@@ -1,4 +1,5 @@
-import { newExpansion, type ExpansionState } from "../sim/Expansion";
+import { newLife, type LifeState } from "../sim/Chronicles";
+import { newExpansion, newCasino, type ExpansionState } from "../sim/Expansion";
 import { Simulation } from "../sim/Simulation";
 import { Character, Toy, Rel, Memory, Vehicle } from "../entities/types";
 import { Graffiti } from "../world/World";
@@ -33,6 +34,7 @@ export const packRel = (id: number, r: Rel): RelTuple => [id, r.fam, r.trust, r.
 export const unpackRel = (a: RelTuple): [number, Rel] => [a[0], { fam: a[1], trust: a[2], aff: a[3], respect: a[4], fear: a[5], rivalry: a[6], grudge: a[7], shared: a[8], favours: a[9], last: a[10] }];
 export interface SaveData {
   expansion?: ExpansionState;
+  life?: LifeState;
   version: number;
   savedAt: string;
   label: string;
@@ -72,6 +74,7 @@ export const MIGRATIONS: Record<number, (d: any) => any> = {
 
 export function serialize(sim: Simulation, label = "Save"): SaveData {
   return {
+    life: structuredClone(sim.life),
     expansion: structuredClone(sim.expansion),
     version: SAVE_VERSION, savedAt: new Date().toISOString(), label,
     cfg: sim.cfg, tick: sim.tick, rng: sim.rng.getState(), env: { ...sim.env }, playerId: sim.playerId,
@@ -115,6 +118,9 @@ export function parseSave(json: string): SaveData {
 export function restore(d: SaveData): Simulation {
   const sim = new Simulation(d.cfg);
   sim.expansion = { ...newExpansion(), ...structuredClone(d.expansion ?? {}) };
+  sim.expansion.casino = { ...newCasino(), ...sim.expansion.casino };
+  sim.life = { ...newLife(), ...structuredClone(d.life ?? {}) };
+  for (const [id, name] of Object.entries(sim.life.renames)) if (sim.world.buildings[+id]) sim.world.buildings[+id].name = name;
   sim.tick = d.tick;
   sim.rng.setState(d.rng);
   sim.env = { ...sim.env, ...d.env };

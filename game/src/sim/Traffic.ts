@@ -193,7 +193,7 @@ export function carVel(sim: Simulation, v: Vehicle): { x: number; y: number } {
 /** Tyre grip in tiles/s² of sideways acceleration before the car starts to slide. */
 function tyreGrip(sim: Simulation, v: Vehicle): number {
   const d = VEHICLES[v.cls];
-  return d.grip * 2.5 * (v.flatLeft || v.flatRight ? 0.55 : 1) * (1 - v.damage * 0.3) * (1 - 0.35 * sim.env.rain);
+  return d.grip * 2.5 * (v.lifeMods?.includes("Racing tyres") ? 1.3 : 1) / (v.lifeMods?.includes("Double deck") ? 1.2 : 1) * (v.flatLeft || v.flatRight ? 0.55 : 1) * (1 - v.damage * 0.3) * (1 - 0.35 * sim.env.rain);
 }
 
 /** Rear-driven cars that step the tail out under power. */
@@ -209,7 +209,8 @@ const TAIL_HAPPY = new Set(["muscle", "hotrod", "coupe", "roadster", "super", "s
 function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const d = VEHICLES[v.cls];
   const inp = v.driver === sim.playerId ? playerInput : { throttle: 0, steer: 0, brake: true };
-  const top = d.topSpeed * (1 - v.damage * 0.5) * (1 - (v.engineDamage ?? 0) * 0.45) * (v.flatLeft || v.flatRight ? 0.65 : 1);
+  const mods = v.lifeMods ?? [];
+  const top = d.topSpeed * (mods.includes("Tractor engine") ? 1.2 : 1) / (1 + mods.length * 0.06) * (1 - v.damage * 0.5) * (1 - (v.engineDamage ?? 0) * 0.45) * (v.flatLeft || v.flatRight ? 0.65 : 1);
   const vel = carVel(sim, v);
   const fx = Math.cos(v.heading), fy = Math.sin(v.heading);
   let lon = vel.x * fx + vel.y * fy, lat = -vel.x * fy + vel.y * fx;
@@ -663,7 +664,7 @@ function collisions(sim: Simulation): void {
  * handbrake on, so it counts as much heavier), and an off-centre hit spins the car round.
  */
 function crashImpulse(sim: Simulation, a: Vehicle, b: Vehicle, va: { x: number; y: number }, vb: { x: number; y: number }, nx: number, ny: number): void {
-  const ma = VEHICLES[a.cls].mass * (a.state === "parked" ? 3 : 1), mb = VEHICLES[b.cls].mass * (b.state === "parked" ? 3 : 1);
+  const ma = VEHICLES[a.cls].mass * (1+(a.lifeMods?.length??0)*0.08) * (a.state === "parked" ? 3 : 1), mb = VEHICLES[b.cls].mass * (1+(b.lifeMods?.length??0)*0.08) * (b.state === "parked" ? 3 : 1);
   const vn = (vb.x - va.x) * nx + (vb.y - va.y) * ny;
   if (vn >= 0) return;
   const j = -(1 + 0.25) * vn / (1 / ma + 1 / mb);

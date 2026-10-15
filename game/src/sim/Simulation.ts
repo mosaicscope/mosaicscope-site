@@ -1,3 +1,4 @@
+import { newLife, tickLife } from "./Chronicles";
 import { newExpansion, wageBoost, farmDay, encounterAt } from "./Expansion";
 import { DEFAULT_CONFIG, DEFAULT_FLAGS, FeatureFlags, SimConfig } from "../core/config";
 import { Rng } from "../core/rng";
@@ -91,6 +92,7 @@ export class Simulation {
   playerId = 0;
   charHash!: SpatialHash;
   expansion = newExpansion();
+  life = newLife();
   private exploredFrom: { x: number; y: number } | null = null;
   tick = 0;
   env: EnvState = newEnv();
@@ -161,6 +163,7 @@ export class Simulation {
     const dt = this.step_dt;
     this.tick++;
     if (this.tick % 60 === 0) {
+      tickLife(this);
       const p = this.player;
       const from = this.exploredFrom;
       this.exploredFrom = { x: p.x, y: p.y };

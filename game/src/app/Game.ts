@@ -1,3 +1,4 @@
+import { LifePhone } from "../ui/LifePhone";
 import { repairVehicle } from "../sim/VehicleDamage";
 import { Activities } from "../ui/Activities";
 import { titleOf } from "../sim/Expansion";
@@ -1142,6 +1143,7 @@ export class Game {
 
   // ------------------------------------------------------------------ chrome
   private activities = new Activities(() => this.sim, this.modal, (text) => this.toast(text));
+  private lifePhone = new LifePhone(() => this.sim, this.modal, tab => this.activities.show(tab), (x,y) => { this.moveTarget = {x,y}; this.pendingTalk = -1; this.renderer.cam.follow = this.sim.playerId; });
   private notifiedEncounter: string | null = null;
 
   private buildBar(): HTMLElement {
@@ -1154,6 +1156,7 @@ export class Game {
       this.clockEl, h("div.spacer"),
       h("div.seg", { role: "group", "aria-label": "Simulation speed" }, this.speedEls),
       this.soundBtn,
+      h("button.btn", { text: "Life phone", onclick: () => this.lifePhone.show() }),
       ...(["Explore", "Betting", "Racing", "Farm", "UC"] as const).map(tab => h("button.btn", { text: tab, onclick: () => this.activities.show(tab) })),
       h("button.btn", { onclick: () => this.luxury.show(), text: "Luxury", title: "Velvet & Co. Luxury: property, rides, animals" }),
       h("button.btn", { onclick: () => this.heist.open(), text: "Heist", title: "Velvet Heist Night: the crew's three-act mission" }),
