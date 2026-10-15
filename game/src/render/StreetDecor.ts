@@ -1,3 +1,4 @@
+import { sway as sway_ } from "./Ambient";
 import { World, T, PERIOD, ROAD_W } from "../world/World";
 import { hash01 } from "./noir";
 
@@ -63,7 +64,7 @@ export function drawDecor(g: CanvasRenderingContext2D, kind: number, sx: number,
   switch (kind) {
     case D.TREE: {
       const pal = LEAF[n < 0.14 ? 3 : n < 0.5 ? 0 : n < 0.8 ? 1 : 2];
-      const sway = Math.sin(time * 0.7 + n * 20) * 1.6 * z, r = (13 + n * 4) * z;
+      const sway = sway_(time, n) * 1.6 * z, r = (13 + n * 4) * z;
       g.fillStyle = "rgba(0,0,0,.28)"; g.beginPath(); g.ellipse(sx + 4 * z, sy + 2 * z, 17 * z, 7 * z, 0, 0, 6.283); g.fill();
       // iron tree guard on a patch of soil
       g.fillStyle = "#2a1f18"; g.beginPath(); g.ellipse(sx, sy, 9 * z, 4.5 * z, 0, 0, 6.283); g.fill();

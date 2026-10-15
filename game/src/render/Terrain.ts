@@ -1,3 +1,4 @@
+import { sway as sway_ } from "./Ambient";
 import { World, T, TILE_HEIGHT, Poi, ROAD_W, CROSS_W, PERIOD } from "../world/World";
 import { decorGrid, D } from "./StreetDecor";
 import { hash01 } from "./noir";
@@ -329,7 +330,7 @@ export function drawTallTile(g: CanvasRenderingContext2D, t: number, sx: number,
     case T.TREE: {
       g.strokeStyle = "#4a3020"; g.lineWidth = 4 * z;
       g.beginPath(); g.moveTo(sx, sy + hh); g.lineTo(sx, sy + hh - 30 * z); g.stroke();
-      const sway = Math.sin(time * 0.8 + n * 10) * 2 * z;
+      const sway = sway_(time, n * 0.5) * 2 * z;
       const greens = ["#183a1c", "#1f4a22", "#2a5f2a"];
       for (let i = 0; i < 3; i++) {
         g.fillStyle = greens[i];
