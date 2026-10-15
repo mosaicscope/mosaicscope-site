@@ -167,9 +167,6 @@ button { cursor: pointer; }
 .bj-hands { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 6px; }
 .bj-hand { padding: 6px; border-radius: 8px; } .bj-hand.active { outline: 2px solid var(--gold); }
 .bj-hand p { margin: 6px 0 0; font-size: calc(12px * var(--ts)); }
-.chiprow { display: flex; gap: 8px; margin: 10px 0; }
-.chip { width: 46px; height: 46px; border-radius: 50%; border: 4px dashed rgba(255,255,255,.55); font-weight: 700; box-shadow: 0 3px 6px rgba(0,0,0,.4); }
-.chip.sel { outline: 3px solid var(--gold); outline-offset: 2px; }
 .hintbox { display: inline-flex; align-items: center; gap: 6px; } .hint { color: var(--gold); font-weight: 600; }
 .roul-top { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
 .wheel { width: 220px; height: 220px; max-width: 100%; }
@@ -292,6 +289,7 @@ a.btn { display: inline-flex; align-items: center; text-decoration: none; color:
 .dialogue .opts button:hover, .dialogue .opts button:focus-visible { background: var(--acid); border-color: var(--acid); color: #0e0b0a; outline: none; }
 .dialogue .opts kbd { display: none; }
 .hud .obj { color: var(--gold); font-weight: 700; }
+@media (min-width: 761px) { .hud.beside-log { right: calc(min(360px, 100vw - 28px) + 26px); } }
 /* phones in portrait: compact HUD, small radar top-right, full-width dialogue, tucked radio */
 @media (orientation: portrait) and (max-width: 640px) {
   .minimap { width: 96px; height: 96px; left: auto; right: 10px; top: 112px; bottom: auto; }

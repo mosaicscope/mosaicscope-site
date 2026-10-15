@@ -6,7 +6,7 @@ import { TICKS_PER_HOUR } from "../sim/Environment";
 /**
  * Night weather dressing, drawn after the lighting pass so it glows through the dark:
  * mood-coloured neon puddles in the rain, fog nights with humming streetlights, a lantern river on
- * the canal, and crosswalks that pulse to a slow lofi beat. Pure look: it reads the sim, writes nothing.
+ * and the canal. Pure look: it reads the sim, writes nothing.
  */
 
 /** Cheap deterministic hash in [0,1) from two integers. */
@@ -42,9 +42,6 @@ const LANTERN_COLS = ["255,170,70", "255,110,150", "255,220,120", "150,230,255"]
 
 export class NightFX {
   private pt = { x: 0, y: 0 };
-  private p2 = { x: 0, y: 0 };
-  private p3 = { x: 0, y: 0 };
-  private p4 = { x: 0, y: 0 };
 
   draw(g: CanvasRenderingContext2D, sim: Simulation, cam: Camera, time: number, quality: number, reduceMotion: boolean,
     minX: number, maxX: number, minY: number, maxY: number): void {
@@ -56,7 +53,6 @@ export class NightFX {
     const day = Math.floor(sim.tick / (TICKS_PER_HOUR * 24));
     const fog = fogDensity(day, night);
     const hue = moodHue(sim.player.emo.mood);
-    const pulse = reduceMotion ? 0.4 : beatPulse(time);
     const W = cam.viewW, H = cam.viewH;
     g.save();
     g.globalCompositeOperation = "lighter";
@@ -81,18 +77,6 @@ export class NightFX {
         g.beginPath(); g.ellipse(this.pt.x, this.pt.y, rx, ry, 0, 0, 6.283); g.fill();
         g.fillStyle = `hsla(${hue},100%,85%,${a * 0.7})`;
         g.beginPath(); g.ellipse(this.pt.x, this.pt.y, rx * 0.45, ry * 0.45, 0, 0, 6.283); g.fill();
-      }
-    }
-
-    // glowing crosswalks that thump on the beat (only while the power is on)
-    if (sim.env.power && z > 0.5) {
-      for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
-        if (tiles[ty * S + tx] !== T.CROSSWALK) continue;
-        cam.toScreen(tx, ty, 0, this.pt); cam.toScreen(tx + 1, ty, 0, this.p2); cam.toScreen(tx + 1, ty + 1, 0, this.p3); cam.toScreen(tx, ty + 1, 0, this.p4);
-        if (this.pt.x < -80 || this.p3.x > W + 80 || this.p4.y < -40 || this.pt.y > H + 40) continue;
-        const a = night * (0.07 + 0.3 * pulse);
-        g.fillStyle = `hsla(${(hue + 160 + ((tx + ty) & 1) * 40) % 360},100%,65%,${a})`;
-        g.beginPath(); g.moveTo(this.pt.x, this.pt.y); g.lineTo(this.p2.x, this.p2.y); g.lineTo(this.p3.x, this.p3.y); g.lineTo(this.p4.x, this.p4.y); g.closePath(); g.fill();
       }
     }
 

@@ -571,26 +571,36 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   if (selected) { cam.toScreen(x, y, 0, pt); g.strokeStyle = "#c6ff3d"; g.lineWidth = 2; g.beginPath(); g.ellipse(pt.x, pt.y, L * 26 * z, L * 13 * z, 0, 0, 6.283); g.stroke(); }
 }
 
-/** Headlight beams (drawn in the lighting pass, additive). */
+/** Headlight beams (drawn in the lighting pass, additive): a beam from each lamp fanning onto a lit pool of road ahead. */
 export function headlights(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, strength: number): void {
   if (strength < 0.1 || v.state === "parked" && v.driver < 0) return;
   const d = VEHICLES[v.cls], M = carMutationOf(v.plate, v.cls);
   const ca = Math.cos(v.heading), sa = Math.sin(v.heading);
-  const L = d.length * M.scale, reach = 7 * M.scale, spread = 0.9 * M.scale;
-  // a beam cone from the headlamps: narrow at the lamps, fanning out ahead of the car
-  const nx = v.x + ca * (L * 0.5 + 0.2), ny = v.y + sa * (L * 0.5 + 0.2);
-  const fx = nx + ca * reach, fy = ny + sa * reach;
-  const a = { x: 0, y: 0 }, b = { x: 0, y: 0 }, c = { x: 0, y: 0 }, e = { x: 0, y: 0 };
-  cam.toScreen(nx - sa * 0.15, ny + ca * 0.15, 0, a); cam.toScreen(nx + sa * 0.15, ny - ca * 0.15, 0, b);
-  cam.toScreen(fx + sa * spread, fy - ca * spread, 0, c); cam.toScreen(fx - sa * spread, fy + ca * spread, 0, e);
-  const grd = g.createLinearGradient(a.x, a.y, c.x, c.y);
-  grd.addColorStop(0, `rgba(255,240,190,${0.34 * strength})`); grd.addColorStop(1, "rgba(255,240,190,0)");
-  g.fillStyle = grd; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(c.x, c.y); g.lineTo(e.x, e.y); g.lineTo(b.x, b.y); g.closePath(); g.fill();
-  // a small bright core at each lamp (not one big blob off to one side)
-  const r = 5 * M.scale * cam.zoom;
-  for (const p of [a, b]) {
+  const L = d.length * M.scale, hw = d.width * M.scale * 0.36, reach = 9 * M.scale, spread = 1.5 * M.scale;
+  const nx = v.x + ca * (L * 0.5 + 0.1), ny = v.y + sa * (L * 0.5 + 0.1);
+  const p = { x: 0, y: 0 }, q = { x: 0, y: 0 }, c = { x: 0, y: 0 }, e = { x: 0, y: 0 };
+  // the lit pool on the road: brightest a few metres ahead, soft at the edges
+  const px = nx + ca * reach * 0.55, py = ny + sa * reach * 0.55;
+  cam.toScreen(px, py, 0, p); cam.toScreen(px + ca * reach * 0.5, py + sa * reach * 0.5, 0, q); cam.toScreen(px - sa * spread, py + ca * spread, 0, c);
+  const rL = Math.hypot(q.x - p.x, q.y - p.y), rW = Math.hypot(c.x - p.x, c.y - p.y);
+  g.save(); g.translate(p.x, p.y); g.rotate(Math.atan2(q.y - p.y, q.x - p.x)); g.scale(1, rW / Math.max(rL, 1));
+  const pool = g.createRadialGradient(0, 0, 0, 0, 0, rL);
+  pool.addColorStop(0, `rgba(255,236,180,${0.26 * strength})`); pool.addColorStop(0.6, `rgba(255,236,180,${0.1 * strength})`); pool.addColorStop(1, "rgba(255,236,180,0)");
+  g.fillStyle = pool; g.beginPath(); g.arc(0, 0, rL, 0, 6.283); g.fill(); g.restore();
+  // one cone per lamp, slightly toed out, so the beams read as two
+  for (const s of [-1, 1]) {
+    const lx = nx - sa * hw * s, ly = ny + ca * hw * s;
+    const fx = lx + ca * reach - sa * s * 0.6, fy = ly + sa * reach + ca * s * 0.6;
+    cam.toScreen(lx - sa * 0.08, ly + ca * 0.08, 0, p); cam.toScreen(lx + sa * 0.08, ly - ca * 0.08, 0, q);
+    cam.toScreen(fx + sa * spread * 0.6, fy - ca * spread * 0.6, 0, c); cam.toScreen(fx - sa * spread * 0.6, fy + ca * spread * 0.6, 0, e);
+    const grd = g.createLinearGradient((p.x + q.x) / 2, (p.y + q.y) / 2, (c.x + e.x) / 2, (c.y + e.y) / 2);
+    grd.addColorStop(0, `rgba(255,246,210,${0.32 * strength})`); grd.addColorStop(0.5, `rgba(255,240,190,${0.12 * strength})`); grd.addColorStop(1, "rgba(255,240,190,0)");
+    g.fillStyle = grd; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(c.x, c.y); g.lineTo(e.x, e.y); g.lineTo(q.x, q.y); g.closePath(); g.fill();
+    // a tight hot core at the lamp itself
+    cam.toScreen(lx, ly, 0.35, p);
+    const r = 4 * M.scale * cam.zoom;
     const core = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
-    core.addColorStop(0, `rgba(255,250,220,${0.3 * strength})`); core.addColorStop(1, "rgba(255,250,220,0)");
+    core.addColorStop(0, `rgba(255,255,240,${0.75 * strength})`); core.addColorStop(0.35, `rgba(255,248,215,${0.3 * strength})`); core.addColorStop(1, "rgba(255,248,215,0)");
     g.fillStyle = core; g.beginPath(); g.arc(p.x, p.y, r, 0, 6.283); g.fill();
   }
 }
