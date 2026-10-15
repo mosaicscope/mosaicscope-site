@@ -51,6 +51,8 @@ import { MOSAIC } from "../content/mosaicscope";
 import { carried, detach } from "../inventory/Inventory";
 import { BUILDINGS } from "../content/buildings";
 import { billAbsence, collect } from "../sim/Arrears";
+import { Glow } from "../ui/Glow";
+import { calmStep, isTended, crossedGolden, goldenEnvelope, goldenTimeScale, GOLDEN_LEN, nextStreak, streakGlow, streakLine, isStreakGiftDay, STREAK_GIFT, dayKey, type Streak } from "./sparks";
 import { Photos } from "../ui/Photos";
 import { MOMENTS } from "../content/photos";
 
@@ -190,7 +192,7 @@ export class Game {
     this.radio = new Radio(MOSAIC.soundcloud);
     this.hudEl = h("div.hud", { "aria-live": "polite" });
     this.bustedEl = h("div.busted.hidden", { role: "alert" });
-    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.terrance.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.interior.el, this.modal.el, this.casino.el, this.bustedEl);
+    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.goldenEl, this.glow.el, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.terrance.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.interior.el, this.modal.el, this.casino.el, this.bustedEl);
     // browsers only allow sound after a gesture: the first click/key starts the playlist
     const firstGesture = () => { if (this.gestured) return; this.gestured = true; if (this.settings.sound) this.audio.setEnabled(true); }; // the radio only plays when you press ▶
     window.addEventListener("pointerdown", firstGesture, { once: false, capture: true });
@@ -220,6 +222,7 @@ export class Game {
     addEventListener("unhandledrejection", (e) => this.fault("promise", e.reason));
     this.loadEmpire();
     this.applyAbsence();
+    this.applyStreak();
     const mq = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     this.reduceMotionOS = !!mq?.matches;
     mq?.addEventListener?.("change", (e) => { this.reduceMotionOS = e.matches; });
@@ -269,6 +272,8 @@ export class Game {
     this.last = now;
     const steps = this.clock.advance(dt);
     for (let i = 0; i < steps; i++) this.guard("sim", () => { this.controlPlayer(); this.sim.step(); });
+    this.guard("golden", () => this.goldenTick(dt));
+    this.guard("glow", () => this.glowTick(dt));
     this.ticksThisSecond += steps; this.tickWindow += dt;
     if (this.tickWindow >= 1) { this.tickRate = this.ticksThisSecond / this.tickWindow; this.ticksThisSecond = 0; this.tickWindow = 0; }
     this.hovered = this.mouse.dragging ? -1 : this.renderer.pickCharacter(this.mouse.x, this.mouse.y);
@@ -1035,6 +1040,57 @@ export class Game {
     if (tiles && glitter && days >= 3) { sim.say(glitter, days < 10 ? "There you are! We missed you!" : "Where have you BEEN?!", "shout", 4); }
     const when = days < 1 ? `${Math.round(hours)} hours` : `${days.toFixed(days < 3 ? 1 : 0)} days`;
     setTimeout(() => this.focus("Welcome back", `Gone ${when}: ${notes.join(", ") || "the city carried on"}. ${miss}`, 6), 1500);
+  }
+
+  // ------------------------------------------------------------------ Gilbert: golden minute and play streak
+  private goldenEl = h("div.golden", { "aria-hidden": "true" });
+  private goldenT = -1; private prevHour = -1;
+
+  /** At 18:00 the city goes amber: slow-mo (only at 1x, never when paused), a wash, a two-note chime and a toast. */
+  private goldenTick(dt: number): void {
+    const hour = this.sim.hour;
+    if (this.prevHour >= 0 && crossedGolden(this.prevHour, hour) && this.goldenT < 0) {
+      this.goldenT = 0; this.audio.goldenChime(); this.toast("Golden minute. The whole city turns amber.", "gold");
+    }
+    this.prevHour = hour;
+    if (this.goldenT < 0) return;
+    const calm = this.reduceMotion;
+    if (!this.clock.paused) this.goldenT += dt;
+    const env = goldenEnvelope(this.goldenT);
+    this.goldenEl.style.opacity = String((calm ? Math.min(env, 0.5) : env) * 0.4);
+    this.clock.timeScale = calm || this.clock.speed !== 1 ? 1 : goldenTimeScale(this.goldenT);
+    if (this.goldenT >= GOLDEN_LEN) { this.goldenT = -1; this.clock.timeScale = 1; this.goldenEl.style.opacity = "0"; }
+  }
+
+  // Glow trail (fades in under a second behind your movement) and the all-calm glow (a quiet pool when you pause somewhere tidy).
+  private glow = new Glow();
+  private glowPos = { x: 0, y: 0 }; private glowLx = NaN; private glowLy = NaN; private stillFor = 0; private calm = 0; private tendedAt = 0; private tended = true;
+  private glowTick(dt: number): void {
+    const p = this.sim.player, show = !this.interior.open && !this.renderer.street2D && p.inCar < 0 && !this.clock.paused;
+    if (!show) { this.calm = 0; this.stillFor = 0; this.glowLx = NaN; this.glow.update(dt, 0, 0, 0, 0, false, 0, this.reduceMotion); return; }
+    this.stillFor = Math.hypot(p.x - this.glowLx, p.y - this.glowLy) > 0.02 ? 0 : this.stillFor + dt; // NaN on the first frame counts as moved
+    this.glowLx = p.x; this.glowLy = p.y;
+    if ((this.tendedAt -= dt) <= 0) { this.tended = isTended(this.sim.litter.pieces, p.x, p.y); this.tendedAt = 0.5; } // litter scan twice a second, not every frame
+    this.calm = calmStep(this.calm, this.stillFor, this.tended, dt);
+    const sp = this.renderer.cam.toScreen(p.x, p.y, 0, this.glowPos);
+    this.glow.update(dt, sp.x, sp.y, p.x, p.y, true, this.calm, this.reduceMotion);
+  }
+
+  /** One streak step per local calendar day. A gap quietly resets it; nothing nags. Day 7, 14, ... pays $77. */
+  private applyStreak(): void {
+    let prev: Streak | null = null;
+    try { prev = JSON.parse(localStorage.getItem("mosaics-world:streak") ?? "null"); } catch { /* private mode */ }
+    const { streak, changed } = nextStreak(prev, dayKey(new Date()));
+    if (changed) { try { localStorage.setItem("mosaics-world:streak", JSON.stringify(streak)); } catch { /* ignore */ } }
+    const glow = streakGlow(streak.count);
+    this.clockEl.style.setProperty("--streak", String(glow));
+    this.clockEl.classList.toggle("streaking", glow > 0);
+    this.clockEl.title = streak.count > 1 ? `${streak.count} days in a row` : "";
+    if (!changed || streak.count < 2) return;
+    setTimeout(() => {
+      this.toast(streakLine(streak.count), isStreakGiftDay(streak.count) ? "gold" : "acid");
+      if (isStreakGiftDay(streak.count)) { this.sim.player.cash += STREAK_GIFT; this.audio.streakChime(); }
+    }, 2200);
   }
 
   // ------------------------------------------------------------------ anonymous play-time stats

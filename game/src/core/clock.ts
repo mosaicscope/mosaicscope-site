@@ -13,6 +13,8 @@ export class SimulationClock {
   readonly step: number;
   readonly maxStepsPerFrame: number;
   speed = 1;
+  /** Transient multiplier on `speed` (the golden-minute slow-mo); 1 means no effect. */
+  timeScale = 1;
   paused = false;
   tick = 0;
   private acc = 0;
@@ -30,7 +32,7 @@ export class SimulationClock {
    */
   advance(realDt: number): number {
     if (this.paused) return 0;
-    const dt = Math.min(Math.max(realDt, 0), 0.25) * this.speed;
+    const dt = Math.min(Math.max(realDt, 0), 0.25) * this.speed * this.timeScale;
     this.acc += dt;
     let steps = Math.floor(this.acc / this.step);
     if (steps > this.maxStepsPerFrame) {

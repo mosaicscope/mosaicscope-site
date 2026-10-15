@@ -167,6 +167,34 @@ export class AudioSystem {
     else if (kind === "skid") { this.noise(o, 0.35, 3200); this.tone(o, "sine", 1150, 900, 0.3); } // tyre squeal
   }
 
+  /** Gilbert: soft sine voice that swells in, then rings out. `swell` = attack seconds. */
+  private bell(at: number, freq: number, peak: number, swell: number, ring: number): void {
+    const ctx = this.ctx!, env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, at);
+    env.gain.exponentialRampToValueAtTime(peak, at + swell);
+    env.gain.exponentialRampToValueAtTime(0.0001, at + swell + ring);
+    env.connect(this.master!);
+    for (const [mult, lvl] of [[1, 1], [2, 0.18]] as const) {
+      const osc = ctx.createOscillator(), g = ctx.createGain();
+      osc.type = "sine"; osc.frequency.value = freq * mult; g.gain.value = lvl;
+      osc.connect(g); g.connect(env); osc.start(at); osc.stop(at + swell + ring + 0.05);
+    }
+  }
+
+  /** Golden minute: G4 then D5 (a fifth up), each swelling in 1.0 s and ringing 1.2 s, 0.5 s apart. Peak 0.04 of master, quiet enough to sit under the music. */
+  goldenChime(): void {
+    if (!this.enabled || !this.ctx || !this.master || (this.dg && !this.dg.allow("event"))) return; // through the central mix like every other effect
+    const t = this.ctx.currentTime + 0.02;
+    this.bell(t, 392, 0.04, 1.0, 1.2); this.bell(t + 0.5, 587.33, 0.04, 1.0, 1.2);
+  }
+
+  /** Streak gift: D5 F#5 A5, 180 ms apart, 50 ms swell, 0.7 s ring. Peak 0.05 of master. */
+  streakChime(): void {
+    if (!this.enabled || !this.ctx || !this.master || (this.dg && !this.dg.allow("event"))) return;
+    const t = this.ctx.currentTime + 0.02;
+    [587.33, 739.99, 880].forEach((f, i) => this.bell(t + i * 0.18, f, 0.05, 0.05, 0.7));
+  }
+
   private kick(vol: number): void { const o = this.outAt(vol); if (o) this.tone(o, "sine", 120, 40, 0.18); }
   private hat(vol: number): void { const o = this.outAt(vol); if (o) this.noise(o, 0.03, 7000); }
   private outAt(vol: number): { gain: GainNode; at: number } | null {
