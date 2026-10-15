@@ -1,9 +1,9 @@
 {
- "at": 1792040238518,
+ "at": 1792052126841,
  "totals": {
   "duplicate-code": 2,
-  "long-function": 13,
-  "oversized-module": 7,
+  "long-function": 16,
+  "oversized-module": 9,
   "unused-css": 1
  },
  "findings": [
@@ -51,9 +51,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/app/Game.ts",
-   "detail": "1393 lines",
+   "detail": "1396 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|ogz0ur"
+   "fp": "oversized-module|12v9qmk"
   },
   {
    "kind": "oversized-module",
@@ -99,9 +99,9 @@
    "kind": "long-function",
    "severity": "low",
    "where": "game/src/render/Cars.ts:199",
-   "detail": "388 lines",
+   "detail": "389 lines",
    "fix": "split into named steps",
-   "fp": "long-function|ij45x"
+   "fp": "long-function|1tgw0pu"
   },
   {
    "kind": "long-function",
@@ -115,9 +115,33 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/render/Renderer.ts",
-   "detail": "999 lines",
+   "detail": "1001 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|qlqphc"
+   "fp": "oversized-module|57ob"
+  },
+  {
+   "kind": "oversized-module",
+   "severity": "low",
+   "where": "game/src/sim/Chronicles.ts",
+   "detail": "1288 lines",
+   "fix": "consider splitting",
+   "fp": "oversized-module|10pypl8"
+  },
+  {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "game/src/sim/Chronicles.ts:364",
+   "detail": "234 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|ydry1t"
+  },
+  {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "game/src/sim/Chronicles.ts:599",
+   "detail": "588 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|1es3w1l"
   },
   {
    "kind": "long-function",
@@ -131,9 +155,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Simulation.ts",
-   "detail": "907 lines",
+   "detail": "910 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|7xwgqg"
+   "fp": "oversized-module|j090y8"
   },
   {
    "kind": "long-function",
@@ -146,10 +170,18 @@
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/sim/Traffic.ts:450",
+   "where": "game/src/sim/Traffic.ts:451",
    "detail": "169 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1l17sdt"
+   "fp": "long-function|1b101oc"
+  },
+  {
+   "kind": "oversized-module",
+   "severity": "low",
+   "where": "game/src/ui/LifePhone.ts",
+   "detail": "951 lines",
+   "fix": "consider splitting",
+   "fp": "oversized-module|d2r84f"
   },
   {
    "kind": "oversized-module",
@@ -166,6 +198,14 @@
    "detail": "352 lines",
    "fix": "split into named steps",
    "fp": "long-function|10uwsee"
+  },
+  {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "game/tests/chronicles.test.ts:35",
+   "detail": "212 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|5n3or5"
   },
   {
    "kind": "oversized-module",
