@@ -74,10 +74,15 @@ export function aimThrow(x: number, y: number, z0: number, tx: number, ty: numbe
 /** Melee swing: every character in the forward arc within reach takes a hit. Writes hits into out. */
 export function swingHits(att: Character, reach: number, chars: Character[], hash: SpatialHash, tmp: number[], out: Character[]): number {
   out.length = 0;
-  const n = hash.query(att.x, att.y, reach + 0.4, tmp);
+  // Nearby pedestrians may sleep in the hash until the next LOD pass.
+  const n = att.tier === "player" ? (() => {
+    tmp.length = 0;
+    for (const c of chars) if (Math.hypot(c.x-att.x,c.y-att.y) <= reach + 0.4) tmp.push(c.id);
+    return tmp.length;
+  })() : hash.query(att.x, att.y, reach + 0.4, tmp);
   for (let i = 0; i < n; i++) {
     const c = chars[tmp[i]];
-    if (!c || c === att || c.tier === "background" || c.phys === Phys.DOWN) continue;
+    if (!c || c === att || c.inside >= 0 || c.inCar >= 0 || c.phys === Phys.DOWN) continue;
     const a = Math.atan2(c.y - att.y, c.x - att.x);
     if (Math.abs(angDiff(a, att.facing)) > 1.0) continue;
     out.push(c);

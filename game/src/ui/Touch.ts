@@ -19,6 +19,7 @@ export interface TouchHost {
   brake?(held: boolean): void;
   /** Zoom the camera in (+1) or out (-1); used by the on-screen zoom buttons. */
   zoom?(dir: number): void;
+  recenter?(): void;
 }
 
 /** The joystick is off: its touch handlers must not swallow taps on the left half (that also broke pinch zoom). */
@@ -66,7 +67,7 @@ export class TouchControls {
   // stick state
   private stickId = -1; private ox = 0; private oy = 0; private sx = 0; private sy = 0; private sprinting = false; private sentZero = true;
   // car pedals
-  private gas = false; private brakeHeld = false;
+  private gas = false; private brakeHeld = false; private steerLeft = false; private steerRight = false;
   private lastCtx = ""; private lastCar: boolean | null = null;
 
   static wanted(): boolean {
@@ -139,7 +140,7 @@ export class TouchControls {
     // on foot
     const foot = [
       arc(small("foot t-throw", "throw", "Throw", () => { buzz(14); this.host.action("throw"); }), 192),
-      arc(small("foot t-swing", "swing", "Swing", () => { buzz([10, 20, 18]); this.host.action("swing"); }), 162),
+      arc(small("foot t-swing", "swing", "Punch", () => { buzz([10, 20, 18]); this.host.action("swing"); }), 162),
       arc(small("foot t-talk", "talk", "Talk", () => { buzz(8); this.host.action("talk"); }), 132),
       arc(small("foot t-rob", "rob", "Rob", () => { buzz(12); this.host.action("rob"); }), 102),
     ];
@@ -170,6 +171,7 @@ export class TouchControls {
       return b;
     };
     this.sheet.append(
+      item("throw", "Throw", "throw", "foot"), item("rob", "Rob", "rob", "foot"),
       item("pickup", "Pick up", "pickup", "foot"), item("drop", "Drop", "drop", "foot"), item("bandage", "Bandage", "bandage", "foot"),
       item("horn", "Horn", "horn"), item("map", "Map", "map"),
     );
@@ -182,7 +184,17 @@ export class TouchControls {
       b.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); this.host.zoom?.(dir); });
       zoomBox.append(b);
     }
-    this.el.append(this.zone, cluster, zoomBox);
+    const center = el("button", "tc-zbtn", "◎");
+    center.setAttribute("aria-label", "Centre camera on me");
+    this.press(center, () => this.host.recenter?.()); zoomBox.append(center);
+    const steering = el("div", "tc-steering car");
+    for (const [label, left] of [["◀", true], ["▶", false]] as const) {
+      const b = el("button", "tc-zbtn", label);
+      b.setAttribute("aria-label", left ? "Steer left" : "Steer right");
+      this.press(b, () => {}, on => { if (left) this.steerLeft = on; else this.steerRight = on; });
+      steering.append(b);
+    }
+    this.el.append(this.zone, cluster, zoomBox, steering);
 
     // nothing we touch leaks into the canvas / page handlers
     for (const t of ["pointerdown", "pointerup", "pointermove", "click", "dblclick", "contextmenu", "touchstart", "touchend", "touchmove", "wheel"]) {
@@ -195,18 +207,23 @@ export class TouchControls {
   /** Call every frame: feeds the stick/pedals to the host and refreshes the context button. */
   update(): void {
     if (!this.el.classList.contains("on")) return;
+    if (this.el.classList.contains("hidden")) {
+      this.gas = this.brakeHeld = this.steerLeft = this.steerRight = false;
+      this.host.brake?.(false); this.host.move(0, 0); this.sentZero = true;
+      return;
+    }
     const inCar = this.host.inCar();
     if (inCar !== this.lastCar) {
       this.lastCar = inCar;
       this.el.classList.toggle("in-car", inCar);
       this.toggleSheet(false);
-      if (!inCar) { this.gas = false; this.brakeHeld = false; }
+      if (!inCar) { this.gas = false; this.brakeHeld = false; this.steerLeft = this.steerRight = false; this.host.brake?.(false); }
     }
     // stick / pedals
     if (inCar) {
       const brakeY = this.host.brake ? 0 : 1;
       const y = this.gas ? -1 : this.brakeHeld ? brakeY : 0;
-      const x = this.stickId >= 0 ? this.sx : 0;
+      const x = this.stickId >= 0 ? this.sx : Number(this.steerRight) - Number(this.steerLeft);
       if (x || y) { this.host.move(x, y); this.sentZero = false; }
       else if (!this.sentZero) { this.host.move(0, 0); this.sentZero = true; }
     } else if (this.stickId >= 0) {
@@ -227,7 +244,7 @@ export class TouchControls {
     this.ctxBtn.setAttribute("aria-label", c?.label || "Use");
     if (c?.icon && !ICONS[c.icon]) this.ctxIcon.textContent = c.icon; // host gave a glyph
     else this.ctxIcon.innerHTML = ICONS[c?.icon ?? "use"] ?? ICONS.use;
-    if (c) { this.ctxBtn.classList.remove("pop"); void this.ctxBtn.offsetWidth; this.ctxBtn.classList.add("pop"); buzz(6); }
+    // Context updates stay quiet: no repeated flashing or vibration.
   }
 
   // ---------------------------------------------------------------- internals

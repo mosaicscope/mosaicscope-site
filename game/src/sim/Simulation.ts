@@ -669,8 +669,17 @@ export class Simulation {
       const v = this.hits[i];
       if (v.lastHitBy === c.id && this.tick - v.lastHitTick < 20) continue; // per-pair hit cooldown
       const nx = (v.x - c.x) || 0.01, ny = (v.y - c.y) || 0.01, nl = Math.hypot(nx, ny);
-      applyImpact(v, 0.6 * (0.8 + c.pers.boldness * 0.4), nx / nl, ny / nl, shieldBlocks(v, this.toys, c.x, c.y), this.cfg.maxImpulse, 0.5);
+      const result = applyImpact(v, 2.0 * (0.8 + c.pers.boldness * 0.4), nx / nl, ny / nl, shieldBlocks(v, this.toys, c.x, c.y), this.cfg.maxImpulse, 0.5);
       v.lastHitBy = c.id; v.lastHitTick = this.tick;
+      this.lod.markHot(v.id, this.tick);
+      if (!result.blocked) {
+        wound(this, v, "torso", 1, "bruise", c.id, c.x, c.y);
+        c.stats.hits++; v.stats.hitsTaken++;
+        v.emo.fear = Math.min(1, v.emo.fear + 0.2);
+        const rel = this.relate(v, c.id); rel.trust = Math.max(-1, rel.trust - 0.2);
+        if (c.tier === "player") commitCrime(this, c, "assault", v);
+      }
+      this.bus.emit("fx", { kind: "star", x: v.x, y: v.y, z: 1.2, n: 4 });
     }
     if (n) this.bus.emit("sound", { kind: "swish", x: c.x, y: c.y, vol: 0.2 });
     return n;
