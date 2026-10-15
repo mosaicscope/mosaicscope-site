@@ -32,6 +32,7 @@ import { updateHealth, hospitalise, wound, useBandage, recomputeBleed, hurtOf } 
 import { clamp } from "../core/math";
 import { fireGun, startTurfWar, turfWarActive } from "./Turf";
 import { LitterState, updateLitter } from "./Litter";
+import { StoriesState, updateStories } from "./Stories";
 
 export type FxKind = "dust" | "impact" | "spark" | "confetti" | "break" | "heart" | "rain_splash" | "text" | "spring" | "zzz" | "music" | "star" | "blood" | "spray" | "flash" | "paint" | "water" | "cash" | "gib" | "skid";
 export interface SimSignals {
@@ -75,6 +76,8 @@ export class Simulation {
   toys: Toy[] = [];
   /** street litter, bins and the recycling run (sim/Litter.ts) */
   litter!: LitterState;
+  /** fortune kiosk, neighbour feuds, pet pigeons and the rooftop coop (sim/Stories.ts) */
+  stories!: StoriesState;
   vehicles: Vehicle[] = [];
   names?: NameBook;
   usedLooks = new Set<string>();
@@ -134,6 +137,7 @@ export class Simulation {
     spawnAll(this);
     spawnVehicles(this);
     this.litter = new LitterState(this.world, this.cfg.seed);
+    this.stories = new StoriesState(this.world, this.cfg.seed);
     this.rebuildHash();
   }
 
@@ -220,6 +224,7 @@ export class Simulation {
     if (this.deferred.length) { const d = this.deferred; this.deferred = []; for (const fn of d) fn(); }
 
     if (this.tick % 120 === 0) { this.groups.update(this.chars, this.tick); updateLitter(this); }
+    updateStories(this);
     if (this.tick % 30 === 0) this.policeTick();
     if (this.tick % 60 === 0) for (const [id, at] of this.pendingAmbulance) {
       const c = this.chars[id];

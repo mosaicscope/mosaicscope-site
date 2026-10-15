@@ -2,6 +2,7 @@ import type { Simulation } from "../sim/Simulation";
 import { Character, Lod, Phys, Toy } from "../entities/types";
 import { TOYS } from "../content/toys";
 import { drawLitter } from "./LitterArt";
+import { drawKiosk, drawLadder, drawCoop, drawPigeon, drawDrop } from "./StoryArt";
 import { T, TILE_HEIGHT, ROAD_W } from "../world/World";
 import { Camera } from "./Camera";
 import { Terrain, drawTallTile, drawPoi } from "./Terrain";
@@ -30,7 +31,7 @@ import { StreetView } from "./Street2D";
 const STREET_2D = false;
 
 export type Quality = 0 | 1 | 2 | 3; // low, medium, high, ultra
-interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter, 7 street decor
+interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter, 7 street decor, 8 story prop (ref = type*10000 + index, see StoryArt)
 interface Decal { x: number; y: number; r: number; color: string; born: number; life: number; rot: number }
 
 export interface RenderOptions { selected: number; hovered: number; debug: DebugFlags; reduceMotion: boolean; quality: Quality; showNames: boolean }
@@ -55,6 +56,7 @@ export class Renderer {
   private nItems = 0;
   private pt = { x: 0, y: 0 };
   private pt2 = { x: 0, y: 0 };
+  private pt3 = { x: 0, y: 0 };
   private dpr = 1;
   private time = 0;
   private lastPose = new Map<number, string>();
@@ -226,6 +228,29 @@ export class Renderer {
       if (!inView(pt.x, pt.y, 30)) continue;
       this.push(this.behind(l.x, l.y, l.x + l.y - 0.02), 6, l.id, pt.x, pt.y);
     }
+    // street stories: fortune booth, rooftop coop and ladder, pigeons, dropped coins
+    {
+      const st = sim.stories, k = st.kiosk, co = st.coop;
+      if (k) { cam.toScreen(k.x, k.y, 0, pt); if (inView(pt.x, pt.y, 70)) this.push(this.behind(k.x, k.y, k.x + k.y + 0.02), 8, 0, pt.x, pt.y); }
+      let coopD = 0;
+      if (co) {
+        const b = sim.world.buildings[co.building];
+        cam.toScreen(co.rx + 0.5, co.ry + 0.5, co.height, pt);
+        coopD = co.rx + co.ry + 0.6;
+        if (inView(pt.x, pt.y, 90)) { this.push(coopD, 8, 20000, pt.x, pt.y); this.push(co.lx + b.y1 + 1.05, 8, 10000, pt.x, pt.y); }
+      }
+      for (let i = 0; i < st.pigeons.length; i++) {
+        const b = st.pigeons[i];
+        cam.toScreen(b.x, b.y, 0, pt);
+        if (!inView(pt.x, pt.y, 40)) continue;
+        this.push(b.z > 1.6 && co ? coopD + 0.1 + (i % 7) * 0.01 : this.behind(b.x, b.y, b.x + b.y + 0.015), 8, 30000 + i, pt.x, pt.y);
+      }
+      for (let i = 0; i < st.drops.length; i++) {
+        const d = st.drops[i];
+        cam.toScreen(d.x, d.y, 0, pt);
+        if (inView(pt.x, pt.y, 30)) this.push(this.behind(d.x, d.y, d.x + d.y - 0.01), 8, 40000 + i, pt.x, pt.y);
+      }
+    }
     this.pickBoxes.length = 0;
     AD_BOXES.length = 0;
     // cars and traffic lights
@@ -361,6 +386,16 @@ export class Renderer {
       } else if (it.kind === 7) {
         flush();
         drawDecor(g, decorGrid(sim.world)[it.ref], it.sx, it.sy, z, time, 1 - sim.daylight, (it.ref * 0.618) % 1);
+      } else if (it.kind === 8) {
+        flush();
+        const st = sim.stories, typ = Math.floor(it.ref / 10000), idx = it.ref % 10000;
+        if (typ === 0) drawKiosk(g, it.sx, it.sy, z, time, 1 - sim.daylight);
+        else if (typ === 1 && st.coop) {
+          const co = st.coop, b = sim.world.buildings[co.building], base = cam.toScreen(co.lx + 0.5, b.y1 + 1, 0, this.pt2), top = cam.toScreen(co.lx + 0.5, b.y1 + 1, co.height, this.pt3);
+          drawLadder(g, base.x, base.y, top.x, top.y, z);
+        } else if (typ === 2 && st.coop) drawCoop(g, it.sx, it.sy, z, st.flags(), time, st.coop.fedUntil > sim.tick);
+        else if (typ === 3) drawPigeon(g, st.pigeons[idx], it.sx, it.sy, z, time, Math.hypot(st.pigeons[idx].x - sim.player.x, st.pigeons[idx].y - sim.player.y) < 8);
+        else if (typ === 4) drawDrop(g, it.sx, it.sy, z, time);
       } else {
         flush();
         drawPoi(g, sim.world.pois[it.ref], it.sx, it.sy, z, time, party, isDark);

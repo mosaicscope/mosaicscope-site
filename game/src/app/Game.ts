@@ -1,6 +1,7 @@
 import type { Character } from "../entities/types";
 import { nearestRecyclable, nearestBin, collectPiece, rummageBin, scrapCount, scrapValue } from "../sim/Litter";
 import { LITTER, SACK_CAP } from "../content/litter";
+import { Feud, Fortune, REASONS, FEED_PRICE, FEEDER_PRICE, FORTUNE_PRICE } from "../sim/Stories";
 import { Club } from "../ui/Club";
 import "../ui/club.css";
 import { Luxury } from "../ui/Luxury";
@@ -317,6 +318,7 @@ export class Game {
     this.renderer.zooAnimals = this.luxury.empire.animals; zooState.animals = this.luxury.empire.animals.length;
     this.touch.el.classList.toggle("hidden", this.casino.open || this.interior.open || (this.modal.open && !this.modal.el.classList.contains("touch-tut")) || this.dialogue.open || this.terrance.open || this.travel.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
     this.tickStory(now);
+    for (const n of this.sim.stories.notes.splice(0)) this.toast(n.text, n.kind);
     this.minimap.update(now);
     if (now - this.lastUi < 250) return;
     this.maybeCall();
@@ -435,6 +437,69 @@ export class Game {
     return false;
   }
 
+  // ------------------------------------------------------------------ street stories (sim/Stories.ts)
+  /** The fortune booth and the coop ladder. */
+  private storyPlace(): boolean {
+    const st = this.sim.stories, p = this.sim.player;
+    if (p.phys !== Phys.OK || p.inCar >= 0) return false;
+    if (st.nearKiosk(p.x, p.y)) { this.kioskModal(null); return true; }
+    if (st.coop && st.atLadder(p.x, p.y)) { this.coopModal(); return true; }
+    return false;
+  }
+
+  private nearFeud() { const p = this.sim.player; return p.phys === Phys.OK && p.inCar < 0 ? this.sim.stories.feudsNear(this.sim, p.x, p.y, 2.2) : null; }
+  private nearPigeon() { const p = this.sim.player; return p.phys === Phys.OK && p.inCar < 0 && p.cash >= FEED_PRICE ? this.sim.stories.nearestWild(p.x, p.y, 2.8) : null; }
+
+  /** Neighbours mid-feud, then pigeons to feed. */
+  private storyPeople(): boolean {
+    const st = this.sim.stories, f = this.nearFeud();
+    if (f) { this.feudModal(f.feud, f.side, null); return true; }
+    if (!this.nearPigeon()) return false;
+    const r = st.feed(this.sim);
+    if (r === "fed") this.toast("You scatter some crumbs. The pigeons get closer.");
+    else if (r === "full") this.toast("A pigeon looks at you fondly, but your flock is full. Build a coop?");
+    else if (r === "none") this.toast("No pigeon close enough");
+    return true;
+  }
+
+  private kioskModal(slip: Fortune | null): void {
+    const st = this.sim.stories, p = this.sim.player;
+    const past = st.fortunes.filter((f) => f !== slip).slice(-5).reverse().map((f) => h("li", { text: `“${f.text}”${f.state === "true" ? "  ✓ it did." : f.state === "lapsed" ? "  (it came and went)" : ""}` }));
+    this.modal.show("Madame Zephyr's Fortunes", [
+      h("p", { text: slip ? "She turns a card, squints at the ball, and writes you a slip:" : `"Five dollars, darling. The ball is never wrong. It is occasionally late."` }),
+      slip ? h("p", { text: `“${slip.text}”` }) : null,
+      h("button.btn", { onclick: () => { const r = st.readFortune(this.sim); if (r === "poor") this.toast(`A fortune is ${fmtCash(FORTUNE_PRICE)}. You're short.`, "red"); else this.kioskModal(r); }, text: slip ? `Another (${fmtCash(FORTUNE_PRICE)})` : `Read my fortune (${fmtCash(FORTUNE_PRICE)})`, disabled: p.cash < FORTUNE_PRICE }),
+      past.length ? h("ul.items", null, past) : null,
+    ]);
+  }
+
+  private feudModal(f: Feud, side: 0 | 1, quote: string | null): void {
+    const sim = this.sim, st = sim.stories, me = sim.chars[side ? f.b : f.a], other = sim.chars[side ? f.a : f.b];
+    const first = (c: { name: string }) => c.name.split(" ")[0];
+    const mood = ["a grumble", "bad blood", "a shouting match", "a proper vendetta", "one insult off a brawl"][Math.min(4, f.stage)];
+    const home = sim.world.buildings[other.home]?.name;
+    const body: (HTMLElement | null)[] = [
+      h("p", { text: `${first(me)} and ${first(other)} are feuding over ${REASONS[f.reason]}. It's ${mood} now, and it's getting worse.` }),
+      quote ? h("p", { text: quote }) : null,
+    ];
+    if (!f.heard[side]) body.push(h("button.btn", { onclick: () => this.feudModal(f, side, `${first(me)}: ${st.hearOut(sim, f, side)}`), text: `Hear ${first(me)} out` }));
+    else if (!f.heard[side ? 0 : 1]) body.push(h("p", { text: `You've heard ${first(me)}. Find ${first(other)}${home ? ` (they're usually around ${home})` : ""} and hear them out too.` }));
+    if (f.heard[0] && f.heard[1]) body.push(h("button.btn.acid", { onclick: () => { const r = st.brokerTruce(sim, f); this.modal.close(); if (r) this.toast(`Truce! ${first(me)} and ${first(other)} shook on it · +${fmtCash(r)} from the grateful street`, "acid"); }, text: "Broker a truce" }));
+    this.modal.show("Neighbours at war", body);
+  }
+
+  private coopModal(): void {
+    const sim = this.sim, st = sim.stories, c = st.coop!, p = sim.player;
+    const pets = st.pets();
+    const fed = c.fedUntil > sim.tick ? `${Math.ceil((c.fedUntil - sim.tick) / 3600)}h of seed left` : "empty";
+    this.modal.show("The rooftop coop", [
+      h("p", { text: pets.length ? "You climb the ladder. Your flock shuffles over for a look at you." : "You climb the ladder. It's quiet up here. Make friends with the plaza pigeons ($1 of crumbs each) and they'll move in." }),
+      pets.length ? h("ul.items", null, pets.map((b) => h("li", { text: `${b.name} · ${b.learned} route${b.learned === 1 ? "" : "s"} guessed right` }))) : null,
+      h("p", { text: `Flags flying: ${st.flags()} · Feeder: ${fed} · Room for ${st.petCap - pets.length} more` }),
+      h("button.btn", { onclick: () => { if (st.fillFeeder(sim)) { this.toast("Feeder filled. Wild pigeons will be dropping by.", "acid"); this.coopModal(); } else this.toast(`Seed is ${fmtCash(FEEDER_PRICE)}. You're short.`, "red"); }, text: `Fill the feeder (${fmtCash(FEEDER_PRICE)})`, disabled: p.cash < FEEDER_PRICE }),
+    ]);
+  }
+
   private nearestPerson(maxD = 2.5): number {
     const p = this.sim.player;
     let best = -1, bd = maxD;
@@ -489,8 +554,10 @@ export class Game {
     if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; if (Math.abs(v.speed) > 2) { this.toast("Slow down to get out"); return; } const door = this.nearDoor(); v.speed = 0; unseat(sim, v); v.state = "parked"; this.renderer.cam.follow = p.id; if (door) this.enterPlace(door); return; } // pull up outside and E walks you straight in
     const door = this.nearDoor();
     if (door) { this.enterPlace(door); return; }
+    if (this.storyPlace()) return;
     if (this.nearestToy()) { this.act("pickup"); return; }
     if (this.scavenge()) return;
+    if (this.storyPeople()) return;
     const car = nearestCar(sim, p.x, p.y, 2.2);
     if (!car) { this.toast("Nothing to pick up here"); return; }
     if (car.forSale) { this.toast(`For sale: ${fmtCash(car.price)}. Buy it inside the dealership.`); return; }
@@ -751,6 +818,13 @@ export class Game {
         else if (bin) parts.push(kb(k.pickup), " rummage ", h("b", { text: "the bin" }), " · ");
       }
     }
+    if (p.inCar < 0) {
+      const sst = sim.stories;
+      if (sst.nearKiosk(p.x, p.y)) parts.push(kb(k.pickup), " have your ", h("b", { text: "fortune" }), " read · ");
+      else if (sst.coop && sst.atLadder(p.x, p.y)) parts.push(kb(k.pickup), " climb to the ", h("b", { text: "coop" }), " · ");
+      else if (this.nearFeud()) parts.push(kb(k.pickup), " ", h("b", { text: "mediate" }), " the feud · ");
+      else if (this.nearPigeon() && !door && !this.nearestLitter()) parts.push(kb(k.pickup), " scatter ", h("b", { text: "crumbs" }), " · ");
+    }
     if (scrapCount(p) > 0) parts.push("Sack ", h("b", { text: `${scrapCount(p)} (${fmtCash(scrapValue(p))})` }), " · ");
     const n = this.nearestPerson();
     if (n >= 0) parts.push(kb(k.talk), " talk to ", h("b", { text: sim.chars[n].name }), " · ");
@@ -993,9 +1067,13 @@ export class Game {
       const sim = this.sim, p = sim.player;
       if (p.inCar >= 0) return { label: "Get out", icon: "exit" };
       const d = this.nearDoor(); if (d) return { label: d.studio ? "Enter Studio" : `Enter ${sim.world.buildings[d.building].name}`, icon: "use" };
+      if (sim.stories.nearKiosk(p.x, p.y)) return { label: "Fortune", icon: "use" };
+      if (sim.stories.coop && sim.stories.atLadder(p.x, p.y)) return { label: "Climb to coop", icon: "use" };
       if (this.nearestToy()) return { label: "Pick up", icon: "pickup" };
       if (this.nearestLitter()) return { label: "Pick up litter", icon: "use" };
       if (this.nearestBin()) return { label: "Rummage bin", icon: "use" };
+      if (this.nearFeud()) return { label: "Mediate feud", icon: "talk" };
+      if (this.nearPigeon()) return { label: "Feed pigeons", icon: "use" };
       const id = this.nearestPerson(1.8); if (id >= 0) return { label: `Talk to ${sim.chars[id].name.split(" ")[0]}`, icon: "talk" };
       return null;
     },
