@@ -1,3 +1,4 @@
+import { newExpansion, type ExpansionState } from "../sim/Expansion";
 import { Simulation } from "../sim/Simulation";
 import { Character, Toy, Rel, Memory, Vehicle } from "../entities/types";
 import { Graffiti } from "../world/World";
@@ -31,6 +32,7 @@ export const unpackMem = (a: MemTuple): Memory => { const m: Memory = { t: a[0],
 export const packRel = (id: number, r: Rel): RelTuple => [id, r.fam, r.trust, r.aff, r.respect, r.fear, r.rivalry, r.grudge, r.shared, r.favours, r.last];
 export const unpackRel = (a: RelTuple): [number, Rel] => [a[0], { fam: a[1], trust: a[2], aff: a[3], respect: a[4], fear: a[5], rivalry: a[6], grudge: a[7], shared: a[8], favours: a[9], last: a[10] }];
 export interface SaveData {
+  expansion?: ExpansionState;
   version: number;
   savedAt: string;
   label: string;
@@ -70,6 +72,7 @@ export const MIGRATIONS: Record<number, (d: any) => any> = {
 
 export function serialize(sim: Simulation, label = "Save"): SaveData {
   return {
+    expansion: structuredClone(sim.expansion),
     version: SAVE_VERSION, savedAt: new Date().toISOString(), label,
     cfg: sim.cfg, tick: sim.tick, rng: sim.rng.getState(), env: { ...sim.env }, playerId: sim.playerId,
     chars: sim.chars.map((c) => {
@@ -111,6 +114,7 @@ export function parseSave(json: string): SaveData {
 /** Build a fresh simulation from a save. */
 export function restore(d: SaveData): Simulation {
   const sim = new Simulation(d.cfg);
+  sim.expansion = { ...newExpansion(), ...structuredClone(d.expansion ?? {}) };
   sim.tick = d.tick;
   sim.rng.setState(d.rng);
   sim.env = { ...sim.env, ...d.env };

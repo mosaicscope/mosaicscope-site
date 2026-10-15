@@ -175,20 +175,20 @@ const onFace = (f: { a0: V3; b0: V3; a1: V3; b1: V3 }, t: number, u: number): V3
   return [lo[0] + (hi[0] - lo[0]) * u, lo[1] + (hi[1] - lo[1]) * u, lo[2] + (hi[2] - lo[2]) * u];
 };
 
-function wheel(k: Ctx, lx: number, ly: number, r: number, near: boolean, spin: number, rim: string): void {
+function wheel(k: Ctx, lx: number, ly: number, r: number, near: boolean, spin: number, rim: string, flat = false): void {
   const g = k.g, pts: number[][] = [];
-  for (let i = 0; i < 14; i++) { const a = (i / 14) * 6.283; pts.push(W3(k, [lx + Math.cos(a) * r, ly, r + Math.sin(a) * r])); }
+  for (let i = 0; i < 14; i++) { const a = (i / 14) * 6.283; pts.push(W3(k, [lx + Math.cos(a) * r, ly, r * (flat ? 0.55 : 1) + Math.sin(a) * r * (flat ? 0.55 : 1)])); }
   g.fillStyle = "#121010"; g.beginPath(); pts.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.closePath(); g.fill();
   if (!near) return;
   const ri = r * 0.62;
   g.fillStyle = rim; g.beginPath();
-  for (let i = 0; i < 12; i++) { const a = (i / 12) * 6.283; const p = W3(k, [lx + Math.cos(a) * ri, ly + Math.sign(ly) * 0.01, r + Math.sin(a) * ri]); if (i) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); }
+  for (let i = 0; i < 12; i++) { const a = (i / 12) * 6.283; const p = W3(k, [lx + Math.cos(a) * ri, ly + Math.sign(ly) * 0.01, r * (flat ? 0.55 : 1) + Math.sin(a) * ri * (flat ? 0.55 : 1)]); if (i) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); }
   g.closePath(); g.fill();
   // spokes turn with the wheel
   g.strokeStyle = "rgba(14,11,10,.55)"; g.lineWidth = Math.max(1, 0.8 * k.cam.zoom); g.beginPath();
   for (let i = 0; i < 5; i++) {
     const a = spin + (i / 5) * 6.283;
-    const A = W3(k, [lx + Math.cos(a) * ri * 0.25, ly, r + Math.sin(a) * ri * 0.25]), B = W3(k, [lx + Math.cos(a) * ri * 0.92, ly, r + Math.sin(a) * ri * 0.92]);
+    const A = W3(k, [lx + Math.cos(a) * ri * 0.25, ly, r * (flat ? 0.55 : 1) + Math.sin(a) * ri * 0.25 * (flat ? 0.55 : 1)]), B = W3(k, [lx + Math.cos(a) * ri * 0.92, ly, r * (flat ? 0.55 : 1) + Math.sin(a) * ri * 0.92 * (flat ? 0.55 : 1)]);
     g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]);
   }
   g.stroke();
@@ -243,7 +243,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const wr = S.wheel * H, wx = L * (S.wb ?? (v.cls === "van" || v.cls === "ambulance" ? 0.33 : 0.31)), wy = hw - 0.02;
   const rimCol = ST.rim ?? (v.cls === "police" || v.cls === "ambulance" || v.cls === "van" ? "#8a8580" : v.cls === "super" || v.cls === "sports" ? "#2a2a2a" : "#cfc8c0");
   const axles = M.axles === 1 ? [0] : M.axles === 2 ? [wx, -wx] : [wx, 0, -wx];
-  for (const lx of axles) wheel(k, lx, -nearSign * wy, wr, false, spin, rimCol);
+  for (const lx of axles) wheel(k, lx, -nearSign * wy, wr, false, spin, rimCol, -nearSign < 0 ? !!v.flatLeft : !!v.flatRight);
 
   // ---- lower skirt ----
   const hs = H * 0.3, ground = 0.08;
@@ -252,7 +252,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const rSk1 = ring(x0, x1, hw, S.cf, S.cr, () => hs);
   const lower = (n: V3) => lit(paint, shadeFor(n) * 0.72 * dmg);
   loft(k, rSk0, rSk1, lower);
-  for (const lx of axles) wheel(k, lx, nearSign * wy, wr, true, spin, rimCol);
+  for (const lx of axles) wheel(k, lx, nearSign * wy, wr, true, spin, rimCol, nearSign < 0 ? !!v.flatLeft : !!v.flatRight);
 
   // ---- body sides (with a slight tumblehome) and the bonnet/boot deck ----
   const rTop = ring(x0 + 0.03, x1 - 0.02, hw * 0.95, S.cf * 1.05, S.cr * 1.05, bodyTop);
@@ -538,6 +538,21 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
       g.beginPath(); g.arc(p[0] + Math.sin(time * 2 + i) * 3 * z, p[1], (0.06 + ph * 0.16) * z * 10, 0, 6.283); g.fill();
     }
   }
+
+  // Glass fractures remain fixed to panels; leaks and loose trim sit on the road.
+  if ((v.glassDamage ?? 0) > 0.35) {
+    for (const f of glassFaces.slice(0, 4)) {
+      const C = W3(k, onFace(f, 0.5, 0.5));
+      g.strokeStyle = (v.glassDamage ?? 0) > 0.8 ? "#111" : "rgba(235,245,255,.8)";
+      g.lineWidth = Math.max(1, z);
+      for (let i=0;i<5;i++) { const E=W3(k,onFace(f,(i%2)*0.9+0.05,i/5)); g.beginPath();g.moveTo(C[0],C[1]);g.lineTo(E[0],E[1]);g.stroke(); }
+    }
+  }
+  if (v.leak) { const P=W3(k,[-L*.2,0,.01]);g.fillStyle="rgba(12,8,10,.75)";g.beginPath();g.ellipse(P[0],P[1]+8*z,12*z*v.leak,4*z,0,0,Math.PI*2);g.fill(); }
+  if (v.bumperLost || v.mirrorLost) { const P=W3(k,[-L*.65,hw*1.3,.03]);g.strokeStyle="#aaa";g.lineWidth=2*z;g.beginPath();g.moveTo(P[0]-5*z,P[1]);g.lineTo(P[0]+5*z,P[1]+3*z);g.stroke(); }
+  if (v.burning) { for(let i=0;i<5;i++){const P=W3(k,[x1-L*.2,(i-2)*.06,H*.7]);g.fillStyle=i%2?"#ffb52e":"#ec3b12";g.beginPath();g.moveTo(P[0]-4*z,P[1]);g.lineTo(P[0]+Math.sin(time*9+i)*3*z,P[1]-(10+Math.sin(time*7+i)*5)*z);g.lineTo(P[0]+4*z,P[1]);g.fill();} }
+  if (v.burnt && (v.burntAge ?? 0) < 0.8) { const P=W3(k,[0,0,H]); const r=(12+(v.burntAge??0)*40)*z; g.fillStyle="rgba(255,170,30,.6)";g.beginPath();g.arc(P[0],P[1],r,0,Math.PI*2);g.fill(); }
+  if (v.flatLeft || v.flatRight || v.burnt) { const P=W3(k,[0,0,H+.2]);g.font=`${Math.max(9,10*z)}px monospace`;g.fillStyle="#f6b62c";g.fillText(v.burnt?"BURNT OUT":v.flatLeft&&v.flatRight?"FLAT TYRES":"FLAT TYRE",P[0]-25*z,P[1]); }
 
   if (v.forSale) {
     cam.toScreen(x, y, H + 0.55, pt);
