@@ -1,5 +1,5 @@
 {
- "at": 1792023915398,
+ "at": 1792028412903,
  "totals": {
   "duplicate-code": 2,
   "long-function": 13,
@@ -51,9 +51,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/app/Game.ts",
-   "detail": "1382 lines",
+   "detail": "1383 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|xtb44h"
+   "fp": "oversized-module|d367tq"
   },
   {
    "kind": "oversized-module",
@@ -106,10 +106,10 @@
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/render/RefFigure.ts:239",
+   "where": "game/src/render/RefFigure.ts:240",
    "detail": "178 lines",
    "fix": "split into named steps",
-   "fp": "long-function|rfu0zv"
+   "fp": "long-function|19y0q4v"
   },
   {
    "kind": "oversized-module",
