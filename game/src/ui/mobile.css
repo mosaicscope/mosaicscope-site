@@ -128,3 +128,15 @@
 /* zoom buttons, left side, so zoom never depends on a pinch working */
 .tc-zoom { position: absolute; left: max(14px, env(safe-area-inset-left)); bottom: 42%; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
 .tc-zbtn { pointer-events: auto; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--line, rgba(238,228,211,.25)); background: rgba(14,11,10,.72); color: var(--paper, #eee4d3); font: 700 26px/1 var(--mono, monospace); display: grid; place-items: center; touch-action: none; }
+
+/* Calm thumb dock: stable, generously sized targets instead of a floating fan. */
+.tc:not(.in-car) .tc-cluster { left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); width: auto; height: 64px; display: flex; gap: 8px; }
+.tc:not(.in-car) .tc-cluster > .tc-btn { position: static; transform: none; width: 60px; height: 64px; flex-shrink: 0; border-radius: 18px; box-shadow: none; background: rgba(24,27,30,.94); }
+.tc:not(.in-car) .tc-cluster > .tc-ctx { flex: 1; order: -1; min-width: 80px; }
+.tc:not(.in-car) .tc-cluster > .t-throw, .tc:not(.in-car) .tc-cluster > .t-rob { display: none; }
+.tc:not(.in-car) .tc-sheet { right: 0; bottom: 76px; max-height: 55dvh; overflow-y: auto; }
+.tc .t-more .tc-lbl { display: block; }
+.tc-ctx.pop { animation: none; }
+
+.tc.in-car .tc-steering { position: absolute; left: max(16px, env(safe-area-inset-left)); bottom: max(22px, env(safe-area-inset-bottom)); display: flex; gap: 12px; }
+.tc-steering .tc-zbtn { width: 64px; height: 64px; border-radius: 18px; }

@@ -367,6 +367,7 @@ export class Game {
   // ------------------------------------------------------------------ player
   private controlPlayer(): void {
     const sim = this.sim, p = sim.player, k = this.settings.keys;
+    if (this.modal.open || this.casino.open || this.phone.open) { stop(p); this.keys.clear(); playerInput.throttle = 0; playerInput.steer = 0; playerInput.brake = true; return; }
     if (this.interior.open) { p.vx = p.vy = 0; return; } // you're indoors; the street body waits at the door
     if (p.inCar >= 0) {
       const up = this.keys.has(k.up) || this.keys.has("arrowup"), down = this.keys.has(k.down) || this.keys.has("arrowdown");
@@ -584,14 +585,18 @@ export class Game {
         break;
       }
       case "swing": {
-        // the swing always shows, even empty-handed (air swing); it only hits something when you hold a melee item
-        p.facing = Math.atan2(cursor.y - p.y, cursor.x - p.x);
+        if ((sim.nextAttack.get(p.id) ?? 0) > sim.tick) return;
+        const nearby = sim.chars.filter(c => c !== p && c.inside < 0 && c.inCar < 0 && c.phys !== Phys.DOWN && Math.hypot(c.x-p.x,c.y-p.y) <= 1.5);
+        const target = nearby.find(c => c.id === this.selected) ?? nearby.sort((a,b) => Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0];
+        if (target) p.facing = Math.atan2(target.y-p.y,target.x-p.x);
+        else p.facing = Math.atan2(cursor.y - p.y, cursor.x - p.x);
+        this.moveTarget = null; this.pendingTalk = -1; this.pendingEnter = null;
         // empty-handed, the swing key throws one of the 20 punches at random; holding a melee item swings it
         p.anim.pose = p.hand >= 0 && isMelee(sim.toys[p.hand].def) ? "swing" : `punch${Math.floor(Math.random() * 20)}`;
         p.anim.poseT = 0.3;
         if (p.hand >= 0 && isMelee(sim.toys[p.hand].def)) sim.swingHeld(p);
         else if (p.hand >= 0 && canThrow(sim.toys[p.hand].def)) this.act("throw");
-        else { sim.punchHeld(p); const t = this.nearestToy(1.2); if (t) sim.kickToy(p, t, cursor.x, cursor.y); }
+        else { const hits = sim.punchHeld(p); this.toast(hits ? "Punch landed" : "Nobody in reach — move closer"); const t = this.nearestToy(1.2); if (t) sim.kickToy(p, t, cursor.x, cursor.y); }
         break;
       }
       case "talk": {
@@ -612,9 +617,7 @@ export class Game {
   select(id: number): void {
     this.selected = id;
     this.inspector.show(id);
-    // clicking someone zooms in on them: the camera follows them and they stand out on top
-    const cam = this.renderer.cam;
-    if (id >= 0 && id !== this.sim.playerId) { cam.follow = id; cam.setZoom(Math.max(cam.targetZoom, 5)); }
+    // Inspecting someone never steals the walking camera or changes zoom.
   }
 
   // ------------------------------------------------------------------ input
@@ -660,6 +663,7 @@ export class Game {
     window.addEventListener("blur", () => this.keys.clear());
     cv.addEventListener("contextmenu", (e) => e.preventDefault());
     cv.addEventListener("pointerdown", (e) => {
+      if (this.modal.open || this.dialogue.open || this.casino.open) return;
       cv.setPointerCapture(e.pointerId);
       this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (this.touches.size === 2) { const [a, b] = [...this.touches.values()]; this.pinchDist = Math.hypot(a.x - b.x, a.y - b.y); }
@@ -675,13 +679,15 @@ export class Game {
       }
       if (this.mouse.down && (this.mouse.dragging || Math.hypot(e.clientX - this.mouse.sx, e.clientY - this.mouse.sy) > 8)) {
         this.mouse.dragging = true;
-        this.renderer.cam.panBy(e.clientX - this.mouse.x, e.clientY - this.mouse.y);
+        // One-finger drags cancel a tap; only a deliberate mouse drag pans.
+        if (e.pointerType !== "touch") this.renderer.cam.panBy(e.clientX - this.mouse.x, e.clientY - this.mouse.y);
       }
       this.mouse.x = e.clientX; this.mouse.y = e.clientY;
     });
     const up = (e: PointerEvent) => {
       this.touches.delete(e.pointerId);
       if (this.touches.size < 2) this.pinchDist = 0;
+      if (this.touches.size) return;
       if (!this.mouse.down) return;
       this.mouse.down = false;
       if (this.mouse.dragging) { this.mouse.dragging = false; return; }
@@ -979,6 +985,7 @@ export class Game {
   private touchMove = { x: 0, y: 0 }; private touchBrake = false;
   private touch = new TouchControls({
     move: (x, y) => { this.touchMove.x = x; this.touchMove.y = y; },
+    recenter: () => { this.renderer.cam.follow = this.sim.playerId; },
     brake: (held: boolean) => { this.touchBrake = held; },
     zoom: (dir: number) => { const c = this.renderer.cam; c.setZoom(c.targetZoom * (dir > 0 ? 1.4 : 1 / 1.4)); },
     inCar: () => this.sim.player.inCar >= 0,
