@@ -10,6 +10,8 @@ import { SATIRE } from "./packs/satire";
 import { UPGRADES } from "./packs/upgrades";
 import { LORE } from "./packs/lore";
 import { LIFE } from "./packs/life";
+import { ROADS } from "./packs/roads";
+import { hurtOf } from "../sim/Life";
 import { peek, friendship, hostility } from "../social/Social";
 import { loveOf } from "../sim/Romance";
 import { MOSAIC, captionLine } from "../content/mosaicscope";
@@ -23,13 +25,13 @@ import { cultureWeight, regionalise, toneOfExchange, Tone } from "../mind/Cultur
  * win more often; nobody repeats an exchange they've already had with the same person, and the town
  * as a whole avoids recently heard ones. Placeholders are filled from the real situation.
  */
-export const EXCHANGES: Exchange[] = [...CITY, ...HEARTS, ...STREET, ...SCENE, ...CARETAKER, ...SATIRE, ...UPGRADES, ...LORE, ...LIFE];
+export const EXCHANGES: Exchange[] = [...CITY, ...HEARTS, ...STREET, ...SCENE, ...CARETAKER, ...SATIRE, ...UPGRADES, ...LORE, ...LIFE, ...ROADS];
 
 /** Recent world events that make an "after:*" tag true (within this many ticks and tiles). */
 const AFTER: Record<string, string[]> = {
   crime: ["crime"], arrest: ["arrest", "busted"], crash: ["car_crash", "car_hit"], fight: ["toy_fight", "knockdown", "melee_hit"],
   graffiti: ["graffiti", "mural"], kiss: ["kiss", "caught_cheating"], shoot: ["photoshoot"], collapse: ["collapse", "hospital"],
-  casino_win: ["casino"], party: ["party"],
+  casino_win: ["casino"], party: ["party"], close_call: ["close_call"],
 };
 const RECENT_TICKS = 60 * 90; // events from the last ~90 real seconds are still the talk of the street
 const RECENT_TILES = 16;
@@ -76,6 +78,16 @@ export class Director {
       if (c.cash < 15) t.add(`${who}:broke`);
       if (c.cash > 800) t.add(`${who}:rich`);
       if (c.wounds.length || c.emo.composure < 0.4) t.add(`${who}:hurt`);
+      // what the body and the road have done to them lately (see sim/Life.hurtOf, Traffic.bump)
+      if (c.wounds.length) {
+        const hu = hurtOf(c);
+        if (hu.leg > 0) t.add(`${who}:limping`);
+        if (hu.head >= 2) t.add(`${who}:sorehead`);
+        if (hu.arm > 0) t.add(`${who}:armhurt`);
+        if (hu.torso > 0) t.add(`${who}:hunched`);
+      }
+      if (c.lastHitBy <= -100 && sim.tick - c.lastHitTick < 60 * 60 * 3) t.add(`${who}:hitbycar`);
+      if (sim.vehicles.some((v) => v.owner === c.id && v.damage > 0.4)) t.add(`${who}:wreck`);
     }
     // recent nearby events
     let who = "";
