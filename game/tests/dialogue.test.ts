@@ -3,12 +3,12 @@ import { EXCHANGES, Director } from "../src/dialogue/director";
 import { small, byName } from "./helpers";
 
 const ROLES = "local student barista chef vendor shopkeeper cop thief graffiti cleaner dealer bouncer busker skater car_enthusiast office tourist mechanic musician photographer medic taxi driver gambler mobster smuggler comic mogul model vigilante villain skibunny zookeeper mosaic player".split(" ");
-const MOODS = "happy sad angry scared tired hungry bored broke rich hurt".split(" ");
+const MOODS = "happy sad angry scared tired hungry bored broke rich hurt limping sorehead armhurt hunched hitbycar wreck".split(" ");
 const PLACES = "street plaza park court studio stage market playground alley casino police food shops residential office dealership hospital gallery airport".split(" ");
 const VALID = new Set<string>([
   "morning", "day", "evening", "night", "late", "rain", "storm", "clear", "friends", "strangers", "rivals", "couple", "crush", "party", "wanted", "post",
   ...PLACES.map((p) => "@" + p), ...ROLES.flatMap((r) => ["a:" + r, "b:" + r]), ...MOODS.flatMap((m) => ["a:" + m, "b:" + m]),
-  ...["crime", "arrest", "crash", "fight", "graffiti", "kiss", "shoot", "collapse", "casino_win", "party"].map((e) => "after:" + e),
+  ...["crime", "arrest", "crash", "fight", "graffiti", "kiss", "shoot", "collapse", "casino_win", "party", "close_call"].map((e) => "after:" + e),
 ]);
 
 describe("authored dialogue", () => {

@@ -53,6 +53,7 @@ export const EVENT_DEFS: EventDef[] = [
   { type: "photoshoot", label: "Photoshoot", priority: 5, severity: 2, radius: 10, cooldown: 60, propagation: "sight", topic: "mosaicscope" },
   { type: "plug", label: "Talking up MosaicScope", priority: 2, severity: 1, radius: 4, cooldown: 300, propagation: "sight", topic: "mosaicscope", key: (e) => `plug:${e.actors[0]}` },
   { type: "car_meet", label: "Car meet", priority: 5, severity: 2, radius: 16, cooldown: 3000, propagation: "sound", topic: "cars", key: () => "car_meet" },
+  { type: "close_call", label: "Nearly run over", priority: 5, severity: 2, radius: 10, cooldown: 1200, propagation: "sight", topic: "cars", key: (e) => `close:${e.actors[e.actors.length - 1]}` },
   { type: "car_hit", label: "Hit by a car", priority: 8, severity: 3, radius: 12, cooldown: 20, propagation: "sight", topic: "cars", key: (e) => `carhit:${e.actors[e.actors.length - 1]}` },
   { type: "car_crash", label: "Car crash", priority: 7, severity: 3, radius: 14, cooldown: 60, propagation: "sound", topic: "cars", key: (e) => `crash:${Math.round(e.x)}:${Math.round(e.y)}` },
   { type: "injury", label: "Injured", priority: 7, severity: 3, radius: 9, cooldown: 30, propagation: "sight", topic: "hurt", key: (e) => `injury:${e.actors[e.actors.length - 1]}:${e.data.part}` },
