@@ -1,3 +1,6 @@
+import { repairVehicle } from "../sim/VehicleDamage";
+import { Activities } from "../ui/Activities";
+import { titleOf } from "../sim/Expansion";
 import type { Character } from "../entities/types";
 import { nearestRecyclable, nearestBin, collectPiece, rummageBin, scrapCount, scrapValue } from "../sim/Litter";
 import { LITTER, SACK_CAP } from "../content/litter";
@@ -163,6 +166,7 @@ export class Game {
       onEvent: (t, big) => { this.toast(t, big ? "acid" : ""); if (big) this.sim.emit({ type: "casino", x: this.sim.player.x, y: this.sim.player.y, actors: [this.sim.playerId], data: { amount: 0, game: "player" }, summary: t }); },
       patrons: () => this.sim.chars.filter((c) => c.inside >= 0 && this.sim.world.buildings[c.inside]?.kind === "casino").length + 3,
     }, () => { this.clock.paused = this.pausedBefore; });
+    this.casino.onMoreGames = () => this.activities.show("Betting");
     this.places = new Places(() => this.sim, (t, b, cls) => this.modal.show(t, b, cls), () => this.modal.close(), (t, k) => this.toast(t, k));
     this.interior = new InteriorOverlay({
       sim: () => this.sim, toast: (t, k) => this.toast(t, k), launch: (what, b) => this.places.launch(what, b), modalOpen: () => this.modal.open,
@@ -297,7 +301,8 @@ export class Game {
     const bar = (label: string, v: number, col: string) => [h("span", { text: label }), h("div.gauge", null, [h("i", { style: { width: Math.round(v * 100) + "%", background: col } })])];
     const kids: HTMLElement[] = [h("div.cash", { text: fmtCash(p.cash) }), h("div.stars" + (p.wanted ? ".flash" : ""), { "aria-label": `Wanted level ${p.wanted}` }, [h("b", { text: stars.slice(0, p.wanted) }), stars.slice(p.wanted)]),
       h("div.bars", null, [...bar("health", p.blood * p.emo.composure ** 0.3, p.bleed > 0 ? "#ec2a1c" : "#c6ff3d"), ...bar("hunger", p.hunger, "#f6b62c")])];
-    if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; kids.push(h("div.car", null, [h("b", { text: String(Math.round(Math.abs(v.speed) * 7.2)) }), " km/h · " + VEHICLES[v.cls].name])); }
+    if (titleOf(sim.expansion)) kids.push(h("div.car", { text: titleOf(sim.expansion) + " · " + (sim.expansion.graduated[sim.expansion.graduated.length - 1] ?? "") }));
+    if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; kids.push(h("div.car", null, [h("b", { text: String(Math.round(Math.abs(v.speed) * 7.2)) }), " km/h · " + VEHICLES[v.cls].name + (v.flatLeft || v.flatRight ? " · FLAT TYRE" : "") + ((v.heat ?? 0) > 0.5 ? " · ENGINE HOT: pull over" : "")])); }
     if (p.bleed > 0) kids.push(h("div.car", { text: "You're bleeding. B to bandage." }));
     const obj = this.objective(); if (obj) kids.push(h("div.car.obj", { text: obj }));
     this.hudEl.replaceChildren(...kids);
@@ -312,6 +317,7 @@ export class Game {
 
   private uiTick(now: number): void {
     this.tickFocus(now);
+    if (this.sim.expansion.pending && this.notifiedEncounter !== this.sim.expansion.pending && !this.modal.open && !this.casino.open && !this.interior.open && !this.dialogue.open && !this.phone.open) { this.notifiedEncounter = this.sim.expansion.pending; this.toast("A nearby street story: open Explore to choose what happens.", "acid"); this.activities.encounter(); }
     this.touch.update();
     if (now - this.clubTickAt > 1000) { const earned = this.club.tick(Math.min(5, (now - (this.clubTickAt || now)) / 1000)); this.clubTickAt = now; if (earned > 0) this.sim.player.cash += earned; }
     this.renderer.zooAnimals = this.luxury.empire.animals; zooState.animals = this.luxury.empire.animals.length;
@@ -476,10 +482,10 @@ export class Game {
     // Pay 'n' Spray: roll up to the fuel station in a car to lose the heat
     if (p.inCar >= 0) {
       const v = sim.vehicles[p.inCar], fuel = sim.world.buildings.find((b) => b.kind === "garage");
-      if (fuel && Math.hypot(fuel.door.x + 0.5 - v.x, fuel.door.y + 0.5 - v.y) < 4 && Math.abs(v.speed) < 2 && (p.wanted > 0 || v.damage > 0.2)) {
+      if (fuel && Math.hypot(fuel.door.x + 0.5 - v.x, fuel.door.y + 0.5 - v.y) < 4 && Math.abs(v.speed) < 2 && (p.wanted > 0 || v.damage > 0.2 || v.flatLeft || v.flatRight || v.burnt)) {
         const cost = 150 + p.wanted * 100;
         if (p.cash < cost) { this.toast(`Respray is ${fmtCash(cost)}. You're short.`, "red"); return; }
-        p.cash -= cost; p.wanted = 0; v.damage = 0;
+        p.cash -= cost; p.wanted = 0; repairVehicle(v);
         for (const c of sim.chars) if (c.pursuing === p.id) { c.pursuing = -1; c.goal = null; }
         const cols = VEHICLES[v.cls].colors; v.color = cols[(cols.indexOf(v.color) + 1) % cols.length]; v.plate = v.plate.split("").reverse().join("");
         this.focus("Fresh paint", `${fmtCash(cost)} · new plates · cops lost you`, 2.6);
@@ -1135,6 +1141,9 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ chrome
+  private activities = new Activities(() => this.sim, this.modal, (text) => this.toast(text));
+  private notifiedEncounter: string | null = null;
+
   private buildBar(): HTMLElement {
     const speeds: [string, string][] = [["0", "❚❚"], ["1", "1×"], ["2", "2×"], ["4", "4×"]];
     this.speedEls = speeds.map(([v, l]) => h("button", { "data-speed": v, "aria-label": v === "0" ? "Pause" : `Speed ${v}x`, "aria-pressed": "false", onclick: () => this.setSpeed(+v), text: l }) as HTMLButtonElement);
@@ -1145,6 +1154,7 @@ export class Game {
       this.clockEl, h("div.spacer"),
       h("div.seg", { role: "group", "aria-label": "Simulation speed" }, this.speedEls),
       this.soundBtn,
+      ...(["Explore", "Betting", "Racing", "Farm", "UC"] as const).map(tab => h("button.btn", { text: tab, onclick: () => this.activities.show(tab) })),
       h("button.btn", { onclick: () => this.luxury.show(), text: "Luxury", title: "Velvet & Co. Luxury: property, rides, animals" }),
       h("button.btn", { onclick: () => this.heist.open(), text: "Heist", title: "Velvet Heist Night: the crew's three-act mission" }),
       h("button.btn", { onclick: () => this.photos.open(), text: "Photo", title: "Photo mode (O)" }),

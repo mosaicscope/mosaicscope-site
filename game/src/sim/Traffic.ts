@@ -1,3 +1,4 @@
+import { damageTick, damageParts, repairVehicle } from "./VehicleDamage";
 import type { Simulation } from "./Simulation";
 import { Character, Vehicle, Phys } from "../entities/types";
 import { VEHICLES, VehicleClass, FOR_SALE } from "../content/vehicles";
@@ -157,6 +158,14 @@ const tmp: number[] = [];
 export function updateVehicles(sim: Simulation, dt: number): void {
   for (const v of sim.vehicles) {
     v.px = v.x; v.py = v.y;
+    damageTick(v, dt);
+    if (v.burning || v.burnt || ((v.engineDamage ?? 0) > 0.8 || v.flatLeft || v.flatRight) && v.driver !== sim.playerId) {
+      if (v.driver >= 0) unseat(sim, v);
+      v.state = "parked"; v.speed = 0; v.vx = 0; v.vy = 0;
+      if (!v.towAt) v.towAt = sim.tick + 3600;
+      if (sim.tick >= v.towAt && v.owner !== sim.playerId) { const park = sim.world.buildings.find(b => b.kind === "garage"); if (park) { v.x = park.door.x + 1; v.y = park.door.y + 1; } repairVehicle(v); v.towAt = undefined; }
+      continue;
+    }
     if (v.state === "parked") continue;
     if (v.state === "crashed") {
       slide(sim, v, dt);
@@ -184,7 +193,7 @@ export function carVel(sim: Simulation, v: Vehicle): { x: number; y: number } {
 /** Tyre grip in tiles/s² of sideways acceleration before the car starts to slide. */
 function tyreGrip(sim: Simulation, v: Vehicle): number {
   const d = VEHICLES[v.cls];
-  return d.grip * 2.5 * (1 - v.damage * 0.3) * (1 - 0.35 * sim.env.rain);
+  return d.grip * 2.5 * (v.flatLeft || v.flatRight ? 0.55 : 1) * (1 - v.damage * 0.3) * (1 - 0.35 * sim.env.rain);
 }
 
 /** Rear-driven cars that step the tail out under power. */
@@ -200,11 +209,12 @@ const TAIL_HAPPY = new Set(["muscle", "hotrod", "coupe", "roadster", "super", "s
 function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const d = VEHICLES[v.cls];
   const inp = v.driver === sim.playerId ? playerInput : { throttle: 0, steer: 0, brake: true };
-  const top = d.topSpeed * (1 - v.damage * 0.5);
+  const top = d.topSpeed * (1 - v.damage * 0.5) * (1 - (v.engineDamage ?? 0) * 0.45) * (v.flatLeft || v.flatRight ? 0.65 : 1);
   const vel = carVel(sim, v);
   const fx = Math.cos(v.heading), fy = Math.sin(v.heading);
   let lon = vel.x * fx + vel.y * fy, lat = -vel.x * fy + vel.y * fx;
   const s = Math.abs(lon);
+  if (v.flatLeft !== v.flatRight) v.heading += (v.flatLeft ? -1 : 1) * Math.min(s, 5) * dt * 0.025;
 
   // ---- along the car: engine, brakes, rolling resistance, aero drag ----
   let a = 0;
@@ -260,6 +270,7 @@ export function bump(v: Vehicle, nx: number, ny: number, amount: number): void {
   const add = (cur: number | undefined, w: number) => Math.min(1, (cur ?? 0) + amount * w * 2.2);
   if (along > 0.35) v.dmgF = add(v.dmgF, along); else if (along < -0.35) v.dmgR = add(v.dmgR, -along);
   if (side > 0.35) v.dmgS = add(v.dmgS, side); else if (side < -0.35) v.dmgL = add(v.dmgL, -side);
+  damageParts(v);
 }
 
 /** A crashed car keeps its momentum: it slides on locked tyres and spins down, it does not just stop. */

@@ -1,3 +1,4 @@
+import { newExpansion, wageBoost, farmDay, encounterAt } from "./Expansion";
 import { DEFAULT_CONFIG, DEFAULT_FLAGS, FeatureFlags, SimConfig } from "../core/config";
 import { Rng } from "../core/rng";
 import { EventBus } from "../core/eventBus";
@@ -89,6 +90,8 @@ export class Simulation {
   bustedFine = 0;
   playerId = 0;
   charHash!: SpatialHash;
+  expansion = newExpansion();
+  private exploredFrom: { x: number; y: number } | null = null;
   tick = 0;
   env: EnvState = newEnv();
   focus = { x: 32, y: 32 };
@@ -157,6 +160,14 @@ export class Simulation {
     const t0 = performance.now();
     const dt = this.step_dt;
     this.tick++;
+    if (this.tick % 60 === 0) {
+      const p = this.player;
+      const from = this.exploredFrom;
+      this.exploredFrom = { x: p.x, y: p.y };
+      if (from && p.inCar < 0 && p.inside < 0) encounterAt(this.expansion, this.tick, Math.min(8, Math.hypot(p.x - from.x, p.y - from.y)), this.rng.next());
+      const settlement = farmDay(this.expansion, this.tick, this.env.raining);
+      if (settlement) { p.cash = Math.max(0, p.cash + settlement.net); this.toasts.push({ text: `Farm day: sales $${settlement.gross}, costs $${settlement.costs}, net $${settlement.net}`, tick: this.tick, kind: "" }); }
+    }
     this.metrics.aiDecisions = 0; this.metrics.bgThinks = 0;
     this.charHash.queries = 0; this.charHash.candidatesVisited = 0;
     if (this.tick % 60 === 0) updateEnvironment(this);
@@ -398,7 +409,7 @@ export class Simulation {
   // ------------------------------------------------------------------ city: money, police, cars
   wagePerHour(c: Character): number {
     const w: Record<string, number> = { office: 32, cop: 38, medic: 40, dealer: 30, chef: 26, barista: 25, shopkeeper: 25, mechanic: 30, bouncer: 28, cleaner: 24, vendor: 24, taxi: 26, driver: 25, photographer: 35 };
-    return w[c.role] ?? 23;
+    return (w[c.role] ?? 23) * (c.id === this.playerId ? wageBoost(this.expansion) : 1);
   }
 
   /** Passers-by sometimes drop a coin in the busker's case. */
