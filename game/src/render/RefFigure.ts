@@ -15,7 +15,8 @@ type Ctx = CanvasRenderingContext2D;
 const INK = "#121010", WHITE = "#f7f4ee";
 /** Limbs are pale lines so they read on the night street (the drawing's black ink would vanish on dark ground). */
 const LIMB = "#eee4d3";
-const REAL_GENES = [1, 2, 3, 4, 9, 10, 11, 13] as const;
+// eye slots (liner, glasses) are left out: the figure's own eyes already carry the style, and stacking both looked cluttered
+const REAL_GENES = [3, 4, 9, 10, 11, 13] as const;
 
 const SKINS = ["#f1c9a5", "#d9a173", "#c78d5f", "#a06a43", "#6e452b", "#efe3d6", "#dd9a7c", "#e8b48c"];
 const SPECS = new WeakMap<Character, ModelSpec>();
@@ -410,8 +411,8 @@ function drawRefHead(g: Ctx, c: Character, M: ModelSpec, P: FacePlan, mood: Mood
   const gene = c.look.face?.gene;
   if (gene !== undefined && hd) {
     const kk = r / 10.5;
-    // realistic slots only (liner, glasses, brow piercing, nose bit, ear, chin, scar, age), at most three per face
-    drawFaceGenes(g, gene, { x, y, k: kk, dir, lw: lw * 0.8, col: ink, alpha, fx, ey, my, rx, ry, covered: F.eyes === "shades" || F.eyes === "aviator" }, { allow: REAL_GENES, max: 3 });
+    // realistic slots only (brow piercing, nose bit, ear, chin, scar, age), at most two per face so it stays clean
+    drawFaceGenes(g, gene, { x, y, k: kk, dir, lw: lw * 0.8, col: ink, alpha, fx, ey, my, rx, ry, covered: F.eyes === "shades" || F.eyes === "aviator" }, { allow: REAL_GENES, max: 2 });
   }
   g.globalAlpha = alpha;
 }

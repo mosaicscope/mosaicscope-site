@@ -301,6 +301,7 @@ export class Game {
     if (p.bleed > 0) kids.push(h("div.car", { text: "You're bleeding. B to bandage." }));
     const obj = this.objective(); if (obj) kids.push(h("div.car.obj", { text: obj }));
     this.hudEl.replaceChildren(...kids);
+    this.hudEl.classList.toggle("beside-log", !this.log.el.classList.contains("hidden"));
     if (sim.bustedAt !== this.lastBusted && sim.bustedAt >= 0) {
       this.lastBusted = sim.bustedAt;
       this.bustedEl.replaceChildren(h("div", null, [h("h1", { text: "Busted" }), h("p", { text: `Fined ${fmtCash(sim.bustedFine)}. Your weapons were confiscated.` })]));
@@ -444,7 +445,7 @@ export class Game {
   /** Door (POI) within reach of the player, if any. */
   private nearDoor(): { building: number; studio: boolean } | null {
     const sim = this.sim, p = sim.player;
-    let best: { building: number; studio: boolean } | null = null, bd = 1.5;
+    let best: { building: number; studio: boolean } | null = null, bd = p.inCar >= 0 ? 4 : 2.4; // generous: walking up to a shopfront is enough
     for (const poi of sim.world.pois) {
       if (poi.kind !== "door") continue;
       const d = Math.hypot(poi.x - p.x, poi.y - p.y);
@@ -485,7 +486,7 @@ export class Game {
         return;
       }
     }
-    if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; if (Math.abs(v.speed) > 2) { this.toast("Slow down to get out"); return; } v.speed = 0; unseat(sim, v); v.state = "parked"; this.renderer.cam.follow = p.id; return; }
+    if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; if (Math.abs(v.speed) > 2) { this.toast("Slow down to get out"); return; } const door = this.nearDoor(); v.speed = 0; unseat(sim, v); v.state = "parked"; this.renderer.cam.follow = p.id; if (door) this.enterPlace(door); return; } // pull up outside and E walks you straight in
     const door = this.nearDoor();
     if (door) { this.enterPlace(door); return; }
     if (this.nearestToy()) { this.act("pickup"); return; }

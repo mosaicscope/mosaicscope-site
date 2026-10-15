@@ -13,6 +13,7 @@
  *
  * Pure data in, data out: DOM-free and Math.random-free, so tests can check every building.
  */
+import { placeActions } from "./interiorActions";
 import { Rng, hashString } from "../core/rng";
 import { BUILDINGS, type BuildingKind } from "./buildings";
 import { FIRST_GIRL, FIRST_GUY, SURNAMES } from "./names";
@@ -118,7 +119,7 @@ const cache = new Map<string, InteriorDef>();
 export function interiorForBuilding(b: BuildingRef): InteriorDef {
   const key = `${b.id}:${b.kind}:${b.name}`;
   let d = cache.get(key);
-  if (!d) { d = vary(interiorFor(b.kind), b); cache.set(key, d); }
+  if (!d) { d = placeActions(vary(interiorFor(b.kind), b)); cache.set(key, d); }
   return d;
 }
 
