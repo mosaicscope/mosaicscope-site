@@ -300,6 +300,7 @@ export interface Vehicle {
   vx?: number; vy?: number; yaw?: number; dynT?: number; slip?: number;
   /** Where the car has been hit, 0..1 each: front, rear, left, right (the body crumples there; see Traffic.bump). */
   dmgF?: number; dmgR?: number; dmgL?: number; dmgS?: number;
+  lifeMods?: string[];
   engineDamage?: number; glassDamage?: number; flatLeft?: boolean; flatRight?: boolean;
   bumperLost?: boolean; mirrorLost?: boolean; leak?: number; heat?: number; burning?: boolean; burnTime?: number; burnt?: boolean; burntAge?: number; towAt?: number;
 }

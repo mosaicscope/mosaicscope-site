@@ -197,18 +197,19 @@ function wheel(k: Ctx, lx: number, ly: number, r: number, near: boolean, spin: n
 const spinOf = new WeakMap<Vehicle, number>();
 
 export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, alpha: number, time: number, dark: number, selected: boolean): void {
-  const d = VEHICLES[v.cls], S = SHAPES[v.cls], M = carMutationOf(v.plate, v.cls);
+  const mods=v.lifeMods??[], shapeClass=mods.includes("Hearse body")?"hearse":mods.includes("Limousine chassis")?"limo":v.cls;
+  const d = VEHICLES[v.cls], S = SHAPES[shapeClass], M = carMutationOf(v.plate, v.cls);
   const x = v.px + (v.x - v.px) * alpha, y = v.py + (v.y - v.py) * alpha;
   const z = cam.zoom, ang = v.heading;
   const k: Ctx = { g, cam, x, y, c: Math.cos(ang), s: Math.sin(ang) };
   // drawn size only: the simulation still uses the class dimensions, so movement and collisions are unchanged
-  const L = d.length * M.scale, hw = (d.width / 2) * M.scale, H = d.height * 1.08 * M.scale;
+  const L = d.length * M.scale * (mods.includes("Limousine chassis")?1.35:1), hw = (d.width / 2) * M.scale, H = d.height * 1.08 * M.scale * (mods.includes("Double deck")?1.6:1);
   // crumple zones: a hit end is pushed in (Traffic.bump records where the car was hit)
   const dF = v.dmgF ?? 0, dR = v.dmgR ?? 0, dL = v.dmgL ?? 0, dS = v.dmgS ?? 0;
   const x0 = -L / 2 + dR * 0.16 * L, x1 = L / 2 - dF * 0.18 * L;
   const deadLamp = dF > 0.35 ? (v.plate.charCodeAt(1) % 2 ? 1 : -1) : 0, deadTail = dR > 0.35 ? (v.plate.charCodeAt(2) % 2 ? 1 : -1) : 0;
   const night = dark > 0.35;
-  const ST = STYLE[v.cls] ?? {};
+  const ST:Style = {...STYLE[v.cls],...(mods.includes("Neon kit")?{neon:true}:{}),...(mods.includes("Tractor engine")?{roof:"cone" as const}:{}),...(mods.includes("Hearse body")?{paint:"#171420"}:{})};
   const PT = patinaOf(v.cls, v.plate, d.price, v.damage);   // this car's own story: age, rust, dents, stickers (CarPatina.ts)
   const paint = weather(rgb(v.cls === "police" ? "#f2f2ee" : v.cls === "ambulance" ? "#f4f1e6" : ST.paint ?? v.color), PT);
   const roofPaint = PT.roof ? rgb(PT.roof) : paint;

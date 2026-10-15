@@ -1,13 +1,18 @@
 import { ENCOUNTERS } from "../content/encounters";
 export const HOUR = 3600, DAY = HOUR * 24;
+export interface CasinoState {
+ point:number; pointStake:number; crash:null|{stake:number;start:number;bust:number;paid:boolean}; race:null|{sport:string;order:number[];until:number;names:string[];stake:number;payout:number;settled:boolean}; tournament:null|{round:number;score:number;paid:boolean};
+}
+export const newCasino=():CasinoState=>({point:0,pointStake:0,crash:null,race:null,tournament:null});
 export interface ExpansionState {
+ casino:CasinoState;
   seen: string[]; pending: string | null; nextEncounter: number; distance: number;
   farm: number; animals: Record<string, number>; machines: string[]; feed: number; lastFarm: number; farmCare: number; farmProfit: number; cropAt: number; hayAt: number;
   horse: null | { name: string; skill: number; fitness: number; wins: number; tier: number; trained: number; raced: number };
   degree: string | null; credits: number; level: number; graduated: string[]; attempts: number; quiz: number;
   loyalty: number; jackpot: number;
 }
-export const newExpansion = (): ExpansionState => ({ seen: [], pending: null, nextEncounter: HOUR / 2, distance: 0, farm: 0, animals: {}, machines: [], feed: 0, lastFarm: 0, farmCare: -1, farmProfit: 0, cropAt: -1, hayAt: -1, horse: null, degree: null, credits: 0, level: 0, graduated: [], attempts: 0, quiz: -1, loyalty: 0, jackpot: 1000 });
+export const newExpansion = (): ExpansionState => ({ casino:newCasino(), seen: [], pending: null, nextEncounter: HOUR / 2, distance: 0, farm: 0, animals: {}, machines: [], feed: 0, lastFarm: 0, farmCare: -1, farmProfit: 0, cropAt: -1, hayAt: -1, horse: null, degree: null, credits: 0, level: 0, graduated: [], attempts: 0, quiz: -1, loyalty: 0, jackpot: 1000 });
 export const ANIMALS = [
   ["Dairy cattle", 700, 55, "milk", "Milking shed"], ["Beef cattle", 650, 48, "stock", "Stock trailer"],
   ["Sheep", 120, 18, "wool", "Shearing shed"], ["Pigs", 160, 25, "stock", "Stock trailer"],
@@ -98,3 +103,6 @@ export function baccarat(stake: number, side: string, rng = Math.random): { payo
   const payout = winner === side ? stake * (side === "Tie" ? 9 : side === "Banker" ? 1.95 : 2) : winner === "Tie" && side !== "Tie" ? stake : 0;
   return { payout, text: `Player ${p} · Banker ${b} · ${winner}` };
 }
+
+/** Result and reserved stake belong to the save slot; settlement is idempotent. */
+export function settleRace(s:ExpansionState,tick:number):number {const r=s.casino.race;if(!r||r.settled||tick<r.until)return 0;r.settled=true;s.loyalty++;s.jackpot+=Math.round(r.stake*2)/100;return r.payout;}

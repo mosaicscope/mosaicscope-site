@@ -1,3 +1,4 @@
+import { drawStreetStories } from "./StreetStories";
 import type { Simulation } from "../sim/Simulation";
 import { Character, Lod, Phys, Toy } from "../entities/types";
 import { TOYS } from "../content/toys";
@@ -373,6 +374,7 @@ export class Renderer {
     this.particles.draw(g, cam);
     if (party && !o.reduceMotion && Math.random() < dt * 6) this.particles.spawn("music", sim.stagePoint.x - 2 + Math.random() * 2, sim.stagePoint.y + Math.random() * 2, 1.5, 1, ["#c6ff3d", "#ff7ad9", "#3dd6ff"][Math.floor(Math.random() * 3)]);
     this.lighting.draw(g, sim, cam, time, o.quality, o.reduceMotion);
+    drawStreetStories(g,sim,cam,time,o.reduceMotion);
     this.nightFx.draw(g, sim, cam, time, o.quality, o.reduceMotion, minX, maxX, minY, maxY);
     if (GLOW.length) {
       // emissive pass: windows, bloom and spill go on their own layer so nearer buildings can wipe what is behind them
