@@ -1,0 +1,36 @@
+import type { Exchange } from "../exchanges";
+
+/** Second life-and-lore writer pack: weather, the tram-less city, and everyday small talk around town. */
+export const LIFE6: Exchange[] = [
+  { id: "life6_rain_bus_stop", tags: ["strangers", "rain", "@street"], lines: ["Is this the bus to the Arts Centre?", "It's the bus to wherever it feels like.", "Then I'll wait. I've got nowhere to be but wet."] },
+  { id: "life6_rain_no_brolly", tags: ["friends", "rain", "@park"], lines: ["Did you bring an umbrella?", "I brought optimism.", "It's leaking. Like everything else you bring."] },
+  { id: "life6_storm_power_cut", tags: ["strangers", "storm", "@shops"], lines: ["The lights just went out.", "Everything's gone out. Even my bad mood.", "Mine's on a battery. It'll outlast the power."] },
+  { id: "life6_clear_sunburn", tags: ["friends", "clear", "@park"], lines: ["Sunscreen? You look like a boiled prawn.", "I'm a proud prawn.", "Proud prawns still need a hat."] },
+  { id: "life6_morning_paper", tags: ["strangers", "morning", "@shops"], lines: ["Is the paper in yet?", "It's always in yet. It's never any good.", "Then I'll just read the weather and cry."] },
+  { id: "life6_evening_queue", tags: ["strangers", "evening", "@food"], lines: ["Is this the back of the queue?", "It's the back of the queue for the back of the queue.", "Story of my life. Good to meet you, back of the queue."] },
+  { id: "life6_late_taxi_fare", tags: ["strangers", "late", "a:broke", "@street"], lines: ["Can you do me a cheap fare? I'm skint.", "Cheap? I charge by the sigh.", "Then I'll sigh very quietly and walk."] },
+  { id: "life6_day_lost_dog", tags: ["strangers", "day", "@park"], lines: ["Have you seen a small dog in a raincoat?", "Only the one who just sat on my shoe.", "Oh, that's Biscuit. Brilliant. He's very sorry."] },
+  { id: "life6_night_kebab_order", tags: ["friends", "night", "a:hungry", "@food"], lines: ["Chilli sauce or garlic?", "Both. And I'll regret it at four.", "You'll regret it at three. Be precise."] },
+  { id: "life6_night_bridge_view", tags: ["couple", "night", "@park"], lines: ["The river looks like spilled ink.", "You've been reading again.", "Only the bits about rivers. Hush and look."] },
+  { id: "life6_day_market_haggle", tags: ["strangers", "day", "@market"], lines: ["How much for the three peaches?", "Four dollars, love.", "They're bruised. I'll give you two and a compliment."] },
+  { id: "life6_day_bench_pigeon", tags: ["strangers", "day", "@plaza"], lines: ["That pigeon has taken my chips.", "He's a regular. Very confident.", "Confident is one word for it."] },
+  { id: "life6_morning_gym_bag", tags: ["friends", "morning", "a:tired", "@gym"], lines: ["Is that a gym bag or a bag of rocks?", "Both. I've been carrying it for a week.", "It's still got the same gym sock inside."] },
+  { id: "life6_day_library_ban", tags: ["strangers", "day", "@office"], lines: ["You're not meant to eat in here.", "It's a biscuit. Biscuits are quiet.", "This one is loud. Take it outside."] },
+  { id: "life6_day_hospital_visit", tags: ["friends", "day", "a:hurt", "@hospital"], lines: ["How's the arm?", "Bent in a new direction, apparently.", "Good. Now you'll be useful for the opposite side."] },
+  { id: "life6_evening_gallery_sigh", tags: ["strangers", "evening", "@gallery"], lines: ["What do you think it means?", "I think it's a very large mustard.", "That's the most honest thing anyone's said here."] },
+  { id: "life6_day_airport_delay", tags: ["strangers", "day", "a:bored", "@airport"], lines: ["Is the flight still delayed?", "Still. They've given up on the sign.", "Then I'll buy another overpriced coffee."] },
+  { id: "life6_evening_shop_closing", tags: ["strangers", "evening", "a:tired", "@shops"], lines: ["Are you still open?", "Closing in five. Ask me in four.", "Four minutes, then. I'll be very quick."] },
+  { id: "life6_night_club_coat", tags: ["friends", "night", "@casino"], lines: ["Have you got my coat?", "I've got a coat. It's not yours.", "Well, it's warm. Let's call it a trade."] },
+  { id: "life6_day_playground_slide", tags: ["strangers", "day", "@playground"], lines: ["Is this slide safe?", "It's been safe since 1997. Mostly.", "Mostly is the best part of any slide."] },
+  { id: "life6_morning_newsagent", tags: ["strangers", "morning", "@shops"], lines: ["Got change for a twenty?", "Only if you buy a lottery ticket.", "Then I'll keep my twenty and my dignity."] },
+  { id: "life6_day_street_busker_tip", tags: ["strangers", "day", "b:busker", "@street"], lines: ["Here's a coin for the sad song.", "It's the happy song. You're just sad.", "Then keep playing. It's cheering me up."] },
+  { id: "life6_day_station_quiet", tags: ["strangers", "day", "a:sad", "@street"], lines: ["You alright? You look a bit flat.", "Flat. Like a pancake that's been sat on.", "Want a coffee? I'll tell you about my week."] },
+  { id: "life6_evening_office_lift", tags: ["strangers", "evening", "a:tired", "@office"], lines: ["Going down?", "Only if the lift agrees.", "It's agreed. It's been wanting to leave all day."] },
+  { id: "life6_day_residential_neighbour", tags: ["friends", "day", "@residential"], lines: ["Did you hear the neighbours last night?", "Every single note. They had a cello.", "I'd still have enjoyed it more than their singing."] },
+  { id: "life6_night_taxi_rank", tags: ["strangers", "night", "@street"], lines: ["Is that taxi free?", "It's free if you don't mind the cat.", "What cat?"] },
+  { id: "life6_clear_bike_lane", tags: ["strangers", "clear", "@street"], lines: ["You're in the bike lane, mate.", "It's a lane for cyclists. I'm a cyclist.", "You're on a scooter. We both know this."] },
+  { id: "life6_storm_umbrella_flip", tags: ["strangers", "storm", "a:angry", "@street"], lines: ["My umbrella's just turned inside out.", "That's the wind making a point.", "Well, the wind can ring me next time."] },
+  { id: "life6_rain_puddle_splash", tags: ["friends", "rain", "a:angry", "@street"], lines: ["You soaked me on purpose.", "It was the puddle's idea.", "Then the puddle owes me a new coat."] },
+  { id: "life6_morning_coffee_queue_crush", tags: ["crush", "morning", "@shops"], lines: ["You've ordered the same as me.", "I'm hoping that's a sign.", "It's a sign you should try something new."] },
+  { id: "life6_evening_bus_crush", tags: ["crush", "evening", "@street"], lines: ["You're on this bus every night.", "Only the good ones. Nobody on the rubbish route.", "Then I'll ride the good ones with you."] }
+];

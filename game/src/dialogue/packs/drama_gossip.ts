@@ -1,0 +1,25 @@
+import type { Exchange } from "../exchanges";
+
+/** Drama and gossip: who said what, who saw what, and the group chat is never quiet. */
+export const DRAMA_GOSSIP: Exchange[] = [
+  { id: "dgos_group_chat_leak", tags: ["friends", "day", "a:angry", "@street"], lines: ["Did you post my screenshot in the group chat?", "I posted it to the wrong group chat. Sorry.", "Which one?", "The one with your mum in it."] },
+  { id: "dgos_saw_you_at_casino", tags: ["strangers", "night", "@casino", "a:local", "b:local"], lines: ["Didn't I see you at the casino with the cop?", "That was my cousin. He's very into pokies.", "Your cousin has a badge and a dodgy tie."] },
+  { id: "dgos_ex_at_party", tags: ["friends", "night", "party", "a:angry", "b:friends"], lines: ["Your ex just walked in with a new girlfriend.", "Good. Now I can finally hate the carpet.", "It's a nice carpet. I'm sorry."] },
+  { id: "dgos_secret_recipe", tags: ["friends", "day", "@food", "a:local", "b:local"], lines: ["Sean says the new chef is stealing the sauce.", "Nobody steals that sauce. It's been in the bin for years.", "Exactly. Stealing from a bin is a crime, mate."] },
+  { id: "dgos_landlord_gossip", tags: ["strangers", "morning", "@residential", "a:local", "b:local"], lines: ["Heard the landlord's selling the whole street.", "He tried to sell me my own letterbox last week.", "Did you buy it?", "I bought the box. Not the post. The post's free."] },
+  { id: "dgos_who_kissed_who", tags: ["friends", "evening", "a:local", "b:local", "after:kiss"], lines: ["Did you see who kissed the bouncer?", "Everyone saw. He thought it was a dare.", "It was a dare. The dare was not on him."] },
+  { id: "dgos_twins_swap", tags: ["friends", "day", "@shops", "a:local", "b:local"], lines: ["Was that your twin in the bakery or you?", "Me. He's the one with the crumbs on his face.", "Gross. Tell him he's still the good twin."] },
+  { id: "dgos_rumour_mill", tags: ["friends", "day", "@plaza", "a:local", "b:local"], lines: ["They're saying the fountain's been stolen.", "It's been moved. That's not theft, that's renovation.", "The council will want a plaque about it."] },
+  { id: "dgos_confessions_tap", tags: ["friends", "evening", "@park", "a:local", "b:local", "a:tired"], lines: ["I told the whole group you can't swim.", "You told them in the pool, didn't you?", "I did. The lifeguard was very supportive."] },
+  { id: "dgos_secret_crush_leak", tags: ["friends", "night", "@street", "a:local", "b:local", "crush"], lines: ["Everyone knows you fancy the barista.", "Who told them?", "Your coffee cup. It has a heart on it, mate."] },
+  { id: "dgos_neighbour_drama", tags: ["strangers", "day", "@residential", "a:local", "b:local", "a:angry"], lines: ["Your dog's been digging up my lawn again.", "He's looking for a bone he buried in 2019.", "Well, he's found my tomatoes. Those were the bone."] },
+  { id: "dgos_office_affair", tags: ["friends", "day", "@office", "a:office", "b:office"], lines: ["Don't tell anyone, but Jess and Mark are in the stationery cupboard.", "I'm the one who put the staples in there.", "So the staples were a cover story. Impressive."] },
+  { id: "dgos_bus_gossip", tags: ["strangers", "day", "@street", "a:local", "b:local"], lines: ["Did you hear the bus driver's quitting?", "Good. He sang the whole route. Badly.", "Honestly, that's a sacking offence in my book."] },
+  { id: "dgos_rating_drama", tags: ["friends", "evening", "@food", "a:local", "b:local", "a:angry"], lines: ["The food truck gave me one star. ONE.", "You put ketchup on the fish.", "That's a crime against the fish, but not the truck."] },
+  { id: "dgos_dog_walker_feud", tags: ["strangers", "morning", "@park", "a:local", "b:local"], lines: ["Your dog just stole my sandwich.", "He's a professional. He knows the sandwich game.", "There's no game. There's just my lunch, gone."] },
+  { id: "dgos_wedding_crash", tags: ["friends", "day", "@plaza", "a:local", "b:local"], lines: ["Did you crash the wedding again?", "I didn't crash. I arrived very enthusiastically.", "You ate the cake off the bride's dress."] },
+  { id: "dgos_cousin_tea", tags: ["friends", "evening", "@residential", "a:local", "b:local"], lines: ["Your cousin told my nan I'm a fraud.", "She's not wrong, but she's not your nan.", "That's the most confusing apology I've ever heard."] },
+  { id: "dgos_lottery_gossip", tags: ["friends", "morning", "@shops", "a:local", "b:local", "a:happy"], lines: ["Someone won the lotto in this street!", "Who? Tell me, quick.", "Nobody knows. But they're buying all the pies."] },
+  { id: "dgos_carpark_rumour", tags: ["friends", "night", "@airport", "a:local", "b:local"], lines: ["Did the taxi driver really sleep in the carpark?", "Yeah, he said it was cheaper than a hostel.", "It's cheaper than my flat, I'll give him that."] },
+  { id: "dgos_gym_gossip", tags: ["friends", "morning", "@court", "a:local", "b:local", "a:tired"], lines: ["The gym guy's been telling everyone you lift.", "I lift one thing, mate. A cold drink.", "Then you're the most dedicated athlete in the city."]}
+];
