@@ -96,8 +96,8 @@ export class Terrain {
 
 function mix(a: string, b: string, t: number, zone = 0): string {
   const p = (c: string, i: number) => parseInt(c.slice(1 + i * 2, 3 + i * 2), 16);
-  // zone: warm (+) pushes red up and blue down, cool (-) the other way; a few levels, never a different material
-  const r = p(a, 0) + (p(b, 0) - p(a, 0)) * t + zone * 5, gr = p(a, 1) + (p(b, 1) - p(a, 1)) * t + zone * 1.5, bl = p(a, 2) + (p(b, 2) - p(a, 2)) * t - zone * 5;
+  // zone: warm (+) leans toward the red/sodium end of the ink, cool (-) just takes the warmth out (never blue: the site has no blue wash); a few levels only
+  const r = p(a, 0) + (p(b, 0) - p(a, 0)) * t + zone * 4, gr = p(a, 1) + (p(b, 1) - p(a, 1)) * t + zone * 0.5, bl = p(a, 2) + (p(b, 2) - p(a, 2)) * t - (zone > 0 ? zone * 3 : zone * 0.5);
   return `rgb(${Math.round(Math.max(0, r))},${Math.round(Math.max(0, gr))},${Math.round(Math.max(0, bl))})`;
 }
 
@@ -494,8 +494,8 @@ function sidewalkLife(g: CanvasRenderingContext2D, w: World, sx: number, sy: num
   const dg = decorGrid(w);
   for (let dy = -1; dy <= 1 && !near; dy++) for (let dx = -1; dx <= 1; dx++) { const X = tx + dx, Y = ty + dy; if (X >= 0 && Y >= 0 && X < S && Y < S && dg[Y * S + X] === D.TREE) { near = true; break; } }
   if (near) {
-    const cols = ["#7a421a", "#a8651e", "#4a3a12", "#6a4a1c"];
-    for (let i = 0; i < 4; i++) { const a = hash01(tx * 31 + ty * 17 + i * 7), b = hash01(tx * 13 + ty * 41 + i * 3); g.fillStyle = cols[i]; g.globalAlpha = 0.75; g.fillRect(cx + (a - 0.5) * hw * 1.1, cy + (b - 0.5) * hh * 0.9, 2, 1.4); }
+    const cols = ["#ec2a1c", "#f6b62c", "#c6ff3d", "#a8651e"];
+    for (let i = 0; i < 4; i++) { const a = hash01(tx * 31 + ty * 17 + i * 7), b = hash01(tx * 13 + ty * 41 + i * 3); g.fillStyle = cols[i]; g.globalAlpha = 0.55; g.fillRect(cx + (a - 0.5) * hw * 1.1, cy + (b - 0.5) * hh * 0.9, 2, 1.4); }
     g.globalAlpha = 1;
   }
   // worn, darker patches where feet go, and a hairline crack
