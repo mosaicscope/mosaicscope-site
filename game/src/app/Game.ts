@@ -190,7 +190,7 @@ export class Game {
     this.radio = new Radio(MOSAIC.soundcloud);
     this.hudEl = h("div.hud", { "aria-live": "polite" });
     this.bustedEl = h("div.busted.hidden", { role: "alert" });
-    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.terrance.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.interior.el, this.modal.el, this.casino.el, this.bustedEl);
+    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.terrance.el, this.dev.el, this.toastEl, this.buildTouch(), this.interior.el, this.modal.el, this.casino.el, this.bustedEl);
     // browsers only allow sound after a gesture: the first click/key starts the playlist
     const firstGesture = () => { if (this.gestured) return; this.gestured = true; if (this.settings.sound) this.audio.setEnabled(true); }; // the radio only plays when you press ▶
     window.addEventListener("pointerdown", firstGesture, { once: false, capture: true });
