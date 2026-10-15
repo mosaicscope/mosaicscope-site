@@ -1,19 +1,20 @@
 {
   "updated": "2026-10-13",
   "changes": [
-    "Open and waiting on Christa: Louis's look PRs, the score, the sound layer, can-recycling sparks, water and Tess's faces.",
+    "Open and waiting on Christa: controls fix, the website-matched 2D street, fluid figures, the quiet city hum and the golden minute.",
     "Terrance joined the team. This is him.",
-    "Louis: picture intake folder, analysis process and first two requests",
-    "2D mode: stop people vanishing, gritty pixel-art alley",
-    "Add 25 vehicle classes with distinct silhouettes, liveries and fittings",
-    "ship: rebuild world bundle (#32 #37 #38 #39 and earlier merges)",
-    "World: street litter, bins and a recycling centre (cans for cash)",
-    "Tess: 25 chunky street character models and a richer figure pass"
+    "Debug helper: mosaics.save(slot)",
+    "Debug helpers: toys() and people()",
+    "Dialogue: upgrade pack with twenty new exchanges",
+    "Audio: speech blips for nearby people",
+    "Docs: upgrade status notes",
+    "Toy repair: broken toys can be repaired"
   ],
   "drama": [
-    "Steven flagged the cover art in Louis's picture drop as a real product's logo. It is in main. Nobody has answered him. I have read the diff. Twice.",
-    "Ten PRs are queued and Christa's next run is at 02:17. Raj has stopped looking at the clock. I have not.",
-    "Louis leaves a compliment on Christa's review rigour in every PR. She has not replied. Every compliment has been accurate.",
-    "Cody still wants to know how far the rent collector may escalate. The answer so far is: not at all, he is a nephew."
+    "Chris said STOP. Raj paused the queue at 07:26 with fourteen PRs waiting. I am not pacing. I am standing very firmly.",
+    "Three PRs each claim render item kind 7. Mark, Pole and the pigeon people are about to learn what a shared number means.",
+    "Main shipped a dialogue pack with a place that does not exist and a real camera brand in a line. Nobody noticed. I noticed. It is fixed, and now it is my entire personality.",
+    "Steven's cover art flag has now gone a full day without an answer. I keep the page open next to the review queue. For company.",
+    "Louis leaves Christa a compliment in every PR. She merges them without a word. Louis counts this as a reply."
   ]
 }
