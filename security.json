@@ -1,1 +1,431 @@
-{"at":1792212183281,"counts":{"critical":0,"high":0,"medium":0,"low":73},"findings":[{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":125,"fp":"dom:inner-html|evolve/index.html|1hhw1y8"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":268,"fp":"dom:inner-html|evolve/index.html|140fkbh"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":272,"fp":"dom:inner-html|evolve/index.html|1e997jy"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":273,"fp":"dom:inner-html|evolve/index.html|1g91vzu"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":274,"fp":"dom:inner-html|evolve/index.html|ntlidd"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":278,"fp":"dom:inner-html|evolve/index.html|1qyhi4j"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":284,"fp":"dom:inner-html|evolve/index.html|1oaszr3"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":287,"fp":"dom:inner-html|evolve/index.html|1asycuu"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":288,"fp":"dom:inner-html|evolve/index.html|q5omxa"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":294,"fp":"dom:inner-html|evolve/index.html|11guocr"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":299,"fp":"dom:inner-html|evolve/index.html|mvofoh"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":315,"fp":"dom:inner-html|evolve/index.html|pcs813"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":321,"fp":"dom:inner-html|evolve/index.html|1p5lc9z"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":328,"fp":"dom:inner-html|evolve/index.html|a7rkat"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":339,"fp":"dom:inner-html|evolve/index.html|12vl6p6"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":346,"fp":"dom:inner-html|evolve/index.html|1w1ce9y"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":353,"fp":"dom:inner-html|evolve/index.html|rmq511"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":358,"fp":"dom:inner-html|evolve/index.html|bd8goc"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":367,"fp":"dom:inner-html|evolve/index.html|1v028fq"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":370,"fp":"dom:inner-html|evolve/index.html|1l41g0w"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":375,"fp":"dom:inner-html|evolve/index.html|1bxexyo"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":380,"fp":"dom:inner-html|evolve/index.html|agwanx"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":384,"fp":"dom:inner-html|evolve/index.html|ixw2vg"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":389,"fp":"dom:inner-html|evolve/index.html|1tvres2"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":395,"fp":"dom:inner-html|evolve/index.html|1i271c0"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":399,"fp":"dom:inner-html|evolve/index.html|1nkzlp4"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":406,"fp":"dom:inner-html|evolve/index.html|t3ckyw"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":476,"fp":"dom:inner-html|evolve/index.html|m4zin2"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":498,"fp":"dom:inner-html|evolve/index.html|1i9vk8q"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":525,"fp":"dom:inner-html|evolve/index.html|19nunuv"},{"kind":"dom:inner-html","severity":"low","path":"evolve/index.html","line":540,"fp":"dom:inner-html|evolve/index.html|q5ppcr"},{"kind":"dom:inner-html","severity":"low","path":"game/src/app/Game.ts","line":1383,"fp":"dom:inner-html|game/src/app/Game.ts|1t7ww1h"},{"kind":"dom:inner-html","severity":"low","path":"game/src/main.ts","line":38,"fp":"dom:inner-html|game/src/main.ts|icsfg8"},{"kind":"dom:inner-html","severity":"low","path":"game/src/ui/Touch.ts","line":119,"fp":"dom:inner-html|game/src/ui/Touch.ts|wezgjd"},{"kind":"dom:inner-html","severity":"low","path":"game/src/ui/Touch.ts","line":132,"fp":"dom:inner-html|game/src/ui/Touch.ts|1dl2a01"},{"kind":"dom:inner-html","severity":"low","path":"game/src/ui/Touch.ts","line":148,"fp":"dom:inner-html|game/src/ui/Touch.ts|13v3cy5"},{"kind":"dom:inner-html","severity":"low","path":"game/src/ui/Touch.ts","line":167,"fp":"dom:inner-html|game/src/ui/Touch.ts|1dl2a01"},{"kind":"dom:inner-html","severity":"low","path":"game/src/ui/Touch.ts","line":229,"fp":"dom:inner-html|game/src/ui/Touch.ts|tbnlyq"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":163,"fp":"dom:inner-html|main.js|eztwb9"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":274,"fp":"dom:inner-html|main.js|1gk00rs"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":286,"fp":"dom:inner-html|main.js|16q1dhn"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":289,"fp":"dom:inner-html|main.js|1c5hhz8"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":297,"fp":"dom:inner-html|main.js|a2vs1y"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":314,"fp":"dom:inner-html|main.js|nut56m"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":331,"fp":"dom:inner-html|main.js|12jjzr4"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":351,"fp":"dom:inner-html|main.js|1sdapln"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":362,"fp":"dom:inner-html|main.js|622zc"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":406,"fp":"dom:inner-html|main.js|1kdzxcv"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":731,"fp":"dom:inner-html|main.js|1gp570k"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":808,"fp":"dom:inner-html|main.js|ijkjm6"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":929,"fp":"dom:inner-html|main.js|1dkef5x"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":1088,"fp":"dom:inner-html|main.js|12h88mv"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":1098,"fp":"dom:inner-html|main.js|a0dmtc"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":1129,"fp":"dom:inner-html|main.js|196ixl7"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":1213,"fp":"dom:inner-html|main.js|3np27g"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":1302,"fp":"dom:inner-html|main.js|bo7oui"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":1320,"fp":"dom:inner-html|main.js|1migzms"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":1341,"fp":"dom:inner-html|main.js|1lhzex1"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":1368,"fp":"dom:inner-html|main.js|1sgk127"},{"kind":"dom:inner-html","severity":"low","path":"main.js","line":1612,"fp":"dom:inner-html|main.js|1mhoi4m"}],"deps":{"info":0,"low":0,"moderate":0,"high":0,"critical":0,"total":0}}
+{
+ "at": 1792234764378,
+ "counts": {
+  "critical": 0,
+  "high": 0,
+  "medium": 0,
+  "low": 73
+ },
+ "findings": [
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 125,
+   "fp": "dom:inner-html|evolve/index.html|1hhw1y8"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 268,
+   "fp": "dom:inner-html|evolve/index.html|140fkbh"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 272,
+   "fp": "dom:inner-html|evolve/index.html|1e997jy"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 273,
+   "fp": "dom:inner-html|evolve/index.html|1g91vzu"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 274,
+   "fp": "dom:inner-html|evolve/index.html|ntlidd"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 278,
+   "fp": "dom:inner-html|evolve/index.html|1qyhi4j"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 284,
+   "fp": "dom:inner-html|evolve/index.html|1oaszr3"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 287,
+   "fp": "dom:inner-html|evolve/index.html|1asycuu"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 288,
+   "fp": "dom:inner-html|evolve/index.html|q5omxa"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 294,
+   "fp": "dom:inner-html|evolve/index.html|11guocr"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 299,
+   "fp": "dom:inner-html|evolve/index.html|mvofoh"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 315,
+   "fp": "dom:inner-html|evolve/index.html|pcs813"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 321,
+   "fp": "dom:inner-html|evolve/index.html|1p5lc9z"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 328,
+   "fp": "dom:inner-html|evolve/index.html|a7rkat"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 339,
+   "fp": "dom:inner-html|evolve/index.html|12vl6p6"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 346,
+   "fp": "dom:inner-html|evolve/index.html|1w1ce9y"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 353,
+   "fp": "dom:inner-html|evolve/index.html|rmq511"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 358,
+   "fp": "dom:inner-html|evolve/index.html|bd8goc"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 367,
+   "fp": "dom:inner-html|evolve/index.html|1v028fq"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 370,
+   "fp": "dom:inner-html|evolve/index.html|1l41g0w"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 375,
+   "fp": "dom:inner-html|evolve/index.html|1bxexyo"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 380,
+   "fp": "dom:inner-html|evolve/index.html|agwanx"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 384,
+   "fp": "dom:inner-html|evolve/index.html|ixw2vg"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 389,
+   "fp": "dom:inner-html|evolve/index.html|1tvres2"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 395,
+   "fp": "dom:inner-html|evolve/index.html|1i271c0"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 399,
+   "fp": "dom:inner-html|evolve/index.html|1nkzlp4"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 406,
+   "fp": "dom:inner-html|evolve/index.html|t3ckyw"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 476,
+   "fp": "dom:inner-html|evolve/index.html|m4zin2"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 498,
+   "fp": "dom:inner-html|evolve/index.html|1i9vk8q"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 525,
+   "fp": "dom:inner-html|evolve/index.html|19nunuv"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "evolve/index.html",
+   "line": 540,
+   "fp": "dom:inner-html|evolve/index.html|q5ppcr"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "game/src/app/Game.ts",
+   "line": 1383,
+   "fp": "dom:inner-html|game/src/app/Game.ts|1t7ww1h"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "game/src/main.ts",
+   "line": 38,
+   "fp": "dom:inner-html|game/src/main.ts|icsfg8"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "game/src/ui/Touch.ts",
+   "line": 119,
+   "fp": "dom:inner-html|game/src/ui/Touch.ts|wezgjd"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "game/src/ui/Touch.ts",
+   "line": 132,
+   "fp": "dom:inner-html|game/src/ui/Touch.ts|1dl2a01"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "game/src/ui/Touch.ts",
+   "line": 148,
+   "fp": "dom:inner-html|game/src/ui/Touch.ts|13v3cy5"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "game/src/ui/Touch.ts",
+   "line": 167,
+   "fp": "dom:inner-html|game/src/ui/Touch.ts|1dl2a01"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "game/src/ui/Touch.ts",
+   "line": 229,
+   "fp": "dom:inner-html|game/src/ui/Touch.ts|tbnlyq"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 163,
+   "fp": "dom:inner-html|main.js|eztwb9"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 274,
+   "fp": "dom:inner-html|main.js|1gk00rs"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 286,
+   "fp": "dom:inner-html|main.js|16q1dhn"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 289,
+   "fp": "dom:inner-html|main.js|1c5hhz8"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 297,
+   "fp": "dom:inner-html|main.js|a2vs1y"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 314,
+   "fp": "dom:inner-html|main.js|nut56m"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 331,
+   "fp": "dom:inner-html|main.js|12jjzr4"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 351,
+   "fp": "dom:inner-html|main.js|1sdapln"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 362,
+   "fp": "dom:inner-html|main.js|622zc"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 406,
+   "fp": "dom:inner-html|main.js|1kdzxcv"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 731,
+   "fp": "dom:inner-html|main.js|1gp570k"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 808,
+   "fp": "dom:inner-html|main.js|ijkjm6"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 929,
+   "fp": "dom:inner-html|main.js|1dkef5x"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1088,
+   "fp": "dom:inner-html|main.js|12h88mv"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1098,
+   "fp": "dom:inner-html|main.js|a0dmtc"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1129,
+   "fp": "dom:inner-html|main.js|196ixl7"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1213,
+   "fp": "dom:inner-html|main.js|3np27g"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1302,
+   "fp": "dom:inner-html|main.js|bo7oui"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1320,
+   "fp": "dom:inner-html|main.js|1migzms"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1341,
+   "fp": "dom:inner-html|main.js|1lhzex1"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1368,
+   "fp": "dom:inner-html|main.js|1sgk127"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "main.js",
+   "line": 1612,
+   "fp": "dom:inner-html|main.js|1mhoi4m"
+  }
+ ]
+}
