@@ -1,0 +1,24 @@
+{
+ "at": 1792347391247,
+ "url": "https://mosaicscope.pages.dev/",
+ "scores": {
+  "performance": 0.24,
+  "accessibility": 0.96,
+  "bestPractices": 0.79,
+  "seo": 1
+ },
+ "metrics": {
+  "lcpMs": 11742.057,
+  "cls": 0.144,
+  "tbtMs": 7165.074,
+  "fcpMs": 4325.011,
+  "bytes": 2264441
+ },
+ "failing": [
+  "third-party-cookies",
+  "aria-prohibited-attr",
+  "label-content-name-mismatch",
+  "inspector-issues",
+  "bf-cache"
+ ]
+}
