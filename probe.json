@@ -1,5 +1,5 @@
 {
- "at": 1792269985592,
+ "at": 1792298922090,
  "target": "https://mosaicscope.pages.dev",
  "sha": "fc3b67242f8880a89a29d085f84d9fa295d53795",
  "results": [
@@ -39,30 +39,25 @@
      "url": "https://scontent-sea5-1.cdninstagram.com/o1/v/t2/f2/m86/AQNDUUgO31IRKJPm8WOZqi4iB7DgRO8CES7QqzBGxnKZEG2twP8PrQl8TQl8uQaL",
      "own": false,
      "why": "net::ERR_ABORTED"
-    },
-    {
-     "url": "https://www.youtube-nocookie.com/embed/cZFXA3scOC4",
-     "own": false,
-     "why": "net::ERR_ABORTED"
     }
    ],
-   "requests": 71,
-   "bytes": 4108,
+   "requests": 70,
+   "bytes": 4093,
    "ownBytes": 77,
-   "thirdParty": 66,
+   "thirdParty": 65,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 355,
-    "loadMs": 1498,
-    "lcpMs": 888,
+    "domContentLoadedMs": 270,
+    "loadMs": 1165,
+    "lcpMs": 648,
     "cls": 0.154,
-    "tbtMs": 446,
-    "longTasks": 4,
-    "heapMB": 33.5,
-    "domNodes": 1283,
+    "tbtMs": 278,
+    "longTasks": 3,
+    "heapMB": 31.6,
+    "domNodes": 1270,
     "renderBlocking": 3,
-    "resourceEntries": 18,
-    "screens": 10.7
+    "resourceEntries": 17,
+    "screens": 10.6
    },
    "ui": {
     "overflowPx": 0,
@@ -98,10 +93,6 @@
       "px": 9
      },
      {
-      "el": "span.tag-yt",
-      "px": 10
-     },
-     {
       "el": "span.slide__label > span",
       "px": 11
      },
@@ -118,12 +109,7 @@
       "px": 8
      }
     ],
-    "lowContrast": [
-     {
-      "el": "span.tag-yt",
-      "ratio": 4.27
-     }
-    ],
+    "lowContrast": [],
     "noFocusStyle": [],
     "inconsistent": [
      {
@@ -190,35 +176,25 @@
      "url": "https://scontent-sea5-1.cdninstagram.com/o1/v/t2/f2/m86/AQNDUUgO31IRKJPm8WOZqi4iB7DgRO8CES7QqzBGxnKZEG2twP8PrQl8TQl8uQaL",
      "own": false,
      "why": "net::ERR_ABORTED"
-    },
-    {
-     "url": "https://www.youtube-nocookie.com/s/_/ytembeds/_/ss/k=ytembeds.base.CM9xcvOf5Pc.L.W.O/am=AAAAIA/d=1/br=1/rs=AGKMywHGE5uKx",
-     "own": false,
-     "why": "net::ERR_ABORTED"
-    },
-    {
-     "url": "https://www.youtube-nocookie.com/s/player/0229cd64/www-player.css",
-     "own": false,
-     "why": "net::ERR_ABORTED"
     }
    ],
    "requests": 72,
-   "bytes": 4141,
+   "bytes": 4325,
    "ownBytes": 77,
    "thirdParty": 67,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 226,
-    "loadMs": 323,
-    "lcpMs": 232,
-    "cls": 0.095,
-    "tbtMs": 490,
+    "domContentLoadedMs": 242,
+    "loadMs": 885,
+    "lcpMs": 256,
+    "cls": 0.096,
+    "tbtMs": 316,
     "longTasks": 3,
-    "heapMB": 9.5,
-    "domNodes": 1559,
+    "heapMB": 33.5,
+    "domNodes": 1546,
     "renderBlocking": 3,
     "resourceEntries": 18,
-    "screens": 9.7
+    "screens": 9.6
    },
    "ui": {
     "overflowPx": 0,
@@ -262,10 +238,6 @@
       "px": 11
      },
      {
-      "el": "span.tag-yt",
-      "px": 10
-     },
-     {
       "el": "span.slide__label > span",
       "px": 11
      },
@@ -286,12 +258,7 @@
       "px": 9
      }
     ],
-    "lowContrast": [
-     {
-      "el": "span.tag-yt",
-      "ratio": 4.27
-     }
-    ],
+    "lowContrast": [],
     "noFocusStyle": [],
     "inconsistent": [
      {
@@ -341,9 +308,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 254,
-    "loadMs": 254,
-    "lcpMs": 260,
+    "domContentLoadedMs": 690,
+    "loadMs": 690,
+    "lcpMs": 692,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -388,9 +355,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 242,
-    "loadMs": 242,
-    "lcpMs": 160,
+    "domContentLoadedMs": 117,
+    "loadMs": 117,
+    "lcpMs": 76,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -429,9 +396,9 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 263,
-    "loadMs": 360,
-    "lcpMs": 284,
+    "domContentLoadedMs": 178,
+    "loadMs": 282,
+    "lcpMs": 200,
     "cls": 0.007,
     "tbtMs": 0,
     "longTasks": 0,
@@ -470,10 +437,10 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 240,
-    "loadMs": 360,
-    "lcpMs": 256,
-    "cls": 0.147,
+    "domContentLoadedMs": 162,
+    "loadMs": 262,
+    "lcpMs": 176,
+    "cls": 0.148,
     "tbtMs": 0,
     "longTasks": 0,
     "heapMB": 9.5,
@@ -552,84 +519,84 @@
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 390,
-   "ms": 2807,
+   "ms": 2525,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 390,
-   "ms": 2129,
+   "ms": 1833,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 390,
-   "ms": 2258,
+   "ms": 2034,
    "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 390,
-   "ms": 2128,
+   "ms": 1770,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 390,
-   "ms": 2680,
+   "ms": 2349,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 390,
-   "ms": 1164,
+   "ms": 1078,
    "status": "pass"
   },
   {
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 1280,
-   "ms": 2791,
+   "ms": 2589,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 1280,
-   "ms": 2291,
+   "ms": 1871,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 1280,
-   "ms": 2451,
+   "ms": 2063,
    "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 1280,
-   "ms": 2099,
+   "ms": 1865,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 1280,
-   "ms": 2650,
+   "ms": 2466,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 1280,
-   "ms": 1131,
+   "ms": 1093,
    "status": "pass"
   }
  ]
