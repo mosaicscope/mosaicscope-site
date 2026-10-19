@@ -1,4 +1,11 @@
 import { h } from "./dom";
+import type {Character} from '../entities/types';
+import {TravelRoom} from './TravelRoom';
+import {airportRoom,LOUNGES,type LoungeId} from '../content/travelRooms';
+import {DestinationDistrict,venueKind,type DistrictVisit} from './DestinationDistrict';
+import {interiorForBuilding} from '../content/interiorVariety';
+import {pose,solve,drawFigure} from '../render/StickFigure';
+let travelCast:readonly Character[]=[];
 
 /**
  * Christchurch Airport: a self-contained travel mini-experience.
@@ -6,6 +13,8 @@ import { h } from "./dom";
  * All drawing is procedural canvas (no assets, no network).
  */
 export interface TravelHost {
+  player():Character; people():readonly Character[];
+  refresh?(kind:'rest'|'eat'):void;
   getCash(): number; setCash(v: number): void;
   /** the crew members who can come along: name + colour (hex) */
   companions(): { name: string; color: string }[];
@@ -17,7 +26,7 @@ export interface TravelHost {
   toast(text: string): void;
 }
 
-type Stage = "board" | "checkin" | "security" | "flight" | "dest" | "return";
+type Stage = "board" | "checkin" | "security" | "gate" | "flight" | "dest" | "return";
 type G = CanvasRenderingContext2D;
 interface Act { id: string; kind: "photo" | "eat" | "souvenir" | "fun"; label: string; cost: number; out: string; item?: string }
 interface Dest { code: string; name: string; time: string; fare: number; lon: number; lat: number; sky: [string, string]; neon: string; tag: string; acts: Act[]; draw: (g: G, t: number) => void }
@@ -35,6 +44,8 @@ function stars(g: G, t: number, n = 40): void { g.shadowBlur = 0; for (let i = 0
 
 /** a neon stick figure, feet at (x, y), ~s px tall */
 function stick(g: G, x: number, y: number, s: number, color: string, t: number, opts: { wave?: boolean; sit?: boolean; dir?: number } = {}): void {
+  const c=(color==='#c6ff3d'?travelCast[0]:travelCast.find(c=>c.look.color===color))||travelCast[Math.abs(Math.round(x))%Math.max(1,travelCast.length)];
+  if(c){const k=s/120,dir=opts.dir===-1?-1:1;solve(pose(opts.sit?'sit':opts.wave?'wave':'idle','normal',t,0,0,0),x,y,k,dir);drawFigure(g,c,x,y,k,dir,t,0,1);return;}
   const k = s / 70, sw = reduced() ? 0 : Math.sin(t * 3);
   neon(g, color, 3.2 * k, 10);
   const hip = y - (opts.sit ? 22 : 32) * k, neck = hip - 26 * k, head = neck - 10 * k;
@@ -192,6 +203,9 @@ export class Travel {
   el: HTMLElement;
   open = false;
   private stage: Stage = "board";
+  private room:TravelRoom|null=null;private district:DestinationDistrict|null=null;
+  private visits=new Map<string,DistrictVisit>();
+  private lounge:LoungeId='terminal';private passes=new Set<LoungeId>(['terminal','quiet','family']);
   private sel = 0;
   private comp: { name: string; color: string } | null = null;
   private spent = 0; private photos = 0; private souvenirs: string[] = []; private done = new Set<string>();
@@ -206,6 +220,7 @@ export class Travel {
   }
 
   show(): void {
+    travelCast=[this.host.player(),...this.host.people()];
     this.reset(); this.open = true; this.el.classList.remove("hidden");
     window.addEventListener("keydown", this.onKey, true);
     this.go("board");
@@ -214,6 +229,7 @@ export class Travel {
   }
 
   close(): void {
+    this.room?.dispose();this.room=null;this.district?.dispose();this.district=null;
     this.open = false; this.el.classList.add("hidden");
     cancelAnimationFrame(this.raf); this.timers.forEach((id) => clearTimeout(id)); this.timers = [];
     window.removeEventListener("keydown", this.onKey, true);
@@ -221,6 +237,7 @@ export class Travel {
   }
 
   private reset(): void {
+    this.lounge='terminal';this.passes=new Set(['terminal','quiet','family']);
     this.sel = 0; this.comp = null; this.spent = 0; this.photos = 0; this.souvenirs = []; this.done.clear();
     this.bagOk = false; this.scanDone = false; this.argued = false; this.cleared = false; this.scanNote = ""; this.landed = false;
   }
@@ -230,6 +247,7 @@ export class Travel {
   private onKey = (e: KeyboardEvent): void => {
     if (!this.open) return;
     e.stopImmediatePropagation();
+    if(this.room?.key(e)||this.district?.key(e))return;
     const target = e.target as HTMLElement;
     if (e.key === "Escape") { if (this.stage === "board") this.close(); e.preventDefault(); return; }
     if (e.key === "Enter" || e.key === " ") {
@@ -274,11 +292,14 @@ export class Travel {
   }
 
   private render(): void {
+    if(this.district)this.visits.set(this.dest.code,this.district.snapshot());
+    this.room?.dispose();this.room=null;this.district?.dispose();this.district=null;
     this.canvas = null; this.lineEl = null;
     switch (this.stage) {
       case "board": return this.boardView();
       case "checkin": return this.checkinView();
       case "security": return this.securityView();
+      case "gate": return this.gateView();
       case "flight": return this.flightView();
       case "dest": return this.destView();
       case "return": return this.returnView();
@@ -307,6 +328,7 @@ export class Travel {
     ], [
       this.btn(`Buy ticket${this.comp ? "s" : ""} · ${money(fare)}`, () => this.buy(), { primary: true, aria: `Buy ${this.comp ? "two return tickets" : "a return ticket"} to ${this.dest.name} for ${money(fare)}` }),
       this.btn("Leave airport", () => this.close(), { aria: "Leave the airport (Escape)" }),
+      this.btn('Explore terminal & lounges',()=>this.go('gate')),
     ]);
   }
 
@@ -362,7 +384,7 @@ export class Travel {
         this.msg = `Bin ${Math.floor(Math.random() * 900 + 100)} now contains: ${bad.map((i) => i.name).join(", ")}. The officer gives you a sticker.`; this.render();
       }, { key: "1", primary: true, aria: `Surrender ${bad.map((i) => i.name).join(", ")}` })];
       if (!this.argued) acts.push(this.btn("Argue", () => { this.argued = true; this.msg = pick(ARGUE) + " You must surrender the items."; this.render(); }, { key: "2" }));
-    } else acts = [this.btn("To the gate", () => this.go("flight"), { primary: true })];
+    } else acts = [this.btn("To the gate", () => this.go("gate"), { primary: true })];
     const list = this.scanDone ? h("ul.tv-flags", { "aria-label": "Scan results" }, this.host.carried().map((i) => h("li" + (this.flagged(i.category) ? ".bad" : ""), { text: `${i.name}${this.flagged(i.category) ? (this.cleared ? " · surrendered" : " · FLAGGED") : " · ok"}` }))) : null;
     if (!this.msg && this.scanDone) this.msg = bad.length && !this.cleared ? `${bad.length} prohibited item${bad.length === 1 ? "" : "s"} detected. ${this.scanNote}` : this.scanNote || "All clear. Have a nice flight.";
     this.scene("Security screening", "X-ray", [this.makeCanvas("Conveyor belt x-ray scanner showing your items as silhouettes"), list], acts);
@@ -446,12 +468,35 @@ export class Travel {
   }
 
   // ------------------------------------------------------------------ 5. destination
+  private gateView():void{
+    const info=LOUNGES.find(l=>l.id===this.lounge)!;
+    const canvas=this.makeCanvas('Christchurch airport · '+info.name+' · walkable isometric interior');
+    this.scene('Christchurch International · Departures',info.name,[
+      h('div.tv-comps',null,LOUNGES.map(l=>this.btn(l.name+(this.passes.has(l.id)?' · included':` · ${money(l.cost)}`),()=>{
+        if(!this.passes.has(l.id)){if(this.host.getCash()<l.cost){this.msg='Insufficient cash for this lounge pass.';this.render();return;}this.host.setCash(this.host.getCash()-l.cost);this.spent+=l.cost;this.passes.add(l.id);}this.lounge=l.id;this.render();
+      },{cls:l.id===this.lounge?'on':undefined}))),canvas,
+      h('p.tv-note',{text:info.benefit+' Walk with WASD / arrows, or tap the floor. Approach a service and use it.'}),
+    ],[this.btn(this.cleared?'Board flight':'Back to departures',()=>this.go(this.cleared?'flight':'board'),{primary:true}),this.btn('Use nearby service',()=>{
+      const text=this.room?.use()??'';const msg=this.el.querySelector('.tv-msg');if(msg)msg.textContent=text;if(this.room?.effect==='eat'||this.room?.effect==='rest')this.host.refresh?.(this.room.effect);
+    })]);
+    this.room=new TravelRoom(canvas,airportRoom(this.lounge),this.host.people(),this.host.player());
+  }
   private destView(): void {
     const d = this.dest;
     const acts = d.acts.map((a, i) => this.btn(`${a.label}${a.cost ? " · " + money(a.cost) : ""}`, () => this.doAct(a), { key: String(i + 1), disabled: this.done.has(a.id) && a.kind !== "photo", aria: `${a.label}${a.cost ? ", costs " + money(a.cost) : ", free"} (key ${i + 1})` }));
     acts.push(this.btn("Fly home", () => this.go("return"), { primary: true, aria: "Fly home to Christchurch" }));
-    this.scene(`${d.name} · ${this.comp ? "with " + this.comp.name : "solo"} · ${this.photos} photo${this.photos === 1 ? "" : "s"} · ${this.souvenirs.length} souvenir${this.souvenirs.length === 1 ? "" : "s"}`, d.name,
-      [this.makeCanvas(`${d.name}: stylised neon skyline with you${this.comp ? " and " + this.comp.name : ""}`), h("p.tv-speech", { text: this.line || d.tag })], acts);
+    const canvas=this.makeCanvas(`${d.name}: real mapped buildings and roads with your Mosaics character`),status=h('p.tv-note',{text:'Loading mapped neighbourhood…'}),enter=this.btn('Enter selected venue',()=>this.enterMappedVenue());enter.setAttribute('disabled','');
+    this.scene(`${d.name} · ${this.comp ? "with " + this.comp.name : "solo"} · ${this.photos} photos`, d.name,
+      [canvas,status,h('p.tv-note',{text:'WASD / arrows to walk. Tap the ground to move; tap a building or venue to inspect it. Approach within 30 metres to enter. Footprints and available heights are mapped; facade details and interiors are game interpretations.'}),
+       h('a',{href:'https://www.openstreetmap.org/copyright',target:'_blank',rel:'noopener',text:'© OpenStreetMap contributors · ODbL 1.0'})], [enter,...acts]);
+    this.district=new DestinationDistrict(canvas,d.code,this.host.player(),s=>{status.textContent=s;},()=>{enter.removeAttribute('disabled');},this.visits.get(d.code));
+  }
+
+  private enterMappedVenue():void{
+    const district=this.district,v=district?.selected;if(!v)return;if(!district.canEnter()){const msg=this.el.querySelector('.tv-msg');if(msg)msg.textContent='Walk closer to this venue (within 30 metres).';return;}
+    this.visits.set(this.dest.code,district.snapshot());district.dispose();this.district=null;const canvas=this.makeCanvas((v.name||'Mapped venue')+' · game interior');
+    this.scene(this.dest.name,v.name||v.tags.address||'Mapped venue',[canvas,h('p.tv-note',{text:'Game-authored interior informed by the mapped venue type. Walk with WASD / arrows or tap the floor.'})],[this.btn('Back outside',()=>{this.room?.dispose();this.room=null;this.render();},{primary:true}),this.btn('Use nearby service',()=>{const msg=this.el.querySelector('.tv-msg');if(msg)msg.textContent=this.room?.use()??'';})]);
+    this.room=new TravelRoom(canvas,interiorForBuilding({id:v.id,name:v.name||'Mapped venue',kind:venueKind(v)}),this.host.people(),this.host.player());
   }
 
   private doAct(a: Act): void {
@@ -494,6 +539,7 @@ export class Travel {
 
   // ------------------------------------------------------------------ animation
   private frame(now: number): void {
+    if(this.room){this.room.draw(now);return;}if(this.district){this.district.draw(now);return;}
     const c = this.canvas; if (!c || !c.isConnected) return;
     const g = c.getContext("2d"); if (!g) return;
     const el = (now - this.stageStart) / 1000, t = reduced() ? 0 : el;

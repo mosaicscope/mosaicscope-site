@@ -1,3 +1,5 @@
+import {hitFacade} from "./CivicDamage";
+import {junctionAvailable} from "./TrafficControl";
 import { damageTick, damageParts, repairVehicle } from "./VehicleDamage";
 import type { Simulation } from "./Simulation";
 import { Character, Vehicle, Phys } from "../entities/types";
@@ -351,6 +353,7 @@ function moveBlocked(sim: Simulation, v: Vehicle, dt: number): void {
   if (sideways || blocked(fx + Math.cos(side) * hw, fy + Math.sin(side) * hw) || blocked(fx - Math.cos(side) * hw, fy - Math.sin(side) * hw)) {
     const hit = Math.hypot(vel.x, vel.y);
     if (hit > 3) {
+      hitFacade(sim,v,fx,fy,hit);
       v.damage = Math.min(1, v.damage + hit * 0.015);
       const sg = Math.sign(v.speed || 1); bump(v, Math.cos(v.heading) * sg, Math.sin(v.heading) * sg, hit * 0.015);
       sim.bus.emit("sound", { kind: "crash", x: v.x, y: v.y, vol: Math.min(1, hit / 10) });
@@ -545,6 +548,7 @@ function laneDrive(sim: Simulation, v: Vehicle, dt: number): void {
       }
     }
   }
+  if(!inX&&ic>=0&&distStop<3&&distStop>-.5&&target>.2&&lightGreenFor(v.dir,ic,ir,sim.tick).green&&!holdPed&&!junctionAvailable(sim,v,ic,ir))target=Math.min(target,stopFor(distStop-.2));
   // keep distance from cars ahead and anything crossing in front
   let leadGap = 99, leadSpeed = 99;
   for (const o of sim.vehicles) {
@@ -661,6 +665,13 @@ function collisions(sim: Simulation): void {
     const dx = b.x - a.x, dy = b.y - a.y, dd = dx * dx + dy * dy;
     const r = (VEHICLES[a.cls].length + VEHICLES[b.cls].length) * 0.5;
     if (dd > r * r || !bodiesTouch(a, b)) continue;
+    if(a.state==='drive'&&b.state==='drive'){
+      // Normal drivers brake and yield; they do not enter the crash/sideways shove physics used for a player impact.
+      const yieldCar=a.id>b.id?a:b;yieldCar.x=yieldCar.px;yieldCar.y=yieldCar.py;yieldCar.speed=0;yieldCar.nextDir=-1;
+      // Recover overlapping lane cars from older saves without shoving them sideways into other lanes.
+      if(bodiesTouch(a,b)){const bx=yieldCar.x,by=yieldCar.y;for(let back=.25;back<=6;back+=.25){const x=bx-Math.cos(yieldCar.heading)*back,y=by-Math.sin(yieldCar.heading)*back;if(!sim.world.drivable(x,y))break;yieldCar.x=x;yieldCar.y=y;if(!sim.vehicles.some(o=>o!==yieldCar&&bodiesTouch(yieldCar,o))){yieldCar.px=x;yieldCar.py=y;break;}yieldCar.x=bx;yieldCar.y=by;}}
+      continue;
+    }
     const va = carVel(sim, a), vb = carVel(sim, b);
     const rel = Math.hypot(va.x - vb.x, va.y - vb.y);
     const dl = Math.sqrt(dd) || 0.01, push = (r - dl) / 2;

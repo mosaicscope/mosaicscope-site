@@ -469,7 +469,7 @@ function roofTop(g: CanvasRenderingContext2D, b: Building, x: number, y: number,
     g.fillStyle = b.sign;
     g.fillText(label, x, y - 8 * z,w-8);
   }
-  if (b.billboard || b.kind === "gallery" || b.kind === "casino") billboard(g, b, x, y - (label ? fs + 14 * z : 0), z, time, dark);
+  if (b.kind === "gallery" || b.kind === "casino" || b.billboard&&b.id%11===0) billboard(g, b, x, y - (label ? fs + 14 * z : 0), z, time, dark);
   g.textAlign = "start";
 }
 
@@ -480,6 +480,6 @@ function billboard(g: CanvasRenderingContext2D, b: Building, x: number, y: numbe
   g.strokeStyle = "#3a3430"; g.lineWidth = 2 * z;
   g.beginPath(); g.moveTo(x - w * 0.3, y); g.lineTo(x - w * 0.3, y - 12 * z); g.moveTo(x + w * 0.3, y); g.lineTo(x + w * 0.3, y - 12 * z); g.stroke();
   if (dark > 0.3) { g.fillStyle = "rgba(255,240,190,.12)"; g.beginPath(); g.moveTo(x - w * 0.3, y - 12 * z); g.lineTo(x - w / 2, y - 12 * z - h); g.lineTo(x + w / 2, y - 12 * z - h); g.lineTo(x + w * 0.3, y - 12 * z); g.closePath(); g.fill(); }
-  const kind = b.kind === "casino" ? "casino" : b.kind === "gallery" || b.id % 4 === 0 ? "mosaic" : "kiwi";
+  const kind = b.kind === "casino" ? "casino" : b.kind === "gallery" ? "mosaic" : "kiwi";
   drawAd(g, kind, x, y - 12 * z, w, h, b.id, dark);
 }

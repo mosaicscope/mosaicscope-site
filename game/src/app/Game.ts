@@ -1,3 +1,5 @@
+import {stealWeapon,gainTheft} from "../sim/WeaponTheft";
+import {nearestLoosePiece,clearLoosePiece} from "../sim/Litter";
 import {equipmentPace} from "../content/combat";
 import { Armory } from "../ui/Armory";
 import { UNARMED, unarmedMove } from "../content/combat";
@@ -11,7 +13,7 @@ import { repairVehicle } from "../sim/VehicleDamage";
 import { Activities } from "../ui/Activities";
 import { titleOf } from "../sim/Expansion";
 import type { Character } from "../entities/types";
-import { nearestRecyclable, nearestBin, collectPiece, rummageBin, scrapCount, scrapValue } from "../sim/Litter";
+import { nearestBin, rummageBin, scrapCount, scrapValue } from "../sim/Litter";
 import { LITTER, SACK_CAP } from "../content/litter";
 import { Club } from "../ui/Club";
 import "../ui/club.css";
@@ -60,7 +62,7 @@ import { useBandage } from "../sim/Life";
 import { commitCrime, fmtCash } from "../sim/Society";
 import { VEHICLES } from "../content/vehicles";
 import { MOSAIC } from "../content/mosaicscope";
-import { carried, detach } from "../inventory/Inventory";
+import { carried, detach, transfer } from "../inventory/Inventory";
 import { BUILDINGS } from "../content/buildings";
 import { billAbsence, collect } from "../sim/Arrears";
 import { Photos } from "../ui/Photos";
@@ -480,7 +482,7 @@ export class Game {
     return best;
   }
 
-  private nearestLitter() { const p = this.sim.player; return p.phys === Phys.OK ? nearestRecyclable(this.sim.litter, p.x, p.y, 1.1) : null; }
+  private nearestLitter() { const p = this.sim.player; return p.phys === Phys.OK ? nearestLoosePiece(this.sim.litter, p.x, p.y, 1.4) : null; }
   private nearestBin() { const p = this.sim.player; return p.phys === Phys.OK ? nearestBin(this.sim.world, p.x, p.y, 1.5) : null; }
 
   /** Pick a can or bottle off the street, or rummage a bin for the ones people left in it. */
@@ -488,8 +490,9 @@ export class Game {
     const sim = this.sim, p = sim.player;
     const piece = this.nearestLitter();
     if (piece) {
-      const what = LITTER[piece.kind].name, r = collectPiece(sim, p, piece);
+      const what = LITTER[piece.kind].name, r = clearLoosePiece(sim, p, piece);
       if (r === "full") this.toast(`Sack's full (${SACK_CAP}). Cash in at the recycling centre.`);
+      else if(r==="tidied")this.toast(`Cleared ${what} · street tidied`);
       else if (r === "ok") { p.anim.pose = "kick"; p.anim.poseT = 0.15; this.toast(`Picked up a ${what} · ${scrapCount(p)} in your sack (${fmtCash(scrapValue(p))})`, scrapCount(p) % 5 === 0 ? "spark" : ""); }
       return true;
     }
@@ -557,6 +560,8 @@ export class Game {
     }
     if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; if (Math.abs(v.speed) > 2) { this.toast("Slow down to get out"); return; } const door = this.nearDoor(); v.speed = 0; unseat(sim, v); v.state = "parked"; this.renderer.cam.follow = p.id; if (door) this.enterPlace(door); return; } // pull up outside and E walks you straight in
     const door = this.nearDoor();
+    if (this.nearestToy()) { this.act("pickup"); return; }
+    if (this.nearestLitter()) { this.scavenge(); return; }
     if (door) { this.enterPlace(door); return; }
     if (this.nearestToy()) { this.act("pickup"); return; }
     if (this.scavenge()) return;
@@ -608,9 +613,12 @@ export class Game {
       this.toast(`${v.name.split(" ")[0]} caught you${behind ? "" : " (try from behind)"}`, "red");
       return;
     }
+    const stolen=stealWeapon(sim,p,v);
+    if(stolen!=='none'){this.toast(stolen==='stolen'?`Stole ${v.name.split(' ')[0]}'s weapon · equipped with ammunition`:stolen==='skill'?'Advanced weapon: build your theft rank with successful smaller thefts':'Hands and bag are full');return;}
     const loot = carried(v).map((tid) => sim.toys[tid]).find((t) => t && ["phone", "watch", "chain", "headphones", "camera"].includes(t.def));
-    if (loot && Math.random() < 0.5) { detach(v, loot.id); loot.holder = p.id; loot.state = "held"; p.bag.push(loot.id); this.toast(`Lifted ${v.name.split(" ")[0]}'s ${TOYS[loot.def].name} · pawn it for cash`, "acid"); }
+    if (loot && Math.random() < 0.5 && transfer(v,p,loot,false)) { this.toast(`Lifted ${v.name.split(" ")[0]}'s ${TOYS[loot.def].name} · pawn it for cash`, "acid"); }
     else { const take = Math.min(v.cash, 15 + Math.round(Math.random() * 70)); v.cash -= take; p.cash += take; this.toast(take ? `Lifted ${fmtCash(take)} clean` : "Empty pockets", take ? "acid" : ""); }
+    gainTheft(p);
     // a clean lift can still be seen by someone else
     if (Math.random() < 0.35) commitCrime(sim, p, "pickpocket", v);
   }
@@ -1149,6 +1157,8 @@ export class Game {
   private burger = new BurgerShift((r) => { this.sim.player.cash += r.pay; this.toast(`Shift done: ${r.orders} orders, ${r.perfect} perfect. Paid ${fmtCash(r.pay)}`, "acid"); this.focus("Shift over", `Lyttelton Diner paid you ${fmtCash(r.pay)}`, 3); });
   private heist = new HeistUI(this.modal);
   private travel = new Travel({
+    player:()=>this.sim.player,people:()=>this.sim.chars.filter(c=>c.tier==='principal'||c.role==='office'),
+    refresh:kind=>{const p=this.sim.player;if(kind==='eat')p.hunger=Math.min(1,p.hunger+.25);else p.needs.energy=Math.min(1,p.needs.energy+.2);},
     getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; },
     companions: () => this.sim.chars.filter((c) => c.tier === "principal" && c.name !== "Chris").map((c) => ({ name: c.name, color: c.look.color })),
     carried: () => carried(this.sim.player).map((id) => this.sim.toys[id]).filter(Boolean).map((t) => ({ id: t.id, name: TOYS[t.def].name, category: TOYS[t.def].category ?? "toy" })),

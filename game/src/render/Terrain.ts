@@ -1,3 +1,5 @@
+import {drawFixture} from "./CivicArt";
+import {ROAD_PAINT,paintRoadArrow} from './RoadArt';
 import { reserveSign } from "./ScreenBounds";
 import { World, T, TILE_HEIGHT, Poi, ROAD_W, CROSS_W, PERIOD } from "../world/World";
 import { decorGrid, D } from "./StreetDecor";
@@ -225,17 +227,17 @@ function detail(g: CanvasRenderingContext2D, t: number, sx: number, sy: number, 
       const across = (t: number) => (horizontal ? [0, t, 1, t] : [t, 0, t, 1]) as [number, number, number, number];
       // solid white edge line along the kerb
       if (lane === 0 || lane === RW - 1) {
-        g.strokeStyle = "rgba(238,228,211,.35)"; g.lineWidth = 1.2; g.beginPath();
+        g.strokeStyle = ROAD_PAINT.edge; g.lineWidth = 1.2; g.beginPath();
         const e = across(lane === 0 ? 0.08 : 0.92); line(e[0], e[1], e[2], e[3]); g.stroke();
       }
       // dashed lane dividers between the two lanes of each carriageway
       if (lane === 0 || lane === RW - 2) {
-        g.strokeStyle = "rgba(238,228,211,.5)"; g.lineWidth = 1.3; g.setLineDash([6, 8]); g.beginPath();
+        g.strokeStyle = ROAD_PAINT.lane; g.lineWidth = 1.3; g.setLineDash([6, 8]); g.beginPath();
         const e = across(1); line(e[0], e[1], e[2], e[3]); g.stroke(); g.setLineDash([]);
       }
       // solid centre line (no crossing it) between the two carriageways
       if (lane === RW / 2 - 1) {
-        g.strokeStyle = "rgba(246,182,44,.7)"; g.lineWidth = 2; g.beginPath();
+        g.strokeStyle = ROAD_PAINT.centre; g.lineWidth = 2; g.beginPath();
         const e = across(1); line(e[0], e[1], e[2], e[3]); g.stroke();
       }
       // stop lines just before the crossings, across the lanes heading into the intersection
@@ -243,7 +245,7 @@ function detail(g: CanvasRenderingContext2D, t: number, sx: number, sy: number, 
       const toLow = lane >= RW / 2 ? horizontal : !horizontal; // lane carries traffic toward the lower intersection
       const firstRoad = RW + CROSS_W, lastRoad = P - CROSS_W - 1;
       if ((along === firstRoad && toLow) || (along === lastRoad && !toLow)) {
-        g.strokeStyle = "rgba(238,228,211,.75)"; g.lineWidth = 2.6; g.beginPath();
+        g.strokeStyle = ROAD_PAINT.stop; g.lineWidth = 2.6; g.beginPath();
         const t = along === firstRoad ? 0.06 : 0.94;
         if (horizontal) line(t, 0, t, 1); else line(0, t, 1, t);
         g.stroke();
@@ -252,11 +254,7 @@ function detail(g: CanvasRenderingContext2D, t: number, sx: number, sy: number, 
       if (along === firstRoad + 3 || along === lastRoad - 3) {
         const fwd = toLow ? -1 : 1;
         const dx = horizontal ? fwd : 0, dy = vertical ? fwd : 0;
-        const c = [0.5, 0.5], tip = [c[0] + dx * 0.32, c[1] + dy * 0.32], tail = [c[0] - dx * 0.32, c[1] - dy * 0.32];
-        const px = -dy * 0.14, py = dx * 0.14;
-        g.strokeStyle = "rgba(238,228,211,.5)"; g.lineWidth = 2; g.beginPath();
-        const T0 = a(tail[0], tail[1]), T1 = a(tip[0], tip[1]), L = a(tip[0] - dx * 0.16 + px, tip[1] - dy * 0.16 + py), R = a(tip[0] - dx * 0.16 - px, tip[1] - dy * 0.16 - py);
-        g.moveTo(T0[0], T0[1]); g.lineTo(T1[0], T1[1]); g.moveTo(L[0], L[1]); g.lineTo(T1[0], T1[1]); g.lineTo(R[0], R[1]); g.stroke();
+        paintRoadArrow(g,a,.5,.5,dx,dy);
       }
       break;
     }
@@ -264,7 +262,7 @@ function detail(g: CanvasRenderingContext2D, t: number, sx: number, sy: number, 
       // zebra stripes running along the direction of travel; (u, v) are tile-local 0..1 coords
       const vertical = w.isRoadLine(tx);
       const a = (u: number, v: number) => [sx + (u - v) * hw, sy + (u + v) * hh];
-      g.fillStyle = "rgba(238,228,211,.55)";
+      g.fillStyle = ROAD_PAINT.zebra;
       for (let i = 0; i < 4; i++) {
         const t0 = 0.08 + i * 0.23, t1 = t0 + 0.12;
         const q = vertical ? [a(t0, 0.15), a(t1, 0.15), a(t1, 0.85), a(t0, 0.85)] : [a(0.15, t0), a(0.15, t1), a(0.85, t1), a(0.85, t0)];
@@ -361,6 +359,7 @@ export function drawTallTile(g: CanvasRenderingContext2D, t: number, sx: number,
 
 /** Points of interest (benches, lamps, boombox, chests, hoops, spring pads). */
 export function drawPoi(g: CanvasRenderingContext2D, p: Poi, sx: number, sy: number, z: number, time: number, party: boolean, dark: boolean): void {
+  if(drawFixture(g,p,sx,sy,z))return;
   switch (p.kind) {
     case "bin": drawBin(g, sx, sy, z, p.id >= 0 && ((p.id * 2654435761) >>> 0) % 3 === 0); break;
     case "bench": {
@@ -430,7 +429,8 @@ export function drawPoi(g: CanvasRenderingContext2D, p: Poi, sx: number, sy: num
       break;
     }
     case "billboard": {
-      if(z<1||!reserveSign(`street-ad:${p.id}`,{x:sx-42*z,y:sy-68*z,w:84*z,h:68*z}))break;
+      if((p.name==="mosaicscope"||!p.name)&&p.id%5!==0)break;
+      if(z<1.25||!reserveSign(`street-ad:${p.id}`,{x:sx-42*z,y:sy-68*z,w:84*z,h:68*z}))break;
       g.strokeStyle = "#3a3430"; g.lineWidth = 3 * z; g.beginPath(); g.moveTo(sx, sy); g.lineTo(sx, sy - 40 * z); g.stroke();
       const kind = p.name === "cars" ? "cars" : p.name === "kiwi" ? "kiwi" : "mosaic";
       drawAd(g, kind, sx, sy - 38 * z, 84 * z, 30 * z, p.id, dark ? 1 : 0);
@@ -467,6 +467,12 @@ export function drawPoi(g: CanvasRenderingContext2D, p: Poi, sx: number, sy: num
       line([W(-3.0, 0, 2.0), W(-3.5, 0, 2.6)], 2.5 * z, "#3dd6ff");
       // tailplane
       polyF([W(-3.2, -0.1, 1.5), W(-3.8, -1.1, 1.5), W(-3.9, 1.1, 1.5), W(-3.2, 0.1, 1.5)], "#c8c0b4");
+      // Windows, service doors, nacelle intakes, undercarriage and apron markings.
+      for(let i=0;i<22;i++){const q=W(-2.5+i*.23,.31,1.48);g.fillStyle='#2d4b5b';g.beginPath();g.ellipse(q[0],q[1],1.25*z,1.7*z,0,0,Math.PI*2);g.fill();}
+      for(const dx of[-2.55,.1,2.25]){const a=W(dx,.33,1.24),b=W(dx+.18,.33,1.75);g.strokeStyle='#969d96';g.lineWidth=.8*z;g.strokeRect(a[0],b[1],Math.max(3,Math.abs(b[0]-a[0])),Math.abs(a[1]-b[1]));}
+      for(const side of[-1,1]){const q=W(.2,side*1.4,.85);g.fillStyle='#48515a';g.beginPath();g.ellipse(q[0],q[1],7*z,4*z,-.25,0,Math.PI*2);g.fill();g.strokeStyle='#a5aaa4';g.lineWidth=1.4*z;g.stroke();g.fillStyle='#1c2630';g.beginPath();g.ellipse(q[0]+2*z,q[1],4*z,3*z,0,0,Math.PI*2);g.fill();}
+      for(const dx of[-1.2,2.55]){const a=W(dx,0,.25),b=W(dx,0,.85);line([a,b],2*z,'#737c78');g.fillStyle='#222a2b';for(const offset of[-2.5,2.5]){g.beginPath();g.ellipse(a[0]+offset*z,a[1],2.6*z,4*z,0,0,Math.PI*2);g.fill();}}
+      const reg=W(-1,.32,1.17);g.fillStyle='#263b45';g.font=`600 ${Math.max(5,6*z)}px system-ui`;g.fillText('AOTEAROA AIR · ZK-MSC',reg[0],reg[1]);
       break;
     }
     case "mural": break;

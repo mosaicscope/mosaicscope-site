@@ -152,6 +152,16 @@ export function collectPiece(sim: Simulation, c: Character, p: Piece): "ok" | "f
   return "ok";
 }
 
+/** Every visible loose piece can be cleared; only cans and bottles earn recycling value. */
+export function nearestLoosePiece(st:LitterState,x:number,y:number,r=1.4):Piece|null{
+ let best:Piece|null=null,dist=r;for(const p of st.pieces){if(p.taken)continue;const d=Math.hypot(p.x-x,p.y-y);if(d<dist){dist=d;best=p;}}return best;
+}
+export function clearLoosePiece(sim:Simulation,c:Character,p:Piece):'ok'|'full'|'no'|'tidied'{
+ if(p.taken||Math.hypot(p.x-c.x,p.y-c.y)>1.4)return 'no';
+ if(isRecyclable(p.kind))return collectPiece(sim,c,p);
+ p.taken=true;c.reputation+=.02;sim.bus.emit('sound',{kind:'clink',x:c.x,y:c.y,vol:.2});return 'tidied';
+}
+
 /** Rummage a street bin: cans and bottles people left in it. Empties it until it refills. */
 export function rummageBin(sim: Simulation, c: Character, bin: Poi): { can: number; bottle: number; full: boolean } {
   const st = sim.litter, got = { can: 0, bottle: 0, full: false };
