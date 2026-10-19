@@ -1,3 +1,4 @@
+import {drawCarDamage} from "./DamageArt";
 import { T, type World } from "../world/World";
 import type { Vehicle } from "../entities/types";
 import { VEHICLES, VehicleClass } from "../content/vehicles";
@@ -209,7 +210,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     for(const side of[-1,1]){const y=side*(hw-.14),lo=ring(-L/2,L/2,.18,.1,.1,()=>.08).map(p=>[p[0],p[1]+y,p[2]] as V3),hi=lo.map(p=>[p[0],p[1],.52] as V3);loft(k,lo,hi,()=> '#2b302c','#171e1b');cap(k,hi,rgb('#414a40'));for(let i=0;i<5;i++)wheel(k,-L*.36+i*L*.18,side*hw,.18,side>0,time*v.speed,'#68715b');}
     const hull=ring(-L*.48,L*.45,hw*.85,.18,.12,()=>.4),top=ring(-L*.4,L*.32,hw*.77,.22,.15,()=>.9);loft(k,hull,top,()=>v.color,'#333d30');cap(k,top,rgb(v.color));
     const turret=ring(-.6,.45,.42,.2,.2,()=>.9),roof=ring(-.5,.35,.35,.2,.2,()=>1.3);loft(k,turret,roof,()=> '#59664d','#33402e');cap(k,roof,rgb('#7b8769'));
-    fillPoly(k,[[.2,-.09,1.17],[L*.85,-.09,1.17],[L*.85,.09,1.17],[.2,.09,1.17]],'#8c977a');fillPoly(k,[[.2,.09,1.04],[L*.85,.09,1.04],[L*.85,.09,1.17],[.2,.09,1.17]],'#3f4b37');return;
+    fillPoly(k,[[.2,-.09,1.17],[L*.85,-.09,1.17],[L*.85,.09,1.17],[.2,.09,1.17]],'#8c977a');fillPoly(k,[[.2,.09,1.04],[L*.85,.09,1.04],[L*.85,.09,1.17],[.2,.09,1.17]],'#3f4b37');drawCarDamage(g,v,L,hw,1.3,z,(x,y,h)=>W3(k,[x,y,h]));return;
   }
   // drawn size only: the simulation still uses the class dimensions, so movement and collisions are unchanged
   const L = d.length * M.scale * (mods.includes("Limousine chassis")?1.35:1), hw = (d.width / 2) * M.scale, H = d.height * 1.08 * M.scale * (mods.includes("Double deck")?1.6:1);
@@ -564,6 +565,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   if (v.burnt && (v.burntAge ?? 0) < 0.8) { const P=W3(k,[0,0,H]); const r=(12+(v.burntAge??0)*40)*z; g.fillStyle="rgba(255,170,30,.6)";g.beginPath();g.arc(P[0],P[1],r,0,Math.PI*2);g.fill(); }
   if (v.flatLeft || v.flatRight || v.burnt) { const P=W3(k,[0,0,H+.2]);g.font=`${Math.max(9,10*z)}px monospace`;g.fillStyle="#f6b62c";g.fillText(v.burnt?"BURNT OUT":v.flatLeft&&v.flatRight?"FLAT TYRES":"FLAT TYRE",P[0]-25*z,P[1]); }
 
+  drawCarDamage(g,v,L,hw,H,z,(x,y,h)=>W3(k,[x,y,h]),zone=>zone===2?dot(WN(k,[0,-1,0]),VIEW)>0:zone===3||zone===9?dot(WN(k,[0,1,0]),VIEW)>0:zone===1||zone===6||zone===8?!frontVisible:zone===0||zone===5||zone===7?frontVisible:true);
   if (v.forSale) {
     cam.toScreen(x, y, H + 0.55, pt);
     const fs = Math.max(8, Math.round(7 * z));

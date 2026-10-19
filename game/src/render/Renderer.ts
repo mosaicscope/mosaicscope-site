@@ -1,3 +1,4 @@
+import {setDamageBlood} from "./DamageArt";
 import { ScreenBounds, beginSignFrame } from "./ScreenBounds";
 import { drawUpgradeEffects } from "./UpgradeEffects";
 import { drawStreetStories } from "./StreetStories";
@@ -12,7 +13,7 @@ import { decorGrid, drawDecor } from "./StreetDecor";
 import { Particles } from "./Particles";
 import { Lighting, Rain } from "./Lighting";
 import { NightFX } from "./NightFX";
-import { pose, solve, drawFigure, pathSilhouette, J, HEAD_R, gaitOf, applyGait, reachArm, Angles } from "./StickFigure";
+import { pose, solve, drawFigure, pathSilhouette, J, gaitOf, applyGait, reachArm, Angles } from "./StickFigure";
 import { drawToy, drawIsoBox } from "./ToyArt";
 import { INK } from "./palette";
 import { drawBuildingTile, GLOW } from "./Buildings";
@@ -139,6 +140,7 @@ export class Renderer {
   }
 
   render(alpha: number, dt: number, o: RenderOptions): void {
+    setDamageBlood(this.fakeBlood);
     const t0 = performance.now();
     beginSignFrame(this.cam.viewW,this.cam.viewH);
     const sim = this.sim, g = this.g, cam = this.cam;
@@ -339,7 +341,6 @@ export class Renderer {
         if (c.bleed > 0 && Math.random() < c.bleed * dt * 5) this.drip(c.x, c.y);
         // someone down and bleeding leaves a spreading pool
         if (c.phys === Phys.DOWN && c.bleed > 0 && this.fakeBlood && Math.random() < dt * 1.5) { this.decals.push({ x: c.x + (Math.random() - 0.5) * 0.2, y: c.y + (Math.random() - 0.5) * 0.2, r: 0.18 + Math.random() * 0.2, color: "#6a0a10", born: this.time, life: 60, rot: 0 }); if (this.decals.length > 220) this.decals.shift(); }
-        if (c.wounds.length) this.drawWounds(c, k, dir);
         this.drawHeld(c, k, dir, a.armR);
         figs++;
         this.pickBoxes.push(c.id, it.sx - 14 * z, it.sy - zOff - 52 * z * c.look.scale, it.sx + 14 * z, it.sy + 4);
@@ -784,19 +785,6 @@ export class Renderer {
       g.fillStyle = l.walk ? "#3dff7a" : "#ff3b2f"; g.fillRect(x - 1.2 * z, sy - 31 * z, 2.4 * z, 4 * z);
     };
     man(ns, sx - 3.2 * z); man(ew, sx + 3.2 * z);
-  }
-
-  /** Bandages and visible wounds on the figure (positions come from the solved skeleton). */
-  private drawWounds(c: Character, k: number, dir: number): void {
-    const g = this.g;
-    for (const w of c.wounds) {
-      const [x, y] = w.part === "head" ? [J[4], J[5]] : w.part === "torso" ? [(J[0] + J[2]) / 2, (J[1] + J[3]) / 2] : w.part === "arm" ? [J[12], J[13]] : [J[20], J[21]];
-      if (w.bandaged) { g.strokeStyle = "#eee4d3"; g.lineWidth = Math.max(1.5, 3 * k); g.beginPath(); if (w.part === "head") g.arc(x, y, HEAD_R * k, Math.PI * 1.1, Math.PI * 1.9); else { g.moveTo(x - 3 * k * dir, y - 2 * k); g.lineTo(x + 3 * k * dir, y + 2 * k); } g.stroke(); continue; }
-      if (!this.fakeBlood) continue;
-      g.fillStyle = "#b3121b";
-      g.beginPath(); g.ellipse(x + 2 * k * dir, y + (w.part === "head" ? -3 * k : 0), (1.5 + w.severity) * k, (1 + w.severity * 0.7) * k, 0.4, 0, 6.283); g.fill();
-      if (w.severity >= 2) { g.strokeStyle = "#b3121b"; g.lineWidth = Math.max(1, 1.5 * k); g.beginPath(); g.moveTo(x + 2 * k * dir, y); g.lineTo(x + 2.5 * k * dir, y + (4 + w.severity * 2) * k); g.stroke(); }
-    }
   }
 
   /** Character under a screen point (topmost), or -1. */

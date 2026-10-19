@@ -1,3 +1,4 @@
+import {drawFaceDamage,drawBodyDamage} from "./DamageArt";
 import type { Character } from "../entities/types";
 import { Phys } from "../entities/types";
 import type { ModelSpec } from "./Models";
@@ -208,6 +209,7 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
   }
 
   if(c.look.accessories?.includes("watch")){g.fillStyle='#d0bb7a';g.strokeStyle=INK;g.lineWidth=k;g.beginPath();g.arc(J[14],J[15],3.5*k,0,Math.PI*2);g.fill();g.stroke();}
+  drawBodyDamage(g,c,J,k);
   // ---- neck and head
   const nx = J[2], ny = J[3];
   const hdx = J[4] - nx, hdy = J[5] - ny, hl = Math.hypot(hdx, hdy) || 1;
@@ -423,6 +425,7 @@ function drawRefHead(g: Ctx, c: Character, M: ModelSpec, P: FacePlan, mood: Mood
     // realistic slots only (brow piercing, nose bit, ear, chin, scar, age), at most two per face so it stays clean
     drawFaceGenes(g, gene, { x, y, k: kk, dir, lw: lw * 0.8, col: ink, alpha, fx, ey, my, rx, ry, covered: F.eyes === "shades" || F.eyes === "aviator" }, { allow: REAL_GENES, max: 2 });
   }
+  drawFaceDamage(g,c,x,y,rx,ry,k);
   g.globalAlpha = alpha;
 }
 

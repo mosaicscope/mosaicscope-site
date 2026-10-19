@@ -346,6 +346,7 @@ export class Game {
       h("div.bars", null, [...bar("health", p.blood * p.emo.composure ** 0.3, p.bleed > 0 ? "#ec2a1c" : "#c6ff3d"), ...bar("hunger", p.hunger, "#f6b62c"), ...bar("energy", p.needs.energy, "#79bfff"), ...bar("mood", (p.emo.mood + 1) / 2, "#b8a0ff")])];
     if (titleOf(sim.expansion)) kids.push(h("div.car", { text: titleOf(sim.expansion) + " · " + (sim.expansion.graduated[sim.expansion.graduated.length - 1] ?? "") }));
     if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; kids.push(h("div.car", null, [h("b", { text: String(Math.round(Math.abs(v.speed) * 7.2)) }), " km/h · " + VEHICLES[v.cls].name + (v.flatLeft || v.flatRight ? " · FLAT TYRE" : "") + ((v.heat ?? 0) > 0.5 ? " · ENGINE HOT: pull over" : "")])); }
+    if(sim.pendingAmbulance.has(p.id))kids.push(h('div.car.medical-status',{text:'Ambulance on the way · move clear of traffic'}));
     if (p.bleed > 0) kids.push(h("div.car", { text: "You're bleeding. B to bandage." }));
     kids.push(h("button.btn",{text:this.sim.expansion.pending?"Nearby story · Play":"City fun & stories",onclick:()=>this.activities.show("Explore")}));
     if(p.hand>=0){const d=sim.toys[p.hand].def,w=TOYS[d].weapon;if(w?.gun){const base=d==='golden_pistol'?'pistol':d,load=p.combat?.load??'standard',key=load==='standard'?base:base+':'+load;kids.push(h('div.combat-status',{text:`${TOYS[d].name} · ${p.combat?.ammo[key]??'∞'} rounds · ${w.mode??'semi'}`}));}}

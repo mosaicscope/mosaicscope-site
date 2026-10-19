@@ -1,3 +1,4 @@
+import {setDamageBlood} from "../render/DamageArt";
 import { useBandage } from "../sim/Life";
 import { h, fmtHour } from "./dom";
 import "./interior.css";
@@ -309,6 +310,7 @@ export class InteriorOverlay {
       if (!isOpen(BUILDINGS[this.b.kind], sim.hour)) { this.host.toast(`${this.b.name} is closing. Out you go.`); this.close(); return; }
     }
     this.hud();
+    setDamageBlood(sim.fakeBlood);
     const st: ViewState = { fakeBlood:sim.fakeBlood,t: this.t, hour: sim.hour, player: me, actors: people, near: best?.id ?? null, nearActor: this.nearActor, exitNear: this.exitNear };
     this.view.render(st, def);
     this.raf = requestAnimationFrame(this.loop);

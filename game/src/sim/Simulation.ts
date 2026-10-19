@@ -1,3 +1,4 @@
+import {sendAmbulance,updateMedicalResponses} from "./MedicalResponse";
 import { unarmedMove } from "../content/combat";
 import { hasUpgrade } from "../content/upgrades";
 import { hasBody } from "./life/body";
@@ -33,7 +34,7 @@ import { Crime, Booking, exitBuilding, insideOutcome, updateCustody, commitCrime
 import { NameBook } from "./Spawner";
 import { VEHICLES } from "../content/vehicles";
 import { forceGoal } from "../ai/brain";
-import { updateHealth, hospitalise, wound, useBandage, recomputeBleed, hurtOf } from "./Life";
+import { updateHealth, wound, useBandage, recomputeBleed, hurtOf } from "./Life";
 import { clamp } from "../core/math";
 import { fireGun, startTurfWar, turfWarActive } from "./Turf";
 import { LitterState, updateLitter } from "./Litter";
@@ -261,11 +262,7 @@ export class Simulation {
 
     if (this.tick % 120 === 0) { this.groups.update(this.chars, this.tick); updateLitter(this); }
     if (this.tick % 30 === 0) this.policeTick();
-    if (this.tick % 60 === 0) for (const [id, at] of this.pendingAmbulance) {
-      const c = this.chars[id];
-      if (!c || c.blood >= 0.35 && c.phys !== Phys.DOWN) { this.pendingAmbulance.delete(id); continue; }
-      if (this.tick >= at) { this.pendingAmbulance.delete(id); hospitalise(this, c); }
-    }
+    if(this.tick%60===0)updateMedicalResponses(this);
     if (this.tick % 60 === 0) this.housekeeping();
     // nothing (car exits, knockbacks, doors on the edge) may leave anyone outside the map
     const lim = this.world.size - 0.3;
@@ -599,12 +596,10 @@ export class Simulation {
 
   forceFollow(c: Character, leader: Character): void { forceGoal(c, this, "follow", { u: 2, target: leader.id }); }
 
-  /** Send the nearest paramedic; if nobody can come, the ambulance does it after a minute. */
+  /** Queue once: repeated injuries never delay a rescue already on the way. */
   callAmbulance(c: Character): void {
-    const medic = this.chars.filter((m) => m.role === "medic" && m.phys === Phys.OK && m.jailUntil === 0).sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y))[0];
-    if (medic) { if (medic.inside >= 0) exitBuilding(this, medic); if (medic.inCar >= 0) unseat(this, this.vehicles[medic.inCar]); forceGoal(medic, this, "treat", { u: 2, target: c.id }); }
-    // a second 111 call doesn't push the ambulance back
-    if (!this.pendingAmbulance.has(c.id)) this.pendingAmbulance.set(c.id, this.tick + 60 * 75);
+    if(this.pendingAmbulance.has(c.id))return;
+    this.pendingAmbulance.set(c.id,this.tick+60*75);sendAmbulance(this,c);
   }
   pendingAmbulance = new Map<number, number>();
 

@@ -364,7 +364,7 @@ function moveBlocked(sim: Simulation, v: Vehicle, dt: number): void {
   v.x = nx; v.y = ny; v.stuck = Math.max(0, v.stuck - dt);
 }
 
-function snapToLane(sim: Simulation, v: Vehicle): boolean {
+export function snapToLane(sim: Simulation, v: Vehicle): boolean {
   const w = sim.world;
   // find a lane through a nearby road tile, aligned to the closest cardinal heading
   const dir = ((Math.round(v.heading / (Math.PI / 2)) % 4) + 4) % 4;
@@ -480,9 +480,9 @@ function laneDrive(sim: Simulation, v: Vehicle, dt: number): void {
       decidedAt.set(v, key);
       const opts = validDirs(ic, ir, v.dir, maxL);
       if (inX) v.nextDir = opts.includes(v.dir) ? v.dir : opts[0];
-      else if (pursuing && v.driver >= 0) {
+      else if (pursuing && (v.driver >= 0 || v.rescueTarget!==undefined)) {
         // head toward the suspect
-        const cop = sim.chars[v.driver], s = cop ? sim.chars[cop.pursuing] : undefined;
+        const cop = sim.chars[v.driver], s = v.rescueTarget!==undefined?sim.chars[v.rescueTarget]:cop ? sim.chars[cop.pursuing] : undefined;
         if (s) { const want = Math.abs(s.x - v.x) > Math.abs(s.y - v.y) ? (s.x > v.x ? 0 : 2) : (s.y > v.y ? 1 : 3); v.nextDir = opts.includes(want) ? want : opts.includes(v.dir) ? v.dir : opts[0]; }
         else v.nextDir = opts.includes(v.dir) ? v.dir : opts[0];
       } else {

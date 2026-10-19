@@ -59,6 +59,7 @@ export const EVENT_DEFS: EventDef[] = [
   { type: "injury", label: "Injured", priority: 7, severity: 3, radius: 9, cooldown: 30, propagation: "sight", topic: "hurt", key: (e) => `injury:${e.actors[e.actors.length - 1]}:${e.data.part}` },
   { type: "bandaged", label: "Bandaged", priority: 3, severity: 1, radius: 6, cooldown: 30, propagation: "sight", topic: "kindness" },
   { type: "collapse", label: "Collapsed", priority: 8, severity: 4, radius: 12, cooldown: 120, propagation: "sight", topic: "hurt", key: (e) => `collapse:${e.actors[0]}` },
+  { type: "ambulance", label: "Ambulance response", priority: 4, severity: 2, radius: 12, cooldown: 60, propagation: "sight", topic: "hurt" },
   { type: "hospital", label: "Hospital", priority: 4, severity: 2, radius: 8, cooldown: 60, propagation: "sight", topic: "hurt" },
   { type: "kiss", label: "Kiss", priority: 2, severity: 1, radius: 7, cooldown: 120, propagation: "sight", topic: "love", key: (e) => `kiss:${Math.min(e.actors[0], e.actors[1])}:${Math.max(e.actors[0], e.actors[1])}` },
   { type: "date", label: "Date", priority: 3, severity: 1, radius: 7, cooldown: 600, propagation: "sight", topic: "love" },

@@ -8,7 +8,7 @@ import type { FxKind } from "../sim/Simulation";
 interface P { on: boolean; x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; color: string; kind: number; size: number; text: string; g: number }
 
 /** Slapstick bits that fly off stick figures on big hits (26 kinds). */
-const GIBS = ["🦴", "🦷", "〰️", "💫", "🌭", "⭐", "🩸", "🧠", "👁️", "🍝", "🥩", "🍗", "🦶", "💀", "🩹", "😵", "🌀", "💥", "🫁", "🧦", "🧢", "👟", "🍔", "💨", "🔩", "🪥"];
+const GIBS = ["💫", "⭐", "🩹", "😵", "🌀", "💥", "🧦", "🧢", "👟", "💨", "🔩", "🪥", "✦", "✧", "!", "!!", "OOF", "OW", "OUCH", "POW", "ZAP", "★", "☆", "〰", "☁", "✶"];
 const K_DOT = 0, K_SPARK = 1, K_SQ = 2, K_TEXT = 3, K_RING = 4, K_STAR = 5;
 
 export class Particles {
@@ -48,7 +48,7 @@ export class Particles {
         case "music": p.kind = K_TEXT; p.text = rand() < 0.5 ? "♪" : "♫"; p.color = color; p.vx = (rand() - 0.5) * 0.6; p.vy = (rand() - 0.5) * 0.6; p.vz = 0.9; p.max = 1.6; p.size = 13; p.g = 0; break;
         case "text": p.kind = K_TEXT; p.vx = 0; p.vy = 0; p.vz = 0.7; p.max = 1.2; p.size = 11; p.g = 0; break;
         case "zzz": p.kind = K_TEXT; p.text = "z"; p.vx = 0.2; p.vy = -0.2; p.vz = 0.5; p.max = 1.5; p.size = 10; p.g = 0; break;
-        case "blood": p.kind = K_DOT; p.color = rand() < 0.5 ? "#b3121b" : "#7a0d12"; p.vx = Math.cos(a) * (0.5 + s * 2.2); p.vy = Math.sin(a) * (0.5 + s * 2.2); p.vz = 1 + s * 3.5; p.max = 0.7; p.size = 1 + s * 1.6; p.g = 12; break;
+        case "blood": p.kind = rand()<.15?K_SQ:K_DOT; p.color = ["#b3121b","#7a0d12","#c4434d","#922733"][Math.floor(rand()*4)]; p.vx = Math.cos(a) * (0.5 + s * 2.2); p.vy = Math.sin(a) * (0.5 + s * 2.2); p.vz = 1 + s * 3.5; p.max = 0.7; p.size = 1 + s * 1.6; p.g = 12; break;
         // cartoon gore for stick figures: a bone, a tooth, a wiggly bit of noodle, a few dizzy stars
         case "gib": p.kind = K_TEXT; p.text = GIBS[Math.floor(rand() * GIBS.length)]; p.color = "#eee4d3"; p.vx = Math.cos(a) * (1 + s * 2.5); p.vy = Math.sin(a) * (1 + s * 2.5); p.vz = 2 + s * 3; p.max = 1.3; p.size = 1; p.g = 9; break;
         case "spray": p.kind = K_DOT; p.color = color; p.vx = Math.cos(a) * 0.3; p.vy = Math.sin(a) * 0.3; p.vz = 0.2; p.max = 0.6; p.size = 1.5 + s * 2; p.g = 0; break;

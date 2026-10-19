@@ -1,3 +1,4 @@
+import {woundArt,needsMedicalResponse} from "../content/damageModels";
 import { hasBody } from "./life/body";
 import type { Simulation } from "./Simulation";
 import { Character, Phys, Wound, WoundPart, WoundKind } from "../entities/types";
@@ -31,8 +32,12 @@ export function wound(sim: Simulation, c: Character, part: WoundPart, severity: 
   if (existing) { existing.severity = Math.min(3, Math.max(existing.severity, severity) + (severity >= 2 ? 1 : 0)) as 1 | 2 | 3; existing.kind = severity >= existing.severity ? kind : existing.kind; }
   else { c.wounds.push(w); if (c.wounds.length > 6) c.wounds.shift(); }
   if (part === "head" && w.severity >= 2) w.kind = kind === "stab" ? "stab" : "gash";
+  if(c.painAt===undefined||sim.tick-c.painAt>120){c.painAt=sim.tick;sim.say(c,w.severity===3?'I need a medic!':part==='leg'?'Ow, my knee!':part==='arm'?'My arm!':'Oof!',w.severity===3?'shout':'say',1.4);}
+  if(c.phys===Phys.OK){c.anim.pose=part==='head'?'stunned':'stumble';c.anim.poseT=0;c.stunUntil=Math.max(c.stunUntil,sim.tick+Math.min(24,w.severity*6));}
+  w.art=woundArt(part,w.kind,sim.tick+c.id*31+by*7);
   recomputeBleed(c);
-  if (sim.fakeBlood) {
+  if(needsMedicalResponse(c))sim.callAmbulance(c);
+  if (sim.fakeBlood && w.kind!=="bruise") {
     const a = Math.atan2(c.y - fromY, c.x - fromX);
     // headshots and stabs spray hard; every hit draws some (cartoon) blood
     const n = (part === "head" ? 40 : kind === "stab" ? 30 : 14) * w.severity;
@@ -82,6 +87,7 @@ export function hurtOf(c: Character): { head: number; torso: number; arm: number
 }
 
 export function updateHealth(sim: Simulation, c: Character, dt: number): void {
+  if(needsMedicalResponse(c))sim.callAmbulance(c);
   if (!c.wounds.length && c.blood >= 1) return;
   // pain wears you down: the more it hurts, the lower the mood and the shorter the fuse
   if (c.wounds.length) {
@@ -90,9 +96,9 @@ export function updateHealth(sim: Simulation, c: Character, dt: number): void {
     c.emo.composure = Math.max(0, c.emo.composure - pain * dt * 0.0015);
   }
   if (c.bleed > 0) {
-    c.blood = Math.max(0, c.blood - c.bleed * dt * 0.012);
+    c.blood = Math.max(0.08, c.blood - c.bleed * dt * 0.012);
     c.emo.fear = Math.min(1, c.emo.fear + c.bleed * dt * 0.01);
-    if (c.blood < 0.35 && c.phys !== Phys.DOWN && c.tier !== "player") {
+    if (c.blood < 0.35 && c.phys !== Phys.DOWN) {
       c.phys = Phys.DOWN; c.physTimer = 9999; c.emo.composure = 0;
       sim.emit({ type: "collapse", x: c.x, y: c.y, actors: [c.id], severity: 4, summary: `${c.name} collapsed from blood loss. Someone call an ambulance!` });
       sim.callAmbulance(c);
@@ -109,9 +115,11 @@ export function updateHealth(sim: Simulation, c: Character, dt: number): void {
 /** Paramedics: patched up at the hospital, then sent home. */
 export function hospitalise(sim: Simulation, c: Character): void {
   const h = sim.world.buildings.find((b) => b.kind === "hospital");
+  if(c.inCar>=0){const v=sim.vehicles[c.inCar];if(v){v.driver=-1;v.state='parked';v.speed=0;v.vx=v.vy=0;}c.inCar=-1;}
   for (const w of c.wounds) w.bandaged = true;
   recomputeBleed(c);
+  c.vx=c.vy=c.kx=c.ky=c.vz=0;c.z=0;c.stunUntil=sim.tick;
   c.blood = 0.8; c.phys = Phys.OK; c.physTimer = 0; c.emo.composure = 0.6;
-  if (h && c.tier !== "player") { c.inside = h.id; c.insideUntil = sim.tick + 60 * 90; c.x = h.door.x + 0.5; c.y = h.door.y + 0.5; c.goal = null; }
+  if (h) { c.inside = h.id; c.insideUntil = sim.tick + 60 * 90; c.x = c.px = h.door.x + 0.5; c.y = c.py = h.door.y + 0.5; c.goal = null; }
   sim.emit({ type: "hospital", x: c.x, y: c.y, actors: [c.id], summary: `${c.name} was taken to hospital and patched up` });
 }
