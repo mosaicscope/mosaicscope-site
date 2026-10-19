@@ -1,7 +1,8 @@
+import {accessoryControls} from './Accessories';
 import { h } from './dom';
 import { canvasStage, roundBox, sceneText } from './CanvasStage';
 import { pose, solve, drawFigure } from '../render/StickFigure';
-import type { Character, Look, HairStyle, HatStyle, Accessory } from '../entities/types';
+import type { Character, Look, HairStyle, HatStyle } from '../entities/types';
 import './welcome.css';
 
 export interface WelcomeHost {
@@ -60,7 +61,7 @@ export class Welcome {
       swatches('Skin','skin',['#f1c9a5','#d9a173','#c78d5f','#a06a43','#6e452b','#efe3d6']),
       swatches('Hair colour','hairColor',['#1a1410','#6b4a2a','#c9a56a','#8a8a8a','#e8554f','#b48cff']),
       select('Shirt pattern',['Plain','Stripes','Centre stripe','Logo','Two tone','Chevron','Pocket','Dots'],['Plain','Stripes','Centre stripe','Logo','Two tone','Chevron','Pocket','Dots'][this.draft.look.pattern??0],v=>update('pattern',['Plain','Stripes','Centre stripe','Logo','Two tone','Chevron','Pocket','Dots'].indexOf(v))),
-      h('fieldset.welcome-accessories',null,[h('legend',{text:'Accessories'}),...(['glasses','chain','scarf','backpack','watch','headband','earrings','eyepatch','bandage','bowtie'] as Accessory[]).map(item=>h('label',null,[h('input',{type:'checkbox','aria-label':item,checked:this.draft.look.accessories!.includes(item),onchange:(e:Event)=>{const items=this.draft.look.accessories!.filter(a=>a!==item);if((e.target as HTMLInputElement).checked)items.push(item);update('accessories',items);}}),item]))]),
+      accessoryControls(this.draft),
       h('label',null,['Height',h('input',{type:'range',min:.85,max:1.15,step:.05,value:this.draft.look.scale,'aria-label':'Height',oninput:(e:Event)=>update('scale',+(e.target as HTMLInputElement).value)})]),
       h('label',null,['Build',h('input',{type:'range',min:.8,max:1.4,step:.1,value:this.draft.look.build??1,'aria-label':'Build',oninput:(e:Event)=>update('build',+(e.target as HTMLInputElement).value)})]),
       h('div.welcome-actions',null,[h('button.btn.acid',{text:'Start my story',onclick:()=>{const message=this.host.create(this.name.trim().slice(0,28)||'You',structuredClone(this.draft.look));if(message)error.textContent=message;else this.close();}}),h('button.btn',{text:'Back',onclick:()=>this.menu()})]),error,

@@ -152,7 +152,7 @@ export function nearestFoe(sim: Simulation, c: Character, r: number): Character 
 export function fireGun(sim: Simulation, c: Character, tx: number, ty: number, targetId: number): boolean {
   const def = heldDef(sim, c);
   const ws = def ? TOYS[def].weapon : undefined;
-  if (!def || !ws?.gun || c.phys!==Phys.OK || c.wounds.some(w=>w.detached)) return false;
+  if (!def || !ws?.gun || c.phys!==Phys.OK || c.wounds.some(w=>w.part==='arm'&&w.detached)||!Number.isFinite(tx+ty)) return false;
   if ((sim.nextAttack.get(c.id) ?? 0) > sim.tick) return false;
   if(c.combat?.reloadWeapon===def&&(c.combat.reloadUntil??0)>sim.tick||c.weaponAction?.weapon===def&&(c.weaponAction.reloadUntil??0)>sim.tick)return false;
   if(c.combat){const base=def==='golden_pistol'?'pistol':def,key=(c.combat.load??'standard')==='standard'?base:base+':'+c.combat.load,rounds=c.combat.ammo[key]??0;if(rounds<=0)return false;c.combat.ammo[key]=rounds-1;}
@@ -175,14 +175,14 @@ export function fireGun(sim: Simulation, c: Character, tx: number, ty: number, t
   if(c.combat){c.combat.recoil=Math.min(1.5,recoil+(def==='shotgun'?.55:def==='rifle'?.35:.2));c.combat.recoilTick=sim.tick;}
   const kick=(def==='shotgun'?.18:.06)*(c.combat?.load==='heavy'?1.3:1);
   c.kx-=Math.cos(base)*kick;c.ky-=Math.sin(base)*kick;
-  const mx = c.x + Math.cos(base) * (def==='rifle'||def==='shotgun'?.8:.5), my = c.y + Math.sin(base) * (def==='rifle'||def==='shotgun'?.8:.5), mz = c.z + 1.2;
-  const dist = Math.min(ws.reach, Math.max(1, Math.hypot(tx - c.x, ty - c.y)));
+  const muzzleReach=Math.min(def==='rifle'||def==='shotgun'?.8:.5,Math.hypot(tx-c.x,ty-c.y)*.4);
+  const mx = c.x + Math.cos(base) * muzzleReach, my = c.y + Math.sin(base) * muzzleReach, mz = c.z + 1.2;
   const pellets = ws.pellets ?? 1, speed = 18;
   for (let i = 0; i < pellets; i++) {
     const b = sim.spawnToy(ws.ammo ?? "bullet", mx, my, mz);
     if (!b) break;
     const a = base + sim.rng.gauss() * (1 - acc) * 0.3 + (pellets > 1 ? sim.rng.range(-(ws.spread ?? 0.2), ws.spread ?? 0.2) : 0);
-    const time = dist / speed, tz = 1.05 + sim.rng.gauss() * 0.2;
+    const time = Math.max(.04,Math.min(ws.reach,Math.hypot(tx-mx,ty-my))/speed), tz = 1.05 + sim.rng.gauss() * 0.2;
     b.vx = Math.cos(a) * speed; b.vy = Math.sin(a) * speed; b.vz = (tz - mz) / time + 0.5 * GRAVITY * time;
     b.state = "flying"; b.thrower = c.id; b.throwTick = sim.tick; b.angle = a;
     b.load=c.combat?.load??'standard';b.weaponOrigin=def;

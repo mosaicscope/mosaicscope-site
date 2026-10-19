@@ -1,4 +1,4 @@
-import {weaponMotion} from './WeaponMotion';
+import {visibleWeaponMotion} from './WeaponMotion';
 import {drawDetachedLimb} from './DamageArt';
 import {applyNegativeReaction} from './NegativeReactions';
 import {drawDebris,drawFacadeDamage} from "./CivicArt";
@@ -341,7 +341,7 @@ export class Renderer {
           const angle=Math.atan2((Math.sin(c.facing)+Math.cos(c.facing))*.5,Math.abs(Math.cos(c.facing)-Math.sin(c.facing)));
           const ca=Math.cos(angle),sa=Math.sin(angle),long=held.def==='shotgun'||held.def==='rifle'||held.def==='smg';
           const grip=(side:0|1,x:number,y:number)=>reachArm(a,side,0,0,x*ca-y*sa,x*sa+y*ca);
-          const mechanism=weaponMotion(c.weaponAction,sim.tick),since=(sim.tick-(c.weaponAction?.firedAt??c.combat?.recoilTick??-600))/60,kick=since<.2?Math.sin(Math.max(0,since)/.2*Math.PI)*(long?4:3):0;
+          const mechanism=visibleWeaponMotion(c.weaponAction,sim.tick,performance.now()/1000),since=(sim.tick-(c.weaponAction?.firedAt??c.combat?.recoilTick??-600))/60,kick=since<.2?Math.sin(Math.max(0,since)/.2*Math.PI)*(long?4:3):0;
           const reloading=c.weaponAction?.weapon===held.def&&(c.weaponAction.reloadFrom??Infinity)<=sim.tick&&(c.weaponAction.reloadUntil??0)>sim.tick;
           grip(1,18-kick,reloading?14:9-kick*.5);grip(0,reloading?8:long?29-kick-mechanism.pump*5:17-kick,reloading?22:long?4-kick*.5:9-kick*.5);
         }
@@ -597,7 +597,7 @@ export class Renderer {
     if(def.weapon?.gun){
       const angle=Math.atan2((Math.sin(c.facing)+Math.cos(c.facing))*.5,Math.cos(c.facing)-Math.sin(c.facing));
       this.g.save();this.g.translate(J[14],J[15]);this.g.rotate(angle-(dir<0?Math.PI:0));
-      drawToy(this.g,t.def,3*k*dir,-4*k,k,0,t.color,1,dir,weaponMotion(c.weaponAction,this.sim.tick));this.g.restore();return;
+      drawToy(this.g,t.def,3*k*dir,-4*k,k,0,t.color,1,dir,visibleWeaponMotion(c.weaponAction,this.sim.tick,performance.now()/1000));this.g.restore();return;
     }
     // melee toys extend along the forearm (elbow -> hand)
     const ang = Math.atan2(J[15] - J[13], J[14] - J[12]);
