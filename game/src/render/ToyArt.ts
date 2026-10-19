@@ -133,8 +133,7 @@ export function drawIsoBox(g: CanvasRenderingContext2D, x: number, y: number, hw
 }
 
 /**
- * Cartoon firearms, drawn side-on at the hand (x, y) pointing along `dir` (+1 right, -1 left).
- * Chunky neon-outlined shapes with a bright orange muzzle cap, so they read as toys-from-a-film props.
+ * Shared firearm art: machined edges, grips, sights and moving action, in the world ink palette.
  */
 function drawGun(g: CanvasRenderingContext2D, def: string, x: number, y: number, u: number, dir: number, motion:GunMotion): void {
   const slide=.3*motion.cycle,mag=.8*motion.magazine;
@@ -153,7 +152,7 @@ function drawGun(g: CanvasRenderingContext2D, def: string, x: number, y: number,
       poly([[-0.25, 0.05], [0.05, 0.05], [-0.05, 0.75], [-0.42, 0.75]], gold ? "#c98a12" : "#1a1614", edge); // grip
       guard(0.2, 0.08, 0.17, edge);
       poly([[.3,-.27],[1.22,-.27],[1.22,-.09],[.3,-.09]],'#717675',edge);
-      poly([[-0.3-slide, -0.38], [1.15-slide, -0.38], [1.15-slide, 0.05], [-0.3-slide, 0.05]], body, edge);
+      poly([[-.32-slide,-.28],[-.21-slide,-.41],[1.02-slide,-.41],[1.16-slide,-.3],[1.13-slide,.03],[-.32-slide,.03]], body, edge,.04);
       poly([[-.32,.62+mag],[-.08,.62+mag],[-.08,.8+mag],[-.36,.8+mag]],'#454b49',edge);
       poly([[.15-slide,-.3],[.45-slide,-.3],[.45-slide,-.12],[.15-slide,-.12]],'#161c1b'); // slide
       g.strokeStyle = edge; g.lineWidth = 0.05 * u; g.beginPath(); g.moveTo(X(0.1-slide), Y(-0.22)); g.lineTo(X(0.9-slide), Y(-0.22)); g.stroke(); // slide serrations line
@@ -177,9 +176,9 @@ function drawGun(g: CanvasRenderingContext2D, def: string, x: number, y: number,
       break;
     }
     case "smg": {
-      poly([[-0.9, -0.3], [-0.3, -0.25], [-0.3, 0.0], [-0.9, 0.15]], "#3a3430", "#9a8d80"); // folding stock
-      poly([[-0.3, -0.42], [1.0, -0.42], [1.0, 0.08], [-0.3, 0.08]], "#0e0b0a", "#8d9c96"); // receiver (neon edge)
-      poly([[0.45, 0.08+mag], [0.7, 0.08+mag], [0.62, 0.95+mag], [0.4, 0.95+mag]], "#1a1614", "#8d9c96"); // long magazine
+      poly([[-1.02,-.34],[-.88,-.36],[-.33,-.22],[-.33,-.1],[-.88,-.19],[-.91,.16],[-1.02,.18]], "#343f37", "#7a887a",.035); // folding stock
+      poly([[-.35,-.31],[-.25,-.43],[.87,-.43],[1.02,-.28],[.96,.06],[-.35,.06]], "#26312d", "#87968a",.035); // receiver (neon edge)
+      poly([[.45,.08+mag],[.69,.08+mag],[.68,.66+mag],[.59,.98+mag],[.36,.93+mag],[.43,.61+mag]], "#303a33", "#748376",.03); // long magazine
       poly([[-0.15, 0.08], [0.12, 0.08], [0.02, 0.6], [-0.25, 0.6]], "#1a1614", "#9a8d80"); // grip
       poly([[1.0, -0.3], [1.45, -0.3], [1.45, -0.12], [1.0, -0.12]], "#3a3430"); // barrel
       g.fillStyle = "#697673"; g.fillRect(Math.min(X(1.4), X(1.55)), Y(-0.3), 0.15 * u, 0.18 * u);
@@ -187,7 +186,7 @@ function drawGun(g: CanvasRenderingContext2D, def: string, x: number, y: number,
     }
     case "rifle": {
       poly([[-1.2,-.3],[-.25,-.3],[-.25,.05],[-1.2,.28]],"#465344","#9a9b82");
-      poly([[-.25,-.4],[1.4,-.4],[1.4,.02],[-.25,.02]],"#303b38","#96a193");
+      poly([[-.3,-.29],[-.15,-.43],[1.31,-.43],[1.44,-.3],[1.38,.01],[-.3,.01]],"#303b38","#81917f",.035);
       poly([[.15,mag],[.45,mag],[.52,.6+mag],[.22,.66+mag]],"#252d2b","#7b8274");
       poly([[-.2,0],[.05,0],[-.05,.6],[-.3,.6]],"#374137");
       poly([[1.4,-.3],[2.2,-.3],[2.2,-.14],[1.4,-.14]],"#606b62","#a3aa9c");
@@ -195,7 +194,7 @@ function drawGun(g: CanvasRenderingContext2D, def: string, x: number, y: number,
     }
     case "shotgun": {
       poly([[-1.3, -0.25], [-0.2, -0.3], [-0.2, 0.05], [-1.3, 0.35]], "#8a4a1c", "#c08040"); // wooden stock
-      poly([[-0.2, -0.36], [0.5, -0.36], [0.5, 0.05], [-0.2, 0.05]], "#3a3430", "#9a8d80"); // receiver
+      poly([[-.26,-.27],[-.1,-.39],[.43,-.39],[.54,-.25],[.46,.04],[-.26,.04]], "#303936", "#8c978a",.035); // receiver
       poly([[0.5, -0.34], [2.3, -0.34], [2.3, -0.16], [0.5, -0.16]], "#6f6660", "#eee4d3", 0.05); // barrel
       poly([[0.5, -0.14], [2.0, -0.14], [2.0, 0.0], [0.5, 0.0]], "#3a3430"); // tube
       poly([[0.9-motion.pump*.5, -0.2], [1.55-motion.pump*.5, -0.2], [1.55-motion.pump*.5, 0.12], [0.9-motion.pump*.5, 0.12]], "#b0641c", "#f6b62c", 0.05); // pump
@@ -204,6 +203,30 @@ function drawGun(g: CanvasRenderingContext2D, def: string, x: number, y: number,
       break;
     }
   }
+  // Machined edges, handguard vents, receiver pins and textured grips share the world asset.
+  if(def==='rifle'||def==='smg'){
+    const end=def==='rifle'?1.35:.95;
+    poly([[.54,-.36],[end,-.36],[end,-.26],[.54,-.26]],'#5a695b','#9ba895',.018);
+    for(let n=0;n<5;n++){const vx=.56+n*(end-.6)/5;poly([[vx,-.23],[vx+.045,-.23],[vx+.045,-.06],[vx,-.06]],'#101a16');}
+    for(let n=0;n<8;n++){const xx=-.2+n*.14;g.strokeStyle='#a9b09d';g.lineWidth=.02*u;g.beginPath();g.moveTo(X(xx),Y(-.43));g.lineTo(X(xx),Y(-.49));g.stroke();}
+    for(let n=0;n<4;n++){g.strokeStyle='#6d7a68';g.lineWidth=.018*u;g.beginPath();g.moveTo(X(.47+n*.04),Y(.18+mag));g.lineTo(X(.44+n*.04),Y(.79+mag));g.stroke();}
+    poly([[-.12,-.12],[-.02,-.14],[.06,-.06],[.04,-.02]],'#c0bd9c','#202b23',.02);guard(.2,.05,.18,'#77846e');
+  }
+  if(def==='shotgun')for(let n=0;n<8;n++){const xx=.96+n*.065-motion.pump*.5;g.strokeStyle=n%2?'#4b3925':'#c29459';g.lineWidth=.026*u;g.beginPath();g.moveTo(X(xx),Y(-.13));g.lineTo(X(xx-.025),Y(.08));g.stroke();}
+  if(def==='revolver')for(let n=0;n<3;n++){const yy=-.26+n*.11+motion.cylinder*.4;g.strokeStyle='#b5b7ab';g.lineWidth=.025*u;g.beginPath();g.moveTo(X(-.02),Y(yy));g.lineTo(X(.4),Y(yy));g.stroke();}
+  // Fixed frame and moving assembly have separate outlines, so cycling can be read at city scale.
+  const long=def==='rifle'||def==='shotgun',muzzle=def==='rifle'?2.2:def==='shotgun'?2.4:def==='revolver'?1.6:def==='smg'?1.55:1.25;
+  const rear=def==='pistol'||def==='golden_pistol'?-slide:0;
+  poly([[muzzle-.18,-.4],[muzzle-.1,-.5],[muzzle-.06,-.5],[muzzle-.04,-.31]],'#b7b9ae','#252c2a',.035);
+  poly([[-.22+rear,-.4],[-.22+rear,-.49],[-.12+rear,-.49],[-.12+rear,-.4]],'#222b29','#9ba79d',.035);
+  g.strokeStyle='#c2c7bb';g.lineWidth=.025*u;g.beginPath();g.moveTo(X(long?.55:.05),Y(-.29));g.lineTo(X(muzzle-.13),Y(-.29));g.stroke();
+  // Bore, crown and hardware; the muzzle is open rather than capped with a coloured rectangle.
+  g.fillStyle='#101716';g.beginPath();g.ellipse(X(muzzle-.01),Y(-.21),.038*u,.087*u,0,0,7);g.fill();
+  for(const [xx,yy]of[[-.16,.12],[-.25,.46],[.03,-.1]]){g.fillStyle='#a3aba1';g.beginPath();g.arc(X(xx),Y(yy),.035*u,0,7);g.fill();g.strokeStyle='#222b27';g.lineWidth=.018*u;g.beginPath();g.moveTo(X(xx-.02),Y(yy));g.lineTo(X(xx+.02),Y(yy));g.stroke();}
+  for(let i=0;i<5;i++){g.strokeStyle='#9b94835e';g.lineWidth=.025*u;g.beginPath();g.moveTo(X(-.29+i*.018),Y(.24+i*.075));g.lineTo(X(-.07+i*.018),Y(.18+i*.075));g.stroke();}
+  if(def==='smg'||def==='rifle'){const travel=.34*motion.cycle;poly([[.1-travel,-.28],[.45-travel,-.28],[.45-travel,-.16],[.1-travel,-.16]],'#b7bfb3','#222b27',.025);poly([[.3-travel,-.21],[.3-travel,-.08],[.4-travel,-.08],[.4-travel,-.21]],'#626e65','#c0c5b5',.025);}
+  if(motion.cycle>.12){const e=motion.cycle;poly([[.42+e*.4,-.4-e*.65],[.61+e*.4,-.45-e*.65],[.64+e*.4,-.36-e*.65],[.45+e*.4,-.31-e*.65]],def==='shotgun'?'#ae6150':'#d1ad65','#433b27',.025);}
+  if(motion.cycle>.3){const f=.3+motion.cycle*.35;poly([[muzzle,-.22],[muzzle+f*.4,-.48],[muzzle+f*.8,-.32],[muzzle+f*1.7,-.25],[muzzle+f*.65,-.12],[muzzle+f*.45,.02]],'#f5d696');poly([[muzzle,-.23],[muzzle+f,-.25],[muzzle+f*.35,-.15]],'#fff8dc');}
   if(def==='shotgun'&&motion.reload>.1&&motion.reload<.9){const shell=(motion.reload*6)%1;poly([[.15+(1-shell)*.3,.1+(1-shell)*.55],[.43+(1-shell)*.3,.1+(1-shell)*.55],[.43+(1-shell)*.3,.24+(1-shell)*.55],[.15+(1-shell)*.3,.24+(1-shell)*.55]],'#9d4d3f','#c8b27c');}
   if(['rifle','smg','shotgun'].includes(def)){
     poly([[.05,-.34],[.5,-.34],[.5,-.12],[.05,-.12]],'#111817');

@@ -2,6 +2,14 @@ import {TOYS} from '../content/toys';
 export interface WeaponAction{weapon:string;firedAt:number;reloadFrom?:number;reloadUntil?:number;shots:number}
 export interface GunMotion{cycle:number;pump:number;magazine:number;cylinder:number;hammer:number;trigger:number;reload:number;rotation?:number}
 export const REST_GUN:GunMotion={cycle:0,pump:0,magazine:0,cylinder:0,hammer:0,trigger:0,reload:0};
+const observed=new WeakMap<WeaponAction,{time:number}>();
+/** Mechanical travel is readable at 1x–4x game speed; ammo and hits still use simulation time. */
+export function visibleWeaponMotion(action:WeaponAction|undefined,tick:number,time:number):GunMotion{
+ if(!action)return REST_GUN;
+ let seen=observed.get(action);if(!seen){seen={time:time-Math.min(.03,Math.max(0,tick-action.firedAt)/60)};observed.set(action,seen);}
+ const motion=weaponMotion(action,action.firedAt+Math.max(0,time-seen.time)*60);
+ const actual=weaponMotion(action,tick);return {...motion,reload:actual.reload,magazine:actual.magazine,cylinder:actual.cylinder};
+}
 export function weaponMotion(action:WeaponAction|undefined,tick:number):GunMotion{
  if(!action)return REST_GUN;
  const t=(tick-action.firedAt)/60;if(t<0)return REST_GUN;

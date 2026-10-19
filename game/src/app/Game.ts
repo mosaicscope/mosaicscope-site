@@ -1,5 +1,6 @@
+import {accessoryControls} from '../ui/Accessories';
 import {reactionCatalogue} from '../ui/ReactionCatalogue';
-import {weaponMechanism} from '../ui/WeaponMechanism';
+import {weaponMechanism,liveWeaponMechanism} from '../ui/WeaponMechanism';
 import {stealWeapon,gainTheft} from "../sim/WeaponTheft";
 import {nearestLoosePiece,clearLoosePiece} from "../sim/Litter";
 import {equipmentPace} from "../content/combat";
@@ -130,6 +131,7 @@ export class Game {
   photos!: Photos; casino: Casino; places: Places; radio: Radio; interior: InteriorOverlay;
   private hudEl: HTMLElement;
   private combatHelpButton:HTMLButtonElement|null=null;
+  private gunInspectButton:HTMLButtonElement|null=null;
   private areaEl: HTMLElement = h("div.areaname", { "aria-live": "polite" }); private lastArea = ""; private bustedEl: HTMLElement; private lastBusted = -1;
   private gestured = false;
   private pinchDist = 0;
@@ -321,7 +323,7 @@ export class Game {
     const dt = Math.min(0.1, (now - this.last) / 1000);
     this.last = now;
     this.pollGamepad();
-    if(!this.modal.open&&!this.casino.open&&(this.keys.has(this.settings.keys.throw)||this.touchFire)){const p=this.sim.player;if(p.hand>=0&&TOYS[this.sim.toys[p.hand].def]?.weapon?.mode==='auto')this.act('throw');}
+    if(!this.modal.open&&!this.casino.open&&(this.keys.has(this.settings.keys.throw)||this.keys.has(this.settings.keys.swing)||this.mouse.down&&this.mouse.button===2||this.touchFire)){const p=this.sim.player;if(p.hand>=0&&TOYS[this.sim.toys[p.hand].def]?.weapon?.mode==='auto')this.act('throw');}
     const steps = this.clock.advance(dt);
     for (let i = 0; i < steps; i++) this.guard("sim", () => { this.controlPlayer(); this.sim.step(); });
     this.ticksThisSecond += steps; this.tickWindow += dt;
@@ -359,6 +361,7 @@ export class Game {
     if (p.bleed > 0) kids.push(h("div.car", { text: "You're bleeding. B to bandage." }));
     kids.push(h("button.btn",{text:this.sim.expansion.pending?"Nearby story · Play":"City fun & stories",onclick:()=>this.activities.show("Explore")}));
     if(p.hand>=0){const d=sim.toys[p.hand].def,w=TOYS[d].weapon;if(w?.gun){const base=d==='golden_pistol'?'pistol':d,load=p.combat?.load??'standard',key=load==='standard'?base:base+':'+load;kids.push(h('div.combat-status',{text:`${TOYS[d].name} · ${p.combat?.ammo[key]??'∞'} rounds · ${w.mode??'semi'}`}));}}
+    if(p.hand>=0&&TOYS[sim.toys[p.hand]?.def]?.weapon?.gun){this.gunInspectButton??=h('button.btn.combat-help',{text:'Inspect gun · live action',onclick:()=>this.openEquippedWeapon()}) as HTMLButtonElement;kids.push(this.gunInspectButton);}
     this.combatHelpButton??=h("button.btn.combat-help",{text:"Fight / gun controls",onclick:()=>this.openCombatControls()}) as HTMLButtonElement;kids.push(this.combatHelpButton);
     const obj = this.objective(); if (obj) kids.push(h("div.car.obj", { text: obj }));
     this.hudEl.replaceChildren(...kids);
@@ -646,7 +649,7 @@ export class Game {
     if(p.inCar>=0&&kind==='throw'&&sim.vehicles[p.inCar].cls==='tank'){
       if(sim.tick<this.cannonAt)return;const v=sim.vehicles[p.inCar];if((v.cannonRounds??12)<=0){this.toast('Out of shells · restock at the armory');return;}v.cannonRounds=(v.cannonRounds??12)-1;this.cannonAt=sim.tick+120;const dx=Math.cos(v.heading),dy=Math.sin(v.heading),shell=sim.spawnToy('cannonball',v.x+dx*2.9,v.y+dy*2.9);if(shell){shell.state='flying';shell.z=1.1;shell.vx=dx*24;shell.vy=dy*24;shell.vz=1;shell.thrower=p.id;shell.throwTick=sim.tick;sim.bus.emit('fx',{kind:'spark',x:shell.x,y:shell.y,z:1.1,n:18});sim.bus.emit('sound',{kind:'bang_shotgun',x:v.x,y:v.y,vol:1});commitCrime(sim,p,'assault',null);}return;
     }
-    if (p.phys !== Phys.OK || p.inCar >= 0) return;
+    if (p.phys !== Phys.OK || p.inCar >= 0) {if((kind==='throw'||kind==='swing')&&performance.now()>this.ammoAlertAt){this.ammoAlertAt=performance.now()+2500;this.toast('Recover your footing before attacking');}return;}
     const cursor = this.renderer.cam.toWorld(this.mouse.x, this.mouse.y);
     switch (kind) {
       case "pickup": {
@@ -661,7 +664,9 @@ export class Game {
       case "throw": {
         if(p.hand>=0&&TOYS[sim.toys[p.hand].def]?.uses.includes('ranged')){
           const id=this.selected>=0&&this.selected!==p.id?this.selected:this.hovered>=0&&this.hovered!==p.id?this.hovered:-1,target=id>=0?sim.chars[id]:null;
-          const fired=sim.shootAt(p,target?.x??cursor.x,target?.y??cursor.y,id),def=sim.toys[p.hand].def,base=def==='golden_pistol'?'pistol':def,key=(p.combat?.load??'standard')==='standard'?base:base+':'+p.combat?.load;if(!fired&&p.combat&&(p.combat.ammo[key]??0)<=0&&performance.now()>this.ammoAlertAt){this.ammoAlertAt=performance.now()+2500;this.toast('Out of ammunition · visit the armory');}return;
+          if(this.clock.paused)this.setSpeed(1);
+          const aim=this.touchFire&&!target?{x:p.x+Math.cos(p.facing)*8,y:p.y+Math.sin(p.facing)*8}:cursor;
+          const fired=sim.shootAt(p,target?.x??aim.x,target?.y??aim.y,id),def=sim.toys[p.hand].def,base=def==='golden_pistol'?'pistol':def,key=(p.combat?.load??'standard')==='standard'?base:base+':'+p.combat?.load;if(!fired&&p.combat&&(p.combat.ammo[key]??0)<=0&&performance.now()>this.ammoAlertAt){this.ammoAlertAt=performance.now()+2500;this.toast('Out of ammunition · visit the armory');}return;
         }
         if (p.hand < 0 || !canThrow(sim.toys[p.hand].def)) { const t = this.nearestToy(); if (t && TOYS[t.def].uses.includes("heavy")) sim.kickToy(p, t, cursor.x, cursor.y); else this.toast(p.hand < 0 ? "Pick something up first (E)" : "That one doesn't throw. Swing it (Space)"); return; }
         const target = this.hovered >= 0 && this.hovered !== p.id ? this.hovered : -1;
@@ -671,6 +676,7 @@ export class Game {
         break;
       }
       case "swing": {
+        if(p.hand>=0&&TOYS[sim.toys[p.hand]?.def]?.weapon?.gun){this.act('throw');return;}
         const reach=p.hand>=0?TOYS[sim.toys[p.hand].def]?.weapon?.reach??1.4:unarmedMove(p.combat?.style,p.combat?.xp).reach;
         const target=this.selected>=0&&this.selected!==p.id&&Math.hypot(sim.chars[this.selected].x-p.x,sim.chars[this.selected].y-p.y)<reach+1?sim.chars[this.selected]:sim.chars[this.nearestPerson(reach+.3)];
         p.facing = target?Math.atan2(target.y-p.y,target.x-p.x):Math.atan2(cursor.y - p.y, cursor.x - p.x);
@@ -757,6 +763,7 @@ export class Game {
       this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (this.touches.size === 2) { const [a, b] = [...this.touches.values()]; this.pinchDist = Math.hypot(a.x - b.x, a.y - b.y); }
       this.mouse = { ...this.mouse, x: e.clientX, y: e.clientY, down: true, dragging: false, sx: e.clientX, sy: e.clientY, button: e.button };
+      if(e.button===2){e.preventDefault();this.act('throw');}
     });
     cv.addEventListener("pointermove", (e) => {
       const prev = this.touches.get(e.pointerId);
@@ -767,7 +774,7 @@ export class Game {
         if (this.pinchDist > 0) this.renderer.cam.setZoom(this.renderer.cam.targetZoom * (d / this.pinchDist));
         this.pinchDist = d; this.mouse.dragging = true; return;
       }
-      if (this.mouse.down && (this.mouse.dragging || Math.hypot(e.clientX - this.mouse.sx, e.clientY - this.mouse.sy) > 8)) {
+      if (this.mouse.down && this.mouse.button!==2 && (this.mouse.dragging || Math.hypot(e.clientX - this.mouse.sx, e.clientY - this.mouse.sy) > 8)) {
         this.mouse.dragging = true;
         this.renderer.cam.panBy(e.clientX - this.mouse.x, e.clientY - this.mouse.y);
       }
@@ -779,7 +786,7 @@ export class Game {
       if (!this.mouse.down) return;
       this.mouse.down = false;
       if (this.mouse.dragging) { this.mouse.dragging = false; return; }
-      this.click(e.clientX, e.clientY, e.button);
+      if(e.button!==2)this.click(e.clientX, e.clientY, e.button);
     };
     cv.addEventListener("pointerup", up);
     cv.addEventListener("pointercancel", () => { this.mouse.down = false; this.mouse.dragging = false; this.touches.clear(); });
@@ -1516,6 +1523,14 @@ export class Game {
     this.clock.tick = sim.tick;
   }
 
+  private openEquippedWeapon():void{
+    this.modal.show('Equipped gun · live action',[liveWeaponMechanism({
+      state:()=>{const p=this.sim.player,def=p.hand>=0?this.sim.toys[p.hand]?.def??'':'',base=def==='golden_pistol'?'pistol':def,load=p.combat?.load??'standard',key=load==='standard'?base:base+':'+load;return{def,action:p.weaponAction,tick:this.sim.tick,rounds:p.combat?.ammo[key]??0,status:(p.combat?.reloadUntil??0)>this.sim.tick?'Reloading':p.phys!==Phys.OK?'Recovering':'Ready'};},
+      fire:()=>{const p=this.sim.player,old=this.mouse;const aim=this.renderer.cam.toScreen(p.x+Math.cos(p.facing)*8,p.y+Math.sin(p.facing)*8,0,{x:0,y:0});this.mouse={...old,x:aim.x,y:aim.y};this.act('throw');this.mouse=old;},
+      focus:()=>{this.modal.close();this.renderer.cam.follow=this.sim.playerId;this.renderer.cam.setZoom(Math.min(6,this.renderer.cam.viewH/145));},
+    })],'activities');
+  }
+
   private openCombatControls():void{
     const p=this.sim.player,k=this.settings.keys,key=(v:string)=>v===' '?'Space':v.toUpperCase();
     const combat=p.combat??={style:'jab',xp:0,ammo:{},vest:0,helmet:0};
@@ -1525,12 +1540,14 @@ export class Game {
       h('p.ax-status',{text:'Select a person to aim. Get close for melee. Close this panel to resume play.'}),
       h('div.ax-grid',null,[
         row('Fighting',`${key(k.swing)} attacks with your selected style or held melee weapon. On mobile, tap the named attack button (Jab, Slap, Shove or Strike). Empty your hands to use unarmed moves.`),
-        row('Guns',`${key(k.throw)} fires your equipped gun. Hold it for automatic fire with an SMG; tap for semi-auto guns. On mobile, tap Fire; hold Fire with an SMG. Select a person to aim at them, or aim the mouse at a position on desktop.`),
+        row('Guns',`${key(k.throw)} or right-click fires your equipped gun. Space also fires a held gun. Hold it for automatic fire with an SMG; tap for semi-auto guns. On mobile, tap Fire; hold Fire with an SMG. Select a person to aim at them, or aim the mouse at a position on desktop.`),
         row('Tank cannon',`While driving a tank, ${key(k.throw)} fires the cannon. On mobile, tap Cannon. The cannon needs shells and has a cooldown between shots.`),
         row('Equipment and ammunition',`${key(k.pickup)} picks up nearby equipment. ${key(k.drop)} drops the held item. Use Armory & gun store to buy or equip a weapon, choose an ammunition load and refill its reserve. Magazines reload automatically; an empty reserve needs ammunition.`),
         row('Injuries and protection',`${key('b')} bandages bleeding. Armour protects covered areas and wears down. Moving, repeated shots and arm injuries reduce aim. Heavy gear slows walking. Attacks can cause injuries, witnesses and police pursuit.`),
       ]),h('h3',{text:'Choose your unarmed style'}),styles,
       h('button.btn',{text:'Browse 500 reaction animations',onclick:()=>this.modal.show('Reaction catalogue',[reactionCatalogue(this.sim.player)],'activities reaction-modal')}),
+      accessoryControls(p),
+      h('button.btn',{text:'Inspect equipped gun · live firing',onclick:()=>this.openEquippedWeapon()}),
       weaponMechanism(p.hand>=0?this.sim.toys[p.hand]?.def:'pistol'),
       h('button.btn',{text:'Open armory / equip weapons',onclick:()=>this.armory.show()}),
     ],'activities combat-controls');

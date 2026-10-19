@@ -1,3 +1,4 @@
+import {contactPose,groundReaction,stampPose} from './ReactionAnatomy';
 import {sampleReactionFace,setReactionFace} from './ReactionFaces';
 import type {Character} from '../entities/types';
 import type {Angles} from './StickFigure';
@@ -11,10 +12,12 @@ const cachedFrames=new WeakMap<ReactionClip,Angles[]>();
 export function sampleReactionClip(clip:ReactionClip,time:number,reduced=false):Angles{
  const u=reduced?.5:Math.max(0,Math.min(1,time/clip.duration));
  if(u===0||u===1)return {...REST_REACTION};
- const times=[0,.13,.24,.43,.55,.76,.87,1];let keys=cachedFrames.get(clip);if(!keys){keys=[REST_REACTION,...clip.keys.flatMap(k=>[REACTION_KEYS[k].angles,REACTION_KEYS[k].angles]),REST_REACTION];cachedFrames.set(clip,keys);}
+ const times=[0,.13,.24,.43,.55,.76,.87,1];let keys=cachedFrames.get(clip);if(!keys){keys=[REST_REACTION,...clip.keys.flatMap(k=>{const p=contactPose(k,{...REACTION_KEYS[k].angles});return[p,p];}),REST_REACTION];cachedFrames.set(clip,keys);}
  let i=0;while(i<times.length-2&&u>times[i+1])i++;
  const raw=Math.max(0,Math.min(1,(u-times[i])/(times[i+1]-times[i]))),v=raw*raw*(3-2*raw),a=keys[i],b=keys[i+1],out={...REST_REACTION};
  for(const track of REACTION_TRACKS)out[track]=a[track]+(b[track]-a[track])*v;
+ groundReaction(out);
+ for(let stage=0;stage<3;stage++){const key=clip.keys[stage];if(key!=='ts'&&key!=='tu')continue;const start=stage*.315,end=start+.37;if(u>=start&&u<=end){const stamped={...out};stampPose(stamped,key==='ts'?0:1,(u-start)/(end-start));const ramp=(v:number)=>{v=Math.max(0,Math.min(1,v));return v*v*(3-2*v);},blend=ramp((u-start)/.055)*ramp((end-u)/.055);for(const track of REACTION_TRACKS)out[track]+=(stamped[track]-out[track])*blend;}}
  return out;
 }
 export function reactionFor(c:Character,time=0){
@@ -30,12 +33,13 @@ export function reactionFor(c:Character,time=0){
  const variant=((Math.imul(c.id+1,2654435761)>>>0)%25+Math.floor(Math.max(0,time)/3.2))%25;
  return {clip:NEGATIVE_REACTIONS[family*25+variant],strength};
 }
-const occupiedActions=new Set(['shoot','swing','punch','throw','kick','slap','shove','uppercut','shield','repair','deal','bet','carry','craft','photo','play','kiss']);
+const occupiedActions=new Set(['shoot','swing','punch','throw','kick','slap','shove','uppercut','shield','repair','deal','bet','carry','craft','photo','play','kiss','sit','sitdrink','phone']);
 export function applyNegativeReaction(a:Angles,c:Character,t:number,speed:number,action:string,reduced=false):void{
  const clock=reduced?0:Math.max(0,t+(c.seedPhase??0)),r=reactionFor(c,clock);if(!r){setReactionFace(c,null);return;}
  setReactionFace(c,sampleReactionFace(r.clip,clock%r.clip.duration,reduced));
  const p=sampleReactionClip(r.clip,reduced?0:clock%r.clip.duration,reduced),weight=.7+.3*r.strength;
  const down=a.lying>0||c.phys===2||c.phys===3,occupied=occupiedActions.has(action)||c.hand>=0;
+ if(!down&&!occupied&&speed<.2&&c.phys===0){Object.assign(a,p);return;}
  // Preserve strikes, held equipment and the physical knockdown; react through the available joints.
  a.tilt+=p.tilt*weight*(down?.5:occupied?.65:1);
  a.lean+=p.lean*weight*(down?.08:occupied?.2:speed>.2?.45:1);

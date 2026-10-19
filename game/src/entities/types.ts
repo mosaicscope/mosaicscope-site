@@ -35,9 +35,9 @@ export interface EyeShape {
   lid: number;
   lash: boolean;
 }
-export type Accessory = "glasses" | "chain" | "scarf" | "backpack" | "watch" | "headband" | "earrings" | "eyepatch" | "bandage" | "bowtie";
+export type Accessory = "glasses" | "chain" | "scarf" | "backpack" | "watch" | "headband" | "earrings" | "eyepatch" | "bandage" | "bowtie" | "goggles" | "safety-glasses" | "visor" | "respirator" | "medical-mask" | "headphones" | "nose-ring" | "lip-ring" | "brow-ring" | "mouthguard";
 export interface Look {
-  skin?: string; hairColor?: string; pattern?: number; accessories?: Accessory[];
+  skin?: string; hairColor?: string; pattern?: number; accessories?: Accessory[]; accessoryWear?: Partial<Record<Accessory,number>>;
   top?:import('../render/Models').TopStyle;bottom?:import('../render/Models').ModelSpec['bottom'];shoes?:import('../render/Models').ModelSpec['shoes'];shoeColor?:string;
   kind: BodyKind;
   color: string;

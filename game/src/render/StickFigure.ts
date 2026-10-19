@@ -263,7 +263,7 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
     // street model drawn after the reference cartoon (see RefFigure.ts); the face follows the person's emotion
     drawRefFigure(g, J, c, M, k, dir, alpha, hd, flash > 0, gripped);
     if((c.combat?.vest??0)>0){const cx=(J[0]+J[6])/2,cy=(J[1]+J[7])/2;g.fillStyle='#586750';g.strokeStyle='#263429';g.lineWidth=k;g.beginPath();g.roundRect(cx-7*k,cy-11*k,14*k,23*k,3*k);g.fill();g.stroke();g.strokeStyle='#c4c7a0';g.beginPath();g.moveTo(cx-5*k,cy-3*k);g.lineTo(cx+5*k,cy-3*k);g.stroke();}
-    if((c.combat?.helmet??0)>0){g.fillStyle='#69745a';g.strokeStyle='#27382d';g.lineWidth=k;g.beginPath();g.ellipse(J[4],J[5]-10*k,13*k,8*k,0,Math.PI,Math.PI*2);g.lineTo(J[4]+14*k,J[5]-8*k);g.lineTo(J[4]-14*k,J[5]-8*k);g.fill();g.stroke();}
+
     if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 28 * k, k, t);
     return;
   }

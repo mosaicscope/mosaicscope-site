@@ -1,3 +1,4 @@
+import {drawFaceAccessories} from './FaceAccessories';
 import {currentReactionFace,drawReactionMouth,drawReactionAccents} from './ReactionFaces';
 import {drawEmotionDetail} from './NegativeReactions';
 import {drawFaceDamage,drawBodyDamage,detachedOn} from "./DamageArt";
@@ -137,22 +138,14 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
   const ux = sx - hx, uy = sy - hy, len = Math.hypot(ux, uy) || 1, px = -uy / len, py = ux / len;
   const bw = 5.2 * k * (0.9 + M.belly * 0.08) * (M.wide ?? 1); // half width
 
-  // A limb point relative to its root: keep the part along the spine, send the sideways part out to its own side,
-  // so the figure stands open and front-facing like the drawing while poses still move it.
-  const splay = (rx: number, ry: number, x: number, y: number, side: number, out: number, articulated = false): [number, number] => {
-    const dx = x - rx, dy = y - ry, along = dx * ux / len + dy * uy / len, lat = dx * px + dy * py;
-    const l = articulated ? lat + side * out : side * (Math.abs(lat) + out);
-    return [rx + (ux / len) * along + px * l, ry + (uy / len) * along + py * l];
-  };
-
   // ---- legs and shoes (behind the body): hips apart, feet a little wider, as in the drawing
   for (const [kn, ft, side] of [[16, 18, -1], [20, 22, 1]] as const) {
     const o = bw * 0.55 * side, ox = px * o, oy = py * o;
     const rx = hx + ox, ry = hy + oy;
-    const kp = splay(rx, ry, J[kn] + ox, J[kn + 1] + oy, side, bw * 0.08, true), fp = splay(rx, ry, J[ft] + ox, J[ft + 1] + oy, side, bw * 0.12, true);
+    const kp = [J[kn]+ox,J[kn+1]+oy], fp = [J[ft]+side*bw*.65,J[ft+1]];
     const detached=detachedOn(c,"leg",side);
     const pts = detached?[rx,ry,kp[0],kp[1]]:[rx, ry, kp[0], kp[1], fp[0], fp[1]];
-    J[kn]=kp[0];J[kn+1]=kp[1];
+    J[kn]=kp[0];J[kn+1]=kp[1];J[ft]=fp[0];J[ft+1]=fp[1];
     halo(pts, lw); line(pts, lw, limbCol);
     if(c.look.bottom&&['jeans','ripped','trackies','slacks'].includes(M.bottom)){line(pts,lw+2*k,ink);line(pts,lw,M.bottomColor);if(M.bottom==='trackies')line([rx,ry,kp[0],kp[1]],.6*k,M.trim);if(M.bottom==='ripped')line([kp[0]-2*k,kp[1],kp[0]+2*k,kp[1]],1.5*k,limbCol);}
     if(detached)continue;
@@ -211,7 +204,7 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
   for (const [el, hn, side] of [[8, 10, -1], [12, 14, 1]] as const) { // arms leave from each shoulder and splay outward
     const o = bw * 0.85 * side, ox = px * o, oy = py * o;
     const rx = sx + ox, ry = sy + oy;
-    const ep = gripped ? [J[el], J[el+1]] : splay(rx, ry, J[el] + ox, J[el + 1] + oy, side, bw * 0.6), hp = gripped ? [J[hn],J[hn+1]] : splay(rx, ry, J[hn] + ox, J[hn + 1] + oy, side, bw * 1.4);
+    const ep = gripped ? [J[el], J[el+1]] : [J[el] + ox, J[el + 1] + oy], hp = gripped ? [J[hn],J[hn+1]] : [J[hn] + ox, J[hn + 1] + oy];
     const detached=detachedOn(c,"arm",side);
     const pts = detached?[rx,ry,ep[0],ep[1]]:[rx, ry, ep[0], ep[1], hp[0], hp[1]];
     halo(pts, lw); line(pts, lw, limbCol);
@@ -239,7 +232,9 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
   const r = 15 * k * P.size; // big round head, as in the drawing
   const x = nx + (hdx / hl) * (r + 2 * k), y = ny + (hdy / hl) * (r + 2 * k);
   halo([nx, ny, x - (hdx / hl) * r, y - (hdy / hl) * r], lw); line([nx, ny, x - (hdx / hl) * r, y - (hdy / hl) * r], lw, limbCol);
-  drawRefHead(g, c, M, P, moodOf(c), x, y, r, k, dir, lw, alpha, hd, flash);
+  J[4]=x;J[5]=y;
+  g.save();g.translate(x,y);g.rotate(Math.atan2(hdx,-hdy));
+  drawRefHead(g,c,M,P,moodOf(c),0,0,r,k,dir,lw,alpha,hd,flash);g.restore();
   g.globalAlpha = alpha;
 }
 
@@ -437,7 +432,7 @@ function drawRefHead(g: Ctx, c: Character, M: ModelSpec, P: FacePlan, mood: Mood
   if (F.extra === "scar") { g.strokeStyle = "#b03030"; g.lineWidth = lw * 0.6; g.beginPath(); g.moveTo(fx + sep - eR * 0.4, ey - eR * 2); g.lineTo(fx + sep + eR * 0.5, ey + eR * 1.6); g.stroke(); }
   if (F.extra === "mole") dot(mx + mw * 0.9 * dir, my - mw * 0.4, r * 0.03, ink);
   if (F.extra === "tattoo") { g.strokeStyle = "#2a8ab0"; g.lineWidth = lw * 0.5; g.beginPath(); g.moveTo(fx - sep - eR, y + r * 0.2); g.lineTo(fx - sep - eR * 0.6, y + r * 0.35); g.lineTo(fx - sep - eR * 1.1, y + r * 0.45); g.stroke(); }
-  if(c.look.accessories?.includes("glasses")){g.strokeStyle=INK;g.lineWidth=1.2*k;for(const side of[-1,1]){g.beginPath();g.ellipse(fx+sep*side,ey,eR*1.35,eR*1.15,0,0,Math.PI*2);g.stroke();}g.beginPath();g.moveTo(fx-sep+eR,ey);g.lineTo(fx+sep-eR,ey);g.stroke();}
+
   // head gear from the model
   if (M.gear.includes("eyepatch")) { const ex = fx + sep; g.fillStyle = ink; g.beginPath(); g.ellipse(ex, ey, eR * 1.15, eR * 0.95, 0, 0, 6.283); g.fill(); g.strokeStyle = ink; g.lineWidth = lw * 0.6; g.beginPath(); g.moveTo(ex - eR, ey - eR * 0.6); g.lineTo(x - rx, y - ry * 0.4); g.moveTo(ex + eR, ey - eR * 0.6); g.lineTo(x + rx, y - ry * 0.3); g.stroke(); }
   if (M.gear.includes("bandage")) { g.strokeStyle = "#f2ead8"; g.lineWidth = r * 0.16; g.beginPath(); g.moveTo(x - rx * 0.95, y - ry * 0.55); g.lineTo(x + rx * 0.95, y - ry * 0.7); g.stroke(); }
@@ -449,6 +444,8 @@ function drawRefHead(g: Ctx, c: Character, M: ModelSpec, P: FacePlan, mood: Mood
     // realistic slots only (brow piercing, nose bit, ear, chin, scar, age), at most two per face so it stays clean
     drawFaceGenes(g, gene, { x, y, k: kk, dir, lw: lw * 0.8, col: ink, alpha, fx, ey, my, rx, ry, covered: F.eyes === "shades" || F.eyes === "aviator" }, { allow: REAL_GENES, max: 2 });
   }
+  drawFaceAccessories(g,c,fx,y,r,k,sep,ey,eR);
+  if((c.combat?.helmet??0)>0){g.fillStyle='#69745a';g.strokeStyle='#27382d';g.lineWidth=k;g.beginPath();g.ellipse(x,y-ry*.46,rx*1.09,ry*.67,0,Math.PI,Math.PI*2);g.lineTo(x+rx*1.12,y-ry*.36);g.lineTo(x-rx*1.12,y-ry*.36);g.closePath();g.fill();g.stroke();}
   drawFaceDamage(g,c,x,y,rx,ry,k);if(expression)drawReactionAccents(g,expression,x,y,r,k);else drawEmotionDetail(g,c,x,y,r,k);
   g.globalAlpha = alpha;
 }
