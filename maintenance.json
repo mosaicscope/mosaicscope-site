@@ -1,5 +1,5 @@
 {
- "at": 1792397782838,
+ "at": 1792402160339,
  "totals": {
   "duplicate-code": 2,
   "long-function": 17,
@@ -10,10 +10,10 @@
   {
    "kind": "duplicate-code",
    "severity": "low",
-   "where": "game/src/audio/Diegetic.ts:844 = game/tests/diegetic.test.ts:106",
+   "where": "game/src/audio/Diegetic.ts:845 = game/tests/diegetic.test.ts:106",
    "detail": "8+ identical lines in 2 places",
    "fix": "extract a shared helper",
-   "fp": "duplicate-code|1cngf4z"
+   "fp": "duplicate-code|k4p3h8"
   },
   {
    "kind": "duplicate-code",
@@ -34,34 +34,34 @@
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/ai/steps.ts:48",
+   "where": "game/src/ai/steps.ts:49",
    "detail": "188 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1fdojaa"
+   "fp": "long-function|g8d1n7"
   },
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/ai/steps.ts:247",
+   "where": "game/src/ai/steps.ts:248",
    "detail": "249 lines",
    "fix": "split into named steps",
-   "fp": "long-function|m3lw99"
+   "fp": "long-function|10z0dam"
   },
   {
    "kind": "oversized-module",
-   "severity": "low",
+   "severity": "medium",
    "where": "game/src/app/Game.ts",
-   "detail": "1498 lines",
-   "fix": "consider splitting",
-   "fp": "oversized-module|1yv0k4n"
+   "detail": "1518 lines",
+   "fix": "split by feature into modules",
+   "fp": "oversized-module|1y4jaio"
   },
   {
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/audio/Diegetic.ts",
-   "detail": "1138 lines",
+   "detail": "1139 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|10o9ynb"
+   "fp": "oversized-module|ywoih8"
   },
   {
    "kind": "long-function",
@@ -83,41 +83,41 @@
    "kind": "long-function",
    "severity": "low",
    "where": "game/src/render/Buildings.ts:46",
-   "detail": "151 lines",
+   "detail": "152 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1cu7eu6"
+   "fp": "long-function|1vt58ir"
   },
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/render/Buildings.ts:226",
+   "where": "game/src/render/Buildings.ts:227",
    "detail": "159 lines",
    "fix": "split into named steps",
-   "fp": "long-function|18v8ir6"
+   "fp": "long-function|vkri9b"
   },
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/render/Cars.ts:200",
-   "detail": "389 lines",
+   "where": "game/src/render/Cars.ts:201",
+   "detail": "396 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1r4wo1r"
+   "fp": "long-function|1htq4u6"
   },
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/render/RefFigure.ts:247",
+   "where": "game/src/render/RefFigure.ts:248",
    "detail": "179 lines",
    "fix": "split into named steps",
-   "fp": "long-function|gghgmb"
+   "fp": "long-function|s1t55o"
   },
   {
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/render/Renderer.ts",
-   "detail": "1011 lines",
+   "detail": "1027 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|qty8oy"
+   "fp": "oversized-module|n8oz9j"
   },
   {
    "kind": "oversized-module",
@@ -147,17 +147,17 @@
    "kind": "long-function",
    "severity": "low",
    "where": "game/src/sim/Rules.ts:19",
-   "detail": "347 lines",
+   "detail": "355 lines",
    "fix": "split into named steps",
-   "fp": "long-function|uxrel6"
+   "fp": "long-function|1f3awkd"
   },
   {
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Simulation.ts",
-   "detail": "937 lines",
+   "detail": "941 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|1dawld3"
+   "fp": "oversized-module|zprca6"
   },
   {
    "kind": "long-function",
@@ -202,10 +202,10 @@
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/world/WorldGenerator.ts:58",
-   "detail": "352 lines",
+   "where": "game/src/world/WorldGenerator.ts:59",
+   "detail": "357 lines",
    "fix": "split into named steps",
-   "fp": "long-function|10uwsee"
+   "fp": "long-function|1xsk60o"
   },
   {
    "kind": "long-function",
