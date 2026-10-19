@@ -8,6 +8,7 @@ page.on("console", (m) => { if (m.type() === "error" || m.type() === "warning") 
 page.on("pageerror", (e) => errs.push("pageerror: " + e.message));
 await page.addInitScript(() => localStorage.setItem("mosaics-world:settings", JSON.stringify({ tutorialDone: true, quality: "high" })));
 await page.goto(url);
+await page.getByRole("button",{name:"Start new game",exact:true}).click();await page.getByRole("button",{name:"Start my story",exact:true}).click();
 await page.waitForTimeout(+wait);
 if (extra) { await page.evaluate(extra); await page.waitForTimeout(1500); }
 await page.screenshot({ path: out, ...(out.endsWith(".jpg") ? { type: "jpeg", quality: 82 } : {}) });

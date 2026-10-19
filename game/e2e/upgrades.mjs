@@ -5,6 +5,7 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 const errors = []; page.on('pageerror', e => errors.push(e.message));
 await page.route('**/api/**', r => r.fulfill({ json: { weather: 'clear', isDay: true, temp: 14, wind: 10, hour: 12 } }));
 await page.goto(process.argv[2] || 'http://127.0.0.1:5173/world/');
+await page.getByRole("button",{name:"Start new game",exact:true}).click();await page.getByRole("button",{name:"Start my story",exact:true}).click();
 await page.getByRole('button', { name: 'Skip', exact: true }).click();
 await page.waitForFunction(() => window.__mosaics?.sim?.tick > 2);
 await page.evaluate(() => { window.__mosaics.sim.player.cash = 5000; window.__mosaics.setSpeed(0); });

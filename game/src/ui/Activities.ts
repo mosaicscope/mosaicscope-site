@@ -1,6 +1,5 @@
-import { raceScene } from "./VenueArt";
+import { raceScene, encounterScene } from "./VenueArt";
 import { countryside, casinoArt, scratchArt } from "./ActivityArt";
-import { canvasStage, sceneText } from "./CanvasStage";
 import { makeScratch, revealScratch, dealBaccarat } from "../sim/Arcade";
 import { resolveScene } from "../sim/Chronicles";
 import { h } from "./dom";
@@ -15,6 +14,7 @@ const pick = (n: number) => Math.floor(Math.random() * n);
 type Tab = "Farm" | "UC" | "Racing" | "Betting" | "Explore";
 /** All transactions use the current simulation, including after loading another slot. */
 export class Activities {
+  onFun?: (kind:"roast"|"burger")=>void;
   private message = "";
   private game = "Scratchies";
   private record(game:string,values:number[],result:string,payout=0) { this.s.casino.result={game,values,labels:[],stake:this.stake,payout,result,at:this.sim().tick}; }
@@ -61,12 +61,16 @@ export class Activities {
   encounter(): void { this.show("Explore"); }
   private explore(): HTMLElement[] {
     const e = ENCOUNTERS.find(e => e.id === this.s.pending);
-    return [canvasStage((g,t,reduced)=>{g.fillStyle='#243d47';g.fillRect(0,0,960,480);g.fillStyle='#26322e';g.fillRect(0,300,960,180);for(let i=0;i<7;i++){g.fillStyle=['#74665e','#8c7863','#506866'][i%3];g.fillRect(i*150,140+i%3*20,136,160);for(let k=0;k<3;k++){g.fillStyle='#efd99d';g.fillRect(i*150+18+k*37,190,21,30);}}for(let i=0;i<4;i++){const x=250+i*140,y=350+(i%2)*32;g.fillStyle=['#db9f88','#a9c8a3','#d8bd77'][i%3];g.fillRect(x,y-30,13,35);g.fillStyle='#e8c9a4';g.beginPath();g.arc(x+6,y-42,9,0,7);g.fill();g.strokeStyle='#e8c9a4';g.lineWidth=3;g.beginPath();g.moveTo(x,y-20);g.lineTo(x-17,y-10+(!reduced?Math.sin(t*2+i)*6:0));g.moveTo(x+3,y+5);g.lineTo(x-4,y+28);g.moveTo(x+8,y+5);g.lineTo(x+17,y+28);g.stroke();}sceneText(g,e?e.title.toUpperCase():'STORIES AROUND EVERY CORNER',480,76,23,'#edd5a1');sceneText(g,e?'Choose how this scene unfolds below':'Walk the city to discover your next encounter',480,445,17);},{label:e?`Street encounter: ${e.title}`:'Animated neighbourhood scene'}),this.card("Street discoveries", `${this.s.seen.length}/40 stories completed. Walk around town: new scenes appear after travelling, with a cooldown between encounters.`),
+    const last=this.s.seen[this.s.seen.length-1];
+    const illustrated=e??ENCOUNTERS.find(scene=>scene.id===last);
+    return [encounterScene(this.sim(),illustrated,!e&&!!illustrated),this.card("Street discoveries", `${this.s.seen.length}/40 stories completed. Walk around town: new scenes appear after travelling, with a cooldown between encounters.`),
       ...(e ? [this.card(e.title, `${this.sim().world.streetName(this.sim().player.x, this.sim().player.y) || "Nearby"}: ${e.scene}`, e.choices.map(([label, money, rep, result]) => this.btn(label + (money < 0 ? ` · ${cash(-money)}` : ""), () => {
         if (this.s.pending !== e.id || this.s.seen.includes(e.id) || money < 0 && !this.pay(-money)) return;
         if (money > 0) this.credit(money);
         resolveScene(this.sim(), e.id, rep); this.sim().player.reputation += rep; this.s.seen.push(e.id); this.s.pending = null; this.message = result; this.toast(result);
       }, money < 0 && this.sim().player.cash < -money)))] : [this.card("The street is quiet", "Keep exploring on foot. A nearby scene will appear here when you find one.")]),
+      this.card("Roast night", "Trade comebacks with Roastie Malone in a three-round crowd challenge.",[h("button.btn",{text:"Play roast battle",onclick:()=>{this.modal.close();this.onFun?.("roast");}})]),
+      this.card("Diner rush", "Take orders, build burgers and earn your pay in a hands-on kitchen shift.",[h("button.btn",{text:"Play diner shift",onclick:()=>{this.modal.close();this.onFun?.("burger");}})]),
       ...this.s.seen.slice(-5).reverse().map(id => this.card("Completed", ENCOUNTERS.find(e => e.id === id)?.title ?? id)),
     ];
   }

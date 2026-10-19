@@ -13,6 +13,7 @@ try {
     page.on("pageerror",e=>errors.push(e.message));
     await page.addInitScript(()=>localStorage.setItem("mosaics-world:settings",JSON.stringify({tutorialDone:true,density:0,sound:false})));
     await page.goto("http://127.0.0.1:5187/world/");
+await page.getByRole("button",{name:"Start new game",exact:true}).click();await page.getByRole("button",{name:"Start my story",exact:true}).click();
     if(mobile) await page.locator("header.bar").getByRole("button",{name:"Menu",exact:true}).click();
     await page.locator("header.bar").getByRole("button",{name:"UC",exact:true}).click();
     await page.getByRole("dialog",{name:"University of Canterbury · game campus"}).waitFor();

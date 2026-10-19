@@ -297,8 +297,9 @@ export class Simulation {
       for (let i = 0; i < n; i++) {
         const o = this.chars[this.tmp[i]];
         if (o === c || o.inside >= 0 || o.inCar >= 0) continue;
-        const dx = c.x - o.x, dy = c.y - o.y, d2 = dx * dx + dy * dy;
-        if (d2 < 0.0001 || d2 > 0.5) continue;
+        let dx = c.x - o.x, dy = c.y - o.y, d2 = dx * dx + dy * dy;
+        if(d2<.0001){const angle=(Math.min(c.id,o.id)*97+Math.max(c.id,o.id)*31)*2.399963,side=c.id<o.id?1:-1;dx=Math.cos(angle)*.01*side;dy=Math.sin(angle)*.01*side;d2=.0001;}
+        if (d2 > 0.5) continue;
         const d = Math.sqrt(d2), push = (0.72 - d) / 0.72;
         sx += (dx / d) * push; sy += (dy / d) * push;
       }

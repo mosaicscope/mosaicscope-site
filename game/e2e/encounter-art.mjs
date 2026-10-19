@@ -1,0 +1,21 @@
+import { chromium } from 'playwright-core';
+import fs from 'node:fs';
+const browser=await chromium.launch({executablePath:process.env.CHROMIUM||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+const page=await browser.newPage({viewport:{width:1254,height:930}}),errors=[];
+page.on('pageerror',e=>errors.push(e.message));
+await page.route('**/api/**',r=>r.fulfill({json:{weather:'clear',isDay:true,temp:14,wind:10,hour:12}}));
+await page.goto(process.argv[2]||'http://127.0.0.1:5173/world/');
+await page.getByRole("button",{name:"Start new game",exact:true}).click();await page.getByRole("button",{name:"Start my story",exact:true}).click();await page.getByRole('button',{name:'Skip',exact:true}).click();await page.waitForFunction(()=>window.__mosaics?.sim?.tick>2);
+await page.evaluate(()=>{const a=window.__mosaics;a.setSpeed(0);a.sim.player.cash=1000;a.sim.expansion.pending='flat';a.activities.show('Explore');});
+const scene=page.locator('.play-scene:visible');await scene.waitFor();await page.waitForTimeout(200);
+fs.mkdirSync('e2e/screenshots',{recursive:true});await page.screenshot({path:'e2e/screenshots/explore-flat-original-models.png'});
+if(!await scene.getAttribute('aria-label').then(v=>v.includes('real city building and street character models')))throw Error('Old event scene still mounted');
+const before=await scene.evaluate(c=>c.toDataURL());await page.getByRole('button',{name:'Help turn it',exact:true}).click();
+if(await page.evaluate(()=>window.__mosaics.sim.player.cash)!==1030)throw Error('Encounter reward changed');
+await page.waitForTimeout(100);if(!await scene.getAttribute('aria-label').then(v=>v.includes('resolved')))throw Error('Resolution art did not render');if(before===await scene.evaluate(c=>c.toDataURL()))throw Error('Event outcome has no visual change');
+await page.screenshot({path:'e2e/screenshots/explore-flat-resolved.png'});
+const ids=['dog','wedding','water','magpie','quake','wallet','bus','wind','bike','market','keys','busker','cake','duck','interview','power','ring','cone','flood','tourist','piano','soup','skater','poster','parcel','protest','tram','memorial','puppet','trolley','seed','film','bee','mural','flat','choir','hail','book','referee','farewell'];
+for(const id of ids){await page.evaluate(id=>{const a=window.__mosaics;a.sim.expansion.pending=id;a.activities.show('Explore');},id);await page.waitForTimeout(35);if(!await scene.evaluate(c=>c.getContext('2d').getImageData(450,250,1,1).data[3]))throw Error('Blank encounter '+id);}
+await page.setViewportSize({width:390,height:844});await page.evaluate(()=>window.__mosaics.activities.show('Explore'));await page.waitForTimeout(100);if(await page.locator('.activities').evaluate(e=>e.scrollWidth>e.clientWidth+2))throw Error('Event overflow on mobile');
+await page.emulateMedia({reducedMotion:'reduce'});await page.evaluate(()=>window.__mosaics.activities.show('Explore'));await page.waitForTimeout(100);const a=await scene.evaluate(c=>c.toDataURL());await page.waitForTimeout(150);if(a!==await scene.evaluate(c=>c.toDataURL()))throw Error('Reduced motion still animates');
+if(errors.length)throw Error(errors.join('\n'));console.log('PASS: all 40 event scenes, actual city/character renderer, flat outcome and reward, mobile, reduced motion, no runtime errors');await browser.close();

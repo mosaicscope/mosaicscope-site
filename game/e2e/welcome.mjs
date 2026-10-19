@@ -1,0 +1,13 @@
+import {chromium} from 'playwright-core';
+import fs from 'node:fs';
+const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+const page=await browser.newPage({viewport:{width:1254,height:930}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.route('**/api/**',r=>r.fulfill({json:{weather:'clear',isDay:true,temp:14,wind:10,hour:12}}));
+await page.goto(process.argv[2]||'http://127.0.0.1:5173/world/');await page.getByRole('button',{name:'Start new game',exact:true}).click();await page.getByLabel('Character name',{exact:true}).fill('Kea');await page.getByLabel('Hair',{exact:true}).selectOption('mohawk');await page.getByLabel('Headwear',{exact:true}).selectOption('beanie');
+fs.mkdirSync('e2e/screenshots',{recursive:true});await page.screenshot({path:'e2e/screenshots/character-creator.png'});
+await page.getByRole('button',{name:'Start my story',exact:true}).click();await page.getByRole('button',{name:'Skip',exact:true}).click();await page.waitForFunction(()=>window.__mosaics.sim.tick>2);
+await page.evaluate(()=>{const g=window.__mosaics;g.sim.player.cash=432;g.autoSave();});if(!await page.evaluate(()=>document.cookie.includes('mosaics_continue=resume')))throw Error('Continue cookie missing');
+await page.reload();await page.getByRole('button',{name:'Continue',exact:true}).click();if(!await page.evaluate(()=>{const p=window.__mosaics.sim.player;return p.name==='Kea'&&p.cash===432&&p.look.hair==='mohawk'&&p.look.hat==='beanie';}))throw Error('Character or world did not persist');
+await page.evaluate(()=>{window.__mosaics.sim.expansion.pending='flat';window.__mosaics.activities.show('Explore');});await page.waitForTimeout(120);await page.screenshot({path:'e2e/screenshots/explore-fixed.png'});await page.getByRole('button',{name:'Help turn it',exact:true}).click();await page.getByRole('img',{name:/street character models · resolved/}).waitFor();
+await page.getByRole('button',{name:'Close',exact:true}).click();await page.evaluate(()=>window.__mosaics.lifePhone.show('Campus'));await page.waitForTimeout(200);await page.screenshot({path:'e2e/screenshots/campus-stable-characters.png'});
+if(errors.length)throw Error(errors.join('\n'));console.log('PASS: creator, Start New, Continue cookie, auto-save reload, identity persistence, event resolution, campus, no runtime errors');await browser.close();

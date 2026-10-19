@@ -1,3 +1,4 @@
+import { reserveSign } from "./ScreenBounds";
 import { paintWindows, paintSpill, type Win } from "./NightGlow";
 import { World, Building, Graffiti } from "../world/World";
 import { TILE_W, TILE_H, Z_PX } from "../world/iso";
@@ -456,14 +457,16 @@ function roofTop(g: CanvasRenderingContext2D, b: Building, x: number, y: number,
   const label = b.kind === "house" ? "" : b.name.toUpperCase();
   if (label) {
     const glow = dark > 0.3;
-    const w = g.measureText(label).width + 10;
+    const maxW=Math.max(36,Math.min(150,(b.x1-b.x0+b.y1-b.y0+2)*16-12))*z;
+    const w = Math.min(maxW,g.measureText(label).width + 10);
+    if(!reserveSign(`name:${b.id}`,{x:x-w/2,y:y-fs-9*z,w,h:fs+9*z})) {g.textAlign="start";return;}
     g.strokeStyle = "#3a3430"; g.lineWidth = Math.max(1, 1.5 * z); g.beginPath();
     g.moveTo(x - w * 0.3, y); g.lineTo(x - w * 0.3, y - 6 * z); g.moveTo(x + w * 0.3, y); g.lineTo(x + w * 0.3, y - 6 * z); g.stroke();
     g.fillStyle = "rgba(14,11,10,.82)";
     g.fillRect(x - w / 2, y - fs - 9 * z, w, fs + 5);
-    if (glow) { g.strokeStyle = b.sign; g.globalAlpha *= 0.35; g.lineWidth = 4 * z; g.strokeText(label, x, y - 8 * z); g.globalAlpha /= 0.35; }
+    if (glow) { g.strokeStyle = b.sign; g.globalAlpha *= 0.35; g.lineWidth = 4 * z; g.strokeText(label, x, y - 8 * z,w-8); g.globalAlpha /= 0.35; }
     g.fillStyle = b.sign;
-    g.fillText(label, x, y - 8 * z);
+    g.fillText(label, x, y - 8 * z,w-8);
   }
   if (b.billboard || b.kind === "gallery" || b.kind === "casino") billboard(g, b, x, y - (label ? fs + 14 * z : 0), z, time, dark);
   g.textAlign = "start";
@@ -471,7 +474,8 @@ function roofTop(g: CanvasRenderingContext2D, b: Building, x: number, y: number,
 
 /** Rooftop ads: the casino's own board, MosaicScope (logo + one short line, clickable) on galleries, and Kiwi brands elsewhere. */
 function billboard(g: CanvasRenderingContext2D, b: Building, x: number, y: number, z: number, time: number, dark: number): void {
-  const w = 100 * z, h = 34 * z;
+  const w = Math.min(100,Math.max(42,(b.x1-b.x0+b.y1-b.y0+2)*14))*z, h = 34 * z;
+  if(!reserveSign(`ad:${b.id}`,{x:x-w/2,y:y-12*z-h,w,h:h+12*z}))return;
   g.strokeStyle = "#3a3430"; g.lineWidth = 2 * z;
   g.beginPath(); g.moveTo(x - w * 0.3, y); g.lineTo(x - w * 0.3, y - 12 * z); g.moveTo(x + w * 0.3, y); g.lineTo(x + w * 0.3, y - 12 * z); g.stroke();
   if (dark > 0.3) { g.fillStyle = "rgba(255,240,190,.12)"; g.beginPath(); g.moveTo(x - w * 0.3, y - 12 * z); g.lineTo(x - w / 2, y - 12 * z - h); g.lineTo(x + w / 2, y - 12 * z - h); g.lineTo(x + w * 0.3, y - 12 * z); g.closePath(); g.fill(); }

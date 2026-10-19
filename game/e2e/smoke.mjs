@@ -25,6 +25,7 @@ await page.route("**/api/vibe", (r) => r.fulfill({ json: { weather: "clear", isD
 
 console.log("Smoke test:", url);
 await page.goto(url);
+await page.getByRole("button",{name:"Start new game",exact:true}).click();await page.getByRole("button",{name:"Start my story",exact:true}).click();
 await page.waitForTimeout(1500);
 
 await check("first-run tutorial appears and can be skipped", async () => {

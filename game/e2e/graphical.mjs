@@ -4,7 +4,8 @@ const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chr
 const page=await browser.newPage({viewport:{width:1254,height:930}}),errors=[];
 page.on('pageerror',e=>errors.push(e.message));
 await page.route('**/api/**',r=>r.fulfill({json:{weather:'clear',isDay:true,temp:14,wind:10,hour:12}}));
-await page.goto(process.argv[2]||'http://127.0.0.1:5173/world/');await page.getByRole('button',{name:'Skip',exact:true}).click();await page.waitForFunction(()=>window.__mosaics?.sim?.tick>2);
+await page.goto(process.argv[2]||'http://127.0.0.1:5173/world/');
+await page.getByRole("button",{name:"Start new game",exact:true}).click();await page.getByRole("button",{name:"Start my story",exact:true}).click();await page.getByRole('button',{name:'Skip',exact:true}).click();await page.waitForFunction(()=>window.__mosaics?.sim?.tick>2);
 await page.evaluate(()=>{const a=window.__mosaics;a.setSpeed(0);a.sim.player.cash=20000;a.activities.show('Betting');});
 await page.getByRole('button',{name:'Buy scratchcard',exact:true}).click();
 const cv=page.locator('.play-scene'),box=await cv.boundingBox();

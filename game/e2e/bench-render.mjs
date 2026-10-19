@@ -7,6 +7,7 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || 
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 await page.addInitScript(() => localStorage.setItem("mosaics-world:settings", JSON.stringify({ tutorialDone: true, quality: "high" })));
 await page.goto(url);
+await page.getByRole("button",{name:"Start new game",exact:true}).click();await page.getByRole("button",{name:"Start my story",exact:true}).click();
 await page.waitForTimeout(2000);
 const results = [];
 for (const total of [500, 1000, 2000, 5000]) {

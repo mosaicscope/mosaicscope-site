@@ -1,3 +1,4 @@
+import { ScreenBounds, beginSignFrame } from "./ScreenBounds";
 import { drawUpgradeEffects } from "./UpgradeEffects";
 import { drawStreetStories } from "./StreetStories";
 import type { Simulation } from "../sim/Simulation";
@@ -138,6 +139,7 @@ export class Renderer {
 
   render(alpha: number, dt: number, o: RenderOptions): void {
     const t0 = performance.now();
+    beginSignFrame(this.cam.viewW,this.cam.viewH);
     const sim = this.sim, g = this.g, cam = this.cam, z = cam.zoom;
     this.time += o.reduceMotion ? dt * 0.4 : dt;
     const time = this.time;
@@ -589,6 +591,7 @@ export class Renderer {
     const sim = this.sim, g = this.g, cam = this.cam, z = cam.zoom;
     const small = cam.viewW < 520, maxB = small ? 2 : 3; // a calm street: only the few conversations nearest you are 'heard'
     let shown = 0;
+    const bounds=new ScreenBounds(cam.viewW,cam.viewH);
     g.textBaseline = "alphabetic";
     // nearest to the camera centre first
     // speech is only "heard" near you: bubbles fade in as you approach and out as you leave
@@ -619,16 +622,19 @@ export class Renderer {
         g.textAlign = "center";
         g.fillStyle = "rgba(14,11,10,.7)";
         const w = g.measureText(c.name).width + 8;
-        g.fillRect(it.sx - w / 2, it.sy + 4, w, 14);
+        const nameBox=bounds.place(it.sx-w/2,it.sy+4,w,18);
+        if(nameBox){g.fillRect(nameBox.x,nameBox.y,w,18);
         g.fillStyle = c.tier === "player" ? "#ec2a1c" : c.look.color;
-        g.fillText(c.name, it.sx, it.sy + 15);
+        g.fillText(c.name,nameBox.x+w/2,nameBox.y+13);}
         g.textAlign = "start";
       }
       if (this.markers.has(c.id)) {
-        const my = headY - 18 - Math.sin(performance.now() / 300) * 3;
-        g.fillStyle = "#b48cff"; g.beginPath(); g.moveTo(it.sx, my - 12); g.lineTo(it.sx + 9, my); g.lineTo(it.sx, my + 12); g.lineTo(it.sx - 9, my); g.closePath(); g.fill();
-        g.fillStyle = "#0e0b0a"; g.font = "900 13px 'Big Shoulders Display', Impact, sans-serif"; g.textAlign = "center"; g.fillText("!", it.sx, my + 5);
-        g.font = "700 11px 'IBM Plex Mono', monospace"; g.fillStyle = "#b48cff"; g.fillText(c.nickname ? `${c.name.split(" ")[0]} "${c.nickname}"` : c.name, it.sx, my - 17); g.textAlign = "start";
+        const markerBox=bounds.place(it.sx-70,headY-65,140,50);
+        if(markerBox){const mx=markerBox.x+70,my=markerBox.y+33;
+        g.fillStyle = "#b48cff"; g.beginPath(); g.moveTo(mx, my - 12); g.lineTo(mx + 9, my); g.lineTo(mx, my + 12); g.lineTo(mx - 9, my); g.closePath(); g.fill();
+        g.fillStyle = "#0e0b0a"; g.font = "900 13px 'Big Shoulders Display', Impact, sans-serif"; g.textAlign = "center"; g.fillText("!", mx, my + 5);
+        g.font = "700 11px 'IBM Plex Mono', monospace"; g.fillStyle = "#b48cff"; g.fillText(c.nickname ? `${c.name.split(" ")[0]} "${c.nickname}"` : c.name, mx, my - 17); g.textAlign = "start";
+        }
       }
       const ba = this.bubbleAlpha.get(c.id) ?? 0;
       if (!c.bubble || ba < 0.02 || shown >= maxB) continue;
@@ -644,7 +650,9 @@ export class Renderer {
       // gentle pop-in: grows from the speaker's head as it fades up
       const pop = 0.82 + 0.18 * Math.min(1, ba * 1.4);
       const tipX = it.sx, tipY = headY - 6;
-      const bx = Math.max(6, Math.min(cam.viewW - w - 6, tipX - w / 2)), by = Math.max(6, tipY - h - 12);
+      const bubbleBox=bounds.place(tipX-w/2,tipY-h-24,w,h+12);
+      if(!bubbleBox)continue;
+      const bx=bubbleBox.x,by=bubbleBox.y+8;
       const body = kind === "shout" ? "#ff4d3d" : kind === "think" ? "#efe9ff" : "#fff8ee", ink = kind === "shout" ? "#fff" : "#2a2430", edge = c.look.color;
       g.save();
       g.globalAlpha = fade;
@@ -670,7 +678,7 @@ export class Renderer {
         g.font = `${kind === "shout" ? "700 " : "600 "}${fs}px ui-rounded, "SF Pro Rounded", "Nunito", "Trebuchet MS", system-ui, sans-serif`;
       }
       g.fillStyle = ink; g.textBaseline = "alphabetic";
-      lines.forEach((l, i) => g.fillText(l, bx + padX, by + padY + (i + 1) * (fs + 3) - 5));
+      lines.forEach((l, i) => g.fillText(l, bx + padX, by + padY + (i + 1) * (fs + 3) - 5,w-padX*2));
       g.restore();
       g.globalAlpha = 1;
     }

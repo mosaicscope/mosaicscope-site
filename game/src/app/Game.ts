@@ -1,3 +1,4 @@
+import { Welcome } from "../ui/Welcome";
 import { UpgradeAmbience } from "../audio/UpgradeAmbience";
 import { EventReplay } from "../ui/EventReplay";
 import { hasUpgrade } from "../content/upgrades";
@@ -174,6 +175,7 @@ export class Game {
       people: () => this.sim.chars,
       patrons: () => this.sim.chars.filter((c) => c.inside >= 0 && this.sim.world.buildings[c.inside]?.kind === "casino").length + 3,
     }, () => { this.clock.paused = this.pausedBefore; });
+    this.activities.onFun=kind=>{if(kind==="roast")this.roast.start();else this.burger.start();};
     this.casino.onMoreGames = () => this.activities.show("Betting");
     this.places = new Places(() => this.sim, (t, b, cls) => this.modal.show(t, b, cls), () => this.modal.close(), (t, k) => this.toast(t, k));
     this.interior = new InteriorOverlay({
@@ -245,9 +247,29 @@ export class Game {
       if (document.hidden && this.settings.autoPause) { hiddenWasPaused = this.clock.paused; this.clock.paused = true; visibilityPaused = true; }
       else if (!document.hidden && visibilityPaused) { this.clock.paused = hiddenWasPaused; visibilityPaused = false; }
     });
-    if (!this.settings.tutorialDone) this.tutorial(0);
+    this.welcome=new Welcome({
+      player:()=>this.sim.player,
+      latest:()=>this.latestSave(),
+      continue:slot=>{try{this.swapSim(this.saves.load(slot,this.lifeFlags));this.starting=false;this.clock.paused=false;this.lastAutoSave=performance.now();return null;}catch{return "That save could not be loaded. Your other slots are still available.";}},
+      create:(name,look)=>{this.reset(Math.floor(Math.random()*1e9));this.sim.player.name=name;this.sim.player.look=look;this.starting=false;this.clock.paused=false;this.autoSave();if(!this.settings.tutorialDone)this.tutorial(0);return null;},
+    });
+    this.rootEl.append(this.welcome.el);this.clock.paused=true;this.welcome.show();
+    window.addEventListener("pagehide",()=>this.autoSave());
+    document.addEventListener("visibilitychange",()=>{if(document.hidden)this.autoSave();});
   }
 
+  private starting=true;
+  private welcome!:Welcome;
+  private lastAutoSave=0;
+  private latestSave(){
+    return ["resume","quick","1","2","3"].map(slot=>{const info=this.saves.info(slot);return info&&Number.isFinite(Date.parse(info.savedAt))?{slot,...info}:null;}).filter((v):v is NonNullable<typeof v>=>!!v).sort((a,b)=>Date.parse(b.savedAt)-Date.parse(a.savedAt))[0]??null;
+  }
+  private autoSave(){
+    if(this.starting||this.casino.open)return;
+    this.lastAutoSave=performance.now();const result=this.saves.save(this.sim,"resume","Your continuing story");
+    if(result.ok){try{document.cookie=`mosaics_continue=resume; Path=/world/; Max-Age=31536000; SameSite=Lax${location.protocol==="https:"?"; Secure":""}`;}catch{/* Browser save still works when cookies are blocked. */}}
+    else this.toast(result.error||"Automatic save could not be written. Export from Save.");
+  }
   get reduceMotion(): boolean { return this.settings.reducedMotion ?? this.reduceMotionOS; }
 
   start(): void { this.renderer.resize(this.quality); this.loop(); }
@@ -320,6 +342,7 @@ export class Game {
     if (titleOf(sim.expansion)) kids.push(h("div.car", { text: titleOf(sim.expansion) + " · " + (sim.expansion.graduated[sim.expansion.graduated.length - 1] ?? "") }));
     if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; kids.push(h("div.car", null, [h("b", { text: String(Math.round(Math.abs(v.speed) * 7.2)) }), " km/h · " + VEHICLES[v.cls].name + (v.flatLeft || v.flatRight ? " · FLAT TYRE" : "") + ((v.heat ?? 0) > 0.5 ? " · ENGINE HOT: pull over" : "")])); }
     if (p.bleed > 0) kids.push(h("div.car", { text: "You're bleeding. B to bandage." }));
+    kids.push(h("button.btn",{text:this.sim.expansion.pending?"Nearby story · Play":"City fun & stories",onclick:()=>this.activities.show("Explore")}));
     const obj = this.objective(); if (obj) kids.push(h("div.car.obj", { text: obj }));
     this.hudEl.replaceChildren(...kids);
     this.hudEl.classList.toggle("beside-log", !this.log.el.classList.contains("hidden"));
@@ -332,6 +355,10 @@ export class Game {
   }
 
   private uiTick(now: number): void {
+    if(this.starting)return;
+    if(now-this.lastAutoSave>30000)this.autoSave();
+    const miniGameOpen=!this.roast.el.classList.contains("hidden")||!this.burger.el.classList.contains("hidden");
+    if(miniGameOpen)return;
     this.tickFocus(now);
     this.rootEl.classList.toggle("panel-open", this.modal.open || this.casino.open || this.club.open || this.luxury.open);
     if (this.sim.expansion.pending && this.notifiedEncounter !== this.sim.expansion.pending && !this.modal.open && !this.casino.open && !this.interior.open && !this.dialogue.open && !this.phone.open) { this.notifiedEncounter = this.sim.expansion.pending; this.toast("A nearby street story: open Explore to choose what happens.", "acid"); this.activities.encounter(); }
@@ -645,6 +672,7 @@ export class Game {
   private bindInput(): void {
     const cv = this.canvas;
     window.addEventListener("keydown", (e) => {
+      if(this.starting)return;
       const el = e.target as HTMLElement, tag = el.tagName;
       const key = e.key.toLowerCase(), k = this.settings.keys;
       if(this.phone.open&&/^[1-9]$/.test(key)){e.preventDefault();(this.phone.el.querySelectorAll<HTMLButtonElement>(".opts button")[+key-1])?.click();return;}
@@ -1365,7 +1393,7 @@ export class Game {
   }
 
   private openSaves(): void {
-    const slots = ["quick", "1", "2", "3"];
+    const slots = ["resume", "quick", "1", "2", "3"];
     const body = h("div.slots");
     const msg = h("p", { "aria-live": "polite" });
     const render = () => body.replaceChildren(...slots.map((s) => {

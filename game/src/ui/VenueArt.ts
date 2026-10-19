@@ -3,10 +3,93 @@ import { pose, solve, drawFigure } from "../render/StickFigure";
 import { fillTextured } from "../render/Textures";
 import { canvasStage, roundBox, sceneText } from './CanvasStage';
 import type { ExpansionState } from '../sim/Expansion';
+import type { Simulation } from '../sim/Simulation';
+import type { Encounter } from '../content/encounters';
+import { Camera } from '../render/Camera';
+import { drawBuildingTile, GLOW } from '../render/Buildings';
 
 type Point = [number, number];
 type Project = (x: number, y: number, z?: number) => Point;
 const TAU = Math.PI * 2;
+
+/** Street encounters use the real city facade and the same characters as the world outside. */
+export function encounterScene(sim:Simulation,event:Encounter|undefined,completed=false) {
+  const id=event?.id??'',player=sim.player;
+  const domestic=['flat','wind','poster','parcel'].includes(id);
+  const candidates=sim.world.buildings.filter(b=>domestic?(b.kind==='house'||b.kind==='apartments')&&b.floors<=3:b.floors<=3);
+  const b=candidates.sort((a,b)=>Math.hypot(a.door.x-player.x,a.door.y-player.y)-Math.hypot(b.door.x-player.x,b.door.y-player.y))[0]??sim.world.buildings[0];
+  const camera=new Camera();camera.resize(960,600);camera.x=b?b.door.x:player.x;camera.y=b?b.door.y:player.y;
+  camera.zoom=b?Math.max(.65,Math.min(1.55,640/((b.x1-b.x0+b.y1-b.y0+4)*32+b.height*12))):1.5;
+  const raw=(x:number,y:number,z=0):Point=>{const p=camera.toScreen(x,y,z,{x:0,y:0});return[p.x,p.y];};
+  const bounds=b?[raw(b.x0,b.y0,b.height+1.5),raw(b.x0,b.y1+1),raw(b.x1+1,b.y0),raw(b.x1+1,b.y1+1)]:[[480,200],[480,350]];
+  const ox=480-(Math.min(...bounds.map(p=>p[0]))+Math.max(...bounds.map(p=>p[0])))/2;
+  const oy=240-(Math.min(...bounds.map(p=>p[1]))+Math.max(...bounds.map(p=>p[1])))/2;
+  const P:Project=(x,y,z=0)=>{const [sx,sy]=raw(x,y,z);return[sx+ox,sy+oy];};
+  const front=b?.door.face==='e',ax=(b?.door.x??player.x)+(front?1.2:.2),ay=(b?.door.y??player.y)+(front ? .2 : 1.2);
+  // Local event coordinates run along the front wall and out into the footpath.
+  const E:Project=(x,y,z=0)=>front?P(ax+y,ay+x,z):P(ax+x,ay+y,z);
+  const background=document.createElement('canvas');background.width=960;background.height=600;
+  const bg=background.getContext('2d')!;backdrop(bg);
+  const gx=b?b.x0-2:ax-4,gy=b?b.y0-2:ay-4,gw=b?b.x1-b.x0+7:9,gd=b?b.y1-b.y0+7:9;
+  box(bg,P,gx,gy,gw,gd,.1,'#444943',-.1);
+  box(bg,P,gx,gy+gd-2,gw,2,.02,'#32363c');box(bg,P,gx+gw-2,gy,2,gd,.02,'#32363c');
+  for(let x=0;x<gw-2;x++)for(let y=0;y<gd-2;y++){
+    polygon(bg,[P(gx+x,gy+y),P(gx+x+1,gy+y),P(gx+x+1,gy+y+1),P(gx+x,gy+y+1)],(x+y)%2?'#9b94822b':'#777d7520');
+  }
+  if(b){
+    const stamp=GLOW.length;
+    try{
+      const tiles:{x:number;y:number}[]=[];
+      for(let y=b.y0;y<=b.y1;y++)for(let x=b.x0;x<=b.x1;x++)tiles.push({x,y});
+      tiles.sort((a,b)=>a.x+a.y-b.x-b.y);
+      const graffiti=new Map(sim.world.graffiti.map(q=>[`${q.tx},${q.ty},${q.face}`,q]));
+      for(const q of tiles){const [x,y]=P(q.x,q.y);drawBuildingTile(bg,sim.world,b,q.x,q.y,x,y,camera.zoom,0,.18,1,graffiti);}
+    }finally{GLOW.length=stamp;}
+  }
+  const people=[player,...sim.chars.filter(c=>c.id!==player.id&&c.tier==='principal').slice(0,3)];
+  return canvasStage((g,time,reduced)=>{
+    const t=reduced?0:time;g.drawImage(background,0,0);
+    const smallBox=(x:number,y:number,color='#a88b62')=>{box(g,E,x,y,.48,.42,.4,color);};
+    const bench=()=>{box(g,E,-.4,.4,1.8,.45,.4,'#70523f');box(g,E,-.4,.8,1.8,.12,.45,'#896750',.4);};
+    const water=()=>{for(let i=0;i<4;i++){const[x,y]=E(i*.6-.5,1.2+Math.sin(t+i)*.08);g.fillStyle='#679ea875';g.beginPath();g.ellipse(x,y,35,11,0,0,TAU);g.fill();}};
+    const wheels=(x:number,y:number)=>{for(const dx of[0,.7]){const[sx,sy]=E(x+dx,y);g.strokeStyle='#202c31';g.lineWidth=3;g.beginPath();g.arc(sx,sy,13,0,TAU);g.stroke();}const[a,c]=E(x,y,.2),[d,e]=E(x+.7,y,.2);g.strokeStyle='#bb925b';g.lineWidth=2;g.beginPath();g.moveTo(a,c);g.lineTo(d,e);g.lineTo(d-8,e-18);g.stroke();};
+    switch(id){
+      case 'flat': {
+        const shift=completed?1.6:0,wobble=completed?0:Math.sin(t*1.6)*.035;
+        box(g,E,-.6+shift,-.5+wobble,1.8,.7,.42,'#795362');box(g,E,-.6+shift,-.5+wobble,1.8,.15,.48,'#956a78',.42);
+        for(const x of[-.6,1])box(g,E,x+shift,-.5+wobble,.2,.75,.3,'#8e6171',.42);
+        if(!completed){smallBox(1.4,.6);smallBox(1.9,.6,'#a38b6e');}break;
+      }
+      case 'dog': animalSprite(g,...E(.8+Math.sin(t)*.15,1.4),'Working dogs',t,1.1);break;
+      case 'duck':for(let i=0;i<5;i++)animalSprite(g,...E(-1+i*.45,1.5+Math.sin(t+i)*.05),'Ducks',t+i,.6);break;
+      case 'water':case 'flood':case 'book':water();for(let i=0;i<3;i++)smallBox(-.7+i*.6,.5,'#9d977e');break;
+      case 'bike':case 'bee':wheels(0,.8);break;
+      case 'market':case 'hail':case 'seed':
+        box(g,E,-.7,.5,2,1,.6,'#896c4c');for(let i=0;i<6;i++)smallBox(-.6+i%3*.6,.5+Math.floor(i/3)*.4,['#9da663','#c69b64','#b67658'][i%3]);break;
+      case 'busker':case 'choir':case 'piano':case 'puppet':
+        box(g,E,-.5,.4,1.4,.65,.65,'#513e36');for(let i=0;i<9;i++)box(g,E,-.45+i*.14,1.02,.11,.16,.03,i%3?'#e4d8be':'#292e30',.65);break;
+      case 'wallet':case 'ring':case 'memorial':case 'skater':bench();smallBox(1.4,1.1,'#c2a672');break;
+      case 'bus':case 'tram':
+        box(g,E,-1.1,1.2,3,1.15,1.2,'#976d4f');box(g,E,-.9,1.14,2.6,.08,.55,'#789aa5',.5);break;
+      case 'mural':case 'poster':
+        box(g,E,.1,.2,1.6,.08,1.25,'#ba9b7c');for(let i=0;i<4;i++)box(g,E,.15+i*.35,.28,.25,.02,.8,['#648e91','#a76a69','#b9a566','#717894'][i],.2);break;
+      case 'cone':case 'quake':
+        for(let i=0;i<4;i++){const[x,y]=E(i*.5-.7,1);polygon(g,[[x-9,y],[x,y-25],[x+9,y]],'#bf784d');}break;
+      case 'trolley':wheels(.4,1);box(g,E,.4,.9,.8,.55,.65,'#869394');break;
+      case 'wind':
+        for(let i=0;i<4;i++)box(g,E,i*.6-.7,1+Math.sin(t+i)*.1,.5,.6,.015,['#b8c3b1','#ab8a83','#798d9d'][i%3]);break;
+      case 'wedding':case 'film':
+        box(g,E,.5,1,.13,.13,1,'#59544c');box(g,E,.3,1,.5,.3,.3,'#303d45',1);break;
+      default:for(let i=0;i<3;i++)smallBox(-.6+i*.65,.7,['#967d60','#a79172','#797e6a'][i]);
+    }
+    const poses=id==='flat'&&!completed?['craft','craft','idle','idle']:completed?['posecool','posecool','idle','idle']:['idle','phone','idle','idle'];
+    const positions=[[-.9,.8],[1.4,.8],[-.3,2],[1.7,1.8]];
+    positions.map(([x,y],i)=>({x,y,i})).sort((a,b)=>a.x+a.y-b.x-b.y).forEach(a=>{const[x,y]=E(a.x,a.y);drawVenuePerson(g,people[a.i],x,y,t,1.9,poses[a.i]);});
+    roundBox(g,20,18,920,57,9,'#102b32ed');sceneText(g,event?.title.toUpperCase()??'STORIES AROUND EVERY CORNER',40,43,21,'#ead7a1','left');
+    sceneText(g,completed?'RESOLVED · Your choice is recorded':sim.world.streetName(player.x,player.y)||'ŌTAUTAHI · STREET ENCOUNTER',40,63,12,'#b5c9bd','left');
+    roundBox(g,20,542,920,38,8,'#102b32ed');sceneText(g,completed?'Keep walking to find your next story':event?'Choose how this scene unfolds below':'Explore the city to discover people who need a hand',40,566,14,'#e4d8b7','left');
+  },{height:600,label:`${event?.title??'Neighbourhood'}: isometric street scene using the real city building and street character models${completed?' · resolved':''}`});
+}
 function polygon(g: CanvasRenderingContext2D, points: Point[], color: string) {
   g.fillStyle = color; g.beginPath(); points.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y)); g.closePath(); g.fill();g.strokeStyle="rgba(14,11,10,.12)";g.lineWidth=.7;g.stroke();
 }
@@ -26,15 +109,20 @@ function tree(g:CanvasRenderingContext2D,P:Project,x:number,y:number,size=1) {
   for(let i=0;i<3;i++){g.fillStyle=['#326e4b','#4b8a55','#70a35c'][i];g.beginPath();g.ellipse(sx+(i-1)*6*size,sy-i*8*size,15*size,22*size,0,0,TAU);g.fill();}
 }
 /** Every venue uses the actual street figures, including their faces, hair, clothes and proportions. */
+export function venueCast(people:readonly Character[]):readonly Character[] {
+  const crew=people.filter(c=>c.tier==='principal'),locals=people.filter(c=>c.tier!=='principal'&&c.tier!=='player');
+  const cast:Character[]=[];for(let i=0;i<Math.max(crew.length,Math.min(30,locals.length));i++){if(crew[i])cast.push(crew[i]);if(locals[i])cast.push(locals[i]);}
+  return cast.length?cast:people;
+}
 function peoplePainter(people:readonly Character[]) {
   let index=0;
-  return (g:CanvasRenderingContext2D,x:number,y:number,_color:string,t=0,size=1)=>{
-    const c=people[index++%people.length];if(!c)return;
-    drawVenuePerson(g,c,x,y,t,size,t?'walk':'idle');
+  return (g:CanvasRenderingContext2D,x:number,y:number,_color:string,t=0,size=1,actorId?:number,facing?:number)=>{
+    const c=people[(actorId??index++)%people.length];if(!c)return;
+    drawVenuePerson(g,c,x,y,t,size,t?'walk':'idle',facing);
   };
 }
-function drawVenuePerson(g:CanvasRenderingContext2D,c:Character,x:number,y:number,t:number,size:number,kind:string) {
-  const k=.30*size*(c.look.scale||1),dir=c.id%2?1:-1;
+function drawVenuePerson(g:CanvasRenderingContext2D,c:Character,x:number,y:number,t:number,size:number,kind:string,facing?:number) {
+  const k=.30*size*(c.look.scale||1),dir=facing??(c.id%2?1:-1);
   g.save();g.fillStyle='#10262533';g.beginPath();g.ellipse(x,y,7*size,2.5*size,0,0,TAU);g.fill();
   solve(pose(kind,c.style||'normal',t+c.id,t*5,kind==='walk'?1.5:0,0),x,y,k,dir);
   drawFigure(g,c,x,y,k,dir,t,0,1);g.restore();
@@ -103,7 +191,7 @@ export function campusScene(s:ExpansionState,select?:(x:number,y:number)=>void,p
   const P:Project=(x,y,z=0)=>[480+(x-y)*43,125+(x+y)*21-z*43];
   const sites=[{x:1,y:1,w:4.4,d:2.2,id:400,label:'LECTURE HALL'},{x:7,y:1,w:2.4,d:3.2,id:100,label:'LIBRARY'},{x:1,y:6,w:3.1,d:2.2,id:600,label:'EXAM STUDIO'},{x:7,y:7,w:2.3,d:2,id:850,label:'STUDENT CAFE'}];
   return canvasStage((g,t,reduced)=>{
-  const person=peoplePainter(people);
+  const person=peoplePainter(venueCast(people));
     backdrop(g);ground(g,P,11,11,'#697e58');
     for(let i=0;i<11;i++)for(let j=0;j<11;j++)if((i+j)%2===0)polygon(g,[P(i,j),P(i+1,j),P(i+1,j+1),P(i,j+1)],'#88955c22');
     box(g,P,5.4,0,1,11,.02,'#dcd7c2');box(g,P,0,4.3,11,1,.02,'#dcd7c2');box(g,P,0,9.6,11,.55,.03,'#c2bdb0');
@@ -114,7 +202,12 @@ export function campusScene(s:ExpansionState,select?:(x:number,y:number)=>void,p
       {depth:9.65,draw:()=>building(g,P,1,6,3.1,2.2,1.3,'#b67f64','#536367')},
       {depth:16.15,draw:()=>building(g,P,7,7,2.3,2,1,'#cead80','#777f65')},
     ];
-    for(let i=0;i<15;i++){const q=reduced?0:t*.13,wx=5.9+Math.sin(i)*.24,wy=(i*.71+q)%10.4;objects.push({depth:wx+wy,draw:()=>{const [x,y]=P(wx,wy);person(g,x,y,'',reduced?0:t*4+i,1.15);}});}
+    for(let i=0;i<12;i++){
+      const travel=(i*.8+(reduced?0:t*.22))%18.4,forward=travel<9.2,along=.6+(forward?travel:18.4-travel);
+      const wx=i%2?along:5.9+(i%3-1)*.15,wy=i%2?4.8+(i%3-1)*.12:along;
+      objects.push({depth:wx+wy,draw:()=>{const[x,y]=P(wx,wy);person(g,x,y,'',reduced?0:t*1.8,1.15,i,(i%2?forward:!forward)?1:-1);}});
+    }
+
     objects.sort((a,b)=>a.depth-b.depth);for(const o of objects)o.draw();
     // A planted quad, fountain, bike racks and campus life make this a place, not four cards.
     box(g,P,4.5,6.3,1.5,1.5,.12,'#c9c2aa');const [fx,fy]=P(5.2,7,.2);g.fillStyle='#6eb4b8';g.beginPath();g.ellipse(fx,fy,33,15,0,0,TAU);g.fill();g.strokeStyle='#c1e4dc';g.lineWidth=2;g.beginPath();g.moveTo(fx,fy);g.quadraticCurveTo(fx-12,fy-40,fx-20,fy-7);g.moveTo(fx,fy);g.quadraticCurveTo(fx+12,fy-40,fx+20,fy-7);g.stroke();
@@ -134,7 +227,7 @@ function fence(g:CanvasRenderingContext2D,P:Project,x:number,y:number,w:number,d
 export function farmScene(s:ExpansionState,horseOnly=false,people:readonly Character[]=[]) {
  const P:Project=(x,y,z=0)=>[480+(x-y)*40,90+(x+y)*20-z*40];
  return canvasStage((g,t,reduced)=>{
-  const person=peoplePainter(people);
+  const person=peoplePainter(venueCast(people));
   if(reduced)t=0;backdrop(g);ground(g,P,12,12,'#6b8053');
   for(let i=0;i<12;i++)for(let j=0;j<12;j++)polygon(g,[P(i,j),P(i+1,j),P(i+1,j+1),P(i,j+1)],(i+j)%2?'#82955b33':'#9c9f6322');
   box(g,P,0,5.3,12,.8,.02,'#c5b18b');box(g,P,5.6,0,.7,12,.02,'#c5b18b');
@@ -143,7 +236,7 @@ export function farmScene(s:ExpansionState,horseOnly=false,people:readonly Chara
   for(const [x,y,w,d]of[[.4,6.7,4.6,4.7],[6.9,6.7,4.6,4.7],[.4,3.5,4.6,1.3],[6.9,3.5,4.6,1.3]])fence(g,P,x,y,w,d);
   for(let i=0;i<6;i++){tree(g,P,i*2+.3,11.7,.75);tree(g,P,11.7,i*2+.3,.75);}
   if(s.machines.includes('Tractor')){box(g,P,4.3,2.6,.9,1.4,.45,'#c64c3f');box(g,P,4.35,2.7,.8,.6,.7,'#599c9d',.45);for(let i=0;i<4;i++){const [x,y]=P(4.2+i%2*1.1,2.7+Math.floor(i/2),.1);g.fillStyle='#2e3830';g.beginPath();g.ellipse(x,y,8,12,0,0,TAU);g.fill();}}
-  for(let i=0;i<3;i++){const [x,y]=P(5.95,2.5+i*3);person(g,x,y,'',t*2+i,1.1);}
+  for(let i=0;i<3;i++){const travel=(i*3+t*.2)%18,forward=travel<9;const[x,y]=P(5.95,1+(forward?travel:18-travel));person(g,x,y,'',reduced?0:t*1.7,1.1,i,forward?-1:1);}
   const animals=horseOnly?(s.horse?[['Horse',1] as const]:[]):Object.entries(s.animals);
   let idx=0;const actors:{x:number;y:number;kind:string;index:number}[]=[];
   for(const [kind,count]of animals)for(let n=0;n<Math.min(count,12)&&idx<36;n++,idx++){const q=idx%2;actors.push({x:(q?7.5:1.1)+(Math.floor(idx/2)%4)*.9+Math.sin(t*.3+idx)*.15,y:7.4+Math.floor(idx/8)*.9+Math.cos(t*.3+idx)*.15,kind,index:idx});}
@@ -161,7 +254,7 @@ export interface RaceSceneState { sport:string; order:number[]; until:number; na
 export function raceScene(r:RaceSceneState|null,tick:()=>number,sport='Horse',people:readonly Character[]=[]) {
  let camera:'course'|'trackside'='course';
  const figure=canvasStage((g,t,reduced)=>{
-  const person=peoplePainter(people);
+  const person=peoplePainter(venueCast(people));
   backdrop(g);const active=!!r&&tick()<r.until,p=r?Math.max(0,Math.min(1,1-(r.until-tick())/270)):0,progress=reduced?(p>=1?1:0):p;
   const names=r?.names??["Nor’wester","Ilam Rocket","Rakaia Rebel","Dairy Debt","Riccarton Rain","Last Pie"],order=r?.order??[0,1,2,3,4,5];
   if(camera==='course'){
@@ -198,7 +291,7 @@ export function casinoVenue(select:(id:string)=>void,outside=false,patrons=12,pe
  const P:Project=(x,y,z=0)=>[480+(x-y)*39,130+(x+y)*19.5-z*39];
  let hover='';
  return canvasStage((g,t,reduced)=>{
-  const person=peoplePainter(people);
+  const person=peoplePainter(venueCast(people));
   if(reduced)t=0;backdrop(g,true);
   if(outside){
    ground(g,P,12,12,'#b9bd9a');box(g,P,0,7,12,3.5,.04,'#e2d3b6');box(g,P,0,10.5,12,1.5,.03,'#647a65');

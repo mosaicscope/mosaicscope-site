@@ -1,3 +1,4 @@
+import { ScreenBounds } from "./ScreenBounds";
 /**
  * Canvas 2D isometric renderer for an InteriorDef. Same 2:1 iso language as the street renderer.
  * Static things (floor, walls, wall art) are painted once into an offscreen layer; every prop is
@@ -553,8 +554,11 @@ export class InteriorView {
 
     // near-glow rings for interactables
     const P = this.proj(this.camX, this.camY);
-    for (const it of def.interactables) {
+    const rings=new ScreenBounds(this.cssW,this.cssH);
+    const nearby=def.interactables.filter(it=>Math.hypot(it.x-st.player.x,it.y-st.player.y)<3.5).sort((a,b)=>Number(b.id===st.near)-Number(a.id===st.near));
+    for (const it of nearby) {
       const [sx, sy] = P(it.x, it.y, 0), isNear = st.near === it.id, pulse = 0.5 + 0.5 * Math.sin(st.t * 3 + it.x);
+      if(!rings.reserve({x:sx-s*.45,y:sy-s*.23,w:s*.9,h:s*.46}))continue;
       g.strokeStyle = isNear ? "#c6ff3d" : "rgba(198,255,61,.5)"; g.lineWidth = isNear ? 2.2 : 1.4;
       g.beginPath(); g.ellipse(sx, sy, s * (0.38 + 0.06 * pulse), s * (0.19 + 0.03 * pulse), 0, 0, 6.283); g.stroke();
       if (isNear) { g.fillStyle = "rgba(198,255,61,.14)"; g.fill(); }
