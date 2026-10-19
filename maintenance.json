@@ -1,5 +1,5 @@
 {
- "at": 1792381052318,
+ "at": 1792382355330,
  "totals": {
   "duplicate-code": 2,
   "long-function": 17,
@@ -51,9 +51,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/app/Game.ts",
-   "detail": "1469 lines",
+   "detail": "1470 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|1rgnsm3"
+   "fp": "oversized-module|ujj6xp"
   },
   {
    "kind": "oversized-module",
@@ -91,9 +91,9 @@
    "kind": "long-function",
    "severity": "low",
    "where": "game/src/render/Buildings.ts:225",
-   "detail": "153 lines",
+   "detail": "159 lines",
    "fix": "split into named steps",
-   "fp": "long-function|10p82f7"
+   "fp": "long-function|ibgegp"
   },
   {
    "kind": "long-function",
