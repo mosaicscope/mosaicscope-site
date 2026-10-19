@@ -31,7 +31,8 @@ export function applyImpact(c: Character, impulse: number, nx: number, ny: numbe
   const massScale = c.tier === "background" ? 1.3 : 1;
   c.kx += nx * imp * 0.9 * massScale; c.ky += ny * imp * 0.9 * massScale;
   c.anim.flash = 0.18;
-  const loss = blocked ? 0.02 : clamp(imp * 0.075 * damage, 0.01, 0.6);
+  const protection=(c.combat?.vest??0)>0?.6:1;
+  const loss = blocked ? 0.02 : clamp(imp * 0.075 * damage * protection, 0.01, 0.6);
   c.emo.composure = clamp(c.emo.composure - loss, 0, 1);
   let down = false, stumble = false;
   if (!blocked) {
@@ -77,7 +78,7 @@ export function swingHits(att: Character, reach: number, chars: Character[], has
   const n = hash.query(att.x, att.y, reach + 0.4, tmp);
   for (let i = 0; i < n; i++) {
     const c = chars[tmp[i]];
-    if (!c || c === att || c.tier === "background" || c.phys === Phys.DOWN) continue;
+    if (!c || c === att || c.inside !== att.inside || c.inCar>=0 || c.phys === Phys.DOWN) continue;
     const a = Math.atan2(c.y - att.y, c.x - att.x);
     if (Math.abs(angDiff(a, att.facing)) > 1.0) continue;
     out.push(c);

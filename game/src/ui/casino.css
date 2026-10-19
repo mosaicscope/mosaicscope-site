@@ -424,3 +424,11 @@ button.cx-circle:hover { border-color: #fff0b8; box-shadow: 0 0 0 5px rgba(243,2
 }
 @media(max-width:370px) { .cas-hero-art { display:none; }.cas-hero { grid-template-columns:1fr; }.cas-games { grid-template-columns:1fr; }.cas-game { display:grid; grid-template-columns:95px 1fr; }.cas-game-art { height:100%; }.cas-game-art>i { display:none; } }
 @media(prefers-reduced-motion:reduce) { .cas-game { transition:none; }.cas-game:hover { transform:none; } }
+
+/* Compact overhead chips sit at the exact betting coordinate. */
+.cx .cx-bet-chip{position:absolute;display:grid;place-items:center;width:25px;height:25px;min-width:25px;border:3px dashed var(--e);border-radius:50%;background:var(--c);color:var(--t);font:700 10px/1 system-ui;box-shadow:0 2px 3px #0009,inset 0 0 0 1px #ffffff90;pointer-events:none;z-index:3}
+.cx-rchips>.cx-bet-chip{transform:translate(-50%,-50%)}
+.cx-ro>.cx-bet-chip,.cx-rn>.cx-bet-chip{right:5px;bottom:4px}
+.cx .cx-rtable{background:radial-gradient(ellipse at 50% 20%,#246349,#103e30);border:1px solid #c3aa7544;box-shadow:inset 0 0 0 5px #473423,inset 0 0 0 7px #ad945d70,0 10px 24px #0004}
+.cx .cx-rn span:not(.cx-bet-chip){font:600 14px/1 system-ui}
+.cx .cx-ro span:not(.cx-bet-chip){font:600 12px/1 system-ui;letter-spacing:.02em}

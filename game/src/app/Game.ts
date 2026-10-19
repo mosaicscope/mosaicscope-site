@@ -1,3 +1,6 @@
+import {equipmentPace} from "../content/combat";
+import { Armory } from "../ui/Armory";
+import { unarmedMove } from "../content/combat";
 import { Welcome } from "../ui/Welcome";
 import { UpgradeAmbience } from "../audio/UpgradeAmbience";
 import { EventReplay } from "../ui/EventReplay";
@@ -222,6 +225,7 @@ export class Game {
     document.addEventListener("touchend", (e) => { const n = Date.now(); if (n - lastTouchEnd < 350 && (e.target as HTMLElement | null)?.closest?.("input,textarea,button,.tc") == null) e.preventDefault(); lastTouchEnd = n; }, { passive: false });
     // block iPhone's page-scroll on every drag (one finger too), so the stick is not cancelled mid-drag; panels that scroll keep working
     document.addEventListener("touchmove", (e) => {
+      if(e.touches.length>1){e.preventDefault();return;}
       let el = e.target as HTMLElement | null;
       while (el && el !== document.body) {
         const cs = getComputedStyle(el);
@@ -308,6 +312,7 @@ export class Game {
     const dt = Math.min(0.1, (now - this.last) / 1000);
     this.last = now;
     this.pollGamepad();
+    if(!this.modal.open&&!this.casino.open&&(this.keys.has(this.settings.keys.throw)||this.touchFire)){const p=this.sim.player;if(p.hand>=0&&TOYS[this.sim.toys[p.hand].def]?.weapon?.mode==='auto')this.act('throw');}
     const steps = this.clock.advance(dt);
     for (let i = 0; i < steps; i++) this.guard("sim", () => { this.controlPlayer(); this.sim.step(); });
     this.ticksThisSecond += steps; this.tickWindow += dt;
@@ -440,7 +445,7 @@ export class Game {
       const wx = ix + iy, wy = iy - ix, l = Math.hypot(wx, wy);
       const sprint = (this.keys.has("shift") || Math.hypot(this.touchMove.x, this.touchMove.y) > 0.94) && p.needs.energy > 0.1;
       const bike = sim.life.upgrades.bike && hasUpgrade(sim.life.upgrades, "ruby");
-      const speed = p.speed * bodyPace(sim.life.body, sim.env.raining, sim.daylight) * (sprint && !bike ? 1.35 : 1) * (bike ? 1.65 * (hasUpgrade(sim.life.upgrades, "bikelanes") ? 1.2 : 1) : 1);
+      const speed = p.speed * equipmentPace(p,sim.toys) * bodyPace(sim.life.body, sim.env.raining, sim.daylight) * (sprint && !bike ? 1.35 : 1) * (bike ? 1.65 * (hasUpgrade(sim.life.upgrades, "bikelanes") ? 1.2 : 1) : 1);
       if (sprint && !bike) p.needs.energy = Math.max(0, p.needs.energy - sim.step_dt * 0.012 * (hasBody(sim.life.body, "shoes") ? 0.6 : 1));
       p.vx = (wx / l) * speed; p.vy = (wy / l) * speed;
       this.moveTarget = null; this.pendingTalk = -1;
@@ -515,6 +520,7 @@ export class Game {
   }
 
   private enterPlace(door: { building: number; studio: boolean }): void {
+    if(this.sim.world.buildings[door.building]?.name==='Moorhouse Armory'){this.armory.show();return;}
     const sim = this.sim;
     if (door.studio) { this.places.enter(null, true); return; }
     const b = sim.world.buildings[door.building];
@@ -614,6 +620,9 @@ export class Game {
 
   private act(kind: "pickup" | "drop" | "throw" | "swing" | "talk"): void {
     const sim = this.sim, p = sim.player;
+    if(p.inCar>=0&&kind==='throw'&&sim.vehicles[p.inCar].cls==='tank'){
+      if(sim.tick<this.cannonAt)return;const v=sim.vehicles[p.inCar];if((v.cannonRounds??12)<=0){this.toast('Out of shells · restock at the armory');return;}v.cannonRounds=(v.cannonRounds??12)-1;this.cannonAt=sim.tick+120;const dx=Math.cos(v.heading),dy=Math.sin(v.heading),shell=sim.spawnToy('cannonball',v.x+dx*2.9,v.y+dy*2.9);if(shell){shell.state='flying';shell.z=1.1;shell.vx=dx*24;shell.vy=dy*24;shell.vz=1;shell.thrower=p.id;shell.throwTick=sim.tick;sim.bus.emit('fx',{kind:'spark',x:shell.x,y:shell.y,z:1.1,n:18});sim.bus.emit('sound',{kind:'bang_shotgun',x:v.x,y:v.y,vol:1});commitCrime(sim,p,'assault',null);}return;
+    }
     if (p.phys !== Phys.OK || p.inCar >= 0) return;
     const cursor = this.renderer.cam.toWorld(this.mouse.x, this.mouse.y);
     switch (kind) {
@@ -627,6 +636,10 @@ export class Game {
       }
       case "drop": if (p.hand >= 0) sim.dropHeld(p); break;
       case "throw": {
+        if(p.hand>=0&&TOYS[sim.toys[p.hand].def]?.uses.includes('ranged')){
+          const id=this.selected>=0&&this.selected!==p.id?this.selected:this.hovered>=0&&this.hovered!==p.id?this.hovered:-1,target=id>=0?sim.chars[id]:null;
+          const fired=sim.shootAt(p,target?.x??cursor.x,target?.y??cursor.y,id),def=sim.toys[p.hand].def,base=def==='golden_pistol'?'pistol':def,key=(p.combat?.load??'standard')==='standard'?base:base+':'+p.combat?.load;if(!fired&&p.combat&&(p.combat.ammo[key]??0)<=0&&performance.now()>this.ammoAlertAt){this.ammoAlertAt=performance.now()+2500;this.toast('Out of ammunition · visit the armory');}return;
+        }
         if (p.hand < 0 || !canThrow(sim.toys[p.hand].def)) { const t = this.nearestToy(); if (t && TOYS[t.def].uses.includes("heavy")) sim.kickToy(p, t, cursor.x, cursor.y); else this.toast(p.hand < 0 ? "Pick something up first (E)" : "That one doesn't throw. Swing it (Space)"); return; }
         const target = this.hovered >= 0 && this.hovered !== p.id ? this.hovered : -1;
         p.facing = Math.atan2(cursor.y - p.y, cursor.x - p.x);
@@ -635,13 +648,14 @@ export class Game {
         break;
       }
       case "swing": {
-        // the swing always shows, even empty-handed (air swing); it only hits something when you hold a melee item
-        p.facing = Math.atan2(cursor.y - p.y, cursor.x - p.x);
+        const reach=p.hand>=0?TOYS[sim.toys[p.hand].def]?.weapon?.reach??1.4:unarmedMove(p.combat?.style,p.combat?.xp).reach;
+        const target=this.selected>=0&&this.selected!==p.id&&Math.hypot(sim.chars[this.selected].x-p.x,sim.chars[this.selected].y-p.y)<reach+1?sim.chars[this.selected]:sim.chars[this.nearestPerson(reach+.3)];
+        p.facing = target?Math.atan2(target.y-p.y,target.x-p.x):Math.atan2(cursor.y - p.y, cursor.x - p.x);
         // empty-handed, the swing key throws one of the 20 punches at random; holding a melee item swings it
-        p.anim.pose = p.hand >= 0 && isMelee(sim.toys[p.hand].def) ? "swing" : `punch${Math.floor(Math.random() * 20)}`;
+        p.anim.pose = p.hand >= 0 && isMelee(sim.toys[p.hand].def) ? "swing" : unarmedMove(p.combat?.style,p.combat?.xp).pose;
         p.anim.poseT = 0.3;
         if (p.hand >= 0 && isMelee(sim.toys[p.hand].def)) sim.swingHeld(p);
-        else if (p.hand >= 0 && canThrow(sim.toys[p.hand].def)) this.act("throw");
+        else if (p.hand >= 0 && (canThrow(sim.toys[p.hand].def)||TOYS[sim.toys[p.hand].def].uses.includes("ranged"))) this.act("throw");
         else { sim.punchHeld(p); const t = this.nearestToy(1.2); if (t) sim.kickToy(p, t, cursor.x, cursor.y); }
         break;
       }
@@ -665,7 +679,7 @@ export class Game {
     this.inspector.show(id);
     // clicking someone zooms in on them: the camera follows them and they stand out on top
     const cam = this.renderer.cam;
-    if (id >= 0 && id !== this.sim.playerId) { cam.follow = id; cam.setZoom(Math.max(cam.targetZoom, 5)); }
+    if (id >= 0 && id !== this.sim.playerId) { cam.follow = id; if(!TouchControls.wanted())cam.setZoom(Math.min(2.4, Math.max(cam.targetZoom, 1.8))); }
   }
 
   // ------------------------------------------------------------------ input
@@ -715,7 +729,7 @@ export class Game {
     window.addEventListener("blur", () => this.keys.clear());
     cv.addEventListener("contextmenu", (e) => e.preventDefault());
     cv.addEventListener("pointerdown", (e) => {
-      cv.setPointerCapture(e.pointerId);
+      try{cv.setPointerCapture(e.pointerId);}catch{/* cancelled or synthetic pointer */}
       this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (this.touches.size === 2) { const [a, b] = [...this.touches.values()]; this.pinchDist = Math.hypot(a.x - b.x, a.y - b.y); }
       this.mouse = { ...this.mouse, x: e.clientX, y: e.clientY, down: true, dragging: false, sx: e.clientX, sy: e.clientY, button: e.button };
@@ -724,6 +738,7 @@ export class Game {
       const prev = this.touches.get(e.pointerId);
       if (prev) this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (this.touches.size === 2) {
+        if(e.pointerType==='touch'){this.mouse.dragging=true;return;}
         const [a, b] = [...this.touches.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
         if (this.pinchDist > 0) this.renderer.cam.setZoom(this.renderer.cam.targetZoom * (d / this.pinchDist));
         this.pinchDist = d; this.mouse.dragging = true; return;
@@ -1031,8 +1046,10 @@ export class Game {
   private clubTickAt = 0;
 
   // ------------------------------------------------------------------ touch controls
-  private touchMove = { x: 0, y: 0 }; private touchBrake = false;
+  private touchMove = { x: 0, y: 0 }; private touchBrake = false; private touchFire=false; private ammoAlertAt=0;
   private touch = new TouchControls({
+    fire: held=>{this.touchFire=held;},
+    armedVehicle:()=>this.sim.player.inCar>=0&&this.sim.vehicles[this.sim.player.inCar].cls==='tank',
     move: (x, y) => { this.touchMove.x = x; this.touchMove.y = y; },
     brake: (held: boolean) => { this.touchBrake = held; },
     zoom: (dir: number) => { const c = this.renderer.cam; c.setZoom(c.targetZoom * (dir > 0 ? 1.4 : 1 / 1.4)); },
@@ -1142,7 +1159,7 @@ export class Game {
     if (!this.focusEl.classList.contains("on")) this.focusZoom = cam.targetZoom;
     // a gentler push-in on phones (the screen is already small), never past street-view territory
     const coarse = matchMedia("(pointer: coarse)").matches;
-    cam.setZoom(coarse ? Math.min(Math.max(this.focusZoom, 1.8), 2.2) : Math.max(this.focusZoom, 2.2));
+    if(!coarse)cam.setZoom(Math.max(this.focusZoom, 2.2));
     cam.follow = this.sim.playerId;
     (this.focusEl.querySelector(".focus-cap b") as HTMLElement).textContent = title;
     (this.focusEl.querySelector(".focus-cap span") as HTMLElement).textContent = sub;
@@ -1198,6 +1215,8 @@ export class Game {
 
   // ------------------------------------------------------------------ chrome
   private activities = new Activities(() => this.sim, this.modal, (text) => this.toast(text));
+  private armory = new Armory(()=>this.sim,this.modal,t=>this.toast(t));
+  private cannonAt=0;
   private lifePhone = new LifePhone(() => this.sim, this.modal, tab => this.activities.show(tab), (x,y) => { this.moveTarget = {x,y}; this.pendingTalk = -1; this.renderer.cam.follow = this.sim.playerId; });
   private notifiedEncounter: string | null = null;
 
@@ -1221,6 +1240,7 @@ export class Game {
       h("button.btn.menu-toggle", { text: "☰ Menu", "aria-label": "Menu", "aria-expanded": "false", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar")!; const open = bar.classList.toggle("open"); (e.currentTarget as HTMLElement).setAttribute("aria-expanded", String(open)); } }),
       h("nav.game-menu", { "aria-label": "More game options", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar"); bar?.classList.remove("open"); bar?.querySelector(".menu-toggle")?.setAttribute("aria-expanded", "false"); } }, [
         ...(["Betting", "Racing", "Farm", "UC"] as const).map(tab => h("button.btn", { text: tab === "Betting" ? "Sports & more games" : tab, onclick: () => this.activities.show(tab) })),
+        h("button.btn", { text: "Armory & gun store", onclick: () => this.armory.show() }),
         h("button.btn", { text: "Luxury", onclick: () => this.luxury.show() }), h("button.btn", { text: "Heist", onclick: () => this.heist.open() }),
         h("button.btn", { text: "Event log", onclick: () => this.log.toggle() }), h("button.btn", { text: "Event replay", onclick: () => this.replay.show() }),
         h("button.btn", { text: "Me", onclick: () => this.select(this.sim.playerId) }), h("button.btn", { text: "AI brains", onclick: () => this.openBrains() }),
@@ -1477,7 +1497,7 @@ export class Game {
     const touchUI = TouchControls.wanted();
     const steps: [string, string][] = [
       ["Welcome to <i>our world</i>", "You're the stranger in white and red. Tiles, Glitter and the rest of the Mosaics live here with a few hundred locals. Nothing is scripted."],
-      ["Move & look", touchUI ? "Tap the ground to walk there. Use + and \u2212 (or pinch) to zoom. Tap anyone to see what they're feeling, what they remember and who they can't stand." : "WASD or arrow keys to walk, or click the ground. Drag to pan, scroll or pinch to zoom. Click anyone to see what they're feeling, what they remember and who they can't stand."],
+      ["Move & look", touchUI ? "Tap the ground to walk there. Use + and \u2212 to adjust the view. Tap anyone to see what they're feeling, what they remember and who they can't stand." : "WASD or arrow keys to walk, or click the ground. Drag to pan, scroll or pinch to zoom. Click anyone to see what they're feeling, what they remember and who they can't stand."],
       ["Toys", "E picks up the nearest toy. F (or right-click) throws it at your cursor, Space swings a foam sword. Hits have consequences: people remember who threw what."],
       ["Talk", "T talks to the nearest person. They only know what they've seen or heard, and they'll tell you where they heard it. Press L for the event log, and ? for all controls."],
     ];

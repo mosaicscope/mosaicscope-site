@@ -30,7 +30,7 @@ const STYLE: Record<string, Style> = {
   office: "tower", hotel: "tower", bank: "tower", hospital: "civic", mentalhealth: "civic", police: "civic", gallery: "civic", studio: "civic",
   apartments: "flats", house: "house", nightclub: "club", casino: "club", garage: "fuel", gym: "civic",
 };
-const styleOf = (b: Building): Style => STYLE[b.kind] ?? "shop";
+const styleOf = (b: Building): Style => b.name==="Christchurch Town Hall"||b.name==="Te Pae"?"civic":STYLE[b.kind] ?? "shop";
 /** Emissive paint jobs (neon, signs) replayed by the renderer after the night overlay. */
 export const GLOW: ((layer: CanvasRenderingContext2D) => void)[] = [];
 const NEON = new Set(["casino", "nightclub", "diner", "pizza", "sushi", "fishchips", "records", "toyshop", "barber", "hotel", "dealership", "gallery", "studio", "cafe", "pawn", "recycling"]);
@@ -180,8 +180,9 @@ export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Build
 
   // sign over the centre of the building
   const cx = Math.floor((b.x0 + b.x1) / 2), cy = Math.floor((b.y0 + b.y1) / 2);
-  if (tx === cx && ty === cy) {
+  if (tx === cx && ty === cy && alpha > .85 && z >= .85) {
     const p = P(tx + 0.5, ty + 0.5, top(tx + 0.5, ty + 0.5) + (st === "house" ? 0 : 0.22)), a0 = alpha;
+    p[1]-=(b.x1-b.x0+b.y1-b.y0+2)*hh*.5+4*z;
     roofTop(g, b, p[0], p[1], z, time, dark);
     // tenement roofs breathe steam in the cold, a SimCity night staple
     if ((st === "flats" || st === "civic") && z >= 0.8 && dark > 0.1) {
@@ -473,12 +474,12 @@ function roofTop(g: CanvasRenderingContext2D, b: Building, x: number, y: number,
 }
 
 /** Rooftop ads: the casino's own board, MosaicScope (logo + one short line, clickable) on galleries, and Kiwi brands elsewhere. */
-function billboard(g: CanvasRenderingContext2D, b: Building, x: number, y: number, z: number, time: number, dark: number): void {
+function billboard(g: CanvasRenderingContext2D, b: Building, x: number, y: number, z: number, _time: number, dark: number): void {
   const w = Math.min(100,Math.max(42,(b.x1-b.x0+b.y1-b.y0+2)*14))*z, h = 34 * z;
   if(!reserveSign(`ad:${b.id}`,{x:x-w/2,y:y-12*z-h,w,h:h+12*z}))return;
   g.strokeStyle = "#3a3430"; g.lineWidth = 2 * z;
   g.beginPath(); g.moveTo(x - w * 0.3, y); g.lineTo(x - w * 0.3, y - 12 * z); g.moveTo(x + w * 0.3, y); g.lineTo(x + w * 0.3, y - 12 * z); g.stroke();
   if (dark > 0.3) { g.fillStyle = "rgba(255,240,190,.12)"; g.beginPath(); g.moveTo(x - w * 0.3, y - 12 * z); g.lineTo(x - w / 2, y - 12 * z - h); g.lineTo(x + w / 2, y - 12 * z - h); g.lineTo(x + w * 0.3, y - 12 * z); g.closePath(); g.fill(); }
   const kind = b.kind === "casino" ? "casino" : b.kind === "gallery" || b.id % 4 === 0 ? "mosaic" : "kiwi";
-  drawAd(g, kind, x, y - 12 * z, w, h, b.id + Math.floor(time / 10), dark);
+  drawAd(g, kind, x, y - 12 * z, w, h, b.id, dark);
 }

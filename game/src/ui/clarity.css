@@ -10,3 +10,40 @@
 #ui .welcome-editor{grid-template-columns:minmax(240px,400px) minmax(300px,430px)}#ui .welcome-custom{max-height:90dvh;overflow:auto}#ui .welcome-editor>.play-stage{position:sticky;top:20px}
 .welcome-accessories{border:1px solid #8ca99a44;border-radius:10px;padding:10px;display:grid;grid-template-columns:repeat(2,1fr);gap:6px}.welcome-accessories legend{font-size:13px}.welcome-custom .welcome-accessories label{justify-content:flex-start;gap:8px;margin:0;text-transform:capitalize}.welcome-accessories input{min-height:18px;width:18px;margin:0;accent-color:#93cbb6}
 @media(max-width:650px){#ui .welcome-editor{grid-template-columns:1fr}#ui .welcome-editor>.play-stage{position:static}#ui .welcome-custom{max-height:none}#ui .dock button{min-width:0;font-size:11px}#ui .ax-card p{font-size:13px}}
+
+.race-roster{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px}.race-runner{display:grid;text-align:left;gap:5px;padding:14px;border:1px solid #94b4a64a;border-radius:10px;background:#19343a;color:#e9ede5}.race-runner span{font-size:12px}.race-runner.owned{border-color:#ddc07b}.race-runner[aria-pressed=true]{box-shadow:inset 0 0 0 2px #8dd6bb}
+
+/* Stable panels on desktop and phones: clear headers, safe-area spacing and scroll ownership. */
+html,body{overscroll-behavior:none}#ui :is(button,a,input,select,textarea){touch-action:manipulation}
+#ui .activities>.x{position:sticky;top:0;right:0;min-width:40px;min-height:40px;border-radius:9px;z-index:5;background:#10262b}
+#ui .activities>.ax-nav{top:0;min-height:58px;border-bottom:1px solid #9bb6a333;margin-bottom:12px}
+#ui .activities>.ax-nav .btn{min-height:40px;padding:8px 16px}
+@media(min-width:761px){#ui .panel.modal{padding:24px;box-shadow:0 20px 70px #0006}#ui .ax-grid{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}#ui .ax-card{border-radius:12px!important}#ui .game-dock{gap:8px;padding:8px 12px}#ui .dock-command{min-width:76px}#ui .inspector{background:#112b30f5;max-height:calc(100dvh - 190px)}}
+@media(pointer:coarse),(max-width:650px){
+ #ui :is(input,select,textarea){font-size:16px!important}#ui :is(button,.btn){min-height:44px}
+ #ui .modal-wrap{padding:max(8px,env(safe-area-inset-top)) 8px max(8px,env(safe-area-inset-bottom));overflow:hidden}
+ #ui .panel.modal{width:100%!important;max-height:calc(100dvh - 24px)!important;padding:14px;border-radius:14px;overscroll-behavior:contain;touch-action:pan-y;scroll-padding-top:80px}
+ #ui .ax-grid{grid-template-columns:1fr}#ui .ax-nav{gap:5px;display:flex;flex-wrap:nowrap;overflow-x:auto}#ui .activities>.ax-nav .btn{padding:8px 12px;font-size:13px;flex-shrink:0}
+ #ui .hud{min-width:128px;max-width:145px;padding:9px;top:74px}#ui .hud .bars{grid-template-columns:auto 65px}#ui .hud .cash{font-size:22px}#ui .hud .stars{font-size:13px}
+ #ui .game-dock{width:calc(100% - 16px);left:8px;right:8px;transform:none;bottom:max(8px,env(safe-area-inset-bottom));gap:0;padding:4px;border-radius:12px}#ui .dock-command{font-size:11px;min-height:52px;padding:5px 2px}#ui .dock-command b{font-size:10px}
+ #ui .tc-zone{display:none!important}#ui .tc-cluster{position:absolute;right:12px;bottom:calc(76px + env(safe-area-inset-bottom));display:flex;width:auto;height:auto;gap:8px;align-items:flex-end}
+ #ui .tc-cluster>.tc-btn{position:static;transform:none;width:56px;height:56px;border-radius:12px;background:#14343bea;border:1px solid #91bba266;box-shadow:none;pointer-events:auto;max-width:110px}
+ #ui .tc-cluster>.tc-ctx{width:86px}#ui .tc-cluster .tc-ico{width:23px;height:23px}#ui .tc-cluster .tc-lbl{font:600 10px/1.2 system-ui;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ #ui .tc-sheet{right:0;bottom:calc(100% + 10px);grid-template-columns:repeat(3,64px);max-height:55dvh;overflow:auto;box-shadow:0 8px 25px #0007;border-color:#83aa9870;background:#112a30fa}#ui .tc-item{width:64px;height:62px}
+ #ui .tc-steering{position:absolute;left:12px;bottom:calc(76px + env(safe-area-inset-bottom));gap:8px;pointer-events:auto}#ui .tc.in-car .tc-steering{display:flex}#ui .tc-steer{position:static;width:48px;height:52px;border-radius:12px;font:600 25px system-ui;transform:none}
+ #ui .tc-zoom{left:12px;bottom:calc(148px + env(safe-area-inset-bottom));gap:6px}#ui .tc-zbtn{width:40px;height:40px;border-radius:10px}
+ .tc-walk-hint{position:absolute;left:12px;bottom:calc(80px + env(safe-area-inset-bottom));font:500 11px system-ui;color:#d4dfcf;background:#10282ddc;border-radius:7px;padding:7px;pointer-events:none}.tc.in-car .tc-walk-hint{display:none}
+ #ui .inspector{left:8px;right:8px;bottom:calc(145px + env(safe-area-inset-bottom));top:auto;width:auto;max-height:40dvh}#ui .dialogue{left:8px;right:8px;bottom:calc(74px + env(safe-area-inset-bottom));width:auto;max-height:55dvh;overflow:auto}
+}
+
+@media(pointer:coarse),(max-width:650px){#ui .tc.in-car .tc-cluster{display:grid;grid-template-columns:repeat(3,48px);gap:6px}#ui .tc.in-car .tc-cluster>.tc-btn{width:48px;height:48px}#ui .iv-stick,#ui .iv-touch{display:none!important}}
+
+#ui .tc .t-cannon{display:none}#ui .tc.in-car.armed .t-cannon{display:grid}
+
+@media(pointer:coarse),(max-width:650px){
+ #ui .bar{display:flex;gap:6px;padding:6px;min-height:52px}#ui .bar>.brand{order:0;flex:1;min-width:0}#ui .brand b{font-size:16px}#ui .bar>.seg{order:1}#ui .bar>.iconbtn{order:2;width:36px;min-width:36px}#ui .bar>.menu-toggle{order:3;font-size:0!important;width:36px;min-width:36px}#ui .bar>.menu-toggle::after{content:"☰";font-size:18px}#ui .bar>.clock,#ui .bar>.spacer{display:none!important}
+ #ui .hud{left:auto!important;right:8px!important;top:70px}#ui .dock-command b{font-size:9px;white-space:normal;line-height:1.15}#ui .areaname{font-size:16px;letter-spacing:0}
+ #ui .toasts{max-width:250px;left:8px;right:auto;top:80px;font-size:12px}#ui .toasts>*:nth-last-child(n+3){display:none}
+}
+
+@media(pointer:coarse),(max-width:650px){#ui .toasts{transform:none;max-width:calc(100vw - 180px);justify-items:start}#ui .toast{font-size:12px;max-width:100%;padding:8px;white-space:normal}#ui .tc-cluster .tc-lbl{font-size:9px!important;white-space:normal}#ui .areaname{font-family:system-ui!important;font-style:normal!important;font-weight:600;font-size:14px!important;bottom:220px}}

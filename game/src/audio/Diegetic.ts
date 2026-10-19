@@ -101,6 +101,7 @@ export function dopplerRate(radial: number): number {
 export interface EngineProfile { idle: number; top: number; cut: number; burble: number; sub: number; pops: boolean }
 const E = (idle: number, top: number, cut: number, burble = 0.05, sub = 0.5, pops = false): EngineProfile => ({ idle, top, cut, burble, sub, pops });
 export const ENGINE: Record<VehicleClass, EngineProfile> = {
+  tank:E(28,95,450,.35,1),
   hatch: E(72, 200, 950),                 // buzzy little three-pot
   sedan: E(62, 170, 850),
   suv: E(55, 150, 700),

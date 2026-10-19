@@ -18,8 +18,12 @@ export function canvasStage(draw: (g: CanvasRenderingContext2D, time: number, re
   cv.addEventListener("pointercancel", () => { down = false; });
   cv.addEventListener("keydown", e => { if (options.key && [" ", "Enter"].includes(e.key)) { e.preventDefault(); options.key(e.key); } });
   const start = performance.now();
+  let visible=true,lastDraw=0;
+  const observer=typeof IntersectionObserver!=='undefined'?new IntersectionObserver(entries=>{visible=entries[0]?.isIntersecting??true;}):null;
+  observer?.observe(cv);
   const frame = (now: number) => {
-    if (!cv.isConnected || cv.closest(".hidden")) return;
+    if (!cv.isConnected || cv.closest(".hidden")){observer?.disconnect();return;}
+    if(!visible||document.hidden||now-lastDraw<1000/30){requestAnimationFrame(frame);return;}lastDraw=now;
     g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
     g.save(); draw(g, (now - start) / 1000, reduce); g.restore();
     requestAnimationFrame(frame);

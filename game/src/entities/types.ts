@@ -152,7 +152,7 @@ export interface Anim {
 }
 
 export type WoundPart = "head" | "torso" | "arm" | "leg";
-export type WoundKind = "bruise" | "graze" | "cut" | "gash" | "stab";
+export type WoundKind = "bruise" | "graze" | "cut" | "gash" | "stab" | "fracture";
 /** severity: 1 bruise/graze (no bleeding), 2 cut/gash (bleeds), 3 deep stab or bad gash (bleeds fast) */
 export interface Wound { part: WoundPart; kind: WoundKind; severity: 1 | 2 | 3; bandaged: boolean; tick: number }
 
@@ -233,6 +233,7 @@ export interface Character {
   nickname: string;
   /** street crew ("famiglia", "riccarton") or "" for none */
   crew: string;
+  combat?:{style:import("../content/combat").UnarmedStyle;load?:"rubber"|"standard"|"heavy";recoil?:number;recoilTick?:number;xp:number;ammo:Record<string,number>;vest:number;helmet:number};
   wounds: Wound[];
   bleed: number;                 // current bleeding rate 0..1 (sum of open wounds)
   blood: number;                 // 1 = fine, below 0.35 they collapse
@@ -250,6 +251,7 @@ export type ToyState = "rest" | "flying" | "held" | "broken";
 export interface Toy {
   id: number;
   def: string;
+  load?:"rubber"|"standard"|"heavy";
   x: number; y: number; z: number;
   px: number; py: number; pz: number;
   vx: number; vy: number; vz: number;
@@ -302,6 +304,7 @@ export interface Vehicle {
   vx?: number; vy?: number; yaw?: number; dynT?: number; slip?: number;
   /** Where the car has been hit, 0..1 each: front, rear, left, right (the body crumples there; see Traffic.bump). */
   dmgF?: number; dmgR?: number; dmgL?: number; dmgS?: number;
+  cannonRounds?:number;
   lifeMods?: string[];
   engineDamage?: number; glassDamage?: number; flatLeft?: boolean; flatRight?: boolean;
   bumperLost?: boolean; mirrorLost?: boolean; leak?: number; heat?: number; burning?: boolean; burnTime?: number; burnt?: boolean; burntAge?: number; towAt?: number;

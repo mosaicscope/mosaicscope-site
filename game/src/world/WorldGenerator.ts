@@ -1,3 +1,4 @@
+import { PLACE_REFERENCES } from "../content/placeReferences";
 import { Rng } from "../core/rng";
 import { World, T, Area, AreaKind, PoiKind, SOLID, DECOR, PERIOD, ROAD_W, SIDEWALK_W, CROSS_W } from "./World";
 import { BUILDINGS, BuildingKind, GROUND_H, FLOOR_H } from "../content/buildings";
@@ -395,6 +396,7 @@ export function generateWorld(opts: GenOptions): World {
     }
   }
 
+  const armory=w.buildings.find(b=>b.kind==='garage');if(armory){armory.name='Moorhouse Armory';armory.billboard=false;armory.sign='#e4bf7a';for(const p of w.pois)if(p.building===armory.id)p.name=armory.name;}
   // POIs must stand on walkable ground (except decorative ones that sit on solids)
   for (const p of w.pois) {
     if (p.kind === "fountain" || p.kind === "mural" || p.kind === "billboard") continue;
@@ -404,6 +406,10 @@ export function generateWorld(opts: GenOptions): World {
   // shelter: awnings in front of shops and the area just inside doors
   for (const b of w.buildings) if (w.inBounds(b.door.x, b.door.y)) w.shelter[idx(b.door.x, b.door.y)] = 1;
 
+  for(const reference of PLACE_REFERENCES){
+    const a=w.areas.find(a=>a.name===reference.area),b=a?w.buildings.find(b=>b.area===a.id&&b.kind===reference.kind):undefined;
+    if(b){b.name=reference.name;b.color=reference.facade;b.roof=reference.roof;b.billboard=false;for(const p of w.pois)if(p.building===b.id)p.name=b.name;}
+  }
   ensureConnected(w);
   w.dirtyTiles.clear();
   return w;

@@ -1,3 +1,4 @@
+import { reserveSign } from "./ScreenBounds";
 import { World, T, TILE_HEIGHT, Poi, ROAD_W, CROSS_W, PERIOD } from "../world/World";
 import { decorGrid, D } from "./StreetDecor";
 import { hash01 } from "./noir";
@@ -429,9 +430,10 @@ export function drawPoi(g: CanvasRenderingContext2D, p: Poi, sx: number, sy: num
       break;
     }
     case "billboard": {
+      if(z<1||!reserveSign(`street-ad:${p.id}`,{x:sx-42*z,y:sy-68*z,w:84*z,h:68*z}))break;
       g.strokeStyle = "#3a3430"; g.lineWidth = 3 * z; g.beginPath(); g.moveTo(sx, sy); g.lineTo(sx, sy - 40 * z); g.stroke();
       const kind = p.name === "cars" ? "cars" : p.name === "kiwi" ? "kiwi" : "mosaic";
-      drawAd(g, kind, sx, sy - 38 * z, 84 * z, 30 * z, p.id + Math.floor(time / 10), dark ? 1 : 0);
+      drawAd(g, kind, sx, sy - 38 * z, 84 * z, 30 * z, p.id, dark ? 1 : 0);
       break;
     }
     case "plane": {

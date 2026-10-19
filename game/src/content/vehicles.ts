@@ -1,6 +1,6 @@
 /** Vehicle classes. Speeds in tiles per second (1 tile ≈ 2 m, so 10 t/s ≈ 72 km/h). Prices in NZD. */
 export type VehicleClass = "hatch" | "sedan" | "suv" | "ute" | "taxi" | "police" | "van" | "ambulance" | "jdm" | "muscle" | "sports" | "super"
-  | "mini" | "wagon" | "hothatch" | "coupe" | "roadster" | "limo" | "hearse" | "minivan" | "camper" | "dcute" | "flatdeck" | "tradie" | "icecream"
+  | "tank" | "mini" | "wagon" | "hothatch" | "coupe" | "roadster" | "limo" | "hearse" | "minivan" | "camper" | "dcute" | "flatdeck" | "tradie" | "icecream"
   | "post" | "bus" | "tow" | "fire" | "bin" | "banger" | "retro" | "lowrider" | "fourby" | "ev" | "rally" | "hotrod";
 
 export interface VehicleDef {
@@ -17,6 +17,7 @@ export interface VehicleDef {
 }
 
 export const VEHICLES: Record<VehicleClass, VehicleDef> = {
+ tank:{cls:'tank',name:'Mosaic Heavy Tank',tier:'work',length:3.2,width:1.45,height:1.15,topSpeed:5,accel:1.4,brake:5,grip:.8,mass:14,price:85000,colors:['#657153','#7d7959'],traffic:0,blurb:'Tracked armour, slow steering and a heavy cannon. Delivered to the armory yard.'},
   hatch:  { cls: "hatch", name: "Suzumi Swyft", tier: "everyday", length: 1.7, width: 0.85, height: 0.65, topSpeed: 8.5, accel: 3.2, brake: 9, grip: 2.6, mass: 1, price: 6500, colors: ["#ec2a1c", "#3dd6ff", "#eee4d3", "#c6ff3d", "#9a8d80"], traffic: 6, blurb: "Cheap, nippy, parks anywhere." },
   sedan:  { cls: "sedan", name: "Toyoda Corolle", tier: "everyday", length: 2.0, width: 0.9, height: 0.65, topSpeed: 9, accel: 3, brake: 9, grip: 2.3, mass: 1.2, price: 9500, colors: ["#eee4d3", "#3a3430", "#9a8d80", "#1c2836", "#6b3a12"], traffic: 7, blurb: "Every second car in Christchurch." },
   suv:    { cls: "suv", name: "Mazdo CX-Fam", tier: "everyday", length: 2.1, width: 1.0, height: 0.85, topSpeed: 8.5, accel: 2.6, brake: 8, grip: 2.0, mass: 1.6, price: 18000, colors: ["#3a3430", "#eee4d3", "#1c2836", "#2d6b24"], traffic: 4, blurb: "School run spec." },

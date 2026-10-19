@@ -1,3 +1,4 @@
+import { unarmedMove } from "../content/combat";
 import { hasUpgrade } from "../content/upgrades";
 import { hasBody } from "./life/body";
 import { newLife, tickLife } from "./Chronicles";
@@ -689,15 +690,18 @@ export class Simulation {
   /** Bare-fisted punch: lands on whoever is in front, with a light knock and small damage. No toy involved. */
   punchHeld(c: Character): number {
     if ((this.nextAttack.get(c.id) ?? 0) > this.tick) return 0;
-    this.nextAttack.set(c.id, this.tick + Math.round(0.45 * 60));
-    const n = swingHits(c, 1.1, this.chars, this.charHash, this.tmp2, this.hits);
+    const move=unarmedMove(c.combat?.style,c.combat?.xp);
+    this.nextAttack.set(c.id, this.tick + Math.round(move.rate * 60));
+    const n = swingHits(c, move.reach, this.chars, this.charHash, this.tmp2, this.hits);
     this.lod.markHot(c.id, this.tick);
     for (let i = 0; i < n; i++) {
       const v = this.hits[i];
       if (v.lastHitBy === c.id && this.tick - v.lastHitTick < 20) continue; // per-pair hit cooldown
       const nx = (v.x - c.x) || 0.01, ny = (v.y - c.y) || 0.01, nl = Math.hypot(nx, ny);
-      applyImpact(v, 0.6 * (0.8 + c.pers.boldness * 0.4), nx / nl, ny / nl, shieldBlocks(v, this.toys, c.x, c.y), this.cfg.maxImpulse, 0.5);
-      v.lastHitBy = c.id; v.lastHitTick = this.tick;
+      const res=applyImpact(v, move.knockback * (0.8 + c.pers.boldness * 0.4), nx / nl, ny / nl, shieldBlocks(v, this.toys, c.x, c.y), this.cfg.maxImpulse, move.damage);
+      this.onImpact(c,v,'fists',res,true);
+      if(!res.blocked){if(c.combat)c.combat.xp++;wound(this,v,move.part,1,'bruise',c.id,c.x,c.y);if(c.tier==='player')commitCrime(this,c,'assault',v);}
+      this.bus.emit('fx',{kind:'impact',x:v.x,y:v.y,z:1,n:4});
     }
     if (n) this.bus.emit("sound", { kind: "swish", x: c.x, y: c.y, vol: 0.2 });
     return n;

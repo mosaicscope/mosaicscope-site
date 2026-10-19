@@ -84,6 +84,17 @@ export function pose(name: string, style: string, t: number, ph: number, speed: 
     }
     case "dance": dance(style, t); break;
     case "cheer": A.armL = 2.7 + Math.sin(t * 10) * 0.3; A.armR = 2.7 + Math.cos(t * 10) * 0.3; A.bob = -Math.abs(Math.sin(t * 6)) * 4; break;
+    case "sitdrink": A.bob=15;A.thighL=1.4;A.thighR=1.3;A.bendL=1.5;A.bendR=1.4;A.armR=.45;A.foreR=2.35+Math.sin(t*.8)*.1;A.armL=.4;A.foreL=.7;break;
+    case "slap": A.armR=1.5+Math.sin(Math.min(1,poseT/.22)*Math.PI)*.8;A.foreR=.1;A.armL=.3;A.lean=.12;break;
+    case "shove": A.armL=1.35;A.armR=1.35;A.foreL=.15;A.foreR=.15;A.lean=.2;A.thighR=-.2;break;
+    case "carry": A.armL=.85; A.foreL=1.15; A.armR=.85; A.foreR=1.15; A.lean=.06; break;
+    case "photo": A.armL=.7; A.foreL=2.3; A.armR=.7; A.foreR=2.3; break;
+    case "drink": A.armR=.4; A.foreR=2.4+Math.sin(t*.8)*.1; A.armL=.2; break;
+    case "shield": A.armL=2.5; A.foreL=.6; A.armR=1.2; A.foreR=.9; A.lean=-.12; break;
+    case "play": case "cook": A.armL=.9; A.foreL=1.1+Math.sin(t*2)*.12; A.armR=.85; A.foreR=1.1-Math.sin(t*2)*.12; A.lean=.06; break;
+    case "deal": A.armR=.8+Math.sin(t*1.4)*.25; A.foreR=1.35; A.armL=.65; A.foreL=1.2; A.lean=.06; break;
+    case "bet": A.armR=.7+Math.sin(t*.9)*.12; A.foreR=1.45; A.armL=.4; A.foreL=.8; A.thighL=.85; A.thighR=.8; A.bendL=1.15; A.bendR=1.2; A.bob=9; break;
+    case "read": A.armL=.6; A.foreL=1.8; A.armR=.6; A.foreR=1.8; A.tilt=.12; break;
     case "watch": A.armL = 0.7; A.foreL = 1.9; A.armR = 0.7; A.foreR = 1.9; A.tilt = Math.sin(t * 0.7) * 0.08; break;
     case "think": A.armR = 0.45; A.foreR = 2.5; A.armL = 0.5; A.foreL = 1.6; A.tilt = 0.15; break;
     case "talk": A.armR = 0.5 + Math.sin(t * 5) * 0.35; A.foreR = 0.9 + Math.sin(t * 7) * 0.3; A.armL = 0.15; A.tilt = Math.sin(t * 3) * 0.06; break;
@@ -235,7 +246,7 @@ export function solve(a: Angles, sx: number, sy: number, k: number, dir: number)
 export interface ItemDraw { (g: CanvasRenderingContext2D, x: number, y: number, k: number, dir: number, angle: number): void }
 
 /** Full-detail figure (principal, mid, player). */
-export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: number, _sy: number, k: number, dir: number, t: number, flash: number, alpha: number, hdOverride?: boolean): void {
+export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: number, _sy: number, k: number, dir: number, t: number, flash: number, alpha: number, hdOverride?: boolean, gripped = false): void {
   const L = c.look, girl = L.kind === "girl";
   const lw = Math.max(1.1, 3.2 * k * (L.build ?? 1));
   g.globalAlpha = alpha;
@@ -249,7 +260,9 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
   const M = personalize(modelOf(c) ?? lookSpec(c), c);
   if (M) {
     // street model drawn after the reference cartoon (see RefFigure.ts); the face follows the person's emotion
-    drawRefFigure(g, J, c, M, k, dir, alpha, hd, flash > 0);
+    drawRefFigure(g, J, c, M, k, dir, alpha, hd, flash > 0, gripped);
+    if((c.combat?.vest??0)>0){const cx=(J[0]+J[6])/2,cy=(J[1]+J[7])/2;g.fillStyle='#586750';g.strokeStyle='#263429';g.lineWidth=k;g.beginPath();g.roundRect(cx-7*k,cy-11*k,14*k,23*k,3*k);g.fill();g.stroke();g.strokeStyle='#c4c7a0';g.beginPath();g.moveTo(cx-5*k,cy-3*k);g.lineTo(cx+5*k,cy-3*k);g.stroke();}
+    if((c.combat?.helmet??0)>0){g.fillStyle='#69745a';g.strokeStyle='#27382d';g.lineWidth=k;g.beginPath();g.ellipse(J[4],J[5]-10*k,13*k,8*k,0,Math.PI,Math.PI*2);g.lineTo(J[4]+14*k,J[5]-8*k);g.lineTo(J[4]-14*k,J[5]-8*k);g.fill();g.stroke();}
     if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 28 * k, k, t);
     return;
   }

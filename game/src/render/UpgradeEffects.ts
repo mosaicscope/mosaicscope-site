@@ -1,3 +1,4 @@
+import { drawAnimalAtlas } from "../ui/AnimalAtlas";
 import type { Simulation } from "../sim/Simulation";
 import type { Camera } from "./Camera";
 import { hasUpgrade } from "../content/upgrades";
@@ -74,12 +75,9 @@ export function drawUpgradeEffects(g: CanvasRenderingContext2D, sim: Simulation,
   }
   if (own("bando")) {
     cam.toScreen(u.pet.x, u.pet.y, 0, pt); g.save(); g.translate(pt.x, pt.y); g.scale(z, z);
-    g.fillStyle = "#bf9765"; g.beginPath(); g.ellipse(0, -9, 10, 5, 0, 0, Math.PI * 2); g.fill(); g.beginPath(); g.arc(9, -13, 5, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = "#bf9765"; g.lineWidth = 3; g.lineCap = "round";
-    const walk = Math.sin(t * 9) * 2;
-    for (const x of [-6, 5]) { g.beginPath(); g.moveTo(x, -7); g.lineTo(x + walk, 0); g.stroke(); }
-    g.beginPath(); g.moveTo(-9, -10); g.lineTo(-15, -15 + walk); g.stroke();
-    g.fillStyle = "#322920"; g.fillRect(10, -15, 2, 2); g.beginPath(); g.ellipse(6, -13, 2, 5, -0.3, 0, Math.PI * 2); g.fill(); g.restore();
+    const moving=Math.hypot(u.pet.x-sim.player.x,u.pet.y-sim.player.y)>1.4;
+    if(u.pet.x>sim.player.x)g.scale(-1,1);
+    drawAnimalAtlas(g,0,0,'Working dogs',moving?t:0,.58,'walk');g.restore();
   }
   g.restore();
 }

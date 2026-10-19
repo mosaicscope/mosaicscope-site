@@ -20,6 +20,8 @@ export function pickPart(sim: Simulation, z: number | null): WoundPart {
 
 /** Add a wound. `from` is where the blow came from (for the direction of a spray). */
 export function wound(sim: Simulation, c: Character, part: WoundPart, severity: 1 | 2 | 3, kind: WoundKind, by: number, fromX: number, fromY: number): Wound {
+  const protection=c.combat,armour=part==='head'?protection?.helmet:part==='torso'?protection?.vest:0;
+  if(protection&&armour){if(part==='head')protection.helmet=Math.max(0,protection.helmet-severity*15);else protection.vest=Math.max(0,protection.vest-severity*12);severity=Math.max(1,severity-1) as 1|2|3;if(severity===1)kind='bruise';}
   if (c.id === sim.playerId && part === "head" && kind !== "stab" && hasBody(sim.life.body, "mouthguard")) severity = Math.max(1, severity - 1) as 1 | 2 | 3;
   if (c.id === sim.playerId && sim.lifeFlags.injuryRecovery)
     sim.life.systems.injury = injure(sim.life.systems.injury, severity / 3, sim.tick);

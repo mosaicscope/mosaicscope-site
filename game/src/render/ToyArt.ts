@@ -10,6 +10,8 @@ export function drawToy(g: CanvasRenderingContext2D, def: string, x: number, y: 
       break;
     }
     case "frisbee": g.fillStyle = color; g.strokeStyle = "#eee4d3"; g.lineWidth = 0.08 * u; g.beginPath(); g.ellipse(x, y, 0.7 * u, 0.32 * u, 0, 0, 6.283); g.fill(); g.stroke(); break;
+    case "mace": case "baton":{const tx=x+Math.cos(angle)*2*u*dir,ty=y+Math.sin(angle)*2*u;g.strokeStyle='#6b5948';g.lineWidth=.23*u;g.beginPath();g.moveTo(x,y);g.lineTo(tx,ty);g.stroke();if(def==='mace'){g.fillStyle='#969b9b';g.strokeStyle='#354045';g.lineWidth=.08*u;g.beginPath();for(let i=0;i<16;i++){const a=i*Math.PI/8,r=(i%2?.45:.68)*u;i?g.lineTo(tx+Math.cos(a)*r,ty+Math.sin(a)*r):g.moveTo(tx+Math.cos(a)*r,ty+Math.sin(a)*r);}g.closePath();g.fill();g.stroke();}break;}
+    case "rifle":drawGun(g,'rifle',x,y,u,dir);break;
     case "foam_sword": case "noodle": {
       const len = def === "noodle" ? 2.6 * u : 2.2 * u, w = def === "noodle" ? 0.42 * u : 0.3 * u;
       g.strokeStyle = color; g.lineWidth = w;
@@ -175,6 +177,14 @@ function drawGun(g: CanvasRenderingContext2D, def: string, x: number, y: number,
       poly([[1.0, -0.3], [1.45, -0.3], [1.45, -0.12], [1.0, -0.12]], "#3a3430"); // barrel
       g.fillStyle = "#ff9a3d"; g.fillRect(Math.min(X(1.4), X(1.55)), Y(-0.3), 0.15 * u, 0.18 * u);
       break;
+    }
+    case "rifle": {
+      poly([[-1.2,-.3],[-.25,-.3],[-.25,.05],[-1.2,.28]],"#465344","#9a9b82");
+      poly([[-.25,-.4],[1.4,-.4],[1.4,.02],[-.25,.02]],"#303b38","#96a193");
+      poly([[.15,0],[.45,0],[.52,.6],[.22,.66]],"#252d2b","#7b8274");
+      poly([[-.2,0],[.05,0],[-.05,.6],[-.3,.6]],"#374137");
+      poly([[1.4,-.3],[2.2,-.3],[2.2,-.14],[1.4,-.14]],"#606b62","#a3aa9c");
+      guard(.2,.05,.18,"#9a9b82");break;
     }
     case "shotgun": {
       poly([[-1.3, -0.25], [-0.2, -0.3], [-0.2, 0.05], [-1.3, 0.35]], "#8a4a1c", "#c08040"); // wooden stock

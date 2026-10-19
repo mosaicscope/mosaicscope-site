@@ -146,7 +146,7 @@ export class InteriorCrowd {
       if (p.path.length) {
         const w = p.path[0], dx = w.x - p.x, dy = w.y - p.y, dist = Math.hypot(dx, dy), step = 1.35 * dt;
         if (dist <= step) { p.x = w.x; p.y = w.y; p.path.shift(); } else { p.x += (dx / dist) * step; p.y += (dy / dist) * step; }
-        p.speed = 1.35; p.pose = "walk"; p.lying = false; p.phase += 1.35 * dt * 5.5;
+        p.speed = 1.35; p.pose = "walk"; p.lying = false; p.phase += 1.35 * dt * 3.8;
         const sdx = dx - dy; if (Math.abs(sdx) > 0.02) p.dir = sdx >= 0 ? 1 : -1;
         if (!p.path.length) { if (p.leaving) { this.release(p); continue; } this.settle(p); p.poseT = 0; }
       } else if (p.leaving) { this.release(p); continue; }

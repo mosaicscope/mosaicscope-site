@@ -148,6 +148,7 @@ export function fireGun(sim: Simulation, c: Character, tx: number, ty: number, t
   const ws = def ? TOYS[def].weapon : undefined;
   if (!def || !ws?.gun) return false;
   if ((sim.nextAttack.get(c.id) ?? 0) > sim.tick) return false;
+  if(c.tier==='player'&&c.combat){const base=def==='golden_pistol'?'pistol':def,key=(c.combat.load??'standard')==='standard'?base:base+':'+c.combat.load,rounds=c.combat.ammo[key]??0;if(rounds<=0)return false;c.combat.ammo[key]=rounds-1;}
   const st = state(sim);
   let wait = ws.rate;
   const fired = (st.shots.get(c.id) ?? 0) + 1;
@@ -158,8 +159,13 @@ export function fireGun(sim: Simulation, c: Character, tx: number, ty: number, t
   const base = Math.atan2(ty - c.y, tx - c.x);
   c.facing = base; c.anim.pose = "shoot"; c.anim.poseT = 0;
   const steady = c.tier === "player" ? 1.1 : (0.7 + c.emo.confidence * 0.3) * (c.emo.fear > 0.5 ? 0.8 : 1);
-  const acc = clamp(ws.accuracy * steady, 0.05, 0.97);
-  const mx = c.x + Math.cos(base) * 0.5, my = c.y + Math.sin(base) * 0.5, mz = c.z + 1.2;
+  const recoil=c.combat?Math.max(0,(c.combat.recoil??0)-(sim.tick-(c.combat.recoilTick??0))/60*.9):0;
+  const moving=Math.min(1,Math.hypot(c.vx,c.vy)/2),hurt=c.wounds.filter(w=>w.part==='arm').reduce((sum,w)=>sum+w.severity,0);
+  const acc = clamp(ws.accuracy * steady - moving*.16 - hurt*.045 - recoil*.18, 0.05, 0.97);
+  if(c.combat){c.combat.recoil=Math.min(1.5,recoil+(def==='shotgun'?.55:def==='rifle'?.35:.2));c.combat.recoilTick=sim.tick;}
+  const kick=(def==='shotgun'?.18:.06)*(c.combat?.load==='heavy'?1.3:1);
+  c.kx-=Math.cos(base)*kick;c.ky-=Math.sin(base)*kick;
+  const mx = c.x + Math.cos(base) * (def==='rifle'||def==='shotgun'?.8:.5), my = c.y + Math.sin(base) * (def==='rifle'||def==='shotgun'?.8:.5), mz = c.z + 1.2;
   const dist = Math.min(ws.reach, Math.max(1, Math.hypot(tx - c.x, ty - c.y)));
   const pellets = ws.pellets ?? 1, speed = 18;
   for (let i = 0; i < pellets; i++) {
@@ -169,6 +175,7 @@ export function fireGun(sim: Simulation, c: Character, tx: number, ty: number, t
     const time = dist / speed, tz = 1.05 + sim.rng.gauss() * 0.2;
     b.vx = Math.cos(a) * speed; b.vy = Math.sin(a) * speed; b.vz = (tz - mz) / time + 0.5 * GRAVITY * time;
     b.state = "flying"; b.thrower = c.id; b.throwTick = sim.tick; b.angle = a;
+    b.load=c.combat?.load??'standard';
     if (targetId >= 0) sim.throwIntent.set(b.id, targetId); else sim.throwIntent.delete(b.id);
   }
   // muzzle flash, a spent casing, the bang
@@ -235,7 +242,8 @@ export function bulletHit(sim: Simulation, t: Toy, c: Character, nx: number, ny:
   const shooter = sim.chars[t.thrower];
   const gunDef = heldDef(sim, shooter);
   const gun = gunDef && isGun(gunDef) ? gunDef : "pistol";
-  const ws = TOYS[gun].weapon!;
+  const original=TOYS[gun].weapon!,factor=t.load==='rubber'?.4:t.load==='heavy'?1.3:1;
+  const ws={...original,damage:original.damage*factor,knockback:original.knockback*factor};
   // spent: out of play straight away (no bounce, no "broken toy" event)
   t.state = "broken"; t.brokenAt = sim.tick; t.holder = -1; t.vx = t.vy = t.vz = 0; t.durability = 1;
   const hx = t.x, hy = t.y, hz = t.z;
@@ -250,7 +258,7 @@ export function bulletHit(sim: Simulation, t: Toy, c: Character, nx: number, ny:
     const part = pickPart(sim, hz);
     const heavy = ws.damage >= 2.8;
     const sev = (part === "head" ? 3 : part === "torso" ? (heavy || sim.rng.chance(0.35) ? 3 : 2) : sim.rng.chance(heavy ? 0.8 : 0.55) ? 2 : 1) as 1 | 2 | 3;
-    wound(sim, c, part, sev, part === "head" ? "gash" : sev >= 2 ? "cut" : "graze", shooter?.id ?? -1, shooter?.x ?? hx, shooter?.y ?? hy);
+    wound(sim, c, part, t.load==='rubber'?1:sev, t.load==='rubber'?"bruise":part === "head" ? "gash" : sev >= 2 ? "cut" : "graze", shooter?.id ?? -1, shooter?.x ?? hx, shooter?.y ?? hy);
     // a bad hit puts them on the floor for a while (paramedics do the rest)
     if (sev >= 3 && c.tier !== "player" && c.phys !== Phys.DOWN) { c.phys = Phys.DOWN; c.physTimer = 5 + sim.rng.range(0, 4); c.vz = 2; c.stats.falls++; }
   }

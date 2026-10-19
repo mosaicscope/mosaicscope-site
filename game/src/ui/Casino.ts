@@ -91,6 +91,12 @@ function stackEl(amount: number, size = "", label = true): HTMLElement {
   ]);
 }
 
+/** Flat chips remain centred on a wager instead of projecting side-on stacks over numbers. */
+function betMarker(amount:number):HTMLElement {
+  const denomination=[...CHIPS].reverse().find(c=>amount>=c.v)??CHIPS[0];
+  return h("span.cx-bet-chip",{style:chipVars(denomination),text:chipLabel(amount),title:money(amount),"aria-label":money(amount)+" bet"});
+}
+
 /** Seven-segment LED meter drawn on an HD canvas. */
 const SEG: Record<string, string> = { "0": "abcdef", "1": "bc", "2": "abged", "3": "abgcd", "4": "fgbc", "5": "afgcd", "6": "afgedc", "7": "abc", "8": "abcdefg", "9": "abcdfg", "-": "g" };
 function ledEl(label: string, value: number, color = "#ff4a2e", cells = 8): HTMLElement {
@@ -456,7 +462,7 @@ export class Casino {
     const outside = (key: string, row: number, col: number, span: number, text?: string) => {
       const o = OUTSIDE[key], amt = betOn(o.numbers);
       return h(`button.cx-ro${key === "red" || key === "black" ? ".diamond." + key : ""}${win(o.numbers)}`, { style: at(row, col, span), onclick: () => place(o.numbers, o.label), "aria-label": `${o.label}, pays ${payoutFor(o.numbers)} to 1${amt ? `, ${money(amt)} bet` : ""}` }, [
-        key === "red" || key === "black" ? h("i") : h("span", { text: text ?? o.label.toUpperCase() }), amt ? stackEl(amt, ".sm", false) : null,
+        key === "red" || key === "black" ? h("i") : h("span", { text: text ?? o.label.toUpperCase() }), amt ? betMarker(amt) : null,
       ]);
     };
     // chips on inside bets sit where a croupier would put them: on the line, the corner or the street edge
@@ -464,12 +470,12 @@ export class Casino {
       const xy = b.numbers.filter((n) => n > 0).map((n) => [Math.floor((n - 1) / 3) + 0.5, 2 - ((n - 1) % 3) + 0.5]);
       let x = xy.reduce((s, p) => s + p[0], 0) / xy.length, y = xy.reduce((s, p) => s + p[1], 0) / xy.length;
       if (b.numbers.includes(0)) x = 0; else if (b.numbers.length === 3 || b.numbers.length === 6) y = 3;
-      const el = stackEl(b.amount, ".sm", false); el.style.left = `${(x / 12) * 100}%`; el.style.top = `${(y / 3) * 100}%`;
+      const el = betMarker(b.amount); el.style.left = `${(x / 12) * 100}%`; el.style.top = `${(y / 3) * 100}%`;
       return el;
     }));
     const zeroAmt = betOn([0]);
     const board = h("div.cx-layout", { role: "group", "aria-label": "Roulette layout" }, [
-      h(`button.cx-rn.green.zero${win([0]) && this.rLast === 0 ? ".hit" : ""}`, { style: at(1, 1, 1, 3), onclick: () => (this.rMode === "split" ? clickNumber(0) : place([0], "Straight 0")), "aria-label": `0 green${zeroAmt ? `, ${money(zeroAmt)} bet` : ""}` }, [h("span", { text: "0" }), zeroAmt ? stackEl(zeroAmt, ".sm", false) : null]),
+      h(`button.cx-rn.green.zero${win([0]) && this.rLast === 0 ? ".hit" : ""}`, { style: at(1, 1, 1, 3), onclick: () => (this.rMode === "split" ? clickNumber(0) : place([0], "Straight 0")), "aria-label": `0 green${zeroAmt ? `, ${money(zeroAmt)} bet` : ""}` }, [h("span", { text: "0" }), zeroAmt ? betMarker(zeroAmt) : null]),
       ...cells,
       outside("c3", 1, 14, 1, "2 TO 1"), outside("c2", 2, 14, 1, "2 TO 1"), outside("c1", 3, 14, 1, "2 TO 1"),
       outside("d1", 4, 2, 4, "1st 12"), outside("d2", 4, 6, 4, "2nd 12"), outside("d3", 4, 10, 4, "3rd 12"),
@@ -520,12 +526,14 @@ export class Casino {
     const idx = WHEEL_ORDER.indexOf(result), step = (Math.PI * 2) / 37;
     const dur = reducedMotion() ? 300 : 5200, t0 = performance.now(), startRot = this.rRot % (Math.PI * 2);
     const endRot = startRot + Math.PI * 2 * 2 + rnd() * Math.PI * 2;
-    const ballEnd = endRot + idx * step + step / 2 - Math.PI / 2, ballStart = ballEnd - Math.PI * 2 * 6; // ball runs against the wheel
+    const ballEnd = endRot + idx * step + step / 2 - Math.PI / 2, ballStart = ballEnd + Math.PI * 2 * 6; // ball runs against the wheel
     this.render();
     const anim = () => {
       const t = Math.min(1, (performance.now() - t0) / dur);
       this.rRot = startRot + (endRot - startRot) * (1 - Math.pow(1 - t, 3));
-      this.rBall = ballStart + (ballEnd - ballStart) * (1 - Math.pow(1 - t, 4));
+      const lock=Math.max(0,(t-.85)/.15);
+      const free=ballStart+(ballEnd-ballStart)*(1-Math.pow(1-t,3));
+      this.rBall=free*(1-lock)+(this.rRot+idx*step+step/2-Math.PI/2)*lock;
       const f = Math.min(1, Math.max(0, (t - 0.6) / 0.3)); // ball leaves the track, rattles over the deflectors, drops into the pocket
       this.rBallR = TRACK_R - (TRACK_R - POCKET_R) * f * f * (3 - 2 * f) + (f > 0 && f < 1 ? Math.sin(f * Math.PI * 4) * 5 * (1 - f) : 0);
       const cv = this.el.querySelector("canvas.cx-wheel") as HTMLCanvasElement | null;

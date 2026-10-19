@@ -47,6 +47,7 @@ interface Shape {
 }
 const SEDAN: Shape = { cf: 0.24, cr: 0.16, hood: 0.5, deck: 0.56, cab: [-0.27, 0.17], roof: [-0.15, -0.02], cw: 0.88, rw: 0.74, wheel: 0.27 };
 const SHAPES: Record<VehicleClass, Shape> = {
+  tank:{...SEDAN,boxy:true},
   hatch: { cf: 0.28, cr: 0.12, hood: 0.5, deck: 0.6, cab: [-0.47, 0.19], roof: [-0.43, -0.03], cw: 0.88, rw: 0.76, wheel: 0.27 },
   sedan: SEDAN,
   taxi: SEDAN,
@@ -203,6 +204,13 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const x = v.px + (v.x - v.px) * alpha, y = v.py + (v.y - v.py) * alpha;
   const z = cam.zoom, ang = v.heading;
   const k: Ctx = { g, cam, x, y, c: Math.cos(ang), s: Math.sin(ang) };
+  if(v.cls==='tank'){
+    const L=d.length,hw=d.width/2;
+    for(const side of[-1,1]){const y=side*(hw-.14),lo=ring(-L/2,L/2,.18,.1,.1,()=>.08).map(p=>[p[0],p[1]+y,p[2]] as V3),hi=lo.map(p=>[p[0],p[1],.52] as V3);loft(k,lo,hi,()=> '#2b302c','#171e1b');cap(k,hi,rgb('#414a40'));for(let i=0;i<5;i++)wheel(k,-L*.36+i*L*.18,side*hw,.18,side>0,time*v.speed,'#68715b');}
+    const hull=ring(-L*.48,L*.45,hw*.85,.18,.12,()=>.4),top=ring(-L*.4,L*.32,hw*.77,.22,.15,()=>.9);loft(k,hull,top,()=>v.color,'#333d30');cap(k,top,rgb(v.color));
+    const turret=ring(-.6,.45,.42,.2,.2,()=>.9),roof=ring(-.5,.35,.35,.2,.2,()=>1.3);loft(k,turret,roof,()=> '#59664d','#33402e');cap(k,roof,rgb('#7b8769'));
+    fillPoly(k,[[.2,-.09,1.17],[L*.85,-.09,1.17],[L*.85,.09,1.17],[.2,.09,1.17]],'#8c977a');fillPoly(k,[[.2,.09,1.04],[L*.85,.09,1.04],[L*.85,.09,1.17],[.2,.09,1.17]],'#3f4b37');return;
+  }
   // drawn size only: the simulation still uses the class dimensions, so movement and collisions are unchanged
   const L = d.length * M.scale * (mods.includes("Limousine chassis")?1.35:1), hw = (d.width / 2) * M.scale, H = d.height * 1.08 * M.scale * (mods.includes("Double deck")?1.6:1);
   // crumple zones: a hit end is pushed in (Traffic.bump records where the car was hit)

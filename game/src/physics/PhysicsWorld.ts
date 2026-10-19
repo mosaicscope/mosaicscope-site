@@ -173,7 +173,7 @@ export class PhysicsWorld {
       const c = chars[this.tmp[k]];
       if (!c || c.id === t.holder || c.id === t.tether) continue;
       if (c.id === t.thrower && tick - t.throwTick < 25) continue;
-      if (c.tier === "background") continue; // background silhouettes are scenery-level
+      if(c.inside>=0||c.inCar>=0)continue;
       const dx = c.x - t.x, dy = c.y - t.y, d = Math.sqrt(dx * dx + dy * dy) || 0.001;
       if (d > c.radius + t.radius) continue;
       if (c.z > t.z + 0.3) continue;

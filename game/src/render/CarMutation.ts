@@ -1,14 +1,14 @@
 import type { VehicleClass } from "../content/vehicles";
 
 /**
- * Per-car "mutation": a deterministic, purely visual exaggeration of a car's size and layout,
+ * Subtle per-car manufacturing variation,
  * derived from its plate so the same car always looks the same. Drawing (Cars.ts) and sound
  * (Diegetic.ts) read it; the simulation never does, so traffic movement and collisions are unchanged.
  */
 export interface CarMutation {
-  scale: number;        // drawn size multiplier (micro ≈ 0.55, monstrous ≈ 2.2)
-  axles: 1 | 2 | 3;     // 1 = single-wheel micro-car, 3 = long multi-axle monster
-  cabins: 1 | 2 | 3;    // extra glasshouse pods stacked on the body
+  scale: number;        // within three percent of class dimensions
+  axles: 1 | 2 | 3;     // standard two-axle chassis
+  cabins: 1 | 2 | 3;    // one glasshouse
   rumble: number;       // low-end gain multiplier for the engine voice
   pitch: number;        // engine pitch multiplier (bigger = lower)
 }
@@ -27,15 +27,9 @@ export function carMutationOf(plate: string, cls: VehicleClass): CarMutation {
   const key = `${cls}|${plate}`;
   const hit = cache.get(key);
   if (hit) return hit;
-  // Emergency and work vehicles stay near their real proportions so their livery still reads.
-  const tame = cls === "police" || cls === "ambulance" || cls === "fire" || cls === "bus" || cls === "bin";
-  const u = hashUnit(key, 1);
-  // Skew towards normal sizes: square the unit so most cars are near 1, with rare extremes at both ends.
-  const spread = (u * 2 - 1);
-  const scale = tame ? 0.95 + hashUnit(key, 2) * 0.15 : 1 + Math.sign(spread) * Math.abs(spread) ** 2 * 0.8 + (hashUnit(key, 3) - 0.5) * 0.12;
-  const clamped = Math.max(0.55, Math.min(2.2, scale));
-  const axles: 1 | 2 | 3 = clamped < 0.8 ? 1 : clamped > 1.85 ? 3 : 2;
-  const cabins: 1 | 2 | 3 = clamped > 1.5 ? (hashUnit(key, 4) < 0.5 ? 2 : 3) : clamped > 1.15 && hashUnit(key, 5) < 0.3 ? 2 : 1;
+  // Class dimensions carry real size differences; plates only add manufacturing variation.
+  const clamped = .97 + hashUnit(key, 2) * .06;
+  const axles = 2, cabins = 1;
   const m: CarMutation = {
     scale: clamped,
     axles,

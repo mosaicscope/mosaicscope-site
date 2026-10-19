@@ -16,6 +16,7 @@ export interface WeaponStats {
   stun?: number;      // seconds of stun (taser)
   /** firearm: muzzle flash, casings, bang, bullets that wound (see sim/Turf.ts) */
   gun?: boolean;
+  mode?:"semi"|"auto"|"pump";
   mag?: number;       // rounds before a reload pause
   reload?: number;    // seconds to reload
   pellets?: number;   // projectiles per shot (shotgun)
@@ -57,6 +58,11 @@ export const TOYS: Record<string, ToyDef> = {
   spring: T({ id: "spring", name: "jack-in-the-box", uses: ["spring", "throw"], radius: 0.22, mass: 0.5, restitution: 0.9, friction: 1.5, durability: 40, color: "#f6b62c", punch: 2, spawn: 2, value: 18 }),
   water_balloon: T({ id: "water_balloon", name: "water balloon", uses: ["throw"], radius: 0.15, mass: 0.5, restitution: 0.05, friction: 3, durability: 3, color: "#3dd6ff", punch: 1.5, material: "rubber", spawn: 3, value: 2 }),
   skateboard: T({ id: "skateboard", name: "skateboard", category: "valuable", uses: ["valuable", "throw"], radius: 0.3, mass: 2, restitution: 0.3, friction: 1, durability: 200, color: "#c6ff3d", punch: 3, material: "wood", spawn: 1, value: 120 }),
+  cannonball:T({id:'cannonball',name:'tank shell',uses:['projectile','heavy','breakable'],portable:false,category:'weapon',radius:.15,mass:2,durability:1,restitution:0,color:'#d6b870',punch:12,value:0}),
+  fists:T({id:'fists',name:'unarmed strike',category:'weapon',uses:['melee'],portable:false,value:0,spawn:0,weapon:{damage:.8,reach:1.35,rate:.4,knockback:1.7,accuracy:1,blood:0}}),
+  baton:T({id:'baton',name:'baton',category:'weapon',uses:['melee'],value:180,material:'metal',durability:400,color:'#343c43',weapon:{damage:1.7,reach:1.45,rate:.65,knockback:5,accuracy:1,blood:.2}}),
+  mace:T({id:'mace',name:'cartoon mace',category:'weapon',uses:['melee'],value:450,material:'metal',durability:500,color:'#8b9294',mass:1.8,weapon:{damage:2.6,reach:1.4,rate:1.1,knockback:8,accuracy:1,blood:.5}}),
+  rifle:T({id:'rifle',name:'semi-auto rifle',category:'weapon',uses:['ranged'],value:3200,material:'metal',durability:1200,color:'#596453',weapon:{damage:3,reach:18,rate:.4,knockback:5,accuracy:.93,blood:.7,ammo:'bullet',gun:true,mode:'semi',mag:20,reload:2}}),
   // ---- melee weapons
   foam_sword: T({ id: "foam_sword", name: "foam sword", category: "weapon", uses: ["melee"], radius: 0.25, durability: 45, color: "#c6ff3d", punch: 4, material: "foam", spawn: 4, value: 15,
     weapon: { damage: 1, reach: 1.25, rate: 0.55, knockback: 4, accuracy: 1, blood: 0 }, blurb: "Light, fast, harmless. Mostly." }),
@@ -99,9 +105,9 @@ export const TOYS: Record<string, ToyDef> = {
   revolver: T({ id: "revolver", name: "revolver", category: "weapon", uses: ["ranged"], radius: 0.18, mass: 1.1, durability: 1200, color: "#9a8d80", punch: 0, material: "metal", value: 900,
     weapon: { damage: 3.2, reach: 13, rate: 0.85, knockback: 6.5, accuracy: 0.86, blood: 0.9, ammo: "bullet", gun: true, mag: 6, reload: 2.2 }, blurb: "Six shots, big kick, slow reload. Very cowboy." }),
   smg: T({ id: "smg", name: "SMG", category: "weapon", uses: ["ranged"], radius: 0.2, mass: 1.6, durability: 900, color: "#0e0b0a", punch: 0, material: "metal", value: 2200,
-    weapon: { damage: 1.5, reach: 10, rate: 0.11, knockback: 2.5, accuracy: 0.5, blood: 0.7, ammo: "bullet", gun: true, mag: 25, reload: 1.8 }, blurb: "Sprays more than it aims." }),
+    weapon: { damage: 1.5, reach: 10, rate: 0.11, knockback: 2.5, accuracy: 0.5, blood: 0.7, ammo: "bullet", gun: true, mode:"auto", mag: 25, reload: 1.8 }, blurb: "Sprays more than it aims." }),
   shotgun: T({ id: "shotgun", name: "pump shotgun", category: "weapon", uses: ["ranged"], radius: 0.3, mass: 2.4, durability: 1200, color: "#6b3a12", punch: 0, material: "metal", value: 1600,
-    weapon: { damage: 2.2, reach: 7, rate: 1.05, knockback: 8.5, accuracy: 0.6, blood: 0.9, ammo: "buckshot", gun: true, mag: 6, reload: 2.6, pellets: 6, spread: 0.22 }, blurb: "Chk-chk. Short range, knocks people off their feet." }),
+    weapon: { damage: 2.2, reach: 7, rate: 1.05, knockback: 8.5, accuracy: 0.6, blood: 0.9, ammo: "buckshot", gun: true, mode:"pump", mag: 6, reload: 2.6, pellets: 6, spread: 0.22 }, blurb: "Chk-chk. Short range, knocks people off their feet." }),
   golden_pistol: T({ id: "golden_pistol", name: "golden pistol", category: "weapon", uses: ["ranged"], radius: 0.16, mass: 1.6, durability: 600, color: "#f6b62c", punch: 0, material: "metal", value: 25000,
     weapon: { damage: 2.4, reach: 11, rate: 0.55, knockback: 4, accuracy: 0.42, blood: 0.8, ammo: "bullet", gun: true, mag: 7, reload: 1.6 }, blurb: "Solid gold, terrible aim. Shoots sparkles as well as bullets. Pure flex." }),
   bullet: T({ id: "bullet", name: "bullet", uses: ["projectile"], radius: 0.06, mass: 0.05, restitution: 0, friction: 3, durability: 1, color: "#fff6c8", punch: 3, material: "metal", portable: false, value: 0 }),

@@ -80,7 +80,7 @@ export class InteriorOverlay {
     this.el = h("div.iv.hidden", { role: "dialog", "aria-label": "Interior" }, [
       this.cv,
       h("div.iv-top", null, [h("div.iv-head", null, [this.titleEl, this.zoneEl]), h("div.iv-meta", null, [this.clockEl, this.cashEl]), leave]),
-      this.needsEl, this.capEl, this.actionsEl, zone, this.stickEl, this.promptBtn,
+      this.needsEl, this.capEl, this.actionsEl, this.promptBtn,
     ]);
     // never let gestures reach the world canvas beneath, and never let the page zoom
     for (const ev of ["wheel", "contextmenu", "dblclick", "gesturestart"]) this.el.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
@@ -282,7 +282,7 @@ export class InteriorOverlay {
     }
     if(this.path.length)spd=WALK;
     me.speed = spd; me.pose = spd > 0.2 ? (spd > 3.6 ? "run" : "walk") : this.t<this.actionUntil?this.actionPose:"idle";
-    if (spd > 0.2) { me.phase += spd * dt * 5.5; me.poseT = 0; } else me.poseT += dt;
+    if (spd > 0.2) { me.phase += spd * dt * 3.8; me.poseT = 0; } else me.poseT += dt;
     // walking into the doorway leaves
     if (me.x < 0.5 && Math.abs(me.y - def.door.y) < 0.85 && pushW) { this.close(); return; }
     // proximity

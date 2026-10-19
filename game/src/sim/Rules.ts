@@ -85,6 +85,12 @@ export function installRules(sim: Simulation): void {
       }
     },
     onToyBreak(t: Toy, by: number) {
+      if(t.def==='cannonball'){
+        fx.emit('fx',{kind:'impact',x:t.x,y:t.y,z:.4,n:24,color:'#e6b15d'});fx.emit('fx',{kind:'dust',x:t.x,y:t.y,z:.1,n:20});
+        const n=sim.charHash.query(t.x,t.y,2.8,tmp),att=sim.chars[by];
+        for(const id of tmp.slice(0,n)){const v=sim.chars[id],dist=Math.hypot(v.x-t.x,v.y-t.y);if(dist>2.8)continue;const norm=Math.max(.1,dist),res=applyImpact(v,8*(1-dist/3),(v.x-t.x)/norm,(v.y-t.y)/norm,false,sim.cfg.maxImpulse,2);if(att)sim.onImpact(att,v,'cannonball',res,false);if(dist<1.8)wound(sim,v,'leg',2,'graze',by,t.x,t.y);}
+        for(const v of sim.vehicles){const d=Math.hypot(v.x-t.x,v.y-t.y);if(d<3)v.damage=Math.min(1,v.damage+.3*(1-d/3));}return;
+      }
       fx.emit("fx", { kind: "break", x: t.x, y: t.y, z: t.z + 0.2, color: t.color, n: 14 });
       fx.emit("sound", { kind: "break_" + TOYS[t.def].material, x: t.x, y: t.y, vol: 0.8 });
       if (t.def === "dart") return;
@@ -142,10 +148,12 @@ export function installRules(sim: Simulation): void {
     if (melee && ws && ws.blood > 0 && sim.rng.chance(ws.blood)) {
       const part = pickPart(sim, null);
       const sev = (def === "knife" ? 3 : ws.damage >= 1.8 ? (part === "head" ? 2 : sim.rng.chance(0.5) ? 2 : 1) : 1) as 1 | 2 | 3;
-      wound(sim, v, part, sev, def === "knife" ? "stab" : part === "head" ? "gash" : sev >= 2 ? "cut" : "bruise", att.id, att.x, att.y);
+      const fracture=ws.damage>=2.4&&(part==='arm'||part==='leg');
+      wound(sim, v, part, fracture?3:sev, fracture?"fracture":def === "knife" ? "stab" : part === "head" ? "gash" : sev >= 2 ? "cut" : "bruise", att.id, att.x, att.y);
       if (def === "knife" || sev >= 2) commitCrime(sim, att, "assault", v);
     } else if (melee && ws && ws.damage >= 1.5 && !spar && v.tier !== "player" && att.tier === "player") commitCrime(sim, att, "assault", v);
     if (res.down) {
+      if(!v.wounds.some(w=>w.part==='leg'))wound(sim,v,'leg',1,'graze',att.id,att.x,att.y);
       fx.emit("fx", { kind: "star", x: v.x, y: v.y, z: 1.6, n: 5 });
       if (v.hand >= 0) { const toy = sim.toys[v.hand]; drop(v, toy); toy.vx = -Math.cos(v.facing) * 2; toy.vy = -Math.sin(v.facing) * 2; toy.vz = 3; if (toy.owner === v.id) { toy.lostBy = v.id; remember(v, { t: tick, kind: "lost_item", subj: v.id, obj: -1, toy: toy.def, area, val: -0.4, ev: -1, src: "did" }); } }
       sim.say(v, sim.dialogue.bark(v, "down"), "shout", 1.6);

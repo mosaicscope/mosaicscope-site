@@ -19,10 +19,12 @@ export interface TouchHost {
   brake?(held: boolean): void;
   /** Zoom the camera in (+1) or out (-1); used by the on-screen zoom buttons. */
   zoom?(dir: number): void;
+  fire?(held:boolean):void;
+  armedVehicle?():boolean;
 }
 
 /** The joystick captures its own zone; the rest of the city keeps tap-to-walk and pinch gestures. */
-const STICK_ON = true;
+const STICK_ON = false;
 
 const SVG = (d: string) => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const ICONS: Record<string, string> = {
@@ -66,6 +68,7 @@ export class TouchControls {
   // stick state
   private stickId = -1; private ox = 0; private oy = 0; private sx = 0; private sy = 0; private sprinting = false; private sentZero = true;
   // car pedals
+  private steering = 0;
   private gas = false; private brakeHeld = false;
   private lastCtx = ""; private lastCar: boolean | null = null;
 
@@ -137,12 +140,6 @@ export class TouchControls {
     };
 
     // on foot
-    const foot = [
-      arc(small("foot t-throw", "throw", "Throw", () => { buzz(14); this.host.action("throw"); }), 192),
-      arc(small("foot t-swing", "swing", "Swing", () => { buzz([10, 20, 18]); this.host.action("swing"); }), 162),
-      arc(small("foot t-talk", "talk", "Talk", () => { buzz(8); this.host.action("talk"); }), 132),
-      arc(small("foot t-rob", "rob", "Rob", () => { buzz(12); this.host.action("rob"); }), 102),
-    ];
     // in a car
     const gasBtn = el("button", "tc-btn tc-ctx tc-gas car");
     const gi = el("span", "tc-ico"); gi.innerHTML = ICONS.gas;
@@ -152,6 +149,7 @@ export class TouchControls {
     const exitBtn = small("car t-exit", "exit", "Exit", () => { buzz(18); this.host.action("use"); });
     this.exitLabel = exitBtn.querySelector(".tc-lbl") as HTMLElement;
     const car = [
+      small("car t-cannon","throw","Fire cannon",()=>this.host.action("throw")),
       arc(small("car t-brake", "brake", "Brake", () => buzz(12), (on) => { this.brakeHeld = on; if (this.host.brake) this.host.brake(on); }), 186, 116),
       arc(small("car t-horn", "horn", "Horn", () => { buzz([30, 20, 30]); this.host.action("horn"); }), 146, 116),
       arc(exitBtn, 106, 116),
@@ -170,11 +168,13 @@ export class TouchControls {
       return b;
     };
     this.sheet.append(
+      item("swing","Attack","swing","foot"),item("throw","Fire / throw","throw","foot"),item("talk","Talk","talk","foot"),item("rob","Rob","rob","foot"),
       item("pickup", "Pick up", "pickup", "foot"), item("drop", "Drop", "drop", "foot"), item("bandage", "Bandage", "bandage", "foot"),
       item("horn", "Horn", "horn"), item("map", "Map", "map"),
     );
 
-    cluster.append(...foot, ...car, more, this.ctxBtn, gasBtn, this.sheet);
+    const attack=small('foot t-attack','swing','Attack / fire',()=>this.host.action('swing'),on=>this.host.fire?.(on));
+    cluster.append(...car, attack, more, this.ctxBtn, gasBtn, this.sheet);
     // on-screen zoom buttons: pinch can fail on some phones, these always work
     const zoomBox = el("div", "tc-zoom");
     for (const [txt, dir, label] of [["+", 1, "Zoom in"], ["\u2212", -1, "Zoom out"]] as const) {
@@ -182,7 +182,11 @@ export class TouchControls {
       b.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); this.host.zoom?.(dir); });
       zoomBox.append(b);
     }
-    this.el.append(this.zone, cluster, zoomBox);
+    const steering=el('div','tc-steering car');
+    for(const [text,dir]of[['←',-1],['→',1]] as const){const b=el('button','tc-btn tc-steer',text);b.setAttribute('aria-label',dir<0?'Steer left':'Steer right');this.press(b,()=>{},on=>{this.steering=on?dir:0;});steering.append(b);}
+    this.el.append(cluster,zoomBox,steering);
+    window.addEventListener('blur',()=>{this.gas=false;this.brakeHeld=false;this.steering=0;this.host.move(0,0);this.host.fire?.(false);});
+    const hint=el('div','tc-walk-hint','Tap the street to walk');this.el.append(hint);
 
     // nothing we touch leaks into the canvas / page handlers
     for (const t of ["pointerdown", "pointerup", "pointermove", "click", "dblclick", "contextmenu", "touchstart", "touchend", "touchmove", "wheel"]) {
@@ -196,17 +200,18 @@ export class TouchControls {
   update(): void {
     if (!this.el.classList.contains("on")) return;
     const inCar = this.host.inCar();
+    this.el.classList.toggle("armed",!!this.host.armedVehicle?.());
     if (inCar !== this.lastCar) {
       this.lastCar = inCar;
       this.el.classList.toggle("in-car", inCar);
       this.toggleSheet(false);
-      if (!inCar) { this.gas = false; this.brakeHeld = false; }
+      if (!inCar) { this.gas = false; this.brakeHeld = false; this.steering=0; }
     }
     // stick / pedals
     if (inCar) {
       const brakeY = this.host.brake ? 0 : 1;
       const y = this.gas ? -1 : this.brakeHeld ? brakeY : 0;
-      const x = this.stickId >= 0 ? this.sx : 0;
+      const x = this.steering;
       if (x || y) { this.host.move(x, y); this.sentZero = false; }
       else if (!this.sentZero) { this.host.move(0, 0); this.sentZero = true; }
     } else if (this.stickId >= 0) {

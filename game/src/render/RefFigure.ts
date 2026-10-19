@@ -120,7 +120,7 @@ export function moodOf(c: Character): Mood {
   return "neutral";
 }
 
-export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpec, k: number, dir: number, alpha: number, hd: boolean, flash: boolean): void {
+export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpec, k: number, dir: number, alpha: number, hd: boolean, flash: boolean, gripped = false): void {
   const lw = Math.max(1.1, 2.3 * k);
   const ink = flash ? "#ffffff" : INK;
   g.globalAlpha = alpha; g.lineCap = "round"; g.lineJoin = "round";
@@ -136,9 +136,9 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
 
   // A limb point relative to its root: keep the part along the spine, send the sideways part out to its own side,
   // so the figure stands open and front-facing like the drawing while poses still move it.
-  const splay = (rx: number, ry: number, x: number, y: number, side: number, out: number): [number, number] => {
+  const splay = (rx: number, ry: number, x: number, y: number, side: number, out: number, articulated = false): [number, number] => {
     const dx = x - rx, dy = y - ry, along = dx * ux / len + dy * uy / len, lat = dx * px + dy * py;
-    const l = side * (Math.abs(lat) + out);
+    const l = articulated ? lat + side * out : side * (Math.abs(lat) + out);
     return [rx + (ux / len) * along + px * l, ry + (uy / len) * along + py * l];
   };
 
@@ -146,7 +146,7 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
   for (const [kn, ft, side] of [[16, 18, -1], [20, 22, 1]] as const) {
     const o = bw * 0.55 * side, ox = px * o, oy = py * o;
     const rx = hx + ox, ry = hy + oy;
-    const kp = splay(rx, ry, J[kn] + ox, J[kn + 1] + oy, side, bw * 0.15), fp = splay(rx, ry, J[ft] + ox, J[ft + 1] + oy, side, bw * 0.35);
+    const kp = splay(rx, ry, J[kn] + ox, J[kn + 1] + oy, side, bw * 0.08, true), fp = splay(rx, ry, J[ft] + ox, J[ft + 1] + oy, side, bw * 0.12, true);
     const pts = [rx, ry, kp[0], kp[1], fp[0], fp[1]];
     halo(pts, lw); line(pts, lw, limbCol);
     g.fillStyle = flash ? "#ffffff" : INK;
@@ -192,11 +192,12 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
   for (const [el, hn, side] of [[8, 10, -1], [12, 14, 1]] as const) { // arms leave from each shoulder and splay outward
     const o = bw * 0.85 * side, ox = px * o, oy = py * o;
     const rx = sx + ox, ry = sy + oy;
-    const ep = splay(rx, ry, J[el] + ox, J[el + 1] + oy, side, bw * 0.6), hp = splay(rx, ry, J[hn] + ox, J[hn + 1] + oy, side, bw * 1.4);
+    const ep = gripped ? [J[el], J[el+1]] : splay(rx, ry, J[el] + ox, J[el + 1] + oy, side, bw * 0.6), hp = gripped ? [J[hn],J[hn+1]] : splay(rx, ry, J[hn] + ox, J[hn + 1] + oy, side, bw * 1.4);
     const pts = [rx, ry, ep[0], ep[1], hp[0], hp[1]];
     halo(pts, lw); line(pts, lw, limbCol);
     const ax = pts[4] - pts[2], ay = pts[5] - pts[3], al = Math.hypot(ax, ay) || 1, dx = ax / al, dy = ay / al;
-    const cx = pts[4] + dx * 2 * k, cy = pts[5] + dy * 2 * k;
+    const cx = pts[4] + dx * (gripped ? 0 : 2 * k), cy = pts[5] + dy * (gripped ? 0 : 2 * k);
+    J[el]=ep[0];J[el+1]=ep[1];J[hn]=cx;J[hn+1]=cy;
     g.fillStyle = limbCol; g.strokeStyle = INK; g.lineWidth = Math.max(0.6, 0.8 * k); g.beginPath(); g.arc(cx, cy, 2.8 * k, 0, 6.283); g.fill(); g.stroke();
     g.strokeStyle = limbCol; g.lineWidth = Math.max(0.8, 1.5 * k); g.beginPath();
     for (const a of [-0.9, -0.3, 0.3, 0.9]) { // four splayed fingers

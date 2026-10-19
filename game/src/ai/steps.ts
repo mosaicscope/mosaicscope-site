@@ -1,3 +1,4 @@
+import {equipmentPace} from "../content/combat";
 import type { Simulation } from "../sim/Simulation";
 import { ActiveGoal, Character, Phys, Step } from "../entities/types";
 import { TOYS, canThrow, isMelee } from "../content/toys";
@@ -23,7 +24,7 @@ export function moveTo(c: Character, x: number, y: number, sim: Simulation, arri
       c.pathReq = id;
     }
   }
-  const spd = c.speed * speedMul * (0.7 + c.needs.energy * 0.3);
+  const spd = c.speed * equipmentPace(c,sim.toys) * speedMul * (0.7 + c.needs.energy * 0.3);
   if (c.path && c.pathIdx * 2 < c.path.length) {
     let wx = c.path[c.pathIdx * 2], wy = c.path[c.pathIdx * 2 + 1];
     const wd = Math.hypot(wx - c.x, wy - c.y);

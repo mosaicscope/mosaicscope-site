@@ -64,6 +64,8 @@ export function drawAd(g: CanvasRenderingContext2D, kind: AdKind, cx: number, by
   const x0 = cx - w / 2, y0 = by - h;
   const night = dark > 0.3;
   g.save();
+  g.globalAlpha = 1; g.globalCompositeOperation = "source-over";
+  g.beginPath(); g.rect(x0,y0,w,h); g.clip();
   g.textBaseline = "middle"; g.textAlign = "left";
   if (kind === "mosaic") {
     g.fillStyle = "#eee4d3"; g.fillRect(x0, y0, w, h);
