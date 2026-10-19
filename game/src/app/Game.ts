@@ -1,6 +1,6 @@
 import {equipmentPace} from "../content/combat";
 import { Armory } from "../ui/Armory";
-import { unarmedMove } from "../content/combat";
+import { UNARMED, unarmedMove } from "../content/combat";
 import { Welcome } from "../ui/Welcome";
 import { UpgradeAmbience } from "../audio/UpgradeAmbience";
 import { EventReplay } from "../ui/EventReplay";
@@ -348,6 +348,8 @@ export class Game {
     if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; kids.push(h("div.car", null, [h("b", { text: String(Math.round(Math.abs(v.speed) * 7.2)) }), " km/h · " + VEHICLES[v.cls].name + (v.flatLeft || v.flatRight ? " · FLAT TYRE" : "") + ((v.heat ?? 0) > 0.5 ? " · ENGINE HOT: pull over" : "")])); }
     if (p.bleed > 0) kids.push(h("div.car", { text: "You're bleeding. B to bandage." }));
     kids.push(h("button.btn",{text:this.sim.expansion.pending?"Nearby story · Play":"City fun & stories",onclick:()=>this.activities.show("Explore")}));
+    if(p.hand>=0){const d=sim.toys[p.hand].def,w=TOYS[d].weapon;if(w?.gun){const base=d==='golden_pistol'?'pistol':d,load=p.combat?.load??'standard',key=load==='standard'?base:base+':'+load;kids.push(h('div.combat-status',{text:`${TOYS[d].name} · ${p.combat?.ammo[key]??'∞'} rounds · ${w.mode??'semi'}`}));}}
+    kids.push(h("button.btn.combat-help",{text:"Fight / gun controls",onclick:()=>this.openCombatControls()}));
     const obj = this.objective(); if (obj) kids.push(h("div.car.obj", { text: obj }));
     this.hudEl.replaceChildren(...kids);
     this.hudEl.classList.toggle("beside-log", !this.log.el.classList.contains("hidden"));
@@ -810,12 +812,15 @@ export class Game {
     const parts: (HTMLElement | string)[] = [];
     const kb = (s: string) => h("kbd", { text: s === " " ? "Space" : s.toUpperCase() });
     if (p.inCar >= 0) { this.hintEl.replaceChildren(kb("W"), "/", kb("S"), " drive · ", kb("A"), "/", kb("D"), " steer · ", kb(" "), " brake · ", kb("H"), " horn · ", kb(k.pickup), " get out"); return; }
+    if(p.hand<0)parts.push(kb(k.swing),` ${unarmedMove(p.combat?.style,p.combat?.xp).name.toLowerCase()} nearby person · `);
     const door = this.nearDoor();
     if (door) parts.push(kb(k.pickup), " go into ", h("b", { text: door.studio ? "MosaicScope Studio" : sim.world.buildings[door.building].name }), " · ");
     else { const car = nearestCar(sim, p.x, p.y, 2.2); if (car && !this.nearestToy()) parts.push(kb(k.pickup), car.forSale ? " (for sale) " : car.owner === p.id ? " get in your car · " : " steal the car · "); }
     if (p.hand >= 0) {
       const d = sim.toys[p.hand].def;
       parts.push("Holding ", h("b", { text: TOYS[d].name }), " · ");
+      const gun=TOYS[d].weapon;
+      if(gun?.gun){const base=d==='golden_pistol'?'pistol':d,load=p.combat?.load??'standard',key=load==='standard'?base:base+':'+load;parts.push(kb(k.throw),gun.mode==='auto'?" hold to fire · ":" fire · ",`${p.combat?.ammo[key]??'∞'} rounds · ${gun.mode??'semi'} · select person to aim · `);}
       if (canThrow(d)) parts.push(kb(k.throw), " throw at cursor · ");
       if (isMelee(d)) parts.push(kb(k.swing), " swing · ");
       parts.push(kb(k.drop), " drop · ");
@@ -1048,6 +1053,7 @@ export class Game {
   // ------------------------------------------------------------------ touch controls
   private touchMove = { x: 0, y: 0 }; private touchBrake = false; private touchFire=false; private ammoAlertAt=0;
   private touch = new TouchControls({
+    attackLabel:()=>{const p=this.sim.player,d=p.hand>=0?TOYS[this.sim.toys[p.hand].def]:undefined;return d?.weapon?.gun?'Fire':d&&p.hand>=0&&isMelee(this.sim.toys[p.hand].def)?'Strike':unarmedMove(p.combat?.style,p.combat?.xp).name;},
     fire: held=>{this.touchFire=held;},
     armedVehicle:()=>this.sim.player.inCar>=0&&this.sim.vehicles[this.sim.player.inCar].cls==='tank',
     move: (x, y) => { this.touchMove.x = x; this.touchMove.y = y; },
@@ -1240,6 +1246,7 @@ export class Game {
       h("button.btn.menu-toggle", { text: "☰ Menu", "aria-label": "Menu", "aria-expanded": "false", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar")!; const open = bar.classList.toggle("open"); (e.currentTarget as HTMLElement).setAttribute("aria-expanded", String(open)); } }),
       h("nav.game-menu", { "aria-label": "More game options", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar"); bar?.classList.remove("open"); bar?.querySelector(".menu-toggle")?.setAttribute("aria-expanded", "false"); } }, [
         ...(["Betting", "Racing", "Farm", "UC"] as const).map(tab => h("button.btn", { text: tab === "Betting" ? "Sports & more games" : tab, onclick: () => this.activities.show(tab) })),
+        h("button.btn", { text: "Fight / gun controls", onclick: () => this.openCombatControls() }),
         h("button.btn", { text: "Armory & gun store", onclick: () => this.armory.show() }),
         h("button.btn", { text: "Luxury", onclick: () => this.luxury.show() }), h("button.btn", { text: "Heist", onclick: () => this.heist.open() }),
         h("button.btn", { text: "Event log", onclick: () => this.log.toggle() }), h("button.btn", { text: "Event replay", onclick: () => this.replay.show() }),
@@ -1485,9 +1492,28 @@ export class Game {
     this.clock.tick = sim.tick;
   }
 
+  private openCombatControls():void{
+    const p=this.sim.player,k=this.settings.keys,key=(v:string)=>v===' '?'Space':v.toUpperCase();
+    const combat=p.combat??={style:'jab',xp:0,ammo:{},vest:0,helmet:0};
+    const styles=h('div.combat-styles',{'aria-label':'Fighting style'},Object.entries(UNARMED).map(([id,m])=>h('button.btn',{text:m.name+(combat.xp<m.xp?` · ${m.xp} XP`:''),disabled:combat.xp<m.xp,'aria-pressed':combat.style===id,onclick:()=>{combat.style=id as typeof combat.style;this.openCombatControls();}})));
+    const row=(title:string,text:string)=>h('article.ax-card',null,[h('h3',{text:title}),h('p',{text})]);
+    this.modal.show('Fight / gun controls',[
+      h('p.ax-status',{text:'Select a person to aim. Get close for melee. Close this panel to resume play.'}),
+      h('div.ax-grid',null,[
+        row('Fighting',`${key(k.swing)} attacks with your selected style or held melee weapon. On mobile, tap the named attack button (Jab, Slap, Shove or Strike). Empty your hands to use unarmed moves.`),
+        row('Guns',`${key(k.throw)} fires your equipped gun. Hold it for automatic fire with an SMG; tap for semi-auto guns. On mobile, tap Fire; hold Fire with an SMG. Select a person to aim at them, or aim the mouse at a position on desktop.`),
+        row('Tank cannon',`While driving a tank, ${key(k.throw)} fires the cannon. On mobile, tap Cannon. The cannon needs shells and has a cooldown between shots.`),
+        row('Equipment and ammunition',`${key(k.pickup)} picks up nearby equipment. ${key(k.drop)} drops the held item. Use Armory & gun store to buy or equip a weapon, choose an ammunition load and refill its reserve. Magazines reload automatically; an empty reserve needs ammunition.`),
+        row('Injuries and protection',`${key('b')} bandages bleeding. Armour protects covered areas and wears down. Moving, repeated shots and arm injuries reduce aim. Heavy gear slows walking. Attacks can cause injuries, witnesses and police pursuit.`),
+      ]),h('h3',{text:'Choose your unarmed style'}),styles,
+      h('button.btn',{text:'Open armory / equip weapons',onclick:()=>this.armory.show()}),
+    ],'activities combat-controls');
+  }
+
   private openHelp(): void {
     this.modal.show("How to play", [
       h("p", { text: "This is the Mosaics' world: Tiles, Glitter and the crew from the bottom of mosaicscope.co.nz, plus hundreds of locals. Everyone has needs, moods, memories and opinions. Nothing is scripted: fights, friendships, rumours and parties come out of what people actually see and do." }),
+      h("button.btn",{text:"Fight / gun controls",onclick:()=>this.openCombatControls()}),
       keysList(this.settings.keys),
       h("p", { style: { color: "var(--dim)" }, text: "Tip: throw a ball near someone and watch who gets blamed. Open the Log to see why things happened." }),
     ]);

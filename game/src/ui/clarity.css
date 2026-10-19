@@ -47,3 +47,7 @@ html,body{overscroll-behavior:none}#ui :is(button,a,input,select,textarea){touch
 }
 
 @media(pointer:coarse),(max-width:650px){#ui .toasts{transform:none;max-width:calc(100vw - 180px);justify-items:start}#ui .toast{font-size:12px;max-width:100%;padding:8px;white-space:normal}#ui .tc-cluster .tc-lbl{font-size:9px!important;white-space:normal}#ui .areaname{font-family:system-ui!important;font-style:normal!important;font-weight:600;font-size:14px!important;bottom:220px}}
+
+#ui .combat-help{pointer-events:auto!important;width:100%;margin-top:6px;border-color:#9dbaaa66;color:#dce9df}#ui .combat-styles{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}#ui .combat-styles [aria-pressed=true]{border-color:#8dd6bb;background:#2b554d}#ui .combat-controls .ax-card p{font-size:14px}
+
+#ui .combat-status{font-size:12px;color:#e2d3ab;line-height:1.4;margin-top:6px;text-transform:capitalize}

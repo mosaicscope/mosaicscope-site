@@ -20,6 +20,7 @@ export interface TouchHost {
   /** Zoom the camera in (+1) or out (-1); used by the on-screen zoom buttons. */
   zoom?(dir: number): void;
   fire?(held:boolean):void;
+  attackLabel?():string;
   armedVehicle?():boolean;
 }
 
@@ -64,6 +65,7 @@ export class TouchControls {
   private zone: HTMLElement; private base: HTMLElement; private knob: HTMLElement;
   private ctxBtn: HTMLButtonElement; private ctxIcon: HTMLElement; private ctxLabel: HTMLElement;
   private exitLabel: HTMLElement;
+  private attackButton:HTMLButtonElement;
   private sheet: HTMLElement;
   // stick state
   private stickId = -1; private ox = 0; private oy = 0; private sx = 0; private sy = 0; private sprinting = false; private sentZero = true;
@@ -174,6 +176,7 @@ export class TouchControls {
     );
 
     const attack=small('foot t-attack','swing','Attack / fire',()=>this.host.action('swing'),on=>this.host.fire?.(on));
+    this.attackButton=attack;
     cluster.append(...car, attack, more, this.ctxBtn, gasBtn, this.sheet);
     // on-screen zoom buttons: pinch can fail on some phones, these always work
     const zoomBox = el("div", "tc-zoom");
@@ -200,6 +203,9 @@ export class TouchControls {
   update(): void {
     if (!this.el.classList.contains("on")) return;
     const inCar = this.host.inCar();
+    const attack=this.host.attackLabel?.()??'Attack',label=this.attackButton.querySelector('.tc-lbl');
+    if(label&&label.textContent!==attack)label.textContent=attack;
+    this.attackButton.title=attack==='Fire'?'Tap to fire; hold for automatic weapons':'Tap to attack a nearby person';
     this.el.classList.toggle("armed",!!this.host.armedVehicle?.());
     if (inCar !== this.lastCar) {
       this.lastCar = inCar;

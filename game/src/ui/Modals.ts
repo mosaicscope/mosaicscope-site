@@ -22,8 +22,8 @@ export class ModalHost {
 
 export const KEY_HELP: [string, string][] = [
   ["WASD / arrows", "walk (or click the ground)"], ["Click a person", "inspect them"], ["T", "talk to the selected or nearest person"],
-  ["E", "pick up / enter a shop or car / get out"], ["R", "rob the nearest person (crime!)"], ["B", "bandage yourself or someone bleeding"], ["H", "horn (while driving)"], ["F / right-click", "throw your toy at the cursor"], ["Space", "swing a foam sword / noodle (or throw)"],
-  ["Q", "drop what you're holding"], ["Wheel / pinch", "zoom"], ["Drag", "pan the camera (C re-centres on you)"], ["P", "pause"], ["1–4", "pick a reply in conversations"],
+  ["E", "pick up / enter a shop or car / get out"], ["R", "rob the nearest person (crime!)"], ["B", "bandage yourself or someone bleeding"], ["H", "horn (while driving)"], ["F / right-click", "fire your equipped gun / throw a held toy; hold for automatic fire"], ["Space", "unarmed attack / strike with a melee weapon / fire a held gun"],
+  ["Q", "drop what you're holding"], ["Wheel / + and −", "zoom the game camera"], ["Drag", "pan the camera (C re-centres on you)"], ["P", "pause"], ["1–4", "pick a reply in conversations"],
   ["O", "photo mode: filters, frames, polaroids"], ["L", "event log"], ["I", "inspect yourself"], ["`", "developer panel"], ["Esc", "close panels"],
 ];
 
@@ -32,6 +32,7 @@ export function keysList(keys: Record<string, string>): HTMLElement {
   for (const [k, v] of KEY_HELP) {
     let label = k;
     if (k === "T") label = keys.talk.toUpperCase(); if (k === "E") label = keys.pickup.toUpperCase(); if (k === "Q") label = keys.drop.toUpperCase();
+    if(k === "Space")label=keys.swing === " "?"Space":keys.swing.toUpperCase(); if(k === "F / right-click")label=keys.throw.toUpperCase()+" / right-click";
     rows.push(h("kbd", { text: label }), h("span", { text: v }));
   }
   return h("div.keys", null, rows);
