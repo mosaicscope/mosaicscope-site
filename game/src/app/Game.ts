@@ -171,6 +171,7 @@ export class Game {
       getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = Math.round(v * 100) / 100; },
       onEvent: (t, big) => { this.toast(t, big ? "acid" : ""); if (big) this.sim.emit({ type: "casino", x: this.sim.player.x, y: this.sim.player.y, actors: [this.sim.playerId], data: { amount: 0, game: "player" }, summary: t }); },
       strategy: () => hasUpgrade(this.sim.life.upgrades, "strategy"),
+      people: () => this.sim.chars,
       patrons: () => this.sim.chars.filter((c) => c.inside >= 0 && this.sim.world.buildings[c.inside]?.kind === "casino").length + 3,
     }, () => { this.clock.paused = this.pausedBefore; });
     this.casino.onMoreGames = () => this.activities.show("Betting");

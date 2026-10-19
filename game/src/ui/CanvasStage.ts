@@ -19,7 +19,7 @@ export function canvasStage(draw: (g: CanvasRenderingContext2D, time: number, re
   cv.addEventListener("keydown", e => { if (options.key && [" ", "Enter"].includes(e.key)) { e.preventDefault(); options.key(e.key); } });
   const start = performance.now();
   const frame = (now: number) => {
-    if (!cv.isConnected) return;
+    if (!cv.isConnected || cv.closest(".hidden")) return;
     g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
     g.save(); draw(g, (now - start) / 1000, reduce); g.restore();
     requestAnimationFrame(frame);

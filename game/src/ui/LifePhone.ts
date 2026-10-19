@@ -380,7 +380,7 @@ export class LifePhone {
       e = this.e;
     syncStock(sim);
     if (!e.farm)
-      return [countryside(e,"farm"),
+      return [countryside(e,"farm",undefined,sim.chars),
         this.panel(
           "Start with a farm",
           "Buy land through Farm supplies, then walk or drive around its paddocks here.",
@@ -478,7 +478,7 @@ export class LifePhone {
       ],
     );
     const a = s.farm.stock.find((a) => a.id === this.animal);
-    const out = [countryside(e,"farm"),
+    const out = [countryside(e,"farm",undefined,sim.chars),
       this.panel(
         "Your Canterbury farm",
         `Position ${s.farm.x + 1},${s.farm.y + 1} · ${s.farm.ride ? "driving tractor" : "on foot"} · ${s.farm.staff} workers. Move onto a paddock, attach equipment, then work the field.`,
@@ -562,7 +562,7 @@ export class LifePhone {
       ["Cafe", "☕"],
       ["Town Hall graduation", "🏛️"],
     ];
-    return [
+    return [countryside(this.e,"campus",x=>{const index=x<280?0:x<500?1:x<700?5:4;(this.modal.el.querySelectorAll<HTMLButtonElement>(".lp-room")[index])?.click();},sim.chars),
       this.panel(
         "Walk around the Ilam campus",
         `Study ${s.campus.study} · club ${s.campus.club || "none"}. Tap a room to visit it. Existing degree tests remain available from Lecture hall.`,
@@ -656,7 +656,7 @@ export class LifePhone {
       s = this.s,
       e = this.e,
       horse = e.horse;
-    return [
+    return [countryside(e,"horse",undefined,sim.chars),
       this.panel(
         "Horncastle racing season",
         `Season ${s.season.year} · ${s.season.meets}/4 meets · ${s.season.points} points · ${s.season.trophies} trophies · next meet in ${Math.max(0, Math.ceil((s.season.next - sim.tick) / HOUR))} game hours.`,

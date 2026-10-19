@@ -1,4 +1,5 @@
-import { countryside, casinoArt, scratchArt, creature } from "./ActivityArt";
+import { raceScene } from "./VenueArt";
+import { countryside, casinoArt, scratchArt } from "./ActivityArt";
 import { canvasStage, sceneText } from "./CanvasStage";
 import { makeScratch, revealScratch, dealBaccarat } from "../sim/Arcade";
 import { resolveScene } from "../sim/Chronicles";
@@ -72,7 +73,7 @@ export class Activities {
   private farm(): HTMLElement[] {
     const s = this.s, sim = this.sim(), day = Math.floor(sim.tick / DAY), count = Object.values(s.animals).reduce((a, b) => a + b, 0);
     const season = ["Spring", "Summer", "Autumn", "Winter"][Math.floor(sim.tick / (DAY * 7)) % 4];
-    const result = [countryside(s,"farm"),this.card(["Start a farming career", "Lifestyle block", "Family farm", "Mixed operation"][s.farm], `${season} · ${sim.env.weather} · ${count}/${farmCapacity(s)} animals · ${s.feed} feed · lifetime net ${cash(s.farmProfit)}. Next settlement in ${Math.max(0, Math.ceil((DAY - (sim.tick - s.lastFarm)) / HOUR))} game hours. Every game day: produce sells, feed is used and running costs are charged.`, [
+    const result = [countryside(s,"farm",undefined,sim.chars),this.card(["Start a farming career", "Lifestyle block", "Family farm", "Mixed operation"][s.farm], `${season} · ${sim.env.weather} · ${count}/${farmCapacity(s)} animals · ${s.feed} feed · lifetime net ${cash(s.farmProfit)}. Next settlement in ${Math.max(0, Math.ceil((DAY - (sim.tick - s.lastFarm)) / HOUR))} game hours. Every game day: produce sells, feed is used and running costs are charged.`, [
       this.btn(s.farm ? `Expand · ${cash((s.farm + 1) * 1500)}` : "Buy lifestyle block · $1,500", () => { if (s.farm < 3 && this.pay((s.farm + 1) * 1500)) { s.farm++; s.lastFarm = sim.tick; this.message = "New land ready. Add animals, feed and their required equipment."; } }, s.farm >= 3),
     ])];
     if (!s.farm) return result;
@@ -91,7 +92,7 @@ export class Activities {
   }
   private uni(): HTMLElement[] {
     const s = this.s;
-    const out = [countryside(s,"campus",(x)=>{ if(!s.degree){ this.message="Choose a qualification below to enrol."; } else if(x<700){s.quiz=s.credits%3;this.message=x<280?"Library notes ready. Read the study hint, then take your mock test.":"Your next course is ready in the exam studio.";}else if(this.pay(5)){this.sim().player.hunger=Math.min(1,this.sim().player.hunger+.2);this.sim().player.needs.social=Math.min(1,this.sim().player.needs.social+.1);this.message="Coffee and a catch-up with your study group.";} this.show("UC"); }),this.card("Your degree arc", `${titleOf(s) || "Prospective student"} · completed: ${s.graduated.join(", ") || "none"}. Easy mock tests, free retries and a 20% wage boost per qualification level. This is fictional game progression.`)];
+    const out = [countryside(s,"campus",(x)=>{ if(!s.degree){ this.message="Choose a qualification below to enrol."; } else if(x<700){s.quiz=s.credits%3;this.message=x<280?"Library notes ready. Read the study hint, then take your mock test.":"Your next course is ready in the exam studio.";}else if(this.pay(5)){this.sim().player.hunger=Math.min(1,this.sim().player.hunger+.2);this.sim().player.needs.social=Math.min(1,this.sim().player.needs.social+.1);this.message="Coffee and a catch-up with your study group.";} this.show("UC"); },this.sim().chars),this.card("Your degree arc", `${titleOf(s) || "Prospective student"} · completed: ${s.graduated.join(", ") || "none"}. Easy mock tests, free retries and a 20% wage boost per qualification level. This is fictional game progression.`)];
     if (!s.degree) {
       if (s.level >= 3) { out.push(this.card("Doctoral journey complete", "Your doctorate and wage boost are permanent in this saved game.")); return out; }
       for (const degree of DEGREES) out.push(this.card(degree, "Three game years, three short courses each year. Tuition $150. Correct answers earn credits; no timer.", [this.btn("Enrol", () => { if (this.pay(150)) { s.degree = degree; s.credits = 0; s.quiz = -1; } })]));
@@ -113,9 +114,9 @@ export class Activities {
   }
   private stable(): HTMLElement[] {
     const s = this.s, sim = this.sim(), horse = s.horse;
-    if (!horse) return [countryside(s,"horse"),this.card("Your own racehorse", "Buy a horse, build its fitness and earn wins against rival trainers. Championships take place at the fictional Horncastle Arena racing meet.", [this.btn("Buy horse · $800", () => { if (this.pay(800)) s.horse = { name: "Nor'wester", skill: 15, fitness: 60, wins: 0, tier: 0, trained: -HOUR, raced: -HOUR }; })])];
+    if (!horse) return [countryside(s,"horse",undefined,sim.chars),this.card("Your own racehorse", "Buy a horse, build its fitness and earn wins against rival trainers. Championships take place at the fictional Horncastle Arena racing meet.", [this.btn("Buy horse · $800", () => { if (this.pay(800)) s.horse = { name: "Nor'wester", skill: 15, fitness: 60, wins: 0, tier: 0, trained: -HOUR, raced: -HOUR }; })])];
     const nameInput = h("input", { value: horse.name, maxlength: 30, "aria-label": "Horse name", onchange: (e: Event) => { horse.name = (e.target as HTMLInputElement).value.trim().slice(0, 30) || "Nor'wester"; } });
-    return [countryside(s,"horse"),nameInput, this.card(horse.name, `Skill ${horse.skill}/100 · fitness ${horse.fitness}/100 · ${horse.wins} wins · ${["Club", "Regional", "Championship", "Champion"][horse.tier]}. Training and racing each have a one-hour game cooldown.`, [
+    return [countryside(s,"horse",undefined,sim.chars),nameInput, this.card(horse.name, `Skill ${horse.skill}/100 · fitness ${horse.fitness}/100 · ${horse.wins} wins · ${["Club", "Regional", "Championship", "Champion"][horse.tier]}. Training and racing each have a one-hour game cooldown.`, [
       this.btn("Train · $25", () => { if (sim.tick - horse.trained < HOUR || !this.pay(25)) return; horse.trained = sim.tick; horse.skill = Math.min(100, horse.skill + 8); horse.fitness = Math.max(0, horse.fitness - 8); this.message = "Trackwork improves your horse's skill. Remember to rest."; }, sim.tick - horse.trained < HOUR),
       this.btn("Feed and rest · $15", () => { if (this.pay(15)) horse.fitness = Math.min(100, horse.fitness + 20); }, horse.fitness >= 100),
       this.btn("Race rivals · $40", () => {
@@ -131,15 +132,7 @@ export class Activities {
     ]), ...this.raceView()];
   }
   private raceView(): HTMLElement[] {
-    if (!this.race) return [canvasStage((g,t,reduced)=>{g.fillStyle='#315442';g.fillRect(0,0,960,480);sceneText(g,'THE STARTING PADDOCK',480,65,28,'#ebd59e');for(let i=0;i<6;i++){const x=180+i%3*300,y=225+Math.floor(i/3)*140;creature(g,x,y,this.game==='Chook fighting'?'Chook':this.betSport,reduced?0:t+i,1,['#a36b4a','#c3b8a3','#604c40'][i%3]);sceneText(g,`RUNNER ${i+1}`,x,y+42,15);}sceneText(g,'Choose a runner and place a game-money stake below',480,457,17);},{label:'Animated runners in the starting paddock'})];
-    const r = this.race;
-    return [canvasStage((g,t,reduced)=>{
-      g.fillStyle="#294e3e";g.fillRect(0,0,960,480);sceneText(g,r.sport.toUpperCase()+" · RACE DAY",480,42,23,"#efd598");
-      const elapsed=Math.max(0,1-(r.until-this.sim().tick)/270),p=reduced?(elapsed>=1?1:0):Math.min(1,elapsed);
-      r.names.forEach((name,i)=>{const y=100+i*54,rank=r.order.indexOf(i),progress=p>=1?1:Math.min(.97,p*(1.15-rank*.035));g.fillStyle=i%2?"#8c7454":"#9d835c";g.fillRect(150,y-31,744,50);g.strokeStyle="#d4c6a2";g.setLineDash([6,8]);g.beginPath();g.moveTo(150,y+19);g.lineTo(894,y+19);g.stroke();g.setLineDash([]);sceneText(g,name,135,y,12,"#e5e3d0","right");creature(g,195+progress*635,y+8,r.sport,reduced||p>=1?0:t+i,.47,["#bc7554","#d4c3a0","#594d42","#d3ad65"][i%4]);});
-      for(let y=65;y<420;y+=12)for(let x=855;x<880;x+=12){g.fillStyle=(x+y)%24?"#eee5ce":"#243a34";g.fillRect(x,y,12,12);}
-      sceneText(g,this.sim().tick<r.until?"LIVE · Running simulation advances the race":"FINISH · "+r.order.map(i=>r.names[i]).join(" → "),480,460,13);
-    },{label:`${r.sport} animated race with saved finishing order`})];
+    return [raceScene(this.race,()=>this.sim().tick,this.game==='Chook fighting'?'Chook':this.betSport,this.sim().chars)];
   }
 
   private settle(stake: number, payout: number, text: string) {

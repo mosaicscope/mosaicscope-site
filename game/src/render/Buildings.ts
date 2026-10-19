@@ -370,6 +370,12 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
     const hue = (time * 40 + tx * 30) % 360;
     g.fillStyle = `hsla(${hue},90%,60%,.35)`; g.beginPath(); quad(0.06, 0.94, 0.12, GROUND_H * 0.78); g.fill();
   }
+  // Tessera's gilded facade and vertical fins read as a casino from the street.
+  if(b.kind==='casino'){
+    g.fillStyle=night?'#bca069':'#d4bb87';g.beginPath();quad(.03,.11,.1,H);quad(.89,.97,.1,H);quad(0,1,H-.22,H-.08);quad(0,1,GROUND_H*.85,GROUND_H*.95);g.fill();
+    g.fillStyle=night?'#6c8798':'#90acb5';g.beginPath();quad(.15,.2,GROUND_H,H-.3);quad(.8,.85,GROUND_H,H-.3);g.fill();
+    if(doorHere){g.fillStyle='#b2935b';g.beginPath();quad(.25,.75,GROUND_H*.68,GROUND_H*.85);g.fill();}
+  }
   // front door
   if (doorHere) door(g, quad, b, night);
   // street-level grime + occlusion gradient up the bottom of the wall
