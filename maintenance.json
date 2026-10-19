@@ -1,5 +1,5 @@
 {
- "at": 1792385819483,
+ "at": 1792397782838,
  "totals": {
   "duplicate-code": 2,
   "long-function": 17,
@@ -98,18 +98,18 @@
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/render/Cars.ts:199",
+   "where": "game/src/render/Cars.ts:200",
    "detail": "389 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1tgw0pu"
+   "fp": "long-function|1r4wo1r"
   },
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/render/RefFigure.ts:240",
-   "detail": "178 lines",
+   "where": "game/src/render/RefFigure.ts:247",
+   "detail": "179 lines",
    "fix": "split into named steps",
-   "fp": "long-function|19y0q4v"
+   "fp": "long-function|gghgmb"
   },
   {
    "kind": "oversized-module",
@@ -123,25 +123,25 @@
    "kind": "oversized-module",
    "severity": "medium",
    "where": "game/src/sim/Chronicles.ts",
-   "detail": "1531 lines",
+   "detail": "1534 lines",
    "fix": "split by feature into modules",
-   "fp": "oversized-module|15n5io5"
+   "fp": "oversized-module|1ilw6em"
   },
   {
    "kind": "long-function",
    "severity": "low",
    "where": "game/src/sim/Chronicles.ts:383",
-   "detail": "261 lines",
+   "detail": "264 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1xe0c6a"
+   "fp": "long-function|1x8coxt"
   },
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/sim/Chronicles.ts:645",
+   "where": "game/src/sim/Chronicles.ts:648",
    "detail": "785 lines",
    "fix": "split into named steps",
-   "fp": "long-function|8xsios"
+   "fp": "long-function|iqpr3d"
   },
   {
    "kind": "long-function",
@@ -171,9 +171,9 @@
    "kind": "long-function",
    "severity": "low",
    "where": "game/src/sim/Traffic.ts:451",
-   "detail": "169 lines",
+   "detail": "180 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1b101oc"
+   "fp": "long-function|1r7kc3x"
   },
   {
    "kind": "long-function",
