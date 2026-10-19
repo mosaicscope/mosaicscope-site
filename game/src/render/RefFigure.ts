@@ -34,13 +34,13 @@ export function lookSpec(c: Character): ModelSpec {
   const L = c.look, h = Math.imul(c.id + 7, 0x9e3779b1) >>> 0, F = L.face;
   m = {
     id: `look-${c.id}`, label: c.name, kind: L.kind === "girl" ? "girl" : "guy",
-    skin: L.skin??SKINS[h % SKINS.length], pattern:L.pattern, patternColor:L.accent, top: "tee", topColor: L.color, trim: L.accent,
-    bottom: "shorts", bottomColor: L.accent, shoes: "sneakers", shoeColor: L.accent,
+    skin: L.skin??SKINS[h % SKINS.length], pattern:L.pattern, patternColor:L.accent, top: L.top??"tee", topColor: L.color, trim: L.accent,
+    bottom: L.bottom??"shorts", bottomColor: L.accent, shoes: L.shoes??"sneakers", shoeColor: L.shoeColor??L.accent,
     sw: 10, belly: (h >>> 8) % 3, limb: L.build ?? 1,
     hair: L.hair, hairColor:L.hairColor?? ["#1a1410", "#3a2a1e", "#6b4a2a", "#c9a56a", "#2a2018", "#8a8a8a"][(h >>> 4) % 6],
     hat: L.hat, hatColor: L.accent,
     face: F ?? { eyes: "dots", brows: "none", mouth: "smile", nose: "none", facial: "none", extra: "none", head: "round" },
-    gear: L.accessories?.includes("headband")?["headband"]:[],
+    gear: (L.accessories??[]).filter((v):v is "headband"|"eyepatch"|"bandage"=>["headband","eyepatch","bandage"].includes(v)),
   };
   SPECS.set(c, m);
   return m;
@@ -150,9 +150,13 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
     const kp = splay(rx, ry, J[kn] + ox, J[kn + 1] + oy, side, bw * 0.08, true), fp = splay(rx, ry, J[ft] + ox, J[ft + 1] + oy, side, bw * 0.12, true);
     const pts = [rx, ry, kp[0], kp[1], fp[0], fp[1]];
     halo(pts, lw); line(pts, lw, limbCol);
+    if(c.look.bottom&&['jeans','ripped','trackies','slacks'].includes(M.bottom)){line(pts,lw+2*k,ink);line(pts,lw,M.bottomColor);if(M.bottom==='trackies')line([rx,ry,kp[0],kp[1]],.6*k,M.trim);if(M.bottom==='ripped')line([kp[0]-2*k,kp[1],kp[0]+2*k,kp[1]],1.5*k,limbCol);}
     g.fillStyle = flash ? "#ffffff" : INK;
     const fx0 = pts[4], fy0 = pts[5];
-    g.beginPath(); g.ellipse(fx0 + 2.5 * k * side, fy0 + 0.5 * k, 5.2 * k, 2.6 * k, 0, 0, 6.283); g.fill();
+    if(c.look.shoes&&['boots','workboots'].includes(M.shoes)){g.fillStyle=M.shoeColor;g.fillRect(fx0-3*k,fy0-7*k,6*k,7*k);g.strokeStyle=ink;g.strokeRect(fx0-3*k,fy0-7*k,6*k,7*k);}
+    g.fillStyle=c.look.shoes&&M.shoes==='bare'?M.skin:flash?'#fff':INK;
+    g.beginPath(); g.ellipse(fx0 + 2.5 * k * side, fy0 + 0.5 * k, (M.shoes==='heels'?4:5.2)*k, (['bare','sandals','jandals'].includes(M.shoes)?1.5:2.6)*k, 0, 0, 6.283); g.fill();
+    if(c.look.shoes&&M.shoes==='heels'){g.fillStyle=M.shoeColor;g.fillRect(fx0-k,fy0,2*k,5*k);}
     g.strokeStyle = flash ? "#ffffff" : M.shoeColor; g.lineWidth = Math.max(0.7, 0.9 * k); g.stroke(); // shoe edge in the model's shoe colour
     if (hd) { // little motion ticks at the feet, as in the drawing
       g.strokeStyle = "rgba(238,228,211,.55)"; g.lineWidth = Math.max(0.6, 0.8 * k); g.beginPath();
@@ -184,9 +188,18 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
   g.lineTo(hx - px * bw * 2 - ux * 0.3, hy - py * bw * 2 - uy * 0.3); g.lineTo(hx + px * bw * 2 - ux * 0.3, hy + py * bw * 2 - uy * 0.3); g.closePath(); g.fill();
   g.restore();
   g.strokeStyle = ink; g.lineWidth = lw * 0.9; body(0); g.stroke();
+  if(c.look.top){
+    const col=flash?'#fff':M.trim;
+    if(['suit','coat','hoodie','vest'].includes(M.top)){line([sx,sy+4*k,hx,hy],1.2*k,col);for(const side of[-1,1])line([sx+side*bw*.7,sy+3*k,sx+side*bw*.35,sy+12*k],k,col);}
+    if(['apron','dress','poncho'].includes(M.top)){g.fillStyle=M.top==='apron'?col:M.topColor;g.strokeStyle=ink;g.beginPath();g.moveTo(sx-3*k,sy+5*k);g.lineTo(sx+3*k,sy+5*k);g.lineTo(hx+9*k,hy+6*k);g.lineTo(hx-9*k,hy+6*k);g.closePath();g.fill();g.stroke();}
+    if(M.top==='jersey')line([sx-bw,sy+14*k,sx+bw,sy+14*k],4*k,col);
+    if(M.top==='hawaiian'){for(let i=0;i<3;i++){g.fillStyle=col;g.beginPath();g.arc(sx+(i%2?2:-2)*k,sy+(8+i*7)*k,2*k,0,7);g.fill();}}
+  }
+  if(c.look.bottom&&['skirt','kilt'].includes(M.bottom)){g.fillStyle=M.bottomColor;g.strokeStyle=ink;g.beginPath();g.moveTo(hx-bw,hy-6*k);g.lineTo(hx+bw,hy-6*k);g.lineTo(hx+9*k,hy+10*k);g.lineTo(hx-9*k,hy+10*k);g.closePath();g.fill();g.stroke();if(M.bottom==='kilt')for(let i=-6;i<=6;i+=4)line([hx+i*k,hy-4*k,hx+i*k,hy+9*k],k,M.trim);}
   // navel
   g.fillStyle = ink; g.beginPath(); g.ellipse(hx + ux * 0.42, hy + uy * 0.42, 0.9 * k, 0.6 * k, 0, 0, 6.283); g.fill();
 
+  if(c.look.accessories?.includes("bowtie")){g.fillStyle=M.trim;g.beginPath();g.moveTo(sx,sy+7*k);g.lineTo(sx-7*k,sy+2*k);g.lineTo(sx-7*k,sy+12*k);g.lineTo(sx+7*k,sy+2*k);g.lineTo(sx+7*k,sy+12*k);g.closePath();g.fill();}
   if(c.look.accessories?.includes("chain")){g.strokeStyle='#d9b75e';g.lineWidth=1.7*k;g.beginPath();g.moveTo(sx-5*k,sy+3*k);g.quadraticCurveTo(sx,sy+20*k,sx+5*k,sy+3*k);g.stroke();}
   if(c.look.accessories?.includes("scarf")){g.strokeStyle=M.trim;g.lineWidth=5*k;g.beginPath();g.moveTo(sx-6*k,sy);g.lineTo(sx+6*k,sy);g.lineTo(sx+5*k,sy+24*k);g.stroke();}
   // ---- arms and mitten hands
@@ -196,6 +209,7 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
     const ep = gripped ? [J[el], J[el+1]] : splay(rx, ry, J[el] + ox, J[el + 1] + oy, side, bw * 0.6), hp = gripped ? [J[hn],J[hn+1]] : splay(rx, ry, J[hn] + ox, J[hn + 1] + oy, side, bw * 1.4);
     const pts = [rx, ry, ep[0], ep[1], hp[0], hp[1]];
     halo(pts, lw); line(pts, lw, limbCol);
+    if(c.look.top&&!['tank','bare','vest'].includes(M.top)){const long=['long','coat','hoodie','suit'].includes(M.top);line([rx,ry,ep[0],ep[1],...(long?[hp[0],hp[1]]:[])],lw+2*k,ink);line([rx,ry,ep[0],ep[1],...(long?[hp[0],hp[1]]:[])],lw,flash?'#fff':M.topColor);}
     const ax = pts[4] - pts[2], ay = pts[5] - pts[3], al = Math.hypot(ax, ay) || 1, dx = ax / al, dy = ay / al;
     const cx = pts[4] + dx * (gripped ? 0 : 2 * k), cy = pts[5] + dy * (gripped ? 0 : 2 * k);
     J[el]=ep[0];J[el+1]=ep[1];J[hn]=cx;J[hn+1]=cy;

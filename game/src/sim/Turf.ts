@@ -154,12 +154,14 @@ export function fireGun(sim: Simulation, c: Character, tx: number, ty: number, t
   const ws = def ? TOYS[def].weapon : undefined;
   if (!def || !ws?.gun) return false;
   if ((sim.nextAttack.get(c.id) ?? 0) > sim.tick) return false;
+  if(c.combat?.reloadWeapon===def&&(c.combat.reloadUntil??0)>sim.tick)return false;
   if(c.combat){const base=def==='golden_pistol'?'pistol':def,key=(c.combat.load??'standard')==='standard'?base:base+':'+c.combat.load,rounds=c.combat.ammo[key]??0;if(rounds<=0)return false;c.combat.ammo[key]=rounds-1;}
   const st = state(sim);
   let wait = ws.rate;
-  const fired = (st.shots.get(c.id) ?? 0) + 1;
+  const fired = (c.combat ? c.combat.magUsed?.[def]??0 : st.shots.get(c.id)??0) + 1;
   if (ws.mag && fired >= ws.mag) { st.shots.set(c.id, 0); wait += ws.reload ?? 1.5; sim.bus.emit("sound", { kind: "reload", x: c.x, y: c.y, vol: 0.5 }); }
   else st.shots.set(c.id, fired);
+  if(c.combat){c.combat.magUsed??={};c.combat.magUsed[def]=ws.mag&&fired>=ws.mag?0:fired;if(ws.mag&&fired>=ws.mag){c.combat.reloadUntil=sim.tick+Math.round(wait*60);c.combat.reloadWeapon=def;}}
   sim.nextAttack.set(c.id, sim.tick + Math.round(wait * 60));
 
   const base = Math.atan2(ty - c.y, tx - c.x);

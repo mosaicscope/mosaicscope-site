@@ -51,6 +51,7 @@ import { OPENAI_COMPAT_PRESETS } from "../ai/llm/backends";
 import { h, fmtHour } from "../ui/dom";
 import { moveTo, stop } from "../ai/steps";
 import { canPickUp } from "../inventory/Inventory";
+import {continueSlot} from '../persistence/ContinueCookie';
 import { TOYS, canThrow, isMelee, BLACK_MARKET } from "../content/toys";
 import { setImpactIntensity } from "../physics/combat";
 import { Phys } from "../entities/types";
@@ -269,6 +270,8 @@ export class Game {
   private welcome!:Welcome;
   private lastAutoSave=0;
   private latestSave(){
+    const slot=continueSlot(),info=slot&&['resume','quick','1','2','3'].includes(slot)?this.saves.info(slot):null;
+    if(slot&&info&&Number.isFinite(Date.parse(info.savedAt)))return {slot,...info};
     return ["resume","quick","1","2","3"].map(slot=>{const info=this.saves.info(slot);return info&&Number.isFinite(Date.parse(info.savedAt))?{slot,...info}:null;}).filter((v):v is NonNullable<typeof v>=>!!v).sort((a,b)=>Date.parse(b.savedAt)-Date.parse(a.savedAt))[0]??null;
   }
   private autoSave(){
