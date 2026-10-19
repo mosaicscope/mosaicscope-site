@@ -15,9 +15,10 @@ const TAU = Math.PI * 2;
 /** Street encounters use the real city facade and the same characters as the world outside. */
 export function encounterScene(sim:Simulation,event:Encounter|undefined,completed=false) {
   const id=event?.id??'',player=sim.player;
+  const outdoors=['memorial','ring','duck','referee','wedding','skater','seed','magpie','busker','choir'].includes(id);
   const domestic=['flat','wind','poster','parcel'].includes(id);
   const candidates=sim.world.buildings.filter(b=>domestic?(b.kind==='house'||b.kind==='apartments')&&b.floors<=3:b.floors<=3);
-  const b=candidates.sort((a,b)=>Math.hypot(a.door.x-player.x,a.door.y-player.y)-Math.hypot(b.door.x-player.x,b.door.y-player.y))[0]??sim.world.buildings[0];
+  const b=outdoors?undefined:candidates.sort((a,b)=>Math.hypot(a.door.x-player.x,a.door.y-player.y)-Math.hypot(b.door.x-player.x,b.door.y-player.y))[0]??sim.world.buildings[0];
   const camera=new Camera();camera.resize(960,600);camera.x=b?b.door.x:player.x;camera.y=b?b.door.y:player.y;
   camera.zoom=b?Math.max(.65,Math.min(1.55,640/((b.x1-b.x0+b.y1-b.y0+4)*32+b.height*12))):1.5;
   const raw=(x:number,y:number,z=0):Point=>{const p=camera.toScreen(x,y,z,{x:0,y:0});return[p.x,p.y];};
@@ -25,7 +26,7 @@ export function encounterScene(sim:Simulation,event:Encounter|undefined,complete
   const ox=480-(Math.min(...bounds.map(p=>p[0]))+Math.max(...bounds.map(p=>p[0])))/2;
   const oy=240-(Math.min(...bounds.map(p=>p[1]))+Math.max(...bounds.map(p=>p[1])))/2;
   const P:Project=(x,y,z=0)=>{const [sx,sy]=raw(x,y,z);return[sx+ox,sy+oy];};
-  const front=b?.door.face==='e',ax=(b?.door.x??player.x)+(front?1.2:.2),ay=(b?.door.y??player.y)+(front ? .2 : 1.2);
+  const front=b?.door.face==='e',ax=b?(front?b.x1+2.2:Math.max(b.x0+.5,Math.min(b.x1-.5,b.door.x))):player.x,ay=b?(front?Math.max(b.y0+.5,Math.min(b.y1-.5,b.door.y)):b.y1+2.2):player.y;
   // Local event coordinates run along the front wall and out into the footpath.
   const E:Project=(x,y,z=0)=>front?P(ax+y,ay+x,z):P(ax+x,ay+y,z);
   const background=document.createElement('canvas');background.width=960;background.height=600;
@@ -46,7 +47,8 @@ export function encounterScene(sim:Simulation,event:Encounter|undefined,complete
       for(const q of tiles){const [x,y]=P(q.x,q.y);drawBuildingTile(bg,sim.world,b,q.x,q.y,x,y,camera.zoom,0,.18,1,graffiti);}
     }finally{GLOW.length=stamp;}
   }
-  const people=[player,...sim.chars.filter(c=>c.id!==player.id&&c.tier==='principal').slice(0,3)];
+  const locals=sim.chars.filter(c=>c.id!==player.id&&c.tier!=='principal'&&c.inside<0&&c.inCar<0).sort((a,b)=>Math.hypot(a.x-player.x,a.y-player.y)-Math.hypot(b.x-player.x,b.y-player.y));
+  const people=[player,...locals.slice(0,['choir','wedding','protest'].includes(id)?3:1)];
   return canvasStage((g,time,reduced)=>{
     const t=reduced?0:time;g.drawImage(background,0,0);
     const smallBox=(x:number,y:number,color='#a88b62')=>{box(g,E,x,y,.48,.42,.4,color);};
@@ -68,7 +70,8 @@ export function encounterScene(sim:Simulation,event:Encounter|undefined,complete
         box(g,E,-.7,.5,2,1,.6,'#896c4c');for(let i=0;i<6;i++)smallBox(-.6+i%3*.6,.5+Math.floor(i/3)*.4,['#9da663','#c69b64','#b67658'][i%3]);break;
       case 'busker':case 'choir':case 'piano':case 'puppet':
         box(g,E,-.5,.4,1.4,.65,.65,'#513e36');for(let i=0;i<9;i++)box(g,E,-.45+i*.14,1.02,.11,.16,.03,i%3?'#e4d8be':'#292e30',.65);break;
-      case 'wallet':case 'ring':case 'memorial':case 'skater':bench();smallBox(1.4,1.1,'#c2a672');break;
+      case 'wallet':case 'ring':case 'skater':bench();break;
+      case 'memorial':bench();for(let i=0;i<5;i++){const[x,y]=E(.6+i*.1,.6,.85);g.fillStyle=['#d58b85','#e2c99b','#bba0ce'][i%3];g.beginPath();g.arc(x,y-6,3.5,0,TAU);g.fill();}break;
       case 'bus':case 'tram':
         box(g,E,-1.1,1.2,3,1.15,1.2,'#976d4f');box(g,E,-.9,1.14,2.6,.08,.55,'#789aa5',.5);break;
       case 'mural':case 'poster':
@@ -80,11 +83,11 @@ export function encounterScene(sim:Simulation,event:Encounter|undefined,complete
         for(let i=0;i<4;i++)box(g,E,i*.6-.7,1+Math.sin(t+i)*.1,.5,.6,.015,['#b8c3b1','#ab8a83','#798d9d'][i%3]);break;
       case 'wedding':case 'film':
         box(g,E,.5,1,.13,.13,1,'#59544c');box(g,E,.3,1,.5,.3,.3,'#303d45',1);break;
-      default:for(let i=0;i<3;i++)smallBox(-.6+i*.65,.7,['#967d60','#a79172','#797e6a'][i]);
+      default:break;
     }
-    const poses=id==='flat'&&!completed?['craft','craft','idle','idle']:completed?['posecool','posecool','idle','idle']:['idle','phone','idle','idle'];
+    const poses=completed?['posecool','posecool','idle','idle']:['idle','phone','idle','idle'];
     const positions=[[-.9,.8],[1.4,.8],[-.3,2],[1.7,1.8]];
-    positions.map(([x,y],i)=>({x,y,i})).sort((a,b)=>a.x+a.y-b.x-b.y).forEach(a=>{const[x,y]=E(a.x,a.y);drawVenuePerson(g,people[a.i],x,y,t,1.9,poses[a.i]);});
+    positions.slice(0,people.length).map(([x,y],i)=>({x,y,i})).sort((a,b)=>a.x+a.y-b.x-b.y).forEach(a=>{const[x,y]=E(a.x,a.y);drawVenuePerson(g,people[a.i],x,y,t,1.9,poses[a.i]);});
     roundBox(g,20,18,920,57,9,'#102b32ed');sceneText(g,event?.title.toUpperCase()??'STORIES AROUND EVERY CORNER',40,43,21,'#ead7a1','left');
     sceneText(g,completed?'RESOLVED · Your choice is recorded':sim.world.streetName(player.x,player.y)||'ŌTAUTAHI · STREET ENCOUNTER',40,63,12,'#b5c9bd','left');
     roundBox(g,20,542,920,38,8,'#102b32ed');sceneText(g,completed?'Keep walking to find your next story':event?'Choose how this scene unfolds below':'Explore the city to discover people who need a hand',40,566,14,'#e4d8b7','left');
@@ -208,9 +211,11 @@ export function campusScene(s:ExpansionState,select?:(x:number,y:number)=>void,p
       objects.push({depth:wx+wy,draw:()=>{const[x,y]=P(wx,wy);person(g,x,y,'',reduced?0:t*1.8,1.15,i,(i%2?forward:!forward)?1:-1);}});
     }
 
+    objects.push({depth:13.6,draw:()=>{    // A planted quad, fountain, bike racks and campus life make this a place, not four cards.
+    box(g,P,4.2,8.3,1.1,1.2,.12,'#c9c2aa');const [fx,fy]=P(4.75,8.85,.2);g.fillStyle='#6eb4b8';g.beginPath();g.ellipse(fx,fy,33,15,0,0,TAU);g.fill();g.strokeStyle='#c1e4dc';g.lineWidth=2;g.beginPath();g.moveTo(fx,fy);g.quadraticCurveTo(fx-12,fy-40,fx-20,fy-7);g.moveTo(fx,fy);g.quadraticCurveTo(fx+12,fy-40,fx+20,fy-7);g.stroke();
+
+    }});
     objects.sort((a,b)=>a.depth-b.depth);for(const o of objects)o.draw();
-    // A planted quad, fountain, bike racks and campus life make this a place, not four cards.
-    box(g,P,4.5,6.3,1.5,1.5,.12,'#c9c2aa');const [fx,fy]=P(5.2,7,.2);g.fillStyle='#6eb4b8';g.beginPath();g.ellipse(fx,fy,33,15,0,0,TAU);g.fill();g.strokeStyle='#c1e4dc';g.lineWidth=2;g.beginPath();g.moveTo(fx,fy);g.quadraticCurveTo(fx-12,fy-40,fx-20,fy-7);g.moveTo(fx,fy);g.quadraticCurveTo(fx+12,fy-40,fx+20,fy-7);g.stroke();
 
     for(const a of sites){const [x,y]=P(a.x+a.w/2,a.y+a.d+.3);roundBox(g,x-83,y+7,166,25,6,'#173a35e8');sceneText(g,a.label,x,y+24,12,'#efdfb4');}
     roundBox(g,24,20,330,55,10,'#163d38ed');sceneText(g,'UNIVERSITY OF CANTERBURY',42,43,15,'#efe4c3','left');sceneText(g,'ILAM · GAME CAMPUS',42,62,11,'#9fc6b7','left');
@@ -224,6 +229,18 @@ function fence(g:CanvasRenderingContext2D,P:Project,x:number,y:number,w:number,d
     for(const z of [.19,.38]){g.strokeStyle='#cfbea0';g.lineWidth=2;g.beginPath();g.moveTo(...P(ax,ay,z));g.lineTo(...P(bx,by,z));g.stroke();}
   }
 }
+function barn(g:CanvasRenderingContext2D,P:Project) {
+ const x=.7,y=.7,w=3.1,d=2.4,h=1.05,ridge=h+.65;
+ box(g,P,x,y,w,d,h,'#815e49');
+ polygon(g,[P(x+w,y,h),P(x+w,y+d,h),P(x+w,y+d/2,ridge)],'#674e40');
+ polygon(g,[P(x,y,h),P(x+w,y,h),P(x+w,y+d/2,ridge),P(x,y+d/2,ridge)],'#5d6664');
+ polygon(g,[P(x,y+d/2,ridge),P(x+w,y+d/2,ridge),P(x+w,y+d,h),P(x,y+d,h)],'#78807a');
+ for(let i=0;i<3;i++){
+  const a=x+.15+i*.98;
+  polygon(g,[P(a,y+d+.01,.05),P(a+.76,y+d+.01,.05),P(a+.76,y+d+.01,.93),P(a,y+d+.01,.93)],'#2d3833');
+  for(const z of[.25,.5,.75]){g.strokeStyle='#c0a57f';g.lineWidth=2;g.beginPath();g.moveTo(...P(a,y+d+.02,z));g.lineTo(...P(a+.76,y+d+.02,z));g.stroke();}
+ }
+}
 export function farmScene(s:ExpansionState,horseOnly=false,people:readonly Character[]=[]) {
  const P:Project=(x,y,z=0)=>[480+(x-y)*40,90+(x+y)*20-z*40];
  return canvasStage((g,t,reduced)=>{
@@ -231,12 +248,12 @@ export function farmScene(s:ExpansionState,horseOnly=false,people:readonly Chara
   if(reduced)t=0;backdrop(g);ground(g,P,12,12,'#6b8053');
   for(let i=0;i<12;i++)for(let j=0;j<12;j++)polygon(g,[P(i,j),P(i+1,j),P(i+1,j+1),P(i,j+1)],(i+j)%2?'#82955b33':'#9c9f6322');
   box(g,P,0,5.3,12,.8,.02,'#c5b18b');box(g,P,5.6,0,.7,12,.02,'#c5b18b');
-  building(g,P,.7,.7,3.1,2.4,1.3,'#a85743','#62534a');building(g,P,8,.7,2.3,1.8,.9,'#a99b78','#556659');
-  for(let i=0;i<6;i++)box(g,P,7.4+i*.38,3.25,.24,1.5,.07,'#a4bb63');
+  barn(g,P);if(!horseOnly&&s.machines.length)building(g,P,8,.7,2.3,1.8,.7,'#a99b78','#556659');
+  if(!horseOnly&&s.machines.includes('Seed drill'))for(let i=0;i<6;i++)box(g,P,7.4+i*.38,3.25,.24,1.5,.07,'#a4bb63');
   for(const [x,y,w,d]of[[.4,6.7,4.6,4.7],[6.9,6.7,4.6,4.7],[.4,3.5,4.6,1.3],[6.9,3.5,4.6,1.3]])fence(g,P,x,y,w,d);
   for(let i=0;i<6;i++){tree(g,P,i*2+.3,11.7,.75);tree(g,P,11.7,i*2+.3,.75);}
   if(s.machines.includes('Tractor')){box(g,P,4.3,2.6,.9,1.4,.45,'#c64c3f');box(g,P,4.35,2.7,.8,.6,.7,'#599c9d',.45);for(let i=0;i<4;i++){const [x,y]=P(4.2+i%2*1.1,2.7+Math.floor(i/2),.1);g.fillStyle='#2e3830';g.beginPath();g.ellipse(x,y,8,12,0,0,TAU);g.fill();}}
-  for(let i=0;i<3;i++){const travel=(i*3+t*.2)%18,forward=travel<9;const[x,y]=P(5.95,1+(forward?travel:18-travel));person(g,x,y,'',reduced?0:t*1.7,1.1,i,forward?-1:1);}
+  for(let i=0;i<(horseOnly?(s.horse?1:0):(s.farm?2:0));i++){const travel=(i*3+t*.2)%18,forward=travel<9;const[x,y]=P(5.95,1+(forward?travel:18-travel));person(g,x,y,'',reduced?0:t*1.7,1.1,i,forward?-1:1);}
   const animals=horseOnly?(s.horse?[['Horse',1] as const]:[]):Object.entries(s.animals);
   let idx=0;const actors:{x:number;y:number;kind:string;index:number}[]=[];
   for(const [kind,count]of animals)for(let n=0;n<Math.min(count,12)&&idx<36;n++,idx++){const q=idx%2;actors.push({x:(q?7.5:1.1)+(Math.floor(idx/2)%4)*.9+Math.sin(t*.3+idx)*.15,y:7.4+Math.floor(idx/8)*.9+Math.cos(t*.3+idx)*.15,kind,index:idx});}
@@ -245,7 +262,7 @@ export function farmScene(s:ExpansionState,horseOnly=false,people:readonly Chara
   for(const x of[1,8]){box(g,P,x,10.5,1.1,.35,.18,'#66797a');if(s.feed>0)box(g,P,x+.07,10.55,.96,.25,.02,'#cbb965',.2);}
   const [bx,by]=P(3.9,1.7,1);sceneText(g,horseOnly?'STABLES':'CANTERBURY FARM',bx,by,12,'#f6e0b3');
   roundBox(g,24,20,350,58,10,'#1b4034ed');sceneText(g,horseOnly?(s.horse?.name??'YOUR RACING STABLE'):'YOUR CANTERBURY BLOCK',42,45,18,'#ebd89f','left');sceneText(g,horseOnly?'TRAIN · REST · RACE':'LIVING STOCK · PADDOCKS · FARM WORK',42,64,11,'#adc5a0','left');
-  if(horseOnly){animalSprite(g,784,213,'Horse',s.horse&&s.horse.fitness>35?t:0,2.3);roundBox(g,646,240,285,83,10,'#153e35e8');sceneText(g,s.horse?`FITNESS ${s.horse.fitness}% · SKILL ${s.horse.skill}`:'Buy your first horse below',788,266,13);sceneText(g,`${s.horse?.wins??0} WINS`,788,291,18,'#ebcf7f');}
+  if(horseOnly){roundBox(g,624,20,310,58,10,'#153e35ed');sceneText(g,s.horse?`Fitness ${s.horse.fitness}% · Skill ${s.horse.skill}`:'No horse owned yet',779,43,15);sceneText(g,s.horse?`${s.horse.wins} wins · ${s.horse.name}`:'Buy a horse to start training',779,64,12,'#ebcf7f');}
   roundBox(g,24,540,912,40,8,'#173b31e8');sceneText(g,horseOnly?'Your horse’s condition and career are saved':s.farm?`${Object.values(s.animals).reduce((a,b)=>a+b,0)} animals · ${s.feed} feed · ${s.machines.length} equipment upgrades`:'Preview your future farm · buy a lifestyle block below',45,565,15,'#e9dfbf','left');
  },{height:600,label:horseOnly?'Isometric stables and detailed pixel-art racehorse':'Isometric farm with distinct pixel-art animals, fenced paddocks, crops and purchased machinery'});
 }

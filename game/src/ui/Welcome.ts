@@ -1,7 +1,7 @@
 import { h } from './dom';
 import { canvasStage, roundBox, sceneText } from './CanvasStage';
 import { pose, solve, drawFigure } from '../render/StickFigure';
-import type { Character, Look, HairStyle, HatStyle } from '../entities/types';
+import type { Character, Look, HairStyle, HatStyle, Accessory } from '../entities/types';
 import './welcome.css';
 
 export interface WelcomeHost {
@@ -35,6 +35,7 @@ export class Welcome {
   }
   private creator(){
     this.draft={...this.host.player(),look:structuredClone(this.host.player().look)};
+    this.draft.look.accessories??=[];
     this.name='You';
     const preview=canvasStage((g,t,reduced)=>{
       const bg=g.createRadialGradient(250,180,20,240,250,340);bg.addColorStop(0,'#2a4844');bg.addColorStop(1,'#101f29');g.fillStyle=bg;g.fillRect(0,0,480,540);
@@ -44,7 +45,7 @@ export class Welcome {
     },{width:480,height:540,label:'Live character preview using the same model as the city'});
     const update=<K extends keyof Look>(key:K,value:Look[K])=>{this.draft.look[key]=value;};
     const select=(label:string,values:string[],value:string,change:(v:string)=>void)=>h('label',null,[label,h('select',{'aria-label':label,onchange:(e:Event)=>change((e.target as HTMLSelectElement).value)},values.map(v=>h('option',{value:v,selected:v===value,text:v[0].toUpperCase()+v.slice(1)})))]);
-    const swatches=(label:string,key:'color'|'accent')=>h('fieldset.welcome-swatches',null,[h('legend',{text:label}),...COLORS.map(color=>h('button',{type:'button',style:`background:${color}`,title:color,'aria-label':`${label} ${color}`,'aria-pressed':String(this.draft.look[key]===color),onclick:(e:Event)=>{update(key,color);const button=e.currentTarget as HTMLElement;for(const sibling of button.parentElement!.querySelectorAll('button'))sibling.setAttribute('aria-pressed',String(sibling===button));}}))]);
+    const swatches=(label:string,key:'color'|'accent'|'skin'|'hairColor',colors=COLORS)=>h('fieldset.welcome-swatches',null,[h('legend',{text:label}),...colors.map(color=>h('button',{type:'button',style:`background:${color}`,title:color,'aria-label':`${label} ${color}`,'aria-pressed':String(this.draft.look[key]===color),onclick:(e:Event)=>{update(key,color);const button=e.currentTarget as HTMLElement;for(const sibling of button.parentElement!.querySelectorAll('button'))sibling.setAttribute('aria-pressed',String(sibling===button));}}))]);
     const error=h('p.welcome-error',{role:'alert'});
     const controls=h('div.welcome-custom',null,[
       h('small',{text:'MAKE YOURSELF AT HOME'}),h('h2',{text:'Your character'}),
@@ -53,6 +54,10 @@ export class Welcome {
       select('Hair',HAIR,this.draft.look.hair,v=>update('hair',v as HairStyle)),
       select('Headwear',HATS,this.draft.look.hat,v=>update('hat',v as HatStyle)),
       swatches('Outfit','color'),swatches('Accent','accent'),
+      swatches('Skin','skin',['#f1c9a5','#d9a173','#c78d5f','#a06a43','#6e452b','#efe3d6']),
+      swatches('Hair colour','hairColor',['#1a1410','#6b4a2a','#c9a56a','#8a8a8a','#e8554f','#b48cff']),
+      select('Shirt pattern',['Plain','Stripes','Centre stripe','Logo','Two tone','Chevron','Pocket','Dots'],['Plain','Stripes','Centre stripe','Logo','Two tone','Chevron','Pocket','Dots'][this.draft.look.pattern??0],v=>update('pattern',['Plain','Stripes','Centre stripe','Logo','Two tone','Chevron','Pocket','Dots'].indexOf(v))),
+      h('fieldset.welcome-accessories',null,[h('legend',{text:'Accessories'}),...(['glasses','chain','scarf','backpack','watch','headband','earrings'] as Accessory[]).map(item=>h('label',null,[h('input',{type:'checkbox','aria-label':item,checked:this.draft.look.accessories!.includes(item),onchange:(e:Event)=>{const items=this.draft.look.accessories!.filter(a=>a!==item);if((e.target as HTMLInputElement).checked)items.push(item);update('accessories',items);}}),item]))]),
       h('label',null,['Height',h('input',{type:'range',min:.85,max:1.15,step:.05,value:this.draft.look.scale,'aria-label':'Height',oninput:(e:Event)=>update('scale',+(e.target as HTMLInputElement).value)})]),
       h('label',null,['Build',h('input',{type:'range',min:.8,max:1.4,step:.1,value:this.draft.look.build??1,'aria-label':'Build',oninput:(e:Event)=>update('build',+(e.target as HTMLInputElement).value)})]),
       h('div.welcome-actions',null,[h('button.btn.acid',{text:'Start my story',onclick:()=>{const message=this.host.create(this.name.trim().slice(0,28)||'You',structuredClone(this.draft.look));if(message)error.textContent=message;else this.close();}}),h('button.btn',{text:'Back',onclick:()=>this.menu()})]),error,

@@ -35,7 +35,9 @@ export interface EyeShape {
   lid: number;
   lash: boolean;
 }
+export type Accessory = "glasses" | "chain" | "scarf" | "backpack" | "watch" | "headband" | "earrings";
 export interface Look {
+  skin?: string; hairColor?: string; pattern?: number; accessories?: Accessory[];
   kind: BodyKind;
   color: string;
   accent: string;

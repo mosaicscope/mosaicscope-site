@@ -437,7 +437,7 @@ export class Game {
       // moving yourself brings the camera back to you (tapping someone to inspect had left it on them)
       if (this.renderer.cam.follow !== p.id) this.renderer.cam.follow = p.id;
       // screen directions -> world: screen up = (-1,-1), screen right = (1,-1)
-      const wx = ix - iy, wy = -ix - iy, l = Math.hypot(wx, wy);
+      const wx = ix + iy, wy = iy - ix, l = Math.hypot(wx, wy);
       const sprint = (this.keys.has("shift") || Math.hypot(this.touchMove.x, this.touchMove.y) > 0.94) && p.needs.energy > 0.1;
       const bike = sim.life.upgrades.bike && hasUpgrade(sim.life.upgrades, "ruby");
       const speed = p.speed * bodyPace(sim.life.body, sim.env.raining, sim.daylight) * (sprint && !bike ? 1.35 : 1) * (bike ? 1.65 * (hasUpgrade(sim.life.upgrades, "bikelanes") ? 1.2 : 1) : 1);

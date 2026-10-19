@@ -1,0 +1,12 @@
+:root{--mono:system-ui,-apple-system,"Segoe UI",sans-serif;--display:system-ui,-apple-system,"Segoe UI",sans-serif;--serif:system-ui,-apple-system,"Segoe UI",sans-serif}
+#ui,.welcome{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5}
+#ui :is(button,input,select,textarea,h1,h2,h3,h4,p,small,span,b,em,kbd,label,summary,legend),.welcome :is(button,input,select,h1,h2,h3,p,small,span,em,label,legend){font-family:inherit!important;font-style:normal!important;letter-spacing:normal!important}
+#ui :is(button,input,select){font-size:max(12px,1em);line-height:1.35}
+#ui :is(.panel p,.ax-card p,.welcome-save){font-size:14px;line-height:1.6}
+#ui :is(.panel h2,.activities>h2){font-size:22px;line-height:1.25;font-weight:650;text-transform:none;letter-spacing:normal}
+#ui .ax-card h3{font-size:15px;line-height:1.4;letter-spacing:normal;text-transform:none}
+#ui .bar{min-height:52px}#ui .clock{font-size:12px}#ui .dock{gap:8px}#ui .dock button{font-size:12px;min-width:70px}
+#ui .inspector{font-size:14px;line-height:1.55}#ui .inspector h2{font-size:20px}#ui .inspector button{min-height:38px}
+#ui .welcome-editor{grid-template-columns:minmax(240px,400px) minmax(300px,430px)}#ui .welcome-custom{max-height:90dvh;overflow:auto}#ui .welcome-editor>.play-stage{position:sticky;top:20px}
+.welcome-accessories{border:1px solid #8ca99a44;border-radius:10px;padding:10px;display:grid;grid-template-columns:repeat(2,1fr);gap:6px}.welcome-accessories legend{font-size:13px}.welcome-custom .welcome-accessories label{justify-content:flex-start;gap:8px;margin:0;text-transform:capitalize}.welcome-accessories input{min-height:18px;width:18px;margin:0;accent-color:#93cbb6}
+@media(max-width:650px){#ui .welcome-editor{grid-template-columns:1fr}#ui .welcome-editor>.play-stage{position:static}#ui .welcome-custom{max-height:none}#ui .dock button{min-width:0;font-size:11px}#ui .ax-card p{font-size:13px}}

@@ -33,7 +33,7 @@ export function roundBox(g: CanvasRenderingContext2D, x: number, y: number, w: n
   if (stroke) { g.strokeStyle = stroke; g.lineWidth = 1.5; g.stroke(); }
 }
 export function sceneText(g: CanvasRenderingContext2D, text: string, x: number, y: number, size = 18, color = "#f1edda", align: CanvasTextAlign = "center"): void {
-  g.font = `500 ${size}px 'IBM Plex Mono', monospace`; g.textAlign = align; g.fillStyle = color; g.fillText(text, x, y);
+  g.font = `500 ${size}px system-ui, sans-serif`; g.textAlign = align; g.fillStyle = color; g.fillText(text, x, y);
 }
 export function felt(g: CanvasRenderingContext2D, W = 960, H = 480): void {
   const gradient = g.createRadialGradient(W / 2, H / 3, 20, W / 2, H / 2, W * 0.7);

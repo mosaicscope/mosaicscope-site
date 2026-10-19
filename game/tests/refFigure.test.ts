@@ -55,3 +55,5 @@ describe("per-person variation", () => {
     expect(personalize(P, player)).toBe(P);
   });
 });
+
+describe("appearance edits",()=>{it("invalidates a cached model after changing colours, headwear and accessories",()=>{const c={id:0,name:"You",tier:"player",mode:"player",look:{kind:"guy",color:"#eee4d3",accent:"#ec2a1c",hat:"none",hair:"buzz",scale:1}} as any;const old=lookSpec(c);c.look.color="#3dd6ff";c.look.skin="#a06a43";c.look.hat="beanie";c.look.pattern=2;c.look.accessories=["headband"];const next=lookSpec(c);expect(next).not.toBe(old);expect(next.topColor).toBe("#3dd6ff");expect(next.skin).toBe("#a06a43");expect(next.hat).toBe("beanie");expect(next.pattern).toBe(2);expect(next.gear).toContain("headband");expect(lookSpec(c)).toBe(next);});});

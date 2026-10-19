@@ -398,7 +398,7 @@ export class Renderer {
     const darkness = 1 - sim.daylight;
     if (darkness > 0.3) {
       g.globalCompositeOperation = "lighter";
-      for (const v of sim.vehicles) { cam.toScreen(v.x, v.y, 0, this.pt); if (inView(this.pt.x, this.pt.y, 60)) headlights(g, cam, v, Math.min(darkness, sim.env.power ? 0.8 : 0.35)); }
+      for (const v of sim.vehicles) { cam.toScreen(v.x, v.y, 0, this.pt); if (inView(this.pt.x, this.pt.y, 60)) headlights(g, cam, v, Math.min(darkness, sim.env.power ? 0.65 : 0.35),sim.world,sim.vehicles); }
       g.globalCompositeOperation = "source-over";
     }
     this.rain.draw(g, sim.env.rain, cam.viewW, cam.viewH, dt, o.quality === 0 ? 60 : o.quality === 1 ? 160 : 260, o.reduceMotion);

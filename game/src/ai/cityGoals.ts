@@ -156,7 +156,7 @@ export const CITY_GOALS: GoalDef[] = [
     build: (_c, _s, ch) => [{ kind: "flirt", target: ch.target }],
   },
   {
-    id: "date", cooldown: 900, interruptible: true,
+    id: "date", cooldown: 900, interruptible: false,
     score: (c, sim) => {
       const who = c.affair >= 0 && sim.rng.chance(0.4) ? c.affair : c.partner;
       if (who < 0) return null;

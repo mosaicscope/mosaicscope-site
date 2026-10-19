@@ -20,23 +20,26 @@ const REAL_GENES = [3, 4, 9, 10, 11, 13] as const;
 
 const SKINS = ["#f1c9a5", "#d9a173", "#c78d5f", "#a06a43", "#6e452b", "#efe3d6", "#dd9a7c", "#e8b48c"];
 const SPECS = new WeakMap<Character, ModelSpec>();
+const LOOK_KEYS = new WeakMap<Character,string>();
 /**
  * A reference-look spec for someone without a street model (the Mosaics, the player, the locals), built from their
  * own look: their line colour becomes their top, their accent their shorts, plus their hair, hat and face.
  */
 export function lookSpec(c: Character): ModelSpec {
+  const key=JSON.stringify(c.look);
   let m = SPECS.get(c);
-  if (m) return m;
+  if (m && LOOK_KEYS.get(c)===key) return m;
+  LOOK_KEYS.set(c,key);
   const L = c.look, h = Math.imul(c.id + 7, 0x9e3779b1) >>> 0, F = L.face;
   m = {
     id: `look-${c.id}`, label: c.name, kind: L.kind === "girl" ? "girl" : "guy",
-    skin: SKINS[h % SKINS.length], top: "tee", topColor: L.color, trim: L.accent,
+    skin: L.skin??SKINS[h % SKINS.length], pattern:L.pattern, patternColor:L.accent, top: "tee", topColor: L.color, trim: L.accent,
     bottom: "shorts", bottomColor: L.accent, shoes: "sneakers", shoeColor: L.accent,
     sw: 10, belly: (h >>> 8) % 3, limb: L.build ?? 1,
-    hair: L.hair === "none" && L.hat === "none" ? "spiky" : L.hair, hairColor: ["#1a1410", "#3a2a1e", "#6b4a2a", "#c9a56a", "#2a2018", "#8a8a8a"][(h >>> 4) % 6],
+    hair: L.hair, hairColor:L.hairColor?? ["#1a1410", "#3a2a1e", "#6b4a2a", "#c9a56a", "#2a2018", "#8a8a8a"][(h >>> 4) % 6],
     hat: L.hat, hatColor: L.accent,
     face: F ?? { eyes: "dots", brows: "none", mouth: "smile", nose: "none", facial: "none", extra: "none", head: "round" },
-    gear: [],
+    gear: L.accessories?.includes("headband")?["headband"]:[],
   };
   SPECS.set(c, m);
   return m;
@@ -157,6 +160,7 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
     }
   }
 
+  if(c.look.accessories?.includes("backpack")){g.fillStyle=M.trim;g.strokeStyle=INK;g.lineWidth=1.5*k;g.beginPath();g.roundRect(sx-bw-8*k,sy+5*k,18*k,27*k,5*k);g.fill();g.stroke();}
   // ---- body: narrow rounded torso, navel, shorts
   const body = (inset: number) => {
     g.beginPath();
@@ -182,6 +186,8 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
   // navel
   g.fillStyle = ink; g.beginPath(); g.ellipse(hx + ux * 0.42, hy + uy * 0.42, 0.9 * k, 0.6 * k, 0, 0, 6.283); g.fill();
 
+  if(c.look.accessories?.includes("chain")){g.strokeStyle='#d9b75e';g.lineWidth=1.7*k;g.beginPath();g.moveTo(sx-5*k,sy+3*k);g.quadraticCurveTo(sx,sy+20*k,sx+5*k,sy+3*k);g.stroke();}
+  if(c.look.accessories?.includes("scarf")){g.strokeStyle=M.trim;g.lineWidth=5*k;g.beginPath();g.moveTo(sx-6*k,sy);g.lineTo(sx+6*k,sy);g.lineTo(sx+5*k,sy+24*k);g.stroke();}
   // ---- arms and mitten hands
   for (const [el, hn, side] of [[8, 10, -1], [12, 14, 1]] as const) { // arms leave from each shoulder and splay outward
     const o = bw * 0.85 * side, ox = px * o, oy = py * o;
@@ -200,6 +206,7 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
     g.stroke();
   }
 
+  if(c.look.accessories?.includes("watch")){g.fillStyle='#d0bb7a';g.strokeStyle=INK;g.lineWidth=k;g.beginPath();g.arc(J[14],J[15],3.5*k,0,Math.PI*2);g.fill();g.stroke();}
   // ---- neck and head
   const nx = J[2], ny = J[3];
   const hdx = J[4] - nx, hdy = J[5] - ny, hl = Math.hypot(hdx, hdy) || 1;
@@ -246,7 +253,7 @@ function drawRefHead(g: Ctx, c: Character, M: ModelSpec, P: FacePlan, mood: Mood
   for (const s of [-1, 1]) {
     g.fillStyle = skin; g.strokeStyle = ink; g.lineWidth = lw * 0.8;
     g.beginPath(); g.ellipse(x + s * rx * 0.98, y + ry * 0.08, r * P.ear, r * P.ear * 1.25, 0, 0, 6.283); g.fill(); g.stroke();
-    if (F.extra === "earrings") { g.strokeStyle = "#f6b62c"; g.lineWidth = lw * 0.6; g.beginPath(); g.arc(x + s * rx * 0.98, y + ry * 0.08 + r * P.ear * 1.4, r * 0.07, 0, 6.283); g.stroke(); }
+    if (F.extra === "earrings" || c.look.accessories?.includes("earrings")) { g.strokeStyle = "#f6b62c"; g.lineWidth = lw * 0.6; g.beginPath(); g.arc(x + s * rx * 0.98, y + ry * 0.08 + r * P.ear * 1.4, r * 0.07, 0, 6.283); g.stroke(); }
   }
   // head: round top, jaw from soft (0) to square (1)
   const headPath = () => {
@@ -403,6 +410,7 @@ function drawRefHead(g: Ctx, c: Character, M: ModelSpec, P: FacePlan, mood: Mood
   if (F.extra === "scar") { g.strokeStyle = "#b03030"; g.lineWidth = lw * 0.6; g.beginPath(); g.moveTo(fx + sep - eR * 0.4, ey - eR * 2); g.lineTo(fx + sep + eR * 0.5, ey + eR * 1.6); g.stroke(); }
   if (F.extra === "mole") dot(mx + mw * 0.9 * dir, my - mw * 0.4, r * 0.03, ink);
   if (F.extra === "tattoo") { g.strokeStyle = "#2a8ab0"; g.lineWidth = lw * 0.5; g.beginPath(); g.moveTo(fx - sep - eR, y + r * 0.2); g.lineTo(fx - sep - eR * 0.6, y + r * 0.35); g.lineTo(fx - sep - eR * 1.1, y + r * 0.45); g.stroke(); }
+  if(c.look.accessories?.includes("glasses")){g.strokeStyle=INK;g.lineWidth=1.2*k;for(const side of[-1,1]){g.beginPath();g.ellipse(fx+sep*side,ey,eR*1.35,eR*1.15,0,0,Math.PI*2);g.stroke();}g.beginPath();g.moveTo(fx-sep+eR,ey);g.lineTo(fx+sep-eR,ey);g.stroke();}
   // head gear from the model
   if (M.gear.includes("eyepatch")) { const ex = fx + sep; g.fillStyle = ink; g.beginPath(); g.ellipse(ex, ey, eR * 1.15, eR * 0.95, 0, 0, 6.283); g.fill(); g.strokeStyle = ink; g.lineWidth = lw * 0.6; g.beginPath(); g.moveTo(ex - eR, ey - eR * 0.6); g.lineTo(x - rx, y - ry * 0.4); g.moveTo(ex + eR, ey - eR * 0.6); g.lineTo(x + rx, y - ry * 0.3); g.stroke(); }
   if (M.gear.includes("bandage")) { g.strokeStyle = "#f2ead8"; g.lineWidth = r * 0.16; g.beginPath(); g.moveTo(x - rx * 0.95, y - ry * 0.55); g.lineTo(x + rx * 0.95, y - ry * 0.7); g.stroke(); }

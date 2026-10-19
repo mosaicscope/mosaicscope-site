@@ -513,6 +513,15 @@ function laneDrive(sim: Simulation, v: Vehicle, dt: number): void {
     target = Math.min(target, inX ? TURN_SPEED : TURN_SPEED + Math.max(0, distStop) * 0.9);
   }
 
+  // Leave the receiving lane clear before entering the box, rather than queueing across it.
+  if(!inX&&ic>=0&&distStop>=-.1&&distStop<9&&!pursuing){
+    const nd=v.nextDir>=0?v.nextDir:v.dir,[ex,ey]=DIRS[nd],lane=nd===v.dir?curLane:turnLane;
+    const edge=(nd===0?ic*P+ROAD_W:nd===1?ir*P+ROAD_W:nd===2?ic*P:ir*P);
+    const exitAlong=edge+(nd<2?1:-1)*(CROSS_W+d.length*.5+.8),exitCross=laneCoord(nd,nd%2===0?ir:ic,lane);
+    const exitX=nd%2===0?exitAlong:exitCross,exitY=nd%2===0?exitCross:exitAlong;
+    const blocked=sim.vehicles.some(o=>{if(o===v||Math.abs(o.speed)>2)return false;const dx=o.x-exitX,dy=o.y-exitY;return Math.abs(dx*ex+dy*ey)<(d.length+VEHICLES[o.cls].length)*.5+.6&&Math.abs(-dx*ey+dy*ex)<.7;});
+    if(blocked)target=Math.min(target,stopFor(distStop-.15));
+  }
   let holdPed = false;
   if (ic >= 0 && !pursuing) {
     // (a car that has crept onto the crossing but not into the junction still waits for green)
@@ -545,7 +554,7 @@ function laneDrive(sim: Simulation, v: Vehicle, dt: number): void {
     const hd = Math.abs(angDiff(o.heading, v.heading));
     // same lane ahead, or anything crossing/turning in front of us (not oncoming or side-by-side traffic)
     const crossing = ahead > 0 && ahead < 2.6 && lateral < 1.6 && hd > 0.5 && hd < 2.4;
-    const sameLane = ahead > 0 && ahead < 4.5 && lateral < 0.75;
+    const sameLane = ahead > 0 && ahead < Math.max(8,(d.length+VEHICLES[o.cls].length)*.5+2+v.speed*v.speed/(2*d.brake)) && lateral < 0.75;
     if (crossing || sameLane) {
       const gap = ahead - (d.length + VEHICLES[o.cls].length) / 2 - 0.4;
       target = Math.min(target, Math.max(0, gap) * 2.2);
@@ -608,7 +617,9 @@ function laneDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const latComp = nux ? lat * nux : lat * -nuy;
   const yaw = clamp(Math.atan2(latComp / Math.max(dt, 1e-4), Math.max(1, v.speed)), -0.35, 0.35);
   v.heading += angDiff(v.dir * Math.PI / 2 + yaw, v.heading) * Math.min(1, dt * 10);
-  v.x += nux * v.speed * dt; v.y += nuy * v.speed * dt;
+  const advance=Math.min(v.speed*dt,Math.max(0,leadGap-.15));
+  if(advance<v.speed*dt)v.speed=advance/Math.max(dt,.001);
+  v.x += nux * advance; v.y += nuy * advance;
   // wrap protection: off the map -> turn around
   if (v.x < 0.3 || v.y < 0.3 || v.x > w.size - 0.3 || v.y > w.size - 0.3) {
     // should never happen (turns are forced at the edge), but if it does: U-turn into the correct lane

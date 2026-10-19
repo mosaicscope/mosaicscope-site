@@ -399,11 +399,14 @@ export function tickLife(sim: Simulation): void {
       sim.chars[1];
     if (rival) s.nemesis.id = rival.id;
   }
-  if (sim.expansion.pending && !s.scene) {
+  if (sim.expansion.pending && (!s.scene||s.scene.id!==sim.expansion.pending)) {
+    const wantBench=["memorial","wallet","skater"].includes(sim.expansion.pending);
+    const poi=sim.world.pois.filter(p=>wantBench?p.kind==="bench":p.kind==="bench"||p.kind==="busstop").sort((a,b)=>Math.hypot(a.x-sim.player.x,a.y-sim.player.y)-Math.hypot(b.x-sim.player.x,b.y-sim.player.y))[0];
+    const spot=poi??sim.world.nearestWalkable(sim.player.x,sim.player.y);
     s.scene = {
       id: sim.expansion.pending,
-      x: sim.player.x + 1.2,
-      y: sim.player.y + 1.2,
+      x: spot.x,
+      y: spot.y,
       resolved: false,
     };
   }

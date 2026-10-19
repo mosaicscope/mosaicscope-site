@@ -1,0 +1,22 @@
+import {chromium} from 'playwright-core';
+import fs from 'node:fs';
+const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+const page=await browser.newPage({viewport:{width:1254,height:930},reducedMotion:'reduce'}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.route('**/api/**',r=>r.fulfill({json:{weather:'clear',isDay:true,temp:14,wind:10,hour:12}}));
+await page.goto(process.argv[2]||'http://127.0.0.1:5173/world/');await page.getByRole('button',{name:'Start new game',exact:true}).click();
+const preview=page.getByRole('img',{name:'Live character preview using the same model as the city'});
+await page.waitForTimeout(100);const image=()=>preview.evaluate(c=>c.toDataURL());
+let before=await image();await page.getByRole('button',{name:'Outfit #3dd6ff',exact:true}).click();await page.waitForTimeout(80);if(before===await image())throw Error('Outfit did not update the preview');
+before=await image();await page.getByLabel('backpack',{exact:true}).check();await page.getByLabel('glasses',{exact:true}).check();await page.getByLabel('chain',{exact:true}).check();await page.waitForTimeout(80);if(before===await image())throw Error('Accessories did not update the preview');
+before=await image();await page.getByLabel('Headwear',{exact:true}).selectOption('beanie');await page.waitForTimeout(80);if(before===await image())throw Error('Headwear preview is stale');
+fs.mkdirSync('e2e/screenshots',{recursive:true});await page.screenshot({path:'e2e/screenshots/creator-live-accessories.png'});
+await page.getByRole('button',{name:'Start my story',exact:true}).click();await page.getByRole('button',{name:'Skip',exact:true}).click();
+await page.evaluate(()=>{const g=window.__mosaics;g.setSpeed(0);g.keys.clear();});
+for(const [key,sign]of[['w',-1],['s',1]]){await page.keyboard.down(key);const delta=await page.evaluate(()=>{const g=window.__mosaics;g.controlPlayer();const p=g.sim.player,c=g.renderer.cam,a=c.toScreen(p.x,p.y,0,{x:0,y:0}),b=c.toScreen(p.x+p.vx,p.y+p.vy,0,{x:0,y:0});return b.y-a.y;});await page.keyboard.up(key);if(delta*sign<=0)throw Error(key+' moves in the wrong screen direction');}
+if(!await page.evaluate(()=>{const l=window.__mosaics.sim.player.look;return l.color==='#3dd6ff'&&l.accessories.includes('backpack')&&l.accessories.includes('glasses');}))throw Error('Appearance not applied in game');
+await page.evaluate(()=>{const g=window.__mosaics;g.sim.expansion.pending='memorial';g.activities.show('Explore');});await page.waitForTimeout(100);await page.screenshot({path:'e2e/screenshots/memorial-grounded.png'});
+await page.getByRole('button',{name:'Racing',exact:true}).click();await page.waitForTimeout(100);await page.screenshot({path:'e2e/screenshots/stable-grounded-empty.png'});
+await page.getByRole('button',{name:'Buy horse · $800'}).waitFor();await page.getByRole('button',{name:'UC',exact:true}).click();await page.waitForTimeout(100);await page.screenshot({path:'e2e/screenshots/campus-fountain-depth.png'});
+await page.getByRole('button',{name:'Close',exact:true}).click();await page.evaluate(()=>{const g=window.__mosaics;g.sim.expansion.pending=null;g.sim.life.scene=null;g.modal.close();g.sim.env.startHour=22;g.renderer.cam.targetZoom=g.renderer.cam.zoom=1.3;});await page.waitForTimeout(200);await page.screenshot({path:'e2e/screenshots/night-headlight-fix.png'});
+await page.setViewportSize({width:390,height:844});await page.evaluate(()=>window.__mosaics.activities.show('Explore'));if(await page.locator('.activities').evaluate(e=>e.scrollWidth>e.clientWidth+2))throw Error('Readable UI overflows on mobile');
+if(errors.length)throw Error(errors.join('\n'));console.log('PASS: preview pixel changes, accessories applied, W up/S down, grounded scenes, campus, night rendering, mobile, no runtime errors');await browser.close();

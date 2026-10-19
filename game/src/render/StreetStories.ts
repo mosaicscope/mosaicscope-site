@@ -1,97 +1,13 @@
 import type { Simulation } from "../sim/Simulation";
 import type { Camera } from "./Camera";
 import { ENCOUNTERS } from "../content/encounters";
-const ICONS: Record<string, string> = {
-  dog: "🐕",
-  wedding: "📸",
-  water: "💦",
-  magpie: "🐦",
-  quake: "⚠",
-  wallet: "👛",
-  bus: "🚌",
-  wind: "👕",
-  bike: "🚲",
-  market: "⛺",
-  keys: "🔑",
-  busker: "🎸",
-  cake: "🎂",
-  duck: "🦆",
-  interview: "💼",
-  power: "💡",
-  ring: "💍",
-};
-/** World-space props and witnesses keep street stories attached to a physical place. */
-export function drawStreetStories(
-  g: CanvasRenderingContext2D,
-  sim: Simulation,
-  cam: Camera,
-  time: number,
-  reduceMotion: boolean,
-): void {
-  const scene = sim.life.scene,
-    z = cam.zoom,
-    p = { x: 0, y: 0 };
-  g.save();
-  g.textAlign = "center";
-  for (const marker of sim.life.markers.slice(-16)) {
-    cam.toScreen(marker.x, marker.y, 0, p);
-    g.fillStyle = "#f6b62c";
-    g.font = `${16 * z}px sans-serif`;
-    g.fillText(marker.icon, p.x, p.y);
-    if (Math.hypot(marker.x - sim.player.x, marker.y - sim.player.y) < 10) {
-      g.font = `${10 * z}px sans-serif`;
-      g.fillText(marker.name, p.x, p.y - 20 * z);
-    }
-  }
-  if (scene && !scene.resolved) {
-    cam.toScreen(scene.x, scene.y, 0, p);
-    g.translate(p.x, p.y);
-    g.scale(z, z);
-    const pulse = reduceMotion ? 0 : Math.sin(time * 3) * 3;
-    g.strokeStyle = "#f6b62c";
-    g.lineWidth = 2;
-    g.beginPath();
-    g.ellipse(0, 0, 30, 13, 0, 0, Math.PI * 2);
-    g.stroke();
-    if (scene.id === "water") {
-      g.fillStyle = "#3dd6ff88";
-      g.beginPath();
-      g.ellipse(0, 0, 24, 8, 0, 0, Math.PI * 2);
-      g.fill();
-      g.strokeStyle = "#3dd6ff";
-      g.beginPath();
-      g.moveTo(0, 0);
-      g.quadraticCurveTo(8, -40, 18, -8);
-      g.stroke();
-    }
-    // Two gathered witnesses flank the encounter prop.
-    for (const x of [-27, 27]) {
-      g.strokeStyle = x < 0 ? "#eee4d3" : "#ff7ad9";
-      g.lineWidth = 2;
-      g.beginPath();
-      g.arc(x, -25, 4, 0, Math.PI * 2);
-      g.moveTo(x, -21);
-      g.lineTo(x, -9);
-      g.moveTo(x - 6, -16);
-      g.lineTo(x + 6, -16);
-      g.moveTo(x, -9);
-      g.lineTo(x - 5, 0);
-      g.moveTo(x, -9);
-      g.lineTo(x + 5, 0);
-      g.stroke();
-    }
-    g.font = "26px sans-serif";
-    g.fillText(ICONS[scene.id] ?? "📦", 0, -8 + pulse);
-    g.font = "bold 11px sans-serif";
-    const title =
-      ENCOUNTERS.find((e) => e.id === scene.id)?.title ?? "Street story";
-    const width = g.measureText(title).width + 16;
-    g.fillStyle = "#171512ee";
-    g.fillRect(-width / 2, -62, width, 21);
-    g.fillStyle = "#f6b62c";
-    g.fillText(title, 0, -47);
-    g.font = "10px sans-serif";
-    g.fillText("Explore to help", 0, 20);
-  }
-  g.restore();
+/** Only mark an actual nearby story location. No synthetic witnesses or fallback crates. */
+export function drawStreetStories(g:CanvasRenderingContext2D,sim:Simulation,cam:Camera,_time:number,_reduceMotion:boolean):void {
+ const scene=sim.life.scene;if(!scene||scene.resolved||scene.id!==sim.expansion.pending)return;
+ if(Math.hypot(scene.x-sim.player.x,scene.y-sim.player.y)>8)return;
+ const p=cam.toScreen(scene.x,scene.y,0,{x:0,y:0}),title=ENCOUNTERS.find(e=>e.id===scene.id)?.title;
+ if(!title)return;
+ g.save();g.font="600 12px system-ui, sans-serif";const w=Math.min(210,g.measureText(title).width+24);
+ const x=Math.max(8,Math.min(cam.viewW-w-8,p.x-w/2)),y=Math.max(90,Math.min(cam.viewH-100,p.y-38));
+ g.fillStyle="#10282fee";g.strokeStyle="#bba46b";g.lineWidth=1;g.beginPath();g.roundRect(x,y,w,27,7);g.fill();g.stroke();g.fillStyle="#ead8ae";g.textAlign="center";g.fillText(title,x+w/2,y+18,w-16);g.restore();
 }
