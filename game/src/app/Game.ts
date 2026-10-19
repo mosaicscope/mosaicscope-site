@@ -563,6 +563,9 @@ export class Game {
     }
     if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; if (Math.abs(v.speed) > 2) { this.toast("Slow down to get out"); return; } const door = this.nearDoor(); v.speed = 0; unseat(sim, v); v.state = "parked"; this.renderer.cam.follow = p.id; if (door) this.enterPlace(door); return; } // pull up outside and E walks you straight in
     const door = this.nearDoor();
+    // At the entrance itself E means enter; nearby litter must not steal the door action.
+    const atEntrance=door&&sim.world.pois.some(q=>q.kind==='door'&&q.building===(door.studio?-2:door.building)&&Math.hypot(q.x-p.x,q.y-p.y)<=.65);
+    if(atEntrance){this.enterPlace(door!);return;}
     if (this.nearestToy()) { this.act("pickup"); return; }
     if (this.nearestLitter()) { this.scavenge(); return; }
     if (door) { this.enterPlace(door); return; }

@@ -23,6 +23,11 @@ try{
   if(!await page.locator('.play-scene:visible').evaluate(c=>c.getContext('2d').getImageData(450,250,1,1).data[3]))throw Error(`Blank outcome ${id}/${choice}`);
  }
  await page.screenshot({path:'e2e/screenshots/depth-choice-outcome.png'});
+ await page.getByRole('button',{name:'Close',exact:true}).click();
+ const litter=await page.evaluate(()=>{const g=window.__mosaics,s=g.sim,p=s.player,d=s.world.pois.find(q=>q.kind==='door'&&q.building===-2);p.x=p.px=d.x;p.y=p.py=d.y;p.vx=p.vy=0;p.phys=0;p.inCar=-1;return s.litter.add('can',d.x,d.y)?.id;});
+ await page.keyboard.press('e');await page.locator('.modal[role=dialog]').waitFor();
+ if(!await page.locator('.modal[role=dialog]').textContent().then(t=>t.includes('Instagram')))throw Error('Studio entrance action was stolen by litter');
+ if(await page.evaluate(id=>window.__mosaics.sim.litter.pieces[id].taken,litter))throw Error('Door interaction collected the can instead');
  if(errors.length)throw Error(errors.join('\n'));
  console.log('PASS: live outfit rendering, mobile creator, cookie-selected save, all 80 resolved encounter scenes');
 }finally{await browser.close();}
