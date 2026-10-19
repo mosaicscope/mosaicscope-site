@@ -20,4 +20,4 @@ export function carZoneDamage(v:Vehicle,zone:number):number{
  const f=v.dmgF??0,r=v.dmgR??0,l=v.dmgL??0,s=v.dmgS??0;
  return [f,r,l,s,Math.max(f,r),v.glassDamage??f,v.glassDamage??r,f,r,Math.max(l,s)][zone];
 }
-export function needsMedicalResponse(c:Character):boolean{return c.blood<.45||(c.phys===2&&c.physTimer>10)||c.wounds.filter(w=>!w.bandaged).reduce((n,w)=>n+w.severity,0)>=6||c.wounds.some(w=>!w.bandaged&&(w.severity===3||w.kind==='fracture'));}
+export function needsMedicalResponse(c:Character):boolean{return c.wounds.some(w=>!!w.detached)||c.blood<.45||(c.phys===2&&c.physTimer>10)||c.wounds.filter(w=>!w.bandaged).reduce((n,w)=>n+w.severity,0)>=6||c.wounds.some(w=>!w.bandaged&&(w.severity===3||w.kind==='fracture'));}

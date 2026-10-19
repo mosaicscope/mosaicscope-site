@@ -152,18 +152,20 @@ export function nearestFoe(sim: Simulation, c: Character, r: number): Character 
 export function fireGun(sim: Simulation, c: Character, tx: number, ty: number, targetId: number): boolean {
   const def = heldDef(sim, c);
   const ws = def ? TOYS[def].weapon : undefined;
-  if (!def || !ws?.gun) return false;
+  if (!def || !ws?.gun || c.phys!==Phys.OK || c.wounds.some(w=>w.detached)) return false;
   if ((sim.nextAttack.get(c.id) ?? 0) > sim.tick) return false;
-  if(c.combat?.reloadWeapon===def&&(c.combat.reloadUntil??0)>sim.tick)return false;
+  if(c.combat?.reloadWeapon===def&&(c.combat.reloadUntil??0)>sim.tick||c.weaponAction?.weapon===def&&(c.weaponAction.reloadUntil??0)>sim.tick)return false;
   if(c.combat){const base=def==='golden_pistol'?'pistol':def,key=(c.combat.load??'standard')==='standard'?base:base+':'+c.combat.load,rounds=c.combat.ammo[key]??0;if(rounds<=0)return false;c.combat.ammo[key]=rounds-1;}
   const st = state(sim);
   let wait = ws.rate;
   const fired = (c.combat ? c.combat.magUsed?.[def]??0 : st.shots.get(c.id)??0) + 1;
-  if (ws.mag && fired >= ws.mag) { st.shots.set(c.id, 0); wait += ws.reload ?? 1.5; sim.bus.emit("sound", { kind: "reload", x: c.x, y: c.y, vol: 0.5 }); }
+  if (ws.mag && fired >= ws.mag) { st.shots.set(c.id, 0); wait += ws.reload ?? 1.5; sim.bus.emit("sound", { kind: "reload_"+def, x: c.x, y: c.y, vol: 0.5 }); }
   else st.shots.set(c.id, fired);
   if(c.combat){c.combat.magUsed??={};c.combat.magUsed[def]=ws.mag&&fired>=ws.mag?0:fired;if(ws.mag&&fired>=ws.mag){c.combat.reloadUntil=sim.tick+Math.round(wait*60);c.combat.reloadWeapon=def;}}
   sim.nextAttack.set(c.id, sim.tick + Math.round(wait * 60));
 
+  c.weaponAction={weapon:def,firedAt:sim.tick,shots:fired,...(ws.mag&&fired>=ws.mag?{reloadFrom:sim.tick+Math.round(ws.rate*60),reloadUntil:sim.tick+Math.round(wait*60)}:{})};
+  sim.bus.emit('sound',{kind:'mechanism_'+def,x:c.x,y:c.y,vol:.5});
   const base = Math.atan2(ty - c.y, tx - c.x);
   c.facing = base; c.anim.pose = "shoot"; c.anim.poseT = 0;
   const steady = c.tier === "player" ? 1.1 : (0.7 + c.emo.confidence * 0.3) * (c.emo.fear > 0.5 ? 0.8 : 1);
@@ -183,7 +185,7 @@ export function fireGun(sim: Simulation, c: Character, tx: number, ty: number, t
     const time = dist / speed, tz = 1.05 + sim.rng.gauss() * 0.2;
     b.vx = Math.cos(a) * speed; b.vy = Math.sin(a) * speed; b.vz = (tz - mz) / time + 0.5 * GRAVITY * time;
     b.state = "flying"; b.thrower = c.id; b.throwTick = sim.tick; b.angle = a;
-    b.load=c.combat?.load??'standard';
+    b.load=c.combat?.load??'standard';b.weaponOrigin=def;
     if (targetId >= 0) sim.throwIntent.set(b.id, targetId); else sim.throwIntent.delete(b.id);
   }
   // muzzle flash, a spent casing, the bang
@@ -248,7 +250,7 @@ export function dispatchArmed(sim: Simulation, perp: Character, n: number): void
 /** A bullet or buckshot pellet hit someone. Called from Rules before the normal toy-hit handling. */
 export function bulletHit(sim: Simulation, t: Toy, c: Character, nx: number, ny: number): void {
   const shooter = sim.chars[t.thrower];
-  const gunDef = heldDef(sim, shooter);
+  const gunDef = t.weaponOrigin??heldDef(sim, shooter);
   const gun = gunDef && isGun(gunDef) ? gunDef : "pistol";
   const original=TOYS[gun].weapon!,factor=t.load==='rubber'?.4:t.load==='heavy'?1.3:1;
   const ws={...original,damage:original.damage*factor,knockback:original.knockback*factor};
@@ -266,7 +268,7 @@ export function bulletHit(sim: Simulation, t: Toy, c: Character, nx: number, ny:
     const part = pickPart(sim, hz);
     const heavy = ws.damage >= 2.8;
     const sev = (part === "head" ? 3 : part === "torso" ? (heavy || sim.rng.chance(0.35) ? 3 : 2) : sim.rng.chance(heavy ? 0.8 : 0.55) ? 2 : 1) as 1 | 2 | 3;
-    wound(sim, c, part, t.load==='rubber'?1:sev, t.load==='rubber'?"bruise":part === "head" ? "gash" : sev >= 2 ? "cut" : "graze", shooter?.id ?? -1, shooter?.x ?? hx, shooter?.y ?? hy);
+    wound(sim, c, part, t.load==='rubber'?1:sev, t.load==='rubber'?"bruise":part === "head" ? "gash" : sev >= 2 ? "cut" : "graze", shooter?.id ?? -1, shooter?.x ?? hx, shooter?.y ?? hy,gun,t.load);
     // a bad hit puts them on the floor for a while (paramedics do the rest)
     if (sev >= 3 && c.tier !== "player" && c.phys !== Phys.DOWN) { c.phys = Phys.DOWN; c.physTimer = 5 + sim.rng.range(0, 4); c.vz = 2; c.stats.falls++; }
   }

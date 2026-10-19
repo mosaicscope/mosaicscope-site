@@ -1,3 +1,4 @@
+import {applyTrauma} from './Trauma';
 import {woundArt,needsMedicalResponse} from "../content/damageModels";
 import { hasBody } from "./life/body";
 import type { Simulation } from "./Simulation";
@@ -20,7 +21,8 @@ export function pickPart(sim: Simulation, z: number | null): WoundPart {
 }
 
 /** Add a wound. `from` is where the blow came from (for the direction of a spray). */
-export function wound(sim: Simulation, c: Character, part: WoundPart, severity: 1 | 2 | 3, kind: WoundKind, by: number, fromX: number, fromY: number): Wound {
+export function wound(sim: Simulation, c: Character, part: WoundPart, severity: 1 | 2 | 3, kind: WoundKind, by: number, fromX: number, fromY: number, weapon?:string, load?:string): Wound {
+  if(c.tier==="background")c.promoted=true;sim.lod.markHot(c.id,sim.tick,600);
   const protection=c.combat,armour=part==='head'?protection?.helmet:part==='torso'?protection?.vest:0;
   if(protection&&armour){if(part==='head')protection.helmet=Math.max(0,protection.helmet-severity*15);else protection.vest=Math.max(0,protection.vest-severity*12);severity=Math.max(1,severity-1) as 1|2|3;if(severity===1)kind='bruise';}
   if (c.id === sim.playerId && part === "head" && kind !== "stab" && hasBody(sim.life.body, "mouthguard")) severity = Math.max(1, severity - 1) as 1 | 2 | 3;
@@ -46,6 +48,7 @@ export function wound(sim: Simulation, c: Character, part: WoundPart, severity: 
   const marks=w.marks??(prior===undefined?[]:[prior]);
   if(!marks.includes(w.art))marks.push(w.art);
   w.marks=marks.slice(-8);
+  if(weapon)applyTrauma(sim,c,w,weapon,fromX,fromY,load);
   recomputeBleed(c);
   if(needsMedicalResponse(c))sim.callAmbulance(c);
   if (sim.fakeBlood && w.kind!=="bruise") {
@@ -66,7 +69,7 @@ export function wound(sim: Simulation, c: Character, part: WoundPart, severity: 
 
 export function recomputeBleed(c: Character): void {
   let b = 0;
-  for (const w of c.wounds) if (!w.bandaged && w.kind!=="bruise" && w.kind!=="graze" && w.kind!=="fracture") b += BLEED[w.severity] * (w.part === "head" ? 1.4 : 1);
+  for (const w of c.wounds) if (!w.bandaged && w.kind!=="bruise" && w.kind!=="graze" && (w.kind!=="fracture"||w.compound)) b += (w.compound?.45:BLEED[w.severity]) * (w.part === "head" ? 1.4 : 1);
   c.bleed = Math.min(1, b);
 }
 
@@ -98,6 +101,7 @@ export function hurtOf(c: Character): { head: number; torso: number; arm: number
 }
 
 export function updateHealth(sim: Simulation, c: Character, dt: number): void {
+  if(c.wounds.some(w=>w.detached)){c.phys=Phys.DOWN;c.physTimer=9999;}
   if(needsMedicalResponse(c))sim.callAmbulance(c);
   if (!c.wounds.length && c.blood >= 1) return;
   // pain wears you down: the more it hurts, the lower the mood and the shorter the fuse
@@ -118,7 +122,7 @@ export function updateHealth(sim: Simulation, c: Character, dt: number): void {
   // wounds heal: bruises fade, bandaged wounds close up after a while
   for (let i = c.wounds.length - 1; i >= 0; i--) {
     const w = c.wounds[i], age = sim.tick - w.tick;
-    if (w.severity === 1 && age > 60 * 120 || w.bandaged && age > 60 * 60 * 6) c.wounds.splice(i, 1);
+    if (!w.detached&&(w.severity === 1 && age > 60 * 120 || w.bandaged && age > 60 * 60 * 6)) c.wounds.splice(i, 1);
   }
   recomputeBleed(c);
 }
@@ -127,7 +131,7 @@ export function updateHealth(sim: Simulation, c: Character, dt: number): void {
 export function hospitalise(sim: Simulation, c: Character): void {
   const h = sim.world.buildings.find((b) => b.kind === "hospital");
   if(c.inCar>=0){const v=sim.vehicles[c.inCar];if(v){v.driver=-1;v.state='parked';v.speed=0;v.vx=v.vy=0;}c.inCar=-1;}
-  for (const w of c.wounds) w.bandaged = true;
+  for (const w of c.wounds) {w.bandaged = true;delete w.detached;w.compound=false;}
   recomputeBleed(c);
   c.vx=c.vy=c.kx=c.ky=c.vz=0;c.z=0;c.stunUntil=sim.tick;
   c.blood = 0.8; c.phys = Phys.OK; c.physTimer = 0; c.emo.composure = 0.6;

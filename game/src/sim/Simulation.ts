@@ -1,3 +1,4 @@
+import {advanceDetachedLimbs} from './Trauma';
 import {updateCivicDamage} from "./CivicDamage";
 import {sendAmbulance,updateMedicalResponses} from "./MedicalResponse";
 import { unarmedMove } from "../content/combat";
@@ -208,6 +209,7 @@ export class Simulation {
     let aiMs = 0;
     const tm = performance.now();
     for (const c of this.chars) {
+      advanceDetachedLimbs(this,c,dt);
       if (c.inCar >= 0) continue; // the car carries them (updated in Traffic)
       if (c.inside >= 0) {
         // indoors: nothing to simulate until they come back out
@@ -686,6 +688,7 @@ export class Simulation {
 
   /** Bare-fisted punch: lands on whoever is in front, with a light knock and small damage. No toy involved. */
   punchHeld(c: Character): number {
+    if(c.phys!==Phys.OK||c.wounds.some(w=>w.detached))return 0;
     if ((this.nextAttack.get(c.id) ?? 0) > this.tick) return 0;
     const move=unarmedMove(c.combat?.style,c.combat?.xp);
     this.nextAttack.set(c.id, this.tick + Math.round(move.rate * 60));
@@ -705,6 +708,7 @@ export class Simulation {
   }
 
   swingHeld(c: Character): number {
+    if(c.phys!==Phys.OK||c.wounds.some(w=>w.detached))return 0;
     if (c.hand < 0) return 0;
     const t = this.toys[c.hand], d = TOYS[t.def];
     const ws = d.weapon;
