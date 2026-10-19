@@ -1,8 +1,8 @@
 {
- "at": 1792377388441,
+ "at": 1792379334524,
  "totals": {
   "duplicate-code": 2,
-  "long-function": 16,
+  "long-function": 17,
   "oversized-module": 9,
   "unused-css": 1
  },
@@ -51,9 +51,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/app/Game.ts",
-   "detail": "1402 lines",
+   "detail": "1468 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|19y2r18"
+   "fp": "oversized-module|1pb7asw"
   },
   {
    "kind": "oversized-module",
@@ -115,33 +115,33 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/render/Renderer.ts",
-   "detail": "1001 lines",
+   "detail": "1003 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|57ob"
+   "fp": "oversized-module|tx1oop"
   },
   {
    "kind": "oversized-module",
    "severity": "medium",
    "where": "game/src/sim/Chronicles.ts",
-   "detail": "1518 lines",
+   "detail": "1531 lines",
    "fix": "split by feature into modules",
-   "fp": "oversized-module|2gsaf0"
+   "fp": "oversized-module|15n5io5"
   },
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/sim/Chronicles.ts:377",
-   "detail": "260 lines",
+   "where": "game/src/sim/Chronicles.ts:383",
+   "detail": "261 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1211xn0"
+   "fp": "long-function|1xe0c6a"
   },
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/sim/Chronicles.ts:638",
-   "detail": "779 lines",
+   "where": "game/src/sim/Chronicles.ts:645",
+   "detail": "785 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1k260m7"
+   "fp": "long-function|8xsios"
   },
   {
    "kind": "long-function",
@@ -155,9 +155,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Simulation.ts",
-   "detail": "924 lines",
+   "detail": "936 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|1ysm0hj"
+   "fp": "oversized-module|1bjb570"
   },
   {
    "kind": "long-function",
@@ -176,12 +176,20 @@
    "fp": "long-function|1b101oc"
   },
   {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "game/src/sim/Upgrades.ts:110",
+   "detail": "179 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|11bb0lz"
+  },
+  {
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/ui/LifePhone.ts",
-   "detail": "1021 lines",
+   "detail": "1030 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|1y2sm6s"
+   "fp": "oversized-module|173d6y2"
   },
   {
    "kind": "oversized-module",
