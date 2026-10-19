@@ -1,9 +1,10 @@
+import {currentReactionFace,drawReactionMouth,drawReactionAccents} from './ReactionFaces';
 import {drawEmotionDetail} from './NegativeReactions';
 import {drawFaceDamage,drawBodyDamage,detachedOn} from "./DamageArt";
 import type { Character } from "../entities/types";
 import { Phys } from "../entities/types";
 import type { ModelSpec } from "./Models";
-import { EYE_SHAPES } from "./Models";
+import { EYE_SHAPES,modelOf } from "./Models";
 import { drawFaceGenes } from "./FaceGenes";
 
 /**
@@ -270,7 +271,7 @@ export function facePlan(seed: number): FacePlan {
 
 function drawRefHead(g: Ctx, c: Character, M: ModelSpec, P: FacePlan, mood: Mood, x: number, y: number, r: number, k: number, dir: number, lw: number, alpha: number, hd: boolean, flash: boolean): void {
   const ink = flash ? "#ffffff" : INK, skin = flash ? "#ffffff" : M.skin, hairCol = flash ? "#ffffff" : M.hairColor;
-  const F = M.face, ES = EYE_SHAPES[M.id];
+  const F = M.face, ES = EYE_SHAPES[M.id],expression=currentReactionFace(c);
   const rx = r * P.wide * (F.head === "wide" ? 1.08 : 1), ry = r * P.tall * (F.head === "oval" ? 1.1 : 1);
   const dot = (px: number, py: number, rr: number, col: string) => { g.fillStyle = col; g.beginPath(); g.arc(px, py, rr, 0, 6.283); g.fill(); };
   // ears
@@ -325,22 +326,23 @@ function drawRefHead(g: Ctx, c: Character, M: ModelSpec, P: FacePlan, mood: Mood
   for (const s of [-1, 1]) {
     const ex = fx + s * sep;
     if (F.eyes === "shades" || F.eyes === "aviator") { g.fillStyle = ink; g.beginPath(); g.ellipse(ex, ey, eR * 1.2, eR * 0.85, 0, 0, 6.283); g.fill(); if (s > 0) { g.strokeStyle = ink; g.lineWidth = lw * 0.7; g.beginPath(); g.moveTo(fx - sep + eR, ey); g.lineTo(fx + sep - eR, ey); g.stroke(); } continue; }
-    if (mood === "stunned") {
+    if (mood === "stunned"&&!expression) {
       g.strokeStyle = ink; g.lineWidth = lw; g.beginPath(); g.moveTo(ex - eR * 0.6, ey - eR * 0.6); g.lineTo(ex + eR * 0.6, ey + eR * 0.6); g.moveTo(ex + eR * 0.6, ey - eR * 0.6); g.lineTo(ex - eR * 0.6, ey + eR * 0.6); g.stroke();
       continue;
     }
-    if (mood === "happy") { g.strokeStyle = ink; g.lineWidth = lw; g.beginPath(); g.arc(ex, ey + eR * 0.3, eR * 0.6, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); continue; }
-    const open = (mood === "scared" ? 1.15 : mood === "angry" ? 0.85 : 1) * eyeH;
+    if (mood === "happy"&&!expression) { g.strokeStyle = ink; g.lineWidth = lw; g.beginPath(); g.arc(ex, ey + eR * 0.3, eR * 0.6, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); continue; }
+    const open = (expression?(s<0?expression.eyeL:expression.eyeR):(mood === "scared" ? 1.15 : mood === "angry" ? 0.85 : 1))*eyeH;
+    if(expression&&open<.18){g.strokeStyle=ink;g.lineWidth=lw*.8;g.beginPath();g.moveTo(ex-eR,ey);g.quadraticCurveTo(ex,ey+eR*.25,ex+eR,ey);g.stroke();continue;}
     const tilt = s * (P.eyeTilt + (ES ? ES.tilt * 0.5 : 0));
     g.fillStyle = flash ? "#ffffff" : WHITE; g.strokeStyle = ink; g.lineWidth = lw * 0.85;
     g.beginPath(); g.ellipse(ex, ey, eR, eR * open, tilt, 0, 6.283); g.fill(); g.stroke();
-    const pr = eR * (mood === "scared" ? 0.3 : P.pupil), pdx = r * 0.05 * dir + (ES ? ES.pupil * eR * 0.3 * dir : 0), pdy = mood === "sad" ? eR * 0.2 : 0;
+    const pr = eR * (expression?Math.min(.45,open*.55):mood === "scared" ? 0.3 : P.pupil), pdx = expression?expression.pupilX*eR*.45:r*.05*dir+(ES?ES.pupil*eR*.3*dir:0), pdy = expression?expression.pupilY*eR*.35:mood === "sad" ? eR*.2:0;
     dot(ex + pdx, ey + pdy, pr, ink);
     dot(ex + pdx - pr * 0.35, ey + pdy - pr * 0.35, pr * 0.3, WHITE);
     // lids: resting lid per person, deeper for angry and sad
     const lidIn = mood === "angry" ? 0.45 : mood === "sad" ? 0.1 : mood === "scared" ? 0 : restLid;
     const lidOut = mood === "angry" ? 0.1 : mood === "sad" ? 0.45 : mood === "scared" ? 0 : restLid;
-    if (lidIn > 0.02 || lidOut > 0.02) {
+    if (!expression&&(lidIn > 0.02 || lidOut > 0.02)) {
       g.save(); g.beginPath(); g.ellipse(ex, ey, eR, eR * open, tilt, 0, 6.283); g.clip();
       g.fillStyle = skin; g.beginPath();
       g.moveTo(ex - s * eR * 1.2, ey - eR * open + lidIn * 2 * eR * open); g.lineTo(ex + s * eR * 1.2, ey - eR * open + lidOut * 2 * eR * open);
@@ -354,7 +356,8 @@ function drawRefHead(g: Ctx, c: Character, M: ModelSpec, P: FacePlan, mood: Mood
   const browStyle = mood === "angry" ? "angry" : mood === "sad" || mood === "scared" ? "worried" : F.brows;
   g.strokeStyle = flash ? "#ffffff" : M.hair === "none" ? ink : hairCol; g.lineWidth = lw * P.browW * (F.brows === "thick" ? 1.4 : 1); g.beginPath();
   for (const s of [-1, 1]) {
-    const bx = fx + s * sep, by = ey - eR * P.browY - (mood === "scared" ? eR * 0.3 : 0), L = eR * P.browLen * 1.4;
+    const bx = fx + s * sep, by = ey - eR * P.browY + (expression?expression.browY*eR:mood === "scared" ? -eR*.3:0), L = eR * P.browLen * 1.4;
+    if(expression){const slope=s<0?expression.browL:expression.browR;g.moveTo(bx-L,by-slope*eR*.5);g.quadraticCurveTo(bx,by-eR*.15,bx+L,by+slope*eR*.5);continue;}
     const inner = browStyle === "angry" ? eR * 0.45 : browStyle === "worried" ? -eR * 0.4 : browStyle === "raised" ? -eR * 0.15 : P.browTilt * eR;
     const outer = browStyle === "raised" ? -eR * 0.15 : 0;
     g.moveTo(bx - s * L, by + inner); g.quadraticCurveTo(bx, by - eR * 0.15 + (inner + outer) * 0.3, bx + s * L, by + outer);
@@ -377,7 +380,7 @@ function drawRefHead(g: Ctx, c: Character, M: ModelSpec, P: FacePlan, mood: Mood
   // mouth: width and lip per person; the mood sets the shape
   const mx = fx, my = y + r * P.mouthY, mw = r * P.mouthW;
   g.lineWidth = lw * (0.75 + P.lip * 0.4);
-  switch (mood) {
+  if(expression)drawReactionMouth(g,expression,mx,my,mw,ink,WHITE);else switch (mood) {
     case "scared": case "stunned": {
       g.fillStyle = ink; g.beginPath(); g.ellipse(mx, my, mw * 0.85, mw * 0.65, 0, 0, 6.283); g.fill();
       g.fillStyle = WHITE; g.beginPath(); g.ellipse(mx, my - mw * 0.42, mw * 0.55, mw * 0.16, 0, 0, Math.PI, true); g.fill();
@@ -446,7 +449,7 @@ function drawRefHead(g: Ctx, c: Character, M: ModelSpec, P: FacePlan, mood: Mood
     // realistic slots only (brow piercing, nose bit, ear, chin, scar, age), at most two per face so it stays clean
     drawFaceGenes(g, gene, { x, y, k: kk, dir, lw: lw * 0.8, col: ink, alpha, fx, ey, my, rx, ry, covered: F.eyes === "shades" || F.eyes === "aviator" }, { allow: REAL_GENES, max: 2 });
   }
-  drawFaceDamage(g,c,x,y,rx,ry,k);drawEmotionDetail(g,c,x,y,r,k);
+  drawFaceDamage(g,c,x,y,rx,ry,k);if(expression)drawReactionAccents(g,expression,x,y,r,k);else drawEmotionDetail(g,c,x,y,r,k);
   g.globalAlpha = alpha;
 }
 
@@ -467,4 +470,10 @@ function drawHat(g: Ctx, M: ModelSpec, x: number, y: number, rx: number, ry: num
     case "headphones": g.strokeStyle = ink; g.lineWidth = lw * 1.1; g.beginPath(); g.ellipse(x, y - ry * 0.05, rx * 1.1, ry * 1.1, 0, Math.PI * 1.05, Math.PI * 1.95); g.stroke(); g.fillStyle = col; for (const s of [-1, 1]) { g.beginPath(); g.ellipse(x + s * rx * 1.02, y, rx * 0.2, ry * 0.3, 0, 0, 6.283); g.fill(); g.stroke(); } break;
     default: dome(1.04);
   }
+}
+
+/** Face close-up uses exactly the same identity, accessories and animated expression as the full figure. */
+export function drawReactionPortrait(g:Ctx,c:Character,x:number,y:number,r:number):void{
+ const M=personalize(modelOf(c)??lookSpec(c),c),P=facePlan(c.look.face?.gene??c.id*2654435761),k=r/(15*P.size);
+ drawRefHead(g,c,M,P,moodOf(c),x,y,r,k,1,Math.max(1.1,2.3*k),1,true,false);
 }

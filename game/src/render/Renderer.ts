@@ -263,7 +263,7 @@ export class Renderer {
       const x = c.px + (c.x - c.px) * alpha, y = c.py + (c.y - c.py) * alpha;
       cam.toScreen(x, y, 0, pt);
       if (!inView(pt.x, pt.y, 80 * z)) continue;
-      const bg = c.tier === "background" && !c.promoted && z < 1.25;
+      const bg = c.tier === "background" && !c.promoted && z < 1.25 && c.emo.fear<.65 && c.emo.frustration<.7 && c.emo.mood>-.55;
       if (!bg || o.quality > 0) {
         const r = (bg ? 7 : 9) * z * c.look.scale;
         g.globalAlpha = bg ? 0.5 : 1;
@@ -294,7 +294,7 @@ export class Renderer {
     for (const it of view) {
       if (it.kind === 0) {
         const c = sim.chars[it.ref];
-        const bg = c.tier === "background" && !c.promoted && z < 1.25;
+        const bg = c.tier === "background" && !c.promoted && z < 1.25 && c.emo.fear<.65 && c.emo.frustration<.7 && c.emo.mood>-.55;
         const k = 0.44 * z * c.look.scale;
         const wx=c.px+(c.x-c.px)*alpha,wy=c.py+(c.y-c.py)*alpha;
         const previous=this.motion.get(c.id),distance=previous?Math.hypot(wx-previous.x,wy-previous.y):0;
@@ -854,8 +854,7 @@ export class Renderer {
   private render2D(alpha: number, dt: number, o: RenderOptions): void {
     const sim = this.sim, cam = this.cam;
     const f = sim.chars[cam.follow >= 0 ? cam.follow : sim.playerId] ?? sim.player;
-    this.street.draw(this.g, this.dpr, sim, f, cam.viewW, cam.viewH, cam.zoom, dt, this.time, (c, m, s) => this.poseName(c, m, s), alpha);
-    void o;
+    this.street.draw(this.g, this.dpr, sim, f, cam.viewW, cam.viewH, cam.zoom, dt, this.time, (c, m, s) => this.poseName(c, m, s), alpha, o.reduceMotion);
   }
 
   private grain: HTMLCanvasElement | null = null; private vig: CanvasGradient | null = null; private vigKey = "";
