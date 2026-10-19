@@ -1,3 +1,4 @@
+import {placeStreetFixtures} from "./StreetFixtures";
 import { PLACE_REFERENCES } from "../content/placeReferences";
 import { Rng } from "../core/rng";
 import { World, T, Area, AreaKind, PoiKind, SOLID, DECOR, PERIOD, ROAD_W, SIDEWALK_W, CROSS_W } from "./World";
@@ -412,6 +413,7 @@ export function generateWorld(opts: GenOptions): World {
   }
   ensureConnected(w);
   w.dirtyTiles.clear();
+  placeStreetFixtures(w);
   return w;
 }
 

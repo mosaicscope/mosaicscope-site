@@ -24,7 +24,7 @@ export const TILE_HEIGHT: Record<number, number> = { [T.WALL]: 1.25, [T.FENCE]: 
 export type AreaKind = "street" | "plaza" | "park" | "court" | "studio" | "stage" | "market" | "playground" | "alley"
   | "casino" | "police" | "food" | "shops" | "residential" | "office" | "dealership" | "hospital" | "gallery" | "airport" | "nightlife";
 export interface Area { id: number; name: string; kind: AreaKind; x0: number; y0: number; x1: number; y1: number; cx: number; cy: number }
-export type PoiKind = "bench" | "boombox" | "toychest" | "lamp" | "hoop" | "door" | "springpad" | "fountain" | "busstop" | "foodtruck" | "atm" | "mural" | "hydrant" | "billboard" | "light" | "plane" | "bin";
+export type PoiKind = "bench" | "boombox" | "toychest" | "lamp" | "hoop" | "door" | "springpad" | "fountain" | "busstop" | "foodtruck" | "atm" | "mural" | "hydrant" | "billboard" | "light" | "plane" | "bin" | "streetsign" | "roadsign";
 export interface Poi { id: number; kind: PoiKind; x: number; y: number; area: number; on?: boolean; building?: number; menu?: string[]; name?: string; dir?: number }
 
 export interface Building {
@@ -65,6 +65,7 @@ export class World {
   buildings: Building[] = [];
   /** building id per tile (-1 none) */
   readonly buildingOf: Int16Array;
+  civicDamage:Record<string,import("../sim/CivicDamage").CivicDamage>={};
   graffiti: Graffiti[] = [];
   /** road grid: roads at coordinates where c % period < ROAD_W */
   readonly period = PERIOD;

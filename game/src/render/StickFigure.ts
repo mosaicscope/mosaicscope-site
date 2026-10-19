@@ -91,6 +91,7 @@ export function pose(name: string, style: string, t: number, ph: number, speed: 
     case "photo": A.armL=.7; A.foreL=2.3; A.armR=.7; A.foreR=2.3; break;
     case "drink": A.armR=.4; A.foreR=2.4+Math.sin(t*.8)*.1; A.armL=.2; break;
     case "shield": A.armL=2.5; A.foreL=.6; A.armR=1.2; A.foreR=.9; A.lean=-.12; break;
+    case "repair": A.armL=.6;A.foreL=1.2;A.armR=1+Math.sin(t*5)*.2;A.foreR=1.4;A.lean=.14;break;
     case "play": case "cook": A.armL=.9; A.foreL=1.1+Math.sin(t*2)*.12; A.armR=.85; A.foreR=1.1-Math.sin(t*2)*.12; A.lean=.06; break;
     case "deal": A.armR=.8+Math.sin(t*1.4)*.25; A.foreR=1.35; A.armL=.65; A.foreL=1.2; A.lean=.06; break;
     case "bet": A.armR=.7+Math.sin(t*.9)*.12; A.foreR=1.45; A.armL=.4; A.foreL=.8; A.thighL=.85; A.thighR=.8; A.bendL=1.15; A.bendR=1.2; A.bob=9; break;

@@ -58,7 +58,10 @@ const free = (c: Character) => c.tier !== "player" && c.jailUntil <= 0 && c.arre
 export function ensureGangs(sim: Simulation): void {
   const st = state(sim);
   for (const c of sim.chars) if (c.role === "mobster" && !c.crew) c.crew = "famiglia";
-  for (const c of sim.chars) if (c.role === "cop" && c.tier !== "player" && !hasCarried(sim, c, "pistol")) issue(sim, c, "pistol", false);
+  for(const c of sim.chars){
+    const def=c.role==='cop'?'pistol':c.role==='mobster'?(c.id%5===0?'rifle':c.id%3===0?'smg':'pistol'):c.role==='smuggler'?'revolver':undefined;
+    if(def&&c.tier!=='player'&&!c.combat?.issued){if(!carriedGun(sim,c))issue(sim,c,def,c.role!=='cop');const reserve=c.combat??={style:'jab',xp:0,ammo:{},vest:0,helmet:0};reserve.ammo[def]=(TOYS[def].weapon?.mag??12)*3;reserve.issued=true;}
+  }
   if (sim.chars.some((c) => c.crew === "riccarton")) return;
   const pool = sim.chars.filter((c) => c.tier === "mid" && (c.role === "local" || c.role === "student" || c.role === "office" || c.role === "car_enthusiast") && c.partner < 0 && !c.nickname && !c.crew);
   if (pool.length < 7) return; // tiny test worlds: leave the locals alone
@@ -74,6 +77,7 @@ export function ensureGangs(sim: Simulation): void {
     if (yard) c.homeArea = yard.id;
     if (work) c.workplace = work.id;
     c.bio = `${c.name} ("${c.nickname}"). ${RICCARTON_BIOS[i]}`;
+    issue(sim,c,'pistol',true);c.combat={style:'jab',xp:0,ammo:{pistol:36},vest:0,helmet:0,issued:true};
     boys.push(c);
   }
   const fam = sim.chars.filter((c) => c.crew === "famiglia");
@@ -88,6 +92,8 @@ function hasCarried(sim: Simulation, c: Character, def: string): boolean {
 }
 
 /** Put a new gun on someone: in hand (drawn) or in the bag (holstered). The bag stretches to fit a sidearm. */
+function carriedGun(sim:Simulation,c:Character):boolean{return [c.hand,...c.bag].some(id=>id>=0&&TOYS[sim.toys[id]?.def]?.weapon?.gun);}
+
 function issue(sim: Simulation, c: Character, def: string, draw: boolean): Toy | null {
   const t = sim.spawnToy(def, c.x, c.y, 1);
   if (!t) return null;
@@ -148,7 +154,7 @@ export function fireGun(sim: Simulation, c: Character, tx: number, ty: number, t
   const ws = def ? TOYS[def].weapon : undefined;
   if (!def || !ws?.gun) return false;
   if ((sim.nextAttack.get(c.id) ?? 0) > sim.tick) return false;
-  if(c.tier==='player'&&c.combat){const base=def==='golden_pistol'?'pistol':def,key=(c.combat.load??'standard')==='standard'?base:base+':'+c.combat.load,rounds=c.combat.ammo[key]??0;if(rounds<=0)return false;c.combat.ammo[key]=rounds-1;}
+  if(c.combat){const base=def==='golden_pistol'?'pistol':def,key=(c.combat.load??'standard')==='standard'?base:base+':'+c.combat.load,rounds=c.combat.ammo[key]??0;if(rounds<=0)return false;c.combat.ammo[key]=rounds-1;}
   const st = state(sim);
   let wait = ws.rate;
   const fired = (st.shots.get(c.id) ?? 0) + 1;
@@ -324,6 +330,7 @@ export function startTurfWar(sim: Simulation, force = false): boolean {
 export function updateTurf(sim: Simulation): void {
   const st = state(sim);
   if (sim.tick % 600 === 0) ensureGangs(sim);
+  if(sim.tick%15===0)for(const c of sim.chars){if(c.tier==='player'||c.role==='cop'||c.inside>=0||c.inCar>=0||c.phys!==Phys.OK||sim.tick-c.lastHitTick>300||c.lastHitBy<0||!carriedGun(sim,c))continue;const a=sim.chars[c.lastHitBy];if(a&&Math.hypot(a.x-c.x,a.y-c.y)<11&&sim.world.lineOfSight(c.x,c.y,a.x,a.y)&&drawGun(sim,c))fireGun(sim,c,a.x,a.y,a.id);}
   const sk = st.active;
   if (sk) {
     const busy = sk.members.some((id) => sim.chars[id]?.goal?.id === "turf");

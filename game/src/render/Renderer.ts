@@ -1,3 +1,4 @@
+import {drawDebris,drawFacadeDamage} from "./CivicArt";
 import {setDamageBlood} from "./DamageArt";
 import { ScreenBounds, beginSignFrame } from "./ScreenBounds";
 import { drawUpgradeEffects } from "./UpgradeEffects";
@@ -69,6 +70,7 @@ export class Renderer {
   /** ground stains (fake blood, paint, water) that fade out */
   private decals: Decal[] = [];
   /** smoothed speech-bubble opacity per character (graceful fade in/out) */
+  private bubblePositions=new Map<number,{text:string;dx:number;dy:number}>();
   private bubbleAlpha = new Map<number, number>();
   private graffitiMap = new Map<string, Graffiti>();
   private graffitiStamp = -1;
@@ -88,6 +90,7 @@ export class Renderer {
   }
 
   setSim(sim: Simulation): void {
+    this.bubblePositions.clear();
     this.sim = sim; this.terrain = new Terrain(sim.world); this.terrain.setUltra(this.qualityNow === 3); this.particles.clear(); this.lastPose.clear(); this.motion.clear();
     this.cam.worldSize = sim.world.size; this.cam.lookAt(sim.player.x, sim.player.y, true); this.cam.follow = sim.playerId;
     sim.bus.on("fx", (f) => this.onFx(f));
@@ -338,6 +341,7 @@ export class Renderer {
         solve(a, it.sx, it.sy - zOff, k, dir);
         // held toy behind or in front depending on hand
         drawFigure(g, c, it.sx, it.sy - zOff, k, dir, time, c.anim.flash, 1, undefined, !!gun);
+        if(Object.values(sim.world.civicDamage).some(d=>d.crew===c.id)){g.fillStyle='#d4a04e';g.strokeStyle='#555d4b';g.lineWidth=k;g.beginPath();g.moveTo(J[6]-5*k,J[7]+3*k);g.lineTo(J[6]+5*k,J[7]+3*k);g.lineTo(J[0]+5*k,J[1]);g.lineTo(J[0]-5*k,J[1]);g.closePath();g.fill();g.stroke();g.strokeStyle='#e4ddbb';g.lineWidth=2*k;g.beginPath();g.moveTo(J[6]-4*k,J[7]+12*k);g.lineTo(J[6]+4*k,J[7]+12*k);g.stroke();}
         if (c.bleed > 0 && Math.random() < c.bleed * dt * 5) this.drip(c.x, c.y);
         // someone down and bleeding leaves a spreading pool
         if (c.phys === Phys.DOWN && c.bleed > 0 && this.fakeBlood && Math.random() < dt * 1.5) { this.decals.push({ x: c.x + (Math.random() - 0.5) * 0.2, y: c.y + (Math.random() - 0.5) * 0.2, r: 0.18 + Math.random() * 0.2, color: "#6a0a10", born: this.time, life: 60, rot: 0 }); if (this.decals.length > 220) this.decals.shift(); }
@@ -363,6 +367,7 @@ export class Renderer {
             a = 1 - occ * (1 - (0.1 + 0.9 * sm));
           }
           drawBuildingTile(g, sim.world, b, tx, ty, it.sx, it.sy, z, time, 1 - sim.daylight + (sim.env.power ? 0 : -0.5), a, this.graffitiMap);
+          drawFacadeDamage(g,sim.world,b.id,tx,ty,it.sx,it.sy,z);
         } else drawTallTile(g, t, it.sx, it.sy, z, time, (it.ref * 0.618) % 1);
       } else if (it.kind === 4) {
         flush();
@@ -376,9 +381,11 @@ export class Renderer {
         drawLitter(g, l.kind, l.tone, l.rot, it.sx, it.sy, z);
       } else if (it.kind === 7) {
         flush();
+        if(drawDebris(g,sim.world.civicDamage[`d:${it.ref}`],it.sx,it.sy,z))continue;
         drawDecor(g, decorGrid(sim.world)[it.ref], it.sx, it.sy, z, time, 1 - sim.daylight, (it.ref * 0.618) % 1);
       } else {
         flush();
+        if(drawDebris(g,sim.world.civicDamage[`p:${it.ref}`],it.sx,it.sy,z))continue;
         drawPoi(g, sim.world.pois[it.ref], it.sx, it.sy, z, time, party, isDark);
       }
     }
@@ -620,6 +627,7 @@ export class Renderer {
       if (it.kind !== 0) continue;
       const c = sim.chars[it.ref];
       const talking = !!c.bubble && c.bubble.until > sim.tick;
+      if(!talking)this.bubblePositions.delete(c.id);
       const d = Math.hypot(c.x - mx, c.y - my);
       const hear = (c.talkWith >= 0 ? HEAR_TALK : HEAR_SOLO) + (talking && c.bubble!.kind === "shout" ? 3 : 0);
       const target = talking && (c.id === me.id || c.id === o.selected || c.talkWith === me.id || d < hear) ? 1 : 0;
@@ -657,7 +665,7 @@ export class Renderer {
       if (!c.bubble || ba < 0.02 || shown >= maxB) continue;
       shown++;
       const txt = c.bubble.text, kind = c.bubble.kind;
-      const fs = small ? 11 : Math.round(Math.max(11, Math.min(14, 12 * z)));
+      const fs = small ? 12 : 13;
       g.font = `${kind === "shout" ? "700 " : "600 "}${fs}px ui-rounded, "SF Pro Rounded", "Nunito", "Trebuchet MS", system-ui, sans-serif`;
       const lines = wrap(g, txt, small ? 124 : 168);
       const padX = 10, padY = 7;
@@ -665,12 +673,15 @@ export class Renderer {
       const fade = Math.min(1, Math.max(0, (c.bubble.until - sim.tick) / 20)) * ba;
       if (fade < 0.02) continue;
       // gentle pop-in: grows from the speaker's head as it fades up
-      const pop = 0.82 + 0.18 * Math.min(1, ba * 1.4);
+      const pop = 1;
       const tipX = it.sx, tipY = headY - 6;
-      const bubbleBox=bounds.place(tipX-w/2,tipY-h-24,w,h+12);
+      const pinned=this.bubblePositions.get(c.id);
+      let bubbleBox;
+      if(pinned?.text===txt){const r={x:Math.max(8,Math.min(cam.viewW-w-8,tipX+pinned.dx)),y:Math.max(76,Math.min(cam.viewH-h-95,tipY+pinned.dy)),w,h:h+12};bubbleBox=bounds.reserve(r)?r:null;}
+      else{bubbleBox=bounds.place(tipX-w/2,tipY-h-24,w,h+12);if(bubbleBox)this.bubblePositions.set(c.id,{text:txt,dx:bubbleBox.x-tipX,dy:bubbleBox.y-tipY});}
       if(!bubbleBox)continue;
       const bx=bubbleBox.x,by=bubbleBox.y+8;
-      const body = kind === "shout" ? "#ff4d3d" : kind === "think" ? "#efe9ff" : "#fff8ee", ink = kind === "shout" ? "#fff" : "#2a2430", edge = c.look.color;
+      const body = kind === "shout" ? "#914f45" : kind === "think" ? "#efe9ff" : "#fff8ee", ink = kind === "shout" ? "#fff" : "#2a2430", edge = c.look.color;
       g.save();
       g.globalAlpha = fade;
       g.translate(tipX, tipY); g.scale(pop, pop); g.translate(-tipX, -tipY);

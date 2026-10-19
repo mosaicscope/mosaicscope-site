@@ -1,3 +1,4 @@
+import {updateCivicDamage} from "./CivicDamage";
 import {sendAmbulance,updateMedicalResponses} from "./MedicalResponse";
 import { unarmedMove } from "../content/combat";
 import { hasUpgrade } from "../content/upgrades";
@@ -248,6 +249,7 @@ export class Simulation {
     this.metrics.aiMs = aiMs;
 
     updateVehicles(this, dt);
+    updateCivicDamage(this);
     const tp = performance.now();
     this.physics.step(dt, this.toys, this.chars, this.charHash, this.tick, this.hooks);
     for (const t of this.toys) if (t.state === "held") this.attachHeld(t);
@@ -634,7 +636,7 @@ export class Simulation {
   }
 
   pickupToy(c: Character, t: Toy): PickupResult {
-    const r = pickUp(c, t, this.tick);
+    const r = pickUp(c, t, this.tick,c.tier==="player"?1.4:.9);
     if (r === "hand" || r === "bag") {
       this.bus.emit("sound", { kind: "pickup", x: c.x, y: c.y, vol: 0.3 });
       if (t.owner === c.id && c.memories.some((m) => m.kind === "lost_item" && m.val < 0 && m.toy === t.def)) {

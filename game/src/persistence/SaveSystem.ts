@@ -52,6 +52,7 @@ export interface SaveData {
   lamps: boolean[];
   vehicles?: Vehicle[];
   pendingAmbulance?:[number,number][];
+  civicDamage?:import("../world/World").World["civicDamage"];
   graffiti: Graffiti[];
   tills: Record<number, number>;
   crimes: Crime[];
@@ -95,6 +96,7 @@ export function serialize(sim: Simulation, label = "Save"): SaveData {
     groups: [...sim.groups.groups.values()],
     routines: [...sim.routines.entries()],
     lamps: sim.world.pois.map((p) => !!p.on),
+    civicDamage:structuredClone(sim.world.civicDamage),
     pendingAmbulance:[...sim.pendingAmbulance],
     vehicles: sim.vehicles.map((v) => ({ ...v })),
     graffiti: sim.world.graffiti.map((g) => ({ ...g })),
@@ -156,6 +158,7 @@ export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemF
   sim.crimes = d.crimes.map((c) => ({ ...c, witnesses: [...c.witnesses] }));
   sim.bookings = d.bookings.map((b) => ({ ...b }));
   if (d.litter) restoreLitter(sim.litter, d.litter);
+  sim.world.civicDamage=structuredClone(d.civicDamage??{});
   sim.pendingAmbulance=new Map(d.pendingAmbulance??[]);
   sim.rebuildHash();
   sim.lod.update(sim);

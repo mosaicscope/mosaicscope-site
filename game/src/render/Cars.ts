@@ -86,6 +86,22 @@ const SHAPES: Record<VehicleClass, Shape> = {
   ev: { cf: 0.3, cr: 0.18, hood: 0.44, deck: 0.6, cab: [-0.44, 0.2], roof: [-0.4, 0.0], cw: 0.88, rw: 0.74, wheel: 0.27 },
   rally: { cf: 0.28, cr: 0.12, hood: 0.5, deck: 0.6, cab: [-0.46, 0.19], roof: [-0.42, -0.03], cw: 0.88, rw: 0.76, wheel: 0.31, wing: true, scoop: true },
   hotrod: { cf: 0.18, cr: 0.12, hood: 0.46, deck: 0.52, cab: [-0.22, 0.06], roof: [-0.14, -0.04], cw: 0.8, rw: 0.66, wheel: 0.33, scoop: true },
+  compact_sedan:{...SEDAN,cab:[-0.440,0.140],roof:[-0.370,0.010],wb:0.290,cf:0.18},
+  executive:{...SEDAN,cab:[-0.385,0.165],roof:[-0.315,0.035],wb:0.305,cf:0.23},
+  liftback:{...{ cf: 0.28, cr: 0.12, hood: 0.5, deck: 0.6, cab: [-0.47, 0.19], roof: [-0.43, -0.03], cw: 0.88, rw: 0.76, wheel: 0.27 },cab:[-0.330,0.190],roof:[-0.260,0.060],wb:0.320,cf:0.28},
+  fastback:{...{ cf: 0.3, cr: 0.2, hood: 0.46, deck: 0.56, cab: [-0.32, 0.1], roof: [-0.2, -0.04], cw: 0.84, rw: 0.68, wheel: 0.29 },cab:[-0.275,0.140],roof:[-0.205,0.010],wb:0.290,cf:0.33},
+  shootingbrake:{...{ cf: 0.22, cr: 0.1, hood: 0.5, deck: 0.62, cab: [-0.47, 0.18], roof: [-0.46, -0.02], cw: 0.88, rw: 0.78, wheel: 0.26 },cab:[-0.440,0.165],roof:[-0.370,0.035],wb:0.305,cf:0.18},
+  microvan:{...{ cf: 0.22, cr: 0.08, hood: 0.5, deck: 0.7, cab: [-0.48, 0.22], roof: [-0.47, 0.0], cw: 0.9, rw: 0.84, wheel: 0.24, pill: 2 },cab:[-0.385,0.190],roof:[-0.315,0.060],wb:0.320,cf:0.23},
+  deliveryev:{...{ cf: 0.2, cr: 0.06, hood: 0.44, deck: 0.52, cab: [-0.5, 0.3], roof: [-0.5, 0.18], cw: 0.96, rw: 0.92, wheel: 0.2, boxy: true, wb: 0.33 },cab:[-0.330,0.140],roof:[-0.260,0.010],wb:0.290,cf:0.28},
+  panelvan:{...{ cf: 0.2, cr: 0.06, hood: 0.42, deck: 0.5, cab: [-0.5, 0.3], roof: [-0.5, 0.16], cw: 0.96, rw: 0.92, wheel: 0.2, boxy: true },cab:[-0.275,0.165],roof:[-0.205,0.035],wb:0.305,cf:0.33},
+  stepvan:{...{ cf: 0.2, cr: 0.06, hood: 0.42, deck: 0.5, cab: [-0.5, 0.3], roof: [-0.5, 0.16], cw: 0.96, rw: 0.92, wheel: 0.2, boxy: true },cab:[-0.440,0.190],roof:[-0.370,0.060],wb:0.320,cf:0.18},
+  pickup_single:{...{ cf: 0.18, cr: 0.06, hood: 0.56, deck: 0.58, cab: [-0.1, 0.19], roof: [-0.08, 0.04], cw: 0.9, rw: 0.82, wheel: 0.25, tray: true },cab:[-0.385,0.140],roof:[-0.315,0.010],wb:0.290,cf:0.23},
+  sportwagon:{...{ cf: 0.22, cr: 0.1, hood: 0.5, deck: 0.62, cab: [-0.47, 0.18], roof: [-0.46, -0.02], cw: 0.88, rw: 0.78, wheel: 0.26 },cab:[-0.330,0.165],roof:[-0.260,0.035],wb:0.305,cf:0.28},
+  crossover:{...{ cf: 0.2, cr: 0.12, hood: 0.56, deck: 0.62, cab: [-0.46, 0.2], roof: [-0.44, 0.0], cw: 0.9, rw: 0.82, wheel: 0.26 },cab:[-0.275,0.190],roof:[-0.205,0.060],wb:0.320,cf:0.33},
+  ranger:{...{ cf: 0.1, cr: 0.06, hood: 0.58, deck: 0.68, cab: [-0.48, 0.12], roof: [-0.47, 0.06], cw: 0.94, rw: 0.88, wheel: 0.3, pill: 2 },cab:[-0.440,0.140],roof:[-0.370,0.010],wb:0.290,cf:0.18},
+  limousine:{...{ cf: 0.2, cr: 0.12, hood: 0.5, deck: 0.54, cab: [-0.4, 0.2], roof: [-0.32, 0.0], cw: 0.88, rw: 0.8, wheel: 0.22, pill: 3, wb: 0.34 },cab:[-0.385,0.165],roof:[-0.315,0.035],wb:0.305,cf:0.23},
+  trackcoupe:{...{ cf: 0.34, cr: 0.26, hood: 0.42, deck: 0.6, cab: [-0.4, 0.12], roof: [-0.2, -0.03], cw: 0.82, rw: 0.66, wheel: 0.33 },cab:[-0.330,0.190],roof:[-0.260,0.060],wb:0.320,cf:0.28},
+  grandtourer:{...{ cf: 0.3, cr: 0.2, hood: 0.46, deck: 0.56, cab: [-0.32, 0.1], roof: [-0.2, -0.04], cw: 0.84, rw: 0.68, wheel: 0.29 },cab:[-0.275,0.140],roof:[-0.205,0.010],wb:0.290,cf:0.33},
 };
 
 type Band = { u0: number; u1: number; cols: string[]; n?: number };
@@ -507,9 +523,12 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const lampH = (S.hood + 0.02) * H * 0.82, tailH = S.deck * H * 0.8;
   for (const side of [-1, 1]) {
     if (frontVisible) {
+      fillPoly(k, [[x1+.004,side*hw*.38,lampH-.06],[x1+.004,side*hw*.79,lampH-.06],[x1+.004,side*hw*.79,lampH+.055],[x1+.004,side*hw*.38,lampH+.055]],'#292d2c');
       fillPoly(k, [[x1 + 0.005, side * hw * 0.42, lampH - 0.04], [x1 + 0.005, side * hw * 0.72, lampH - 0.03], [x1 + 0.005, side * hw * 0.72, lampH + 0.03], [x1 + 0.005, side * hw * 0.42, lampH + 0.03]], side === deadLamp ? "#2a2622" : hl);
+      if(side!==deadLamp){fillPoly(k,[[x1+.008,side*hw*.74,lampH-.035],[x1+.008,side*hw*.79,lampH-.035],[x1+.008,side*hw*.79,lampH+.03],[x1+.008,side*hw*.74,lampH+.03]],'#d99a42');}
     } else {
-      fillPoly(k, [[x0 - 0.005, side * hw * 0.45, tailH - 0.035], [x0 - 0.005, side * hw * 0.82, tailH - 0.035], [x0 - 0.005, side * hw * 0.82, tailH + 0.03], [x0 - 0.005, side * hw * 0.45, tailH + 0.03]], brake ? "#ff3b2f" : night ? "#c8241a" : "#8a1a14");
+      fillPoly(k, [[x0 - 0.005, side * hw * 0.45, tailH - 0.035], [x0 - 0.005, side * hw * 0.82, tailH - 0.035], [x0 - 0.005, side * hw * 0.82, tailH + 0.03], [x0 - 0.005, side * hw * 0.45, tailH + 0.03]], side===deadTail?'#302d2b':brake ? "#ff3b2f" : night ? "#c8241a" : "#8a1a14");
+      if(side!==deadTail){for(const [lo,hi,col]of [[.47,.55,v.speed<0?'#fff1cd':'#b4aea0'],[.74,.81,'#b67a32']]as const)fillPoly(k,[[x0-.008,side*hw*lo,tailH-.032],[x0-.008,side*hw*hi,tailH-.032],[x0-.008,side*hw*hi,tailH+.025],[x0-.008,side*hw*lo,tailH+.025]],col);}
     }
   }
   // grille / plate
@@ -619,6 +638,7 @@ export function headlights(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle,
   g.fillStyle = pool; g.beginPath(); g.arc(0, 0, rL, 0, 6.283); g.fill(); g.restore();
   // one cone per lamp, slightly toed out, so the beams read as two
   for (const s of [-1, 1]) {
+    if((v.dmgF??0)>.35&&s===(v.plate.charCodeAt(1)%2?1:-1))continue;
     const lx = nx - sa * hw * s, ly = ny + ca * hw * s;
     const fx = lx + ca * reach - sa * s * 0.6, fy = ly + sa * reach + ca * s * 0.6;
     cam.toScreen(lx - sa * 0.08, ly + ca * 0.08, 0, p); cam.toScreen(lx + sa * 0.08, ly - ca * 0.08, 0, q);

@@ -140,6 +140,22 @@ export const ENGINE: Record<VehicleClass, EngineProfile> = {
   ev: E(180, 420, 2600, 0, 0.1),         // electric whine
   rally: E(70, 260, 1700, 0.1, 0.35, true),
   hotrod: E(34, 160, 900, 0.4, 0.8, true),
+  compact_sedan:E(62, 170, 850),
+  executive:E(62, 170, 850),
+  liftback:E(72, 200, 950),
+  fastback:E(64, 250, 1500, 0.08, 0.35, true),
+  shootingbrake:E(58, 160, 800),
+  microvan:E(52, 140, 650),
+  deliveryev:E(78, 130, 700, 0.08, 0.4),
+  panelvan:E(50, 130, 650, 0.1),
+  stepvan:E(50, 130, 650, 0.1),
+  pickup_single:E(46, 140, 650, 0.18, 0.7),
+  sportwagon:E(58, 160, 800),
+  crossover:E(55, 150, 700),
+  ranger:E(46, 140, 650, 0.18, 0.7),
+  limousine:E(40, 140, 600, 0.12, 0.7),
+  trackcoupe:E(66, 285, 1900, 0.08, 0.3, true),
+  grandtourer:E(64, 250, 1500, 0.08, 0.35, true),
 };
 
 /** Engine note for a car: five "gears", pitch climbing inside each and dropping at the shift. */

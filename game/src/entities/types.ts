@@ -234,7 +234,7 @@ export interface Character {
   /** street crew ("famiglia", "riccarton") or "" for none */
   crew: string;
   painAt?:number;
-  combat?:{style:import("../content/combat").UnarmedStyle;load?:"rubber"|"standard"|"heavy";recoil?:number;recoilTick?:number;xp:number;ammo:Record<string,number>;vest:number;helmet:number};
+  combat?:{style:import("../content/combat").UnarmedStyle;load?:"rubber"|"standard"|"heavy";recoil?:number;recoilTick?:number;theftXP?:number;issued?:boolean;xp:number;ammo:Record<string,number>;vest:number;helmet:number};
   wounds: Wound[];
   bleed: number;                 // current bleeding rate 0..1 (sum of open wounds)
   blood: number;                 // 1 = fine, below 0.35 they collapse
