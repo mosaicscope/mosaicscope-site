@@ -35,9 +35,10 @@ export interface EyeShape {
   lid: number;
   lash: boolean;
 }
-export type Accessory = "glasses" | "chain" | "scarf" | "backpack" | "watch" | "headband" | "earrings";
+export type Accessory = "glasses" | "chain" | "scarf" | "backpack" | "watch" | "headband" | "earrings" | "eyepatch" | "bandage" | "bowtie";
 export interface Look {
   skin?: string; hairColor?: string; pattern?: number; accessories?: Accessory[];
+  top?:import('../render/Models').TopStyle;bottom?:import('../render/Models').ModelSpec['bottom'];shoes?:import('../render/Models').ModelSpec['shoes'];shoeColor?:string;
   kind: BodyKind;
   color: string;
   accent: string;
@@ -234,7 +235,7 @@ export interface Character {
   /** street crew ("famiglia", "riccarton") or "" for none */
   crew: string;
   painAt?:number;
-  combat?:{style:import("../content/combat").UnarmedStyle;load?:"rubber"|"standard"|"heavy";recoil?:number;recoilTick?:number;theftXP?:number;issued?:boolean;xp:number;ammo:Record<string,number>;vest:number;helmet:number};
+  combat?:{magUsed?:Record<string,number>;reloadUntil?:number;reloadWeapon?:string;style:import("../content/combat").UnarmedStyle;load?:"rubber"|"standard"|"heavy";recoil?:number;recoilTick?:number;theftXP?:number;issued?:boolean;xp:number;ammo:Record<string,number>;vest:number;helmet:number};
   wounds: Wound[];
   bleed: number;                 // current bleeding rate 0..1 (sum of open wounds)
   blood: number;                 // 1 = fine, below 0.35 they collapse

@@ -11,7 +11,7 @@ export interface ExpansionState {
   outcomes?:Record<string,number>;
   seen: string[]; pending: string | null; nextEncounter: number; distance: number;
   farm: number; animals: Record<string, number>; machines: string[]; feed: number; lastFarm: number; farmCare: number; farmProfit: number; cropAt: number; hayAt: number;
-  horse: null | { name: string; skill: number; fitness: number; wins: number; tier: number; trained: number; raced: number };
+  horse: null | { name: string; skill: number; fitness: number; wins: number; tier: number; trained: number; raced: number;history?:{position:number;time:number;wet:boolean;tick:number}[] };
   degree: string | null; credits: number; level: number; graduated: string[]; attempts: number; quiz: number;
   loyalty: number; jackpot: number;
 }
@@ -115,6 +115,7 @@ export function settleRace(s:ExpansionState,tick:number):number {
   if(!r.physics.finished){r.until=Math.max(r.until,tick+60);return 0;}
   r.order=[...r.physics.order];r.until=tick;
   const selected=r.selected??0,position=r.order.indexOf(selected);
+  if(s.horse&&(r.owned??-1)>=0){const i=r.owned!,runner=r.physics.runners[i];s.horse.history=[...(s.horse.history??[]),{position:r.order.indexOf(i)+1,time:runner.finish??0,wet:r.physics.wet,tick}].slice(-20);}
   if(r.trainer){
    const horse=s.horse;if(horse){horse.fitness=Math.max(0,horse.fitness-20);if(position===0){r.payout=180+horse.tier*200;horse.wins++;if(horse.wins>=(horse.tier+1)*2&&horse.tier<3)horse.tier++;}else r.payout=position<3?35:0;}
   }else{const won=r.betType==='Place'?position<2:r.betType==='Exacta'?position===0&&r.order[1]===(selected+1)%r.order.length:position===0;r.payout=won?Math.round(r.stake*(r.returnMultiplier??1)*100)/100:0;}

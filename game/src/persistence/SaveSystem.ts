@@ -1,3 +1,4 @@
+import {rememberContinue} from './ContinueCookie';
 import { newLife, type LifeState } from "../sim/Chronicles";
 import { newExpansion, newCasino, type ExpansionState } from "../sim/Expansion";
 import { Simulation } from "../sim/Simulation";
@@ -176,12 +177,13 @@ export class SaveSystem {
   save(sim: Simulation, slot: string, label?: string): { ok: boolean; bytes: number; error?: string } {
     const json = toJSON(serialize(sim, label ?? slot));
     const ok = this.store.set(this.key(slot), json);
+    if(ok)rememberContinue(slot);
     return ok ? { ok, bytes: json.length } : { ok, bytes: json.length, error: "Browser storage is full or blocked." };
   }
   load(slot: string, lifeFlags: LifeSystemFlags = newLifeSystemFlags()): Simulation {
     const raw = this.store.get(this.key(slot));
     if (!raw) throw new SaveError("There is no save in that slot.");
-    return restore(parseSave(raw), lifeFlags);
+    const sim=restore(parseSave(raw), lifeFlags);rememberContinue(slot);return sim;
   }
   info(slot: string): { savedAt: string; label: string; tick: number } | null {
     const raw = this.store.get(this.key(slot));

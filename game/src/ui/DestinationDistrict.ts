@@ -13,6 +13,12 @@ export interface MappedVenue{id:number;name:string;kind:string;point:number[];ta
 export interface DistrictData{code:string;cx:number;cy:number;centre:{name:string};buildings:MappedBuilding[];roads:{id:number;name:string;kind:string;points:number[][]}[];venues:MappedVenue[]}
 export interface DistrictVisit{x:number;y:number;data:DistrictData[]}
 export function insidePolygon(x:number,y:number,pts:number[][]):boolean{let inside=false;for(let i=0,j=pts.length-1;i<pts.length;j=i++){const a=pts[i],b=pts[j];if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])inside=!inside;}return inside;}
+/** Distance to a facade, not just its corners (large buildings remain enterable). */
+export function footprintDistance(x:number,y:number,points:number[][]):number{
+ let distance=Infinity;
+ for(let i=0;i<points.length;i++){const a=points[i],b=points[(i+1)%points.length],dx=b[0]-a[0],dy=b[1]-a[1],u=Math.max(0,Math.min(1,((x-a[0])*dx+(y-a[1])*dy)/(dx*dx+dy*dy||1)));distance=Math.min(distance,Math.hypot(x-a[0]-dx*u,y-a[1]-dy*u));}
+ return distance;
+}
 export function venueKind(v:{kind:string;tags:Record<string,string>}):BuildingKind{const a=v.tags.amenity??v.kind;if(['cafe','bakery','bank','hospital','police','library'].includes(a))return a==='library'?'office':a as BuildingKind;if(['restaurant','fast_food','bar','pub'].includes(a))return a==='bar'||a==='pub'?'nightclub':'cafe';if(v.tags.tourism==='hotel')return 'hotel';return v.tags.shop?'dairy':'office';}
 /** Real OSM footprint geometry; facade styles/interiors are authored game interpretations. */
 export class DestinationDistrict{
@@ -44,7 +50,7 @@ export class DestinationDistrict{
   let closest:MappedVenue|MappedBuilding|null=null,min=24;for(const d of this.data){for(const v of d.venues){const p=this.P(v.point[0],v.point[1]),dist=Math.hypot(e.clientX-r.left-p[0],e.clientY-r.top-p[1]);if(dist<min){min=dist;closest=v;}}for(const b of d.buildings){const points=b.points.map(p=>this.P(p[0],p[1],this.nativeTop(b)));if(insidePolygon(e.clientX-r.left,e.clientY-r.top,points)||insidePolygon(x,y,b.points))closest=b;}}
   this.selected=closest;if(closest){this.status=(closest.name||closest.tags.address||'Mapped building')+' · '+('heightEstimated'in closest&&closest.heightEstimated?'estimated height · ':'')+'interior is a game interpretation';this.announce();this.onSelect();}else this.goal={x,y};
  };
- canEnter():boolean{const v=this.selected;if(!v)return false;const pts='point'in v?[v.point]:v.points;return pts.some(p=>Math.hypot(p[0]-this.x,p[1]-this.y)<30);}
+ canEnter():boolean{const v=this.selected;if(!v)return false;return 'point'in v?Math.hypot(v.point[0]-this.x,v.point[1]-this.y)<30:footprintDistance(this.x,this.y,v.points)<30;}
  draw(now:number):void{const r=this.canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio,2);this.width=r.width;this.height=r.height;if(this.canvas.width!==Math.round(r.width*dpr)||this.canvas.height!==Math.round(r.height*dpr)){this.canvas.width=Math.round(r.width*dpr);this.canvas.height=Math.round(r.height*dpr);}const g=this.canvas.getContext('2d')!;g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle=GROUND[T.PAVE][0];g.fillRect(0,0,r.width,r.height);g.beginPath();g.rect(0,0,r.width,r.height);const origin=this.P(0,0);fillTextured(g,'pavers',.65,{x:origin[0],y:origin[1],zoom:1});
   const dt=Math.min(.05,this.previous?(now-this.previous)/1000:0);this.previous=now;
   let sx=Number(this.keys.has('d')||this.keys.has('arrowright'))-Number(this.keys.has('a')||this.keys.has('arrowleft')),sy=Number(this.keys.has('s')||this.keys.has('arrowdown'))-Number(this.keys.has('w')||this.keys.has('arrowup')),dx=sx+sy,dy=sy-sx;

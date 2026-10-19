@@ -29,7 +29,7 @@ export class Welcome {
         h('button.btn.acid',{text:'Continue',disabled:!latest,onclick:()=>{if(!latest)return;const message=this.host.continue(latest.slot);if(message)error.textContent=message;else this.close();}}),
         h('button.btn',{text:'Start new game',onclick:()=>this.creator()}),
       ]),h('p.welcome-save',{text:latest?`Last saved ${new Date(latest.savedAt).toLocaleString()} · ${latest.label}`:'Your story will save automatically in this browser.'}),
-      h('p.welcome-save',{text:'Continue remembers your browser save. Starting new keeps your manual save slots.'}),error,
+      h('p.welcome-save',{text:'A cookie remembers which save to continue. Full progress stays in this browser; manual slots are kept.'}),error,
     ]));
     (this.el.querySelector('button:not(:disabled)') as HTMLElement)?.focus();
   }
@@ -53,11 +53,14 @@ export class Welcome {
       select('Body',['guy','girl'],this.draft.look.kind,v=>update('kind',v as Look['kind'])),
       select('Hair',HAIR,this.draft.look.hair,v=>update('hair',v as HairStyle)),
       select('Headwear',HATS,this.draft.look.hat,v=>update('hat',v as HatStyle)),
+      select('Clothing',['tank','tee','long','hoodie','coat','vest','poncho','dress','suit','jersey','apron','hawaiian'],this.draft.look.top??'tee',v=>update('top',v as Look['top'])),
+      select('Legwear',['shorts','jeans','ripped','trackies','skirt','kilt','slacks','boardies'],this.draft.look.bottom??'shorts',v=>update('bottom',v as Look['bottom'])),
+      select('Footwear',['sneakers','boots','workboots','heels','jandals','sandals','bare'],this.draft.look.shoes??'sneakers',v=>update('shoes',v as Look['shoes'])),
       swatches('Outfit','color'),swatches('Accent','accent'),
       swatches('Skin','skin',['#f1c9a5','#d9a173','#c78d5f','#a06a43','#6e452b','#efe3d6']),
       swatches('Hair colour','hairColor',['#1a1410','#6b4a2a','#c9a56a','#8a8a8a','#e8554f','#b48cff']),
       select('Shirt pattern',['Plain','Stripes','Centre stripe','Logo','Two tone','Chevron','Pocket','Dots'],['Plain','Stripes','Centre stripe','Logo','Two tone','Chevron','Pocket','Dots'][this.draft.look.pattern??0],v=>update('pattern',['Plain','Stripes','Centre stripe','Logo','Two tone','Chevron','Pocket','Dots'].indexOf(v))),
-      h('fieldset.welcome-accessories',null,[h('legend',{text:'Accessories'}),...(['glasses','chain','scarf','backpack','watch','headband','earrings'] as Accessory[]).map(item=>h('label',null,[h('input',{type:'checkbox','aria-label':item,checked:this.draft.look.accessories!.includes(item),onchange:(e:Event)=>{const items=this.draft.look.accessories!.filter(a=>a!==item);if((e.target as HTMLInputElement).checked)items.push(item);update('accessories',items);}}),item]))]),
+      h('fieldset.welcome-accessories',null,[h('legend',{text:'Accessories'}),...(['glasses','chain','scarf','backpack','watch','headband','earrings','eyepatch','bandage','bowtie'] as Accessory[]).map(item=>h('label',null,[h('input',{type:'checkbox','aria-label':item,checked:this.draft.look.accessories!.includes(item),onchange:(e:Event)=>{const items=this.draft.look.accessories!.filter(a=>a!==item);if((e.target as HTMLInputElement).checked)items.push(item);update('accessories',items);}}),item]))]),
       h('label',null,['Height',h('input',{type:'range',min:.85,max:1.15,step:.05,value:this.draft.look.scale,'aria-label':'Height',oninput:(e:Event)=>update('scale',+(e.target as HTMLInputElement).value)})]),
       h('label',null,['Build',h('input',{type:'range',min:.8,max:1.4,step:.1,value:this.draft.look.build??1,'aria-label':'Build',oninput:(e:Event)=>update('build',+(e.target as HTMLInputElement).value)})]),
       h('div.welcome-actions',null,[h('button.btn.acid',{text:'Start my story',onclick:()=>{const message=this.host.create(this.name.trim().slice(0,28)||'You',structuredClone(this.draft.look));if(message)error.textContent=message;else this.close();}}),h('button.btn',{text:'Back',onclick:()=>this.menu()})]),error,
