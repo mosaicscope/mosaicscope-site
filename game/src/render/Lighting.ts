@@ -1,5 +1,4 @@
 import type { Simulation } from "../sim/Simulation";
-import { TICKS_PER_HOUR } from "../sim/Environment";
 import type { Camera } from "./Camera";
 
 /**
@@ -21,7 +20,7 @@ export function lightCycle(hour: number, daylight: number): LightCycle {
 
 /**
  * Night/storm darkness as a low-resolution overlay with holes cut for light sources, plus additive
- * coloured party lights. Low quality skips the gradients and just tints. Overlay resolution scales
+ * coloured party lights. Low quality uses a smaller light mask. Overlay resolution scales
  * with the graphics quality setting: crisper light holes on high and ultra, cheaper on low.
  */
 export class Lighting {
@@ -37,14 +36,14 @@ export class Lighting {
 
   draw(main: CanvasRenderingContext2D, sim: Simulation, cam: Camera, time: number, quality: number, reduceMotion: boolean): void {
     const day = sim.daylight;
-    let dark = (1 - day) * 0.78 + (sim.env.storm ? 0.18 : sim.env.raining ? 0.08 : 0);
+    let dark = (1 - day) * 0.58 + (sim.env.storm ? 0.18 : sim.env.raining ? 0.08 : 0);
     if (!sim.env.power) dark += 0.12 * (1 - day);
-    dark = Math.min(0.9, dark);
+    dark = Math.min(0.76, dark);
     const W = cam.viewW, H = cam.viewH;
     this.scale = quality >= 3 ? 0.4 : quality === 2 ? 0.32 : 0.22;
     // colour grade follows the light cycle (golden hour, dawn haze, neon night); soft-light keeps the neon palette intact
     if (quality > 0) {
-      const cyc = lightCycle((sim.tick / TICKS_PER_HOUR) % 24, day);
+      const cyc = lightCycle(sim.hour, day);
       if (cyc.warm > 0.005) {
         main.globalCompositeOperation = "soft-light";
         main.fillStyle = `rgba(255,190,120,${cyc.warm})`;
@@ -65,9 +64,7 @@ export class Lighting {
       }
     }
     if (dark > 0.02) {
-      if (quality === 0) {
-        main.fillStyle = `rgba(8,6,22,${dark})`; main.fillRect(0, 0, W, H);
-      } else {
+      {
         const w = Math.ceil(W * this.scale), h = Math.ceil(H * this.scale);
         if (this.cv.width !== w || this.cv.height !== h) { this.cv.width = w; this.cv.height = h; }
         const g = this.g;
@@ -84,6 +81,8 @@ export class Lighting {
           g.fillStyle = grd; g.beginPath(); g.arc(px, py, rr, 0, 6.283); g.fill();
         };
         if (sim.env.power) for (const p of sim.world.pois) if (p.kind === "lamp" && p.on) hole(p.x + 0.3, p.y - 0.3, 1.5, 190, 0.95);
+        if(sim.env.power)for(const b of sim.world.buildings)hole(b.door.x,b.door.y,0,90,.48);
+        for(const v of sim.vehicles)if(v.state!=="parked"||v.driver>=0){hole(v.x,v.y,0,100,.7);hole(v.x+Math.cos(v.dir)*3,v.y+Math.sin(v.dir)*3,0,150,.8);}
         if (sim.env.party) hole(sim.stagePoint.x, sim.stagePoint.y, 0, 300, 0.7);
         const pl = sim.player;
         hole(pl.x, pl.y, 1, 110, 0.55);

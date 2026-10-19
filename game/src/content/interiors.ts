@@ -51,7 +51,7 @@ export const PROP_INFO: Record<PropType, PropInfo> = {
   trolley: { ht: 0.7, solid: true }, bin: { ht: 0.5, solid: true }, lamp: { ht: 1.5, solid: true }, pillar: { ht: 1.9, solid: true },
   stanchion: { ht: 0.85, solid: true }, vault: { ht: 1.9, solid: true }, rack: { ht: 0.8, solid: true }, flower: { ht: 0.5, solid: false, flat: true },
   poster: { ht: 0, solid: false, wall: true, elev: 0.75 }, sign: { ht: 0, solid: false, wall: true, elev: 1.45 }, clock: { ht: 0, solid: false, wall: true, elev: 1.5 },
-  screen: { ht: 0, solid: false, wall: true, elev: 0.95 }, board: { ht: 0, solid: false, wall: true, elev: 0.7 }, window: { ht: 0, solid: false, wall: true, elev: 0.55 },
+  screen: { ht: 0, solid: false, wall: true, elev: 0.95 }, board: { ht: 0, solid: false, wall: true, elev: 1.2 }, window: { ht: 0, solid: false, wall: true, elev: 0.55 },
   vent: { ht: 0, solid: false, wall: true, elev: 1.25 },
 };
 

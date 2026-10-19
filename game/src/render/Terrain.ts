@@ -369,7 +369,9 @@ export function drawPoi(g: CanvasRenderingContext2D, p: Poi, sx: number, sy: num
       break;
     }
     case "lamp": {
-      g.strokeStyle = "#3a3430"; g.lineWidth = 2.5 * z;
+      g.fillStyle="#6b776e";g.beginPath();g.ellipse(sx,sy,6*z,3*z,0,0,7);g.fill();
+      if(p.on&&dark){const glow=g.createRadialGradient(sx+8*z,sy-63*z,0,sx+8*z,sy-63*z,24*z);glow.addColorStop(0,"#ffe4a680");glow.addColorStop(1,"#ffe4a600");g.fillStyle=glow;g.fillRect(sx-16*z,sy-87*z,48*z,48*z);}
+      g.strokeStyle = "#82918b"; g.lineWidth = 3 * z;
       g.beginPath(); g.moveTo(sx, sy); g.lineTo(sx, sy - 66 * z); g.lineTo(sx + 8 * z, sy - 66 * z); g.stroke();
       g.fillStyle = p.on ? (dark ? "#fff6c8" : "#d8d0b0") : "#3a3430";
       g.beginPath(); g.arc(sx + 8 * z, sy - 63 * z, 4 * z, 0, 6.283); g.fill();

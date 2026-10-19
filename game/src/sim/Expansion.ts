@@ -1,6 +1,7 @@
 import { ENCOUNTERS } from "../content/encounters";
 export const HOUR = 3600, DAY = HOUR * 24;
 export interface CasinoState {
+ scratch?: import("./Arcade").ScratchTicket; result?: import("./Arcade").ArcadeResult; tournamentCards?: number[];
  point:number; pointStake:number; crash:null|{stake:number;start:number;bust:number;paid:boolean}; race:null|{sport:string;order:number[];until:number;names:string[];stake:number;payout:number;settled:boolean}; tournament:null|{round:number;score:number;paid:boolean};
 }
 export const newCasino=():CasinoState=>({point:0,pointStake:0,crash:null,race:null,tournament:null});

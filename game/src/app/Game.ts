@@ -646,6 +646,7 @@ export class Game {
     window.addEventListener("keydown", (e) => {
       const el = e.target as HTMLElement, tag = el.tagName;
       const key = e.key.toLowerCase(), k = this.settings.keys;
+      if(this.phone.open&&/^[1-9]$/.test(key)){e.preventDefault();(this.phone.el.querySelectorAll<HTMLButtonElement>(".opts button")[+key-1])?.click();return;}
       if (key === "f5") { e.preventDefault(); if (!e.repeat) this.quickSave(); return; }
       if (key === "f9") { e.preventDefault(); if (!e.repeat) this.toggleCinema(); return; }
       // only fields you type into swallow keys; a ticked checkbox or slider shouldn't freeze the controls

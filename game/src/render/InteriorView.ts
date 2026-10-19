@@ -12,7 +12,7 @@
 import { PROP_INFO, type InteriorDef, type Prop, type FloorMat } from "../content/interiors";
 import { fillTextured } from "./Textures";
 import { wallSconces, wallPictures } from "./interiorDecor";
-import { pose, solve, drawFigure } from "./StickFigure";
+import { pose, solve, drawFigure, J } from "./StickFigure";
 import type { Character, Look } from "../entities/types";
 
 export interface ViewActor {
@@ -33,6 +33,7 @@ export interface ViewActor {
 }
 export interface ViewState {
   t: number;
+  fakeBlood?: boolean;
   hour: number;
   player: ViewActor;
   actors: ViewActor[];
@@ -123,6 +124,8 @@ export class InteriorView {
     return [wx / l, wy / l];
   }
 
+  screenPoint(x:number,y:number):[number,number] { return this.proj(this.camX,this.camY)(x,y,0); }
+  groundPoint(x:number,y:number):{x:number;y:number} { const a=(x-this.camX)/this.s,b=2*(y-this.camY)/this.s;return {x:(a+b)/2,y:(b-a)/2}; }
   private proj(ox: number, oy: number): Proj {
     const s = this.s, Zh = this.Zh;
     return (x, y, z = 0) => [ox + (x - y) * s, oy + (x + y) * s * 0.5 - z * Zh];
@@ -598,6 +601,11 @@ export class InteriorView {
     const A = pose(a.pose, a.style, st.t + a.seed, a.phase, a.speed, a.poseT);
     solve(A, sx, sy, k, a.dir);
     drawFigure(g, this.figureOf(a), sx, sy, k, a.dir, st.t, 0, 1);
+    for(const w of a.char?.wounds??[]) {
+      const [x,y]=w.part==='head'?[J[4],J[5]]:w.part==='torso'?[(J[0]+J[2])/2,(J[1]+J[3])/2]:w.part==='arm'?[J[12],J[13]]:[J[20],J[21]];
+      if(w.bandaged){g.strokeStyle='#eee4d3';g.lineWidth=Math.max(2,3*k);g.beginPath();g.moveTo(x-4*k,y-2*k);g.lineTo(x+4*k,y+2*k);g.stroke();}
+      else if(st.fakeBlood!==false){g.fillStyle='#b3121b';g.beginPath();g.ellipse(x,y,(2+w.severity)*k,(2+w.severity)*k,0,0,7);g.fill();if(a.char!.bleed>0){g.fillStyle='#861522';g.beginPath();g.ellipse(sx+Math.sin(st.t)*8*k,sy+4*k,(3+w.severity)*k,2*k,0,0,7);g.fill();}}
+    }
     if (a.isPlayer) { g.fillStyle = "#ec2a1c"; g.font = "700 10px 'IBM Plex Mono', monospace"; g.textAlign = "center"; g.fillText("You", sx, sy + 13); }
     else if (st.nearActor === a.id && a.name) this.tag(g, a.name, sx, sy - 122 * k - 6, "#eee4d3");
   }

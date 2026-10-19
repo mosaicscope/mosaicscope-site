@@ -31,3 +31,5 @@
 .iv-want { color: #f6b62c; min-height: 1em; font-weight: 700; }
 .iv-want:empty { display: none; }
 @media (max-width: 560px) { .iv-needs { width: 140px; top: 58px; font-size: 10px; } }
+
+.iv-action-list{position:absolute;right:12px;top:72px;max-height:48vh;overflow-y:auto;width:190px;display:grid;gap:5px;z-index:3;padding:7px;border-radius:13px;background:#12282bd9;border:1px solid #c5b58344}.iv-action-list:before{content:"THINGS TO DO · click to walk & use";font:10px/1.5 monospace;color:#dbc68f;padding:5px}.iv-action-list button{border:1px solid #95b5a433;border-radius:8px;background:#20423ee0;color:#eee6cd;text-align:left;min-height:37px;padding:8px 10px;cursor:pointer}.iv-cv{cursor:pointer}@media(pointer:fine){.iv-touch{pointer-events:none}}@media(max-width:600px){.iv-action-list{top:auto;bottom:80px;right:8px;max-height:23vh;width:155px;font-size:11px}.iv-action-list button{min-height:39px}.iv-action-list:before{font-size:9px}}

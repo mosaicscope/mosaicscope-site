@@ -1,7 +1,10 @@
+import { countryside, casinoArt, scratchArt, creature } from "./ActivityArt";
+import { canvasStage, sceneText } from "./CanvasStage";
+import { makeScratch, revealScratch, dealBaccarat } from "../sim/Arcade";
 import { resolveScene } from "../sim/Chronicles";
 import { h } from "./dom";
 import type { Simulation } from "../sim/Simulation";
-import { ANIMALS, MACHINES, DEGREES, QUESTIONS, HOUR, DAY, farmCapacity, cropYield, passCourse, baccarat, titleOf, settleRace } from "../sim/Expansion";
+import { ANIMALS, MACHINES, DEGREES, QUESTIONS, HOUR, DAY, farmCapacity, cropYield, passCourse, titleOf, settleRace } from "../sim/Expansion";
 import { ENCOUNTERS } from "../content/encounters";
 import type { ModalHost } from "./Modals";
 import "./activities.css";
@@ -12,6 +15,8 @@ type Tab = "Farm" | "UC" | "Racing" | "Betting" | "Explore";
 /** All transactions use the current simulation, including after loading another slot. */
 export class Activities {
   private message = "";
+  private game = "Scratchies";
+  private record(game:string,values:number[],result:string,payout=0) { this.s.casino.result={game,values,labels:[],stake:this.stake,payout,result,at:this.sim().tick}; }
   private stake = 10;
   private racer = 0;
   private betType = "Win";
@@ -55,7 +60,7 @@ export class Activities {
   encounter(): void { this.show("Explore"); }
   private explore(): HTMLElement[] {
     const e = ENCOUNTERS.find(e => e.id === this.s.pending);
-    return [this.card("Street discoveries", `${this.s.seen.length}/40 stories completed. Walk around town: new scenes appear after travelling, with a cooldown between encounters.`),
+    return [canvasStage((g,t,reduced)=>{g.fillStyle='#243d47';g.fillRect(0,0,960,480);g.fillStyle='#26322e';g.fillRect(0,300,960,180);for(let i=0;i<7;i++){g.fillStyle=['#74665e','#8c7863','#506866'][i%3];g.fillRect(i*150,140+i%3*20,136,160);for(let k=0;k<3;k++){g.fillStyle='#efd99d';g.fillRect(i*150+18+k*37,190,21,30);}}for(let i=0;i<4;i++){const x=250+i*140,y=350+(i%2)*32;g.fillStyle=['#db9f88','#a9c8a3','#d8bd77'][i%3];g.fillRect(x,y-30,13,35);g.fillStyle='#e8c9a4';g.beginPath();g.arc(x+6,y-42,9,0,7);g.fill();g.strokeStyle='#e8c9a4';g.lineWidth=3;g.beginPath();g.moveTo(x,y-20);g.lineTo(x-17,y-10+(!reduced?Math.sin(t*2+i)*6:0));g.moveTo(x+3,y+5);g.lineTo(x-4,y+28);g.moveTo(x+8,y+5);g.lineTo(x+17,y+28);g.stroke();}sceneText(g,e?e.title.toUpperCase():'STORIES AROUND EVERY CORNER',480,76,23,'#edd5a1');sceneText(g,e?'Choose how this scene unfolds below':'Walk the city to discover your next encounter',480,445,17);},{label:e?`Street encounter: ${e.title}`:'Animated neighbourhood scene'}),this.card("Street discoveries", `${this.s.seen.length}/40 stories completed. Walk around town: new scenes appear after travelling, with a cooldown between encounters.`),
       ...(e ? [this.card(e.title, `${this.sim().world.streetName(this.sim().player.x, this.sim().player.y) || "Nearby"}: ${e.scene}`, e.choices.map(([label, money, rep, result]) => this.btn(label + (money < 0 ? ` · ${cash(-money)}` : ""), () => {
         if (this.s.pending !== e.id || this.s.seen.includes(e.id) || money < 0 && !this.pay(-money)) return;
         if (money > 0) this.credit(money);
@@ -67,7 +72,7 @@ export class Activities {
   private farm(): HTMLElement[] {
     const s = this.s, sim = this.sim(), day = Math.floor(sim.tick / DAY), count = Object.values(s.animals).reduce((a, b) => a + b, 0);
     const season = ["Spring", "Summer", "Autumn", "Winter"][Math.floor(sim.tick / (DAY * 7)) % 4];
-    const result = [this.card(["Start a farming career", "Lifestyle block", "Family farm", "Mixed operation"][s.farm], `${season} · ${sim.env.weather} · ${count}/${farmCapacity(s)} animals · ${s.feed} feed · lifetime net ${cash(s.farmProfit)}. Next settlement in ${Math.max(0, Math.ceil((DAY - (sim.tick - s.lastFarm)) / HOUR))} game hours. Every game day: produce sells, feed is used and running costs are charged.`, [
+    const result = [countryside(s,"farm"),this.card(["Start a farming career", "Lifestyle block", "Family farm", "Mixed operation"][s.farm], `${season} · ${sim.env.weather} · ${count}/${farmCapacity(s)} animals · ${s.feed} feed · lifetime net ${cash(s.farmProfit)}. Next settlement in ${Math.max(0, Math.ceil((DAY - (sim.tick - s.lastFarm)) / HOUR))} game hours. Every game day: produce sells, feed is used and running costs are charged.`, [
       this.btn(s.farm ? `Expand · ${cash((s.farm + 1) * 1500)}` : "Buy lifestyle block · $1,500", () => { if (s.farm < 3 && this.pay((s.farm + 1) * 1500)) { s.farm++; s.lastFarm = sim.tick; this.message = "New land ready. Add animals, feed and their required equipment."; } }, s.farm >= 3),
     ])];
     if (!s.farm) return result;
@@ -86,7 +91,7 @@ export class Activities {
   }
   private uni(): HTMLElement[] {
     const s = this.s;
-    const out = [this.card("Your degree arc", `${titleOf(s) || "Prospective student"} · completed: ${s.graduated.join(", ") || "none"}. Easy mock tests, free retries and a 20% wage boost per qualification level. This is fictional game progression.`)];
+    const out = [countryside(s,"campus",(x)=>{ if(!s.degree){ this.message="Choose a qualification below to enrol."; } else if(x<700){s.quiz=s.credits%3;this.message=x<280?"Library notes ready. Read the study hint, then take your mock test.":"Your next course is ready in the exam studio.";}else if(this.pay(5)){this.sim().player.hunger=Math.min(1,this.sim().player.hunger+.2);this.sim().player.needs.social=Math.min(1,this.sim().player.needs.social+.1);this.message="Coffee and a catch-up with your study group.";} this.show("UC"); }),this.card("Your degree arc", `${titleOf(s) || "Prospective student"} · completed: ${s.graduated.join(", ") || "none"}. Easy mock tests, free retries and a 20% wage boost per qualification level. This is fictional game progression.`)];
     if (!s.degree) {
       if (s.level >= 3) { out.push(this.card("Doctoral journey complete", "Your doctorate and wage boost are permanent in this saved game.")); return out; }
       for (const degree of DEGREES) out.push(this.card(degree, "Three game years, three short courses each year. Tuition $150. Correct answers earn credits; no timer.", [this.btn("Enrol", () => { if (this.pay(150)) { s.degree = degree; s.credits = 0; s.quiz = -1; } })]));
@@ -108,9 +113,9 @@ export class Activities {
   }
   private stable(): HTMLElement[] {
     const s = this.s, sim = this.sim(), horse = s.horse;
-    if (!horse) return [this.card("Your own racehorse", "Buy a horse, build its fitness and earn wins against rival trainers. Championships take place at the fictional Horncastle Arena racing meet.", [this.btn("Buy horse · $800", () => { if (this.pay(800)) s.horse = { name: "Nor'wester", skill: 15, fitness: 60, wins: 0, tier: 0, trained: -HOUR, raced: -HOUR }; })])];
+    if (!horse) return [countryside(s,"horse"),this.card("Your own racehorse", "Buy a horse, build its fitness and earn wins against rival trainers. Championships take place at the fictional Horncastle Arena racing meet.", [this.btn("Buy horse · $800", () => { if (this.pay(800)) s.horse = { name: "Nor'wester", skill: 15, fitness: 60, wins: 0, tier: 0, trained: -HOUR, raced: -HOUR }; })])];
     const nameInput = h("input", { value: horse.name, maxlength: 30, "aria-label": "Horse name", onchange: (e: Event) => { horse.name = (e.target as HTMLInputElement).value.trim().slice(0, 30) || "Nor'wester"; } });
-    return [nameInput, this.card(horse.name, `Skill ${horse.skill}/100 · fitness ${horse.fitness}/100 · ${horse.wins} wins · ${["Club", "Regional", "Championship", "Champion"][horse.tier]}. Training and racing each have a one-hour game cooldown.`, [
+    return [countryside(s,"horse"),nameInput, this.card(horse.name, `Skill ${horse.skill}/100 · fitness ${horse.fitness}/100 · ${horse.wins} wins · ${["Club", "Regional", "Championship", "Champion"][horse.tier]}. Training and racing each have a one-hour game cooldown.`, [
       this.btn("Train · $25", () => { if (sim.tick - horse.trained < HOUR || !this.pay(25)) return; horse.trained = sim.tick; horse.skill = Math.min(100, horse.skill + 8); horse.fitness = Math.max(0, horse.fitness - 8); this.message = "Trackwork improves your horse's skill. Remember to rest."; }, sim.tick - horse.trained < HOUR),
       this.btn("Feed and rest · $15", () => { if (this.pay(15)) horse.fitness = Math.min(100, horse.fitness + 20); }, horse.fitness >= 100),
       this.btn("Race rivals · $40", () => {
@@ -126,10 +131,17 @@ export class Activities {
     ]), ...this.raceView()];
   }
   private raceView(): HTMLElement[] {
-    if (!this.race) return [];
-    const r = this.race, running = this.sim().tick < r.until;
-    return [h("div.ax-race", { "aria-label": `${r.sport} race result` }, [h("h3", { text: running ? "They're off! Result shown below." : "Latest race" }), ...r.names.map((n, i) => h("div.ax-lane", null, [h("span", { text: n }), h("i.ax-runner", { text: r.sport === "Greyhound" ? "🐕" : r.sport === "Chook" ? "🐓" : "🐎", style: `--race-time:${running ? 2.4 + r.order.indexOf(i) * 0.3 : 0}s` })])), h("p", { text: running ? "The finish is still being decided. Your stake is reserved." : "Finish: " + r.order.map(i => r.names[i]).join(" → ") })])];
+    if (!this.race) return [canvasStage((g,t,reduced)=>{g.fillStyle='#315442';g.fillRect(0,0,960,480);sceneText(g,'THE STARTING PADDOCK',480,65,28,'#ebd59e');for(let i=0;i<6;i++){const x=180+i%3*300,y=225+Math.floor(i/3)*140;creature(g,x,y,this.game==='Chook fighting'?'Chook':this.betSport,reduced?0:t+i,1,['#a36b4a','#c3b8a3','#604c40'][i%3]);sceneText(g,`RUNNER ${i+1}`,x,y+42,15);}sceneText(g,'Choose a runner and place a game-money stake below',480,457,17);},{label:'Animated runners in the starting paddock'})];
+    const r = this.race;
+    return [canvasStage((g,t,reduced)=>{
+      g.fillStyle="#294e3e";g.fillRect(0,0,960,480);sceneText(g,r.sport.toUpperCase()+" · RACE DAY",480,42,23,"#efd598");
+      const elapsed=Math.max(0,1-(r.until-this.sim().tick)/270),p=reduced?(elapsed>=1?1:0):Math.min(1,elapsed);
+      r.names.forEach((name,i)=>{const y=100+i*54,rank=r.order.indexOf(i),progress=p>=1?1:Math.min(.97,p*(1.15-rank*.035));g.fillStyle=i%2?"#8c7454":"#9d835c";g.fillRect(150,y-31,744,50);g.strokeStyle="#d4c6a2";g.setLineDash([6,8]);g.beginPath();g.moveTo(150,y+19);g.lineTo(894,y+19);g.stroke();g.setLineDash([]);sceneText(g,name,135,y,12,"#e5e3d0","right");creature(g,195+progress*635,y+8,r.sport,reduced||p>=1?0:t+i,.47,["#bc7554","#d4c3a0","#594d42","#d3ad65"][i%4]);});
+      for(let y=65;y<420;y+=12)for(let x=855;x<880;x+=12){g.fillStyle=(x+y)%24?"#eee5ce":"#243a34";g.fillRect(x,y,12,12);}
+      sceneText(g,this.sim().tick<r.until?"LIVE · Running simulation advances the race":"FINISH · "+r.order.map(i=>r.names[i]).join(" → "),480,460,13);
+    },{label:`${r.sport} animated race with saved finishing order`})];
   }
+
   private settle(stake: number, payout: number, text: string) {
     this.credit(payout); this.s.loyalty++; this.s.jackpot += Math.round(stake * 0.02 * 100) / 100;
     this.message = `${text}. Return ${cash(payout)} · net ${cash(payout - stake)}.`;
@@ -140,9 +152,9 @@ export class Activities {
   }
   private casinoFloor():HTMLElement {
     const t=this.s.casino.tournament;
-    return h("article.ax-card.ax-floor",null,[h("h3",{text:"Tessera tournament floor"}),h("div.ax-tables",{"aria-label":"Casino tables"},["♠","♦","♣","♥"].map((s,i)=>h("div.ax-table",null,[h("span",{text:["Miri · baccarat","Baz · craps","Aroha · keno","Dale · wheel"][i]}),h("strong",{text:s})]))),h("p",{text:t?`Three-round dealer challenge · round ${Math.min(3,t.round)}/3 · score ${t.score}. Beat 21 points for a $100 prize. Play is saved with your slot.`:"Dealers are running a three-round, play-money high-card tournament. Entry $25; beat 21 points for a $100 return."}),this.btn(!t||t.paid?"Enter tournament · $25":"Deal tournament hand",()=>{
-      if(!t||t.paid){if(this.pay(25))this.s.casino.tournament={round:0,score:0,paid:false};return;}
-      const card=1+pick(13);t.round++;t.score+=card;this.message=`Dealer draws ${card}. Score ${t.score}.`;
+    return h("article.ax-card.ax-floor",null,[h("h3",{text:"Tessera tournament floor"}),casinoArt("Tournament",()=>({game:"Tournament",values:this.s.casino.tournamentCards??[],labels:[],stake:25,payout:0,result:t?`Score ${t.score} · round ${t.round}/3`:"Enter the dealer challenge",at:0}),()=>this.s,()=>this.sim().tick),h("p",{text:t?`Three-round dealer challenge · round ${Math.min(3,t.round)}/3 · score ${t.score}. Beat 21 points for a $100 prize. Play is saved with your slot.`:"Dealers are running a three-round, play-money high-card tournament. Entry $25; beat 21 points for a $100 return."}),this.btn(!t||t.paid?"Enter tournament · $25":"Deal tournament hand",()=>{
+      if(!t||t.paid){if(this.pay(25)){this.s.casino.tournament={round:0,score:0,paid:false};this.s.casino.tournamentCards=[];}return;}
+      const card=1+pick(13);(this.s.casino.tournamentCards??=[]).push(card);t.round++;t.score+=card;this.message=`Dealer draws ${card}. Score ${t.score}.`;
       if(t.round>=3){t.paid=true;const prize=t.score>21?100:0;this.settle(25,prize,`Tournament complete: ${t.score} points`);}
     })]);
   }
@@ -150,31 +162,31 @@ export class Activities {
     this.credit(settleRace(this.s,this.sim().tick));
     const amount = h("input", { type: "number", min: 1, max: 500, step: 1, value: this.stake, "aria-label": "Stake in game dollars", onchange: (e: Event) => { this.stake = Math.max(1, Math.min(500, Math.floor(+(e.target as HTMLInputElement).value || 1))); } });
     const out = [h("label", null, ["Stake · $1–$500 in fictional game money", amount]), this.card("Pocket Tessera", `Play anywhere. Loyalty ${this.s.loyalty} · scratch jackpot ${cash(this.s.jackpot)}. Outcomes are random and losses are possible.`, [this.btn("Claim loyalty perk · 25 points", () => { if (this.s.loyalty >= 25) { this.s.loyalty -= 25; this.credit(10); this.message = "$10 loyalty credit collected."; } }, this.s.loyalty < 25)]),
-      this.card("Baccarat", "Player pays 1:1, Banker 0.95:1, Tie 8:1. Non-tie bets push on a tie. Standard third-card rules.", ["Player", "Banker", "Tie"].map(side => this.btn(side, () => this.wager(n => baccarat(n, side))))),
+      this.card("Baccarat", "Player pays 1:1, Banker 0.95:1, Tie 8:1. Non-tie bets push on a tie. Standard third-card rules.", ["Player", "Banker", "Tie"].map(side => this.btn(side, () => this.wager(n => { const d=dealBaccarat(),winner=d.p===d.b?"Tie":d.p>d.b?"Player":"Banker",payout=winner===side?n*(side==="Tie"?9:side==="Banker"?1.95:2):winner==="Tie"&&side!=="Tie"?n:0,text=`Player ${d.p} · Banker ${d.b} · ${winner}`; this.record("Baccarat",[d.player.length,...d.player,...d.banker],text,payout);return {payout,text}; })))),
       this.card("Craps · pass line", this.point ? `Point is ${this.point}. Original stake ${cash(this.pointStake)} stays on the table; make the point before a 7.` : "Come-out 7/11 wins, 2/3/12 loses. Otherwise establish a point, then roll it before 7. Pays 1:1.", [this.btn(this.point ? "Roll point" : "Come-out roll", () => {
         if (!this.point) { if (!this.pay(this.stake)) return; this.pointStake = this.stake; }
-        const roll = 2 + pick(6) + pick(6), n = this.pointStake;
+        const d1=1+pick(6),d2=1+pick(6),roll=d1+d2,n=this.pointStake;this.record("Craps",[d1,d2],`Rolled ${roll}`);
         if (!this.point && [7,11].includes(roll) || this.point && roll === this.point) { this.point = 0; this.settle(n, n*2, `Rolled ${roll}, pass wins`); }
         else if (!this.point && [2,3,12].includes(roll) || this.point && roll === 7) { this.point = 0; this.settle(n, 0, `Rolled ${roll}, pass loses`); }
         else { this.point ||= roll; this.message = `Rolled ${roll}. Point ${this.point} is still live.`; }
       })]),
-      this.card("Big wheel", "24 equal sectors: 12 blanks, 6 ×2, 3 ×3, 2 ×5 and one ×8. Multipliers include your stake.", [this.btn("Spin", () => this.wager(n => { const r = pick(24), m = r < 12 ? 0 : r < 18 ? 2 : r < 21 ? 3 : r < 23 ? 5 : 8; return { payout: n*m, text: `Wheel ×${m}` }; }))]),
-      this.card("Scratchies", "Match three symbols to win. 1 in 1000 jackpot; other prizes ×2 to ×20 include stake.", [this.btn("Scratch", () => this.wager(n => { const r = pick(1000); if (!r) { const jackpot = this.s.jackpot; this.s.jackpot = 1000; return { payout: jackpot, text: "Three crowns! Jackpot" }; } const m = r < 10 ? 20 : r < 60 ? 5 : r < 200 ? 2 : 0; return { payout: n*m, text: m ? `Three matching symbols ×${m}` : "No matching trio" }; }))]),
+      this.card("Big wheel", "24 equal sectors: 12 blanks, 6 ×2, 3 ×3, 2 ×5 and one ×8. Multipliers include your stake.", [this.btn("Spin", () => this.wager(n => { const r = pick(24), m = r < 12 ? 0 : r < 18 ? 2 : r < 21 ? 3 : r < 23 ? 5 : 8; this.record("Big wheel",[r],`Wheel ×${m}`,n*m);return { payout: n*m, text: `Wheel ×${m}` }; }))]),
+      this.card("Scratchies", "Rub all three silver panels to reveal a matching trio. Prizes include the stake. Jackpot odds 1 in 1000; other prizes ×2–×20.", [this.btn(this.s.casino.scratch&&!this.s.casino.scratch.paid?"Ticket in progress":"Buy scratchcard", () => {const old=this.s.casino.scratch;if(old&&!old.paid)return;if(this.pay(this.stake)){this.renderedTab=null;this.s.casino.scratch=makeScratch(this.stake,this.s.jackpot);if(this.s.casino.scratch.symbols[0]===0&&this.s.casino.scratch.payout){this.s.jackpot=1000;}this.message="Ticket ready. Scratch the three panels below.";}},!!this.s.casino.scratch&&!this.s.casino.scratch.paid)]),
     ];
     out.push(this.card("Chook fighting · cartoon arena", "Two rival roosters square off in a slapstick, non-graphic bout. Back red or blue. A win returns ×1.9 including stake; a loss returns zero.", [0,1].map(side => this.btn(side === 0 ? "Back red chook" : "Back blue chook", () => this.wager(n => {
       const winner=pick(2); if(!this.race||this.race.settled)this.race={sport:"Chook", order:[winner,1-winner], until:this.sim().tick+270, names:["Red Rooster","Blue Bandit"],stake:n,payout:0,settled:true};
       return {payout:winner===side?n*1.9:0,text:`${winner===0?"Red Rooster":"Blue Bandit"} wins the chook bout`};
     })))));
     const numbers = Array.from({length:40},(_,i)=>i+1).map(i => this.btn((this.keno.has(i) ? "✓ " : "") + i, () => { if (this.keno.has(i)) this.keno.delete(i); else if (this.keno.size < 5) this.keno.add(i); }));
-    out.push(this.card("Keno · pick five", "Select 5 from 40. Ten balls drawn. 3 matches ×2, 4 ×10, 5 ×50. All other results lose.", [this.btn("Draw balls", () => this.wager(n => { const balls = Array.from({length:40},(_,i)=>i+1); for (let i=39;i>0;i--) { const j=pick(i+1); [balls[i],balls[j]]=[balls[j],balls[i]]; } const draw=balls.slice(0,10), hits=draw.filter(x=>this.keno.has(x)).length; return { payout:n*([0,0,0,2,10,50][hits]), text:`Balls ${draw.join(", ")} · ${hits} matches` }; }), this.keno.size !== 5)]), h("div.ax-numbers", null, numbers));
+    out.push(this.card("Keno · pick five", "Select 5 from 40. Ten balls drawn. 3 matches ×2, 4 ×10, 5 ×50. All other results lose.", [this.btn("Draw balls", () => this.wager(n => { const balls = Array.from({length:40},(_,i)=>i+1); for (let i=39;i>0;i--) { const j=pick(i+1); [balls[i],balls[j]]=[balls[j],balls[i]]; } const draw=balls.slice(0,10), hits=draw.filter(x=>this.keno.has(x)).length; this.record("Keno",draw,`${hits} matching balls`);return { payout:n*([0,0,0,2,10,50][hits]), text:`Balls ${draw.join(", ")} · ${hits} matches` }; }), this.keno.size !== 5)]), h("div.ax-numbers", null, numbers));
     const active = this.crash && !this.crash.paid;
     out.push(this.card("Crash", "Buy a flight, then cash out before it crashes. ×1.49 at 2s, ×2.23 at 4s, ×3.32 at 6s of running simulation. Pausing also pauses the flight. Closing the panel never refunds a flight.", [
       this.btn("Launch", () => { if (active || !this.pay(this.stake)) return; this.crash = { stake:this.stake, start:this.sim().tick, bust:Math.max(1,0.96/(1-Math.random())), paid:false }; this.message="Flight launched. Choose a cash-out time."; }, !!active),
-      ...[2,4,6].map(seconds => this.btn(`Cash out after ${seconds}s`, () => {
+      ...[0].map(seconds => this.btn("Cash out now", () => {
         const flight=this.crash; if (!flight || flight.paid) return;
         const elapsed=(this.sim().tick-flight.start)/60;
         if (elapsed<seconds) { this.message=`Flight still climbing: ${elapsed.toFixed(1)}s. Wait until ${seconds}s, then tap again.`; return; }
-        flight.paid=true; const m=Math.exp(elapsed*0.2); this.settle(flight.stake,m<flight.bust ? Math.floor(flight.stake*m*100)/100 : 0,m<flight.bust ? `Cashed out ×${m.toFixed(2)}` : `Crashed at ×${flight.bust.toFixed(2)}`);
+        flight.paid=true; const m=Math.exp(elapsed*0.2),payout=m<flight.bust?Math.floor(flight.stake*m*100)/100:0,text=m<flight.bust?`Cashed out ×${m.toFixed(2)}`:`Crashed at ×${flight.bust.toFixed(2)}`; this.record("Crash",[Math.min(m,flight.bust)],text,payout);this.settle(flight.stake,payout,text);
       }, !active)),
       this.btn("Abandon flight", () => { const f=this.crash; if (f && !f.paid) { f.paid=true; this.settle(f.stake,0,"Flight abandoned"); } }, !active),
     ]));
@@ -188,7 +200,10 @@ export class Activities {
       this.race={sport:this.betSport,order,until:this.sim().tick+270,names:["Nor'wester","Rent Arrears","Pie Runner","Ilam Flash","Cone Ranger","Last Bus"],stake:n,payout:win?n*(this.betType==="Win"?5:this.betType==="Place"?2.5:25):0,settled:false};
       this.message="They're off! Your bet and race progress are saved, even if you close the phone.";
     },!!this.race&&!this.race.settled)]),...this.raceView());
-    out.unshift(this.casinoFloor());
-    return out;
+    const games=["Scratchies","Baccarat","Craps","Big wheel","Keno","Crash","Race book","Chook fighting","Tournament"];
+    const nav=h("nav.ax-game-nav",{"aria-label":"Choose a game"},games.map(name=>{const b=this.btn(name,()=>{this.game=name;this.renderedTab=null;});b.setAttribute("aria-pressed",String(this.game===name));return b;}));
+    const selected=out.filter(el=>el.querySelector("h3")?.textContent?.startsWith(this.game));
+    const scene=this.game==="Scratchies" ? (this.s.casino.scratch?scratchArt(this.s.casino.scratch,i=>{const ticket=this.s.casino.scratch!;const was=ticket.paid,payout=revealScratch(ticket,i);if(!was&&ticket.paid){this.settle(ticket.stake,payout,payout?"Matching trio!":"No matching trio");this.toast(this.message);const status=this.modal.el.querySelector(".ax-status");if(status)status.textContent=cash(this.sim().player.cash)+" · "+this.message;const next=this.btn("Buy another scratchcard",()=>{if(this.pay(this.stake)){this.renderedTab=null;this.s.casino.scratch=makeScratch(this.stake,this.s.jackpot);if(this.s.casino.scratch.symbols[0]===0&&this.s.casino.scratch.payout)this.s.jackpot=1000;}});const actions=this.modal.el.querySelector(".ax-card .ax-actions");actions?.replaceChildren(next);}}):casinoArt("Scratchies",()=>undefined,()=>this.s,()=>this.sim().tick)) : ["Race book","Chook fighting"].includes(this.game)?null:casinoArt(this.game,()=>this.s.casino.result,()=>this.s,()=>this.sim().tick);
+    return [out[0],nav,...(this.game==="Tournament"?[this.casinoFloor()]:[...(scene?[scene]:[]),...selected]),...(this.game==="Keno"?out.filter(el=>el.classList.contains("ax-numbers")):[]),...(this.game==="Race book"?[...out.filter(el=>el.tagName==="LABEL").slice(1),...this.raceView()]:this.game==="Chook fighting"?this.raceView():[])];
   }
 }

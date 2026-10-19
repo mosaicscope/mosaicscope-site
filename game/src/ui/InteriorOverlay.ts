@@ -1,3 +1,4 @@
+import { useBandage } from "../sim/Life";
 import { h, fmtHour } from "./dom";
 import "./interior.css";
 import type { Simulation } from "../sim/Simulation";
@@ -6,7 +7,7 @@ import { BUILDINGS, isOpen } from "../content/buildings";
 import type { InteriorDef, Interactable, Launch } from "../content/interiors";
 import { interiorForBuilding, FEEDS } from "../content/interiorVariety";
 import { applyEffect } from "../content/interiorEffects";
-import { moveInside, zoneAt } from "../content/interiorNav";
+import { moveInside, zoneAt, findPath } from "../content/interiorNav";
 import { InteriorView, type ViewActor, type ViewState } from "../render/InteriorView";
 import { InteriorCrowd } from "./InteriorCrowd";
 import { fmtCash } from "../sim/Society";
@@ -31,6 +32,11 @@ const WALK = 3.0, RUN = 4.6;
 
 export class InteriorOverlay {
   el: HTMLElement;
+  private path: {x:number;y:number}[]=[];
+  private destination: Interactable|null=null;
+  private actionsEl:HTMLElement;
+  private actionUntil=0;
+  private actionPose="idle";
   private cv: HTMLCanvasElement;
   private view: InteriorView;
   private titleEl: HTMLElement; private zoneEl: HTMLElement; private clockEl: HTMLElement; private cashEl: HTMLElement;
@@ -64,6 +70,8 @@ export class InteriorOverlay {
       ...(["hunger", "energy", "social", "fun"] as const).map((k) => { const fill = h("i"); this.bars[k] = fill; return h("div.iv-need", { title: k }, [h("span", { text: k }), h("b", null, [fill])]); }),
       this.wantEl,
     ]);
+    this.actionsEl=h("div.iv-action-list",{"aria-label":"Things to do inside"});
+    this.cv.addEventListener("click",e=>this.clickRoom(e.clientX,e.clientY));
     this.knobEl = h("i.iv-knob");
     this.stickEl = h("div.iv-stick.hidden", null, [this.knobEl]);
     const zone = h("div.iv-touch", { "aria-hidden": "true" });
@@ -72,7 +80,7 @@ export class InteriorOverlay {
     this.el = h("div.iv.hidden", { role: "dialog", "aria-label": "Interior" }, [
       this.cv,
       h("div.iv-top", null, [h("div.iv-head", null, [this.titleEl, this.zoneEl]), h("div.iv-meta", null, [this.clockEl, this.cashEl]), leave]),
-      this.needsEl, this.capEl, zone, this.stickEl, this.promptBtn,
+      this.needsEl, this.capEl, this.actionsEl, zone, this.stickEl, this.promptBtn,
     ]);
     // never let gestures reach the world canvas beneath, and never let the page zoom
     for (const ev of ["wheel", "contextmenu", "dblclick", "gesturestart"]) this.el.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
@@ -90,7 +98,8 @@ export class InteriorOverlay {
 
   show(b: Building): void {
     const sim = this.host.sim(), def = interiorForBuilding(b);
-    this.b = b; this.def = def;
+    this.b = b; this.def = def;this.path=[];this.destination=null;
+    this.actionsEl.replaceChildren(...def.interactables.map(it=>h("button",{text:it.label,onclick:()=>this.walkTo(it)})));
     this.crowd = new InteriorCrowd(def, sim, b);
     const p = sim.player;
     this.me.look = p.look; this.me.style = p.style || "normal"; this.me.char = p;
@@ -137,10 +146,11 @@ export class InteriorOverlay {
     const k = e.key.toLowerCase(), m = this.host.keys();
     const move = [m.up, m.down, m.left, m.right, "arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"];
     if (down) {
+      if(k==='b'){e.stopImmediatePropagation();e.preventDefault();if(!e.repeat){const sim=this.host.sim();this.host.toast(useBandage(sim,sim.player,sim.player)?"Bandaged. Bleeding controlled.":"You need a bandage and an untreated wound.");}return;}
       if (k === "escape") { e.stopImmediatePropagation(); e.preventDefault(); this.close(); return; }
       const tag = (e.target as HTMLElement | null)?.tagName;
       if ((k === m.use || k === "enter" || k === " ") && !(tag === "BUTTON" && (k === " " || k === "enter"))) { e.stopImmediatePropagation(); e.preventDefault(); if (!e.repeat) this.use(); return; }
-      if (move.includes(k) || k === "shift") { e.stopImmediatePropagation(); if (k.startsWith("arrow")) e.preventDefault(); this.held.add(k); return; }
+      if (move.includes(k) || k === "shift") { e.stopImmediatePropagation(); if (k.startsWith("arrow")) e.preventDefault(); this.path=[];this.destination=null;this.held.add(k); return; }
       if (k === "tab") return;
       e.stopImmediatePropagation(); // nothing else (throw, rob, horn...) reacts while you are indoors
     } else if (move.includes(k) || k === "shift") this.held.delete(k);
@@ -163,11 +173,25 @@ export class InteriorOverlay {
       this.stickEl.classList.remove("hidden"); this.knobEl.style.transform = "translate(0,0)"; upd(e);
     });
     zone.addEventListener("pointermove", (e) => { if (e.pointerId === this.stick.id) upd(e); });
-    const end = (e: PointerEvent) => { if (e.pointerId !== this.stick.id) return; this.stick.id = -1; this.stick.x = this.stick.y = 0; this.stickEl.classList.add("hidden"); };
+    const end = (e: PointerEvent) => { if (e.pointerId !== this.stick.id) return; if(e.type==="pointerup"&&Math.hypot(e.clientX-this.stick.ox,e.clientY-this.stick.oy)<8)this.clickRoom(e.clientX,e.clientY); this.stick.id = -1; this.stick.x = this.stick.y = 0; this.stickEl.classList.add("hidden"); };
     zone.addEventListener("pointerup", end); zone.addEventListener("pointercancel", end);
   }
 
   // ------------------------------------------------------------------ actions
+  private walkTo(it:Interactable):void {
+    if(!this.def)return;
+    const path=findPath(this.def,this.me,it);
+    if(!path){this.say("That spot is blocked. Try approaching from the aisle.",3);return;}
+    this.path=path;this.destination=it;this.say(`Walking to ${it.label}…`,5);
+  }
+  private clickRoom(clientX:number,clientY:number):void {
+    if(!this.def||this.host.modalOpen())return;
+    const rect=this.cv.getBoundingClientRect(),x=clientX-rect.left,y=clientY-rect.top;
+    let closest:Interactable|null=null,distance=65;
+    for(const it of this.def.interactables){const [sx,sy]=this.view.screenPoint(it.x,it.y);const d=Math.hypot(sx-x,sy-y);if(d<distance){distance=d;closest=it;}}
+    if(closest){this.walkTo(closest);return;}
+    const target=this.view.groundPoint(x,y);this.path=findPath(this.def,this.me,target)??[];this.destination=null;
+  }
   private use(): void {
     if (!this.def || !this.b) return;
     if (this.near) { this.activate(this.near); return; }
@@ -181,7 +205,7 @@ export class InteriorOverlay {
     const now = this.t, cd = this.cool.get(it.id) ?? 0;
     if (it.effect && now >= cd) {
       const r = applyEffect(it.effect, p, { wage: sim.wagePerHour(p), worksHere: p.workplace === b.id, cost: it.cost });
-      if (r.ok) this.cool.set(it.id, now + r.cooldown);
+      if (r.ok) {this.cool.set(it.id, now + r.cooldown);this.actionUntil=this.t+2.5;this.actionPose=["eat","cuppa","vend"].includes(it.effect!)?"eat":["sit","rest","read"].includes(it.effect!)?"sit":it.effect==="dance"||it.effect==="music"?"dance":"phone";}
       this.host.toast(r.toast, r.tone);
       this.hudAt = -9;
     } else if (it.effect && now < cd) this.host.toast("Give it a minute.");
@@ -219,7 +243,7 @@ export class InteriorOverlay {
       const word = { hunger: "Hungry", energy: "Tired", social: "Lonely", fun: "Bored" }[need];
       want = fix ? `${word}: try ${fix.label}` : need === "social" && this.crowd?.actors.length ? `${word}: talk to someone` : `${word}: nothing for that here`;
     }
-    this.wantEl.textContent = want;
+    this.wantEl.textContent = p.bleed>0?"Bleeding · B to bandage. Find medical help.":want;
   }
 
   private say(text: string, secs: number): void {
@@ -231,6 +255,11 @@ export class InteriorOverlay {
     if (!this.open || !this.def || !this.b || !this.crowd) return;
     const dt = Math.min(0.05, Math.max(0.001, (now - this.last) / 1000)); this.last = now; this.t = (now - this.t0) / 1000;
     const def = this.def, sim = this.host.sim(), me = this.me;
+    if(this.path.length&&!this.host.modalOpen()){
+      const next=this.path[0],dx=next.x-me.x,dy=next.y-me.y,d=Math.hypot(dx,dy),step=Math.min(d,WALK*dt);
+      if(d<.09)this.path.shift();else {const np=moveInside(def,me.x,me.y,dx/d*step,dy/d*step);me.x=np.x;me.y=np.y;me.dir=dx-dy>=0?1:-1;me.phase+=step*5.5;}
+      if(!this.path.length&&this.destination){const target=this.destination;this.destination=null;if(Math.hypot(target.x-me.x,target.y-me.y)<1.35)this.activate(target);}
+    }
     // input -> world direction
     const m = this.host.keys();
     let ix = 0, iy = 0;
@@ -251,7 +280,8 @@ export class InteriorOverlay {
       me.x = np.x; me.y = np.y; spd = moved / dt;
       const sdx = ix; if (Math.abs(sdx) > 0.01) me.dir = sdx >= 0 ? 1 : -1; else me.dir = (wx - wy) >= 0 ? 1 : -1;
     }
-    me.speed = spd; me.pose = spd > 0.2 ? (spd > 3.6 ? "run" : "walk") : "idle";
+    if(this.path.length)spd=WALK;
+    me.speed = spd; me.pose = spd > 0.2 ? (spd > 3.6 ? "run" : "walk") : this.t<this.actionUntil?this.actionPose:"idle";
     if (spd > 0.2) { me.phase += spd * dt * 5.5; me.poseT = 0; } else me.poseT += dt;
     // walking into the doorway leaves
     if (me.x < 0.5 && Math.abs(me.y - def.door.y) < 0.85 && pushW) { this.close(); return; }
@@ -279,7 +309,7 @@ export class InteriorOverlay {
       if (!isOpen(BUILDINGS[this.b.kind], sim.hour)) { this.host.toast(`${this.b.name} is closing. Out you go.`); this.close(); return; }
     }
     this.hud();
-    const st: ViewState = { t: this.t, hour: sim.hour, player: me, actors: people, near: best?.id ?? null, nearActor: this.nearActor, exitNear: this.exitNear };
+    const st: ViewState = { fakeBlood:sim.fakeBlood,t: this.t, hour: sim.hour, player: me, actors: people, near: best?.id ?? null, nearActor: this.nearActor, exitNear: this.exitNear };
     this.view.render(st, def);
     this.raf = requestAnimationFrame(this.loop);
   };

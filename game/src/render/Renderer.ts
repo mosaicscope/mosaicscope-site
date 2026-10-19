@@ -394,7 +394,7 @@ export class Renderer {
     }
     this.drawHeli(g, sim, time, z);
     const darkness = 1 - sim.daylight;
-    if (darkness > 0.3 && o.quality > 0) {
+    if (darkness > 0.3) {
       g.globalCompositeOperation = "lighter";
       for (const v of sim.vehicles) { cam.toScreen(v.x, v.y, 0, this.pt); if (inView(this.pt.x, this.pt.y, 60)) headlights(g, cam, v, Math.min(darkness, sim.env.power ? 0.8 : 0.35)); }
       g.globalCompositeOperation = "source-over";
