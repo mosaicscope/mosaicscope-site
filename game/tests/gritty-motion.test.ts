@@ -1,6 +1,6 @@
 import {describe,it,expect,vi} from 'vitest';
 import {small,emptyHands} from './helpers';
-import {NEGATIVE_REACTIONS,applyNegativeReaction,reactionFor} from '../src/render/NegativeReactions';
+import {NEGATIVE_REACTIONS,applyNegativeReaction,reactionFor,sampleReactionClip,REACTION_TRACKS} from '../src/render/NegativeReactions';
 import {pose} from '../src/render/StickFigure';
 import {wound,bandage,hospitalise,updateHealth} from '../src/sim/Life';
 import {detachmentProfile,advanceDetachedLimbs} from '../src/sim/Trauma';
@@ -12,16 +12,19 @@ import {Phys} from '../src/entities/types';
 import {drawToy} from '../src/render/ToyArt';
 
 describe('negative-emotion performances',()=>{
- it('provides 500 distinct deterministic timing/weight performances across 20 families',()=>{
+ it('provides 500 distinct anatomical motion tracks across 20 families',()=>{
   expect(NEGATIVE_REACTIONS).toHaveLength(500);expect(new Set(NEGATIVE_REACTIONS.map(x=>x.family)).size).toBe(20);
   expect(new Set(NEGATIVE_REACTIONS.map(x=>JSON.stringify(x))).size).toBe(500);
-  for(const clip of NEGATIVE_REACTIONS){expect(clip.tempo).toBeGreaterThan(0);expect(clip.weight).toBeLessThanOrEqual(1.2);}
+  const tracks=NEGATIVE_REACTIONS.map(c=>[.195,.49,.815].flatMap(u=>{const p=sampleReactionClip(c,u*c.duration);return REACTION_TRACKS.map(k=>p[k]);}));
+  expect(new Set(tracks.map(t=>JSON.stringify(t))).size).toBe(500);
+  const normalized=tracks.map(t=>{const len=Math.hypot(...t);return t.map(v=>+(v/len).toFixed(6));});expect(new Set(normalized.map(t=>JSON.stringify(t))).size).toBe(500);
+  for(const c of NEGATIVE_REACTIONS){expect(c.keys).toHaveLength(3);expect(c.label).toContain('→');}
  });
  it('selects reactions from actual injuries, emotions and traits while protecting actions and locomotion',()=>{
   const c=small().player;c.emo.fear=.9;c.pers.boldness=.05;c.hand=-1;c.phys=Phys.OK;
   expect(reactionFor(c)?.clip.family).toBe('startle');
   const a={...pose('idle','normal',1,0,0,0)},b={...a};applyNegativeReaction(a,c,2,0,'idle');expect(a).not.toEqual(b);
-  const shot={...b};applyNegativeReaction(shot,c,2,0,'shoot');expect(shot).toEqual(b);
+  const shot={...b};applyNegativeReaction(shot,c,2,0,'shoot');expect([shot.armL,shot.foreL,shot.armR,shot.foreR]).toEqual([b.armL,b.foreL,b.armR,b.foreR]);
   const walk={...pose('walk','normal',1,1,2,0)},legs=[walk.thighL,walk.thighR,walk.bendL,walk.bendR];applyNegativeReaction(walk,c,2,2,'walk');expect([walk.thighL,walk.thighR,walk.bendL,walk.bendR]).toEqual(legs);
   c.wounds=[{part:'arm',kind:'cut',severity:2,tick:0,bandaged:false}];expect(reactionFor(c)?.clip.family).toBe('arm-pain');
  });

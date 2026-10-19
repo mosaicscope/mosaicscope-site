@@ -1,3 +1,4 @@
+import {reactionCatalogue} from '../ui/ReactionCatalogue';
 import {weaponMechanism} from '../ui/WeaponMechanism';
 import {stealWeapon,gainTheft} from "../sim/WeaponTheft";
 import {nearestLoosePiece,clearLoosePiece} from "../sim/Litter";
@@ -128,6 +129,7 @@ export class Game {
   private touches = new Map<number, { x: number; y: number }>();
   photos!: Photos; casino: Casino; places: Places; radio: Radio; interior: InteriorOverlay;
   private hudEl: HTMLElement;
+  private combatHelpButton:HTMLButtonElement|null=null;
   private areaEl: HTMLElement = h("div.areaname", { "aria-live": "polite" }); private lastArea = ""; private bustedEl: HTMLElement; private lastBusted = -1;
   private gestured = false;
   private pinchDist = 0;
@@ -357,7 +359,7 @@ export class Game {
     if (p.bleed > 0) kids.push(h("div.car", { text: "You're bleeding. B to bandage." }));
     kids.push(h("button.btn",{text:this.sim.expansion.pending?"Nearby story · Play":"City fun & stories",onclick:()=>this.activities.show("Explore")}));
     if(p.hand>=0){const d=sim.toys[p.hand].def,w=TOYS[d].weapon;if(w?.gun){const base=d==='golden_pistol'?'pistol':d,load=p.combat?.load??'standard',key=load==='standard'?base:base+':'+load;kids.push(h('div.combat-status',{text:`${TOYS[d].name} · ${p.combat?.ammo[key]??'∞'} rounds · ${w.mode??'semi'}`}));}}
-    kids.push(h("button.btn.combat-help",{text:"Fight / gun controls",onclick:()=>this.openCombatControls()}));
+    this.combatHelpButton??=h("button.btn.combat-help",{text:"Fight / gun controls",onclick:()=>this.openCombatControls()}) as HTMLButtonElement;kids.push(this.combatHelpButton);
     const obj = this.objective(); if (obj) kids.push(h("div.car.obj", { text: obj }));
     this.hudEl.replaceChildren(...kids);
     this.hudEl.classList.toggle("beside-log", !this.log.el.classList.contains("hidden"));
@@ -1528,6 +1530,7 @@ export class Game {
         row('Equipment and ammunition',`${key(k.pickup)} picks up nearby equipment. ${key(k.drop)} drops the held item. Use Armory & gun store to buy or equip a weapon, choose an ammunition load and refill its reserve. Magazines reload automatically; an empty reserve needs ammunition.`),
         row('Injuries and protection',`${key('b')} bandages bleeding. Armour protects covered areas and wears down. Moving, repeated shots and arm injuries reduce aim. Heavy gear slows walking. Attacks can cause injuries, witnesses and police pursuit.`),
       ]),h('h3',{text:'Choose your unarmed style'}),styles,
+      h('button.btn',{text:'Browse 500 reaction animations',onclick:()=>this.modal.show('Reaction catalogue',[reactionCatalogue(this.sim.player)],'activities reaction-modal')}),
       weaponMechanism(p.hand>=0?this.sim.toys[p.hand]?.def:'pistol'),
       h('button.btn',{text:'Open armory / equip weapons',onclick:()=>this.armory.show()}),
     ],'activities combat-controls');
