@@ -10,7 +10,7 @@ import { PAYS, SYMBOLS, payFor, spinReels, Sym, rtp } from "../casino/slots";
  * Live play uses Math.random (not the seeded world RNG) like a real shuffle machine.
  * Styles live in ./casino.css (all new markup uses the `cx-` prefix).
  */
-export interface CasinoWallet { getCash(): number; setCash(v: number): void; onEvent(text: string, big: boolean): void; patrons(): number }
+export interface CasinoWallet { strategy?(): boolean; getCash(): number; setCash(v: number): void; onEvent(text: string, big: boolean): void; patrons(): number }
 
 interface Chip { v: number; c: string; t: string; e: string }
 const CHIPS: Chip[] = [
@@ -188,6 +188,7 @@ export class Casino {
   private vpCoins = 5; private vpValue = 1; private vpWin = 0; private vpFresh = [false, false, false, false, false];
   private slotBet = 1; private reels: Sym[] = ["7", "7", "7"]; private reelWin: Sym[][] = [reelWindow("7"), reelWindow("7"), reelWindow("7")];
   private reelStopped = [true, true, true]; private slotMsg = ""; private slotSpinning = false; private slotWin = 0; private slotHit = -1;
+  private results: { game: string; net: number }[] = [];
   private msg = "";
   open = false;
   onMoreGames?: () => void;
@@ -197,9 +198,10 @@ export class Casino {
     this.el = h("div.casino.hidden", { role: "dialog", "aria-modal": "true", "aria-label": "The Tessera Casino" }, []);
   }
 
-  show(): void { this.open = true; this.tab = "floor"; this.el.classList.remove("hidden"); this.render(); }
+  show(): void { this.bjHint = this.w.strategy?.() ?? this.bjHint; this.open = true; this.tab = "floor"; this.el.classList.remove("hidden"); this.render(); }
   close(): void {
     if (this.bj.phase === "player" || this.bj.phase === "insurance") { this.msg = "Finish the hand first."; this.render(); return; }
+    if (this.vp.phase === "draw") { this.msg = "Draw your replacement cards before leaving."; this.render(); return; }
     if (this.rSpinning || this.slotSpinning) return;
     // the cashier cashes your chips out on the way out
     for (const b of this.rBets) this.chips += b.amount;
@@ -208,18 +210,27 @@ export class Casino {
     const net = this.cashedOut - this.bought;
     if (this.bought > 0) this.w.onEvent(net >= 0 ? `You walked out of the Tessera ${money(net)} up` : `You left the Tessera ${money(-net)} down`, Math.abs(net) >= 200);
     this.bought = 0; this.cashedOut = 0;
+    cancelAnimationFrame(this.floorRaf);
     this.open = false; this.el.classList.add("hidden"); this.onClose();
   }
 
-  private take(n: number): boolean { if (n > this.chips + 1e-9) { this.msg = "Not enough chips. Visit the cashier."; return false; } this.chips -= n; return true; }
-  private go(tab: string): void { this.tab = tab; this.msg = ""; this.render(); }
+  private take(n: number): boolean { if (!Number.isFinite(n) || n <= 0) return false; if (n > this.chips + 1e-9) { this.msg = "Not enough chips. Visit the cashier."; return false; } this.chips -= n; return true; }
+  private go(tab: string): void {
+    if (this.rSpinning || this.slotSpinning || this.bj.phase === "player" || this.bj.phase === "insurance" || this.vp.phase === "draw") {
+      this.msg = "Finish your current round before changing tables."; this.render(); return;
+    }
+    this.tab = tab; this.msg = ""; this.render();
+  }
+  private record(game: string, net: number): void {
+    this.results.unshift({ game, net }); this.results.length = Math.min(8, this.results.length);
+  }
 
   private render(): void {
-    const tabs = [["floor", "Casino floor"], ["cashier", "Cashier"], ["blackjack", "Blackjack"], ["roulette", "Roulette"], ["pokies", "Pokies"], ["poker", "Video Poker"]];
-    const nav = h("nav.cas-tabs", { role: "tablist", "aria-label": "Casino areas" }, tabs.map(([id, l]) => h("button" + (this.tab === id ? ".on" : ""), { role: "tab", "aria-selected": String(this.tab === id), onclick: () => this.go(id) }, [l])));
+    const tabs = [["floor", "Lobby", "◈"], ["blackjack", "Blackjack", "♠"], ["roulette", "Roulette", "◎"], ["pokies", "Kiwi Gold", "7"], ["poker", "Video poker", "♦"], ["cashier", "Cashier", "$"]];
+    const nav = h("nav.cas-tabs", { role: "tablist", "aria-label": "Casino areas" }, tabs.map(([id, l, icon]) => h("button" + (this.tab === id ? ".on" : ""), { role: "tab", "aria-selected": String(this.tab === id), onclick: () => this.go(id) }, [h("span", { text: icon, "aria-hidden": "true" }), l])));
     if (this.onMoreGames) nav.append(h("button", { text: "More games & racing", onclick: () => { this.close(); if (!this.open) this.onMoreGames?.(); } }));
     const head = h("header.cas-head", null, [
-      h("div", null, [h("h2", { text: "The Tessera" }), h("p.cas-sub", { text: `${this.w.patrons()} people inside tonight · 18+ · play for fun, it's in-game money` })]),
+      h("div", null, [h("h2", { text: "The Tessera" }), h("p.cas-sub", { text: "ŌTAUTAHI / AFTER HOURS" })]),
       h("div.cas-bank", null, [h("span", { text: "Chips" }), h("b", { text: money(this.chips) }), h("span", { text: "Cash" }), h("b", { text: money(this.w.getCash()) })]),
       h("button.x", { "aria-label": "Leave the casino", onclick: () => this.close(), text: "×" }),
     ]);
@@ -229,12 +240,27 @@ export class Casino {
       case "roulette": view = this.rouletteView(); break;
       case "pokies": view = this.pokiesView(); break;
       case "poker": view = this.pokerView(); break;
-      case "floor": view = this.floorView(); break;
+      case "floor": view = this.lobbyView(); break;
       default: view = this.cashierView();
     }
     if (this.tab !== "floor") cancelAnimationFrame(this.floorRaf);
-    this.body.replaceChildren(view, this.msg ? h("p.cas-msg", { role: "status", text: this.msg }) : h("span"));
-    this.el.replaceChildren(h("div.cas-frame.cx", null, [head, nav, this.body, h("footer.cas-foot", { text: "Gamble responsibly. In real life, set a limit and stick to it. NZ Gambling Helpline: 0800 654 655." })]));
+    const pending = this.rBets.reduce((sum, b) => sum + b.amount, 0);
+    const round = this.bj.phase === "player" || this.bj.phase === "insurance";
+    const atRisk = pending + (round ? this.bj.hands.reduce((sum, hand) => sum + hand.bet, 0) + this.bj.insurance : 0) + (this.vp.phase === "draw" ? this.vpCoins * this.vpValue : 0) + (this.slotSpinning ? this.slotBet : 0);
+    const net = this.chips + atRisk + this.cashedOut - this.bought;
+    const session = h("aside.cas-session", null, [h("small", { text: "YOUR SESSION" }),
+      h("div", null, [h("span", { text: "Chips available" }), h("strong", { text: money(this.chips) })]),
+      h("div", null, [h("span", { text: "On the table" }), h("b", { text: money(atRisk) })]),
+      h("div", null, [h("span", { text: "Session result" }), h("b", { text: `${net >= 0 ? "+" : "−"}${money(Math.abs(net))}`, class: net >= 0 ? "positive" : "negative" })]),
+      this.btn("Visit cashier →", () => this.go("cashier"), { disabled: round || this.rSpinning || this.slotSpinning || this.vp.phase === "draw" }),
+      h("h3", { text: "Recent rounds" }),
+      ...this.results.map(result => h("div.cas-round", null, [h("span", { text: result.game }), h("b", { text: `${result.net >= 0 ? "+" : "−"}${money(Math.abs(result.net))}`, class: result.net >= 0 ? "positive" : "negative" })])),
+      !this.results.length ? h("p", { text: "Your first round is still ahead of you." }) : null,
+      h("p.cas-fiction", { text: "Game dollars only. Your wallet follows you back into the city." }),
+    ]);
+    this.body.id = "casino-table"; this.body.setAttribute("role", "tabpanel"); this.body.setAttribute("aria-label", tabs.find(t => t[0] === this.tab)?.[1] ?? "Cashier");
+    this.body.replaceChildren(h("div.cas-view-title", null, [h("small", { text: this.tab === "floor" ? "WELCOME BACK" : "THE TESSERA / TABLE GAMES" }), h("h2", { text: tabs.find(t => t[0] === this.tab)?.[1] ?? "Cashier" })]), this.msg ? h("p.cas-msg", { role: "status", text: this.msg }) : h("span"), view);
+    this.el.replaceChildren(h("div.cas-frame.cx", null, [head, h("div.cas-layout", null, [h("aside.cas-sidebar", null, [nav, session]), this.body]), h("footer.cas-foot", { text: "THE TESSERA · Fictional casino · No real money · Finish your round, then leave to cash out automatically." })]));
   }
 
   // ------------------------------------------------------------------ the floor
@@ -243,6 +269,24 @@ export class Casino {
    * a bank of pokies, the video poker bar and the cashier cage, with gamblers milling about. Click a
    * station (or use the buttons under it) to sit down and play.
    */
+  private lobbyView(): HTMLElement {
+    const games = [
+      { id: "blackjack", name: "Twenty-one. One more?", title: "Blackjack", mark: "♠", note: "$5–$500 · Blackjack pays 3:2", copy: "Read the table. Play your hand. Six decks and a dealer who stands on soft 17.", tag: "TABLE CLASSIC" },
+      { id: "roulette", name: "Let the wheel decide.", title: "European roulette", mark: "◎", note: "Single zero · Straight pays 35:1", copy: "Red, black, or your lucky number. Place your chips on a full European layout.", tag: "AROUND & AROUND" },
+      { id: "pokies", name: "A little Kiwi Gold.", title: "Kiwi Gold", mark: "7", note: "$1–$10 per spin · Three reels", copy: "A classic cabinet, bright reels and the original Kiwi Gold paytable.", tag: "ON THE FLOOR" },
+      { id: "poker", name: "A good hand to hold.", title: "Video poker", mark: "♦", note: "Jacks or Better · 9/6 paytable", copy: "Five cards. Choose what stays. Draw your replacements and see where you land.", tag: "MAKE YOUR PLAY" },
+    ];
+    return h("div.cas-lobby", null, [
+      h("section.cas-hero", null, [h("div", null, [h("span.cas-live", { text: `${this.w.patrons()} at the tables tonight` }), h("h1", null, ["A good night.", h("em", { text: " A little luck." })]), h("p", { text: "Step out of the city and into the Tessera. Pick a table, pull up a chair, make it a story." }), this.btn(this.chips ? "Take a seat at blackjack" : "Get chips at the cashier", () => this.go(this.chips ? "blackjack" : "cashier"), { cls: ".gold" })]),
+        h("div.cas-hero-art", { "aria-hidden": "true" }, [h("span.cas-orbit"), cardEl({ rank: 14, suit: "♠" }), cardEl({ rank: 13, suit: "♥" }), stackEl(130, "", false)])]),
+      h("div.cas-sectionhead", null, [h("h2", { text: "Find your table" }), h("span", { text: "Four ways to play" })]),
+      h("div.cas-games", null, games.map(game => h("button.cas-game." + game.id, { onclick: () => this.go(game.id), "aria-label": `Play ${game.title}` }, [
+        h("div.cas-game-art", { "aria-hidden": "true" }, [h("span", { text: game.mark }), h("i", { text: game.id === "blackjack" ? "A" : game.id === "roulette" ? "0 / 32 / 15" : game.id === "pokies" ? "7  7" : "J Q K" })]),
+        h("div.cas-game-copy", null, [h("small", { text: game.tag }), h("h3", { text: game.title }), h("p", { text: game.copy }), h("span", { text: game.note }), h("b", { text: "Take a seat ↗" })]),
+      ]))),
+      h("details.cas-floor-details", null, [h("summary", { text: "Explore the live casino floor" }), this.floorView()]),
+    ]);
+  }
   private floorView(): HTMLElement {
     const W = 960, H = 460, dpr = dprOf();
     const cv = h("canvas.cas-floor", { width: Math.round(W * dpr), height: Math.round(H * dpr), "aria-label": "The casino floor. Choose a table below." }) as HTMLCanvasElement;
@@ -451,7 +495,7 @@ export class Casino {
         this.btn(`Deal ${money(this.bjBet || this.chipSel)}`, () => this.dealBJ(), { cls: ".red.big", aria: `Deal a hand for ${money(this.bjBet || this.chipSel)}` }),
       ])];
     }
-    const hintBox = h("label.cx-hintbox", null, [h("input", { type: "checkbox", checked: this.bjHint, onchange: (e: Event) => { this.bjHint = (e.target as HTMLInputElement).checked; this.render(); } }), " Basic-strategy card"]);
+    const hintBox = h("label.cx-hintbox", null, [h("input", { type: "checkbox", checked: this.bjHint, disabled: !this.w.strategy?.(), onchange: (e: Event) => { this.bjHint = (e.target as HTMLInputElement).checked; this.render(); } }), this.w.strategy?.() ? " Basic-strategy card" : " Strategy card: unlock in Life & upgrades → Skills"]);
     return h("div.cx-wrap", null, [table, h("div.cx-controls", null, [...controls, hintBox])]);
   }
 
@@ -471,6 +515,7 @@ export class Casino {
     this.chips += back;
     const staked = this.bj.hands.reduce((s, x) => s + x.bet, 0) + this.bj.insurance;
     const net = back - staked;
+    this.record("Blackjack", net);
     this.msg = net > 0 ? `You win ${money(net)}.` : net < 0 ? `Dealer takes ${money(-net)}.` : "Push.";
     if (this.bj.hands.some((x) => x.result === "blackjack")) this.msg = `Blackjack! ${this.msg}`;
     if (net >= 250) this.w.onEvent(`Big blackjack win at the Tessera: ${money(net)}`, true);
@@ -586,6 +631,7 @@ export class Casino {
       this.chips += back; this.rBets = []; this.rSpinning = false; this.rLast = result;
       this.rHistory.unshift(result); this.rHistory.length = Math.min(this.rHistory.length, 40);
       const net = back - staked;
+      this.record("Roulette", net);
       this.msg = `${result} ${colorOf(result).toUpperCase()}. ${net > 0 ? `You win ${money(net)}.` : net < 0 ? `House takes ${money(-net)}.` : "Even."}`;
       if (net >= 300) this.w.onEvent(`You hit ${result} at roulette and won ${money(net)}`, true);
       this.render();
@@ -633,6 +679,7 @@ export class Casino {
       if (i < 2) return;
       const p = payFor(final), bet = this.slotBet;
       this.slotWin = p.mult * bet; this.chips += this.slotWin; this.slotSpinning = false;
+      this.record("Kiwi Gold", this.slotWin - bet);
       this.slotHit = PAYS.findIndex((x) => x.label === p.label);
       this.slotMsg = this.slotWin ? `${p.label}: WIN ${money(this.slotWin)}` : "No win.";
       if (this.slotWin >= 100) this.w.onEvent(`Kiwi Gold paid ${money(this.slotWin)}!`, true);
@@ -656,7 +703,7 @@ export class Casino {
       ]))
       : [0, 1, 2, 3, 4].map(() => h("div.cx-vslot", null, [h("span.cx-heldtag"), cardEl(null)]));
     const deal = () => { if (!this.take(this.vpCoins * this.vpValue)) { this.render(); return; } vp.deal(this.vpCoins, this.vpValue); this.vpFresh = [true, true, true, true, true]; this.vpWin = 0; this.msg = ""; this.render(); };
-    const draw = () => { this.vpFresh = vp.held.map((x) => !x); const win = vp.draw(); this.chips += win; this.vpWin = win; this.msg = win ? `${vp.result}: ${money(win)}` : "No win."; if (vp.result === "Royal Flush") this.w.onEvent("ROYAL FLUSH at the Tessera!", true); this.render(); };
+    const draw = () => { this.vpFresh = vp.held.map((x) => !x); const win = vp.draw(); this.record("Video poker", win - this.vpCoins * this.vpValue); this.chips += win; this.vpWin = win; this.msg = win ? `${vp.result}: ${money(win)}` : "No win."; if (vp.result === "Royal Flush") this.w.onEvent("ROYAL FLUSH at the Tessera!", true); this.render(); };
     const status = vp.phase === "bet" ? "Bet one or bet max, then deal." : live ? `${vp.result === "Nothing" ? "" : vp.result + " so far. "}Tap cards to hold, then draw.` : vp.result === "Nothing" ? "Game over. Deal again." : `${vp.result}!`;
     return h("section.cx-vp", { "aria-label": "Jacks or Better video poker" }, [
       h("div.cx-vp-title", null, [h("b", { text: "JACKS OR BETTER" }), h("span", { text: "9/6 FULL PAY" })]),

@@ -21,7 +21,7 @@ import { newLifeSystemFlags, type LifeSystemFlags } from "../debug/flags";
  * and event history. Transient AI state (paths,
  * current plans) is dropped and rebuilt by the AI on load.
  */
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 /** v3 packs the two biggest structures into tuples (about half the size of objects). */
 /** v5 appends the Ebbinghaus rehearsal count and last-recall tick (omitted when never rehearsed). */
@@ -70,6 +70,7 @@ export const MIGRATIONS: Record<number, (d: any) => any> = {
   // v4 had no minds: everyone starts with a fresh, personality-derived one (they learn from here)
   // v5 minds had no clinical state: ensureMind() on restore fills it in (liability comes from the kin module, so nothing else to store)
   5: (d) => ({ ...d, version: 6, chars: d.chars.map((c: any) => ({ ...c, mind: c.mind ? { ...c.mind, psy: c.mind.psy ?? newMind(c.id, c.pers).psy } : c.mind })) }),
+  7: (d) => ({ ...d, version: 8, life: { ...newLife(), ...(d.life ?? {}), upgrades: { ...newLife().upgrades, ...(d.life?.upgrades ?? {}) } } }),
   // v6 adds the Batch 1 daily-life state with defaults, preserving all existing story progress.
   6: (d) => {
     const defaults = newLife();
@@ -126,6 +127,7 @@ export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemF
   sim.expansion = { ...newExpansion(), ...structuredClone(d.expansion ?? {}) };
   sim.expansion.casino = { ...newCasino(), ...sim.expansion.casino };
   sim.life = { ...newLife(), ...structuredClone(d.life ?? {}) };
+  sim.life.upgrades = { ...newLife().upgrades, ...sim.life.upgrades };
   sim.life.body = { ...newLife().body, ...sim.life.body };
   sim.life.systems = { ...newLife().systems, ...sim.life.systems };
   for (const [id, name] of Object.entries(sim.life.renames)) if (sim.world.buildings[+id]) sim.world.buildings[+id].name = name;

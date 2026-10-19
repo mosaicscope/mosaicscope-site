@@ -1,3 +1,4 @@
+import { drawUpgradeEffects } from "./UpgradeEffects";
 import { drawStreetStories } from "./StreetStories";
 import type { Simulation } from "../sim/Simulation";
 import { Character, Lod, Phys, Toy } from "../entities/types";
@@ -400,6 +401,7 @@ export class Renderer {
     }
     this.rain.draw(g, sim.env.rain, cam.viewW, cam.viewH, dt, o.quality === 0 ? 60 : o.quality === 1 ? 160 : 260, o.reduceMotion);
 
+    drawUpgradeEffects(g, sim, cam, time, o.reduceMotion, o.quality);
     this.drawBubbles(view, o);
     this.drawDebug(o.debug, alpha);
     if (o.quality === 3) this.cinematic(sim);

@@ -21,8 +21,8 @@ export interface TouchHost {
   zoom?(dir: number): void;
 }
 
-/** The joystick is off: its touch handlers must not swallow taps on the left half (that also broke pinch zoom). */
-const STICK_ON = false;
+/** The joystick captures its own zone; the rest of the city keeps tap-to-walk and pinch gestures. */
+const STICK_ON = true;
 
 const SVG = (d: string) => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const ICONS: Record<string, string> = {
@@ -93,7 +93,7 @@ export class TouchControls {
     window.addEventListener("pointerdown", (e) => {
       if (!STICK_ON || e.pointerType !== "touch" || this.stickId >= 0 || e.clientX > innerWidth * 0.5) return;
       const t = e.target;
-      if (!(t instanceof Element) || t.closest("button, .tc-btn, .tc-sheet, .tc-cluster, .tc-sheet *")) return;
+      if (!(t instanceof Element) || !this.zone.contains(t) || t.closest("button, .tc-btn, .tc-sheet, .tc-cluster, .tc-sheet *")) return;
       if (this.el.classList.contains("hidden") || !this.el.classList.contains("on")) return;
       this.stickDown(e);
     }, { capture: true });
@@ -103,7 +103,7 @@ export class TouchControls {
     window.addEventListener("touchstart", (e) => {
       if (!STICK_ON || this.stickId >= 0 || e.touches.length === 0) return;
       const t = e.changedTouches[0]; if (!t || t.clientX > innerWidth * 0.5) return;
-      const target = e.target; if (!(target instanceof Element) || target.closest("button, .tc-btn, .tc-sheet, .tc-cluster")) return;
+      const target = e.target; if (!(target instanceof Element) || !this.zone.contains(target) || target.closest("button, .tc-btn, .tc-sheet, .tc-cluster")) return;
       if (this.el.classList.contains("hidden") || !this.el.classList.contains("on")) return;
       this.stickDown(asPointer(t, target));
     }, { capture: true, passive: true });

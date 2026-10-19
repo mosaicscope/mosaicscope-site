@@ -35,12 +35,13 @@ export function step(
   tick: number,
   _rng: Rng,
   resting = false,
+  recoveryMultiplier = 1,
 ): { state: SleepState; events: SleepEvent[] } {
   const elapsedHours = Math.max(0, tick - state.lastTick) / 3600;
   const wasSleeping = state.sleepUntil > state.lastTick;
   const sleptHours = Math.max(0, Math.min(tick, state.sleepUntil) - state.lastTick) / 3600;
   const awakeHours = Math.max(0, elapsedHours - sleptHours);
-  const recovery = sleptHours * SLEEP.sleepingRecoveryPerHour +
+  const recovery = sleptHours * SLEEP.sleepingRecoveryPerHour * recoveryMultiplier +
     awakeHours * (resting ? SLEEP.restingRecoveryPerHour : -SLEEP.awakeFatiguePerHour);
   const fatigue = Math.max(0, Math.min(1, state.fatigue - recovery));
   const next: SleepState = {

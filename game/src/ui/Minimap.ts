@@ -1,3 +1,4 @@
+import { hasUpgrade } from "../content/upgrades";
 import type { Simulation } from "../sim/Simulation";
 import { T } from "../world/World";
 import { h } from "./dom";
@@ -76,6 +77,8 @@ export class Minimap {
     }
     if (p.wanted > 0) for (const c of sim.chars) if (c.role === "cop" && c.inside < 0) dot(c.x, c.y, 1.1, Math.floor(now / 250) % 2 ? "#ec2a1c" : "#3d7bff");
     for (const v of sim.vehicles) if (v.owner === p.id) dot(v.x, v.y, 1.3, "#c6ff3d");
+    for (const marker of sim.life.markers) dot(marker.x, marker.y, 1.8, "#86e8bb");
+    if (hasUpgrade(sim.life.upgrades, "nova")) for (const id of sim.life.upgrades.crew) { const c = sim.chars[id]; if (c) dot(c.x, c.y, 1.8, "#bca5ff"); }
     for (const c of this.contacts) dot(c.x, c.y, 2.2, "#b48cff");
     if (this.target) { dot(this.target.x, this.target.y, 2.6, Math.floor(now / 300) % 2 ? "#f6b62c" : "#fff0c0"); }
     g.restore();
@@ -107,7 +110,9 @@ export class Minimap {
     let cv = this.big.querySelector("canvas") as HTMLCanvasElement | null;
     if (!cv) {
       cv = h("canvas", { width: 900, height: 900 }) as HTMLCanvasElement;
-      this.big.append(h("div.bigmap-head", null, [h("b", { text: "Central Christchurch" }), h("button.x", { "aria-label": "Close map", onclick: () => this.toggle(false), text: "×" })]), cv, h("p.bigmap-foot"));
+      this.big.append(h("div.bigmap-head", null, [h("b", { text: "Central Christchurch" }),
+        h("button.btn", { text: "Pin my location", onclick: () => { if (sim.life.markers.filter(m => m.icon === "●").length >= 20) return; sim.life.markers.push({ x: p.x, y: p.y, name: sim.world.streetName(p.x, p.y) || "My pin", icon: "●" }); this.drawBig(); } }),
+        h("button.btn", { text: "Clear my pins", onclick: () => { sim.life.markers = sim.life.markers.filter(m => m.icon !== "●"); this.drawBig(); } }), h("button.x", { "aria-label": "Close map", onclick: () => this.toggle(false), text: "×" })]), cv, h("p.bigmap-foot"));
     }
     const g = cv.getContext("2d")!, W = cv.width;
     g.fillStyle = "#0e0b0a"; g.fillRect(0, 0, W, W);
@@ -127,6 +132,10 @@ export class Minimap {
       const me = toLatLon(p.x, p.y), q = P(me.lat, me.lon);
       g.fillStyle = "#ec2a1c"; g.beginPath(); g.arc(q[0], q[1], 8, 0, 6.283); g.fill();
       g.strokeStyle = "#eee4d3"; g.lineWidth = 2; g.stroke();
+      for (const marker of sim.life.markers) {
+        const location = toLatLon(marker.x, marker.y), xy = P(location.lat, location.lon);
+        g.fillStyle = "#86e8bb"; g.beginPath(); g.arc(xy[0], xy[1], 5, 0, Math.PI * 2); g.fill(); g.font = "11px monospace"; g.fillText(marker.name, xy[0], xy[1] - 10);
+      }
       foot.textContent = this.osm.attribution;
     } else {
       // offline: the game's own map of the same streets
@@ -140,6 +149,7 @@ export class Minimap {
       g.font = "600 11px 'IBM Plex Mono', monospace"; g.fillStyle = "rgba(198,255,61,.9)";
       for (const a of w.areas) if (a.kind !== "street") g.fillText(a.name, a.cx * k, a.cy * k);
       g.fillStyle = "#ec2a1c"; g.beginPath(); g.arc(p.x * k, p.y * k, 7, 0, 6.283); g.fill(); g.strokeStyle = "#eee4d3"; g.lineWidth = 2; g.stroke();
+      for (const marker of sim.life.markers) { g.fillStyle = "#86e8bb"; g.beginPath(); g.arc(marker.x * k, marker.y * k, 5, 0, Math.PI * 2); g.fill(); g.fillText(marker.name, marker.x * k, marker.y * k - 10); }
       foot.textContent = "Street layout after OpenStreetMap (© OpenStreetMap contributors, ODbL), simplified to the city grid.";
     }
   }

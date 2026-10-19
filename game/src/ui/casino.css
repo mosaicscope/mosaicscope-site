@@ -369,3 +369,58 @@ button.cx-circle:hover { border-color: #fff0b8; box-shadow: 0 0 0 5px rgba(243,2
   .cx-reel.spin .cx-strip { animation-duration: 2s; }
   .cx-btn, .cx-chip, .cx-spin, .cx-discard i { transition: none; }
 }
+/* ---------- The Tessera / casino management shell ---------- */
+.casino { padding:20px; background:#051612df; backdrop-filter:blur(12px); }
+.cas-frame.cx { --felt:#17634c; --felt-d:#0a332a; --brass:#dbc289; --cream:#f4f0df; width:min(1280px,100%); max-height:calc(100dvh - 40px); background:#0e2422; border:1px solid #d7c38a30; border-radius:18px; overflow:auto; box-shadow:0 35px 100px #0009; }
+.cx .cas-head { background:#102825; padding:20px 58px 18px 25px; border-bottom:1px solid #ffffff10; gap:25px; }
+.cx .cas-head h2 { color:#efdbab; font:500 30px var(--serif); text-transform:none; letter-spacing:-.02em; text-shadow:none; }
+.cx .cas-sub { color:#7da99a; font-size:8px; letter-spacing:.2em; margin:6px 0 0; }
+.cx .cas-bank { display:grid; grid-template-columns:auto auto; gap:2px 22px; margin-left:auto; }
+.cx .cas-bank span { color:#99b4a9; font-size:10px; }.cx .cas-bank b { font-size:16px; color:#f1e9d5; font-weight:500; }
+.cx .cas-head .x { top:22px; right:16px; color:#b4c8be; }
+.cas-layout { display:grid; grid-template-columns:205px minmax(0,1fr); min-height:650px; }
+.cas-sidebar { background:#0b201e; padding:22px 14px; border-right:1px solid #ffffff0b; }
+.cx .cas-tabs { display:flex; flex-direction:column; padding:0; margin:0; gap:6px; }
+.cx .cas-tabs button { min-height:44px; display:flex; align-items:center; gap:13px; width:100%; background:transparent; border:1px solid transparent; border-radius:8px; padding:10px 14px; text-align:left; font-size:11px; color:#8eafa2; letter-spacing:0; font-weight:400; }
+.cx .cas-tabs button>span { font-size:19px; width:18px; text-align:center; }
+.cx .cas-tabs button.on { background:#203c31; color:#eddbab; border-color:#d7c38a30; }
+.cx .cas-tabs button:hover { background:#ffffff08; color:#fff; }
+.cx .cas-body { padding:26px; min-width:0; }
+.cas-view-title { margin-bottom:20px; }.cas-view-title small { color:#7d9e91; font-size:8px; letter-spacing:.18em; }.cas-view-title h2 { font:500 26px var(--serif); margin:5px 0 0; color:#f2ead6; }
+.cas-session { border-top:1px solid #ffffff12; margin-top:28px; padding:22px 5px 0; }
+.cas-session>small { color:#8ba99e; font-size:8px; letter-spacing:.16em; }
+.cas-session>div { display:flex; justify-content:space-between; align-items:center; gap:8px; margin:13px 0; font-size:10px; color:#94b0a4; }
+.cas-session strong { color:#f4e1b3; font-size:20px; font-weight:500; }.cas-session b { font-weight:500; color:#eee3c7; }
+.cas-session .cx-btn { width:100%; font-size:10px; padding:9px; margin:8px 0; }
+.cas-session h3 { font-size:9px; color:#728d83; letter-spacing:.1em; text-transform:uppercase; margin-top:26px; }
+.cas-session p { font-size:10px; line-height:1.8; color:#76958a; }.cas-session .cas-round { padding-bottom:10px; border-bottom:1px solid #ffffff08; }
+.cas-session .cas-fiction { margin-top:30px; font-size:9px; }
+.cas-hero { position:relative; display:grid; grid-template-columns:1.3fr 1fr; min-height:260px; align-items:center; padding:30px; border-radius:13px; overflow:hidden; background:radial-gradient(ellipse at 90% 70%,#5d684233,transparent 60%),linear-gradient(115deg,#1d4236,#16372e); border:1px solid #d7c38a25; }
+.cas-live { display:inline-flex; align-items:center; gap:6px; color:#b2c6b6; font-size:9px; }.cas-live::before { content:""; display:block; width:5px; height:5px; background:#9de1ad; border-radius:50%; box-shadow:0 0 10px #9de1ad77; }
+.cas-hero h1 { font:500 clamp(30px,3vw,45px)/1.05 var(--serif); letter-spacing:-.02em; color:#faf1db; margin:15px 0; max-width:330px; }
+.cas-hero h1 em { display:block; font-weight:400; color:#e2c991; }.cas-hero p { color:#a1bbac; font-size:11px; line-height:1.8; max-width:330px; margin-bottom:22px; }
+.cas-hero-art { position:relative; height:230px; display:flex; align-items:center; justify-content:center; }.cas-hero-art .cx-card { --w:100px; position:absolute; transform:rotate(-17deg) translateX(-22px); }.cas-hero-art .cx-card.red { transform:rotate(14deg) translate(38px,18px); }.cas-hero-art .cx-stacks { position:absolute; bottom:0; right:20px; transform:scale(1.2); }
+.cas-orbit { position:absolute; width:220px; height:220px; border:1px solid #d7c38a18; border-radius:50%; box-shadow:0 0 0 20px #d7c38a04,0 0 0 40px #d7c38a03; }
+.cas-sectionhead { display:flex; align-items:center; justify-content:space-between; margin:28px 0 15px; }.cas-sectionhead h2 { font:500 21px var(--serif); color:#f1e6cf; margin:0; }.cas-sectionhead span { color:#749c89; font-size:9px; }
+.cas-games { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:15px; }
+.cas-game { padding:0; display:block; text-align:left; background:#142e28; border:1px solid #d7c38a1c; border-radius:12px; overflow:hidden; color:#f3e6c9; transition:transform .15s,border-color .15s; }
+.cas-game:hover { transform:translateY(-3px); border-color:#d7c38a77; }
+.cas-game-art { height:120px; display:flex; align-items:center; justify-content:center; gap:18px; position:relative; overflow:hidden; border-bottom:1px solid #ffffff0a; background:repeating-linear-gradient(45deg,transparent 0 24px,#ffffff02 24px 25px),radial-gradient(ellipse at 50% 100%,#30634c,#16382d); }
+.cas-game-art>span { font:500 80px Georgia,serif; line-height:1; color:#e9d6a2; text-shadow:0 4px 18px #0005; transform:rotate(-12deg); }.cas-game-art>i { font:500 35px var(--serif); color:#b0bda2; transform:rotate(12deg); }
+.cas-game.roulette .cas-game-art { background:radial-gradient(ellipse at 50% 100%,#47533a,#222f24); }.cas-game.pokies .cas-game-art { background:radial-gradient(ellipse at 50% 100%,#5e4a31,#332c23); }.cas-game.poker .cas-game-art { background:radial-gradient(ellipse at 50% 100%,#354b57,#192f35); }
+.cas-game-copy { padding:20px; }.cas-game-copy small { color:#b8a875; font-size:8px; letter-spacing:.13em; }.cas-game-copy h3 { font:500 23px var(--serif); margin:8px 0; color:#f3e8ce; }.cas-game-copy p { font-size:11px; line-height:1.8; color:#8eab9c; margin:0 0 16px; }.cas-game-copy>span { display:block; font-size:9px; color:#b8c2ac; border-top:1px solid #ffffff0d; padding-top:13px; }.cas-game-copy>b { display:block; margin-top:13px; font-size:10px; color:#e1c68d; font-weight:500; }
+.cas-floor-details { margin-top:22px; border:1px solid #d7c38a1c; border-radius:10px; }.cas-floor-details summary { padding:14px; cursor:pointer; color:#9db6a6; font-size:11px; }.cas-floor-details .cas-floorwrap { padding:12px; }
+.cx .cx-btn { border-radius:8px; background:#264039; border-color:#ffffff17; box-shadow:none; min-height:44px; color:#e3e9d9; font-size:12px; letter-spacing:0; }.cx .cx-btn.gold { background:#e1c68d; color:#243125; border-color:#e1c68d; }.cx .cx-btn.red { background:#c88769; color:#1f2019; border-color:#c88769; }.cx .cx-btn.big { font-size:17px; }.cx .cx-btn.on { background:#b8d6ae; color:#123324; }
+.cx .cx-controls { background:#0a201c; border-color:#ffffff12; border-radius:12px; padding:16px; position:sticky; bottom:0; z-index:2; box-shadow:0 -8px 25px #0b211940; }
+.cx .cas-msg { background:#dac38a13; border-color:#dac38a30; color:#eed9a8; border-radius:8px; padding:12px; font-size:12px; margin:0 0 15px; }
+.cx .cas-foot { border-top:1px solid #ffffff0c; background:#0b211d; color:#6e9280; font-size:9px; padding:12px 20px; line-height:1.7; text-align:left; }
+.cx .cx-wrap { gap:18px; }.cx .cx-cab,.cx .cx-vp { max-width:100%; }.cx .cx-vpt { overflow-x:auto; }.cx .cx-chiprow { gap:14px; }
+@media(max-width:900px) { .casino { padding:12px; }.cas-frame.cx { max-height:calc(100dvh - 24px); }.cas-layout { grid-template-columns:165px minmax(0,1fr); }.cx .cas-body { padding:20px; }.cas-sidebar { padding:18px 9px; }.cas-hero { padding:22px; }.cas-hero-art .cx-card { --w:75px; }.cas-hero-art { height:190px; }.cas-orbit { width:160px; height:160px; }.cas-hero h1 { font-size:34px; }.cas-game-copy { padding:15px; }.cas-games { gap:10px; } }
+@media(max-width:640px) {
+ .casino { padding:0; }.cas-frame.cx { border-radius:0; width:100%; max-height:100dvh; min-height:100dvh; border:0; }.cx .cas-head { padding:17px 48px 17px 17px; gap:12px; }.cx .cas-head h2 { font-size:25px; }.cx .cas-sub { font-size:7px; letter-spacing:.1em; }.cx .cas-bank { gap:2px 10px; }.cx .cas-bank b { font-size:13px; }.cx .cas-head .x { top:18px; right:8px; }
+ .cas-layout { display:flex; flex-direction:column; min-height:0; }.cas-sidebar { padding:10px 12px 0; border-right:0; }.cx .cas-tabs { flex-direction:row; overflow:auto; padding-bottom:9px; gap:4px; }.cx .cas-tabs button { white-space:nowrap; width:auto; min-height:40px; padding:8px 12px; font-size:10px; gap:6px; }.cx .cas-tabs button>span { font-size:15px; width:auto; }
+ .cas-session { display:none; }.cx .cas-body { padding:18px 14px 24px; }.cas-view-title { margin-bottom:14px; }.cas-hero { grid-template-columns:1.5fr 1fr; min-height:240px; padding:20px; }.cas-hero h1 { font-size:31px; }.cas-hero p { font-size:10px; }.cas-hero .cx-btn { font-size:10px; padding:10px; }.cas-hero-art { height:170px; }.cas-hero-art .cx-card { --w:64px; }.cas-orbit { width:120px; height:120px; }.cas-hero-art .cx-stacks { right:0; transform:scale(.8); }.cas-live { font-size:8px; }
+ .cas-game-art { height:95px; }.cas-game-art>span { font-size:63px; }.cas-game-art>i { font-size:23px; }.cas-game-copy { padding:13px; }.cas-game-copy h3 { font-size:21px; }.cas-game-copy p { font-size:10px; }.cas-game-copy>span { font-size:8px; line-height:1.7; }.cas-game-copy small { font-size:7px; }.cas-sectionhead span { font-size:8px; }.cx .cx-bj { padding:10px; }.cx .cx-felt { padding:0 5px 20px; }.cx .cx-rack { transform:scale(.75); transform-origin:top center; }.cx .cx-card { --w:60px; }.cx .cx-controls { padding:12px; }.cx .cx-btn { font-size:11px; padding:9px 13px; }
+}
+@media(max-width:370px) { .cas-hero-art { display:none; }.cas-hero { grid-template-columns:1fr; }.cas-games { grid-template-columns:1fr; }.cas-game { display:grid; grid-template-columns:95px 1fr; }.cas-game-art { height:100%; }.cas-game-art>i { display:none; } }
+@media(prefers-reduced-motion:reduce) { .cas-game { transition:none; }.cas-game:hover { transform:none; } }

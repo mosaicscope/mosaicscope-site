@@ -147,6 +147,7 @@ export function pose(name: string, style: string, t: number, ph: number, speed: 
 function dance(style: string, t: number): void {
   const b = Math.sin(t * 7.5), bb = Math.abs(b);
   switch (style) {
+    case "tiles": A.bob = -Math.abs(Math.sin(t * 5)) * 7; A.hipX = Math.sin(t * 2.5) * 5; A.armL = 1.6 + Math.sin(t * 5) * 0.8; A.armR = 2.4 - Math.sin(t * 5) * 0.8; A.thighL = Math.sin(t * 5) * 0.5; A.thighR = -A.thighL; A.foreL = 0.6; A.foreR = 1.2; break;
     case "swagger": A.bob = -bb * 4; A.armR = 2.5 + b * 0.35; A.foreR = 0.3; A.armL = 0.4 + b * 0.2; A.lean = -0.05; A.thighL = b * 0.2; break;
     case "smooth": A.hipX = Math.sin(t * 3.8) * 3.5; A.armL = 2.3 + Math.sin(t * 3.8) * 0.5; A.armR = 2.3 - Math.sin(t * 3.8) * 0.5; A.foreL = 0.6; A.foreR = 0.6; A.bob = -bb * 2; break;
     case "bouncy": A.bob = -Math.abs(Math.sin(t * 6)) * 9; A.bendL = 0.9 * (1 - bb); A.bendR = 0.9 * (1 - bb); A.armL = 1.2 + b; A.armR = 1.2 - b; break;

@@ -1,3 +1,6 @@
+import { UpgradeAmbience } from "../audio/UpgradeAmbience";
+import { EventReplay } from "../ui/EventReplay";
+import { hasUpgrade } from "../content/upgrades";
 import { bodyPace, hasBody } from "../sim/life/body";
 import { LifePhone } from "../ui/LifePhone";
 import { repairVehicle } from "../sim/VehicleDamage";
@@ -167,6 +170,7 @@ export class Game {
     this.casino = new Casino({
       getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = Math.round(v * 100) / 100; },
       onEvent: (t, big) => { this.toast(t, big ? "acid" : ""); if (big) this.sim.emit({ type: "casino", x: this.sim.player.x, y: this.sim.player.y, actors: [this.sim.playerId], data: { amount: 0, game: "player" }, summary: t }); },
+      strategy: () => hasUpgrade(this.sim.life.upgrades, "strategy"),
       patrons: () => this.sim.chars.filter((c) => c.inside >= 0 && this.sim.world.buildings[c.inside]?.kind === "casino").length + 3,
     }, () => { this.clock.paused = this.pausedBefore; });
     this.casino.onMoreGames = () => this.activities.show("Betting");
@@ -177,6 +181,7 @@ export class Game {
     });
     this.places.openInterior = (b) => this.interior.show(b);
     this.photos = new Photos({
+      unlocked: id => hasUpgrade(this.sim.life.upgrades, id),
       world: () => this.renderer.canvas, interior: () => (this.interior.open ? this.interior.canvas : null),
       show: (t, b, cls) => this.modal.show(t, b, cls), close: () => this.modal.close(), toast: (t, k) => this.toast(t, k),
       where: () => { const p = this.sim.player; return this.sim.world.streetName(p.x, p.y) || ""; }, simRep: () => this.sim.player.reputation,
@@ -233,7 +238,12 @@ export class Game {
     window.addEventListener("resize", () => this.renderer.resize(this.quality));
     canvas.addEventListener("contextlost", (e) => { e.preventDefault(); cancelAnimationFrame(this.raf); });
     canvas.addEventListener("contextrestored", () => { this.renderer.terrain.invalidateAll(); this.loop(); });
-    document.addEventListener("visibilitychange", () => { this.last = performance.now(); });
+    let hiddenWasPaused = false, visibilityPaused = false;
+    document.addEventListener("visibilitychange", () => {
+      this.last = performance.now(); this.keys.clear();
+      if (document.hidden && this.settings.autoPause) { hiddenWasPaused = this.clock.paused; this.clock.paused = true; visibilityPaused = true; }
+      else if (!document.hidden && visibilityPaused) { this.clock.paused = hiddenWasPaused; visibilityPaused = false; }
+    });
     if (!this.settings.tutorialDone) this.tutorial(0);
   }
 
@@ -274,6 +284,7 @@ export class Game {
     const now = performance.now();
     const dt = Math.min(0.1, (now - this.last) / 1000);
     this.last = now;
+    this.pollGamepad();
     const steps = this.clock.advance(dt);
     for (let i = 0; i < steps; i++) this.guard("sim", () => { this.controlPlayer(); this.sim.step(); });
     this.ticksThisSecond += steps; this.tickWindow += dt;
@@ -295,6 +306,7 @@ export class Game {
     this.guard("ui", () => this.uiTick(now));
   }
 
+  private upgradeAmbience = new UpgradeAmbience();
   private lastUi = 0;
   private pausedBefore = false;
 
@@ -303,7 +315,7 @@ export class Game {
     const stars = "★".repeat(p.wanted) + "☆".repeat(5 - p.wanted);
     const bar = (label: string, v: number, col: string) => [h("span", { text: label }), h("div.gauge", null, [h("i", { style: { width: Math.round(v * 100) + "%", background: col } })])];
     const kids: HTMLElement[] = [h("div.cash", { text: fmtCash(p.cash) }), h("div.stars" + (p.wanted ? ".flash" : ""), { "aria-label": `Wanted level ${p.wanted}` }, [h("b", { text: stars.slice(0, p.wanted) }), stars.slice(p.wanted)]),
-      h("div.bars", null, [...bar("health", p.blood * p.emo.composure ** 0.3, p.bleed > 0 ? "#ec2a1c" : "#c6ff3d"), ...bar("hunger", p.hunger, "#f6b62c")])];
+      h("div.bars", null, [...bar("health", p.blood * p.emo.composure ** 0.3, p.bleed > 0 ? "#ec2a1c" : "#c6ff3d"), ...bar("hunger", p.hunger, "#f6b62c"), ...bar("energy", p.needs.energy, "#79bfff"), ...bar("mood", (p.emo.mood + 1) / 2, "#b8a0ff")])];
     if (titleOf(sim.expansion)) kids.push(h("div.car", { text: titleOf(sim.expansion) + " · " + (sim.expansion.graduated[sim.expansion.graduated.length - 1] ?? "") }));
     if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; kids.push(h("div.car", null, [h("b", { text: String(Math.round(Math.abs(v.speed) * 7.2)) }), " km/h · " + VEHICLES[v.cls].name + (v.flatLeft || v.flatRight ? " · FLAT TYRE" : "") + ((v.heat ?? 0) > 0.5 ? " · ENGINE HOT: pull over" : "")])); }
     if (p.bleed > 0) kids.push(h("div.car", { text: "You're bleeding. B to bandage." }));
@@ -320,6 +332,7 @@ export class Game {
 
   private uiTick(now: number): void {
     this.tickFocus(now);
+    this.rootEl.classList.toggle("panel-open", this.modal.open || this.casino.open || this.club.open || this.luxury.open);
     if (this.sim.expansion.pending && this.notifiedEncounter !== this.sim.expansion.pending && !this.modal.open && !this.casino.open && !this.interior.open && !this.dialogue.open && !this.phone.open) { this.notifiedEncounter = this.sim.expansion.pending; this.toast("A nearby street story: open Explore to choose what happens.", "acid"); this.activities.encounter(); }
     this.touch.update();
     if (now - this.clubTickAt > 1000) { const earned = this.club.tick(Math.min(5, (now - (this.clubTickAt || now)) / 1000)); this.clubTickAt = now; if (earned > 0) this.sim.player.cash += earned; }
@@ -330,6 +343,7 @@ export class Game {
     if (now - this.lastUi < 250) return;
     this.maybeCall();
     this.lastUi = now;
+    this.upgradeAmbience.update(this.gestured && this.settings.sound && this.settings.sfx && this.sim.env.raining && hasUpgrade(this.sim.life.upgrades, "rainsound"), this.settings.volume * this.settings.sfxVolume);
     const sim = this.sim;
     const wx = { clear: "clear", cloudy: "cloudy", rain: "rain", storm: "storm" }[sim.env.weather];
     const pl = sim.player, area = sim.world.areaAt(pl.x, pl.y);
@@ -369,7 +383,7 @@ export class Game {
   // ------------------------------------------------------------------ player
   private controlPlayer(): void {
     const sim = this.sim, p = sim.player, k = this.settings.keys;
-    if (this.interior.open) { p.vx = p.vy = 0; return; } // you're indoors; the street body waits at the door
+    if (this.interior.open || this.modal.open || this.casino.open || this.club.open || this.luxury.open) { p.vx = p.vy = 0; playerInput.throttle = 0; playerInput.steer = 0; playerInput.brake = true; return; } // you're indoors; the street body waits at the door
     if (p.inCar >= 0) {
       const up = this.keys.has(k.up) || this.keys.has("arrowup"), down = this.keys.has(k.down) || this.keys.has("arrowdown");
       const left = this.keys.has(k.left) || this.keys.has("arrowleft"), right = this.keys.has(k.right) || this.keys.has("arrowright");
@@ -378,6 +392,7 @@ export class Game {
       playerInput.brake = this.keys.has(" ") || this.touchBrake;
       // touch: stick x steers, y is gas (up) / reverse (down)
       if (this.touchMove.x || this.touchMove.y) { playerInput.steer = this.touchMove.x; playerInput.throttle = -this.touchMove.y; }
+      if (this.padMove.x || this.padMove.y) { playerInput.steer = this.padMove.x; playerInput.throttle = -this.padMove.y; }
       this.renderer.cam.follow = p.id;
       return;
     }
@@ -389,14 +404,16 @@ export class Game {
     if (this.keys.has(k.right) || this.keys.has("arrowright")) ix += 1;
     // touch stick: analog, push past ~94% to sprint
     if (this.touchMove.x || this.touchMove.y) { ix = this.touchMove.x; iy = this.touchMove.y; }
+    if (this.padMove.x || this.padMove.y) { ix = this.padMove.x; iy = this.padMove.y; }
     if (ix || iy) {
       // moving yourself brings the camera back to you (tapping someone to inspect had left it on them)
       if (this.renderer.cam.follow !== p.id) this.renderer.cam.follow = p.id;
       // screen directions -> world: screen up = (-1,-1), screen right = (1,-1)
       const wx = ix - iy, wy = -ix - iy, l = Math.hypot(wx, wy);
       const sprint = (this.keys.has("shift") || Math.hypot(this.touchMove.x, this.touchMove.y) > 0.94) && p.needs.energy > 0.1;
-      const speed = p.speed * bodyPace(sim.life.body, sim.env.raining, sim.daylight) * (sprint ? 1.35 : 1);
-      if (sprint) p.needs.energy = Math.max(0, p.needs.energy - sim.step_dt * 0.012 * (hasBody(sim.life.body, "shoes") ? 0.6 : 1));
+      const bike = sim.life.upgrades.bike && hasUpgrade(sim.life.upgrades, "ruby");
+      const speed = p.speed * bodyPace(sim.life.body, sim.env.raining, sim.daylight) * (sprint && !bike ? 1.35 : 1) * (bike ? 1.65 * (hasUpgrade(sim.life.upgrades, "bikelanes") ? 1.2 : 1) : 1);
+      if (sprint && !bike) p.needs.energy = Math.max(0, p.needs.energy - sim.step_dt * 0.012 * (hasBody(sim.life.body, "shoes") ? 0.6 : 1));
       p.vx = (wx / l) * speed; p.vy = (wy / l) * speed;
       this.moveTarget = null; this.pendingTalk = -1;
       if (this.dialogue.open) this.dialogue.close();
@@ -544,7 +561,7 @@ export class Game {
     const behind = Math.cos(Math.atan2(p.y - v.y, p.x - v.x) - v.facing) < -0.2; // you're behind their back
     const distracted = v.talkWith >= 0 || v.anim.pose === "phone" || v.goal?.id === "eat" || v.goal?.id === "shop";
     const notice = Math.max(0.05, Math.min(0.95, 0.55 - (behind ? 0.3 : 0) - (distracted ? 0.2 : 0) + v.emo.fear * 0.3 + v.pers.curiosity * 0.2));
-    if (Math.random() < notice) {
+    if (sim.rng.next() < notice * (hasUpgrade(sim.life.upgrades, "stealth") ? 0.65 : 1)) {
       this.sim.say(v, "Oi! Hands off!", "shout", 1.6);
       const r = sim.relate(v, p.id); r.grudge = Math.min(1, r.grudge + 0.5); r.trust = Math.max(-1, r.trust - 0.5);
       commitCrime(sim, p, "pickpocket", v);
@@ -629,6 +646,8 @@ export class Game {
     window.addEventListener("keydown", (e) => {
       const el = e.target as HTMLElement, tag = el.tagName;
       const key = e.key.toLowerCase(), k = this.settings.keys;
+      if (key === "f5") { e.preventDefault(); if (!e.repeat) this.quickSave(); return; }
+      if (key === "f9") { e.preventDefault(); if (!e.repeat) this.toggleCinema(); return; }
       // only fields you type into swallow keys; a ticked checkbox or slider shouldn't freeze the controls
       const typing = tag === "SELECT" || tag === "TEXTAREA" || tag === "INPUT" && !["checkbox", "radio", "range", "button"].includes((el as HTMLInputElement).type);
       if (key !== "escape" && typing) return;
@@ -655,7 +674,7 @@ export class Game {
       else if (key === k.inspect) this.select(this.sim.playerId);
       else if (key === k.log) this.log.toggle();
       else if (key === "m") this.minimap.toggle();
-      else if (key === "j") { this.settings.sfx = !this.settings.sfx; this.applySettings(); this.persistSettings(); this.toast(this.settings.sfx ? "World sounds on (J)" : "World sounds off (J)", ""); }
+      else if (key === "j" && ![k.up, k.down, k.left, k.right].includes(key)) { this.settings.sfx = !this.settings.sfx; this.applySettings(); this.persistSettings(); this.toast(this.settings.sfx ? "World sounds on (J)" : "World sounds off (J)", ""); }
       else if (key === k.dev || key === "~") this.dev.toggle();
       else if (key === "c") { this.renderer.cam.follow = this.sim.playerId; }
       else if (key === "o") this.photos.open();
@@ -1000,7 +1019,7 @@ export class Game {
       else if (n === "map") this.minimap.toggle();
       else if (n === "pickup") this.act("pickup");
       else if (n === "drop") this.act("drop");
-      else if (n === "sprint") { p.speed = Math.min(3, p.speed * 1.35); setTimeout(() => { p.speed = Math.max(1.6, p.speed / 1.35); }, 2500); }
+      // Sprint comes from analog stick pressure in controlPlayer; never mutate base speed.
     },
     context: () => {
       const sim = this.sim, p = sim.player;
@@ -1153,26 +1172,30 @@ export class Game {
   private notifiedEncounter: string | null = null;
 
   private buildBar(): HTMLElement {
-    const speeds: [string, string][] = [["0", "❚❚"], ["1", "1×"], ["2", "2×"], ["4", "4×"]];
-    this.speedEls = speeds.map(([v, l]) => h("button", { "data-speed": v, "aria-label": v === "0" ? "Pause" : `Speed ${v}x`, "aria-pressed": "false", onclick: () => this.setSpeed(+v), text: l }) as HTMLButtonElement);
-    this.soundBtn = h("button.btn.iconbtn", { "aria-label": "Sound on/off", title: "Sound", onclick: () => { this.settings.sound = !this.settings.sound; this.applySettings(); this.persistSettings(); } }) as HTMLButtonElement;
+    this.clockEl = h("div.clock");
+    this.speedEls = [[0, "Ⅱ"], [1, "▶"], [2, "▶▶"], [4, "4×"]].map(([v, label]) => h("button", { "data-speed": v, "aria-label": v === 0 ? "Pause" : `Speed ${v}x`, "aria-pressed": "false", onclick: () => this.setSpeed(+v), text: label }) as HTMLButtonElement);
+    this.soundBtn = h("button.btn.iconbtn", { "aria-label": "Sound on/off", onclick: () => { this.settings.sound = !this.settings.sound; this.applySettings(); this.persistSettings(); } }) as HTMLButtonElement;
+    const command = (label: string, icon: string, fn: () => void, cls = "") => h("button.dock-command" + cls, { onclick: fn }, [h("span", { text: icon, "aria-hidden": "true" }), h("b", { text: label })]);
+    const dock = h("nav.game-dock", { "aria-label": "Game actions" }, [
+      command("Life & upgrades", "◆", () => this.lifePhone.show()),
+      command("City map", "▦", () => this.minimap.toggle()),
+      command("Casino", "♠", () => { this.pausedBefore = this.clock.paused; this.casino.show(); }, ".casino-launch"),
+      command("Explore", "◎", () => this.activities.show("Explore")),
+      command("Photo", "▣", () => this.photos.open()),
+      command("Save", "↓", () => this.openSaves()),
+    ]);
+    this.rootEl.append(dock);
     return h("header.bar", null, [
-      h("button.btn.menu-toggle", { "aria-label": "Menu", "aria-expanded": "false", text: "☰", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar")!; const on = bar.classList.toggle("open"); (e.currentTarget as HTMLElement).setAttribute("aria-expanded", String(on)); try { navigator.vibrate?.(8); } catch { /* ignore */ } } }),
-      h("a.brand", { href: "/", title: "Back to MosaicScope" }, [h("b", { text: "The Mosaics" }), h("i", { text: "our world" })]),
-      this.clockEl, h("div.spacer"),
-      h("div.seg", { role: "group", "aria-label": "Simulation speed" }, this.speedEls),
-      this.soundBtn,
-      h("button.btn", { text: "Life phone", onclick: () => this.lifePhone.show() }),
-      ...(["Explore", "Betting", "Racing", "Farm", "UC"] as const).map(tab => h("button.btn", { text: tab, onclick: () => this.activities.show(tab) })),
-      h("button.btn", { onclick: () => this.luxury.show(), text: "Luxury", title: "Velvet & Co. Luxury: property, rides, animals" }),
-      h("button.btn", { onclick: () => this.heist.open(), text: "Heist", title: "Velvet Heist Night: the crew's three-act mission" }),
-      h("button.btn", { onclick: () => this.photos.open(), text: "Photo", title: "Photo mode (O)" }),
-      h("button.btn", { onclick: () => this.log.toggle(), text: "Log" }),
-      h("button.btn", { onclick: () => this.select(this.selected === this.sim.playerId ? -1 : this.sim.playerId), text: "Me", class: "btn wide" }),
-      h("button.btn", { onclick: () => this.openSaves(), text: "Save" }),
-      h("button.btn", { onclick: () => this.openBrains(), "aria-label": "AI brains", title: "AI brains", text: "🧠 AI" }),
-      h("button.btn", { onclick: () => this.openSettings(), text: "Settings" }),
-      h("button.btn.iconbtn", { onclick: () => this.openHelp(), "aria-label": "Help", text: "?" }),
+      h("a.brand", { href: "/", title: "Back to MosaicScope" }, [h("span.brand-gem", { text: "◆" }), h("b", { text: "The Mosaics" }), h("i", { text: "Ōtautahi / After Hours" })]),
+      this.clockEl, h("div.spacer"), h("div.seg", { role: "group", "aria-label": "Simulation speed" }, this.speedEls), this.soundBtn,
+      h("button.btn.menu-toggle", { text: "☰ Menu", "aria-label": "Menu", "aria-expanded": "false", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar")!; const open = bar.classList.toggle("open"); (e.currentTarget as HTMLElement).setAttribute("aria-expanded", String(open)); } }),
+      h("nav.game-menu", { "aria-label": "More game options", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar"); bar?.classList.remove("open"); bar?.querySelector(".menu-toggle")?.setAttribute("aria-expanded", "false"); } }, [
+        ...(["Betting", "Racing", "Farm", "UC"] as const).map(tab => h("button.btn", { text: tab === "Betting" ? "Sports & more games" : tab, onclick: () => this.activities.show(tab) })),
+        h("button.btn", { text: "Luxury", onclick: () => this.luxury.show() }), h("button.btn", { text: "Heist", onclick: () => this.heist.open() }),
+        h("button.btn", { text: "Event log", onclick: () => this.log.toggle() }), h("button.btn", { text: "Event replay", onclick: () => this.replay.show() }),
+        h("button.btn", { text: "Me", onclick: () => this.select(this.sim.playerId) }), h("button.btn", { text: "AI brains", onclick: () => this.openBrains() }),
+        h("button.btn", { text: "Settings", onclick: () => this.openSettings() }), h("button.btn", { text: "Help", onclick: () => this.openHelp() }),
+      ]),
     ]);
   }
 
@@ -1197,8 +1220,49 @@ export class Game {
     if (v === 0) this.clock.paused = true; else { this.clock.paused = false; this.clock.speed = v; }
   }
 
+  private padMove = { x: 0, y: 0 };
+  private padButtons = new Set<number>();
+  private cinema = false;
+  private replay = new EventReplay(() => this.sim, () => this.renderer.cam, this.modal, () => {
+    const wasPaused = this.clock.paused; this.clock.paused = true;
+    return () => { this.clock.paused = wasPaused; };
+  });
+  private quickSave(): void {
+    if (this.casino.open) { this.toast("Leave the casino to cash out before saving."); return; }
+    const result = this.saves.save(this.sim, "quick");
+    this.toast(result.ok ? "Quick-save complete · load it from Save" : result.error || "Could not save.");
+  }
+  private toggleCinema(): void {
+    this.cinema = !this.cinema; this.rootEl.classList.toggle("cinema", this.cinema);
+    let exit = this.rootEl.querySelector(".cinema-exit");
+    if (!exit) { exit = h("button.btn.cinema-exit", { text: "Exit cinema · F9", onclick: () => this.toggleCinema() }); this.rootEl.append(exit); }
+  }
+  private pollGamepad(): void {
+    this.padMove = { x: 0, y: 0 };
+    const pad = this.settings.gamepad ? Array.from(navigator.getGamepads?.() ?? []).find(p => p?.connected) : null;
+    if (!pad) { this.padButtons.clear(); return; }
+    const dead = (n: number) => Math.abs(n) > 0.18 ? n : 0;
+    const modal = this.modal.open || this.casino.open || this.club.open || this.luxury.open;
+    if (!modal) this.padMove = { x: dead(pad.axes[0] || 0), y: dead(pad.axes[1] || 0) };
+    const pressed = new Set(pad.buttons.map((b, i) => b.pressed ? i : -1).filter(i => i >= 0));
+    const edge = (i: number) => pressed.has(i) && !this.padButtons.has(i);
+    if (edge(9)) this.setSpeed(this.clock.paused ? this.clock.speed : 0);
+    if (edge(1)) { if (this.casino.open) this.casino.close(); else if (this.modal.open) this.modal.close(); }
+    if (modal && (edge(12) || edge(13) || edge(14) || edge(15))) {
+      const panel = this.casino.open ? this.casino.el : this.modal.el;
+      const buttons = Array.from(panel.querySelectorAll<HTMLElement>("button:not(:disabled), input, select")).filter(b => b.getBoundingClientRect().width > 0);
+      const i = buttons.indexOf(document.activeElement as HTMLElement), dir = edge(12) || edge(14) ? -1 : 1;
+      buttons[(i + dir + buttons.length) % buttons.length]?.focus();
+    }
+    if (edge(0)) { if (modal) (document.activeElement as HTMLElement)?.click(); else this.interact(); }
+    if (edge(2) && !modal) this.act("throw");
+    if (edge(3) && !modal) this.lifePhone.show();
+    this.padButtons = pressed;
+  }
   private applySettings(): void {
     const s = this.settings;
+    document.documentElement.dataset.palette = s.palette;
+    document.documentElement.classList.toggle("cb", s.palette !== "standard");
     this.renderer.fakeBlood = s.fakeBlood; this.sim.fakeBlood = s.fakeBlood;
     // muting silences everything, radio included; unmuting never restarts the radio on its own
     if (this.radio) { if (!s.sound && this.radio.playing) this.radio.pause(); this.radio.setVolume(s.volume); }
@@ -1288,6 +1352,7 @@ export class Game {
 
   private openSettings(): void {
     this.modal.show("Settings", [
+      h("div.row", null, [h("button.btn", { text: "Event replay", onclick: () => this.replay.show() }), h("button.btn", { text: "Cinema mode", onclick: () => { this.modal.close(); this.toggleCinema(); } })]),
       ...settingsBody(this.settings, (s, needsReset) => { this.settings = s; this.applySettings(); this.persistSettings(); if (needsReset) this.toast("Crowd size applies when you reset the world"); }),
       h("div.row", null, [
         h("button.btn", { onclick: () => { if (confirm("Start a fresh world? Unsaved progress is lost.")) { this.modal.close(); this.reset(Math.floor(Math.random() * 1e9)); } }, text: "New world (new seed)" }),
@@ -1298,7 +1363,7 @@ export class Game {
   }
 
   private openSaves(): void {
-    const slots = ["1", "2", "3"];
+    const slots = ["quick", "1", "2", "3"];
     const body = h("div.slots");
     const msg = h("p", { "aria-live": "polite" });
     const render = () => body.replaceChildren(...slots.map((s) => {
@@ -1361,6 +1426,7 @@ export class Game {
   private swapSim(sim: Simulation): void {
     sim.fakeBlood = this.settings.fakeBlood;
     this.dialogue.close();
+    this.replay.stop();
     this.sim = sim; this.minimap.reset();
     this.renderer.setSim(sim);
     this.audio.attach(sim);

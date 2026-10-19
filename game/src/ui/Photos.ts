@@ -5,6 +5,7 @@ import { capture, framed, polaroid } from "../render/PolaroidArt";
 import type { StorageProvider } from "../persistence/storage";
 
 export interface PhotosHost {
+  unlocked?(id: string): boolean;
   world(): HTMLCanvasElement;
   /** The walk-in interior's canvas while one is open, otherwise null. */
   interior(): HTMLCanvasElement | null;
@@ -82,7 +83,7 @@ export class Photos {
       h("p.ph-lede", { text: spot ? "Stand on the red mat. Pick a frame. Say cheese." : "Pick a filter and a frame, then snap it. Pictures pin to your reputation wall at home." }),
       prev, name,
       h("h3", { text: "Frame" }), chips(FRAME_IDS, (id) => FRAMES[id].name, () => st.frame, (id) => { st.frame = id; }),
-      h("h3", { text: "Filter" }), chips(FILTER_IDS, (id) => FILTERS[id].name, () => st.filter, (id) => { st.filter = id; }),
+      h("h3", { text: "Filter" }), chips(FILTER_IDS.filter(id => id !== "night" && id !== "grain" || this.host.unlocked?.(id === "night" ? "nightlens" : "grain")), (id) => FILTERS[id].name, () => st.filter, (id) => { st.filter = id; }),
       h("label.ph-cap", null, ["Caption", cap]),
       h("div.row", null, [
         h("button.btn.red", { type: "button", text: "Snap it", onclick: () => {

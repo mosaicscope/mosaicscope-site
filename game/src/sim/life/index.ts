@@ -30,6 +30,7 @@ export function stepLifeSystems(
   flags: LifeSystemFlags,
   driving = false,
   treated = false,
+  sleepMultiplier = 1,
 ): { state: LifeSystemsState; events: LifeEvent[] } {
   const next = { ...state };
   const events: LifeEvent[] = [];
@@ -37,7 +38,7 @@ export function stepLifeSystems(
     (next as unknown as Record<string, unknown>)[key] = result.state;
     events.push(...(result.events ?? []));
   };
-  if (flags.sleepFatigue) add(sleep.step(state.sleep, tick, rng), "sleep");
+  if (flags.sleepFatigue) add(sleep.step(state.sleep, tick, rng, false, sleepMultiplier), "sleep");
   if (flags.dietHunger) add(diet.step(state.diet, tick, rng), "diet");
   if (flags.injuryRecovery) add(injury.step(state.injury, tick, rng, treated), "injury");
   if (flags.childhood) add(childhood.step(state.childhood, tick, rng), "childhood");

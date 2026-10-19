@@ -1,5 +1,6 @@
 import "./ui/styles.css";
 import { Game } from "./app/Game";
+import "./ui/dashboard.css";
 import { setMosaicData, MOSAIC } from "./content/mosaicscope";
 import { loadBuzz } from "./content/buzz";
 

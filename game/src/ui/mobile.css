@@ -122,8 +122,7 @@
 .modal-wrap.touch-tut { pointer-events: none; background: none; place-items: start center; padding-top: 72px; }
 .modal-wrap.touch-tut .modal { pointer-events: auto; }
 
-/* the joystick is off for now: tap the ground to walk. Remove this rule to bring the stick back. */
-.tc-zone { display: none !important; }
+/* The joystick remains available alongside tap-to-walk and the city action dock. */
 
 /* zoom buttons, left side, so zoom never depends on a pinch working */
 .tc-zoom { position: absolute; left: max(14px, env(safe-area-inset-left)); bottom: 42%; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }

@@ -1,6 +1,9 @@
 import { StorageProvider, NS } from "./storage";
 
 export interface Settings {
+  palette: "standard" | "deuteranopia" | "protanopia" | "tritanopia";
+  autoPause: boolean;
+  gamepad: boolean;
   quality: "auto" | "low" | "medium" | "high" | "ultra";
   volume: number;          // 0..1
   sound: boolean;
@@ -26,6 +29,7 @@ export const DEFAULT_KEYS: Record<string, string> = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
+  palette: "standard", autoPause: true, gamepad: true,
   quality: "auto", volume: 0.6, sound: false, sfx: false, sfxVolume: 0.8, fakeBlood: true, reducedMotion: null, textScale: 1, gentle: false, density: 150, showNames: true, tutorialDone: false, keys: { ...DEFAULT_KEYS }, brains: {},
 };
 
@@ -36,6 +40,9 @@ export function loadSettings(store: StorageProvider): Settings {
   if (!raw) return s;
   try {
     const d = JSON.parse(raw);
+    if (["standard", "deuteranopia", "protanopia", "tritanopia"].includes(d.palette)) s.palette = d.palette;
+    if (typeof d.autoPause === "boolean") s.autoPause = d.autoPause;
+    if (typeof d.gamepad === "boolean") s.gamepad = d.gamepad;
     if (["auto", "low", "medium", "high", "ultra"].includes(d.quality)) s.quality = d.quality;
     if (typeof d.volume === "number" && d.volume >= 0 && d.volume <= 1) s.volume = d.volume;
     if (typeof d.sound === "boolean") s.sound = d.sound;

@@ -45,6 +45,21 @@ export function settingsBody(s: Settings, onChange: (s: Settings, needsReset?: b
   const change = (fn: () => void, reset = false) => { fn(); onChange(s, reset); };
   const keyRows = (["pickup", "drop", "throw", "talk"] as const).map((k) => h("label", null, [`Key: ${k}`, h("input", { type: "text", maxlength: 1, size: 2, value: s.keys[k] === " " ? "space" : s.keys[k], onchange: (e: Event) => change(() => { const v = (e.target as HTMLInputElement).value.toLowerCase(); s.keys[k] = v === "space" ? " " : v.slice(0, 1) || DEFAULT_KEYS[k]; }) })]));
   return [
+    h("h3", { text: "Play your way" }),
+    chk("Pause when switching tabs", s.autoPause, v => change(() => { s.autoPause = v; })),
+    chk("Gamepad: left stick to move, A to interact, B to close, Start to pause", s.gamepad, v => change(() => { s.gamepad = v; })),
+    sel("Colour-blind palette", s.palette, [["standard", "Original"], ["deuteranopia", "Blue & gold"], ["protanopia", "Cyan & amber"], ["tritanopia", "Rose & teal"]], v => change(() => { s.palette = v as Settings["palette"]; })),
+    sel("Device preset", "custom", [["custom", "Custom"], ["phone", "Phone · low graphics, 60 people"], ["laptop", "Laptop · medium graphics, 150 people"], ["desktop", "Desktop · high graphics, 350 people"]], v => change(() => {
+      if (v === "phone") { s.quality = "low"; s.density = 60; }
+      if (v === "laptop") { s.quality = "medium"; s.density = 150; }
+      if (v === "desktop") { s.quality = "high"; s.density = 350; }
+    }, true)),
+    sel("Control preset", "custom", [["custom", "Custom"], ["wasd", "WASD"], ["arrows", "Arrow keys + Enter to interact"], ["left", "IJKL + U to interact"]], v => change(() => {
+      if (v === "wasd") s.keys = { ...DEFAULT_KEYS };
+      if (v === "arrows") s.keys = { ...DEFAULT_KEYS, up: "arrowup", down: "arrowdown", left: "arrowleft", right: "arrowright", pickup: "enter" };
+      if (v === "left") s.keys = { ...DEFAULT_KEYS, up: "i", down: "k", left: "j", right: "l", pickup: "u", inspect: "v", log: "g" };
+    })),
+    h("p", { text: "F5 quick-saves · F9 cinema mode · M city map. Save menu includes export and import backups." }),
     sel("Graphics quality", s.quality, [["auto", "Auto (adapts to your device)"], ["low", "Low"], ["medium", "Medium"], ["high", "High"], ["ultra", "Ultra (best textures, needs a strong device)"]], (v) => change(() => { s.quality = v as Settings["quality"]; })),
     rng(`Crowd size (${s.density} background people, applies on reset)`, s.density, 0, 2000, 50, (v) => change(() => { s.density = v; }, true)),
     chk("Sound", s.sound, (v) => change(() => { s.sound = v; })),

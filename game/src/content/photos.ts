@@ -8,7 +8,7 @@ import { NS } from "../persistence/storage";
  */
 
 export type FrameId = "cream" | "dusk" | "tape" | "kerb" | "tile";
-export type FilterId = "none" | "warm" | "noir" | "fade" | "neon" | "golden";
+export type FilterId = "none" | "warm" | "noir" | "fade" | "neon" | "golden" | "night" | "grain";
 
 /** Five original polaroid frame styles. `plain` is photo mode's "no frame" and is not a polaroid. */
 export const FRAMES: Record<FrameId, { name: string; blurb: string }> = {
@@ -21,6 +21,7 @@ export const FRAMES: Record<FrameId, { name: string; blurb: string }> = {
 export const FRAME_IDS = Object.keys(FRAMES) as FrameId[];
 
 export const FILTERS: Record<FilterId, { name: string }> = {
+  night: { name: "Night lens" }, grain: { name: "Grain’s film" },
   none: { name: "Straight" }, warm: { name: "Verandah" }, noir: { name: "Noir" }, fade: { name: "Faded" }, neon: { name: "After Dark" }, golden: { name: "Golden Hour" },
 };
 export const FILTER_IDS = Object.keys(FILTERS) as FilterId[];
@@ -34,6 +35,8 @@ export function applyFilter(d: Uint8ClampedArray, id: FilterId): void {
     let r = d[i], g = d[i + 1], b = d[i + 2];
     const l = 0.299 * r + 0.587 * g + 0.114 * b;
     switch (id) {
+      case "night": r = Math.sqrt(r / 255) * 255; g = Math.sqrt(g / 255) * 255; b = Math.sqrt(b / 255) * 255 + 8; break;
+      case "grain": { const noise = ((i * 17 + 31) % 19) - 9; r = r * 0.9 + 24 + noise; g = g * 0.86 + 19 + noise; b = b * 0.72 + 16 + noise; break; }
       case "warm": r = r * 1.08 + 8; g = g * 1.02 + 2; b = b * 0.88; break;
       case "noir": { const c = clamp((l - 128) * 1.25 + 120); r = g = b = c; break; }
       case "fade": r = l * 0.35 + r * 0.65 * 0.9 + 26; g = l * 0.35 + g * 0.65 * 0.9 + 24; b = l * 0.35 + b * 0.65 * 0.9 + 30; break;

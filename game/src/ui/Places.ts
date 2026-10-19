@@ -1,3 +1,4 @@
+import { hasUpgrade } from "../content/upgrades";
 import type { Simulation } from "../sim/Simulation";
 import { h } from "./dom";
 import { BUILDINGS, isOpen } from "../content/buildings";
@@ -93,8 +94,9 @@ export class Places {
     const render = () => {
       const rows = (def.menu ?? []).map((id) => {
         const d = TOYS[id];
+        const price = d.food && hasUpgrade(sim.life.upgrades, "loyaltycard") ? Math.round(d.value * 0.9 * 100) / 100 : d.value;
         const stats = d.weapon ? ` · dmg ${d.weapon.damage} · reach ${d.weapon.reach} · ${d.weapon.rate}s/attack${d.weapon.blood ? ` · blood ${Math.round(d.weapon.blood * 100)}%` : ""}` : d.food ? ` · fills ${Math.round(d.food.hunger * 100)}%${d.food.energy ? `, energy +${Math.round(d.food.energy * 100)}%` : ""}` : "";
-        return h("li.item", null, [h("div", null, [h("b", { text: d.name }), h("small", { text: (d.blurb ? d.blurb + " " : "") + stats })]), h("span.price", { text: fmtCash(d.value) }), h("button.btn", { disabled: p.cash < d.value, onclick: () => { const r = buy(sim, p, id, { building: b.id }); this.toast(r.ok ? `Bought ${d.name}` : r.reason!); render(); }, text: "Buy" }), h("button.btn", { title: "Shoplift (risky)", onclick: () => { const staff = sim.chars.filter((c) => c.workplace === b.id && c.inside === b.id).length; if (Math.random() < 0.25 + staff * 0.15) { commitCrime(sim, p, "shoplift", null); p.wanted = Math.max(p.wanted, 1); this.toast("Caught pocketing it. Staff called the cops.", "red"); this.close(); return; } const t = sim.spawnToy(id, p.x, p.y); if (t) sim.pickupToy(p, t); this.toast(`Pocketed a ${d.name}`); render(); }, text: "Pocket it" })]);
+        return h("li.item", null, [h("div", null, [h("b", { text: d.name }), h("small", { text: (d.blurb ? d.blurb + " " : "") + stats })]), h("span.price", { text: fmtCash(price) }), h("button.btn", { disabled: p.cash < price, onclick: () => { const r = buy(sim, p, id, { building: b.id }); this.toast(r.ok ? `Bought ${d.name}` : r.reason!); render(); }, text: "Buy" }), h("button.btn", { title: "Shoplift (risky)", onclick: () => { const staff = sim.chars.filter((c) => c.workplace === b.id && c.inside === b.id).length; if (Math.random() < 0.25 + staff * 0.15) { commitCrime(sim, p, "shoplift", null); p.wanted = Math.max(p.wanted, 1); this.toast("Caught pocketing it. Staff called the cops.", "red"); this.close(); return; } const t = sim.spawnToy(id, p.x, p.y); if (t) sim.pickupToy(p, t); this.toast(`Pocketed a ${d.name}`); render(); }, text: "Pocket it" })]);
       });
       const sell = b.kind === "pawn" ? [h("h3", { text: "Sell to the pawn shop" }), h("ul.items", null, carried(p).map((id) => sim.toys[id]).filter((t) => t && pawnPrice(t.def) > 0).map((t) => h("li.item", null, [h("b", { text: TOYS[t.def].name }), h("span.price", { text: fmtCash(pawnPrice(t.def)) }), h("button.btn", { onclick: () => { detach(p, t.id); t.state = "broken"; t.x = -100; t.holder = -1; p.cash += pawnPrice(t.def); this.toast(`Sold for ${fmtCash(pawnPrice(t.def))}`); render(); }, text: "Sell" })])))] : [];
       this.show(b.name, [h("p", { style: { color: "var(--dim)" }, text: staff.length ? `${staff.map((s) => s.name.split(" ")[0]).join(" and ")} ${staff.length > 1 ? "are" : "is"} working today.` : "Self-service today." }), this.wallet(), h("ul.items", null, rows), ...sell], "shop");
@@ -163,7 +165,7 @@ export class Places {
 
   police(b: Building): void {
     const sim = this.sim(), p = sim.player;
-    const fine = p.wanted * 120;
+    const fine = Math.round(p.wanted * 120 * (hasUpgrade(sim.life.upgrades, "lawyer") ? 0.8 : 1));
     const recent = sim.crimes.filter((c) => sim.tick - c.tick < 60 * 3600).slice(-6).reverse();
     this.show(b.name, [
       this.wallet(),

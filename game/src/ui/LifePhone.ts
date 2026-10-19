@@ -1,3 +1,5 @@
+import { Progression } from "./Progression";
+import { meter } from "./dom";
 import { BODY_UPGRADES, hasBody } from "../sim/life/body";
 import { h } from "./dom";
 import type { Simulation } from "../sim/Simulation";
@@ -22,6 +24,7 @@ import { BUDGET } from "../content/life/budget";
 import "./lifephone.css";
 
 type Screen =
+  | "Upgrades"
   | "Home"
   | "Map"
   | "Calendar"
@@ -37,6 +40,7 @@ type Screen =
 type Legacy = "Farm" | "UC" | "Racing" | "Betting" | "Explore";
 const money = (n: number) => "$" + Math.round(n).toLocaleString("en-NZ");
 export class LifePhone {
+  private progression = new Progression(this.sim, () => this.show("Upgrades"), text => { this.message = text; });
   private screen: Screen = "Home";
   private renderedScreen: Screen | null = null;
   private message = "";
@@ -101,6 +105,7 @@ export class LifePhone {
       ?.setAttribute("aria-expanded", "false");
     const screens: Screen[] = [
       "Home",
+      "Upgrades",
       "Map",
       "Calendar",
       "Farm map",
@@ -114,7 +119,7 @@ export class LifePhone {
       "People",
     ];
     const body =
-      screen === "Home"
+      screen === "Upgrades" ? this.progression.view() : screen === "Home"
         ? this.home()
         : screen === "Map"
           ? this.map()
@@ -138,23 +143,22 @@ export class LifePhone {
                             ? this.people()
                             : this.chaos();
     this.modal.show(
-      "Ōtautahi After Dark · " + screen,
+      "Your life in Ōtautahi · " + screen,
       [
         h(
           "nav.lp-nav",
           { "aria-label": "Phone apps" },
-          screens.map((t) =>
-            this.button(t, () => {
-              this.screen = t;
-              this.message = "";
-            }),
-          ),
+          screens.map((t) => {
+            const button = this.button(t === "Home" ? "Overview" : t, () => { this.screen = t; this.message = ""; });
+            button.setAttribute("aria-current", t === screen ? "page" : "false");
+            return button;
+          }),
         ),
         h("p.lp-status", {
           role: "status",
           text: `Day ${Math.floor(this.sim().tick / DAY) + 1} · ${money(this.sim().player.cash)} · ${this.message || "A very normal city. Allegedly."}`,
         }),
-        h("div.lp-content", null, body),
+        h("div.lp-content" + (screen === "Upgrades" ? ".lp-upgrades" : ""), null, body),
       ],
       "lifephone",
     );
@@ -165,8 +169,13 @@ export class LifePhone {
     const s = this.s,
       life = s.systems;
     return [
+      h("section.lp-overview", null, [
+        h("div", null, [h("small", { text: "A CITY FULL OF POSSIBILITIES" }), h("h2", { text: this.sim().player.name }), h("p", { text: `${s.career.role || "Writing your own story"} · Day ${Math.floor(this.sim().tick / DAY) + 1} · ${s.upgrades.crew.length} crew members` })]),
+        h("div.lp-vitals", null, [meter("Energy", this.sim().player.needs.energy), meter("Hunger", this.sim().player.hunger), meter("Mood", (this.sim().player.emo.mood + 1) / 2), meter("Rest", 1 - life.sleep.fatigue)]),
+        this.button("Explore upgrades →", () => { this.screen = "Upgrades"; }),
+      ]),
       this.panel(
-        "Your life, one phone",
+        "Your next chapter",
         `${s.career.role || "Between careers"} · generation ${s.dynasty.generation} · fame ${s.tv.fame} · ${s.politics.mayor ? "Mayor" : "Mayoral support " + s.politics.support}`,
         [
           ...(["Explore", "Betting", "Racing", "Farm", "UC"] as Legacy[]).map(

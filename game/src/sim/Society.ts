@@ -1,3 +1,4 @@
+import { hasUpgrade } from "../content/upgrades";
 import type { Simulation } from "./Simulation";
 import { onPlayerCrime } from "./Rep";
 import { Character, Phys, Toy } from "../entities/types";
@@ -14,7 +15,7 @@ import { ARREARS_CAP, collect } from "./Arrears";
 
 /** Traffic fines use the same cash and arrears path as the rest of the city's justice system. */
 export function applyLifeFine(sim: Simulation, amount: number, reason = "Traffic fine"): string {
-  const fine = Math.max(0, Math.round(amount));
+  const fine = Math.max(0, Math.round(amount * (hasUpgrade(sim.life.upgrades, "lawyer") ? 0.8 : 1)));
   const paid = Math.min(sim.player.cash, fine);
   sim.player.cash -= paid;
   const unpaid = fine - paid;
@@ -42,14 +43,15 @@ export function buy(sim: Simulation, c: Character, def: string, seller: { buildi
     const b = sim.world.buildings[seller.building];
     if (b && !isOpen(BUILDINGS[b.kind], sim.hour)) return { ok: false, reason: `${b.name} is closed right now.` };
   }
-  if (c.cash < d.value) return { ok: false, reason: `Not enough cash (${fmtCash(d.value)}).` };
+  const price = c.id === sim.playerId && d.food && hasUpgrade(sim.life.upgrades, "loyaltycard") ? Math.round(d.value * 0.9 * 100) / 100 : d.value;
+  if (c.cash < price) return { ok: false, reason: `Not enough cash (${fmtCash(d.value)}).` };
   const t = sim.spawnToy(def, c.x, c.y);
   if (!t) return { ok: false, reason: "Out of stock." };
   const r = pickUp(c, t, sim.tick, 99);
   if (r !== "hand" && r !== "bag") { t.state = "broken"; t.x = -100; return { ok: false, reason: "Your hands and bag are full." }; }
-  c.cash -= d.value;
+  c.cash -= price;
   t.owner = c.id;
-  if (seller.building !== undefined && seller.building >= 0) sim.tills[seller.building] = (sim.tills[seller.building] ?? 0) + d.value;
+  if (seller.building !== undefined && seller.building >= 0) sim.tills[seller.building] = (sim.tills[seller.building] ?? 0) + price;
   sim.bus.emit("sound", { kind: "till", x: c.x, y: c.y, vol: 0.4 });
   return { ok: true, toy: t };
 }
@@ -212,7 +214,7 @@ export function commitCrime(sim: Simulation, perp: Character, type: CrimeType, v
     const isVictim = w.id === crime.victim;
     // victims of quiet crimes don't always notice; watchful people notice more
     const p = isVictim ? (type === "pickpocket" ? 0.35 + w.pers.curiosity * 0.35 : 0.95) : (w.tier === "background" ? 0.25 : 0.55 + w.pers.curiosity * 0.3) * (1 - d / 10);
-    if (!sim.world.lineOfSight(w.x, w.y, perp.x, perp.y) || !sim.rng.chance(p)) continue;
+    if (!sim.world.lineOfSight(w.x, w.y, perp.x, perp.y) || !sim.rng.chance(p * (perp.id === sim.playerId && type === "pickpocket" && hasUpgrade(sim.life.upgrades, "stealth") ? 0.6 : 1) * (perp.id !== sim.playerId && hasUpgrade(sim.life.upgrades, "watch") ? 1.2 : 1))) continue;
     crime.witnesses.push(w.id);
     remember(w, { t: sim.tick, kind: "saw_crime", subj: perp.id, obj: crime.victim, toy: item, area: sim.world.areaAt(perp.x, perp.y)?.id ?? 0, val: -0.6, ev: -1, src: isVictim ? "did" : "saw" });
     const r = sim.relate(w, perp.id); r.trust = Math.max(-1, r.trust - 0.3); r.grudge = Math.min(1, r.grudge + (isVictim ? 0.5 : 0.1));
@@ -322,7 +324,7 @@ export function findWall(sim: Simulation, x: number, y: number, r = 10, legalOnl
 }
 
 export function paint(sim: Simulation, c: Character, spot: { tx: number; ty: number; face: "s" | "e"; legal: boolean }): Graffiti {
-  const g: Graffiti = { id: (sim.world.graffiti[sim.world.graffiti.length - 1]?.id ?? 0) + 1, tx: spot.tx, ty: spot.ty, face: spot.face, text: c.nickname ? c.nickname.toUpperCase() : sim.rng.pick(TAGS), color: c.look.color, artist: c.id, tick: sim.tick, legal: spot.legal, style: sim.rng.int(0, 3) };
+  const g: Graffiti = { id: (sim.world.graffiti[sim.world.graffiti.length - 1]?.id ?? 0) + 1, tx: spot.tx, ty: spot.ty, face: spot.face, text: c.nickname ? c.nickname.toUpperCase() : sim.rng.pick(TAGS), color: c.look.color, artist: c.id, tick: sim.tick, legal: spot.legal, style: c.id === sim.playerId && hasUpgrade(sim.life.upgrades, "stencil") ? 0 : sim.rng.int(0, 3) };
   sim.world.graffiti.push(g);
   if (sim.world.graffiti.length > 120) sim.world.graffiti.shift();
   sim.emit({ type: spot.legal ? "mural" : "graffiti", x: c.x, y: c.y, actors: [c.id], summary: spot.legal ? `${c.name} painted a mural ("${g.text}") on the wall of fame` : `"${g.text}" got tagged on ${sim.world.buildingAt(spot.tx, spot.ty)?.name ?? "a wall"}` });

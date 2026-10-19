@@ -1,3 +1,5 @@
+import { newUpgrades, hasUpgrade, upgradeCost, type UpgradeState } from "../content/upgrades";
+import { purchaseUpgrade, upgradeActivity, tickUpgrades, ledger } from "./Upgrades";
 import { BODY_UPGRADES, newBody, hasBody, gymMultiplier, type BodyState } from "./life/body";
 import type { Simulation } from "./Simulation";
 import { DAY, HOUR, ANIMALS, farmCapacity, settleRace } from "./Expansion";
@@ -47,6 +49,7 @@ export interface Chronicle {
   y: number;
 }
 export interface LifeState {
+  upgrades: UpgradeState;
   body: BodyState;
   systems: LifeSystemsState;
   lastHour: number;
@@ -156,6 +159,7 @@ export interface LifeState {
   lastAction: Record<string, number>;
 }
 export const newLife = (): LifeState => ({
+  upgrades: newUpgrades(),
   body: newBody(),
   systems: newLifeSystems(),
   lastHour: -1,
@@ -294,10 +298,12 @@ export function note(sim: Simulation, text: string, kind = "life"): string {
 function pay(sim: Simulation, n: number): boolean {
   if (!Number.isFinite(n) || n < 0 || sim.player.cash < n) return false;
   sim.player.cash = Math.round((sim.player.cash - n) * 100) / 100;
+  if (n) ledger(sim, "Life activity purchase", -n);
   return true;
 }
 function reward(sim: Simulation, n: number) {
   sim.player.cash = Math.round((sim.player.cash + n) * 100) / 100;
+  if (n) ledger(sim, "Life activity income", n);
 }
 function every(sim: Simulation, key: string, period: number): boolean {
   const last = sim.life.lastAction[key];
@@ -410,6 +416,7 @@ export function tickLife(sim: Simulation): void {
     s.scene = null;
   if (s.lastHour === hour) return;
   s.lastHour = hour;
+  tickUpgrades(sim);
   if (hasBody(s.body, "vitamins")) sim.player.needs.energy = Math.min(1, sim.player.needs.energy + 0.03);
   const party = sim.world.areaAt(sim.player.x, sim.player.y)?.kind === "stage" || sim.player.anim.pose === "dance";
   s.body.hearing = party && !hasBody(s.body, "earplugs") ? Math.max(0.25, s.body.hearing - 0.01) : Math.min(1, s.body.hearing + 0.005);
@@ -419,7 +426,7 @@ export function tickLife(sim: Simulation): void {
   const lifeFlags = s.dynasty.heirs.length ? sim.lifeFlags : { ...sim.lifeFlags, childhood: false };
   const vehicle = sim.player.inCar >= 0 ? sim.vehicles[sim.player.inCar] : null;
   const driving = !!vehicle && Math.abs(vehicle.speed) > 0.5;
-  const lifeStep = stepLifeSystems(s.systems, sim.tick, sim.rng, sim.player.cash, s.savings, lifeFlags, driving, hasBody(s.body, "ice"));
+  const lifeStep = stepLifeSystems(s.systems, sim.tick, sim.rng, sim.player.cash, s.savings, lifeFlags, driving, hasBody(s.body, "ice"), hasUpgrade(s.upgrades, "beanbag") ? 1.25 : 1);
   s.systems = lifeStep.state;
   if (sim.lifeFlags.dietHunger) sim.player.hunger = s.systems.diet.hunger;
   if (sim.lifeFlags.sleepFatigue) {
@@ -570,7 +577,7 @@ export function tickLife(sim: Simulation): void {
   for (const b of s.businesses) {
     const income = Math.round(
       (b.kind === "pigeon hotel" ? 40 : 65) *
-        b.level *
+        b.level * (hasUpgrade(s.upgrades, "renovation") ? 1.25 : 1) *
         (s.politics.policy === "Free pies" ? 0.8 : 1) *
         (1 - Math.min(0.4, s.nemesis.heat / 300)),
     );
@@ -645,6 +652,8 @@ export function action(sim: Simulation, key: string, arg = ""): string {
     sim.emit({ type, x: p.x, y: p.y, actors: [p.id], summary: text });
     return done(text, "life");
   };
+  if (key === "upgrade") return done(purchaseUpgrade(sim, arg), "upgrades");
+  if (key.startsWith("u:")) return done(upgradeActivity(sim, key.slice(2), arg), "upgrades");
   if (key === "bodyUpgrade") {
     const item = BODY_UPGRADES.find((u) => u.id === arg);
     if (!item) return fail("Unknown body upgrade.");
@@ -672,7 +681,8 @@ export function action(sim: Simulation, key: string, arg = ""): string {
     if (!sim.lifeFlags.cooking || !sim.lifeFlags.dietHunger) return fail("Cooking or diet is switched off.");
     const meal = cooking.cook(s.systems.cooking, sim.tick);
     if (!meal) return fail("Give cooking an hour between meals.");
-    if (!pay(sim, COOKING.cost)) return fail(`Groceries cost $${COOKING.cost}.`);
+    if (!pay(sim, upgradeCost(s.upgrades, COOKING.cost))) return fail(`Groceries cost $${COOKING.cost}.`);
+    if (hasUpgrade(s.upgrades, "cooking")) { meal.quality = Math.min(1, meal.quality + 0.2); p.emo.mood = Math.min(1, p.emo.mood + 0.12); }
     s.systems.cooking = meal;
     s.systems.diet = diet.eat(s.systems.diet, meal.quality);
     p.hunger = s.systems.diet.hunger;
@@ -683,7 +693,7 @@ export function action(sim: Simulation, key: string, arg = ""): string {
     if (!sim.lifeFlags.gymFitness) return fail("Gym and fitness are switched off.");
     const trained = gym.workout(s.systems.gym, sim.tick);
     if (!trained) return fail("Give your muscles a day to recover between sessions.");
-    if (!pay(sim, GYM.cost)) return fail(`A gym session costs $${GYM.cost}.`);
+    if (!hasUpgrade(s.upgrades, "homegym") && !pay(sim, GYM.cost)) return fail(`A gym session costs $${GYM.cost}.`);
     trained.fitness = Math.min(1, s.systems.gym.fitness + (trained.fitness - s.systems.gym.fitness) * gymMultiplier(s.body));
     s.systems.gym = trained;
     p.needs.energy = Math.max(0, p.needs.energy - 0.15);
@@ -806,6 +816,7 @@ export function action(sim: Simulation, key: string, arg = ""): string {
     const slip = payslip.pay(s.systems.payslip, 50);
     s.systems.payslip = { ...slip.state, sickLeave: remaining };
     reward(sim, slip.net);
+    s.upgrades.taxClaimed += slip.tax;
     return lifeEvent("life_payslip", `Sick day paid $${slip.net} after $${slip.tax} tax. ${remaining} day(s) remain.`);
   }
   if (key === "bank") {
@@ -1148,7 +1159,8 @@ export function action(sim: Simulation, key: string, arg = ""): string {
       return fail(
         "An active case and one game hour between evidence searches are required.",
       );
-    s.court.evidence++;
+    s.court.evidence += 1 + (hasUpgrade(s.upgrades, "lawyer") ? 1 : 0) + s.upgrades.evidence;
+    s.upgrades.evidence = 0;
     return done("A receipt and a witness statement were added to your case.");
   }
   if (key === "hearing") {
@@ -1293,12 +1305,13 @@ export function action(sim: Simulation, key: string, arg = ""): string {
     const fatigue = sim.lifeFlags.sleepFatigue ? s.systems.sleep.fatigue : 0;
     if (fatigue >= 0.95) return fail("You are too exhausted for a safe shift. Get some sleep first.");
     s.career.lastShift = sim.tick;
-    s.career.xp++;
+    s.career.xp += hasUpgrade(s.upgrades, "cards") ? 2 : 1;
     if (s.career.xp % 3 === 0) s.career.rank++;
-    const gross = Math.round((70 + s.career.rank * 20) * (1 + e.level * 0.2) * (fatigue >= 0.65 ? 0.8 : 1));
+    const gross = Math.round((70 + s.career.rank * 20) * (1 + e.level * 0.2) * (fatigue >= 0.65 ? 0.8 : 1) * (hasUpgrade(s.upgrades, "coffee") ? 1.1 : 1));
     const slip = sim.lifeFlags.payslips ? payslip.pay(s.systems.payslip, gross) : { state: s.systems.payslip, net: gross, tax: 0 };
     s.systems.payslip = slip.state;
     reward(sim, slip.net);
+    s.upgrades.taxClaimed += slip.tax;
     p.hunger = Math.max(0, p.hunger - 0.1);
     const text = `${s.career.role} shift: $${gross} gross, $${slip.tax} tax, $${slip.net} take-home. Rank ${s.career.rank}; ${s.career.xp} shifts completed.`;
     if (sim.lifeFlags.payslips) sim.emit({ type: "life_payslip", x: p.x, y: p.y, actors: [p.id], summary: text });
@@ -1329,11 +1342,11 @@ export function action(sim: Simulation, key: string, arg = ""): string {
       key === "tow"
         ? 40
         : key === "claim"
-          ? 50
-          : Math.max(
+          ? (hasUpgrade(s.upgrades, "excess") ? 25 : 50)
+          : Math.round((hasUpgrade(s.upgrades, "mechanic") ? 0.75 : 1) * Math.max(
               20,
               Math.round(v.damage * 250 + (v.engineDamage ?? 0) * 100),
-            );
+            ));
     if (!pay(sim, cost)) return fail(`This service costs $${cost}.`);
     if (key === "tow") {
       const b = sim.world.buildings.find((b) => b.kind === "garage");

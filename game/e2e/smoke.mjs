@@ -20,6 +20,7 @@ const assert = (c, m) => { if (!c) throw new Error(m); };
 const G = (fn, arg) => page.evaluate(fn, arg);
 
 // The Pages Functions (/api/*) do not exist under `vite preview`; answer the score's weather call like the real one would.
+await page.route("**/api/reddit", r => r.fulfill({ json: { posts: [] } }));
 await page.route("**/api/vibe", (r) => r.fulfill({ json: { weather: "clear", isDay: true, temp: 14, wind: 10, hour: 12, source: "open-meteo" } }));
 
 console.log("Smoke test:", url);
@@ -124,23 +125,24 @@ await check("save to slot 1 and load it back", async () => {
   await page.getByRole("button", { name: "Save", exact: true }).click();
   const dlg = page.getByRole("dialog", { name: "Save & load" });
   await dlg.waitFor();
-  await dlg.getByRole("button", { name: "Save" }).first().click();
+  await dlg.locator(".slot").filter({ has: page.getByText("Slot 1", { exact: true }) }).getByRole("button", { name: "Save", exact: true }).click();
   await page.waitForTimeout(200);
   assert(/Saved to slot 1/.test(await dlg.textContent()), "no save message");
   const tickAtSave = await G(() => JSON.parse(localStorage.getItem("mosaics-world:save:1")).tick);
   await page.waitForTimeout(300);
   await G(() => window.__mosaics.setSpeed(0)); // pause so the loaded tick can be compared exactly
-  await dlg.getByRole("button", { name: "Load" }).first().click();
+  await dlg.locator(".slot").filter({ has: page.getByText("Slot 1", { exact: true }) }).getByRole("button", { name: "Load", exact: true }).click();
   await page.waitForTimeout(200);
   const t = await G(() => window.__mosaics.sim.tick);
   assert(t === tickAtSave, `loaded tick ${t} vs saved ${tickAtSave}`);
   await G(() => window.__mosaics.setSpeed(1));
 });
 await check("settings open and quality can be changed", async () => {
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
   await page.getByRole("button", { name: "Settings" }).click();
   const dlg = page.getByRole("dialog", { name: "Settings" });
   await dlg.waitFor();
-  await dlg.locator("select").first().selectOption("low");
+  await dlg.getByLabel("Graphics quality").selectOption("low");
   await page.keyboard.press("Escape");
   const q = await G(() => JSON.parse(localStorage.getItem("mosaics-world:settings")).quality);
   assert(q === "low", "quality " + q);

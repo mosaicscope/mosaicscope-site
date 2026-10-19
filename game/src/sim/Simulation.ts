@@ -1,3 +1,4 @@
+import { hasUpgrade } from "../content/upgrades";
 import { hasBody } from "./life/body";
 import { newLife, tickLife } from "./Chronicles";
 import { newExpansion, wageBoost, farmDay, encounterAt } from "./Expansion";
@@ -166,6 +167,16 @@ export class Simulation {
     const t0 = performance.now();
     const dt = this.step_dt;
     this.tick++;
+    if (hasUpgrade(this.life.upgrades, "bando")) {
+      const u = this.life.upgrades, p = this.player, home = this.world.buildings[p.home];
+      const roaming = hasUpgrade(u, "petdoor") && home && Math.hypot(p.x - home.door.x, p.y - home.door.y) < 8;
+      const x = roaming ? home.door.x + Math.sin(this.tick / 500) * 2 : p.x - 0.8;
+      const y = roaming ? home.door.y + Math.cos(this.tick / 500) * 2 : p.y + 0.8;
+      const distance = Math.hypot(x - u.pet.x, y - u.pet.y), stride = Math.min(1, dt * 4 / Math.max(0.1, distance));
+      const nx = u.pet.x + (x - u.pet.x) * stride, ny = u.pet.y + (y - u.pet.y) * stride;
+      if (this.world.walkable(nx, ny)) { u.pet.x = nx; u.pet.y = ny; }
+      else if (distance > 12) { const spot = this.world.nearestWalkable(x, y); u.pet.x = spot.x; u.pet.y = spot.y; }
+    }
     if (this.tick % 60 === 0) {
       tickLife(this);
       if (this.tick % TICKS_PER_HOUR === 0 && this.player.inCar >= 0 && this.lifeFlags.sleepFatigue && this.life.systems.sleep.fatigue >= 0.98 && this.rng.chance(0.12)) {
@@ -392,6 +403,7 @@ export class Simulation {
   }
 
   private attachHeld(t: Toy): void {
+    if (t.holder < 0 && this.life.upgrades.stash.includes(t.id)) return;
     const c = this.chars[t.holder];
     if (!c) { t.state = "rest"; t.holder = -1; return; }
     t.px = t.x; t.py = t.y; t.pz = t.z;
@@ -431,11 +443,11 @@ export class Simulation {
 
   /** Passers-by sometimes drop a coin in the busker's case. */
   tipBusker(b: Character): void {
-    const n = this.charHash.query(b.x, b.y, 4, this.tmp);
+    const n = this.charHash.query(b.x, b.y, b.id === this.playerId && hasUpgrade(this.life.upgrades, "speaker") ? 7 : 4, this.tmp);
     for (let i = 0; i < n; i++) {
       const c = this.chars[this.tmp[i]];
       if (c === b || c.cash < 5 || c.tier === "player" || !this.rng.chance(0.15 + c.pers.kindness * 0.2)) continue;
-      const tip = this.rng.pick([1, 2, 2, 5]);
+      const tip = Math.min(c.cash, this.rng.pick([1, 2, 2, 5]) * (b.id === this.playerId && hasUpgrade(this.life.upgrades, "busker") ? 1.5 : 1));
       c.cash -= tip; b.cash += tip;
       this.bus.emit("fx", { kind: "cash", x: b.x, y: b.y, z: 0.4, n: 1 });
       applyInteraction(b, c, "gift", true, this.tick, 0.3);
@@ -598,7 +610,7 @@ export class Simulation {
   busted(cop: Character): void {
     const p = this.player;
     if (p.inCar >= 0) { const v = this.vehicles[p.inCar]; if (v) { v.driver = -1; v.state = "parked"; } p.inCar = -1; }
-    const fine = Math.min(p.cash, Math.max(20, Math.round(p.cash * 0.1) + p.wanted * 50));
+    const fine = Math.min(p.cash, Math.round(Math.max(20, Math.round(p.cash * 0.1) + p.wanted * 50) * (hasUpgrade(this.life.upgrades, "lawyer") ? 0.8 : 1)));
     p.cash -= fine; this.bustedFine = fine;
     for (const id of carried(p)) { const t = this.toys[id]; if (t && TOYS[t.def].category === "weapon") { detach(p, id); t.state = "broken"; t.x = -100; t.holder = -1; } }
     p.wanted = 0; p.arrestedBy = -1;
@@ -644,7 +656,7 @@ export class Simulation {
     const t = this.toys[c.hand];
     if (!t || !canThrow(t.def)) return false;
     detach(c, t.id);
-    const acc = c.tier === "player" ? 0.92 : 0.45 + c.emo.confidence * 0.35 + (c.prefs[t.def] ?? 0) * 0.1 - c.emo.frustration * 0.2;
+    const acc = c.tier === "player" ? (hasUpgrade(this.life.upgrades, "throwing") ? 0.98 : 0.92) : 0.45 + c.emo.confidence * 0.35 + (c.prefs[t.def] ?? 0) * 0.1 - c.emo.frustration * 0.2;
     const v = aimThrow(c.x, c.y, 1.2, tx, ty, 1.0, acc, this.rng, power);
     t.state = "flying"; t.holder = -1; t.thrower = c.id; t.throwTick = this.tick;
     t.x = c.x + Math.cos(c.facing) * 0.35; t.y = c.y + Math.sin(c.facing) * 0.35; t.z = c.z + 1.2;

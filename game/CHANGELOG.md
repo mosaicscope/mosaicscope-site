@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Upgrade roadmap and game interface
+- Added 77 purchasable upgrades across skills, crew, home, money, city, style and the Mosaics (roadmap items 12–77 and 89–99).
+- Wired purchases into throwing, stealth, food, repair costs, justice, shifts, savings, businesses, crew healing, transport, stash storage, photo filters and animated world effects.
+- Added crew recruitment, loyalty, titles, backup, portraits, an animal companion and an original album track unlocked through crew activities.
+- Added gamepad controls, palette and device presets, control presets, F5 quick-save, F9 cinema mode, tab auto-pause, minimap pins and recorded event-chain playback. Existing save export/import and text scaling remain available.
+- Rebuilt the city HUD and action dock, life dashboard and upgrade browser for desktop and touch screens.
+- Rebuilt the Tessera casino lobby and navigation with table cards, wallet and session totals, recent results and mobile layouts. Active rounds must finish before changing tables or leaving.
+- Save format v8 migrates existing games and retains purchases and crew progress.
+
+
 ### Batch 1: real life
 - Sleep and fatigue affect mood, work safety and driving risk.
 - Diet and hunger track meal quality, hunger and weight.
@@ -88,4 +98,4 @@
 ## Player body upgrades
 - Added purchasable gym tiers and ten body upgrades to the Life phone, persisted in saves.
 - Added sprint energy use, weather protection, treatment and recovery bonuses, and hearing protection.
-- Remaining roadmap: Player skills through Crew album (items 12-99).
+- Continued by the upgrade roadmap and interface release above.
