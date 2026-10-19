@@ -1,0 +1,1 @@
+export const COUNCIL = { ratesPerDay: 4, collectionTicks: 7 * 24 * 3600, ratesCap: 1200, lateFine: 25 } as const;

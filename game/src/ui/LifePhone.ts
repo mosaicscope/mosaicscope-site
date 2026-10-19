@@ -1,3 +1,4 @@
+import { BODY_UPGRADES, hasBody } from "../sim/life/body";
 import { h } from "./dom";
 import type { Simulation } from "../sim/Simulation";
 import type { ModalHost } from "./Modals";
@@ -12,6 +13,12 @@ import {
 } from "../sim/Chronicles";
 import { HOUR, DAY } from "../sim/Expansion";
 import { ENCOUNTERS } from "../content/encounters";
+import { COOKING } from "../content/life/cooking";
+import { GYM } from "../content/life/gym";
+import { VEHICLE_COMPLIANCE } from "../content/life/vehicleCompliance";
+import { BIRTHDAYS } from "../content/life/birthdays";
+import { FRIENDSHIPS } from "../content/life/friendships";
+import { BUDGET } from "../content/life/budget";
 import "./lifephone.css";
 
 type Screen =
@@ -155,7 +162,8 @@ export class LifePhone {
     if (el) el.scrollTop = scroll;
   }
   private home() {
-    const s = this.s;
+    const s = this.s,
+      life = s.systems;
     return [
       this.panel(
         "Your life, one phone",
@@ -167,6 +175,11 @@ export class LifePhone {
         ],
       ),
       this.panel(
+        "Player body",
+        `Hearing ${Math.round(s.body.hearing * 100)}%. Permanent upgrades saved with your character.`,
+        BODY_UPGRADES.map((u) => this.command(`${hasBody(s.body, u.id) ? "Owned: " : ""}${u.name} $${u.cost}: ${u.effect}`, "bodyUpgrade", u.id, hasBody(s.body, u.id))),
+      ),
+      this.panel(
         "Bank",
         `Savings ${money(s.savings)}. Move money between your pocket and savings; both are part of your save.`,
         [
@@ -174,6 +187,44 @@ export class LifePhone {
           this.command("Withdraw $50", "bank", "-50"),
         ],
       ),
+      this.panel(
+        "Bills and work",
+        `Weekly budget: rent $${BUDGET.rent} · power $${BUDGET.power} · phone $${BUDGET.phone} · groceries $${BUDGET.groceries}. Arrears $${life.budget.arrears} · ${life.jobSearch.message || s.career.role || "No job messages"} · last payslip net ${money(life.payslip.net)}.`,
+        [
+          this.command("Apply for work", "jobApply"),
+          this.command("Accept job offer", "jobAccept"),
+          this.command("Pay rental bond", "rentBond"),
+          this.command("Pay rent arrears", "rentPay"),
+          this.command("Rental inspection", "rentInspect"),
+          this.command("Pay council rates", "payRates"),
+        ],
+      ),
+      this.panel(
+        "Health and daily life",
+        `Fatigue ${Math.round(life.sleep.fatigue * 100)}% · hunger ${Math.round(life.diet.hunger * 100)}% · fitness ${Math.round(life.gym.fitness * 100)}% · ${life.licence.stage} licence · ${life.wof.expires > this.sim().tick && life.wof.regoExpires > this.sim().tick ? "WOF and rego current" : "WOF or rego expired"}.`,
+        [
+          this.command("Sleep", "sleep"),
+          this.command(`Cook a meal · ${money(COOKING.cost)}`, "cook"),
+          this.command(`Work out · ${money(GYM.cost)}`, "workout"),
+          this.command("Practice driving", "licencePractice"),
+          this.command("Take licence test", "licenceTest"),
+        ],
+      ),
+      this.panel(
+        "Vehicle paperwork",
+        `WOF due day ${Math.floor(life.wof.expires / DAY) + 1} · registration due day ${Math.floor(life.wof.regoExpires / DAY) + 1}.`,
+        [this.command(`Renew WOF · ${money(VEHICLE_COMPLIANCE.wofCost)}`, "wof"), this.command(`Renew rego · ${money(VEHICLE_COMPLIANCE.regoCost)}`, "rego")],
+      ),
+      this.panel(
+        "School and birthdays",
+        `${life.school.credits} study credit(s) · grade ${life.school.grade} · birthday gifts received ${life.birthdays.giftsReceived}.`,
+        [this.command("Study", "schoolStudy"), this.command("Sit exam", "schoolExam"), this.command(`Give birthday gift · ${money(BIRTHDAYS.giftReward)}`, "birthdayGift")],
+      ),
+      ...(s.dynasty.heirs.length ? [this.panel(
+        "Family",
+        `Youngest child: ${life.childhood.stage} · ${Math.floor(life.childhood.ageDays)} game days · ${life.childhood.schoolDays} school days · ${life.childhood.sportSessions} sport sessions · ${life.childhood.friendVisits} friend visits.`,
+        [this.command("School day", "childSchool"), this.command("Play sport", "childSport"), this.command("See friends", "childFriend"), this.command("Bedtime", "childBedtime")],
+      )] : []),
       this.panel(
         "Town newspaper",
         s.journal.length
@@ -568,9 +619,14 @@ export class LifePhone {
   private careers() {
     return [
       this.panel(
+        "Job search",
+        `${this.s.systems.jobSearch.message || "No applications yet."} Applications ${this.s.systems.jobSearch.applications}/5.`,
+        [this.command("Apply for work", "jobApply"), this.command("Accept offer", "jobAccept")],
+      ),
+      this.panel(
         "Qualifications open doors",
-        `Current job: ${this.s.career.role || "none"} · rank ${this.s.career.rank} · ${this.s.career.xp} shifts. Matching completed degrees are checked at interview.`,
-        [this.command("Work a shift", "shift")],
+        `Current job: ${this.s.career.role || "none"} · rank ${this.s.career.rank} · ${this.s.career.xp} shifts. Last payslip: $${this.s.systems.payslip.gross} gross, $${this.s.systems.payslip.tax} tax, $${this.s.systems.payslip.net} net. Matching completed degrees are checked at interview.`,
+        [this.command("Work a shift", "shift"), this.command(`Tax code ${this.s.systems.payslip.taxCode} · change to M`, "taxCode", "M"), this.command("Change to S", "taxCode", "S"), this.command(`Use sick leave · ${this.s.systems.payslip.sickLeave} left`, "sickDay")],
       ),
       ...Object.entries(QUALIFIED).map(([degree, job]) =>
         this.panel(
@@ -672,6 +728,9 @@ export class LifePhone {
           this.command("Insure · $40 joining", "insurance"),
           this.command("Call tow truck · $40", "tow"),
           this.command("Insurance claim · $50 excess", "claim"),
+          this.command(`Contest citation · ${this.s.systems.wof.citations} open`, "citationCase"),
+          this.command(`Renew WOF · ${money(VEHICLE_COMPLIANCE.wofCost)}`, "wof"),
+          this.command(`Renew rego · ${money(VEHICLE_COMPLIANCE.regoCost)}`, "rego"),
         ],
       ),
     ];
@@ -719,6 +778,7 @@ export class LifePhone {
         [
           this.command("Campaign stop · $20", "campaign"),
           this.command("Contest scheduled election", "elect"),
+          this.command("Vote in local election", "vote"),
         ],
       ),
       this.panel(
@@ -925,12 +985,22 @@ export class LifePhone {
     ];
   }
   private people() {
-    const s = this.s;
+    const s = this.s,
+      sim = this.sim();
+    const nearby = sim.chars
+      .filter((c) => c.id !== sim.playerId && Math.hypot(c.x - sim.player.x, c.y - sim.player.y) <= 12)
+      .sort((a, b) => Math.hypot(a.x - sim.player.x, a.y - sim.player.y) - Math.hypot(b.x - sim.player.x, b.y - sim.player.y))
+      .slice(0, 6);
     return [
       this.panel(
         "People remember",
         `${s.followups.filter((f) => f.done).length} completed callbacks. Your relationships, businesses, feuds and NPC life chapters persist in save slots.`,
       ),
+      ...nearby.map((c) => this.panel(
+        c.name,
+        `Friendship: ${sim.relate(c, sim.playerId).trust.toFixed(2)} trust · ${sim.relate(c, sim.playerId).aff.toFixed(2)} affection.`,
+        [this.command(`Give a gift · ${money(FRIENDSHIPS.giftCost)}`, "friendGift", String(c.id))],
+      )),
       ...Object.entries(s.npcs)
         .slice(0, 12)
         .map(([id, n]) =>

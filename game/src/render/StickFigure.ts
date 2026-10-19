@@ -52,11 +52,17 @@ export function pose(name: string, style: string, t: number, ph: number, speed: 
   const s = Math.sin(ph), c = Math.cos(ph);
   switch (name) {
     case "walk": {
-      // a leg swings forward while cos(ph) has its sign, so that is when its knee folds; the planted leg stays straight
-      A.thighL = s * 0.45; A.thighR = -s * 0.45; A.bendL = Math.max(0, c) * 0.5; A.bendR = Math.max(0, -c) * 0.5;
-      A.armL = -s * 0.42; A.armR = s * 0.42; A.foreL = 0.25; A.foreR = 0.25; A.bob = -Math.abs(c) * 2;
-      if (style === "swagger") { A.lean = -0.06; A.armR = s * 0.6; }
-      if (style === "bouncy") A.bob = -Math.abs(c) * 4;
+      // Keep the walk cycle compact and human: smaller leg/arm swings with a smoother body bounce.
+      const stride = 0.28 + Math.min(0.12, speed * 0.015);
+      const armSwing = 0.18 + Math.min(0.12, speed * 0.012);
+      A.thighL = s * stride; A.thighR = -s * stride;
+      A.bendL = Math.max(0, c) * 0.35; A.bendR = Math.max(0, -c) * 0.35;
+      A.armL = -s * armSwing; A.armR = s * armSwing;
+      A.foreL = 0.12; A.foreR = 0.12;
+      A.bob = -Math.abs(c) * 1.05;
+      A.lean = 0.06 * Math.sin(ph + 1.2);
+      if (style === "swagger") { A.lean = -0.04; A.armR = s * (armSwing + 0.12); }
+      if (style === "bouncy") A.bob = -Math.abs(c) * 1.6;
       break;
     }
     case "run": {

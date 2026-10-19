@@ -1,7 +1,16 @@
+import { BODY_UPGRADES, newBody, hasBody, gymMultiplier, type BodyState } from "./life/body";
 import type { Simulation } from "./Simulation";
 import { DAY, HOUR, ANIMALS, farmCapacity, settleRace } from "./Expansion";
 import { repairVehicle } from "./VehicleDamage";
 import { ENCOUNTERS } from "../content/encounters";
+import { newLifeSystems, type LifeSystemsState } from "./life/state";
+import { birthdays, cooking, council, diet, friendships, gym, jobSearch, licence, payslip, renting, sleep, school, vehicleCompliance, voting, stepLifeSystems } from "./life/index";
+import { COOKING } from "../content/life/cooking";
+import { GYM } from "../content/life/gym";
+import { VEHICLE_COMPLIANCE } from "../content/life/vehicleCompliance";
+import { FRIENDSHIPS } from "../content/life/friendships";
+import { BIRTHDAYS } from "../content/life/birthdays";
+import { applyLifeFine } from "./Society";
 
 export interface Field {
   stage: "grass" | "ploughed" | "sown" | "ready";
@@ -38,6 +47,8 @@ export interface Chronicle {
   y: number;
 }
 export interface LifeState {
+  body: BodyState;
+  systems: LifeSystemsState;
   lastHour: number;
   lastDay: number;
   serial: number;
@@ -145,6 +156,8 @@ export interface LifeState {
   lastAction: Record<string, number>;
 }
 export const newLife = (): LifeState => ({
+  body: newBody(),
+  systems: newLifeSystems(),
   lastHour: -1,
   lastDay: -1,
   serial: 1,
@@ -397,6 +410,32 @@ export function tickLife(sim: Simulation): void {
     s.scene = null;
   if (s.lastHour === hour) return;
   s.lastHour = hour;
+  if (hasBody(s.body, "vitamins")) sim.player.needs.energy = Math.min(1, sim.player.needs.energy + 0.03);
+  const party = sim.world.areaAt(sim.player.x, sim.player.y)?.kind === "stage" || sim.player.anim.pose === "dance";
+  s.body.hearing = party && !hasBody(s.body, "earplugs") ? Math.max(0.25, s.body.hearing - 0.01) : Math.min(1, s.body.hearing + 0.005);
+  if (hasBody(s.body, "stick")) for (const c of sim.chars)
+    if (c.id !== sim.playerId && c.tier !== "background" && Math.hypot(c.x - sim.player.x, c.y - sim.player.y) < 3)
+      c.emo.fear = Math.min(1, c.emo.fear + 0.04);
+  const lifeFlags = s.dynasty.heirs.length ? sim.lifeFlags : { ...sim.lifeFlags, childhood: false };
+  const vehicle = sim.player.inCar >= 0 ? sim.vehicles[sim.player.inCar] : null;
+  const driving = !!vehicle && Math.abs(vehicle.speed) > 0.5;
+  const lifeStep = stepLifeSystems(s.systems, sim.tick, sim.rng, sim.player.cash, s.savings, lifeFlags, driving, hasBody(s.body, "ice"));
+  s.systems = lifeStep.state;
+  if (sim.lifeFlags.dietHunger) sim.player.hunger = s.systems.diet.hunger;
+  if (sim.lifeFlags.sleepFatigue) {
+    const fatigue = s.systems.sleep.fatigue;
+    sim.player.emo.mood = Math.max(-1, sim.player.emo.mood - fatigue * 0.015);
+    sim.player.needs.energy = Math.max(0, sim.player.needs.energy - fatigue * 0.02);
+  }
+  for (const event of lifeStep.events) {
+    if (event.type === "life_bin_collection")
+      for (const id of sim.litter.stock.keys()) sim.litter.stock.set(id, 0);
+    if (event.fineAmount) event.summary = applyLifeFine(sim, event.fineAmount, event.type === "life_council_fine" ? "Council fine" : "Traffic fine");
+    if (event.cashDelta) sim.player.cash = Math.max(0, Math.round((sim.player.cash + event.cashDelta) * 100) / 100);
+    if (event.savingsDelta) s.savings = Math.round((s.savings + event.savingsDelta) * 100) / 100;
+    sim.emit({ type: event.type, x: sim.player.x, y: sim.player.y, actors: [sim.playerId], summary: event.summary });
+    note(sim, event.summary, "life");
+  }
   syncStock(sim);
   for (const field of s.farm.fields) {
     if (field.stage === "sown") {
@@ -602,6 +641,173 @@ export function action(sim: Simulation, key: string, arg = ""): string {
     p = sim.player;
   const fail = (text: string) => text;
   const done = (text: string, kind = key) => note(sim, text, kind);
+  const lifeEvent = (type: string, text: string) => {
+    sim.emit({ type, x: p.x, y: p.y, actors: [p.id], summary: text });
+    return done(text, "life");
+  };
+  if (key === "bodyUpgrade") {
+    const item = BODY_UPGRADES.find((u) => u.id === arg);
+    if (!item) return fail("Unknown body upgrade.");
+    if (hasBody(s.body, item.id)) return fail("Already owned.");
+    if (!pay(sim, item.cost)) return fail(`You need $${item.cost}.`);
+    s.body.owned.push(item.id);
+    return done(`${item.name} purchased. ${item.effect}`, "body");
+  }
+  if (key === "sleep") {
+    if (!sim.lifeFlags.sleepFatigue) return fail("Sleep and fatigue are switched off.");
+    s.systems.sleep = sleep.beginSleep(s.systems.sleep, sim.tick);
+    return lifeEvent("life_sleep_started", "You settled in for eight game hours of sleep.");
+  }
+  if (key === "childSchool" || key === "childSport" || key === "childFriend" || key === "childBedtime") {
+    if (!sim.lifeFlags.childhood || !s.dynasty.heirs.length) return fail("Add a child to your household first.");
+    const child = s.systems.childhood;
+    if (key === "childSchool") child.schoolDays++;
+    if (key === "childSport") { child.sportSessions++; s.systems.gym.fitness = Math.min(1, s.systems.gym.fitness + 0.03); }
+    if (key === "childFriend") child.friendVisits++;
+    if (key === "childBedtime") child.bedtimeUntil = sim.tick + HOUR * 8;
+    const activity = key === "childSchool" ? "school" : key === "childSport" ? "sport" : key === "childFriend" ? "friend time" : "bedtime";
+    return lifeEvent("life_child_activity", `Family time: ${activity}.`);
+  }
+  if (key === "cook") {
+    if (!sim.lifeFlags.cooking || !sim.lifeFlags.dietHunger) return fail("Cooking or diet is switched off.");
+    const meal = cooking.cook(s.systems.cooking, sim.tick);
+    if (!meal) return fail("Give cooking an hour between meals.");
+    if (!pay(sim, COOKING.cost)) return fail(`Groceries cost $${COOKING.cost}.`);
+    s.systems.cooking = meal;
+    s.systems.diet = diet.eat(s.systems.diet, meal.quality);
+    p.hunger = s.systems.diet.hunger;
+    p.needs.energy = Math.min(1, p.needs.energy + COOKING.energyGain);
+    return lifeEvent("life_cooked", "You cooked a decent meal. Hunger and energy improved.");
+  }
+  if (key === "workout") {
+    if (!sim.lifeFlags.gymFitness) return fail("Gym and fitness are switched off.");
+    const trained = gym.workout(s.systems.gym, sim.tick);
+    if (!trained) return fail("Give your muscles a day to recover between sessions.");
+    if (!pay(sim, GYM.cost)) return fail(`A gym session costs $${GYM.cost}.`);
+    trained.fitness = Math.min(1, s.systems.gym.fitness + (trained.fitness - s.systems.gym.fitness) * gymMultiplier(s.body));
+    s.systems.gym = trained;
+    p.needs.energy = Math.max(0, p.needs.energy - 0.15);
+    return lifeEvent("life_workout", "Workout done. Fitness improved; energy dipped a little.");
+  }
+  if (key === "jobApply") {
+    if (!sim.lifeFlags.jobSearch) return fail("Job search is switched off.");
+    const next = jobSearch.apply(s.systems.jobSearch, sim.tick);
+    if (next === s.systems.jobSearch) return fail("You have an application in progress or have reached the application limit.");
+    s.systems.jobSearch = next;
+    return lifeEvent("life_job_applied", next.message);
+  }
+  if (key === "jobAccept") {
+    if (!sim.lifeFlags.jobSearch || !s.systems.jobSearch.message.startsWith("Reply: interview offer")) return fail("There is no job offer to accept yet.");
+    s.career.role = "Cafe assistant";
+    s.career.rank = Math.max(1, s.career.rank);
+    s.systems.jobSearch.message = "You accepted a Cafe assistant job.";
+    return lifeEvent("life_job_accepted", s.systems.jobSearch.message);
+  }
+  if (key === "rentBond") {
+    if (!sim.lifeFlags.renting) return fail("Renting is switched off.");
+    const result = renting.moveIn(s.systems.renting, p.cash);
+    if (!result) return fail("You already have a place, or need four weeks of rent for the bond.");
+    p.cash += result.cashDelta;
+    s.systems.renting = result.state;
+    return lifeEvent("life_rent_bond", "Bond paid. Your rental is secured.");
+  }
+  if (key === "rentPay") {
+    if (!sim.lifeFlags.renting || !s.systems.renting.bondPaid) return fail("Secure a rental first.");
+    const amount = Math.min(s.systems.renting.weeklyRent, s.systems.budget.arrears);
+    if (!amount) return fail("No rent arrears are due.");
+    if (!pay(sim, amount)) return fail(`Weekly rent is $${amount}.`);
+    s.systems.budget.arrears -= amount;
+    return lifeEvent("life_rent_paid", `You paid $${amount} towards rent arrears.`);
+  }
+  if (key === "rentInspect") {
+    if (!sim.lifeFlags.renting || !s.systems.renting.bondPaid) return fail("Secure a rental first.");
+    const next = renting.inspect(s.systems.renting, sim.tick);
+    if (!next) return fail("The property manager won't inspect again yet.");
+    s.systems.renting = next;
+    return lifeEvent("life_rent_inspection", "Rental inspection complete. The place passed.");
+  }
+  if (key === "licencePractice") {
+    if (!sim.lifeFlags.driverLicence) return fail("Driver licensing is switched off.");
+    const next = licence.practice(s.systems.licence, sim.tick);
+    if (!next) return fail("Driving practice takes one game hour between sessions.");
+    s.systems.licence = next;
+    return lifeEvent("life_licence_practice", `Driving practice logged: ${s.systems.licence.practiceHours} hour(s).`);
+  }
+  if (key === "licenceTest") {
+    if (!sim.lifeFlags.driverLicence) return fail("Driver licensing is switched off.");
+    const result = licence.test(s.systems.licence, sim.rng);
+    if (result.state === s.systems.licence) return fail("You need more practice before the next test.");
+    s.systems.licence = result.state;
+    return lifeEvent("life_licence_test", result.passed ? `Passed. You now have a ${result.state.stage} licence.` : "Not quite. Practise a little more and try again.");
+  }
+  if (key === "wof" || key === "rego") {
+    if (!sim.lifeFlags.vehicleCompliance) return fail("Vehicle paperwork is switched off.");
+    const amount = key === "wof" ? VEHICLE_COMPLIANCE.wofCost : VEHICLE_COMPLIANCE.regoCost;
+    if (!pay(sim, amount)) return fail(`${key.toUpperCase()} renewal costs $${amount}.`);
+    s.systems.wof = vehicleCompliance.renew(s.systems.wof, sim.tick, key);
+    return lifeEvent(key === "wof" ? "life_wof_renewed" : "life_rego_renewed", `${key.toUpperCase()} renewed for six game months.`);
+  }
+  if (key === "schoolStudy") {
+    if (!sim.lifeFlags.schoolExams) return fail("School and exams are switched off.");
+    const next = school.study(s.systems.school, sim.tick);
+    if (!next) return fail("You can study once per game hour.");
+    s.systems.school = next;
+    return lifeEvent("life_school_study", `Study session complete. ${next.credits} credit(s) ready for an exam.`);
+  }
+  if (key === "schoolExam") {
+    if (!sim.lifeFlags.schoolExams) return fail("School and exams are switched off.");
+    const result = school.sitExam(s.systems.school, sim.rng);
+    if (!s.systems.school.credits) return fail("Study first, then sit an exam.");
+    s.systems.school = result.state;
+    return lifeEvent("life_school_exam", result.passed ? `Exam passed. Grade progress: ${result.state.grade}.` : "Exam not passed this time. Your study credits are still yours.");
+  }
+  if (key === "friendGift") {
+    if (!sim.lifeFlags.friendships) return fail("Friendship gifts are switched off.");
+    const target = sim.chars[Number(arg)];
+    if (!target || target.id === p.id) return fail("Choose a friend to give a gift to.");
+    if (Math.hypot(target.x - p.x, target.y - p.y) > 12) return fail("Meet up with them before sending a gift.");
+    const rel = sim.relate(target, p.id);
+    const result = friendships.gift(s.systems.friendships, sim.tick, rel.trust);
+    if (!result) return fail("Give it a day between gifts.");
+    if (!pay(sim, FRIENDSHIPS.giftCost)) return fail(`A gift costs $${FRIENDSHIPS.giftCost}.`);
+    rel.trust = result.trust;
+    rel.aff = Math.min(1, rel.aff + 0.05);
+    s.systems.friendships = result.state;
+    return lifeEvent("life_friend_gift", `You sent ${target.name} a small gift. Trust grew.`);
+  }
+  if (key === "birthdayGift") {
+    if (!sim.lifeFlags.birthdaysGifts) return fail("Birthday gifts are switched off.");
+    if (!pay(sim, BIRTHDAYS.giftReward)) return fail(`A birthday gift costs $${BIRTHDAYS.giftReward}.`);
+    s.systems.birthdays = birthdays.giveGift(s.systems.birthdays);
+    return lifeEvent("life_birthday_gift", "You gave a birthday gift. It was appreciated.");
+  }
+  if (key === "payRates") {
+    if (!sim.lifeFlags.councilRatesBins || (!s.systems.council.ratesDue && !s.systems.council.fines)) return fail("No council rates or fines are due.");
+    const due = s.systems.council.ratesDue + s.systems.council.fines;
+    if (!pay(sim, due)) return fail(`Council rates due: $${due}.`);
+    s.systems.council = council.payRates(s.systems.council);
+    return lifeEvent("life_rates_paid", `Council rates paid: $${due}.`);
+  }
+  if (key === "vote") {
+    if (!sim.lifeFlags.voting) return fail("Voting is switched off.");
+    const next = voting.vote(s.systems.voting, sim.tick);
+    if (!next) return fail("You already voted in this election.");
+    s.systems.voting = next;
+    return lifeEvent("life_vote", "You voted in the local election.");
+  }
+  if (key === "taxCode") {
+    if (!sim.lifeFlags.payslips || (arg !== "M" && arg !== "S")) return fail("Choose a valid tax code.");
+    s.systems.payslip = payslip.setTaxCode(s.systems.payslip, arg);
+    return lifeEvent("life_tax_code", `Tax code set to ${arg}.`);
+  }
+  if (key === "sickDay") {
+    if (!sim.lifeFlags.payslips || !s.career.role || s.systems.payslip.sickLeave <= 0) return fail("You need a job and available sick leave.");
+    const remaining = s.systems.payslip.sickLeave - 1;
+    const slip = payslip.pay(s.systems.payslip, 50);
+    s.systems.payslip = { ...slip.state, sickLeave: remaining };
+    reward(sim, slip.net);
+    return lifeEvent("life_payslip", `Sick day paid $${slip.net} after $${slip.tax} tax. ${remaining} day(s) remain.`);
+  }
   if (key === "bank") {
     const n = Number(arg);
     if (!Number.isFinite(n) || n === 0) return fail("Choose a valid amount.");
@@ -844,6 +1050,7 @@ export function action(sim: Simulation, key: string, arg = ""): string {
       return fail(
         "Family capacity is four heirs; preparing a room costs $100.",
       );
+    if (!s.dynasty.heirs.length) s.systems.childhood = { ageDays: 0, stage: "child", schoolDays: 0, sportSessions: 0, friendVisits: 0, bedtimeUntil: 0, lastTick: sim.tick };
     s.dynasty.heirs.push({
       name: arg.trim().slice(0, 24) || `Heir ${s.dynasty.heirs.length + 1}`,
       age: 0,
@@ -928,6 +1135,14 @@ export function action(sim: Simulation, key: string, arg = ""): string {
     schedule(sim, "Court hearing: sausage-roll dispute", s.court.due, "court");
     return done("Case filed. Gather evidence before the hearing.");
   }
+  if (key === "citationCase") {
+    if (!sim.lifeFlags.vehicleCompliance || !s.systems.wof.citations)
+      return fail("There are no traffic citations to review.");
+    if (s.court) return fail("Resolve your current case first.");
+    s.court = { defendant: "Council traffic office", claim: "Traffic citation", evidence: 0, due: sim.tick + HOUR };
+    schedule(sim, "Court review: traffic citation", s.court.due, "citation");
+    return done("Traffic citation review filed. Bring evidence and return for the hearing.");
+  }
   if (key === "evidence") {
     if (!s.court || !every(sim, key, HOUR))
       return fail(
@@ -939,8 +1154,19 @@ export function action(sim: Simulation, key: string, arg = ""): string {
   if (key === "hearing") {
     if (!s.court || sim.tick < s.court.due)
       return fail("Wait for the scheduled hearing.");
-    const won = s.court.evidence + (s.career.role === "Solicitor" ? 2 : 0) >= 2;
+    const trafficCase = s.court.claim === "Traffic citation";
+    const won = trafficCase
+      ? s.court.evidence >= 1 && vehicleCompliance.isRoadLegal(s.systems.wof, sim.tick)
+      : s.court.evidence + (s.career.role === "Solicitor" ? 2 : 0) >= 2;
     s.court = null;
+    if (trafficCase) {
+      if (won) {
+        s.systems.wof.citations = Math.max(0, s.systems.wof.citations - 1);
+        s.systems.budget.arrears = Math.max(0, s.systems.budget.arrears - VEHICLE_COMPLIANCE.expiredFine);
+        return done("Court upheld your appeal. The citation and its unpaid balance were cleared.");
+      }
+      return done("Court upheld the citation. The fine remains due.");
+    }
     if (won) {
       reward(sim, 180);
       s.precedent = true;
@@ -1064,15 +1290,19 @@ export function action(sim: Simulation, key: string, arg = ""): string {
   if (key === "shift") {
     if (!s.career.role || sim.tick - s.career.lastShift < HOUR * 3)
       return fail("Get a qualified job; shifts have a three-hour cooldown.");
+    const fatigue = sim.lifeFlags.sleepFatigue ? s.systems.sleep.fatigue : 0;
+    if (fatigue >= 0.95) return fail("You are too exhausted for a safe shift. Get some sleep first.");
     s.career.lastShift = sim.tick;
     s.career.xp++;
     if (s.career.xp % 3 === 0) s.career.rank++;
-    const wage = Math.round((70 + s.career.rank * 20) * (1 + e.level * 0.2));
-    reward(sim, wage);
+    const gross = Math.round((70 + s.career.rank * 20) * (1 + e.level * 0.2) * (fatigue >= 0.65 ? 0.8 : 1));
+    const slip = sim.lifeFlags.payslips ? payslip.pay(s.systems.payslip, gross) : { state: s.systems.payslip, net: gross, tax: 0 };
+    s.systems.payslip = slip.state;
+    reward(sim, slip.net);
     p.hunger = Math.max(0, p.hunger - 0.1);
-    return done(
-      `${s.career.role} shift paid $${wage}. Rank ${s.career.rank}; ${s.career.xp} shifts completed.`,
-    );
+    const text = `${s.career.role} shift: $${gross} gross, $${slip.tax} tax, $${slip.net} take-home. Rank ${s.career.rank}; ${s.career.xp} shifts completed.`;
+    if (sim.lifeFlags.payslips) sim.emit({ type: "life_payslip", x: p.x, y: p.y, actors: [p.id], summary: text });
+    return done(text);
   }
   if (key === "insurance") {
     if (s.insurance.active) return fail("Insurance is already active.");

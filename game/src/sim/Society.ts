@@ -10,6 +10,25 @@ import { Building, Graffiti, T } from "../world/World";
 import { forceGoal } from "../ai/brain";
 import { isCareBuilding, noteEnter, careOutcome } from "../mind/Psychopathology";
 import { chooseFood, onConsume, learnPlace, welcomeReward, noteGamble, chaseProbability, stakeFactor } from "../mind/Mind";
+import { ARREARS_CAP, collect } from "./Arrears";
+
+/** Traffic fines use the same cash and arrears path as the rest of the city's justice system. */
+export function applyLifeFine(sim: Simulation, amount: number, reason = "Traffic fine"): string {
+  const fine = Math.max(0, Math.round(amount));
+  const paid = Math.min(sim.player.cash, fine);
+  sim.player.cash -= paid;
+  const unpaid = fine - paid;
+  const councilFine = reason.startsWith("Council");
+  if (unpaid) {
+    if (councilFine) sim.life.systems.council.fines += unpaid;
+    else {
+      const debt = collect(0, sim.life.systems.budget.arrears + unpaid);
+      sim.life.systems.budget.arrears = Math.min(ARREARS_CAP, debt.left);
+    }
+    sim.life.appointments.push({ id: sim.life.serial++, title: councilFine ? "Council fine review" : "Council traffic fine review", due: sim.tick + 24 * 3600, kind: councilFine ? "councilFine" : "citation", done: false });
+  }
+  return `${reason} $${fine}: $${paid} paid, $${unpaid} added to arrears.`;
+}
 
 /* =============================== economy =============================== */
 

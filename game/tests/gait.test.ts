@@ -18,4 +18,14 @@ describe("personal gait", () => {
     const pts = (id: number) => { const A = pose("walk", "loose", 1, 0.7, 2, 0); applyGait(A, gaitOf(id)); solve(A, 0, 0, 1, 1); return Array.from(J.slice(0, 8)).map((v) => v.toFixed(2)).join(","); };
     expect(pts(3)).not.toBe(pts(4));
   });
+  it("keeps the walk cycle compact and controlled instead of flailing", () => {
+    const samples = Array.from({ length: 12 }, (_, i) => {
+      const ph = (i / 12) * Math.PI * 2;
+      const A = pose("walk", "loose", 1, ph, 2, 0);
+      return { arm: Math.abs(A.armL), thigh: Math.abs(A.thighL), bob: Math.abs(A.bob) };
+    });
+    expect(Math.max(...samples.map((s) => s.arm))).toBeLessThan(0.25);
+    expect(Math.max(...samples.map((s) => s.thigh))).toBeLessThan(0.32);
+    expect(Math.max(...samples.map((s) => s.bob))).toBeLessThan(1.5);
+  });
 });

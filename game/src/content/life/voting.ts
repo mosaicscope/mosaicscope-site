@@ -1,0 +1,1 @@
+export const VOTING = { electionPeriod: 365 * 24 * 3600 } as const;

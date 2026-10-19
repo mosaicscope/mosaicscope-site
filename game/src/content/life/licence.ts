@@ -1,0 +1,1 @@
+export const LICENCE = { practiceForRestricted: 12, practiceForFull: 24, practiceCooldown: 3600, testPassChance: 0.75 } as const;

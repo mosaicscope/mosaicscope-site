@@ -1,10 +1,5 @@
 import { ISSUES } from "./FaceIssues";
-/**
- * Procedural face "genes": ~107 tiny part variants (x8 tones) in 14 slots (iris, liner, glasses, brow pierce, nose bit, cheek,
- * forehead, face paint, mouth bit, ear, chin, scar, tattoo, age) plus continuous jitter, combined by one integer
- * seed. Nothing is stored per face but that seed, so there are no assets and the bundle stays flat.
- * The product of the tables is ~10^15 faces; the seed gives 2^31 of them.
- */
+/** Seeded face details: 14 slots, 100+ variants; saves store one seed and need no art assets. */
 export interface FaceCtx { x: number; y: number; k: number; dir: number; lw: number; col: string; alpha: number; fx: number; ey: number; my: number; rx: number; ry: number; covered: boolean }
 export type Draw = (g: CanvasRenderingContext2D, c: FaceCtx, t: string) => void;
 

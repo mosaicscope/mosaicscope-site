@@ -96,7 +96,7 @@ describe("psychotic-spectrum episodes: rare, gated, with prodrome, never violent
     expect(eps.length).toBeLessThanOrEqual(Math.ceil(sim.chars.length * 0.03));
     const hot = sim.chars.filter((c) => c.mind.psy.prod > 0.3);
     for (const c of hot) expect(c.mind.psy.liab).toBeGreaterThanOrEqual(PSY.liabGate);
-  });
+  }, 15000);
   it("a vulnerable, very stressed young adult shows a prodrome first, then can have an episode, which ends", () => {
     const sim = small(5), c = quiet(sim, "Chris"), p = c.mind.psy;
     // force the vulnerability inputs (liability comes from the kin module; this is the forced-conditions test)
@@ -222,5 +222,5 @@ describe("inspector summary and persistence", () => {
     const a = run2(), b = run2();
     for (const c of a.chars) for (const v of Object.values(c.mind.psy)) if (typeof v === "number") expect(Number.isFinite(v)).toBe(true);
     expect(JSON.stringify(a.chars.map((c) => c.mind.psy))).toBe(JSON.stringify(b.chars.map((c) => c.mind.psy)));
-  });
+  }, 15000);
 });

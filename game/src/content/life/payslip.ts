@@ -1,0 +1,1 @@
+export const PAYSLIP = { taxRates: { M: 0.17, S: 0.25 }, sickLeaveDays: 10, hoursPerShift: 8 } as const;

@@ -1,0 +1,1 @@
+export const VEHICLE_COMPLIANCE = { renewalTicks: 180 * 24 * 3600, wofCost: 65, regoCost: 45, expiredFine: 120 } as const;

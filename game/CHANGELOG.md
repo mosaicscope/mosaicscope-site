@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+### Batch 1: real life
+- Sleep and fatigue affect mood, work safety and driving risk.
+- Diet and hunger track meal quality, hunger and weight.
+- Injuries recover over time and can leave scars.
+- Children progress through childhood, teen and adult stages.
+- Weekly budgets cover rent, power, phone and groceries; shortfalls become arrears.
+- Savings earn weekly interest.
+- Job applications return seeded offers or rejections.
+- Shifts produce gross pay, tax and take-home payslips.
+- Renting includes bond, rent rises and inspections.
+- Driver licences progress from learner to restricted to full through practice and tests.
+- WOF and registration expire; driving out of compliance can bring a fine and court review.
+- School study earns credits for seeded exams and grades.
+- Gifts build on existing character relationships.
+- Birthdays create annual milestones and support gifts.
+- Council rates accrue and street-bin stock is collected weekly.
+- Local voting records election participation.
+- Gym sessions improve fitness with a recovery cooldown.
+- Cooking uses groceries to improve hunger and energy.
+- All 18 systems have default-on switches, saved state and focused tests.
 - Sound mix with tact: a central mix rule so the street never piles up. Footsteps are yours plus at most the nearest one or two others (muted taps, close only), crashes and horns beat doors and clinks, which beat footsteps and birds, with hard caps and spacing, a quieter world-sound bus under the music, fewer engines, softer weather and crowd beds, and a short duck of the ambience on big sounds. The older effects obey the same rule. Tighter 2D falloff.
 - Hunter: every shop type gets its own tiny door jingle (17 of them, original), puddle splashes and wet footsteps in heavy rain, drip echoes off awnings, and a faint distant train that rumbles and clacks past every ~95s, louder near the airport (the nearest thing the city has to a station) with a long horn on arrival. All procedural, on the world-sound bus (J mutes).
 - Hunter S Bombson's in-world sound layer (`src/audio/Diegetic.ts`, all synthesised, no samples): footsteps by surface (pave, road, grass, sand, court, gravel, wood and tile indoors, splashier in the rain), engines for all 12 car classes with gears and doppler as they pass, V8 burble and JDM pops, horns, police yelp and ambulance hi-lo sirens, crashes, car doors and ignition, rain, wind and thunder, birds by day (sparrow, warble, a tui) and crickets by night, distant traffic and crowd murmur that follow the camera and how busy the area is, shop bells and door latches, cans clinking, bin rummaging, the Avon Recycling Centre's machinery and coin drop, fountains, a food-truck sizzle, fridge hum in the cafes and diners, bass leaking through club walls, Terrance's clipped red-guy voice. Indoors the outside world is muffled; the 2D street view gets a flatter side-on mix. It has its own mute (J) and "World sound volume" setting, separate from the soundtrack (N mutes music only), a capped voice count and a smaller pool on phones.
@@ -64,3 +84,8 @@
 - UI: inspector, event log, dialogue, settings, saves (3 slots, schema v3, v1→v2→v3 migrations), tutorial, touch controls, developer panel.
 - Audio: synthesised spatial sound (off by default).
 - Tooling: 67 unit/integration tests, browser smoke test (14 checks), headless and in-browser benchmarks, feature catalogue generator (1,135 entries, honestly labelled).
+
+## Player body upgrades
+- Added purchasable gym tiers and ten body upgrades to the Life phone, persisted in saves.
+- Added sprint energy use, weather protection, treatment and recovery bonuses, and hearing protection.
+- Remaining roadmap: Player skills through Crew album (items 12-99).

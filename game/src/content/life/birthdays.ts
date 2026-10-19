@@ -1,0 +1,1 @@
+export const BIRTHDAYS = { yearTicks: 365 * 24 * 3600, giftReward: 10 } as const;

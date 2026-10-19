@@ -3335,4 +3335,13 @@ export const LIFE: Exchange[] = [{"id":"life1_debt_mince","tags":["a:mobster","b
 {"id":"life5_last_bus_left_294","tags":["a:local","b:local","late","@street"],"lines":["Last bus left.","Walk?","It's four kilometres.","We'll sing."]},
 {"id":"life5_smell_that_295","tags":["a:local","b:local","late","@street"],"lines":["Smell that?","Hot chips?","Pie cart.","Run."]},
 {"id":"life5_bring_a_lucky_charm_296","tags":["a:local","b:local","night","@casino"],"lines":["Bring a lucky charm.","I brought my cat.","Where's your cat?","In my coat. It's a calm cat."]},
-{"id":"life5_free_drinks_297","tags":["a:local","b:local","night","@casino"],"lines":["Free drinks?","For the players.","I'm playing.","You're pushing a button."]}];
+{"id":"life5_free_drinks_297","tags":["a:local","b:local","night","@casino"],"lines":["Free drinks?","For the players.","I'm playing.","You're pushing a button."]},
+{"id":"batch1_life_sleep","tags":["a:tired","b:local"],"lines":["You look knackered.","Been awake all night.","Go home and sleep.","After one more pie."]},
+{"id":"batch1_life_rent","tags":["a:local","b:local","@residential"],"lines":["Rent went up again.","Did they fix the leak?","They sent a bucket.","At least the bucket's included."]},
+{"id":"batch1_life_job","tags":["a:local","b:local","a:broke"],"lines":["Got a job interview tomorrow.","How are you feeling?","Nervous. I ironed my shirt.","That's already a strong start."]},
+{"id":"batch1_life_payslip","tags":["a:office","b:office"],"lines":["Payslip came in.","Good week?","Tax got there first.","It always knows the payday."]},
+{"id":"batch1_life_cooking","tags":["a:local","b:local","a:hungry"],"lines":["What are you making?","Dinner. Something healthy.","Is that a pie?","It's round vegetables and optimism."]},
+{"id":"batch1_life_gym","tags":["a:local","b:local","@shops"],"lines":["How was the gym?","Great. I lifted a weight.","Was it a long session?","It was a very confident weight."]},
+{"id":"batch1_life_exam","tags":["a:student","b:student"],"lines":["How'd the exam go?","I knew every answer.","Nice!","Then the paper was upside down."]},
+{"id":"batch1_life_wof","tags":["a:driver","b:mechanic"],"lines":["WOF's due this week.","Car behaving?","It made a new noise.","They all do. This one's in tune."]},
+{"id":"batch1_life_birthday","tags":["a:local","b:local","a:happy"],"lines":["Happy birthday! I got you something.","You remembered!","Course I did.","Is it a pie?","It's a very special pie."]}];

@@ -1,0 +1,1 @@
+export const GYM = { cost: 8, fitnessGain: 0.08, cooldown: 24 * 3600 } as const;

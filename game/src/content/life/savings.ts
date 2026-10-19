@@ -1,0 +1,1 @@
+export const SAVINGS = { weeklyInterestRate: 0.002, weekTicks: 7 * 24 * 3600 } as const;

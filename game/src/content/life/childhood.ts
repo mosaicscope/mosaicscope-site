@@ -1,0 +1,1 @@
+export const CHILDHOOD = { teenAtDays: 13, adultAtDays: 18, schoolDaysPerWeek: 5 } as const;

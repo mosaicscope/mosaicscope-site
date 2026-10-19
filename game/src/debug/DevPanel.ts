@@ -1,6 +1,6 @@
 import type { Simulation } from "../sim/Simulation";
 import type { Renderer } from "../render/Renderer";
-import { DebugFlags, DEBUG_LABELS } from "./flags";
+import { DebugFlags, DEBUG_LABELS, LifeSystemFlags, LIFE_SYSTEM_LABELS } from "./flags";
 import { h } from "../ui/dom";
 import { TOYS } from "../content/toys";
 import { LodManager } from "../crowd/LodManager";
@@ -12,7 +12,7 @@ export class DevPanel {
   private graph: HTMLCanvasElement;
   private frames: number[] = [];
   private lastUpdate = 0;
-  constructor(private sim: () => Simulation, private renderer: Renderer, public flags: DebugFlags, private ctl: {
+  constructor(private sim: () => Simulation, private renderer: Renderer, public flags: DebugFlags, lifeFlags: LifeSystemFlags, private ctl: {
     quality: () => string; speed: () => number; fps: () => number; tickRate: () => number;
     reset: (seed?: number) => void; teleport: () => void; toast: (t: string) => void;
   }) {
@@ -20,6 +20,8 @@ export class DevPanel {
     this.graph = h("canvas", { width: 360, height: 50, "aria-hidden": "true" }) as HTMLCanvasElement;
     const toggles = h("div.toggles", null, (Object.keys(DEBUG_LABELS) as (keyof DebugFlags)[]).map((k) =>
       h("label", null, [h("input", { type: "checkbox", checked: flags[k], onchange: (e: Event) => { flags[k] = (e.target as HTMLInputElement).checked; } }), DEBUG_LABELS[k]])));
+    const lifeToggles = h("div.toggles", null, (Object.keys(LIFE_SYSTEM_LABELS) as (keyof LifeSystemFlags)[]).map((k) =>
+      h("label", null, [h("input", { type: "checkbox", checked: lifeFlags[k], onchange: (e: Event) => { lifeFlags[k] = (e.target as HTMLInputElement).checked; } }), LIFE_SYSTEM_LABELS[k]])));
     const toySel = h("select", { "aria-label": "Toy to spawn" }, Object.keys(TOYS).map((k) => h("option", { value: k, text: k }))) as HTMLSelectElement;
     const evSel = h("select", { "aria-label": "Event to trigger" }, ["party", "blackout", "rain", "storm", "clear", "argument", "toy_fight", "panic", "rare_meteor"].map((k) => h("option", { value: k, text: k }))) as HTMLSelectElement;
     const seedIn = h("input", { type: "number", "aria-label": "Seed", style: { width: "110px" }, value: String(this.sim().cfg.seed) }) as HTMLInputElement;
@@ -33,7 +35,7 @@ export class DevPanel {
     ]);
     this.el = h("section.panel.dev.hidden", { "aria-label": "Developer panel", role: "region" }, [
       h("button.x", { "aria-label": "Close developer panel", onclick: () => this.toggle(false), text: "×" }),
-      h("h2", { text: "Developer" }), this.grid, this.graph, h("h3", { text: "Overlays" }), toggles, h("h3", { text: "Controls" }), ctrls,
+      h("h2", { text: "Developer" }), this.grid, this.graph, h("h3", { text: "Overlays" }), toggles, h("h3", { text: "Life systems" }), lifeToggles, h("h3", { text: "Controls" }), ctrls,
       h("p", { style: { color: "var(--dim)", margin: "8px 0 0" }, text: "Dev tools are separate from play. Seeds make runs reproducible." }),
     ]);
   }

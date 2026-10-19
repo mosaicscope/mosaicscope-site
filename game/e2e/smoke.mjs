@@ -31,9 +31,13 @@ await check("first-run tutorial appears and can be skipped", async () => {
   await page.getByRole("button", { name: "Skip" }).click();
   assert(!(await page.getByRole("dialog", { name: "Tutorial" }).isVisible()), "tutorial still visible");
 });
-await check("game booted with 400+ simulated people", async () => {
-  const n = await G(() => window.__mosaics.sim.chars.length);
-  assert(n >= 400, "only " + n);
+await check("game booted with its configured population", async () => {
+  const { n, expected } = await G(() => {
+    const s = window.__mosaics.sim;
+    const principals = s.chars.filter((c) => c.tier === "principal").length;
+    return { n: s.chars.length, expected: 1 + principals + s.cfg.midCount + s.cfg.backgroundCount };
+  });
+  assert(n >= expected, `${n} people; expected at least ${expected} from the simulation settings`);
 });
 await check("canvas renders a varied image (not blank)", async () => {
   const colours = await G(() => {
@@ -199,6 +203,7 @@ await check("get into a parked car, drive it, get out", async () => {
   const id = await G(() => {
     const g = window.__mosaics, s = g.sim, p = s.player;
     const v = s.vehicles.find((x) => x.state === "parked" && x.driver < 0 && !x.forSale);
+    s.life.systems.licence.stage = "restricted";
     v.owner = p.id; // your own car: no theft, no cops
     p.x = p.px = v.x + 1; p.y = p.py = v.y; p.wanted = 0; for (const c of s.chars) if (c.pursuing === p.id) c.pursuing = -1;
     return v.id;

@@ -12,6 +12,7 @@ import { Group } from "../social/Groups";
 import { StorageProvider, NS } from "./storage";
 import { ensureMind, newMind } from "../mind/Mind";
 import { SavedLitter, serializeLitter, restoreLitter } from "../sim/Litter";
+import { newLifeSystemFlags, type LifeSystemFlags } from "../debug/flags";
 
 /**
  * Versioned saves. The world layout is regenerated from the seed (deterministic), so a save stores
@@ -20,7 +21,7 @@ import { SavedLitter, serializeLitter, restoreLitter } from "../sim/Litter";
  * and event history. Transient AI state (paths,
  * current plans) is dropped and rebuilt by the AI on load.
  */
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 /** v3 packs the two biggest structures into tuples (about half the size of objects). */
 /** v5 appends the Ebbinghaus rehearsal count and last-recall tick (omitted when never rehearsed). */
@@ -69,6 +70,11 @@ export const MIGRATIONS: Record<number, (d: any) => any> = {
   // v4 had no minds: everyone starts with a fresh, personality-derived one (they learn from here)
   // v5 minds had no clinical state: ensureMind() on restore fills it in (liability comes from the kin module, so nothing else to store)
   5: (d) => ({ ...d, version: 6, chars: d.chars.map((c: any) => ({ ...c, mind: c.mind ? { ...c.mind, psy: c.mind.psy ?? newMind(c.id, c.pers).psy } : c.mind })) }),
+  // v6 adds the Batch 1 daily-life state with defaults, preserving all existing story progress.
+  6: (d) => {
+    const defaults = newLife();
+    return { ...d, version: 7, life: { ...defaults, ...(d.life ?? {}), systems: { ...defaults.systems, ...(d.life?.systems ?? {}) } } };
+  },
   4: (d) => ({ ...d, version: 5, chars: d.chars.map((c: any) => ({ ...c, mind: c.mind ?? newMind(c.id, c.pers) })) }),
 };
 
@@ -115,11 +121,13 @@ export function parseSave(json: string): SaveData {
 }
 
 /** Build a fresh simulation from a save. */
-export function restore(d: SaveData): Simulation {
-  const sim = new Simulation(d.cfg);
+export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemFlags()): Simulation {
+  const sim = new Simulation(d.cfg, {}, lifeFlags);
   sim.expansion = { ...newExpansion(), ...structuredClone(d.expansion ?? {}) };
   sim.expansion.casino = { ...newCasino(), ...sim.expansion.casino };
   sim.life = { ...newLife(), ...structuredClone(d.life ?? {}) };
+  sim.life.body = { ...newLife().body, ...sim.life.body };
+  sim.life.systems = { ...newLife().systems, ...sim.life.systems };
   for (const [id, name] of Object.entries(sim.life.renames)) if (sim.world.buildings[+id]) sim.world.buildings[+id].name = name;
   sim.tick = d.tick;
   sim.rng.setState(d.rng);
@@ -162,10 +170,10 @@ export class SaveSystem {
     const ok = this.store.set(this.key(slot), json);
     return ok ? { ok, bytes: json.length } : { ok, bytes: json.length, error: "Browser storage is full or blocked." };
   }
-  load(slot: string): Simulation {
+  load(slot: string, lifeFlags: LifeSystemFlags = newLifeSystemFlags()): Simulation {
     const raw = this.store.get(this.key(slot));
     if (!raw) throw new SaveError("There is no save in that slot.");
-    return restore(parseSave(raw));
+    return restore(parseSave(raw), lifeFlags);
   }
   info(slot: string): { savedAt: string; label: string; tick: number } | null {
     const raw = this.store.get(this.key(slot));

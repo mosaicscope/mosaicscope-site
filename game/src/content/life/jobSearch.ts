@@ -1,0 +1,1 @@
+export const JOB_SEARCH = { replyTicks: 8 * 3600, offerChance: 0.65, maxApplications: 5 } as const;

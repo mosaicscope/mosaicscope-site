@@ -1,3 +1,4 @@
+import { hasBody } from "./life/body";
 import { newLife, tickLife } from "./Chronicles";
 import { newExpansion, wageBoost, farmDay, encounterAt } from "./Expansion";
 import { DEFAULT_CONFIG, DEFAULT_FLAGS, FeatureFlags, SimConfig } from "../core/config";
@@ -34,6 +35,7 @@ import { updateHealth, hospitalise, wound, useBandage, recomputeBleed, hurtOf } 
 import { clamp } from "../core/math";
 import { fireGun, startTurfWar, turfWarActive } from "./Turf";
 import { LitterState, updateLitter } from "./Litter";
+import { LifeSystemFlags, newLifeSystemFlags } from "../debug/flags";
 
 export type FxKind = "dust" | "impact" | "spark" | "confetti" | "break" | "heart" | "rain_splash" | "text" | "spring" | "zzz" | "music" | "star" | "blood" | "spray" | "flash" | "paint" | "water" | "cash" | "gib" | "skid";
 export interface SimSignals {
@@ -63,6 +65,7 @@ const ROAD_LOITER = new Set(["wait", "talk", "sit", "music", "craft", "eat", "bo
 export class Simulation {
   readonly cfg: SimConfig;
   readonly flags: FeatureFlags;
+  readonly lifeFlags: LifeSystemFlags;
   readonly step_dt = 1 / 60;
   rng: Rng;
   world!: World;
@@ -114,9 +117,10 @@ export class Simulation {
   /** player-visible notifications */
   toasts: { text: string; tick: number; kind: string }[] = [];
 
-  constructor(cfg: Partial<SimConfig> = {}, flags: Partial<FeatureFlags> = {}) {
+  constructor(cfg: Partial<SimConfig> = {}, flags: Partial<FeatureFlags> = {}, lifeFlags: LifeSystemFlags = newLifeSystemFlags()) {
     this.cfg = { ...DEFAULT_CONFIG, ...cfg };
     this.flags = { ...DEFAULT_FLAGS, ...flags };
+    this.lifeFlags = lifeFlags;
     this.rng = new Rng(this.cfg.seed);
     this.events = new WorldEventSystem(this.cfg.eventsPerTick, this.cfg.eventQueueCap, this.cfg.maxCausalDepth);
     for (const d of EVENT_DEFS) this.events.register(d);
@@ -164,6 +168,16 @@ export class Simulation {
     this.tick++;
     if (this.tick % 60 === 0) {
       tickLife(this);
+      if (this.tick % TICKS_PER_HOUR === 0 && this.player.inCar >= 0 && this.lifeFlags.sleepFatigue && this.life.systems.sleep.fatigue >= 0.98 && this.rng.chance(0.12)) {
+        const vehicle = this.vehicles[this.player.inCar];
+        if (vehicle && Math.abs(vehicle.speed) > 2) {
+          vehicle.speed = 0;
+          vehicle.damage = Math.min(1, vehicle.damage + 0.18);
+          vehicle.state = "crashed";
+          vehicle.crashedUntil = this.tick + 60 * 30;
+          this.emit({ type: "car_crash", x: vehicle.x, y: vehicle.y, actors: [this.playerId], summary: "Fatigue caused you to nod off at the wheel. The car is damaged; nobody was hurt." });
+        }
+      }
       const p = this.player;
       const from = this.exploredFrom;
       this.exploredFrom = { x: p.x, y: p.y };
@@ -213,7 +227,7 @@ export class Simulation {
         if (this.tick % interval === c.id % interval) this.moveSimple(c, dt * interval);
         continue;
       }
-      if (c.phys !== Phys.OK || c.lod <= Lod.GROUP) updatePhysState(c, dt);
+      if (c.phys !== Phys.OK || c.lod <= Lod.GROUP) updatePhysState(c, dt * (c.id === this.playerId ? (hasBody(this.life.body, "reflex") ? 1.3 : 1) * (hasBody(this.life.body, "brace") && carried(c).length > 0 ? 1.2 : 1) : 1));
       if (c.lod === Lod.BACKGROUND) { this.moveSimple(c, dt); continue; }
       this.moveCharacter(c, dt);
     }

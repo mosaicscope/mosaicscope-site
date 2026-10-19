@@ -1,0 +1,1 @@
+export const INJURY_RECOVERY = { sprainPerHour: 0.025, scarAfterHours: 72 } as const;

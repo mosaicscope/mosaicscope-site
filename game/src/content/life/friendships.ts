@@ -1,0 +1,1 @@
+export const FRIENDSHIPS = { giftCost: 20, giftTrust: 0.08, giftCooldown: 24 * 3600 } as const;

@@ -39,6 +39,7 @@ export class Inspector {
     const best = [...c.rel.entries()].filter(([id]) => sim.chars[id] && id !== me.id).sort((a, b) => friendship(b[1]) - friendship(a[1]))[0];
     const rival = [...c.rel.entries()].filter(([id]) => sim.chars[id] && id !== me.id).sort((a, b) => hostility(b[1]) - hostility(a[1]))[0];
     const partner = c.partner >= 0 ? sim.chars[c.partner] : null;
+    const life = sim.life.systems;
     const role = c.tier === "principal" ? "One of the Mosaics" : c.tier === "player" ? "You" : ROLE_LABEL[c.role] ? ROLE_LABEL[c.role][0].toUpperCase() + ROLE_LABEL[c.role].slice(1) : tierLabel;
     const facts: string[] = [];
     if (partner) facts.push(`With ${partner.name.split(" ")[0]}${c.affair >= 0 ? " (…mostly)" : ""}`);
@@ -50,6 +51,10 @@ export class Inspector {
       h("div.insp-head", null, [h("span.swatch", { style: { background: c.look.color, boxShadow: `0 0 0 3px ${c.look.accent}` } }), h("h2", { text: c.name }), h("span.tag", { text: c.nickname ? `"${c.nickname}"` : tierLabel })]),
       h("p.card-role", { text: role }),
       h("p.card-now", null, [h("span.emo", { text: MOOD_EMOJI(c.emo.mood, c.emo.fear, c.emo.frustration) }), h("span", null, [h("b", { text: moodWord(c) }), " · " + status])]),
+      h("h3", { text: "Life" }),
+      h("p.card-now", { text: c.tier === "player"
+        ? `Fatigue ${Math.round(life.sleep.fatigue * 100)}% · hunger ${Math.round(c.hunger * 100)}% · ${c.wounds.length ? `${c.wounds.length} injury/injuries` : "no injuries"} · ${sim.life.career.role || "between jobs"} · ${life.licence.stage} licence · rent arrears $${sim.life.systems.budget.arrears}.`
+        : `${role} · hunger ${Math.round(c.hunger * 100)}% · energy ${Math.round(c.needs.energy * 100)}% · ${c.wounds.length ? `${c.wounds.length} injury/injuries` : "no injuries"}.` }),
       withYou ? h("p.card-you", { text: withYou }) : null,
       facts.length ? h("div.inv", null, facts.map((f) => h("span.chip", { text: f }))) : null,
       c.bio ? h("p.bio", { text: c.bio }) : null,

@@ -1,0 +1,1 @@
+export const SCHOOL = { studyCooldown: 3600, passCredits: 5, gradePerCredit: 1 } as const;

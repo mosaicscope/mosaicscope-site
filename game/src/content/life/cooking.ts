@@ -1,0 +1,1 @@
+export const COOKING = { cost: 6, hungerGain: 0.35, energyGain: 0.15, quality: 0.8, cooldown: 3600 } as const;

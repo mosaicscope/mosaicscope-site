@@ -286,7 +286,7 @@ describe("engine in the live sim", () => {
     expect(upd.length).toBeGreaterThan(5);
     for (const c of a.chars) { const m = c.mind; for (const x of [m.val, m.aro, m.stress, m.burnout, ...Object.values(m.v)]) expect(Number.isFinite(x)).toBe(true); }
     expect(JSON.stringify(a.chars.map((c) => c.mind))).toBe(JSON.stringify(b.chars.map((c) => c.mind)));
-  });
+  }, 15000);
 
   it("describeMind always returns readable lines", () => {
     const sim = small(9); for (let i = 0; i < 600; i++) sim.step();

@@ -1,3 +1,4 @@
+import { bodyPace, hasBody } from "../sim/life/body";
 import { LifePhone } from "../ui/LifePhone";
 import { repairVehicle } from "../sim/VehicleDamage";
 import { Activities } from "../ui/Activities";
@@ -27,7 +28,7 @@ import { LocalStorageProvider } from "../persistence/storage";
 import { SaveSystem, SaveError } from "../persistence/SaveSystem";
 import { setGravityScale, gravityScale } from "../physics/PhysicsWorld";
 import { Settings, loadSettings, saveSettings } from "../persistence/Settings";
-import { newDebugFlags } from "../debug/flags";
+import { newDebugFlags, newLifeSystemFlags } from "../debug/flags";
 import { DevPanel } from "../debug/DevPanel";
 import { Inspector } from "../ui/Inspector";
 import { EventLog } from "../ui/EventLog";
@@ -95,6 +96,7 @@ export class Game {
   saves = new SaveSystem(this.store);
   settings: Settings;
   debug = newDebugFlags();
+  lifeFlags = newLifeSystemFlags();
   ui: HTMLElement;
   inspector: Inspector; log: EventLog; dialogue: DialogueUI; terrance: TerranceUI; modal = new ModalHost(); dev: DevPanel;
   private selected = -1; private hovered = -1;
@@ -123,7 +125,7 @@ export class Game {
   constructor(private canvas: HTMLCanvasElement, root: HTMLElement) {
     this.rootEl = root;
     this.settings = loadSettings(this.store);
-    this.sim = new Simulation({ backgroundCount: Math.min(this.settings.density, 300) });
+    this.sim = new Simulation({ backgroundCount: Math.min(this.settings.density, 300) }, {}, this.lifeFlags);
     this.renderer = new Renderer(canvas, this.sim);
     this.audio = new AudioSystem(() => this.renderer.cam);
     this.audio.attach(this.sim);
@@ -134,7 +136,7 @@ export class Game {
     this.dialogue = new DialogueUI(S);
     this.terrance = new TerranceUI(S);
     this.terrance.onSpeak = (t) => this.audio?.speak(t);
-    this.dev = new DevPanel(S, this.renderer, this.debug, {
+    this.dev = new DevPanel(S, this.renderer, this.debug, this.lifeFlags, {
       quality: () => (this.settings.quality === "auto" ? "auto→" : "") + ["low", "medium", "high", "ultra"][this.quality], speed: () => (this.clock.paused ? 0 : this.clock.speed),
       fps: () => this.fpsAvg, tickRate: () => this.tickRate, reset: (seed) => this.reset(seed), toast: (t) => this.toast(t),
       teleport: () => { const p = this.renderer.cam.toWorld(this.mouse.x, this.mouse.y); const w = this.sim.world.nearestWalkable(p.x, p.y); this.sim.player.x = w.x; this.sim.player.y = w.y; },
@@ -392,7 +394,10 @@ export class Game {
       if (this.renderer.cam.follow !== p.id) this.renderer.cam.follow = p.id;
       // screen directions -> world: screen up = (-1,-1), screen right = (1,-1)
       const wx = ix - iy, wy = -ix - iy, l = Math.hypot(wx, wy);
-      p.vx = (wx / l) * p.speed; p.vy = (wy / l) * p.speed;
+      const sprint = (this.keys.has("shift") || Math.hypot(this.touchMove.x, this.touchMove.y) > 0.94) && p.needs.energy > 0.1;
+      const speed = p.speed * bodyPace(sim.life.body, sim.env.raining, sim.daylight) * (sprint ? 1.35 : 1);
+      if (sprint) p.needs.energy = Math.max(0, p.needs.energy - sim.step_dt * 0.012 * (hasBody(sim.life.body, "shoes") ? 0.6 : 1));
+      p.vx = (wx / l) * speed; p.vy = (wy / l) * speed;
       this.moveTarget = null; this.pendingTalk = -1;
       if (this.dialogue.open) this.dialogue.close();
       if (this.terrance.open) this.terrance.close();
@@ -501,6 +506,7 @@ export class Game {
     const car = nearestCar(sim, p.x, p.y, 2.2);
     if (!car) { this.toast("Nothing to pick up here"); return; }
     if (car.forSale) { this.toast(`For sale: ${fmtCash(car.price)}. Buy it inside the dealership.`); return; }
+    if (sim.lifeFlags.driverLicence && sim.life.systems.licence.stage === "learner") { this.toast("Earn a restricted licence before driving alone. Practice and pass the test in your Life phone."); return; }
     const mine = car.owner === p.id;
     if (car.driver >= 0) {
       // carjacking: drag the driver out
@@ -1336,7 +1342,7 @@ export class Game {
 
   private load(slot: string, msg: HTMLElement): void {
     try {
-      const sim = this.saves.load(slot);
+      const sim = this.saves.load(slot, this.lifeFlags);
       this.swapSim(sim);
       msg.textContent = `Loaded slot ${slot}.`; msg.className = "";
       this.modal.close(); this.toast("World loaded");
@@ -1347,7 +1353,7 @@ export class Game {
   }
 
   reset(seed?: number): void {
-    const sim = new Simulation({ seed: seed ?? this.sim.cfg.seed, backgroundCount: Math.min(this.settings.density, 300) });
+    const sim = new Simulation({ seed: seed ?? this.sim.cfg.seed, backgroundCount: Math.min(this.settings.density, 300) }, {}, this.lifeFlags);
     this.swapSim(sim);
     this.toast(seed !== undefined ? `New world · seed ${seed}` : "World restarted");
   }

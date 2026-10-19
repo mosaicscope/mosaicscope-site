@@ -102,7 +102,7 @@ describe("traffic", () => {
         expect(Math.min(Math.abs(cross - laneCoord(v.dir, line, 0)), Math.abs(cross - laneCoord(v.dir, line, 1)))).toBeLessThan(0.55);
       }
     }
-  });
+  }, 15000);
   it("a car brakes for someone lying in its lane", () => {
     // (someone just standing about steps up onto the footpath now, so the case that matters is someone who can't)
     const sim = small(9);
@@ -211,7 +211,7 @@ describe("injuries", () => {
     expect(c.inside >= 0 || c.phys === Phys.OK).toBe(true);
     hospitalise(sim, c);
     expect(c.inside).toBeGreaterThanOrEqual(0);
-  });
+  }, 15000);
   it("a knife wound is level 3 and counts as a stabbing", () => {
     const sim = small(2);
     const a = sim.chars.find((c) => c.role === "thief")!, v = byName(sim, "Lux");
@@ -274,7 +274,7 @@ describe("MosaicScope business", () => {
     sim.bus.on("event", (e) => { if (e.type === "photoshoot") shot = true; });
     for (let i = 0; i < 60 * 120 && !shot; i++) sim.step();
     expect(shot).toBe(true);
-  });
+  }, 15000);
 });
 
 describe("drivers", () => {

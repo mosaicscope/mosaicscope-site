@@ -1,7 +1,9 @@
+import { hasBody } from "./life/body";
 import type { Simulation } from "./Simulation";
 import { Character, Phys, Wound, WoundPart, WoundKind } from "../entities/types";
 import { remember } from "../social/Social";
 import { carried, detach } from "../inventory/Inventory";
+import { injure } from "./life/injury";
 
 /**
  * Injuries. Hits can leave wounds on a body part at four levels. Open cuts bleed (drip trails, falling
@@ -18,6 +20,9 @@ export function pickPart(sim: Simulation, z: number | null): WoundPart {
 
 /** Add a wound. `from` is where the blow came from (for the direction of a spray). */
 export function wound(sim: Simulation, c: Character, part: WoundPart, severity: 1 | 2 | 3, kind: WoundKind, by: number, fromX: number, fromY: number): Wound {
+  if (c.id === sim.playerId && part === "head" && kind !== "stab" && hasBody(sim.life.body, "mouthguard")) severity = Math.max(1, severity - 1) as 1 | 2 | 3;
+  if (c.id === sim.playerId && sim.lifeFlags.injuryRecovery)
+    sim.life.systems.injury = injure(sim.life.systems.injury, severity / 3, sim.tick);
   // a second hit to the same place makes it worse
   const existing = c.wounds.find((w) => w.part === part && !w.bandaged);
   const w: Wound = existing ?? { part, kind, severity, bandaged: false, tick: sim.tick };

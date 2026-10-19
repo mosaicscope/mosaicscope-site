@@ -1,0 +1,1 @@
+export const RENTING = { baseWeeklyRent: 315, bondWeeks: 4, weeklyRise: 0.04, riseTicks: 365 * 24 * 3600, inspectionTicks: 30 * 24 * 3600 } as const;

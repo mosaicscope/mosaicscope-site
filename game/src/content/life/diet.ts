@@ -1,0 +1,1 @@
+export const DIET = { hungerPerHour: 0.025, weightPerMeal: 0.03, goodMealQuality: 0.75 } as const;
