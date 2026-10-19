@@ -1,5 +1,5 @@
 {
- "at": 1792356967681,
+ "at": 1792377388441,
  "totals": {
   "duplicate-code": 2,
   "long-function": 16,
@@ -51,9 +51,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/app/Game.ts",
-   "detail": "1396 lines",
+   "detail": "1402 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|12v9qmk"
+   "fp": "oversized-module|19y2r18"
   },
   {
    "kind": "oversized-module",
@@ -75,9 +75,9 @@
    "kind": "oversized-module",
    "severity": "medium",
    "where": "game/src/dialogue/packs/life.ts",
-   "detail": "3339 lines",
+   "detail": "3348 lines",
    "fix": "split by feature into modules",
-   "fp": "oversized-module|16yhsf7"
+   "fp": "oversized-module|qx1vhj"
   },
   {
    "kind": "long-function",
@@ -121,27 +121,27 @@
   },
   {
    "kind": "oversized-module",
-   "severity": "low",
+   "severity": "medium",
    "where": "game/src/sim/Chronicles.ts",
-   "detail": "1288 lines",
-   "fix": "consider splitting",
-   "fp": "oversized-module|10pypl8"
+   "detail": "1518 lines",
+   "fix": "split by feature into modules",
+   "fp": "oversized-module|2gsaf0"
   },
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/sim/Chronicles.ts:364",
-   "detail": "234 lines",
+   "where": "game/src/sim/Chronicles.ts:377",
+   "detail": "260 lines",
    "fix": "split into named steps",
-   "fp": "long-function|ydry1t"
+   "fp": "long-function|1211xn0"
   },
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/sim/Chronicles.ts:599",
-   "detail": "588 lines",
+   "where": "game/src/sim/Chronicles.ts:638",
+   "detail": "779 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1es3w1l"
+   "fp": "long-function|1k260m7"
   },
   {
    "kind": "long-function",
@@ -155,9 +155,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Simulation.ts",
-   "detail": "910 lines",
+   "detail": "924 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|j090y8"
+   "fp": "oversized-module|1ysm0hj"
   },
   {
    "kind": "long-function",
@@ -179,9 +179,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/ui/LifePhone.ts",
-   "detail": "951 lines",
+   "detail": "1021 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|d2r84f"
+   "fp": "oversized-module|1y2sm6s"
   },
   {
    "kind": "oversized-module",
