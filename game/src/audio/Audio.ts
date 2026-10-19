@@ -1,3 +1,4 @@
+import {mechanicalBeats} from '../render/WeaponMotion';
 import type { Simulation } from "../sim/Simulation";
 import type { Camera } from "../render/Camera";
 import { Diegetic, STREET, type Scene, type Prio } from "./Diegetic";
@@ -153,6 +154,7 @@ export class AudioSystem {
     if (kind.startsWith("plink_")) { const n = Math.max(1, +mat || 1), f = 520 * Math.pow(2, [0, 2, 4, 7, 9][(n - 1) % 5] / 12 + Math.floor((n - 1) / 5)); this.tone(o, "sine", f, f * 1.5, 0.09); return; }
     if (kind === "cashin") { this.tone(o, "triangle", 880, 880, 0.07); this.tone(o, "sine", 1320, 1320, 0.16); return; }
     if (kind === "jackpot") { [523, 659, 784, 1047, 1319].forEach((f, i) => this.tone({ gain: o.gain, at: o.at + i * 0.07 }, "triangle", f, f, 0.14)); return; } // C5 E5 G5 C6 E6, 70ms apart, on the audio clock
+    if(kind.startsWith('mechanism_')||kind.startsWith('reload_')){const reload=kind.startsWith('reload_'),def=kind.slice(kind.indexOf('_')+1);for(const beat of mechanicalBeats(def,reload)){const at={gain:o.gain,at:o.at+beat.delay};this.noise(at,beat.duration,beat.pitch*2);this.tone(at,'triangle',beat.pitch,beat.pitch*.65,beat.duration);}return;}
     if (kind === "reload") { this.tone(o, "square", 900, 700, 0.03); this.tone(o, "square", 600, 500, 0.04); return; }
     if (kind === "ricochet") { this.tone(o, "sine", 2400, 900, 0.18); return; }
     if (kind.startsWith("hit_")) { this.tone(o, "sine", (pitch[mat] ?? 300) * 1.2, (pitch[mat] ?? 300) * 0.5, 0.12); this.noise(o, 0.06, 1200); }

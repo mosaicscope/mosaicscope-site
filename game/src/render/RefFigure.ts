@@ -1,4 +1,5 @@
-import {drawFaceDamage,drawBodyDamage} from "./DamageArt";
+import {drawEmotionDetail} from './NegativeReactions';
+import {drawFaceDamage,drawBodyDamage,detachedOn} from "./DamageArt";
 import type { Character } from "../entities/types";
 import { Phys } from "../entities/types";
 import type { ModelSpec } from "./Models";
@@ -148,9 +149,12 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
     const o = bw * 0.55 * side, ox = px * o, oy = py * o;
     const rx = hx + ox, ry = hy + oy;
     const kp = splay(rx, ry, J[kn] + ox, J[kn + 1] + oy, side, bw * 0.08, true), fp = splay(rx, ry, J[ft] + ox, J[ft + 1] + oy, side, bw * 0.12, true);
-    const pts = [rx, ry, kp[0], kp[1], fp[0], fp[1]];
+    const detached=detachedOn(c,"leg",side);
+    const pts = detached?[rx,ry,kp[0],kp[1]]:[rx, ry, kp[0], kp[1], fp[0], fp[1]];
+    J[kn]=kp[0];J[kn+1]=kp[1];
     halo(pts, lw); line(pts, lw, limbCol);
     if(c.look.bottom&&['jeans','ripped','trackies','slacks'].includes(M.bottom)){line(pts,lw+2*k,ink);line(pts,lw,M.bottomColor);if(M.bottom==='trackies')line([rx,ry,kp[0],kp[1]],.6*k,M.trim);if(M.bottom==='ripped')line([kp[0]-2*k,kp[1],kp[0]+2*k,kp[1]],1.5*k,limbCol);}
+    if(detached)continue;
     g.fillStyle = flash ? "#ffffff" : INK;
     const fx0 = pts[4], fy0 = pts[5];
     if(c.look.shoes&&['boots','workboots'].includes(M.shoes)){g.fillStyle=M.shoeColor;g.fillRect(fx0-3*k,fy0-7*k,6*k,7*k);g.strokeStyle=ink;g.strokeRect(fx0-3*k,fy0-7*k,6*k,7*k);}
@@ -207,9 +211,12 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
     const o = bw * 0.85 * side, ox = px * o, oy = py * o;
     const rx = sx + ox, ry = sy + oy;
     const ep = gripped ? [J[el], J[el+1]] : splay(rx, ry, J[el] + ox, J[el + 1] + oy, side, bw * 0.6), hp = gripped ? [J[hn],J[hn+1]] : splay(rx, ry, J[hn] + ox, J[hn + 1] + oy, side, bw * 1.4);
-    const pts = [rx, ry, ep[0], ep[1], hp[0], hp[1]];
+    const detached=detachedOn(c,"arm",side);
+    const pts = detached?[rx,ry,ep[0],ep[1]]:[rx, ry, ep[0], ep[1], hp[0], hp[1]];
     halo(pts, lw); line(pts, lw, limbCol);
-    if(c.look.top&&!['tank','bare','vest'].includes(M.top)){const long=['long','coat','hoodie','suit'].includes(M.top);line([rx,ry,ep[0],ep[1],...(long?[hp[0],hp[1]]:[])],lw+2*k,ink);line([rx,ry,ep[0],ep[1],...(long?[hp[0],hp[1]]:[])],lw,flash?'#fff':M.topColor);}
+    if(c.look.top&&!['tank','bare','vest'].includes(M.top)){const long=['long','coat','hoodie','suit'].includes(M.top);line([rx,ry,ep[0],ep[1],...(long&&!detached?[hp[0],hp[1]]:[])],lw+2*k,ink);line([rx,ry,ep[0],ep[1],...(long&&!detached?[hp[0],hp[1]]:[])],lw,flash?'#fff':M.topColor);}
+    J[el]=ep[0];J[el+1]=ep[1];
+    if(detached){J[hn]=ep[0];J[hn+1]=ep[1];continue;}
     const ax = pts[4] - pts[2], ay = pts[5] - pts[3], al = Math.hypot(ax, ay) || 1, dx = ax / al, dy = ay / al;
     const cx = pts[4] + dx * (gripped ? 0 : 2 * k), cy = pts[5] + dy * (gripped ? 0 : 2 * k);
     J[el]=ep[0];J[el+1]=ep[1];J[hn]=cx;J[hn+1]=cy;
@@ -439,7 +446,7 @@ function drawRefHead(g: Ctx, c: Character, M: ModelSpec, P: FacePlan, mood: Mood
     // realistic slots only (brow piercing, nose bit, ear, chin, scar, age), at most two per face so it stays clean
     drawFaceGenes(g, gene, { x, y, k: kk, dir, lw: lw * 0.8, col: ink, alpha, fx, ey, my, rx, ry, covered: F.eyes === "shades" || F.eyes === "aviator" }, { allow: REAL_GENES, max: 2 });
   }
-  drawFaceDamage(g,c,x,y,rx,ry,k);
+  drawFaceDamage(g,c,x,y,rx,ry,k);drawEmotionDetail(g,c,x,y,r,k);
   g.globalAlpha = alpha;
 }
 

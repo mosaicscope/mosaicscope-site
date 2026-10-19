@@ -1,3 +1,5 @@
+import {drawDetachedLimb} from './DamageArt';
+import {applyNegativeReaction} from './NegativeReactions';
 import { ScreenBounds } from "./ScreenBounds";
 /**
  * Canvas 2D isometric renderer for an InteriorDef. Same 2:1 iso language as the street renderer.
@@ -8,12 +10,12 @@ import { ScreenBounds } from "./ScreenBounds";
  *
  * Louis's warm cutaway look (art-requests/007, 009, 010): walnut wainscot and picture rails, thick cut-wall
  * slabs, lamp light pools on a dark floor, per-plank wood, framed pictures, clutter on every surface, and
- * chunky pixels (the cached layers are drawn at half resolution with smoothing off on roomy screens).
+ * native device-pixel detail in cached floors, walls and furnishings.
  */
 import { PROP_INFO, type InteriorDef, type Prop, type FloorMat } from "../content/interiors";
 import { fillTextured } from "./Textures";
 import { wallSconces, wallPictures } from "./interiorDecor";
-import { pose, solve, drawFigure, J } from "./StickFigure";
+import { pose, solve, drawFigure } from "./StickFigure";
 import type { Character, Look } from "../entities/types";
 
 export interface ViewActor {
@@ -74,8 +76,8 @@ export class InteriorView {
   private def: InteriorDef | null = null;
   private cssW = 300; private cssH = 200; private dpr = 1;
   s = 24; private Zh = 22;
-  /** Cached layers render at this fraction of device resolution; below 1 gives chunky pixels. */
-  private get pixF(): number { return this.s >= 30 ? 0.5 : 1; }
+  /** Cached floors and props render at full device resolution. */
+  private get pixF(): number { return 1; }
   private camX = 0; private camY = 0;
   private staticLayer: { cv: HTMLCanvasElement; ox: number; oy: number; w: number; h: number; day: boolean } | null = null;
   private sprites = new Map<number, Sprite>();
@@ -111,6 +113,7 @@ export class InteriorView {
     if (!force && w === this.cssW && h === this.cssH && d === this.dpr) return;
     this.cssW = w; this.cssH = h; this.dpr = d;
     this.canvas.width = Math.round(w * d); this.canvas.height = Math.round(h * d);
+    this.staticLayer=null;this.sprites.clear();
     const def = this.def; if (!def) return;
     const W = def.size.w, H = def.size.h;
     const fitX = (w - 16) / (W + H), fitY = (h - 90) / ((W + H) * 0.5 + WALL_H * 0.95);
@@ -535,7 +538,7 @@ export class InteriorView {
     const day = st.hour >= 7 && st.hour < 19;
     if (!this.staticLayer || this.staticLayer.day !== day) this.buildStatic(day);
     g.setTransform(d, 0, 0, d, 0, 0);
-    g.imageSmoothingEnabled = this.pixF === 1;
+    g.imageSmoothingEnabled = false;
     g.fillStyle = "#07050a"; g.fillRect(0, 0, this.cssW, this.cssH);
     // camera: whole room if it fits, else follow the player (clamped to the room)
     const P0 = this.proj(0, 0);
@@ -571,7 +574,9 @@ export class InteriorView {
     const items: Item[] = [];
     for (const o of this.order) { const pr = def.props[o.prop]; items.push({ key: o.key, draw: () => { const sp = this.spriteFor(o.prop); g.drawImage(sp.cv, this.camX + sp.dx, this.camY + sp.dy, sp.w, sp.h); this.liveBits(g, P, pr, st.t); } }); }
     const all = [st.player, ...st.actors];
-    for (const a of all) items.push({ key: a.x + a.y + 0.02, draw: () => this.figure(g, P, a, st) });
+    for (const a of all){items.push({ key: a.x + a.y + 0.02, draw: () => this.figure(g, P, a, st) });
+      for(const w of a.char?.wounds??[]){const l=w.detached;if(!l)continue;const x=a.x+l.x-a.char!.x,y=a.y+l.y-a.char!.y;items.push({key:x+y+.01,draw:()=>drawDetachedLimb(g,a.char!,w,...P(x,y,l.z),this.s*.0172*(a.look.scale||1))});}
+    }
     items.sort((a, b) => a.key - b.key);
     for (const it of items) it.draw();
 
@@ -602,14 +607,11 @@ export class InteriorView {
     const [sx, sy] = P(a.x, a.y, a.lying ? 0.5 : 0);
     const k = this.s * 0.0172 * (a.look.scale || 1);
     g.fillStyle = "rgba(0,0,0,.34)"; g.beginPath(); g.ellipse(sx, sy, 15 * k, 4.2 * k, 0, 0, 6.283); g.fill();
-    const A = pose(a.pose, a.style, st.t + a.seed, a.phase, a.speed, a.poseT);
+    const injuryPose=a.char?.phys===2?"down":a.char?.phys===1?"stumble":a.pose;
+    const A = pose(injuryPose, a.style, st.t + a.seed, a.phase, a.speed, a.poseT);
+    applyNegativeReaction(A,this.figureOf(a),st.t,a.speed,a.pose);
     solve(A, sx, sy, k, a.dir);
     drawFigure(g, this.figureOf(a), sx, sy, k, a.dir, st.t, 0, 1);
-    for(const w of a.char?.wounds??[]) {
-      const [x,y]=w.part==='head'?[J[4],J[5]]:w.part==='torso'?[(J[0]+J[2])/2,(J[1]+J[3])/2]:w.part==='arm'?[J[12],J[13]]:[J[20],J[21]];
-      if(w.bandaged){g.strokeStyle='#eee4d3';g.lineWidth=Math.max(2,3*k);g.beginPath();g.moveTo(x-4*k,y-2*k);g.lineTo(x+4*k,y+2*k);g.stroke();}
-      else if(st.fakeBlood!==false){g.fillStyle='#b3121b';g.beginPath();g.ellipse(x,y,(2+w.severity)*k,(2+w.severity)*k,0,0,7);g.fill();if(a.char!.bleed>0){g.fillStyle='#861522';g.beginPath();g.ellipse(sx+Math.sin(st.t)*8*k,sy+4*k,(3+w.severity)*k,2*k,0,0,7);g.fill();}}
-    }
     if (a.isPlayer) { g.fillStyle = "#ec2a1c"; g.font = "700 10px 'IBM Plex Mono', monospace"; g.textAlign = "center"; g.fillText("You", sx, sy + 13); }
     else if (st.nearActor === a.id && a.name) this.tag(g, a.name, sx, sy - 122 * k - 6, "#eee4d3");
   }

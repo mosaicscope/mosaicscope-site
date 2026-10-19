@@ -51,3 +51,5 @@ html,body{overscroll-behavior:none}#ui :is(button,a,input,select,textarea){touch
 #ui .combat-help{pointer-events:auto!important;width:100%;margin-top:6px;border-color:#9dbaaa66;color:#dce9df}#ui .combat-styles{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}#ui .combat-styles [aria-pressed=true]{border-color:#8dd6bb;background:#2b554d}#ui .combat-controls .ax-card p{font-size:14px}
 
 #ui .combat-status{font-size:12px;color:#e2d3ab;line-height:1.4;margin-top:6px;text-transform:capitalize}
+
+.weapon-study{margin:16px 0;border:1px solid #b6ab8d44;border-radius:10px;padding:12px;background:#202521}.weapon-study>label{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font:500 13px system-ui}.weapon-study select{min-height:44px;max-width:100%;background:#181d1b;color:#eee7da;border:1px solid #aaa18b66;border-radius:6px;padding:8px}.weapon-study .play-stage{margin-top:12px;width:100%;grid-column:auto}

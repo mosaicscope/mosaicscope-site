@@ -149,7 +149,7 @@ export function installRules(sim: Simulation): void {
       const part = pickPart(sim, null);
       const sev = (def === "knife" ? 3 : ws.damage >= 1.8 ? (part === "head" ? 2 : sim.rng.chance(0.5) ? 2 : 1) : 1) as 1 | 2 | 3;
       const fracture=ws.damage>=2.4&&(part==='arm'||part==='leg');
-      wound(sim, v, part, fracture?3:sev, fracture?"fracture":def === "knife" ? "stab" : part === "head" ? "gash" : sev >= 2 ? "cut" : "bruise", att.id, att.x, att.y);
+      wound(sim, v, part, fracture?3:sev, fracture?"fracture":def === "knife" ? "stab" : part === "head" ? "gash" : sev >= 2 ? "cut" : "bruise", att.id, att.x, att.y,def);
       if (def === "knife" || sev >= 2) commitCrime(sim, att, "assault", v);
     } else if (melee && ws && ws.damage >= 1.5 && !spar && v.tier !== "player" && att.tier === "player") commitCrime(sim, att, "assault", v);
     if (res.down) {

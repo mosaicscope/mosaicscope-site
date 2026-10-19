@@ -155,7 +155,7 @@ export interface Anim {
 export type WoundPart = "head" | "torso" | "arm" | "leg";
 export type WoundKind = "bruise" | "graze" | "cut" | "gash" | "stab" | "fracture";
 /** severity: 1 bruise/graze (no bleeding), 2 cut/gash (bleeds), 3 deep stab or bad gash (bleeds fast) */
-export interface Wound { art?:number; marks?:number[]; hits?:number; part: WoundPart; kind: WoundKind; severity: 1 | 2 | 3; bandaged: boolean; tick: number }
+export interface Wound { detached?:import("../sim/Trauma").DetachedLimb;compound?:boolean;weapon?:string; art?:number; marks?:number[]; hits?:number; part: WoundPart; kind: WoundKind; severity: 1 | 2 | 3; bandaged: boolean; tick: number }
 
 export interface Character {
   id: number;
@@ -235,6 +235,7 @@ export interface Character {
   /** street crew ("famiglia", "riccarton") or "" for none */
   crew: string;
   painAt?:number;
+  weaponAction?:import("../render/WeaponMotion").WeaponAction;
   combat?:{magUsed?:Record<string,number>;reloadUntil?:number;reloadWeapon?:string;style:import("../content/combat").UnarmedStyle;load?:"rubber"|"standard"|"heavy";recoil?:number;recoilTick?:number;theftXP?:number;issued?:boolean;xp:number;ammo:Record<string,number>;vest:number;helmet:number};
   wounds: Wound[];
   bleed: number;                 // current bleeding rate 0..1 (sum of open wounds)
@@ -251,6 +252,7 @@ export interface Character {
 export type ToyState = "rest" | "flying" | "held" | "broken";
 
 export interface Toy {
+  weaponOrigin?:string;
   id: number;
   def: string;
   load?:"rubber"|"standard"|"heavy";

@@ -1,3 +1,6 @@
+import {weaponMotion} from './WeaponMotion';
+import {drawDetachedLimb} from './DamageArt';
+import {applyNegativeReaction} from './NegativeReactions';
 import {drawDebris,drawFacadeDamage} from "./CivicArt";
 import {setDamageBlood} from "./DamageArt";
 import { ScreenBounds, beginSignFrame } from "./ScreenBounds";
@@ -35,7 +38,7 @@ import { StreetView } from "./Street2D";
 const STREET_2D = false;
 
 export type Quality = 0 | 1 | 2 | 3; // low, medium, high, ultra
-interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter, 7 street decor
+interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter, 7 street decor
 interface Decal { x: number; y: number; r: number; color: string; born: number; life: number; rot: number }
 
 export interface RenderOptions { selected: number; hovered: number; debug: DebugFlags; reduceMotion: boolean; quality: Quality; showNames: boolean; quietInterface?:boolean }
@@ -230,6 +233,7 @@ export class Renderer {
       g.beginPath(); g.ellipse(pt.x, pt.y, r, r * 0.5, 0, 0, 6.283); g.fill();
       this.push(this.behind(x, y, x + y + 0.01), 1, t.id, pt.x, pt.y);
     }
+    for(const c of sim.chars){if(c.inside>=0)continue;for(let wi=0;wi<c.wounds.length;wi++){const l=c.wounds[wi].detached;if(!l)continue;cam.toScreen(l.x,l.y,l.z,pt);if(inView(pt.x,pt.y,45*z))this.push(this.behind(l.x,l.y,l.x+l.y+.01),8,c.id*8+wi,pt.x,pt.y);}}
     // litter on the ground: cans, bottles, wrappers and cups
     for (const l of sim.litter.pieces) {
       if (l.taken) continue;
@@ -329,6 +333,7 @@ export class Renderer {
           if (h.head >= 2) a.tilt += Math.sin(time * 1.3 + c.id) * Math.min(0.3, h.head * 0.08);
           if (h.arm > 0 && name !== "throw" && name !== "swing") { a.armR *= 0.3; a.foreR = Math.max(a.foreR, 1.4); }
         }
+        applyNegativeReaction(a,c,time,spd,name,o.reduceMotion);
         if (moving && (name === "walk" || name === "run" || name === "panic")) this.foreshorten(a, c);
         const held = c.hand >= 0 ? sim.toys[c.hand] : undefined;
         const gun = held && TOYS[held.def]?.weapon?.gun && !a.lying;
@@ -336,9 +341,9 @@ export class Renderer {
           const angle=Math.atan2((Math.sin(c.facing)+Math.cos(c.facing))*.5,Math.abs(Math.cos(c.facing)-Math.sin(c.facing)));
           const ca=Math.cos(angle),sa=Math.sin(angle),long=held.def==='shotgun'||held.def==='rifle'||held.def==='smg';
           const grip=(side:0|1,x:number,y:number)=>reachArm(a,side,0,0,x*ca-y*sa,x*sa+y*ca);
-          const since=(sim.tick-(c.combat?.recoilTick??-600))/60,kick=since<.2?Math.sin(Math.max(0,since)/.2*Math.PI)*(long?4:3):0;
-          const reloading=c.combat?.reloadWeapon===held.def&&(c.combat.reloadUntil??0)>sim.tick&&since>.18;
-          grip(1,18-kick,reloading?14:9-kick*.5);grip(0,reloading?8:long?29-kick:17-kick,reloading?22:long?4-kick*.5:9-kick*.5);
+          const mechanism=weaponMotion(c.weaponAction,sim.tick),since=(sim.tick-(c.weaponAction?.firedAt??c.combat?.recoilTick??-600))/60,kick=since<.2?Math.sin(Math.max(0,since)/.2*Math.PI)*(long?4:3):0;
+          const reloading=c.weaponAction?.weapon===held.def&&(c.weaponAction.reloadFrom??Infinity)<=sim.tick&&(c.weaponAction.reloadUntil??0)>sim.tick;
+          grip(1,18-kick,reloading?14:9-kick*.5);grip(0,reloading?8:long?29-kick-mechanism.pump*5:17-kick,reloading?22:long?4-kick*.5:9-kick*.5);
         }
         solve(a, it.sx, it.sy - zOff, k, dir);
         // held toy behind or in front depending on hand
@@ -381,6 +386,7 @@ export class Renderer {
         flush();
         const l = sim.litter.pieces[it.ref];
         drawLitter(g, l.kind, l.tone, l.rot, it.sx, it.sy, z);
+      } else if(it.kind===8){flush();const c=sim.chars[Math.floor(it.ref/8)],w=c?.wounds[it.ref%8];if(c&&w?.detached)drawDetachedLimb(g,c,w,it.sx,it.sy,.44*z*c.look.scale);
       } else if (it.kind === 7) {
         flush();
         if(drawDebris(g,sim.world.civicDamage[`d:${it.ref}`],it.sx,it.sy,z))continue;
@@ -591,7 +597,7 @@ export class Renderer {
     if(def.weapon?.gun){
       const angle=Math.atan2((Math.sin(c.facing)+Math.cos(c.facing))*.5,Math.cos(c.facing)-Math.sin(c.facing));
       this.g.save();this.g.translate(J[14],J[15]);this.g.rotate(angle-(dir<0?Math.PI:0));
-      drawToy(this.g,t.def,3*k*dir,-4*k,k,0,t.color,1,dir);this.g.restore();return;
+      drawToy(this.g,t.def,3*k*dir,-4*k,k,0,t.color,1,dir,weaponMotion(c.weaponAction,this.sim.tick));this.g.restore();return;
     }
     // melee toys extend along the forearm (elbow -> hand)
     const ang = Math.atan2(J[15] - J[13], J[14] - J[12]);

@@ -1,3 +1,4 @@
+import {applyNegativeReaction} from '../render/NegativeReactions';
 import {casinoPose} from './CasinoBehaviour';
 import {choiceMotion,choiceProp} from './EncounterChoreography';
 import {weddingScene} from "./WeddingScene";
@@ -164,7 +165,7 @@ function peoplePainter(people:readonly Character[]) {
 function drawVenuePerson(g:CanvasRenderingContext2D,c:Character,x:number,y:number,t:number,size:number,kind:string,facing?:number,phase?:number) {
   const k=.30*size*(c.look.scale||1),dir=facing??(c.id%2?1:-1);
   g.save();g.fillStyle='#10262533';g.beginPath();g.ellipse(x,y,7*size,2.5*size,0,0,TAU);g.fill();
-  solve(pose(kind,c.style||'normal',t+c.id,phase??t*5,kind==='walk'?1.5:0,0),x,y,k,dir);
+  const a=pose(kind,c.style||'normal',t+c.id,phase??t*5,kind==='walk'?1.5:0,0);applyNegativeReaction(a,c,t,kind==='walk'?1.5:0,kind);solve(a,x,y,k,dir);
   drawFigure(g,c,x,y,k,dir,t,0,1);if(kind==='sitdrink'){roundBox(g,J[14]-3,J[15]-4,6,7,2,'#e8d6ac');}g.restore();
 }
 function backdrop(g:CanvasRenderingContext2D,night=false) {
