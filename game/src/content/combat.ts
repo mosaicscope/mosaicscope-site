@@ -1,7 +1,7 @@
 import type {Character,Toy} from "../entities/types";
 export const UNARMED={
  slap:{name:'Slap',reach:1.2,rate:.35,damage:.45,knockback:1.2,pose:'slap',xp:0,part:'head'},
- jab:{name:'Jab',reach:1.35,rate:.4,damage:.8,knockback:1.7,pose:'punch0',xp:0,part:'torso'},
+ jab:{name:'Jab',reach:1.35,rate:.4,damage:.8,knockback:1.7,pose:'punch0',xp:0,part:'head'},
  shove:{name:'Shove',reach:1.25,rate:.7,damage:.3,knockback:3.8,pose:'shove',xp:0,part:'torso'},
  hook:{name:'Hook',reach:1.15,rate:.7,damage:1.3,knockback:3.2,pose:'punch3',xp:8,part:'head'},
  kick:{name:'Kick',reach:1.65,rate:1.0,damage:1.5,knockback:4.3,pose:'kick',xp:16,part:'leg'},

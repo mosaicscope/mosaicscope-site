@@ -1,3 +1,4 @@
+import {weddingScene} from "./WeddingScene";
 import { drawAnimalAtlas } from "./AnimalAtlas";
 import { encounterAction } from "./EncounterDirection";
 import type { Runner } from "../sim/RaceBook";
@@ -18,6 +19,7 @@ const TAU = Math.PI * 2;
 
 /** Street encounters use the real city facade and the same characters as the world outside. */
 export function encounterScene(sim:Simulation,event:Encounter|undefined,completed=false) {
+  if(event?.id==='wedding')return weddingScene(sim,event,completed);
   const id=event?.id??'',player=sim.player,choice=completed?sim.expansion.outcomes?.[id]:undefined;
   const selected=choice===undefined?undefined:event?.choices[choice];
   const outdoors=['memorial','ring','duck','referee','wedding','skater','seed','magpie','busker','choir'].includes(id);
@@ -54,7 +56,7 @@ export function encounterScene(sim:Simulation,event:Encounter|undefined,complete
   }
   const locals=sim.chars.filter(c=>c.id!==player.id&&c.tier!=='principal'&&c.inside<0&&c.inCar<0).sort((a,b)=>Math.hypot(a.x-player.x,a.y-player.y)-Math.hypot(b.x-player.x,b.y-player.y));
   const people=[player,...locals.slice(0,['choir','wedding','protest'].includes(id)?3:1)];
-  return canvasStage((g,time,reduced)=>{
+  const stage=canvasStage((g,time,reduced)=>{
     const t=reduced?0:time;g.drawImage(background,0,0);
     const smallBox=(x:number,y:number,color='#a88b62')=>{box(g,E,x,y,.48,.42,.4,color);};
     const bench=()=>{box(g,E,-.4,.4,1.8,.45,.4,'#70523f');box(g,E,-.4,.8,1.8,.12,.45,'#896750',.4);};
@@ -86,7 +88,7 @@ export function encounterScene(sim:Simulation,event:Encounter|undefined,complete
       case 'trolley':wheels(.4,1);box(g,E,.4,.9,.8,.55,.65,'#869394');break;
       case 'wind':
         for(let i=0;i<4;i++)box(g,E,i*.6-.7,1+Math.sin(t+i)*.1,.5,.6,.015,['#b8c3b1','#ab8a83','#798d9d'][i%3]);break;
-      case 'wedding':case 'film':
+      case 'film':
         box(g,E,.5,1,.13,.13,1,'#59544c');box(g,E,.3,1,.5,.3,.3,'#303d45',1);break;
       case 'keys':{const[x,y]=E(.7,1.3);roundBox(g,x-16,y-8,32,15,2,'#202d31');for(let i=0;i<5;i++){g.strokeStyle='#7c8a88';g.beginPath();g.moveTo(x-12+i*6,y-6);g.lineTo(x-12+i*6,y+5);g.stroke();}g.strokeStyle='#d4bd6a';g.lineWidth=2;g.beginPath();g.arc(x+3,y-2,3,0,TAU);g.moveTo(x+6,y-2);g.lineTo(x+13,y-2);g.stroke();break;}
       case 'cake':box(g,E,0,.7,1.3,.9,.55,'#977e61');box(g,E,.25,.85,.65,.55,.22,completed&&choice===0?'#d9c9a2':'#e4bab0',.55);break;
@@ -114,6 +116,7 @@ export function encounterScene(sim:Simulation,event:Encounter|undefined,complete
     sceneText(g,completed?'RESOLVED · Your choice is recorded':sim.world.streetName(player.x,player.y)||'ŌTAUTAHI · STREET ENCOUNTER',40,63,12,'#b5c9bd','left');
     roundBox(g,20,542,920,38,8,'#102b32ed');sceneText(g,selected?`${selected[0]} · ${selected[3]}`:completed?'Outcome from an earlier save · keep walking for another story':event?.scene??'Explore the city to discover people who need a hand',40,566,13,'#e4d8b7','left');
   },{height:600,label:`${event?.title??'Neighbourhood'}: isometric street scene using the real city building and street character models${completed?' · resolved':''}`});
+  stage.classList.add('encounter-stage');return stage;
 }
 function polygon(g: CanvasRenderingContext2D, points: Point[], color: string) {
   g.fillStyle = color; g.beginPath(); points.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y)); g.closePath(); g.fill();g.strokeStyle="rgba(14,11,10,.12)";g.lineWidth=.7;g.stroke();

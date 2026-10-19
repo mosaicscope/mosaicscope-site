@@ -154,7 +154,7 @@ export interface Anim {
 export type WoundPart = "head" | "torso" | "arm" | "leg";
 export type WoundKind = "bruise" | "graze" | "cut" | "gash" | "stab" | "fracture";
 /** severity: 1 bruise/graze (no bleeding), 2 cut/gash (bleeds), 3 deep stab or bad gash (bleeds fast) */
-export interface Wound { art?:number; part: WoundPart; kind: WoundKind; severity: 1 | 2 | 3; bandaged: boolean; tick: number }
+export interface Wound { art?:number; marks?:number[]; hits?:number; part: WoundPart; kind: WoundKind; severity: 1 | 2 | 3; bandaged: boolean; tick: number }
 
 export interface Character {
   id: number;

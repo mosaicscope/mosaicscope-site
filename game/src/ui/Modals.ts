@@ -11,7 +11,8 @@ export class ModalHost {
   show(title: string, body: (HTMLElement | null)[], cls = ""): void {
     this.prevFocus = document.activeElement;
     const box = h("section.panel.modal" + (cls ? "." + cls : ""), { role: "dialog", "aria-modal": "true", "aria-label": title }, [
-      h("button.x", { "aria-label": "Close", onclick: () => this.close(), text: "×" }), h("h2", { text: title }), ...body.filter(Boolean) as HTMLElement[],
+      h("header.modal-header",null,[h("h2", { text: title }),h("button.x", { "aria-label": "Close", onclick: () => this.close(), text: "×" })]),
+      h("div.modal-body",null,body.filter(Boolean) as HTMLElement[]),
     ]);
     this.el.replaceChildren(box);
     this.el.classList.remove("hidden");

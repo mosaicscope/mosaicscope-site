@@ -130,6 +130,7 @@ export class Game {
 
   private rootEl: HTMLElement;
   constructor(private canvas: HTMLCanvasElement, root: HTMLElement) {
+    canvas.tabIndex=0;
     this.rootEl = root;
     this.settings = loadSettings(this.store);
     this.sim = new Simulation({ backgroundCount: Math.min(this.settings.density, 300) }, {}, this.lifeFlags);
@@ -321,7 +322,7 @@ export class Game {
     const ad = this.hovered < 0 && !this.mouse.dragging ? this.renderer.pickAd(this.mouse.x, this.mouse.y) : null;
     this.canvas.style.cursor = ad || this.hovered >= 0 ? "pointer" : "";
     this.canvas.title = ad ? `${ad.label} (opens in a new tab)` : "";
-    if (!this.interior.open) this.guard("render", () => this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames }));
+    if (!this.interior.open) this.guard("render", () => this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames,quietInterface:this.dialogue.open||this.modal.open||this.casino.open }));
     this.guard("audio", () => {
       const f = this.interior.footing;
       this.audio.scene = { interior: this.interior.building?.kind ?? null, moving: f.moving, running: f.running, in2D: this.renderer.street2D };
@@ -343,7 +344,7 @@ export class Game {
     const stars = "★".repeat(p.wanted) + "☆".repeat(5 - p.wanted);
     const bar = (label: string, v: number, col: string) => [h("span", { text: label }), h("div.gauge", null, [h("i", { style: { width: Math.round(v * 100) + "%", background: col } })])];
     const kids: HTMLElement[] = [h("div.cash", { text: fmtCash(p.cash) }), h("div.stars" + (p.wanted ? ".flash" : ""), { "aria-label": `Wanted level ${p.wanted}` }, [h("b", { text: stars.slice(0, p.wanted) }), stars.slice(p.wanted)]),
-      h("div.bars", null, [...bar("health", p.blood * p.emo.composure ** 0.3, p.bleed > 0 ? "#ec2a1c" : "#c6ff3d"), ...bar("hunger", p.hunger, "#f6b62c"), ...bar("energy", p.needs.energy, "#79bfff"), ...bar("mood", (p.emo.mood + 1) / 2, "#b8a0ff")])];
+      h("div.bars", null, [...bar("health", p.blood * p.emo.composure ** 0.3, p.bleed > 0 ? "#c56d64" : "#b2b49a"), ...bar("hunger", p.hunger, "#bea56e"), ...bar("energy", p.needs.energy, "#8b9fa7"), ...bar("mood", (p.emo.mood + 1) / 2, "#a29aac")])];
     if (titleOf(sim.expansion)) kids.push(h("div.car", { text: titleOf(sim.expansion) + " · " + (sim.expansion.graduated[sim.expansion.graduated.length - 1] ?? "") }));
     if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; kids.push(h("div.car", null, [h("b", { text: String(Math.round(Math.abs(v.speed) * 7.2)) }), " km/h · " + VEHICLES[v.cls].name + (v.flatLeft || v.flatRight ? " · FLAT TYRE" : "") + ((v.heat ?? 0) > 0.5 ? " · ENGINE HOT: pull over" : "")])); }
     if(sim.pendingAmbulance.has(p.id))kids.push(h('div.car.medical-status',{text:'Ambulance on the way · move clear of traffic'}));
@@ -373,6 +374,8 @@ export class Game {
     this.touch.update();
     if (now - this.clubTickAt > 1000) { const earned = this.club.tick(Math.min(5, (now - (this.clubTickAt || now)) / 1000)); this.clubTickAt = now; if (earned > 0) this.sim.player.cash += earned; }
     this.renderer.zooAnimals = this.luxury.empire.animals; zooState.animals = this.luxury.empire.animals.length;
+    this.rootEl.classList.toggle('conversation-open',this.dialogue.open);
+    this.rootEl.classList.toggle('activity-open',this.modal.open||this.casino.open);
     this.touch.el.classList.toggle("hidden", this.casino.open || this.interior.open || (this.modal.open && !this.modal.el.classList.contains("touch-tut")) || this.dialogue.open || this.terrance.open || this.travel.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
     this.tickStory(now);
     this.minimap.update(now);
@@ -732,6 +735,7 @@ export class Game {
     window.addEventListener("blur", () => this.keys.clear());
     cv.addEventListener("contextmenu", (e) => e.preventDefault());
     cv.addEventListener("pointerdown", (e) => {
+      cv.focus({preventScroll:true});
       try{cv.setPointerCapture(e.pointerId);}catch{/* cancelled or synthetic pointer */}
       this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (this.touches.size === 2) { const [a, b] = [...this.touches.values()]; this.pinchDist = Math.hypot(a.x - b.x, a.y - b.y); }
@@ -1166,7 +1170,7 @@ export class Game {
     if (!this.focusEl.classList.contains("on")) this.focusZoom = cam.targetZoom;
     // a gentler push-in on phones (the screen is already small), never past street-view territory
     const coarse = matchMedia("(pointer: coarse)").matches;
-    if(!coarse)cam.setZoom(Math.max(this.focusZoom, 2.2));
+    if(!coarse&&!talk)cam.setZoom(Math.max(this.focusZoom, 2.2));
     cam.follow = this.sim.playerId;
     (this.focusEl.querySelector(".focus-cap b") as HTMLElement).textContent = title;
     (this.focusEl.querySelector(".focus-cap span") as HTMLElement).textContent = sub;

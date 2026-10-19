@@ -31,10 +31,21 @@ export function wound(sim: Simulation, c: Character, part: WoundPart, severity: 
   const w: Wound = existing ?? { part, kind, severity, bandaged: false, tick: sim.tick };
   if (existing) { existing.severity = Math.min(3, Math.max(existing.severity, severity) + (severity >= 2 ? 1 : 0)) as 1 | 2 | 3; existing.kind = severity >= existing.severity ? kind : existing.kind; }
   else { c.wounds.push(w); if (c.wounds.length > 6) c.wounds.shift(); }
-  if (part === "head" && w.severity >= 2) w.kind = kind === "stab" ? "stab" : "gash";
+  w.hits=(w.hits??(existing?1:0))+1;
+  if(kind==='bruise'&&existing&&w.hits>=3)w.severity=Math.max(w.severity,Math.min(3,1+Math.floor(w.hits/3))) as 1|2|3;
+  w.tick=sim.tick;
+  if (part === "head" && w.severity >= 2 && kind!=='bruise' && kind!=='graze') w.kind = kind === "stab" ? "stab" : "gash";
   if(c.painAt===undefined||sim.tick-c.painAt>120){c.painAt=sim.tick;sim.say(c,w.severity===3?'I need a medic!':part==='leg'?'Ow, my knee!':part==='arm'?'My arm!':'Oof!',w.severity===3?'shout':'say',1.4);}
   if(c.phys===Phys.OK){c.anim.pose=part==='head'?'stunned':'stumble';c.anim.poseT=0;c.stunUntil=Math.max(c.stunUntil,sim.tick+Math.min(24,w.severity*6));}
+  const prior=w.art;
   w.art=woundArt(part,w.kind,sim.tick+c.id*31+by*7);
+  if(part==='head'&&kind==='bruise'){
+    const zone=(w.hits-1+Math.abs(c.id+by))%5;
+    w.art=zone*4+(w.hits>=3?3:0);
+  }
+  const marks=w.marks??(prior===undefined?[]:[prior]);
+  if(!marks.includes(w.art))marks.push(w.art);
+  w.marks=marks.slice(-8);
   recomputeBleed(c);
   if(needsMedicalResponse(c))sim.callAmbulance(c);
   if (sim.fakeBlood && w.kind!=="bruise") {
@@ -48,14 +59,14 @@ export function wound(sim: Simulation, c: Character, part: WoundPart, severity: 
     const att = sim.chars[by];
     remember(c, { t: sim.tick, kind: "wounded", subj: by, obj: c.id, toy: null, area: sim.world.areaAt(c.x, c.y)?.id ?? 0, val: -0.4 - w.severity * 0.15, ev: -1, src: "did" });
     sim.emit({ type: "injury", x: c.x, y: c.y, actors: by >= 0 ? [by, c.id] : [c.id], severity: w.severity >= 3 ? 4 : 3, data: { part, level: w.severity },
-      summary: `${c.name} ${part === "head" ? (w.kind === "stab" ? "was stabbed in the head" : "has a nasty head gash") : w.kind === "stab" ? `was stabbed in the ${part}` : `has a bleeding ${part}`}${att ? ` (${att.name})` : ""}` });
+      summary: `${c.name} ${w.kind==="bruise"?`has a bruised ${part}`:part === "head" ? (w.kind === "stab" ? "was stabbed in the head" : "has a nasty head gash") : w.kind === "stab" ? `was stabbed in the ${part}` : `has a bleeding ${part}`}${att ? ` (${att.name})` : ""}` });
   }
   return w;
 }
 
 export function recomputeBleed(c: Character): void {
   let b = 0;
-  for (const w of c.wounds) if (!w.bandaged) b += BLEED[w.severity] * (w.part === "head" ? 1.4 : 1);
+  for (const w of c.wounds) if (!w.bandaged && w.kind!=="bruise" && w.kind!=="graze" && w.kind!=="fracture") b += BLEED[w.severity] * (w.part === "head" ? 1.4 : 1);
   c.bleed = Math.min(1, b);
 }
 

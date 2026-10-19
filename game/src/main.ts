@@ -2,6 +2,7 @@ import "./ui/styles.css";
 import { Game } from "./app/Game";
 import "./ui/dashboard.css";
 import "./ui/clarity.css";
+import "./ui/interface.css";
 import { setMosaicData, MOSAIC } from "./content/mosaicscope";
 import { loadBuzz } from "./content/buzz";
 

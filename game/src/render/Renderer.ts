@@ -37,7 +37,7 @@ export type Quality = 0 | 1 | 2 | 3; // low, medium, high, ultra
 interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter, 7 street decor
 interface Decal { x: number; y: number; r: number; color: string; born: number; life: number; rot: number }
 
-export interface RenderOptions { selected: number; hovered: number; debug: DebugFlags; reduceMotion: boolean; quality: Quality; showNames: boolean }
+export interface RenderOptions { selected: number; hovered: number; debug: DebugFlags; reduceMotion: boolean; quality: Quality; showNames: boolean; quietInterface?:boolean }
 
 /**
  * Canvas 2D renderer. Rendering reads simulation state and never writes simulation state
@@ -416,7 +416,7 @@ export class Renderer {
     this.rain.draw(g, sim.env.rain, cam.viewW, cam.viewH, dt, o.quality === 0 ? 60 : o.quality === 1 ? 160 : 260, o.reduceMotion);
 
     drawUpgradeEffects(g, sim, cam, time, o.reduceMotion, o.quality);
-    this.drawBubbles(view, o);
+    if(!o.quietInterface)this.drawBubbles(view, o);
     this.drawDebug(o.debug, alpha);
     if (o.quality === 3) this.cinematic(sim);
     this.stats.frameMs = performance.now() - t0;
