@@ -1,5 +1,5 @@
 {
- "at": 1792421796207,
+ "at": 1792427382195,
  "totals": {
   "duplicate-code": 2,
   "long-function": 17,
@@ -10,10 +10,10 @@
   {
    "kind": "duplicate-code",
    "severity": "low",
-   "where": "game/src/audio/Diegetic.ts:845 = game/tests/diegetic.test.ts:106",
+   "where": "game/src/audio/Diegetic.ts:861 = game/tests/diegetic.test.ts:106",
    "detail": "8+ identical lines in 2 places",
    "fix": "extract a shared helper",
-   "fp": "duplicate-code|k4p3h8"
+   "fp": "duplicate-code|10cc6r2"
   },
   {
    "kind": "duplicate-code",
@@ -51,17 +51,17 @@
    "kind": "oversized-module",
    "severity": "medium",
    "where": "game/src/app/Game.ts",
-   "detail": "1549 lines",
+   "detail": "1559 lines",
    "fix": "split by feature into modules",
-   "fp": "oversized-module|l9ps0e"
+   "fp": "oversized-module|mg56vr"
   },
   {
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/audio/Diegetic.ts",
-   "detail": "1139 lines",
+   "detail": "1155 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|ywoih8"
+   "fp": "oversized-module|18lp24e"
   },
   {
    "kind": "long-function",
@@ -98,10 +98,10 @@
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/render/Cars.ts:202",
-   "detail": "397 lines",
+   "where": "game/src/render/Cars.ts:218",
+   "detail": "400 lines",
    "fix": "split into named steps",
-   "fp": "long-function|vxt9ki"
+   "fp": "long-function|1gbwzrq"
   },
   {
    "kind": "long-function",
@@ -115,9 +115,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/render/Renderer.ts",
-   "detail": "1015 lines",
+   "detail": "1026 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|n71cf2"
+   "fp": "oversized-module|132kzu4"
   },
   {
    "kind": "oversized-module",
@@ -155,9 +155,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Simulation.ts",
-   "detail": "936 lines",
+   "detail": "938 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|1bjb570"
+   "fp": "oversized-module|1n4kvae"
   },
   {
    "kind": "long-function",
@@ -170,10 +170,10 @@
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/sim/Traffic.ts:451",
-   "detail": "180 lines",
+   "where": "game/src/sim/Traffic.ts:454",
+   "detail": "181 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1r7kc3x"
+   "fp": "long-function|1d8hj8r"
   },
   {
    "kind": "long-function",
@@ -202,10 +202,10 @@
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/world/WorldGenerator.ts:59",
-   "detail": "357 lines",
+   "where": "game/src/world/WorldGenerator.ts:60",
+   "detail": "358 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1xsk60o"
+   "fp": "long-function|1vqilex"
   },
   {
    "kind": "long-function",

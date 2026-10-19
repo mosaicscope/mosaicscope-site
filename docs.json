@@ -1,6 +1,6 @@
 {
- "at": 1792421796298,
- "key": "1tnao38",
+ "at": 1792427382286,
+ "key": "36h1w1",
  "findings": [
   {
    "kind": "doc-dead-path",
@@ -29,6 +29,13 @@
    "where": "game/art-requests/README.md",
    "detail": "mentions `analysis.md`, which doesn't exist",
    "fp": "doc-dead-path|lhfrhs"
+  },
+  {
+   "kind": "doc-missing-api",
+   "severity": "low",
+   "where": "functions/api/destination-map.js",
+   "detail": "/api/destination-map isn't mentioned in any README",
+   "fp": "doc-missing-api|1lvy1j2"
   },
   {
    "kind": "doc-missing-api",
