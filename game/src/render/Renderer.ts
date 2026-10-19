@@ -341,9 +341,9 @@ export class Renderer {
           const angle=Math.atan2((Math.sin(c.facing)+Math.cos(c.facing))*.5,Math.abs(Math.cos(c.facing)-Math.sin(c.facing)));
           const ca=Math.cos(angle),sa=Math.sin(angle),long=held.def==='shotgun'||held.def==='rifle'||held.def==='smg';
           const grip=(side:0|1,x:number,y:number)=>reachArm(a,side,0,0,x*ca-y*sa,x*sa+y*ca);
-          const since=(sim.tick-(c.combat?.recoilTick??-600))/60,kick=since<.2?Math.sin(Math.max(0,since)/.2*Math.PI)*(long?4:3):0;
-          const reloading=c.combat?.reloadWeapon===held.def&&(c.combat.reloadUntil??0)>sim.tick&&since>.18;
-          grip(1,18-kick,reloading?14:9-kick*.5);grip(0,reloading?8:long?29-kick:17-kick,reloading?22:long?4-kick*.5:9-kick*.5);
+          const mechanism=weaponMotion(c.weaponAction,sim.tick),since=(sim.tick-(c.weaponAction?.firedAt??c.combat?.recoilTick??-600))/60,kick=since<.2?Math.sin(Math.max(0,since)/.2*Math.PI)*(long?4:3):0;
+          const reloading=c.weaponAction?.weapon===held.def&&(c.weaponAction.reloadFrom??Infinity)<=sim.tick&&(c.weaponAction.reloadUntil??0)>sim.tick;
+          grip(1,18-kick,reloading?14:9-kick*.5);grip(0,reloading?8:long?29-kick-mechanism.pump*5:17-kick,reloading?22:long?4-kick*.5:9-kick*.5);
         }
         solve(a, it.sx, it.sy - zOff, k, dir);
         // held toy behind or in front depending on hand

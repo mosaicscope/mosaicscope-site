@@ -47,7 +47,7 @@ describe('weapon-dependent nonfatal trauma',()=>{
   updateHealth(s,c,1);expect(c.blood).toBeGreaterThan(0);hospitalise(s,c);expect(w.detached).toBeUndefined();expect(c.phys).toBe(Phys.OK);expect(c.blood).toBe(.8);
  });
  it('responds to walls and gives severe blunt injury a bleeding fracture instead of severing',()=>{
-  const s=small(),c=s.player;wound(s,c,'leg',3,'fracture',-1,c.x-1,c.y,'mace');expect(c.wounds[0].compound).toBe(true);expect(c.wounds[0].detached).toBeUndefined();expect(c.bleed).toBeGreaterThan(0);
+  const s=small(),c=s.player;wound(s,c,'leg',3,'fracture',-1,c.x-1,c.y,'mace');expect(c.wounds[0].compound).toBe(true);expect(c.wounds[0].detached).toBeUndefined();expect(c.bleed).toBeGreaterThan(0);bandage(s,null,c);expect(needsMedicalResponse(c)).toBe(true);
   c.wounds[0].detached={side:1,x:c.x,y:c.y,z:1,vx:3,vy:2,vz:0,angle:0,spin:1,tick:0,cause:'shotgun'};
   const spy=vi.spyOn(s.world,'walkable').mockReturnValue(false),x=c.x;advanceDetachedLimbs(s,c,.1);expect(c.wounds[0].detached.x).toBe(x);expect(Math.abs(c.wounds[0].detached.vx)).toBeLessThan(3);spy.mockRestore();
  });

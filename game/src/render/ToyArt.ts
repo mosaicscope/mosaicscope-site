@@ -169,7 +169,7 @@ function drawGun(g: CanvasRenderingContext2D, def: string, x: number, y: number,
       guard(0.15, 0.05, 0.17, "#9a8d80");
       g.fillStyle = "#6f6660"; g.beginPath(); g.ellipse(X(0.2), Y(-0.15+motion.cylinder*.4), 0.32 * u, 0.24 * u, 0, 0, 6.283); g.fill(); // cylinder
       g.strokeStyle = "#eee4d3"; g.lineWidth = 0.05 * u; g.stroke();
-      for(let i=0;i<6;i++){const a=i*Math.PI/3+motion.cycle*Math.PI/3;g.fillStyle='#252a29';g.beginPath();g.ellipse(X(.2+Math.cos(a)*.2),Y(-.15+motion.cylinder*.4+Math.sin(a)*.12),.045*u,.035*u,0,0,7);g.fill();}
+      for(let i=0;i<6;i++){const a=i*Math.PI/3+(motion.rotation??motion.cycle*Math.PI/3);g.fillStyle='#252a29';g.beginPath();g.ellipse(X(.2+Math.cos(a)*.2),Y(-.15+motion.cylinder*.4+Math.sin(a)*.12),.045*u,.035*u,0,0,7);g.fill();}
       poly([[-.27,-.35],[-.35-motion.hammer*.18,-.6],[-.18,-.52]],'#8f968c');
       poly([[0.4, -0.32], [1.5, -0.32], [1.5, -0.08], [0.4, -0.08]], "#9a8d80", "#eee4d3"); // long barrel
       poly([[-0.3, -0.36], [0.0, -0.36], [0.0, 0.02], [-0.3, 0.02]], "#6f6660");

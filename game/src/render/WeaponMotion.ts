@@ -1,6 +1,6 @@
 import {TOYS} from '../content/toys';
 export interface WeaponAction{weapon:string;firedAt:number;reloadFrom?:number;reloadUntil?:number;shots:number}
-export interface GunMotion{cycle:number;pump:number;magazine:number;cylinder:number;hammer:number;trigger:number;reload:number}
+export interface GunMotion{cycle:number;pump:number;magazine:number;cylinder:number;hammer:number;trigger:number;reload:number;rotation?:number}
 export const REST_GUN:GunMotion={cycle:0,pump:0,magazine:0,cylinder:0,hammer:0,trigger:0,reload:0};
 export function weaponMotion(action:WeaponAction|undefined,tick:number):GunMotion{
  if(!action)return REST_GUN;
@@ -9,7 +9,7 @@ export function weaponMotion(action:WeaponAction|undefined,tick:number):GunMotio
  const pump=t>.22&&t<.72?Math.sin((t-.22)/.5*Math.PI):0;
  const reload=action.reloadFrom!==undefined&&action.reloadUntil!==undefined&&tick>=action.reloadFrom&&tick<action.reloadUntil?(tick-action.reloadFrom)/(action.reloadUntil-action.reloadFrom):0;
  const magazine=reload>.08&&reload<.8?Math.sin((reload-.08)/.72*Math.PI):0;
- return{cycle,pump,magazine,cylinder:reload?Math.sin(reload*Math.PI):0,hammer:t<.24?Math.sin(t/.24*Math.PI):0,trigger:t<.12?Math.sin(t/.12*Math.PI):0,reload};
+ return{...(action.weapon==='revolver'?{rotation:((action.shots-1+Math.min(1,t/.16))%6)*Math.PI/3}:{}),cycle,pump,magazine,cylinder:reload?Math.sin(reload*Math.PI):0,hammer:t<.24?Math.sin(t/.24*Math.PI):0,trigger:t<.12?Math.sin(t/.12*Math.PI):0,reload};
 }
 /** Delays are measured from the shot; metal sounds coincide with the visible part travel. */
 export function mechanicalBeats(weapon:string,reload=false){
