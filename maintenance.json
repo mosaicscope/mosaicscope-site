@@ -1,5 +1,5 @@
 {
- "at": 1792516984252,
+ "at": 1792521038522,
  "totals": {
   "duplicate-code": 2,
   "long-function": 17,
@@ -51,9 +51,9 @@
    "kind": "oversized-module",
    "severity": "medium",
    "where": "game/src/app/Game.ts",
-   "detail": "1732 lines",
+   "detail": "1735 lines",
    "fix": "split by feature into modules",
-   "fp": "oversized-module|17on1aa"
+   "fp": "oversized-module|1n0nyoz"
   },
   {
    "kind": "oversized-module",
@@ -106,18 +106,18 @@
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/render/RefFigure.ts:286",
+   "where": "game/src/render/RefFigure.ts:287",
    "detail": "184 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1e6ufbq"
+   "fp": "long-function|bviw3j"
   },
   {
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/render/Renderer.ts",
-   "detail": "1053 lines",
+   "detail": "1061 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|q9g8zs"
+   "fp": "oversized-module|1jan88d"
   },
   {
    "kind": "oversized-module",
@@ -155,9 +155,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Simulation.ts",
-   "detail": "965 lines",
+   "detail": "967 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|1d3izy8"
+   "fp": "oversized-module|13b63ae"
   },
   {
    "kind": "long-function",
