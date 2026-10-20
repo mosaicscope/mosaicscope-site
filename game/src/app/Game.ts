@@ -1315,7 +1315,7 @@ export class Game {
   private burger = new BurgerShift((r) => { this.sim.player.cash += r.pay; this.toast(`Shift done: ${r.orders} orders, ${r.perfect} perfect. Paid ${fmtCash(r.pay)}`, "acid"); this.focus("Shift over", `Lyttelton Diner paid you ${fmtCash(r.pay)}`, 3); });
   private heist = new HeistUI(this.modal);
   private travel = new Travel({
-    player:()=>this.sim.player,people:()=>this.sim.chars.filter(c=>c.tier==='principal'||c.role==='office'),
+    player:()=>this.sim.player,people:()=>this.sim.chars,
     refresh:kind=>{const p=this.sim.player;if(kind==='eat')p.hunger=Math.min(1,p.hunger+.25);else p.needs.energy=Math.min(1,p.needs.energy+.2);},
     getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; },
     companions: () => this.sim.chars.filter((c) => c.tier === "principal" && c.name !== "Chris").map((c) => ({ name: c.name, color: c.look.color })),

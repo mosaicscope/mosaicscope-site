@@ -58,3 +58,6 @@
 /* Native touch/wheel/keyboard scrolling remains available in dense tools; no browser chrome in the world. */
 #ui *{scrollbar-width:none}#ui *::-webkit-scrollbar{display:none}
 #ui .panel.salt-dialogue{width:min(1160px,96vw)}#ui .salt-line p{font-size:15px;line-height:1.55}#ui .salt-line{min-height:110px}
+
+
+#ui .destination-conversation{padding:12px 14px;border:1px solid var(--ui-border);border-radius:8px;background:#242623;color:var(--ui-text)}#ui .destination-conversation p{margin:6px 0;line-height:1.5}#ui .local-conversation-head,#ui .local-choices{display:flex;gap:8px;align-items:center;flex-wrap:wrap}#ui .local-conversation-head{justify-content:space-between}#ui .local-speech{font-size:18px}#ui .local-subtitle,#ui .destination-conversation small{font-size:12px;color:var(--ui-muted)}#ui .local-choices{margin-top:10px}#ui .local-choices button{min-height:42px}#ui .destination-conversation select{background:#30332e;color:inherit;max-width:180px;border:1px solid var(--ui-border);padding:8px;border-radius:6px}
