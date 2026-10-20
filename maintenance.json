@@ -1,5 +1,5 @@
 {
- "at": 1792497192850,
+ "at": 1792500560690,
  "totals": {
   "duplicate-code": 2,
   "long-function": 17,
@@ -35,25 +35,25 @@
    "kind": "long-function",
    "severity": "low",
    "where": "game/src/ai/steps.ts:49",
-   "detail": "188 lines",
+   "detail": "190 lines",
    "fix": "split into named steps",
-   "fp": "long-function|g8d1n7"
+   "fp": "long-function|9hmaom"
   },
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/ai/steps.ts:248",
+   "where": "game/src/ai/steps.ts:250",
    "detail": "249 lines",
    "fix": "split into named steps",
-   "fp": "long-function|10z0dam"
+   "fp": "long-function|19foa5t"
   },
   {
    "kind": "oversized-module",
    "severity": "medium",
    "where": "game/src/app/Game.ts",
-   "detail": "1682 lines",
+   "detail": "1718 lines",
    "fix": "split by feature into modules",
-   "fp": "oversized-module|ok4tcq"
+   "fp": "oversized-module|8t82le"
   },
   {
    "kind": "oversized-module",
@@ -106,18 +106,18 @@
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/render/RefFigure.ts:281",
+   "where": "game/src/render/RefFigure.ts:285",
    "detail": "184 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1fj3evt"
+   "fp": "long-function|u22lf9"
   },
   {
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/render/Renderer.ts",
-   "detail": "1042 lines",
+   "detail": "1045 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|15yza76"
+   "fp": "oversized-module|a7c32b"
   },
   {
    "kind": "oversized-module",
@@ -146,18 +146,18 @@
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/sim/Rules.ts:19",
-   "detail": "355 lines",
+   "where": "game/src/sim/Rules.ts:20",
+   "detail": "358 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1f3awkd"
+   "fp": "long-function|ulei8e"
   },
   {
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Simulation.ts",
-   "detail": "955 lines",
+   "detail": "961 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|w1nixv"
+   "fp": "oversized-module|6c2f38"
   },
   {
    "kind": "long-function",

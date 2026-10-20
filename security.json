@@ -1,5 +1,5 @@
 {
- "at": 1792497192384,
+ "at": 1792500559981,
  "counts": {
   "critical": 0,
   "high": 0,
@@ -228,7 +228,7 @@
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "game/src/app/Game.ts",
-   "line": 1669,
+   "line": 1705,
    "fp": "dom:inner-html|game/src/app/Game.ts|1t7ww1h"
   },
   {
