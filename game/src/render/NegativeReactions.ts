@@ -1,5 +1,5 @@
 import {contactPose,groundReaction,stampPose} from './ReactionAnatomy';
-import {sampleReactionFace,setReactionFace} from './ReactionFaces';
+import {sampleReactionFace,setReactionFace,conditionFace,focusedFace} from './ReactionFaces';
 import type {Character} from '../entities/types';
 import type {Angles} from './StickFigure';
 import {REACTION_CLIPS} from './ReactionScores';
@@ -20,24 +20,29 @@ export function sampleReactionClip(clip:ReactionClip,time:number,reduced=false):
  for(let stage=0;stage<3;stage++){const key=clip.keys[stage];if(key!=='ts'&&key!=='tu')continue;const start=stage*.315,end=start+.37;if(u>=start&&u<=end){const stamped={...out};stampPose(stamped,key==='ts'?0:1,(u-start)/(end-start));const ramp=(v:number)=>{v=Math.max(0,Math.min(1,v));return v*v*(3-2*v);},blend=ramp((u-start)/.055)*ramp((end-u)/.055);for(const track of REACTION_TRACKS)out[track]+=(stamped[track]-out[track])*blend;}}
  return out;
 }
-export function reactionFor(c:Character,time=0){
+export function reactionFor(c:Character,_time=0){
  if(!c.emo||!c.pers)return null;
  let hurt:Character['wounds'][number]|undefined;for(const w of c.wounds??[])if(!w.bandaged&&(!hurt||w.severity>hurt.severity))hurt=w;
  let family=-1,strength=0;
  if(hurt){family=['head','arm','leg','torso'].indexOf(hurt.part);strength=.55+hurt.severity*.15;}
- else if(c.emo.fear>.35){family=4+Math.min(3,Math.floor((1-c.pers.boldness)*4));strength=c.emo.fear;}
- else if(c.emo.frustration>.45){family=11+Math.min(3,Math.floor(c.pers.temper*4));strength=c.emo.frustration;}
- else if(c.emo.mood<-.25){family=c.emo.mood<-.75?15+Math.min(3,Math.floor(c.pers.sociability*4)):8+Math.min(2,Math.floor(c.pers.boldness*3));strength=-c.emo.mood;}
+ else if(c.emo.fear>.35){family=c.emo.fear>.9?16:c.emo.fear>.7?6:4;strength=c.emo.fear;}
+ else if(c.emo.frustration>.45){family=c.emo.frustration>.85?13:c.emo.frustration>.65?12:11;strength=c.emo.frustration;}
+ else if(c.emo.mood<-.25){family=9;strength=-c.emo.mood;}
  else if((c.needs?.energy??1)<.2){family=19;strength=1-c.needs.energy;}
  if(family<0)return null;
- const variant=((Math.imul(c.id+1,2654435761)>>>0)%25+Math.floor(Math.max(0,time)/3.2))%25;
- return {clip:NEGATIVE_REACTIONS[family*25+variant],strength};
+ const event=hurt?`${hurt.part}:${hurt.tick}:${hurt.hits??1}`:`${family}`;
+ const variant=(Math.imul(c.id+1,2654435761)+(hurt?.tick??0)+(hurt?.hits??0))>>>0;
+ return {clip:NEGATIVE_REACTIONS[family*25+variant%25],strength,key:event,acute:!!hurt||family===4||family===6||family===16};
 }
+const performances=new WeakMap<Character,{key:string;start:number;perform:boolean}>();
 const occupiedActions=new Set(['shoot','swing','punch','throw','kick','slap','shove','uppercut','shield','repair','deal','bet','carry','craft','photo','play','kiss','sit','sitdrink','phone']);
 export function applyNegativeReaction(a:Angles,c:Character,t:number,speed:number,action:string,reduced=false):void{
- const clock=reduced?0:Math.max(0,t+(c.seedPhase??0)),r=reactionFor(c,clock);if(!r){setReactionFace(c,null);return;}
- setReactionFace(c,sampleReactionFace(r.clip,clock%r.clip.duration,reduced));
- const p=sampleReactionClip(r.clip,reduced?0:clock%r.clip.duration,reduced),weight=.7+.3*r.strength;
+ const r=reactionFor(c);if(!r){if(performances.get(c)?.key!=='neutral')performances.set(c,{key:'neutral',start:t,perform:false});setReactionFace(c,action==='shoot'?focusedFace():null);return;}
+ let state=performances.get(c);if(!state||state.key!==r.key){state={key:r.key,start:t-.35,perform:r.acute||!!state&&r.strength>.75};performances.set(c,state);}
+ const elapsed=Math.max(0,t-state.start),perform=state.perform&&(reduced||elapsed<r.clip.duration);
+ setReactionFace(c,!r.acute&&action==='shoot'?focusedFace():perform?sampleReactionFace(r.clip,reduced?r.clip.duration*.5:elapsed,reduced):conditionFace(r.clip.index,r.strength));
+ if(!state.perform||!perform&&!reduced)return;
+ const p=sampleReactionClip(r.clip,reduced?0:elapsed,reduced),weight=.7+.3*r.strength;
  const down=a.lying>0||c.phys===2||c.phys===3,occupied=occupiedActions.has(action)||c.hand>=0;
  if(!down&&!occupied&&speed<.2&&c.phys===0){Object.assign(a,p);return;}
  // Preserve strikes, held equipment and the physical knockdown; react through the available joints.

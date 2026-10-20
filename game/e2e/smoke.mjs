@@ -155,6 +155,7 @@ await check("developer panel shows real metrics and toggles overlays", async () 
   await page.waitForTimeout(600);
   const txt = await dev.textContent();
   assert(/Entities/.test(txt) && /Spatial queries/.test(txt), "metrics missing");
+  await dev.getByText("Debug overlays",{exact:true}).click();
   await dev.getByLabel("Collision shapes").check();
   assert(await G(() => window.__mosaics.debug.collision), "toggle not applied");
   await page.screenshot({ path: "e2e/screenshots/smoke-dev.png" });

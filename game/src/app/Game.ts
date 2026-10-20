@@ -131,7 +131,6 @@ export class Game {
   photos!: Photos; casino: Casino; places: Places; radio: Radio; interior: InteriorOverlay;
   private hudEl: HTMLElement;
   private combatHelpButton:HTMLButtonElement|null=null;
-  private gunInspectButton:HTMLButtonElement|null=null;
   private areaEl: HTMLElement = h("div.areaname", { "aria-live": "polite" }); private lastArea = ""; private bustedEl: HTMLElement; private lastBusted = -1;
   private gestured = false;
   private pinchDist = 0;
@@ -153,6 +152,7 @@ export class Game {
     this.terrance = new TerranceUI(S);
     this.terrance.onSpeak = (t) => this.audio?.speak(t);
     this.dev = new DevPanel(S, this.renderer, this.debug, this.lifeFlags, {
+      selected:()=>this.selected,setSpeed:n=>this.setSpeed(n),step:()=>{this.setSpeed(0);this.sim.step();this.clock.tick=this.sim.tick;},setQuality:q=>{if(['auto','low','medium','high','ultra'].includes(q)){this.settings.quality=q as typeof this.settings.quality;this.applySettings();this.persistSettings();}},
       quality: () => (this.settings.quality === "auto" ? "auto→" : "") + ["low", "medium", "high", "ultra"][this.quality], speed: () => (this.clock.paused ? 0 : this.clock.speed),
       fps: () => this.fpsAvg, tickRate: () => this.tickRate, reset: (seed) => this.reset(seed), toast: (t) => this.toast(t),
       teleport: () => { const p = this.renderer.cam.toWorld(this.mouse.x, this.mouse.y); const w = this.sim.world.nearestWalkable(p.x, p.y); this.sim.player.x = w.x; this.sim.player.y = w.y; },
@@ -332,7 +332,7 @@ export class Game {
     const ad = this.hovered < 0 && !this.mouse.dragging ? this.renderer.pickAd(this.mouse.x, this.mouse.y) : null;
     this.canvas.style.cursor = ad || this.hovered >= 0 ? "pointer" : "";
     this.canvas.title = ad ? `${ad.label} (opens in a new tab)` : "";
-    if (!this.interior.open) this.guard("render", () => this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames,quietInterface:this.dialogue.open||this.modal.open||this.casino.open }));
+    if (!this.interior.open) this.guard("render", () => this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames,quietInterface:this.dialogue.open||this.modal.open||this.casino.open||this.dev.visible }));
     this.guard("audio", () => {
       const f = this.interior.footing;
       this.audio.scene = { interior: this.interior.building?.kind ?? null, moving: f.moving, running: f.running, in2D: this.renderer.street2D };
@@ -359,9 +359,7 @@ export class Game {
     if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; kids.push(h("div.car", null, [h("b", { text: String(Math.round(Math.abs(v.speed) * 7.2)) }), " km/h · " + VEHICLES[v.cls].name + (v.flatLeft || v.flatRight ? " · FLAT TYRE" : "") + ((v.heat ?? 0) > 0.5 ? " · ENGINE HOT: pull over" : "")])); }
     if(sim.pendingAmbulance.has(p.id))kids.push(h('div.car.medical-status',{text:p.phys===Phys.DOWN?'Ambulance on the way · stay still for treatment':'Ambulance on the way · move clear of traffic'}));
     if (p.bleed > 0) kids.push(h("div.car", { text: "You're bleeding. B to bandage." }));
-    kids.push(h("button.btn",{text:this.sim.expansion.pending?"Nearby story · Play":"City fun & stories",onclick:()=>this.activities.show("Explore")}));
     if(p.hand>=0){const d=sim.toys[p.hand].def,w=TOYS[d].weapon;if(w?.gun){const base=d==='golden_pistol'?'pistol':d,load=p.combat?.load??'standard',key=load==='standard'?base:base+':'+load;kids.push(h('div.combat-status',{text:`${TOYS[d].name} · ${p.combat?.ammo[key]??'∞'} rounds · ${w.mode??'semi'}`}));}}
-    if(p.hand>=0&&TOYS[sim.toys[p.hand]?.def]?.weapon?.gun){this.gunInspectButton??=h('button.btn.combat-help',{text:'Inspect gun · live action',onclick:()=>this.openEquippedWeapon()}) as HTMLButtonElement;kids.push(this.gunInspectButton);}
     this.combatHelpButton??=h("button.btn.combat-help",{text:"Fight / gun controls",onclick:()=>this.openCombatControls()}) as HTMLButtonElement;kids.push(this.combatHelpButton);
     const obj = this.objective(); if (obj) kids.push(h("div.car.obj", { text: obj }));
     this.hudEl.replaceChildren(...kids);
@@ -1282,7 +1280,7 @@ export class Game {
         h("button.btn", { text: "Luxury", onclick: () => this.luxury.show() }), h("button.btn", { text: "Heist", onclick: () => this.heist.open() }),
         h("button.btn", { text: "Event log", onclick: () => this.log.toggle() }), h("button.btn", { text: "Event replay", onclick: () => this.replay.show() }),
         h("button.btn", { text: "Me", onclick: () => this.select(this.sim.playerId) }), h("button.btn", { text: "AI brains", onclick: () => this.openBrains() }),
-        h("button.btn", { text: "Settings", onclick: () => this.openSettings() }), h("button.btn", { text: "Help", onclick: () => this.openHelp() }),
+        h("button.btn", { text: "Settings", onclick: () => this.openSettings() }), h("button.btn", { text: "Help", onclick: () => this.openHelp() }), h("button.btn",{text:"Developer console",onclick:()=>this.dev.toggle()}),
       ]),
     ]);
   }

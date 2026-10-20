@@ -2,6 +2,7 @@ import type {Character,Wound,Vehicle} from "../entities/types";
 import {bodyDamageModel,faceDamageModel,CAR_DAMAGE_MODELS,carZoneDamage} from "../content/damageModels";
 let bloodEnabled=false;
 export function setDamageBlood(on:boolean):void{bloodEnabled=on;}
+export function damageBloodEnabled():boolean{return bloodEnabled;}
 /** Injury detail shares the figure's scale and respects the blood-effects setting. */
 function mark(g:CanvasRenderingContext2D,w:Wound,x:number,y:number,k:number,pattern:number,seed:number):void{
  g.save();g.translate(x,y);g.rotate(((seed%7)-3)*.12);g.lineCap='round';
