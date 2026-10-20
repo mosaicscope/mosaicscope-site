@@ -1,6 +1,6 @@
 {
- "at": 1792521359596,
- "key": "13am9qy",
+ "at": 1792525278191,
+ "key": "64a2ng",
  "findings": [
   {
    "kind": "doc-dead-path",
@@ -36,6 +36,13 @@
    "where": "functions/api/destination-map.js",
    "detail": "/api/destination-map isn't mentioned in any README",
    "fp": "doc-missing-api|1lvy1j2"
+  },
+  {
+   "kind": "doc-missing-api",
+   "severity": "low",
+   "where": "functions/api/destination-speech.js",
+   "detail": "/api/destination-speech isn't mentioned in any README",
+   "fp": "doc-missing-api|is1yri"
   },
   {
    "kind": "doc-missing-api",
