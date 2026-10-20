@@ -1,0 +1,12 @@
+City-centre data: GeoNames, https://www.geonames.org/
+Source: https://download.geonames.org/export/dump/cities15000.zip
+Retrieved 21 October 2026. Licence: Creative Commons Attribution 4.0.
+https://creativecommons.org/licenses/by/4.0/
+
+This derived catalogue contains the GeoNames identifier, name, country code,
+latitude, longitude and recorded population. Selection: population at least
+100,000, plus all cities15000 entries in NZ, AU, KW, AE, BH, QA, OM and SA.
+Population values and geographic coverage reflect the source dataset.
+City centres identify starting districts; they do not describe building facades.
+Building footprints, available heights, roads and venues are obtained separately
+from OpenStreetMap contributors under ODbL 1.0, with in-game attribution.

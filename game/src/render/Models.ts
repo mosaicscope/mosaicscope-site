@@ -7,7 +7,7 @@ import type { Character, EyeShape, Face, HairStyle, HatStyle, Look } from "../en
  * It re-skins the stick skeleton: filled torso, chunky limbs, shoes, props. Only mid-tier people get
  * one; the Mosaics, the player, named mission characters and uniformed jobs keep their own look.
  */
-export type TopStyle = "tank" | "tee" | "long" | "hoodie" | "coat" | "vest" | "bare" | "poncho" | "dress" | "suit" | "jersey" | "apron" | "hawaiian";
+export type TopStyle = "thobe" | "abaya" | "kurta" | "sari" | "tank" | "tee" | "long" | "hoodie" | "coat" | "vest" | "bare" | "poncho" | "dress" | "suit" | "jersey" | "apron" | "hawaiian";
 export type BottomStyle = "jeans" | "shorts" | "ripped" | "trackies" | "skirt" | "kilt" | "slacks" | "boardies";
 export type ShoeStyle = "boots" | "sneakers" | "bare" | "jandals" | "heels" | "workboots" | "sandals";
 export type Prop = "bottle" | "can" | "cig" | "sign" | "cane" | "bag" | "crutch" | "camera" | "cup";

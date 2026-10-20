@@ -1,3 +1,6 @@
+import {drawAircraft} from './Aircraft';
+import {aircraftForSku} from '../content/aircraft';
+import {farmObjects,drawFarmObject} from './Farm';
 import {drawCommerceArt,drawCommerceObject} from './CommerceArt';
 import {applySubstanceMotion,drawSubstanceProps} from './SubstanceMotion';
 import {gunGrips} from './GunRig';
@@ -25,7 +28,6 @@ import { pose, solve, drawFigure, pathSilhouette, J, gaitOf, applyGait, reachArm
 import { drawToy, drawIsoBox } from "./ToyArt";
 import { INK } from "./palette";
 import { drawBuildingTile, GLOW } from "./Buildings";
-import { ZooRenderer } from "./Zoo";
 import { resetHdBudget } from "./StickFigure";
 import { hurtOf } from "../sim/Life";
 import { setTextureTier } from "./Textures";
@@ -42,8 +44,8 @@ import { StreetView } from "./Street2D";
 const STREET_2D = false;
 
 export type Quality = 0 | 1 | 2 | 3; // low, medium, high, ultra
-interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter, 7 street decor
-interface Decal { x: number; y: number; r: number; color: string; born: number; life: number; rot: number }
+interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter, 7 street decor
+interface Decal { x: number; y: number; r: number; color: string; born: number; life: number; rot: number; blood?:boolean; fall?:number }
 
 export interface RenderOptions { selected: number; hovered: number; debug: DebugFlags; reduceMotion: boolean; quality: Quality; showNames: boolean; quietInterface?:boolean }
 
@@ -98,7 +100,7 @@ export class Renderer {
   }
 
   setSim(sim: Simulation): void {
-    this.bubblePositions.clear();
+    this.bubblePositions.clear();this.decals.length=0;
     this.sim = sim; this.terrain = new Terrain(sim.world); this.terrain.setUltra(this.qualityNow === 3); this.particles.clear(); this.lastPose.clear(); this.motion.clear();
     this.cam.worldSize = sim.world.size; this.cam.lookAt(sim.player.x, sim.player.y, true); this.cam.follow = sim.playerId;
     sim.bus.on("fx", (f) => this.onFx(f));
@@ -117,7 +119,7 @@ export class Renderer {
     this.particles.spawn(f.kind as any, f.x, f.y, f.z, f.n, f.color, f.text);
     if (f.kind === "blood" || f.kind === "paint" || f.kind === "water") {
       const n = f.kind === "blood" ? 3 : 2;
-      for (let i = 0; i < n; i++) this.decals.push({ x: f.x + (Math.random() - 0.5) * 0.8, y: f.y + (Math.random() - 0.5) * 0.8, r: 0.12 + Math.random() * (f.kind === "water" ? 0.35 : 0.22), color: f.kind === "blood" ? "#7a0d12" : f.kind === "paint" ? f.color ?? "#ff7ad9" : "rgba(61,214,255,.5)", born: this.time, life: f.kind === "water" ? 6 : 35, rot: Math.random() * 3 });
+      for (let i = 0; i < n; i++) this.decals.push({ x: f.x + (Math.random() - 0.5) * 0.8, y: f.y + (Math.random() - 0.5) * 0.8, r: 0.12 + Math.random() * (f.kind === "water" ? 0.35 : 0.22), color: f.kind === "blood" ? "#7a0d12" : f.kind === "paint" ? f.color ?? "#ff7ad9" : "rgba(61,214,255,.5)", born: this.time, life: f.kind === "water" ? 6 : 75, blood:f.kind==="blood", rot: Math.random() * 3 });
       if (this.decals.length > 220) this.decals.splice(0, this.decals.length - 220);
     }
   }
@@ -125,7 +127,7 @@ export class Renderer {
   /** Bleeding characters leave drips (called by the renderer each frame for visible ones). */
   drip(x: number, y: number): void {
     if (!this.fakeBlood) return;
-    this.decals.push({ x: x + (Math.random() - 0.5) * 0.4, y: y + (Math.random() - 0.5) * 0.4, r: 0.06 + Math.random() * 0.1, color: "#7a0d12", born: this.time, life: 40, rot: 0 });
+    this.decals.push({ x: x + (Math.random() - 0.5) * 0.4, y: y + (Math.random() - 0.5) * 0.4, r: 0.06 + Math.random() * 0.1, color: "#7a0d12", born: this.time, life: 75, blood:true, fall:.3, rot:Math.random()*6.28 });
     if (this.decals.length > 220) this.decals.shift();
   }
 
@@ -175,12 +177,19 @@ export class Renderer {
     // ground decals
     for (let i = this.decals.length - 1; i >= 0; i--) {
       const dcl = this.decals[i], age = this.time - dcl.born;
+      if(dcl.blood&&!this.fakeBlood)continue;
       if (age > dcl.life) { this.decals.splice(i, 1); continue; }
       cam.toScreen(dcl.x, dcl.y, 0, this.pt);
       if (this.pt.x < -20 || this.pt.y < -20 || this.pt.x > cam.viewW + 20 || this.pt.y > cam.viewH + 20) continue;
       g.globalAlpha = Math.min(0.85, (1 - age / dcl.life) * 1.4);
       g.fillStyle = dcl.color;
-      g.beginPath(); g.ellipse(this.pt.x, this.pt.y, dcl.r * 45 * z, dcl.r * 22 * z, dcl.rot * 0.2, 0, 6.283); g.fill();
+      if(dcl.blood){
+        const radius=dcl.r*z*(age<.3?.5+age/.6:1),seed=dcl.x*17+dcl.y*31;
+        g.fillStyle=age<10?'#7b2222':age<35?'#612321':'#4e2924';g.beginPath();
+        for(let j=0;j<16;j++){const a=j*Math.PI/8,rough=1+.16*Math.sin(j*2.7+seed)+.08*Math.cos(j*4.1+seed);const xx=this.pt.x+Math.cos(a)*radius*38*rough,yy=this.pt.y+Math.sin(a)*radius*18*rough;j?g.lineTo(xx,yy):g.moveTo(xx,yy);}g.closePath();g.fill();
+        if(age<12){g.fillStyle='#b4574a55';g.beginPath();g.ellipse(this.pt.x-radius*5,this.pt.y-radius*3,radius*12,radius*3,dcl.rot*.2,0,7);g.fill();}
+        if(dcl.fall&&age<dcl.fall){const h=(1-Math.pow(age/dcl.fall,2))*19*z;g.fillStyle='#8e3029';g.beginPath();g.ellipse(this.pt.x,this.pt.y-h,1.1*z,2.1*z,0,0,7);g.fill();}
+      }else{g.beginPath(); g.ellipse(this.pt.x, this.pt.y, dcl.r * 45 * z, dcl.r * 22 * z, dcl.rot * 0.2, 0, 6.283); g.fill();}
     }
     g.globalAlpha = 1;
     // graffiti lookup (rebuilt only when the list changes)
@@ -253,6 +262,9 @@ export class Renderer {
     }
     this.pickBoxes.length = 0;
     AD_BOXES.length = 0;
+    sim.commerce.purchases.forEach((order,i)=>{if(!order.bay||!order.sku.startsWith('air:'))return;cam.toScreen(order.bay.x,order.bay.y,0,pt);if(inView(pt.x,pt.y,120*z))this.push(this.behind(order.bay.x,order.bay.y,order.bay.x+order.bay.y+.03),11,i,pt.x,pt.y);});
+    const farm=farmObjects(sim,o.reduceMotion?0:time,this.zooAnimals);
+    farm.forEach((a,i)=>{cam.toScreen(a.x,a.y,0,pt);if(inView(pt.x,pt.y,80*z))this.push(this.behind(a.x,a.y,a.x+a.y+.03),10,i,pt.x,pt.y);});
     // cars and traffic lights
     for (const v of sim.vehicles) {
       cam.toScreen(v.x, v.y, 0, pt);
@@ -365,7 +377,7 @@ export class Renderer {
         if(workingCrews.has(c.id)){g.fillStyle='#d4a04e';g.strokeStyle='#555d4b';g.lineWidth=k;g.beginPath();g.moveTo(J[6]-5*k,J[7]+3*k);g.lineTo(J[6]+5*k,J[7]+3*k);g.lineTo(J[0]+5*k,J[1]);g.lineTo(J[0]-5*k,J[1]);g.closePath();g.fill();g.stroke();g.strokeStyle='#e4ddbb';g.lineWidth=2*k;g.beginPath();g.moveTo(J[6]-4*k,J[7]+12*k);g.lineTo(J[6]+4*k,J[7]+12*k);g.stroke();}
         if (c.bleed > 0 && Math.random() < c.bleed * dt * 5) this.drip(c.x, c.y);
         // someone down and bleeding leaves a spreading pool
-        if (c.phys === Phys.DOWN && c.bleed > 0 && this.fakeBlood && Math.random() < dt * 1.5) { this.decals.push({ x: c.x + (Math.random() - 0.5) * 0.2, y: c.y + (Math.random() - 0.5) * 0.2, r: 0.18 + Math.random() * 0.2, color: "#6a0a10", born: this.time, life: 60, rot: 0 }); if (this.decals.length > 220) this.decals.shift(); }
+        if(c.phys===Phys.DOWN&&c.bleed>0&&this.fakeBlood&&Math.random()<dt*1.5){const pool=this.decals.find(d=>d.blood&&!d.fall&&Math.hypot(d.x-c.x,d.y-c.y)<.35);if(pool){pool.r=Math.min(.62,pool.r+.012);pool.born=this.time;}else{this.decals.push({x:c.x,y:c.y,r:.17,color:'#702323',blood:true,born:this.time,life:90,rot:c.id});if(this.decals.length>220)this.decals.shift();}}
         this.drawHeld(c, k, dir, a.armR);
         figs++;
         this.pickBoxes.push(c.id, it.sx - 14 * z, it.sy - zOff - 52 * z * c.look.scale, it.sx + 14 * z, it.sy + 4);
@@ -412,6 +424,8 @@ export class Renderer {
         drawDecor(g, decorGrid(sim.world)[it.ref], it.sx, it.sy, z, time, 1 - sim.daylight, (it.ref * 0.618) % 1);
       } else {
         flush();
+        if(it.kind===11){const order=sim.commerce.purchases[it.ref],a=aircraftForSku(order.sku);g.save();g.translate(it.sx,it.sy);g.scale(z,z);g.fillStyle='#444f4b';g.strokeStyle='#a9a58d';g.lineWidth=1;g.beginPath();g.moveTo(-34,-16);g.lineTo(-34,-43);g.quadraticCurveTo(0,-65,34,-43);g.lineTo(34,-16);g.closePath();g.fill();g.stroke();g.fillStyle='#242c29';g.fillRect(-29,-38,58,25);drawAircraft(g,a,0,-4,Math.min(1.4,64/(a.length*5)));g.restore();continue;}
+        if(it.kind===10){drawFarmObject(g,cam,farm[it.ref],time);continue;}
         if(drawDebris(g,sim.world.civicDamage[`p:${it.ref}`],it.sx,it.sy,z))continue;
         if(it.kind===9){drawCommerceObject(g,sim,cam,o.reduceMotion,it.ref);continue;}
         drawPoi(g, sim.world.pois[it.ref], it.sx, it.sy, z, time, party, isDark);
@@ -435,11 +449,6 @@ export class Renderer {
       for (const f of GLOW) f(lg);
       GLOW.length = 0;
       g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(cv, 0, 0); g.restore();
-    }
-    // the player's private zoo
-    if (this.zooAnimals.length) {
-      const a = sim.world.areas.find((x) => x.name === "Velvet Zoo") ?? sim.world.areas.find((x) => x.name === "Botanic Gardens");
-      if (a) this.zoo.draw(g, cam, a, this.zooAnimals, time, dt);
     }
     this.drawHeli(g, sim, time, z);
     this.rain.draw(g, sim.env.rain, cam.viewW, cam.viewH, dt, o.quality === 0 ? 60 : o.quality === 1 ? 160 : 260, o.reduceMotion);
@@ -921,7 +930,6 @@ export class Renderer {
 
   /** Animals the player has bought (drawn in the Velvet Zoo). */
   zooAnimals: { kind: import("./Animals").AnimalKind; name: string }[] = [];
-  private zoo = new ZooRenderer();
 
   /** Buildings on screen this frame, and how much each is cut away (0..1, eased). */
   private viewB = new Set<number>();

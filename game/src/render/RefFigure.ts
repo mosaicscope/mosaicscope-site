@@ -208,6 +208,7 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
     const col=flash?'#fff':M.trim;
     if(['suit','coat','hoodie','vest'].includes(M.top)){line([sx,sy+4*k,hx,hy],1.2*k,col);for(const side of[-1,1])line([sx+side*bw*.7,sy+3*k,sx+side*bw*.35,sy+12*k],k,col);}
     if(['apron','dress','poncho'].includes(M.top)){g.fillStyle=M.top==='apron'?col:M.topColor;g.strokeStyle=ink;g.beginPath();g.moveTo(sx-3*k,sy+5*k);g.lineTo(sx+3*k,sy+5*k);g.lineTo(hx+9*k,hy+6*k);g.lineTo(hx-9*k,hy+6*k);g.closePath();g.fill();g.stroke();}
+    if(['thobe','abaya','kurta','sari'].includes(M.top)){const hem=M.top==='kurta'?hy+16*k:Math.min(J[19],J[23])-3*k;g.fillStyle=M.topColor;g.strokeStyle=ink;g.lineWidth=k;g.beginPath();g.moveTo(sx-bw*.8,sy+4*k);g.lineTo(sx+bw*.8,sy+4*k);g.lineTo(hx+9*k,hem);g.lineTo(hx-9*k,hem);g.closePath();g.fill();g.stroke();line([sx,sy+4*k,hx,hy+10*k],.9*k,col);if(M.top==='sari')line([sx+bw,sy+2*k,hx-7*k,hy+5*k,hx-8*k,hem],3*k,col);else{line([sx-3*k,sy+4*k,sx,sy+8*k,sx+3*k,sy+4*k],k,col);}}
     if(M.top==='jersey')line([sx-bw,sy+14*k,sx+bw,sy+14*k],4*k,col);
     if(M.top==='hawaiian'){for(let i=0;i<3;i++){g.fillStyle=col;g.beginPath();g.arc(sx+(i%2?2:-2)*k,sy+(8+i*7)*k,2*k,0,7);g.fill();}}
   }
@@ -226,7 +227,7 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
     const detached=detachedOn(c,"arm",side);
     const pts = detached?[rx,ry,ep[0],ep[1]]:[rx, ry, ep[0], ep[1], hp[0], hp[1]];
     halo(pts, lw); line(pts, lw, limbCol);
-    if(c.look.top&&!['tank','bare','vest'].includes(M.top)){const long=['long','coat','hoodie','suit'].includes(M.top);line([rx,ry,ep[0],ep[1],...(long&&!detached?[hp[0],hp[1]]:[])],lw+2*k,ink);line([rx,ry,ep[0],ep[1],...(long&&!detached?[hp[0],hp[1]]:[])],lw,flash?'#fff':M.topColor);}
+    if(c.look.top&&!['tank','bare','vest'].includes(M.top)){const long=['long','coat','hoodie','suit','thobe','abaya','kurta'].includes(M.top);line([rx,ry,ep[0],ep[1],...(long&&!detached?[hp[0],hp[1]]:[])],lw+2*k,ink);line([rx,ry,ep[0],ep[1],...(long&&!detached?[hp[0],hp[1]]:[])],lw,flash?'#fff':M.topColor);}
     J[el]=ep[0];J[el+1]=ep[1];
     if(detached){J[hn]=ep[0];J[hn+1]=ep[1];continue;}
     const ax = pts[4] - pts[2], ay = pts[5] - pts[3], al = Math.hypot(ax, ay) || 1, dx = ax / al, dy = ay / al;

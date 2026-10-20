@@ -1,9 +1,11 @@
+import {hangarBay} from './Hangar';
+import {DEALER_AIRCRAFT} from '../content/aircraft';
 import type {Simulation} from './Simulation';
 import {VEHICLES,type VehicleClass} from '../content/vehicles';
 import {makeVehicle} from './Traffic';
 import type {InteriorDef,Prop,PropType} from '../content/interiors';
 import {PROP_INFO} from '../content/interiors';
-export interface Purchase {id:number;sku:string;name:string;building:number;price:number;tick:number;vehicle?:number;sailing?:import("./Sea").SeaState;target?:{x:number;y:number};flight?:{at:number;until:number;x:number;y:number};rounds?:number}
+export interface Purchase {id:number;sku:string;name:string;building:number;price:number;tick:number;vehicle?:number;bay?:{x:number;y:number};sailing?:import("./Sea").SeaState;target?:{x:number;y:number};flight?:{at:number;until:number;x:number;y:number};rounds?:number}
 export interface CommerceState {serial:number;purchases:Purchase[]}
 export const newCommerce=():CommerceState=>({serial:1,purchases:[]});
 export function restoreCommerce(v:unknown):CommerceState {
@@ -12,7 +14,8 @@ export function restoreCommerce(v:unknown):CommerceState {
   const sailing=p.sailing&&[p.sailing.x,p.sailing.y,p.sailing.heading,p.sailing.speed,p.sailing.rudder,p.sailing.travelled].every(Number.isFinite)?p.sailing:undefined;
   const flight=p.flight&&Object.values(p.flight).every(Number.isFinite)&&p.flight.until>p.flight.at?p.flight:undefined;
   const target=p.target&&Number.isFinite(p.target.x+p.target.y)?p.target:undefined;
-  return {...p,sailing,flight,target};
+  const bay=p.bay&&Number.isFinite(p.bay.x+p.bay.y)?{x:p.bay.x,y:p.bay.y}:undefined;
+  return {...p,bay,sailing,flight,target};
  });return {serial:Math.max(1,s.serial,...purchases.map(p=>p.id+1)),purchases};
 }
 
@@ -27,12 +30,14 @@ export const MARKET:MarketItem[]=[
  ['jetski','Jet ski',18000,3,35,1],['hovercraft','Gold hovercraft',12500000,15,25,12],['dinghy','Runabout',12000,5,15,2],['fishing','Fishing launch',95000,9,14,5],['sailboat','Coastal yacht',240000,12,12,8],['cabin','Cabin cruiser',420000,16,20,16],['ferry','Passenger ferry',2800000,38,16,80],['yacht','Superyacht',28000000,62,18,140],['cruise','Cruise ship',180000000,180,12,800]
  ] as const).map(([id,name,price,length,speed,mass])=>({id:'boat:'+id,name,category:'Marine' as const,price,length,speed,mass,detail:`${length} m hull · ${speed} game knots. Delivered to the coastal marina; board and steer it in the sea region.`})),
  ...([['propeller','Touring aircraft',450000],['helicopter','Helicopter',3100000],['private-jet','Private jet',45000000]] as const).map(([id,name,price])=>({id:'air:'+id,name,category:'Aircraft' as const,price,detail:'Delivered to the airport. Your owned aircraft unlocks a private departure without a commercial fare.'})),
+ ...DEALER_AIRCRAFT.map(a=>({id:'air:'+a.id,name:a.name,category:'Aircraft' as const,price:a.price,detail:`${a.type} · ${a.length.toFixed(1)} m · ${a.seats} seats · ${a.engines} engine${a.engines>1?'s':''}. Hangar delivery and private departures included.`})),
  ...([['sofa','Lounge suite',1800,'sofa'],['bed','Bedroom suite',2400,'bed'],['table','Dining suite',1200,'table'],['plant','Indoor plants',160,'plant'],['screen','Cinema screen',4200,'screen'],['lamp','Reading lamp',180,'lamp'],['cabinet','Designer cabinetry',3200,'cabinet'],['rug','Woven rug',450,'rug']] as const).map(([id,name,price,prop])=>({id:'home:'+id,name,category:'Home' as const,price,prop,detail:'Choose an owned address. Delivered furnishings appear inside that building, with their matching use action.'})),
  {id:'property:home',name:'City residence',category:'Property',price:180000,detail:'Buy an available residential building on this map. Visit and furnish the actual address.'},
  {id:'experience:amusement',name:'Amusement park company',category:'Experiences',price:250000,detail:'Open at a mapped site; ticket takings feed your existing daily company ledger.'},
  {id:'experience:marine',name:'Marine discovery park',category:'Experiences',price:320000,detail:'Own a marine education attraction at a mapped site; exhibits and daily takings belong to the company.'},
 ];
 export function deliverySite(sim:Simulation,sku:string):number {
+ if(sku.startsWith('air:')){const residence=sim.commerce.purchases.find(o=>o.sku==='property:home'&&hangarBay(sim,o.building));if(residence)return residence.building;const airfield=sim.world.buildings.find(b=>b.kind==='airport'&&hangarBay(sim,b.id));if(airfield)return airfield.id;const overflow=sim.world.buildings.find(b=>['house','flat','flats','hotel'].includes(b.kind)&&hangarBay(sim,b.id));if(overflow)return overflow.id;}
  const kind=sku.startsWith('air:')?'airport':sku.startsWith('car:')?'dealership':null;
  const candidates=sim.world.buildings.filter(b=>kind?b.kind===kind:['flat','flats','house','hotel'].includes(b.kind));
  return (candidates[0]??sim.world.buildings[0])?.id??-1;
@@ -46,7 +51,8 @@ export function buyMarket(sim:Simulation,sku:string,building:number):string {
  if(item.category==='Home'&&!sim.commerce.purchases.some(o=>o.sku==='property:home'&&o.building===building))return 'Buy this residence before furnishing it.';
  if(item.category==='Property'&&!['flat','flats','house','hotel'].includes(b.kind))return 'Choose a residential address.';
  if(['Home','Property','Aircraft','Experiences','Armory'].includes(item.category)&&sim.commerce.purchases.some(o=>o.sku===sku&&o.building===building))return 'Already installed at this address.';
- const order:Purchase={id:sim.commerce.serial++,sku,name:item.name,building,price:item.price,tick:sim.tick};
+ const bay=item.category==='Aircraft'?hangarBay(sim,building):null;if(item.category==='Aircraft'&&!bay)return 'No clear hangar apron near this address. Try the airport or another residence.';
+ const order:Purchase={id:sim.commerce.serial++,sku,name:item.name,building,price:item.price,tick:sim.tick,...(bay?{bay}:{})};
  if(item.vehicle){const available=sim.vehicles.filter(v=>v.state==='parked'&&v.driver<0&&v.owner<0&&v.forSale&&v.cls===item.vehicle&&Math.hypot(v.x-b.door.x,v.y-b.door.y)<18),stock=available[0];
    if(stock){stock.cls=item.vehicle;stock.color=VEHICLES[item.vehicle].colors[0];stock.owner=p.id;stock.forSale=false;order.vehicle=stock.id;}
    else {const spots=[];for(let y=Math.max(1,Math.floor(b.door.y)-18);y<Math.min(sim.world.size-1,b.door.y+18);y++)for(let x=Math.max(1,Math.floor(b.door.x)-18);x<Math.min(sim.world.size-1,b.door.x+18);x++)if(sim.world.tile(x,y)===20)spots.push({x:x+.5,y:y+.5});spots.sort((a,c)=>Math.hypot(a.x-b.door.x,a.y-b.door.y)-Math.hypot(c.x-b.door.x,c.y-b.door.y));const spot=spots.find(p=>!sim.vehicles.some(v=>Math.hypot(v.x-p.x,v.y-p.y)<2));if(!spot)return 'No clear parking bay at this address. Choose another delivery site.';if(sim.vehicles.some(v=>Math.hypot(v.x-spot.x,v.y-spot.y)<2))return 'The delivery bay is occupied. Clear it or choose another dealership.';const v=makeVehicle(sim,item.vehicle,spot.x,spot.y,0,'parked');v.owner=p.id;order.vehicle=v.id;}

@@ -29,7 +29,7 @@ export interface TravelHost {
 type Stage = "board" | "checkin" | "security" | "gate" | "flight" | "dest" | "return";
 type G = CanvasRenderingContext2D;
 interface Act { id: string; kind: "photo" | "eat" | "souvenir" | "fun"; label: string; cost: number; out: string; item?: string }
-interface Dest { code: string; name: string; time: string; fare: number; lon: number; lat: number; sky: [string, string]; neon: string; tag: string; acts: Act[]; draw: (g: G, t: number) => void }
+interface Dest { code: string; name: string; time: string; fare: number; lon: number; lat: number; sky: [string, string]; neon: string; tag: string; acts: Act[]; draw: (g: G, t: number) => void;country?:string }
 
 const W = 960, H = 420, GROUND = 392;
 const money = (n: number) => "$" + Math.round(n).toLocaleString("en-NZ");
@@ -245,7 +245,7 @@ export class Travel {
 
   private reset(): void {
     this.privateFlight=false;this.lounge='terminal';this.passes=new Set(['terminal','quiet','family']);
-    this.sel = 0; this.comp = null; this.spent = 0; this.photos = 0; this.souvenirs = []; this.done.clear();
+    this.globalDestination=null;this.sel = 0; this.comp = null; this.spent = 0; this.photos = 0; this.souvenirs = []; this.done.clear();
     this.bagOk = false; this.scanDone = false; this.argued = false; this.cleared = false; this.scanNote = ""; this.landed = false;
   }
 
@@ -253,7 +253,8 @@ export class Travel {
   arriveFromSea():void {this.show();this.sel=0;this.go("dest");}
   privateDeparture():void {this.show();this.privateFlight=true;this.go("board");}
 
-  private get dest(): Dest { return DESTS[this.sel]; }
+  private globalDestination:Dest|null=null;
+  private get dest(): Dest { return this.globalDestination??DESTS[this.sel]; }
 
   private onKey = (e: KeyboardEvent): void => {
     if (!this.open) return;
@@ -324,17 +325,21 @@ export class Travel {
     const flap = (s: string, w: number) => h("span.flap", { "aria-hidden": "true" }, s.toUpperCase().padEnd(w).split("").map((c, i) => h("i", { style: { animationDelay: `${i * 35}ms` }, text: c })));
     const rows = DESTS.map((d, i) => h("button.tv-row" + (i === this.sel ? ".on" : ""), {
       type: "button", role: "radio", "aria-checked": String(i === this.sel), "data-key": String(i + 1),
-      "aria-label": `${i + 1}: ${d.name}, ${d.time}, return fare ${money(d.fare)} each`, onclick: () => { this.sel = i; this.msg = ""; this.render(); },
+      "aria-label": `${i + 1}: ${d.name}, ${d.time}, return fare ${money(d.fare)} each`, onclick: () => { this.globalDestination=null;this.sel = i; this.msg = ""; this.render(); },
     }, [h("span.tv-num", { text: String(i + 1) }), flap(`MS${100 + i * 7} ${d.code}`, 9), flap(d.name, 11), h("span.tv-time", { text: d.time }), h("span.tv-fare", { text: money(d.fare) }), h("span.tv-status", { text: i === this.sel ? "SELECTED" : "ON TIME" })]));
     const crew = this.host.companions();
     const comps = h("div.tv-comps", { role: "radiogroup", "aria-label": "Travel companion" }, [
       h("button.tv-chip" + (!this.comp ? ".on" : ""), { type: "button", role: "radio", "aria-checked": String(!this.comp), onclick: () => { this.comp = null; this.render(); } }, ["Solo (cheaper)"]),
       ...crew.map((c) => h("button.tv-chip" + (this.comp?.name === c.name ? ".on" : ""), { type: "button", role: "radio", "aria-checked": String(this.comp?.name === c.name), onclick: () => { this.comp = c; this.render(); } }, [h("i.dot", { style: { background: c.color } }), c.name])),
     ]);
+    const results=h('select',{'aria-label':'Worldwide city results'},[h('option',{text:'Search a city or country code',value:''})]) as HTMLSelectElement;
+    const worldSearch=h('input',{type:'search',placeholder:'Find a world city · e.g. Kuwait or IN','aria-label':'Search worldwide cities',oninput:async(e:Event)=>{const term=(e.target as HTMLInputElement).value.trim().toLowerCase();if(term.length<2){results.replaceChildren(h('option',{text:'Type at least two letters',value:''}));return;}const {default:cities}=await import('../../../data/world-cities.mjs');if(!worldSearch.isConnected)return;const countries:Record<string,string>={IN:'india',KW:'kuwait',AE:'united arab emirates uae',QA:'qatar',OM:'oman',BH:'bahrain',SA:'saudi arabia',NZ:'new zealand',AU:'australia',US:'united states america usa',CA:'canada',GB:'united kingdom britain england',JP:'japan'};const matches=cities.filter(c=>c.name.toLowerCase().includes(term)||c.country.toLowerCase()===term||(countries[c.country]??'').includes(term)).sort((a,b)=>Number(b.name.toLowerCase().includes(term))-Number(a.name.toLowerCase().includes(term))).slice(0,30);results.replaceChildren(h('option',{text:matches.length?'Choose a mapped city':'No matching city in this catalogue',value:''}),...matches.map(c=>h('option',{value:c.id,text:c.name+' · '+c.country})));}});
+    results.onchange=async()=>{const {default:cities}=await import('../../../data/world-cities.mjs'),city=cities.find(c=>c.id===+results.value);if(!city||!this.open)return;this.globalDestination={...DESTS[0],code:'G'+city.id,name:city.name+', '+city.country,lat:city.lat,lon:city.lon,country:city.country,time:'Connecting service',fare:850,tag:'Mapped neighbourhood · available OSM footprints and game-authored interiors',acts:DESTS[0].acts.filter(a=>a.kind==='photo')};this.render();};
     const fare = this.fareFor(this.dest);
     this.scene("Christchurch International · CHC", "Departures", [
       h("div.tv-board", { role: "radiogroup", "aria-label": "Destinations" }, [h("div.tv-row.head", { "aria-hidden": "true" }, ["#", "Flight", "Destination", "Time", "Fare", "Status"].map((t) => h("span", { text: t }))), ...rows]),
-      h("p.tv-note", { text: this.dest.tag }),
+      h('div.tv-world-search',null,[worldSearch,results]),
+      h('p.tv-note',{text:this.globalDestination?'Selected: '+this.dest.name:this.dest.tag}),
       h("h3.tv-h3", { text: "Who's coming?" }), comps,
     ], [
       this.btn(`Buy ticket${this.comp ? "s" : ""} · ${money(fare)}`, () => this.buy(), { primary: true, aria: `Buy ${this.comp ? "two return tickets" : "a return ticket"} to ${this.dest.name} for ${money(fare)}` }),
@@ -499,8 +504,8 @@ export class Travel {
     const canvas=this.makeCanvas(`${d.name}: real mapped buildings and roads with your Mosaics character`),status=h('p.tv-note',{text:'Loading mapped neighbourhood…'}),enter=this.btn('Enter selected venue',()=>this.enterMappedVenue());enter.setAttribute('disabled','');
     this.scene(`${d.name} · ${this.comp ? "with " + this.comp.name : "solo"} · ${this.photos} photos`, d.name,
       [canvas,status,h('p.tv-note',{text:'WASD / arrows to walk. Tap the ground to move; tap a building or venue to inspect it. Approach within 30 metres to enter. Footprints and available heights are mapped; facade details and interiors are game interpretations.'}),
-       h('a',{href:'https://www.openstreetmap.org/copyright',target:'_blank',rel:'noopener',text:'© OpenStreetMap contributors · ODbL 1.0'})], [enter,...acts]);
-    this.district=new DestinationDistrict(canvas,d.code,this.host.player(),s=>{status.textContent=s;},()=>{enter.removeAttribute('disabled');},this.visits.get(d.code));
+       h('a',{href:'https://www.openstreetmap.org/copyright',target:'_blank',rel:'noopener',text:'© OpenStreetMap contributors · ODbL 1.0'}),h('a',{href:'https://www.geonames.org/',target:'_blank',rel:'noopener',text:'City centres: GeoNames · CC BY 4.0'})], [enter,...acts]);
+    this.district=new DestinationDistrict(canvas,d.code,this.host.player(),s=>{status.textContent=s;},()=>{enter.removeAttribute('disabled');},this.visits.get(d.code),this.comp?this.host.people().filter(c=>c.name===this.comp!.name||c.name.startsWith(this.comp!.name+' ')).slice(0,1):[],this.host.people().filter(c=>c.tier==='background').slice(0,12),d.country??'');
   }
 
   private enterMappedVenue():void{

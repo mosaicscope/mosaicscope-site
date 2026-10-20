@@ -1,14 +1,14 @@
-export interface ScratchTicket { stake: number; payout: number; symbols: number[]; mask: number; paid: boolean }
+export interface ScratchTicket { design?:number; stake: number; payout: number; symbols: number[]; mask: number; paid: boolean }
 export interface ArcadeResult { game: string; values: number[]; labels: string[]; stake: number; payout: number; result: string; at: number }
 
 /** Stake-inclusive payout and the printed ticket are fixed at purchase, never while scratching. */
-export function makeScratch(stake: number, jackpot: number, rng = Math.random): ScratchTicket {
+export function makeScratch(stake: number, jackpot: number, rng = Math.random, design=0): ScratchTicket {
   if (!Number.isFinite(stake) || stake < 1 || stake > 500) throw new Error("Choose a stake from $1 to $500.");
   const roll = Math.floor(Math.max(0, Math.min(0.999999, rng())) * 1000);
   const multiplier = roll === 0 ? -1 : roll < 10 ? 20 : roll < 60 ? 5 : roll < 200 ? 2 : 0;
   const symbol = multiplier === -1 ? 0 : multiplier === 20 ? 1 : multiplier === 5 ? 2 : 3;
   const first = 1 + Math.floor(rng() * 5);
-  return { stake, payout: multiplier === -1 ? jackpot : stake * multiplier, symbols: multiplier ? [symbol, symbol, symbol] : [first, (first + 1) % 6, (first + 3) % 6], mask: 0, paid: false };
+  return { design:Math.max(0,Math.min(99,Math.floor(design))), stake, payout: multiplier === -1 ? jackpot : stake * multiplier, symbols: multiplier ? [symbol, symbol, symbol] : [first, (first + 1) % 6, (first + 3) % 6], mask: 0, paid: false };
 }
 /** Reveal progress survives saves; claiming a finished ticket is idempotent. */
 export function revealScratch(ticket: ScratchTicket, panel: number): number {

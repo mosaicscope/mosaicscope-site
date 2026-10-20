@@ -1,3 +1,4 @@
+import {drawHorse} from '../render/Horse';
 import {applyNegativeReaction} from '../render/NegativeReactions';
 import {casinoPose} from './CasinoBehaviour';
 import {choiceMotion,choiceProp} from './EncounterChoreography';
@@ -175,6 +176,7 @@ function backdrop(g:CanvasRenderingContext2D,night=false) {
 /** Original pixel silhouettes, drawn at a small native resolution and enlarged without interpolation. */
 const sprites=new Map<string,HTMLCanvasElement>();
 export function animalSprite(g:CanvasRenderingContext2D,x:number,y:number,kind:string,time:number,size=1,color?:string,jockey?:number,variant=jockey??0) {
+  if(/horse|trainer|race/i.test(kind)){drawHorse(g,x,y,time,size,variant,jockey);return;}
   if(drawAnimalAtlas(g,x,y,kind,time,size,jockey!==undefined||/greyhound/i.test(kind)?'run':'walk',variant))return;
   const bird=/chick|duck|chook|goose/i.test(kind),horse=/horse|trainer|race/i.test(kind),sheep=/sheep/i.test(kind),cow=/cattle|cow/i.test(kind),pig=/pig/i.test(kind),dog=/dog|greyhound/i.test(kind),deer=/deer/i.test(kind),goat=/goat/i.test(kind),alpaca=/alpaca/i.test(kind),bee=/bee/i.test(kind);
   const frame=Math.floor(time*7)%4,key=`${kind}:${frame}:${color??''}:${jockey??''}`;
@@ -324,13 +326,13 @@ export function raceScene(r:RaceSceneState|null,tick:()=>number,sport='Horse',pe
    for(const y of[1,3.2,5.4,7.6])box(g,P,.25,y,.08,.08,1.9,'#586a75');box(g,P,.1,.8,.7,7,.08,'#586a75',1.9);building(g,P,4,4.7,3,1.3,.5,'#ded4bf','#4e6d6c');
    for(let i=0;i<16;i++){const [x,y]=P(.5,i*.4+1,.85);if(cast.length)drawVenuePerson(g,cast[i%cast.length],x,y,t+i,.7,active&&i%3===0?'cheer':i%3===1?'read':'sit');}
    const runners=names.map((_,i)=>{const rank=order.indexOf(i),lead=r?.physics?r.physics.runners[i].distance/r.physics.length:progress*(1-rank*.018),lane=r?.physics?r.physics.runners[i].lane*.12:i*.16,angle=(lead*.88+.1)*TAU;return {i,angle,x:6.5+Math.cos(angle)*(5.05+lane),y:6.5+Math.sin(angle)*(3.65+lane)};}).sort((a,b)=>a.x+a.y-b.x-b.y);
-   for(const a of runners){const [x,y]=P(a.x,a.y);g.save();g.translate(x,y);if(-Math.sin(a.angle)-Math.cos(a.angle)<0)g.scale(-1,1);animalSprite(g,0,0,r?.sport??sport,active&&!reduced?r?.physics?(r.physics.runners[a.i].stride??0)*8/12:t:0,.68,undefined,/Horse|Trainer/.test(r?.sport??sport)?a.i:undefined);if((r?.owned??roster.findIndex(a=>a.owned))===a.i){g.strokeStyle='#efd17e';g.lineWidth=2;g.beginPath();g.ellipse(0,4,27,9,0,0,TAU);g.stroke();}if(/Horse|Trainer/.test(r?.sport??sport)&&people.length)drawVenuePerson(g,people[a.i%people.length],0,-23,0,.72,'sit');g.restore();}
+   for(const a of runners){const [x,y]=P(a.x,a.y);g.save();g.translate(x,y);if(-Math.sin(a.angle)-Math.cos(a.angle)<0)g.scale(-1,1);animalSprite(g,0,0,r?.sport??sport,active&&!reduced?r?.physics?(r.physics.runners[a.i].stride??0)*8/12:t:0,.68,undefined,/Horse|Trainer/.test(r?.sport??sport)?a.i:undefined);if((r?.owned??roster.findIndex(a=>a.owned))===a.i){g.strokeStyle='#efd17e';g.lineWidth=2;g.beginPath();g.ellipse(0,4,27,9,0,0,TAU);g.stroke();}g.restore();}
    for(let i=0;i<10;i++){tree(g,P,12.5,i+1,.55);tree(g,P,i+1,12.5,.55);}
   }else{
    g.fillStyle='#8dad5b';g.fillRect(0,90,960,510);for(let y=110;y<600;y+=60){g.fillStyle=(y/60)%2?'#83a653':'#7c9c4e';g.fillRect(0,y,960,60);}
    g.fillStyle='#45594c';g.fillRect(0,90,960,75);for(let i=0;i<38;i++)if(cast.length)drawVenuePerson(g,cast[i%cast.length],i*26,137,t+i,.65,active&&i%4===0?'cheer':i%3?'sit':'talk');
    for(const y of[179,198,478,497]){g.strokeStyle='#e6e4d2';g.lineWidth=4;g.beginPath();g.moveTo(0,y);g.lineTo(960,y);g.stroke();}
-   names.forEach((_,i)=>{const rank=order.indexOf(i),lead=r?.physics?r.physics.runners[i].distance/r.physics.length:progress,x=progress>=1?800-rank*20:130+lead*670-(r?.physics?0:rank*progress*75),y=238+i*44;animalSprite(g,x,y,r?.sport??sport,active&&!reduced?r?.physics?(r.physics.runners[i].stride??0)*8/12:t:0,.95,undefined,/Horse|Trainer/.test(r?.sport??sport)?i:undefined);if(/Horse|Trainer/.test(r?.sport??sport)&&people.length)drawVenuePerson(g,people[i%people.length],x,y-30,0,.75,'bet');if(i===(r?.owned??roster.findIndex(a=>a.owned))){g.strokeStyle='#edcc79';g.lineWidth=2;g.beginPath();g.ellipse(x,y+2,43,10,0,0,TAU);g.stroke();roundBox(g,x-43,y-74,86,18,4,'#163a34ee');sceneText(g,names[i].slice(0,18)+' ★',x,y-61,10,'#f5d385');}roundBox(g,x-25,y+7,26,19,3,['#d6594c','#537fbc','#c3a54f','#51996a','#9c76b5','#ccc9b7'][i%6]);sceneText(g,String(i+1),x-12,y+21,12);});
+   names.forEach((_,i)=>{const rank=order.indexOf(i),lead=r?.physics?r.physics.runners[i].distance/r.physics.length:progress,x=progress>=1?800-rank*20:130+lead*670-(r?.physics?0:rank*progress*75),y=238+i*44;animalSprite(g,x,y,r?.sport??sport,active&&!reduced?r?.physics?(r.physics.runners[i].stride??0)*8/12:t:0,.95,undefined,/Horse|Trainer/.test(r?.sport??sport)?i:undefined);if(i===(r?.owned??roster.findIndex(a=>a.owned))){g.strokeStyle='#edcc79';g.lineWidth=2;g.beginPath();g.ellipse(x,y+2,43,10,0,0,TAU);g.stroke();roundBox(g,x-43,y-74,86,18,4,'#163a34ee');sceneText(g,names[i].slice(0,18)+' ★',x,y-61,10,'#f5d385');}roundBox(g,x-25,y+7,26,19,3,['#d6594c','#537fbc','#c3a54f','#51996a','#9c76b5','#ccc9b7'][i%6]);sceneText(g,String(i+1),x-12,y+21,12);});
    g.fillStyle='#e9e4cf';g.fillRect(872,173,6,327);
   }
   roundBox(g,20,18,610,53,9,'#173b35ed');sceneText(g,`${(r?.sport??sport).toUpperCase()} · ${r?active?'LIVE RACE':'OFFICIAL RESULT':'STARTING PADDOCK'}`,37,41,20,'#ead7a1','left');sceneText(g,`HORNCASTLE RACING CLUB${r?.selected!==undefined?' · Your pick: '+names[r.selected]:''}${(r?.owned??roster.findIndex(a=>a.owned))>=0?' · ★ Your horse is entered':''}`,37,59,11,'#acc8bb','left');

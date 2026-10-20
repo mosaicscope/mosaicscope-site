@@ -1,3 +1,6 @@
+import {farmPlot} from '../sim/FarmPlot';
+import {SCRATCHCARDS} from '../content/scratchcards';
+import {AIRCRAFT} from '../content/aircraft';
 import { newHorseRace } from "../sim/HorseRace";
 import { raceRoster, raceOrder, raceReturn } from "../sim/RaceBook";
 import { raceScene, encounterScene } from "./VenueArt";
@@ -17,6 +20,8 @@ type Tab = "Farm" | "UC" | "Racing" | "Betting" | "Explore";
 /** All transactions use the current simulation, including after loading another slot. */
 export class Activities {
   onFun?: (kind:"roast"|"burger")=>void;
+  private page=0; private design=0; private aircraft=0;
+  onVisitFarm?:()=>void;
   private message = "";
   private game = "Scratchies";
   private record(game:string,values:number[],result:string,payout=0) { this.s.casino.result={game,values,labels:[],stake:this.stake,payout,result,at:this.sim().tick}; }
@@ -34,7 +39,6 @@ export class Activities {
   private get race() { return this.s.casino.race; }
   private set race(v:import('../sim/Expansion').CasinoState['race']) { this.s.casino.race=v; }
   private home: Tab = "Betting";
-  private renderedTab: Tab | null = null;
   constructor(private sim: () => Simulation, private modal: ModalHost, private toast: (s: string) => void) {}
   private get s() { return this.sim().expansion; }
   private pay(n: number): boolean {
@@ -48,17 +52,20 @@ export class Activities {
     document.querySelector("header.bar.open")?.classList.remove("open");
     document.querySelector("header.bar .menu-toggle")?.setAttribute("aria-expanded", "false");
     this.home = tab;
-    const nav = (["Explore", "Betting", "Racing", "Farm", "UC"] as Tab[]).map(t => this.btn(t, () => { this.home = t; this.message = ""; }));
-    const body = tab === "Farm" ? this.farm() : tab === "UC" ? this.uni() : tab === "Racing" ? this.stable() : tab === "Explore" ? this.explore() : this.betting();
-    const scroll = this.renderedTab === tab ? document.querySelector<HTMLElement>(".activities")?.scrollTop ?? 0 : 0;
-    this.renderedTab = tab;
+    const nav = (["Explore", "Betting", "Racing", "Farm", "UC"] as Tab[]).map(t => this.btn(t, () => { this.page=0;this.home = t; this.message = ""; }));
+    let body = tab === "Farm" ? this.farm() : tab === "UC" ? this.uni() : tab === "Racing" ? this.stable() : tab === "Explore" ? this.explore() : this.betting();
+    const stage=body.find(el=>el.classList.contains('play-stage')),options=body.filter(el=>el!==stage);
+    if(tab!=='Betting'){
+      const pages=Math.max(1,options.length);this.page=Math.min(this.page,pages-1);
+      body=[...(stage?[stage]:[]),h('section.ax-deck',null,[options[this.page],h('nav.ax-pages',{'aria-label':'Activity pages'},[this.btn('← Previous',()=>{this.page--;},this.page===0),h('span',{text:`${this.page+1} / ${pages}`}),this.btn('Next →',()=>{this.page++;},this.page>=pages-1)])])];
+    }
     this.modal.show(tab === "UC" ? "University of Canterbury · game campus" : tab === "Betting" ? "Pocket Tessera · play-money betting" : tab === "Racing" ? "Horncastle Arena · racing club" : tab === "Farm" ? "Canterbury farming" : "Around town", [
       h("nav.ax-nav", { "aria-label": "Activities" }, nav),
       h("p.ax-status", { role: "status", text: `${cash(this.sim().player.cash)} · ${this.message || "Choose your next chapter."}` }),
       h("div.ax-grid", null, body),
     ], "activities");
     const panel = this.modal.el.querySelector<HTMLElement>(".activities");
-    if (panel) panel.scrollTop = scroll;
+    if (panel) panel.scrollTop = 0;
   }
   encounter(): void { this.show("Explore"); }
   private explore(): HTMLElement[] {
@@ -80,8 +87,9 @@ export class Activities {
     const s = this.s, sim = this.sim(), day = Math.floor(sim.tick / DAY), count = Object.values(s.animals).reduce((a, b) => a + b, 0);
     const season = ["Spring", "Summer", "Autumn", "Winter"][Math.floor(sim.tick / (DAY * 7)) % 4];
     const result = [countryside(s,"farm",undefined,sim.chars),this.card(["Start a farming career", "Lifestyle block", "Family farm", "Mixed operation"][s.farm], `${season} · ${sim.env.weather} · ${count}/${farmCapacity(s)} animals · ${s.feed} feed · lifetime net ${cash(s.farmProfit)}. Next settlement in ${Math.max(0, Math.ceil((DAY - (sim.tick - s.lastFarm)) / HOUR))} game hours. Every game day: produce sells, feed is used and running costs are charged.`, [
-      this.btn(s.farm ? `Expand · ${cash((s.farm + 1) * 1500)}` : "Buy lifestyle block · $1,500", () => { if (s.farm < 3 && this.pay((s.farm + 1) * 1500)) { s.farm++; s.lastFarm = sim.tick; this.message = "New land ready. Add animals, feed and their required equipment."; } }, s.farm >= 3),
+      this.btn(s.farm ? `Expand · ${cash((s.farm + 1) * 1500)}` : "Buy lifestyle block · $1,500", () => { if(!farmPlot(sim.world)){this.message="No clear farm plot in this map.";return;} if (s.farm < 3 && this.pay((s.farm + 1) * 1500)) { s.farm++; s.lastFarm = sim.tick; this.message = "New land ready. Add animals, feed and their required equipment."; } }, s.farm >= 3),
     ])];
+    if(s.farm)result.push(this.card("Your plot in town","Your animals and purchased equipment live on a fenced plot in the city. Visit the gate to see your upgrades.",[h("button.btn",{text:"Visit farm plot",onclick:()=>{this.modal.close();this.onVisitFarm?.();}})]));
     if (!s.farm) return result;
     result.push(this.card("Daily farm work", "Care for stock each day for full production. Crop jobs require equipment, and can each run once per game day.", [
       this.btn("Care for stock", () => { s.farmCare = day; this.message = "Water troughs, fences and stock checked. Care is recorded for today."; }, s.farmCare === day),
@@ -168,7 +176,7 @@ export class Activities {
         else { this.point ||= roll; this.message = `Rolled ${roll}. Point ${this.point} is still live.`; }
       })]),
       this.card("Big wheel", "24 equal sectors: 12 blanks, 6 ×2, 3 ×3, 2 ×5 and one ×8. Multipliers include your stake.", [this.btn("Spin", () => this.wager(n => { const r = pick(24), m = r < 12 ? 0 : r < 18 ? 2 : r < 21 ? 3 : r < 23 ? 5 : 8; this.record("Big wheel",[r],`Wheel ×${m}`,n*m);return { payout: n*m, text: `Wheel ×${m}` }; }))]),
-      this.card("Scratchies", "Rub all three silver panels to reveal a matching trio. Prizes include the stake. Jackpot odds 1 in 1000; other prizes ×2–×20.", [this.btn(this.s.casino.scratch&&!this.s.casino.scratch.paid?"Ticket in progress":"Buy scratchcard", () => {const old=this.s.casino.scratch;if(old&&!old.paid)return;if(this.pay(this.stake)){this.renderedTab=null;this.s.casino.scratch=makeScratch(this.stake,this.s.jackpot);if(this.s.casino.scratch.symbols[0]===0&&this.s.casino.scratch.payout){this.s.jackpot=1000;}this.message="Ticket ready. Scratch the three panels below.";}},!!this.s.casino.scratch&&!this.s.casino.scratch.paid)]),
+      this.card("Scratchies", "Rub all three silver panels to reveal a matching trio. Prizes include the stake. Jackpot odds 1 in 1000; other prizes ×2–×20.", [this.btn(this.s.casino.scratch&&!this.s.casino.scratch.paid?"Ticket in progress":"Buy scratchcard", () => {const old=this.s.casino.scratch;if(old&&!old.paid)return;if(this.pay(this.stake)){this.s.casino.scratch=makeScratch(this.stake,this.s.jackpot,Math.random,this.design);if(this.s.casino.scratch.symbols[0]===0&&this.s.casino.scratch.payout){this.s.jackpot=1000;}this.message="Ticket ready. Scratch the three panels below.";}},!!this.s.casino.scratch&&!this.s.casino.scratch.paid)]),
     ];
     out.push(this.card("Chook fighting · cartoon arena", "Two rival roosters square off in a slapstick, non-graphic bout. Back red or blue. A win returns ×1.9 including stake; a loss returns zero.", [0,1].map(side => this.btn(side === 0 ? "Back red chook" : "Back blue chook", () => this.wager(n => {
       const winner=pick(2); if(!this.race||this.race.settled)this.race={sport:"Chook", order:[winner,1-winner], duration:1800,until:this.sim().tick+1800, names:["Red Rooster","Blue Bandit"],stake:n,payout:0,settled:true};
@@ -190,7 +198,7 @@ export class Activities {
     const select = (label: string, values: string[], current: string, set: (v:string)=>void) => h("label", null, [label,h("select", {onchange:(e:Event)=>set((e.target as HTMLSelectElement).value)}, values.map(v=>h("option",{value:v,selected:v===current,text:v})))]);
     const roster=raceRoster(this.s.horse,this.betSport);
     out.push(select("Race",["Horse","Greyhound","Chook"],this.betSport,v=>this.betSport=v),select("Bet",["Win","Place","Exacta"],this.betType,v=>this.betType=v),select("Runner",roster.map((r,i)=>`${i+1} · ${r.name}${r.owned?" · YOUR HORSE":""}`),`${this.racer+1} · ${roster[this.racer].name}${roster[this.racer].owned?" · YOUR HORSE":""}`,v=>this.racer=parseInt(v)-1));
-    const runners=h("section.race-roster",{"aria-label":"Race entrants and condition"},roster.map((r,i)=>h("button.race-runner"+(r.owned?".owned":""),{type:"button","aria-pressed":String(i===this.racer),onclick:()=>{this.racer=i;this.show(this.home);}},[h("b",{text:`${i+1} · ${r.name}${r.owned?" · YOUR HORSE":""}`}),h("span",{text:`Skill ${r.skill} · Fitness ${r.fitness}% · Win ×${r.winReturn}`})])));
+
     out.push(this.card("Race book", `Fitness and skill determine each runner’s chance. Your selected ${this.betType.toLowerCase()} return is ×${raceReturn(roster,this.racer,this.betType)} including stake. Exacta: selected runner first, next number second. Race progress and your bet are saved.`, [this.btn("Bet and race", () => {
       if(this.race&&!this.race.settled){this.message="Your current race must finish first.";return;}
       const n=this.stake;if(!this.pay(n))return;
@@ -200,9 +208,11 @@ export class Activities {
       this.message="They're off! Your bet and race progress are saved, even if you close the phone.";
     },!!this.race&&!this.race.settled)]),...this.raceView());
     const games=["Scratchies","Baccarat","Craps","Big wheel","Keno","Crash","Race book","Chook fighting","Tournament"];
-    const nav=h("nav.ax-game-nav",{"aria-label":"Choose a game"},games.map(name=>{const b=this.btn(name,()=>{this.game=name;this.renderedTab=null;});b.setAttribute("aria-pressed",String(this.game===name));return b;}));
+    const nav=h('label.ax-game-select',null,['Game',h('select',{'aria-label':'Choose a game',onchange:(e:Event)=>{this.game=(e.target as HTMLSelectElement).value;this.show(this.home);}},games.map(name=>h('option',{value:name,selected:name===this.game,text:name})))]);
     const selected=out.filter(el=>el.querySelector("h3")?.textContent?.startsWith(this.game));
-    const scene=this.game==="Scratchies" ? (this.s.casino.scratch?scratchArt(this.s.casino.scratch,i=>{const ticket=this.s.casino.scratch!;const was=ticket.paid,payout=revealScratch(ticket,i);if(!was&&ticket.paid){this.settle(ticket.stake,payout,payout?"Matching trio!":"No matching trio");this.toast(this.message);const status=this.modal.el.querySelector(".ax-status");if(status)status.textContent=cash(this.sim().player.cash)+" · "+this.message;const next=this.btn("Buy another scratchcard",()=>{if(this.pay(this.stake)){this.renderedTab=null;this.s.casino.scratch=makeScratch(this.stake,this.s.jackpot);if(this.s.casino.scratch.symbols[0]===0&&this.s.casino.scratch.payout)this.s.jackpot=1000;}});const actions=this.modal.el.querySelector(".ax-card .ax-actions");actions?.replaceChildren(next);}}):casinoArt("Scratchies",()=>undefined,()=>this.s,()=>this.sim().tick)) : ["Race book","Chook fighting"].includes(this.game)?null:casinoArt(this.game,()=>this.s.casino.result,()=>this.s,()=>this.sim().tick);
-    return [out[0],nav,...(this.game==="Tournament"?[this.casinoFloor()]:[...(scene?[scene]:[]),...selected]),...(this.game==="Keno"?out.filter(el=>el.classList.contains("ax-numbers")):[]),...(this.game==="Race book"?[...out.filter(el=>el.tagName==="LABEL").slice(1),runners,...this.raceView()]:this.game==="Chook fighting"?this.raceView():[])];
+    const scene=this.game==="Scratchies" ? (this.s.casino.scratch?scratchArt(this.s.casino.scratch,i=>{const ticket=this.s.casino.scratch!;const was=ticket.paid,payout=revealScratch(ticket,i);if(!was&&ticket.paid){this.settle(ticket.stake,payout,payout?"Matching trio!":"No matching trio");this.toast(this.message);const status=this.modal.el.querySelector(".ax-status");if(status)status.textContent=cash(this.sim().player.cash)+" · "+this.message;const next=this.btn("Buy another scratchcard",()=>{if(this.pay(this.stake)){this.s.casino.scratch=makeScratch(this.stake,this.s.jackpot,Math.random,this.design);if(this.s.casino.scratch.symbols[0]===0&&this.s.casino.scratch.payout)this.s.jackpot=1000;}});const actions=this.modal.el.querySelector(".ax-card .ax-actions");actions?.replaceChildren(next);}}):casinoArt("Scratchies",()=>undefined,()=>this.s,()=>this.sim().tick,this.aircraft)) : ["Race book","Chook fighting"].includes(this.game)?null:casinoArt(this.game,()=>this.s.casino.result,()=>this.s,()=>this.sim().tick,this.aircraft);
+    const extra=this.game==='Scratchies'?h('label',null,['Ticket design',h('select',{'aria-label':'Scratchcard design',onchange:(e:Event)=>{this.design=+(e.target as HTMLSelectElement).value;}},SCRATCHCARDS.map(d=>h('option',{value:d.id,selected:d.id===this.design,text:d.name})))]):this.game==='Crash'?h('label',null,['Aircraft & route',h('select',{'aria-label':'Crash aircraft',disabled:!!active,onchange:(e:Event)=>{this.aircraft=+(e.target as HTMLSelectElement).value;this.show(this.home);}},AIRCRAFT.map((a,i)=>h('option',{value:i,selected:i===this.aircraft,text:a.name+' · '+a.type})))]):null;
+    const controls=h('section.ax-deck',null,[out[0],nav,extra,...(this.game==='Tournament'?[]:selected),...(this.game==='Keno'?out.filter(el=>el.classList.contains('ax-numbers')):[]),...(this.game==='Race book'?out.filter(el=>el.tagName==='LABEL').slice(1):[])]);
+    return [this.game==='Tournament'?this.casinoFloor():scene??this.raceView()[0],controls];
   }
 }
