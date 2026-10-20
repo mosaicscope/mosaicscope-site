@@ -1,0 +1,31 @@
+import {h} from './dom';
+import type {Simulation} from '../sim/Simulation';
+import {MARKET,type MarketItem} from '../sim/Commerce';
+import {newSea,stepSea,type SeaState} from '../sim/Sea';
+import {drawBoat} from '../render/Boats';
+import {pose,solve,drawFigure} from '../render/StickFigure';
+export class Marina {
+ readonly el=h('section.sea.hidden',{role:'dialog','aria-modal':'true','aria-label':'Coastal marina'});
+ open=false;private raf=0;private last=0;private keys=new Set<string>();private state:SeaState=newSea();private item!:MarketItem;private order=-1;private cv=h('canvas',{role:'img','aria-label':'Navigable ocean and marina'}) as HTMLCanvasElement;private status=h('p',{role:'status'});private throttle=0;private steer=0;
+ constructor(private sim:()=>Simulation,private onClose:()=>void,private onArrival:()=>void){}
+ show(id:number):void {const s=this.sim(),order=s.commerce.purchases.find(o=>o.id===id),item=MARKET.find(i=>i.id===order?.sku&&i.category==='Marine');if(!item)return;this.item=item;this.order=id;this.state=structuredClone(order?.sailing??newSea());if(!order?.sailing)this.state.x=Math.max(28,15+(item.length??8)*.18);this.open=true;this.el.classList.remove('hidden');this.last=0;
+  const control=(text:string,key:string)=>{const b=h('button.btn',{text,'aria-label':text});const clear=()=>{this.keys.delete(key);};b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);this.keys.add(key);});b.addEventListener('pointerup',clear);b.addEventListener('pointercancel',clear);b.addEventListener('lostpointercapture',clear);return b;};
+  this.el.replaceChildren(h('header',null,[h('b',{text:`${item.name} · coastal waters`}),h('button.btn',{text:'Auto Home',onclick:()=>this.close()})]),this.cv,this.status,h('div.sea-controls',null,[control('Port','a'),control('Ahead','w'),control('Astern / slow','s'),control('Starboard','d'),h('button.btn',{text:'Dock at overseas port',onclick:()=>{if(this.state.x<280||Math.abs(this.state.y-90)>18||Math.abs(this.state.speed)>1){this.status.textContent='Reach the eastern port and slow below 1 knot to dock.';return;}this.close();this.onArrival();}})]),h('p',{text:'W / S throttle · A / D rudder. Hulls keep momentum and turn more slowly with size. The eastern port connects to destination travel; Auto Home returns to the city.'}));
+  window.addEventListener('keydown',this.key,true);window.addEventListener('keyup',this.up,true);window.addEventListener('blur',this.blur);const frame=(now:number)=>{if(!this.open)return;this.draw(now);this.raf=requestAnimationFrame(frame);};this.raf=requestAnimationFrame(frame);
+ }
+ close():void {if(!this.open)return;const o=this.sim().commerce.purchases.find(o=>o.id===this.order);if(o)o.sailing=structuredClone(this.state);this.open=false;cancelAnimationFrame(this.raf);this.keys.clear();window.removeEventListener('keydown',this.key,true);window.removeEventListener('keyup',this.up,true);window.removeEventListener('blur',this.blur);this.el.classList.add('hidden');this.onClose();}
+ private key=(e:KeyboardEvent)=>{if(e.key==='Escape'){e.preventDefault();this.close();return;}if('wasd'.includes(e.key.toLowerCase())){e.preventDefault();e.stopImmediatePropagation();this.keys.add(e.key.toLowerCase());}};
+ private up=(e:KeyboardEvent)=>this.keys.delete(e.key.toLowerCase());private blur=()=>this.keys.clear();
+ private draw(now:number):void {const rect=this.cv.getBoundingClientRect(),dpr=Math.min(devicePixelRatio,2);this.cv.width=Math.round(rect.width*dpr);this.cv.height=Math.round(rect.height*dpr);const g=this.cv.getContext('2d')!;g.scale(dpr,dpr);const W=rect.width,H=rect.height,dt=this.last?(now-this.last)/1000:0;this.last=now;this.throttle=+this.keys.has('w')-+this.keys.has('s');this.steer=+this.keys.has('d')-+this.keys.has('a');stepSea(this.state,{length:this.item.length!,speed:this.item.speed!,mass:this.item.mass!},this.throttle,this.steer,dt);
+  g.fillStyle='#263e44';g.fillRect(0,0,W,H);const scale=Math.min(W/180,H/100)*1.7,P=(x:number,y:number)=>[W/2+(x-this.state.x)*scale,H/2+(y-this.state.y)*scale*.65];
+  for(const east of [false,true]){const coast=east?305:12,left=P(east?coast:-200,-200),right=P(east?500:coast,400);g.fillStyle='#4f5e46';g.fillRect(left[0],left[1],right[0]-left[0],right[1]-left[1]);const edge=P(coast,0);g.fillStyle='#928a6b';g.fillRect(edge[0]-8,0,16,H);
+   for(let i=0;i<5;i++){const at=P(coast+(east?6:-9),20+i*33),x=at[0],y=at[1];g.fillStyle='#5b6158';g.beginPath();g.moveTo(x-30,y-18);g.lineTo(x,y-32);g.lineTo(x+30,y-18);g.lineTo(x,y-4);g.closePath();g.fill();g.fillStyle='#747268';g.beginPath();g.moveTo(x-30,y-18);g.lineTo(x,y-4);g.lineTo(x,y+24);g.lineTo(x-30,y+10);g.closePath();g.fill();g.fillStyle='#4c5857';g.beginPath();g.moveTo(x,y-4);g.lineTo(x+30,y-18);g.lineTo(x+30,y+10);g.lineTo(x,y+24);g.closePath();g.fill();g.fillStyle='#a5bdbe';for(let j=0;j<3;j++)g.fillRect(x-24+j*7,y-6+j*3,4,7);}
+  }
+  g.strokeStyle='#a4b5ac1c';g.lineWidth=1;for(let y=0;y<195;y+=8){g.beginPath();for(let x=0;x<=310;x+=4){const p=P(x,y+Math.sin(x*.1+now*.0005+y)*.55);if(x)g.lineTo(p[0],p[1]);else g.moveTo(p[0],p[1]);}g.stroke();}
+  for(const [x,y,name]of [[20,45,'Christchurch marina'],[292,90,'Overseas arrivals']]as const){const p=P(x,y);g.fillStyle='#837d68';g.fillRect(p[0]-60,p[1]-32,120,22);g.fillStyle='#c8c2ac';g.font='600 13px Arial';g.fillText(name,p[0]-60,p[1]-42);for(let i=0;i<5;i++)g.fillRect(p[0]-50+i*25,p[1]-10,6,24);}
+  const fleet=this.sim().commerce.purchases.filter(o=>o.sku.startsWith('boat:')&&o.id!==this.order);fleet.slice(0,6).forEach((o,i)=>{const item=MARKET.find(v=>v.id===o.sku)!;const p=P(28+(i%2)*85,65+Math.floor(i/2)*45);drawBoat(g,p[0],p[1],0,item,.7);});
+  const hullPixels=Math.max(36,Math.min(420,this.item.length!*12)),boatScale=Math.min(1.4,W*.72/hullPixels);
+  drawBoat(g,W/2,H/2,this.state.heading,this.item,boatScale,Math.abs(this.state.speed)>1?now/1000:0);const k=Math.min(.25,hullPixels/this.item.length!*1.8/120)*boatScale;solve(pose('sit','normal',now/1000,0,0,0),W/2,H/2-4,k,1);drawFigure(g,this.sim().player,W/2,H/2-4,k,1,now/1000,0,1);
+  this.status.textContent=`${(Math.abs(this.state.speed)/.35).toFixed(1)} knots · heading ${((this.state.heading*180/Math.PI%360+360)%360).toFixed(0)}° · ${this.state.travelled.toFixed(0)} distance · eastern port ${Math.max(0,280-this.state.x).toFixed(0)} away`;
+ }
+}

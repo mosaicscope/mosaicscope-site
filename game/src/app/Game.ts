@@ -1,3 +1,7 @@
+import {launchRocket} from '../sim/Rockets';
+import {WorldMarket} from '../ui/WorldMarket';
+import {Marina} from '../ui/Marina';
+import {MARKET,deliverySite} from '../sim/Commerce';
 import {accessoryControls} from '../ui/Accessories';
 import {reactionCatalogue} from '../ui/ReactionCatalogue';
 import {weaponMechanism,liveWeaponMechanism} from '../ui/WeaponMechanism';
@@ -202,6 +206,7 @@ export class Game {
     });
     this.places.openInterior = (b) => this.interior.show(b);
     this.photos = new Photos({
+      authors:()=>this.sim.chars.filter(c=>c.tier==="principal"||c.id===this.sim.playerId).map(c=>({id:c.id,name:c.name})),
       unlocked: id => hasUpgrade(this.sim.life.upgrades, id),
       world: () => this.renderer.canvas, interior: () => (this.interior.open ? this.interior.canvas : null),
       show: (t, b, cls) => this.modal.show(t, b, cls), close: () => this.modal.close(), toast: (t, k) => this.toast(t, k),
@@ -223,7 +228,7 @@ export class Game {
     this.radio = new Radio(MOSAIC.soundcloud);
     this.hudEl = h("div.hud", { "aria-live": "polite" });
     this.bustedEl = h("div.busted.hidden", { role: "alert" });
-    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.terrance.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.interior.el, this.modal.el, this.casino.el, this.bustedEl);
+    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.marina.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.terrance.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.interior.el, this.modal.el, this.casino.el, this.bustedEl);
     // browsers only allow sound after a gesture: the first click/key starts the playlist
     const firstGesture = () => { if (this.gestured) return; this.gestured = true; if (this.settings.sound) this.audio.setEnabled(true); }; // the radio only plays when you press ▶
     window.addEventListener("pointerdown", firstGesture, { once: false, capture: true });
@@ -409,7 +414,8 @@ export class Game {
     this.renderer.zooAnimals = this.luxury.empire.animals; zooState.animals = this.luxury.empire.animals.length;
     this.rootEl.classList.toggle('conversation-open',this.dialogue.open);
     this.rootEl.classList.toggle('activity-open',this.modal.open||this.casino.open);
-    this.touch.el.classList.toggle("hidden", this.casino.open || this.interior.open || (this.modal.open && !this.modal.el.classList.contains("touch-tut")) || this.dialogue.open || this.terrance.open || this.travel.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
+    if(this.keys.has("escape"))this.remoteLauncher=null;
+    this.touch.el.classList.toggle("hidden", this.casino.open || this.interior.open || (this.modal.open && !this.modal.el.classList.contains("touch-tut")) || this.dialogue.open || this.terrance.open || this.travel.open || this.marina.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
     this.tickStory(now);
     this.minimap.update(now);
     if (now - this.lastUi < 250) return;
@@ -746,7 +752,7 @@ export class Game {
   }
 
   private updateAimUI(): void {
-    const blocked = this.starting || this.modal.open || this.dev.visible || this.casino.open || this.interior.open || this.dialogue.open || this.phone.open || this.club.open || this.luxury.open;
+    const blocked = this.starting || this.modal.open || this.dev.visible || this.casino.open || this.interior.open || this.dialogue.open || this.phone.open || this.club.open || this.luxury.open || this.marina.open;
     const armed = this.hasGun() && !blocked;
     this.aimTools.classList.toggle('hidden', !armed);
     this.crosshair.classList.toggle('hidden', !armed || !this.aimPoint);
@@ -915,6 +921,7 @@ export class Game {
 
   private click(x: number, y: number, button: number): void {
     const sim = this.sim, p = sim.player;
+    if(this.remoteLauncher!==null){const id=this.remoteLauncher;this.remoteLauncher=null;const point=this.renderer.cam.toWorld(x,y);this.toast(launchRocket(sim,id,point.x,point.y));return;}
     if (button === 2) { this.mouse.x = x; this.mouse.y = y; this.act("throw"); return; }
     if (this.hasGun()) {
       this.aimPoint = this.aimAt(x, y); this.moveTarget = null; this.pendingTalk = -1; this.pendingEnter = null;
@@ -1180,7 +1187,14 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ luxury & the zoo
-  private luxury = new Luxury({ getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; this.saveEmpire(); }, toast: (t) => this.toast(t, "acid") });
+  private luxury = new Luxury({ getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; this.saveEmpire(); }, toast: (t) => this.toast(t, "acid"), changed:(id,price)=>{if(id)this.deliverLegacy(id,price);this.saveEmpire();} });
+  private marina = new Marina(()=>this.sim,()=>this.resumeGame(),()=>{this.travel.arriveFromSea();});
+  private remoteLauncher:number|null=null;
+  private market = new WorldMarket({sim:()=>this.sim,show:(title,body)=>this.modal.show(title,body),close:()=>this.modal.close(),toast:t=>this.toast(t),collection:()=>this.luxury.show(),target:id=>{this.remoteLauncher=id;this.returnToPlayer();this.toast("Tap a map position to aim the launcher. Escape cancels. A shot costs $1,000.");},sail:id=>{this.returnToPlayer();this.setSpeed(0);this.marina.show(id);},fly:()=>this.travel.privateDeparture(),visit:id=>{const b=this.sim.world.buildings[id];if(!b)return;this.returnToPlayer();this.moveTarget={x:b.door.x,y:b.door.y};this.pendingEnter={building:b.id,studio:false};this.setSpeed(1);}});
+  private deliverLegacy(id:string,paidPrice?:number):void {
+    const sku=id==='gold-hovercraft'?'boat:hovercraft':id==='road-cone-naming'?'civic:cone':id==='cathedral-statue'?'civic:statue':id==='yacht'?'boat:yacht':id==='private-jet'?'air:private-jet':id==='helicopter'?'air:helicopter':id.includes('mansion')||id.includes('house')||id.includes('penthouse')?'property:home':id==='diamond-toaster'?'home:toaster':'';
+    if(!sku)return;const item=MARKET.find(i=>i.id===sku);if(!item)return;const building=deliverySite(this.sim,sku);this.sim.commerce.purchases.push({id:this.sim.commerce.serial++,sku,name:item.name,building,price:paidPrice??item.price,tick:this.sim.tick});
+  }
   private saveEmpire(): void { try { localStorage.setItem("mosaics-world:empire", JSON.stringify(this.luxury.empire)); } catch { /* private mode */ } }
   private loadEmpire(): void { try { const e = JSON.parse(localStorage.getItem("mosaics-world:empire") ?? "null"); if (e && Array.isArray(e.items)) this.luxury.load(e); } catch { /* ignore */ } }
 
@@ -1343,7 +1357,7 @@ export class Game {
   private phone = { open: false, el: h("div.phone.hidden", { role: "dialog", "aria-label": "Phone call" }), nextCall: 0, calls: 0 };
   private maybeCall(): void {
     const sim = this.sim;
-    if (this.phone.open || this.dialogue.open || this.casino.open || this.modal.open) return;
+    if (this.phone.open || this.dialogue.open || this.casino.open || this.modal.open || this.luxury.open || this.club.open || this.travel.open || this.marina.open || this.interior.open || this.dev.visible) return;
     if (!this.phone.nextCall) { this.phone.nextCall = sim.tick + 60 * 60 * 3; return; }
     if (sim.tick < this.phone.nextCall) return;
     this.phone.nextCall = sim.tick + 60 * 60 * (6 + Math.random() * 6);
@@ -1410,7 +1424,7 @@ export class Game {
         h("button.btn", { text: "Return to player", onclick: () => this.returnToPlayer() }),
         h("button.btn", { text: "Fight / gun controls", onclick: () => this.openCombatControls() }),
         h("button.btn", { text: "Armory & gun store", onclick: () => this.armory.show() }),
-        h("button.btn", { text: "Luxury", onclick: () => this.luxury.show() }), h("button.btn", { text: "Heist", onclick: () => this.heist.open() }),
+        h("button.btn", { text: "Online market", onclick: () => this.market.show() }), h("button.btn", { text: "Heist", onclick: () => this.heist.open() }),
         h("button.btn", { text: "Event log", onclick: () => this.log.toggle() }), h("button.btn", { text: "Event replay", onclick: () => this.replay.show() }),
         h("button.btn", { text: "Me", onclick: () => this.select(this.sim.playerId) }), h("button.btn", { text: "AI brains", onclick: () => this.openBrains() }),
         h("button.btn", { text: "Settings", onclick: () => this.openSettings() }), h("button.btn", { text: "Help", onclick: () => this.openHelp() }), h("button.btn",{text:"Developer console",onclick:()=>this.dev.toggle()}),

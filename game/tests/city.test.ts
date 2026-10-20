@@ -273,7 +273,9 @@ describe("MosaicScope business", () => {
     let shot = false;
     sim.bus.on("event", (e) => { if (e.type === "photoshoot") shot = true; });
     for (let i = 0; i < 60 * 120 && !shot; i++) sim.step();
-    expect(shot).toBe(true);
+    expect(shot, `Booking ${b.id} should complete at its fixed rendezvous`).toBe(true);
+    expect(b.spot).toBeDefined();
+    expect(Math.hypot(client.x-sim.chars[b.photographer].x,client.y-sim.chars[b.photographer].y)).toBeLessThan(3.1);
   }, 15000);
 });
 

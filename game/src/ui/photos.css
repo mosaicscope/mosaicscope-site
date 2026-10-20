@@ -16,3 +16,5 @@
 .ph-x { position: absolute; top: -8px; right: -8px; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line); background: var(--ink2); color: var(--paper); opacity: 0; }
 .ph-card:hover .ph-x, .ph-x:focus-visible { opacity: 1; }
 @media (hover: none) { .ph-x { opacity: .85; } }
+
+.mf-preview{display:block;width:min(100%,480px);max-height:45dvh;object-fit:contain;border:1px solid #89816c66;border-radius:9px}.mf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}.mf-post{display:grid;gap:10px;background:#242823;border:1px solid #7b816b66;border-radius:10px;padding:12px}.mf-post img{width:100%;border-radius:6px}.mf-post p{white-space:pre-wrap;margin:0}.mf-post a{color:#d6c18d}.mf-post .btn{min-height:44px}

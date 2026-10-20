@@ -49,6 +49,10 @@ export function drawBodyDamage(g:CanvasRenderingContext2D,c:Character,J:Float32A
  const lerp=(a:number,b:number,t:number)=>[J[a]+(J[b]-J[a])*t,J[a+1]+(J[b+1]-J[a+1])*t];
  for(const w of c.wounds??[]){if(w.part==='head')continue;const m=bodyDamageModel(w),p=[lerp(0,6,.75),lerp(0,6,.25),lerp(0,6,.5),lerp(6,8,.65),lerp(6,12,.65),lerp(8,10,.6),lerp(12,14,.6),[J[20],J[21]],lerp(20,22,.6)][m.zone];
   if(w.detached){const joint=w.part==='arm'?(w.detached.side<0?8:12):(w.detached.side<0?16:20);bone(g,J[joint],J[joint+1],k,w.bandaged||!bloodEnabled);continue;}
+  if(w.bandaged&&(w.part==='leg'||w.part==='arm')){
+   const a=w.part==='leg'?((w.art??0)%2?16:20):((w.art??0)%2?8:12),b=a+2,x=(J[a]+J[b])*.5,y=(J[a+1]+J[b+1])*.5;
+   g.save();g.translate(x,y);g.rotate(Math.atan2(J[b+1]-J[a+1],J[b]-J[a])-Math.PI/2);g.fillStyle='#ded6bf';g.strokeStyle='#8c8878';g.lineWidth=.45*k;g.beginPath();g.roundRect(-1.8*k,-3*k,3.6*k,6*k,.7*k);g.fill();g.stroke();for(const yy of[-1.5,0,1.5]){g.beginPath();g.moveTo(-1.7*k,yy*k);g.lineTo(1.7*k,(yy+.4)*k);g.stroke();}g.restore();continue;
+  }
   mark(g,w,p[0],p[1],k,m.pattern,w.tick);
   if(w.compound&&!w.bandaged&&bloodEnabled)bone(g,p[0],p[1],k);
   if(w.part==='torso'&&w.kind==='stab'&&w.severity===3&&!w.bandaged&&bloodEnabled){g.save();g.translate(p[0],p[1]);g.fillStyle='#532b32';g.beginPath();g.ellipse(0,0,4*k,6*k,.2,0,7);g.fill();g.strokeStyle='#bf747a';g.lineWidth=1.4*k;g.lineCap='round';for(let i=0;i<3;i++){g.beginPath();g.moveTo(-2*k,(i*3-3)*k);g.bezierCurveTo(5*k,(i*3-6)*k,-5*k,(i*3+2)*k,3*k,(i*3)*k);g.stroke();}g.restore();}

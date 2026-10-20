@@ -1,3 +1,5 @@
+import {seat,unseat} from './Traffic';
+import {fireGun,drawGun} from './Turf';
 import type { Simulation } from './Simulation';
 import type { Character, Step } from '../entities/types';
 import { Phys } from '../entities/types';
@@ -14,7 +16,7 @@ export const STREET_CREWS = [
 export const STREET_KINDS = ['meetup','dispute','protection','nightlife','intoxication','police','truce','turf'] as const;
 export type StreetKind = typeof STREET_KINDS[number];
 export interface StreetIncident { id:number; kind:StreetKind; crew:string; x:number; y:number; area:string; actors:number[]; started:number; until:number; title:string; line:string; resolved:boolean }
-export interface StreetLifeState { serial:number; nextAt:number; heat:Record<string,number>; history:StreetIncident[] }
+export interface StreetLifeState { serial:number; nextAt:number; heat:Record<string,number>; history:StreetIncident[];driveBy?:{driver:number;vehicle:number;target:number;until:number;nextShot:number;shots:number} }
 export const newStreetLife = ():StreetLifeState => ({serial:0,nextAt:900,heat:{},history:[]});
 const free = (c:Character) => c.tier!=='player'&&c.inside<0&&c.inCar<0&&c.phys===Phys.OK&&c.jailUntil<=0&&c.arrestedBy<0&&c.talkWith<0&&c.mode!=='panic'&&!c.substances?.crisis&&!['fight','turf','arrest','chase','treat','flee','gunfight','steal','mug'].includes(c.goal?.id??'');
 export function storyPhase(sim:Simulation):number {
@@ -27,10 +29,10 @@ export function ensureStreetCrews(sim:Simulation):void {
   const areas=sim.world.areas.filter(a=>!['water','park','stage'].includes(a.kind));
   for(const [index,crew]of STREET_CREWS.entries()){
     CREWS[crew.id]??={name:crew.name,color:crew.color};
-    if(sim.chars.some(c=>c.crew===crew.id))continue;
+    const existing=sim.chars.filter(c=>c.crew===crew.id).length;if(existing>=8)continue;
     const area=areas[(index*7+3)%areas.length];if(!area)continue;
     const pool=sim.chars.filter(c=>c.tier==='background'&&!c.crew&&['local','thief','drifter'].includes(c.role)).sort((a,b)=>Math.hypot(a.x-area.cx,a.y-area.cy)-Math.hypot(b.x-area.cx,b.y-area.cy));
-    for(const c of pool.slice(0,3)){c.crew=crew.id;c.role='mobster';c.promoted=true;c.look.accent=crew.color;c.bio+=` Runs with ${crew.name} in this fictional city.`;}
+    for(const c of pool.slice(0,8-existing)){c.crew=crew.id;c.role='mobster';c.promoted=true;c.look.accent=crew.color;c.look.top='vest';c.look.color='#252927';c.bio+=` Runs with ${crew.name} in this fictional city.`;if(c.id%4===0){const gun=sim.spawnToy('pistol',c.x,c.y);if(gun)pickUp(c,gun,sim.tick,99);}}
     sim.streetLife.heat[crew.id]??=.3;
   }
 }
@@ -125,9 +127,20 @@ export function resolveStreetIncident(sim:Simulation,id:number,choice:'calm'|'wa
   return choice==='calm'?'You talked them down. Tension and fear eased.':'You warned the crowd. People are giving each other space.';
 }
 export function updateStreetLife(sim:Simulation):void{
+  const ride=sim.streetLife.driveBy;
+  if(ride){const c=sim.chars[ride.driver],v=sim.vehicles[ride.vehicle],target=sim.chars[ride.target];
+   if(!c||!v||!target||sim.tick>ride.until||c.phys!==Phys.OK||!sim.turfWar){if(v&&v.driver===c?.id){v.state='parked';v.speed=0;unseat(sim,v);}sim.streetLife.driveBy=undefined;}
+   else if(sim.tick>=ride.nextShot&&ride.shots<3&&Math.hypot(c.x-target.x,c.y-target.y)<9&&sim.world.lineOfSight(c.x,c.y,target.x,target.y)){ride.nextShot=sim.tick+150;if(drawGun(sim,c)&&fireGun(sim,c,target.x,target.y,target.id))ride.shots++;}
+  }
   if(sim.tick%300!==0)return;
   ensureStreetCrews(sim);
   if(sim.tick%1200===0)for(const id of Object.keys(sim.streetLife.heat))sim.streetLife.heat[id]=Math.max(0,sim.streetLife.heat[id]-.015);
+  if(sim.turfWar&&!sim.streetLife.driveBy&&storyPhase(sim)<8){
+   const c=sim.chars.find(c=>c.crew&&free(c)&&(sim.streetLife.heat[c.crew]??0)>.75&&[c.hand,...c.bag].some(id=>sim.toys[id]?.def==='pistol'));
+   const target=c?sim.chars.find(t=>t.crew&&t.crew!==c.crew&&t.inside<0&&t.phys===Phys.OK&&Math.hypot(t.x-c.x,t.y-c.y)<14):null;
+   const v=c?sim.vehicles.find(v=>v.driver<0&&v.owner<0&&v.state==='drive'&&Math.hypot(v.x-c.x,v.y-c.y)<2.5):null;
+   if(c&&target&&v){seat(sim,c,v);sim.streetLife.driveBy={driver:c.id,vehicle:v.id,target:target.id,until:sim.tick+1800,nextShot:sim.tick+120,shots:0};sim.emit({type:'street_incident',x:v.x,y:v.y,actors:[c.id,target.id],summary:'An armed crew vehicle entered the active turf dispute. Bystanders are clearing the street.'});}
+  }
   if(sim.tick<sim.streetLife.nextAt)return;
   sim.streetLife.nextAt=sim.tick+60*45+(sim.streetLife.serial%4)*60*10;
   const phase=storyPhase(sim),night=sim.hour>=18||sim.hour<5;

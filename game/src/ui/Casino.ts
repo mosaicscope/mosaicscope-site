@@ -20,14 +20,20 @@ const CHIPS: Chip[] = [
   { v: 5, c: "#c8231a", t: "#fff7ea", e: "#fff7ea" },
   { v: 25, c: "#1f7a3a", t: "#fff7ea", e: "#fff7ea" },
   { v: 100, c: "#16110f", t: "#fff7ea", e: "#e9e2d2" },
+  { v: 1_000, c: "#b49b68", t: "#111", e: "#eee4d3" },
+  { v: 5_000, c: "#854d59", t: "#fff", e: "#d1b986" },
+  { v: 25_000, c: "#425968", t: "#fff", e: "#c8b27d" },
+  { v: 100_000, c: "#d6c6a6", t: "#151515", e: "#715b35" },
+  { v: 500_000, c: "#2e3939", t: "#eee4d3", e: "#c7ae7b" },
+  { v: 1_000_000, c: "#8d7760", t: "#fff", e: "#eee4d3" },
   { v: 500, c: "#6b2bc4", t: "#fff7ea", e: "#f6c94c" },
-];
+].sort((a,b)=>a.v-b.v);
 const rnd = () => Math.random();
 const money = (n: number) => "$" + n.toLocaleString("en-NZ", { maximumFractionDigits: 2 });
 const reducedMotion = () => !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 const dprOf = () => Math.min(3, window.devicePixelRatio || 1);
 const chipVars = (c: Chip) => `--c:${c.c};--t:${c.t};--e:${c.e}`;
-const chipLabel = (v: number) => (v >= 1000 ? v / 1000 + "K" : String(v));
+const chipLabel = (v: number) => (v >= 1_000_000 ? v / 1_000_000 + "M" : v >= 1000 ? v / 1000 + "K" : String(v));
 const SUIT_NAME: Record<Suit, string> = { "♠": "spades", "♥": "hearts", "♦": "diamonds", "♣": "clubs" };
 const RANK_NAME: Record<string, string> = { J: "jack", Q: "queen", K: "king", A: "ace" };
 
@@ -176,6 +182,9 @@ export class Casino {
   beforeOpen: () => boolean = () => true;
   el: HTMLElement;
   chips = 0;
+  private highLimit = false;
+  private get tableLimit():number { return this.highLimit ? 5_000_000 : 500; }
+  private get activeChips():Chip[] { return CHIPS.filter(c => this.highLimit || c.v <= 500); }
   private bought = 0; private cashedOut = 0;
   private tab = "floor";
   private venueOutside = false;
@@ -238,7 +247,7 @@ export class Casino {
     const nav = h("nav.cas-tabs", { role: "tablist", "aria-label": "Casino areas" }, tabs.map(([id, l, icon]) => h("button" + (this.tab === id ? ".on" : ""), { role: "tab", "aria-selected": String(this.tab === id), onclick: () => this.go(id) }, [h("span", { text: icon, "aria-hidden": "true" }), l])));
     if (this.onMoreGames) nav.append(h("button", { text: "More games & racing", onclick: () => { this.close(); if (!this.open) this.onMoreGames?.(); } }));
     const head = h("header.cas-head", null, [
-      h("div", null, [h("h2", { text: "The Tessera" }), h("p.cas-sub", { text: "ŌTAUTAHI / AFTER HOURS" })]),
+      h("div", null, [h("h2", { text: "The Tessera" }), h("p.cas-sub", { text: "ŌTAUTAHI / AFTER HOURS · GAME CURRENCY" }), this.btn(this.highLimit ? "Private salon · up to $5M" : "Standard tables · up to $500", () => { if(this.rBets.length || this.bj.phase === "player" || this.bj.phase === "insurance" || this.rSpinning || this.slotSpinning || this.vp.phase === "draw"){this.msg="Finish or clear the round before changing limits.";}else{this.highLimit=!this.highLimit;this.chipSel=this.highLimit?100_000:5;this.bjBet=0;this.slotBet=1;this.vpValue=1;}this.render(); }, {aria:"Change table limits"})]),
       h("div.cas-bank", null, [h("span", { text: "Chips" }), h("b", { text: money(this.chips) }), h("span", { text: "Cash" }), h("b", { text: money(this.w.getCash()) })]),
       h("button.x", { "aria-label": "Leave the casino", onclick: () => this.close(), text: "×" }),
     ]);
@@ -292,7 +301,7 @@ export class Casino {
   }
 
   private chipRow(): HTMLElement {
-    return h("div.cx-chiprow", { role: "group", "aria-label": "Chip value" }, CHIPS.map((c) => h("button.cx-chip" + (this.chipSel === c.v ? ".sel" : ""), {
+    return h("div.cx-chiprow", { role: "group", "aria-label": "Chip value" }, this.activeChips.map((c) => h("button.cx-chip" + (this.chipSel === c.v ? ".sel" : ""), {
       style: chipVars(c), "aria-pressed": String(this.chipSel === c.v), "aria-label": `${money(c.v)} chip`, onclick: () => { this.chipSel = c.v; this.render(); },
     }, [h("span", { text: chipLabel(c.v) })])));
   }
@@ -318,12 +327,12 @@ export class Casino {
         h("div.cx-cage-sign", { text: "CASHIER · CAGE" }),
         h("p", { text: "Swap cash for chips here. Whatever chips you have left are cashed out when you leave." }),
         tray,
-        h("div.cx-row", null, [20, 50, 100, 250, 500].map((n) => this.btn(`Buy ${money(n)}`, () => buy(n), { cls: ".gold", aria: `Buy ${money(n)} in chips` }))),
+        h("div.cx-row", null, (this.highLimit ? [10_000,100_000,1_000_000,5_000_000,10_000_000] : [20,50,100,250,500]).map((n) => this.btn(`Buy ${money(n)}`, () => buy(n), { cls: ".gold", aria: `Buy ${money(n)} in chips` }))),
         h("div.cx-row", null, [this.btn("Cash out chips", () => { if (this.chips > 0) { this.w.setCash(this.w.getCash() + this.chips); this.cashedOut += this.chips; this.msg = `Cashed out ${money(this.chips)}.`; this.chips = 0; this.render(); } }, { disabled: this.chips <= 0 })]),
       ]),
       h("h3", { text: "House rules" }),
       h("ul.cas-rules", null, [
-        "Blackjack: 6 decks, dealer stands on soft 17, blackjack pays 3:2, insurance 2:1, double any two cards, split to 4 hands, late surrender. Limits $5–$500. House edge ≈ 0.5% with basic strategy.",
+        "Blackjack: 6 decks, dealer stands on soft 17, blackjack pays 3:2, insurance 2:1, double any two cards, split to 4 hands, late surrender. Limits $5–$5,000,000 in the private salon; standard maximum $500. House edge ≈ 0.5% with basic strategy.",
         "Roulette: European single zero. Straight 35:1, split 17:1, street 11:1, corner 8:1, six line 5:1, dozens/columns 2:1, even money 1:1. House edge 2.70%.",
         `Pokies "Kiwi Gold": 3 reels, one line. Return to player ${(rtp() * 100).toFixed(1)}%.`,
         "Video poker: Jacks or Better, 9/6 full pay (99.5% with perfect play). 5 coins for the 4,000-coin royal.",
@@ -364,7 +373,7 @@ export class Casino {
       svg("path", { class: "cx-ins", d: "M 200 126 Q 500 240 800 126" }), svg("path", { class: "cx-ins", d: "M 220 178 Q 500 296 780 178" }),
       tp("cx-a1", "BLACKJACK PAYS 3 TO 2", "t1"), tp("cx-a2", "DEALER MUST STAND ON SOFT 17", "t2"), tp("cx-a3", "INSURANCE PAYS 2 TO 1", "t3"),
     ]);
-    const addChip = () => { if (this.bjBet + this.chipSel > 500) { this.msg = "Table limit is $500."; } else this.bjBet += this.chipSel; this.render(); };
+    const addChip = () => { if (this.bjBet + this.chipSel > this.tableLimit) { this.msg = `Table limit is ${money(this.tableLimit)}.`; } else this.bjBet += this.chipSel; this.render(); };
     const spots = (bj.hands.length ? bj.hands : [null]).map((hd, i) => {
       const settled = bj.phase === "settled" && hd?.result;
       const stake = inRound ? hd?.bet ?? 0 : i === 0 ? this.bjBet : 0;
@@ -412,7 +421,7 @@ export class Casino {
 
   private dealBJ(): void {
     const bet = this.bjBet || this.chipSel;
-    if (bet < 5 || bet > 500) { this.msg = "Table limits are $5–$500."; this.render(); return; }
+    if (bet < 5 || bet > this.tableLimit) { this.msg = `Table limits are $5–${money(this.tableLimit)}.`; this.render(); return; }
     if (!this.take(bet)) { this.render(); return; }
     this.bjBet = bet;
     this.bj.deal(bet);
@@ -440,6 +449,7 @@ export class Casino {
     const place = (nums: number[] | null, label: string) => {
       if (this.rSpinning) return;
       if (!nums) { this.msg = "That isn't a valid bet on the layout."; this.render(); return; }
+      if (this.rBets.reduce((n,b)=>n+b.amount,0)+this.chipSel>this.tableLimit*2) {this.msg=`Table exposure limit ${money(this.tableLimit*2)}.`;this.render();return;}
       if (!this.take(this.chipSel)) { this.render(); return; }
       const id = nums.join("-");
       const ex = this.rBets.find((b) => b.id === id);
@@ -573,7 +583,7 @@ export class Casino {
       h("div.cx-meters", null, [ledEl("Credit", this.chips), ledEl("Bet", this.slotBet, "#ffb52e", 6), ledEl("Win", this.slotWin, "#3dff7a")]),
       h("p.cx-slotmsg", { role: "status", text: this.slotSpinning ? "Good luck…" : this.slotMsg || "Pick a bet and spin." }),
       h("div.cx-deck", null, [
-        h("div.cx-row", { role: "group", "aria-label": "Bet per spin" }, [1, 2, 5, 10].map((b) => h("button.cx-btn" + (this.slotBet === b ? ".on" : ""), { "aria-pressed": String(this.slotBet === b), disabled: this.slotSpinning, "aria-label": `Bet ${money(b)} per spin`, onclick: () => { this.slotBet = b; this.render(); }, text: `BET ${money(b)}` }))),
+        h("div.cx-row", { role: "group", "aria-label": "Bet per spin" }, (this.highLimit ? [1000,10_000,100_000,1_000_000] : [1,2,5,10]).map((b) => h("button.cx-btn" + (this.slotBet === b ? ".on" : ""), { "aria-pressed": String(this.slotBet === b), disabled: this.slotSpinning, "aria-label": `Bet ${money(b)} per spin`, onclick: () => { this.slotBet = b; this.render(); }, text: `BET ${money(b)}` }))),
         h("button.cx-spin", { disabled: this.slotSpinning, "aria-label": `Spin for ${money(this.slotBet)}`, onclick: () => this.spinSlots(), text: "SPIN" }),
       ]),
       h("p.cx-lbl.c", { text: `Return to player ${(rtp() * 100).toFixed(1)}% (computed from the reel strips)` }),
@@ -626,7 +636,7 @@ export class Casino {
       h("div.cx-meters", null, [ledEl("Win", this.vpWin, "#3dff7a"), ledEl("Bet", this.vpCoins * this.vpValue, "#ffb52e", 6), ledEl("Credit", this.chips)]),
       h("div.cx-vp-deck", null, [
         this.btn(`Bet one · ${this.vpCoins}`, () => { this.vpCoins = (this.vpCoins % 5) + 1; this.render(); }, { disabled: live, aria: `Bet one coin, now ${this.vpCoins}` }),
-        this.btn(`Coin ${money(this.vpValue)}`, () => { this.vpValue = this.vpValue === 1 ? 5 : 1; this.render(); }, { disabled: live, aria: `Coin value ${money(this.vpValue)}, change` }),
+        this.btn(`Coin ${money(this.vpValue)}`, () => { const values=this.highLimit?[1000,10_000,100_000,1_000_000]:[1,5]; this.vpValue=values[(values.indexOf(this.vpValue)+1)%values.length]; this.render(); }, { disabled: live, aria: `Coin value ${money(this.vpValue)}, change` }),
         this.btn("Bet max", () => { this.vpCoins = 5; deal(); }, { cls: ".gold", disabled: live, aria: `Bet max, 5 coins, and deal` }),
         live ? this.btn("DRAW", draw, { cls: ".red.big", aria: "Draw replacement cards" }) : this.btn("DEAL", deal, { cls: ".red.big", aria: `Deal for ${money(this.vpCoins * this.vpValue)}` }),
       ]),

@@ -1,10 +1,12 @@
+import {MosaicFeeds,type MosaicAuthor} from './MosaicFeeds';
 import "./photos.css";
 import { h } from "./dom";
-import { Album, FILTERS, FILTER_IDS, FRAMES, FRAME_IDS, MOMENTS, MomentGate, standing, tiltFor, wallFrameFor, WALL_COUNT, type FilterId, type FrameId, type Shot } from "../content/photos";
+import { applyFilter, Album, FILTERS, FILTER_IDS, FRAMES, FRAME_IDS, MOMENTS, MomentGate, standing, tiltFor, wallFrameFor, WALL_COUNT, type FilterId, type FrameId, type Shot } from "../content/photos";
 import { capture, framed, polaroid } from "../render/PolaroidArt";
 import type { StorageProvider } from "../persistence/storage";
 
 export interface PhotosHost {
+  authors?():MosaicAuthor[];
   unlocked?(id: string): boolean;
   world(): HTMLCanvasElement;
   /** The walk-in interior's canvas while one is open, otherwise null. */
@@ -52,6 +54,9 @@ export class Photos {
   private gate = new MomentGate();
   constructor(private host: PhotosHost, store: StorageProvider | null) { this.album = new Album(store); this.lore = new LoreBook(store); }
 
+  private get feeds():MosaicFeeds {return new MosaicFeeds((title,body)=>this.host.show(title,body),()=>this.host.authors?.()??[{id:0,name:"You"}]);}
+  individualFeeds():void {this.feeds.open();}
+
   private source(): HTMLCanvasElement { return this.host.interior() ?? this.host.world(); }
 
   /** Photo mode. `spot` is the gallery's polaroid spot: the same panel, framed as a polaroid with the place on it. */
@@ -59,7 +64,7 @@ export class Photos {
     const src = this.source();
     if (!src.width || !src.height) { this.host.toast("Nothing to photograph yet."); return; }
     let raw: HTMLCanvasElement;
-    try { raw = capture(src, src.width, src.height, "none"); } catch { this.host.toast("The camera jammed. Try again."); return; }
+    try { raw=document.createElement("canvas");const scale=Math.min(1,1440/Math.max(src.width,src.height));raw.width=Math.round(src.width*scale);raw.height=Math.round(src.height*scale);raw.getContext("2d")!.drawImage(src,0,0,raw.width,raw.height); } catch { this.host.toast("The camera jammed. Try again."); return; }
     // who is in the shot is fixed at the moment the shutter opens, like the picture itself
     const who = this.host.interior() ? [] : this.host.subjects?.() ?? [];
     const where = spot ? place : this.host.where();
@@ -79,9 +84,10 @@ export class Photos {
     };
     const cap = h("input", { type: "text", maxlength: 28, value: st.caption, placeholder: "Caption", "aria-label": "Caption", oninput: (e: Event) => { st.caption = (e.target as HTMLInputElement).value; redraw(); } });
     redraw();
+    const share=h("button.btn", {type:"button",text:"Photo & post",onclick:()=>{const img=document.createElement("canvas");img.width=raw.width;img.height=raw.height;const g=img.getContext("2d")!;g.drawImage(raw,0,0);if(st.filter!=="none"){const pixels=g.getImageData(0,0,img.width,img.height);applyFilter(pixels.data,st.filter);g.putImageData(pixels,0,0);}this.feeds.compose(img,st.caption);}});
     this.host.show(spot ? "Polaroid spot" : "Photo mode", [
       h("p.ph-lede", { text: spot ? "Stand on the red mat. Pick a frame. Say cheese." : "Pick a filter and a frame, then snap it. Pictures pin to your reputation wall at home." }),
-      prev, name,
+      prev, name, share,
       h("h3", { text: "Frame" }), chips(FRAME_IDS, (id) => FRAMES[id].name, () => st.frame, (id) => { st.frame = id; }),
       h("h3", { text: "Filter" }), chips(FILTER_IDS.filter(id => id !== "night" && id !== "grain" || this.host.unlocked?.(id === "night" ? "nightlens" : "grain")), (id) => FILTERS[id].name, () => st.filter, (id) => { st.filter = id; }),
       h("label.ph-cap", null, ["Caption", cap]),
@@ -95,6 +101,7 @@ export class Photos {
           this.host.close();
           if (who.length) this.loreDrop(who);
         } }),
+        h("button.btn", {type:"button",text:"Mosaic feeds",onclick:()=>this.feeds.open()}),
         h("button.btn", { type: "button", text: "Save PNG", onclick: () => this.download(out, st.caption) }),
       ]),
     ], "photo");

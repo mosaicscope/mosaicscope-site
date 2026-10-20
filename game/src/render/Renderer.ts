@@ -1,3 +1,4 @@
+import {drawCommerceArt,drawCommerceObject} from './CommerceArt';
 import {applySubstanceMotion,drawSubstanceProps} from './SubstanceMotion';
 import {gunGrips} from './GunRig';
 import {detailedCrowd} from './CrowdDetail';
@@ -6,7 +7,7 @@ import {drawDetachedLimb} from './DamageArt';
 import {applyNegativeReaction} from './NegativeReactions';
 import {drawDebris,drawFacadeDamage} from "./CivicArt";
 import {setDamageBlood} from "./DamageArt";
-import { ScreenBounds, beginSignFrame } from "./ScreenBounds";
+import { ScreenBounds, beginSignFrame, reserveSign } from "./ScreenBounds";
 import { drawUpgradeEffects } from "./UpgradeEffects";
 import { drawStreetStories } from "./StreetStories";
 import type { Simulation } from "../sim/Simulation";
@@ -41,7 +42,7 @@ import { StreetView } from "./Street2D";
 const STREET_2D = false;
 
 export type Quality = 0 | 1 | 2 | 3; // low, medium, high, ultra
-interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter, 7 street decor
+interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter, 7 street decor
 interface Decal { x: number; y: number; r: number; color: string; born: number; life: number; rot: number }
 
 export interface RenderOptions { selected: number; hovered: number; debug: DebugFlags; reduceMotion: boolean; quality: Quality; showNames: boolean; quietInterface?:boolean }
@@ -166,6 +167,7 @@ export class Renderer {
     cam.update(dt, o.reduceMotion);
     const z=cam.zoom;
     sim.focus.x = cam.x; sim.focus.y = cam.y;
+    for(const id of new Set([sim.playerId,cam.follow])){const c=sim.chars[id];if(!c||c.inside>=0)continue;const at=cam.toScreen(c.x,c.y,0,{x:0,y:0}),left=Math.max(2,at.x-20*z),top=Math.max(2,at.y-80*z),right=Math.min(cam.viewW-2,at.x+20*z),bottom=Math.min(cam.viewH-2,at.y+12*z);if(right>left&&bottom>top)reserveSign('body:'+id,{x:left,y:top,w:right-left,h:bottom-top});}
 
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     g.fillStyle = INK; g.fillRect(0, 0, cam.viewW, cam.viewH);
@@ -210,6 +212,10 @@ export class Renderer {
       cam.toScreen(p.x, p.y, 0, pt);
       if (!inView(pt.x, pt.y, 120 * z)) continue;
       this.push(p.x + p.y, 3, p.id, pt.x, pt.y);
+    }
+    for(let i=0;i<sim.commerce.purchases.length;i++){const order=sim.commerce.purchases[i];if(!order.sku.startsWith('civic:')&&order.sku!=='defense:launcher')continue;const b=sim.world.buildings[order.building];if(!b)continue;
+      cam.toScreen(b.door.x,b.door.y,0,pt);if(inView(pt.x,pt.y,80*z))this.push(this.behind(b.door.x,b.door.y,b.door.x+b.door.y+.03),9,i*2,pt.x,pt.y);
+      const f=order.flight;if(f){const t=Math.max(0,Math.min(1,(sim.tick-f.at)/(f.until-f.at))),x=b.door.x+(f.x-b.door.x)*t,y=b.door.y+(f.y-b.door.y)*t;cam.toScreen(x,y,Math.sin(t*Math.PI)*8+.5,pt);if(inView(pt.x,pt.y,80*z))this.push(this.behind(x,y,x+y+.03),9,i*2+1,pt.x,pt.y);}
     }
     // street dressing (kerb trees, planters, bollards, bike racks, cafe tables); skipped when zoomed far out
     if (z >= 0.5) {
@@ -407,6 +413,7 @@ export class Renderer {
       } else {
         flush();
         if(drawDebris(g,sim.world.civicDamage[`p:${it.ref}`],it.sx,it.sy,z))continue;
+        if(it.kind===9){drawCommerceObject(g,sim,cam,o.reduceMotion,it.ref);continue;}
         drawPoi(g, sim.world.pois[it.ref], it.sx, it.sy, z, time, party, isDark);
       }
     }
@@ -438,6 +445,7 @@ export class Renderer {
     this.rain.draw(g, sim.env.rain, cam.viewW, cam.viewH, dt, o.quality === 0 ? 60 : o.quality === 1 ? 160 : 260, o.reduceMotion);
 
     drawUpgradeEffects(g, sim, cam, time, o.reduceMotion, o.quality);
+    drawCommerceArt(g,sim,cam,o.reduceMotion);
     if(!o.quietInterface)this.drawBubbles(view, o);
     this.drawDebug(o.debug, alpha);
     if (o.quality === 3) this.cinematic(sim);

@@ -37,11 +37,13 @@ export type PropType =
   | "partition" | "counter" | "desk" | "chair" | "sofa" | "bed" | "curtain" | "table" | "cabinet" | "shelf" | "plant"
   | "vending" | "machine" | "locker" | "bars" | "bench" | "lift" | "stairs" | "bath" | "fridge" | "tree" | "fountain"
   | "rug" | "mat" | "trolley" | "bin" | "lamp" | "pillar" | "stanchion" | "vault" | "rack" | "flower"
+  | "wheel" | "aquarium"
   | "poster" | "sign" | "clock" | "screen" | "board" | "window" | "vent";
 
 export interface PropInfo { ht: number; solid: boolean; flat?: boolean; wall?: boolean; elev?: number }
 /** Shared by renderer, collision and tests. `ht` is height in tiles. Flat props are walkable floor art. */
 export const PROP_INFO: Record<PropType, PropInfo> = {
+  wheel:{ht:6,solid:true},aquarium:{ht:2.2,solid:true},
   partition: { ht: 1.35, solid: true }, counter: { ht: 0.95, solid: true }, desk: { ht: 0.78, solid: true }, chair: { ht: 0.55, solid: true },
   sofa: { ht: 0.7, solid: true }, bed: { ht: 0.62, solid: true }, curtain: { ht: 1.7, solid: false }, table: { ht: 0.75, solid: true },
   cabinet: { ht: 1.1, solid: true }, shelf: { ht: 1.6, solid: true }, plant: { ht: 1.05, solid: true }, vending: { ht: 1.7, solid: true },

@@ -65,7 +65,7 @@ describe('contextual street life',()=>{
   });
   it('uses existing NPCs, real goals and nearby actions, without teleporting or dosing the player',()=>{
     const s=small(3,{backgroundCount:120});const count=s.chars.length;ensureStreetCrews(s);
-    for(const crew of STREET_CREWS)expect(s.chars.filter(c=>c.crew===crew.id).length).toBe(3);
+    for(const crew of STREET_CREWS)expect(s.chars.filter(c=>c.crew===crew.id).length).toBe(8);
     const before=s.chars.map(c=>[c.x,c.y]);const e=triggerStreetIncident(s,'dispute')!;expect(e).not.toBeNull();expect(s.chars.length).toBe(count);
     expect(s.chars.map(c=>[c.x,c.y])).toEqual(before);expect(s.chars[e.actors[0]].goal!.id).toBe('street_life');expect(s.player.substances).toBeUndefined();
     s.player.x=e.x;s.player.y=e.y;const heat=s.streetLife.heat[e.crew];expect(resolveStreetIncident(s,e.id,'calm')).toContain('talked');expect(s.streetLife.heat[e.crew]).toBeLessThan(heat);

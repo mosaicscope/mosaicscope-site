@@ -244,10 +244,14 @@ export class Travel {
   }
 
   private reset(): void {
-    this.lounge='terminal';this.passes=new Set(['terminal','quiet','family']);
+    this.privateFlight=false;this.lounge='terminal';this.passes=new Set(['terminal','quiet','family']);
     this.sel = 0; this.comp = null; this.spent = 0; this.photos = 0; this.souvenirs = []; this.done.clear();
     this.bagOk = false; this.scanDone = false; this.argued = false; this.cleared = false; this.scanNote = ""; this.landed = false;
   }
+
+  private privateFlight=false;
+  arriveFromSea():void {this.show();this.sel=0;this.go("dest");}
+  privateDeparture():void {this.show();this.privateFlight=true;this.go("board");}
 
   private get dest(): Dest { return DESTS[this.sel]; }
 
@@ -314,7 +318,7 @@ export class Travel {
   }
 
   // ------------------------------------------------------------------ 1. departures
-  private fareFor(d: Dest): number { return d.fare * (this.comp ? 2 : 1); }
+  private fareFor(d: Dest): number { return this.privateFlight?0:d.fare * (this.comp ? 2 : 1); }
 
   private boardView(): void {
     const flap = (s: string, w: number) => h("span.flap", { "aria-hidden": "true" }, s.toUpperCase().padEnd(w).split("").map((c, i) => h("i", { style: { animationDelay: `${i * 35}ms` }, text: c })));

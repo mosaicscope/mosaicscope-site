@@ -1,3 +1,4 @@
+import {furnishInterior} from '../sim/Commerce';
 import {setDamageBlood} from "../render/DamageArt";
 import { useBandage } from "../sim/Life";
 import { h, fmtHour } from "./dom";
@@ -98,7 +99,7 @@ export class InteriorOverlay {
   get footing(): { moving: boolean; running: boolean } { return { moving: this.open && this.me.speed > 0.2, running: this.open && this.me.speed > 3.6 }; }
 
   show(b: Building): void {
-    const sim = this.host.sim(), def = interiorForBuilding(b);
+    const sim = this.host.sim(), def = furnishInterior(sim,b.id,interiorForBuilding(b));
     this.b = b; this.def = def;this.path=[];this.destination=null;
     this.actionsEl.replaceChildren(...def.interactables.map(it=>h("button",{text:it.label,onclick:()=>this.walkTo(it)})));
     this.crowd = new InteriorCrowd(def, sim, b);

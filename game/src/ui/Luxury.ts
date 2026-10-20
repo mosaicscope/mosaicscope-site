@@ -6,7 +6,7 @@ import "./luxury.css";
  * Velvet & Co. Luxury: a glossy-magazine catalogue overlay for spending obscene amounts of money.
  * Markup uses the `lux-` prefix; styles live in ./luxury.css.
  */
-export interface LuxuryHost { getCash(): number; setCash(v: number): void; toast(t: string): void }
+export interface LuxuryHost { getCash(): number; setCash(v: number): void; toast(t: string): void; changed?(id?:string,price?:number):void }
 export interface Empire { items: string[]; animals: { kind: AnimalKind; name: string }[] }
 
 type Cat = "property" | "rides" | "animals" | "absurd" | "empire";
@@ -209,6 +209,7 @@ export class Luxury {
   private buyItem(it: Item): void {
     if (this.empire.items.includes(it.id) || !this.pay(it.price)) return;
     this.empire.items.push(it.id);
+    this.host.changed?.(it.id,it.price);
     this.host.toast(it.quip);
     this.render();
   }
@@ -218,6 +219,7 @@ export class Luxury {
     if (!this.pay(a.price)) return;
     const name = this.nameFor(kind);
     this.empire.animals.push({ kind, name });
+    this.host.changed?.();
     const lines = [
       `Meet ${name} the ${a.name}. ${name} has already eaten the welcome card.`,
       `${name} the ${a.name} has arrived. Please sign here, here and on ${name}.`,

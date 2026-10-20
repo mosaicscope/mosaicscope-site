@@ -1,3 +1,5 @@
+import {updateRockets} from './Rockets';
+import {newCommerce} from './Commerce';
 import {newStreetLife} from './StreetLife';
 import {updateSubstances,impairment} from './Substances';
 import {advanceDetachedLimbs} from './Trauma';
@@ -103,6 +105,7 @@ export class Simulation {
   charHash!: SpatialHash;
   expansion = newExpansion();
   streetLife = newStreetLife();
+  commerce = newCommerce();
   saltStory = { position: 0, furthest: 0 };
   life = newLife();
   private exploredFrom: { x: number; y: number } | null = null;
@@ -256,6 +259,7 @@ export class Simulation {
 
     updateSubstances(this);
     updateVehicles(this, dt);
+    updateRockets(this);
     updateCivicDamage(this);
     const tp = performance.now();
     this.physics.step(dt, this.toys, this.chars, this.charHash, this.tick, this.hooks);

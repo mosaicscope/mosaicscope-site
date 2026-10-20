@@ -579,7 +579,7 @@ export function tickLife(sim: Simulation): void {
   }
   for (const b of s.businesses) {
     const income = Math.round(
-      (b.kind === "pigeon hotel" ? 40 : 65) *
+      (b.kind === "amusement park" ? 900 : b.kind === "marine park" ? 650 : b.kind === "pigeon hotel" ? 40 : 65) *
         b.level * (hasUpgrade(s.upgrades, "renovation") ? 1.25 : 1) *
         (s.politics.policy === "Free pies" ? 0.8 : 1) *
         (1 - Math.min(0.4, s.nemesis.heat / 300)),
