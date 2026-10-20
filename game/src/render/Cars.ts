@@ -254,7 +254,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     // a ring of light on the tarmac around the car: the glow layer sits on top of the body, so the middle stays clear
     // (no coloured wash over the paint) and the gradient is squashed into the ground ellipse so it fades with no hard rim
     const sx = pt.x, sy = pt.y + 2 * z, rx = L * 22 * z, sq = 0.5;
-    GLOW.push(() => {
+    GLOW.push((g) => {
       g.save(); g.globalCompositeOperation = "lighter";
       g.translate(sx, sy); g.scale(1, sq);
       const grd = g.createRadialGradient(0, 0, 0, 0, 0, rx);
@@ -456,7 +456,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     if (v.siren) {
       cam.toScreen(x + k.c * roofMid, y + k.s * roofMid, H + 0.1, pt);
       const sx = pt.x, sy = pt.y, col = on ? "236,42,28" : "28,107,214";
-      GLOW.push(() => { g.globalCompositeOperation = "lighter"; const grd = g.createRadialGradient(sx, sy, 0, sx, sy, 34 * z); grd.addColorStop(0, `rgba(${col},.55)`); grd.addColorStop(1, `rgba(${col},0)`); g.fillStyle = grd; g.beginPath(); g.arc(sx, sy, 34 * z, 0, 6.283); g.fill(); g.globalCompositeOperation = "source-over"; });
+      GLOW.push((g) => { g.globalCompositeOperation = "lighter"; const grd = g.createRadialGradient(sx, sy, 0, sx, sy, 34 * z); grd.addColorStop(0, `rgba(${col},.55)`); grd.addColorStop(1, `rgba(${col},0)`); g.fillStyle = grd; g.beginPath(); g.arc(sx, sy, 34 * z, 0, 6.283); g.fill(); g.globalCompositeOperation = "source-over"; });
     }
   }
   if (v.cls === "taxi") {
@@ -497,7 +497,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
         const A = W3(k, [x0 + 0.5, 0, bodyTop(x0) + 0.02]), B = W3(k, [x0 + 0.1, 0, bodyTop(x0) + 0.3]);
         g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke();
       }
-      if (night && blink) { const sx = pt.x, sy = pt.y; GLOW.push(() => { g.globalCompositeOperation = "lighter"; const grd = g.createRadialGradient(sx, sy, 0, sx, sy, 22 * z); grd.addColorStop(0, "rgba(255,176,42,.5)"); grd.addColorStop(1, "rgba(255,176,42,0)"); g.fillStyle = grd; g.beginPath(); g.arc(sx, sy, 22 * z, 0, 6.283); g.fill(); g.globalCompositeOperation = "source-over"; }); }
+      if (night && blink) { const sx = pt.x, sy = pt.y; GLOW.push((g) => { g.globalCompositeOperation = "lighter"; const grd = g.createRadialGradient(sx, sy, 0, sx, sy, 22 * z); grd.addColorStop(0, "rgba(255,176,42,.5)"); grd.addColorStop(1, "rgba(255,176,42,0)"); g.fillStyle = grd; g.beginPath(); g.arc(sx, sy, 22 * z, 0, 6.283); g.fill(); g.globalCompositeOperation = "source-over"; }); }
     }
   }
   if (PT.aerial && !S.open) {   // a whip aerial off the back corner
@@ -542,7 +542,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
       if (side === (tail ? deadTail : deadLamp)) continue; // smashed lamp: no light
       const P0 = W3(k, [tail ? x0 : x1, side * hw * (tail ? 0.63 : 0.57), tail ? tailH : lampH]);
       const sx = P0[0], sy = P0[1];
-      GLOW.push(() => { g.globalCompositeOperation = "lighter"; const grd = g.createRadialGradient(sx, sy, 0, sx, sy, r); grd.addColorStop(0, `rgba(${col},${a})`); grd.addColorStop(1, `rgba(${col},0)`); g.fillStyle = grd; g.beginPath(); g.arc(sx, sy, r, 0, 6.283); g.fill(); g.globalCompositeOperation = "source-over"; });
+      GLOW.push((g) => { g.globalCompositeOperation = "lighter"; const grd = g.createRadialGradient(sx, sy, 0, sx, sy, r); grd.addColorStop(0, `rgba(${col},${a})`); grd.addColorStop(1, `rgba(${col},0)`); g.fillStyle = grd; g.beginPath(); g.arc(sx, sy, r, 0, 6.283); g.fill(); g.globalCompositeOperation = "source-over"; });
     }
   }
 
@@ -597,7 +597,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   // brake glow at night: a soft halo over the tail lamps while braking
   if (brake && night && !frontVisible) {
     const bp = W3(k, [x0, 0, S.deck * H * 0.8]), br = 14 * M.scale * z;
-    GLOW.push(() => {
+    GLOW.push((g) => {
       g.globalCompositeOperation = "lighter";
       const grd = g.createRadialGradient(bp[0], bp[1], 0, bp[0], bp[1], br);
       grd.addColorStop(0, "rgba(255,59,47,.45)"); grd.addColorStop(1, "rgba(255,59,47,0)");

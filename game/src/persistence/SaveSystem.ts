@@ -1,3 +1,4 @@
+import { restoreSaltProgress, type SaltProgress } from '../content/salt-story/progress';
 import {rememberContinue} from './ContinueCookie';
 import { newLife, type LifeState } from "../sim/Chronicles";
 import { newExpansion, newCasino, type ExpansionState } from "../sim/Expansion";
@@ -35,6 +36,7 @@ export const unpackMem = (a: MemTuple): Memory => { const m: Memory = { t: a[0],
 export const packRel = (id: number, r: Rel): RelTuple => [id, r.fam, r.trust, r.aff, r.respect, r.fear, r.rivalry, r.grudge, r.shared, r.favours, r.last];
 export const unpackRel = (a: RelTuple): [number, Rel] => [a[0], { fam: a[1], trust: a[2], aff: a[3], respect: a[4], fear: a[5], rivalry: a[6], grudge: a[7], shared: a[8], favours: a[9], last: a[10] }];
 export interface SaveData {
+  saltStory?: SaltProgress;
   expansion?: ExpansionState;
   life?: LifeState;
   version: number;
@@ -84,6 +86,7 @@ export const MIGRATIONS: Record<number, (d: any) => any> = {
 
 export function serialize(sim: Simulation, label = "Save"): SaveData {
   return {
+    saltStory: { ...sim.saltStory },
     life: structuredClone(sim.life),
     expansion: structuredClone(sim.expansion),
     version: SAVE_VERSION, savedAt: new Date().toISOString(), label,
@@ -129,6 +132,7 @@ export function parseSave(json: string): SaveData {
 /** Build a fresh simulation from a save. */
 export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemFlags()): Simulation {
   const sim = new Simulation(d.cfg, {}, lifeFlags);
+  sim.saltStory = restoreSaltProgress(d.saltStory);
   sim.expansion = { ...newExpansion(), ...structuredClone(d.expansion ?? {}) };
   sim.expansion.casino = { ...newCasino(), ...sim.expansion.casino };
   sim.life = { ...newLife(), ...structuredClone(d.life ?? {}) };

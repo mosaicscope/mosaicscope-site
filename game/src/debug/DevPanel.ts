@@ -9,6 +9,7 @@ import { LodManager } from "../crowd/LodManager";
 /** Developer panel: live metrics, frame graph, debug toggles and spawn/trigger/reset controls. */
 export class DevPanel {
   el: HTMLElement;
+  beforeOpen: () => boolean | void = () => {};
   private grid: HTMLElement;
   private graph: HTMLCanvasElement;
   private workbench:HTMLElement;
@@ -48,7 +49,7 @@ export class DevPanel {
       h("p", { style: { color: "var(--dim)", margin: "8px 0 0" }, text: "Dev tools are separate from play. Seeds make runs reproducible." }),
     ]);
   }
-  toggle(on?: boolean): void { const show = on ?? this.el.classList.contains("hidden"); this.el.classList.toggle("hidden", !show); this.el.closest("#ui")?.classList.toggle("dev-open",show); }
+  toggle(on?: boolean): void { const show = on ?? this.el.classList.contains("hidden"); if (show && this.beforeOpen() === false) return; this.el.classList.toggle("hidden", !show); this.el.closest("#ui")?.classList.toggle("dev-open",show); }
   get visible(): boolean { return !this.el.classList.contains("hidden"); }
 
   private spawnNpc(n: number): void { const s = this.sim(), p = s.player; s.spawnNpcAt(p.x, p.y, n); this.ctl.toast(`Spawned ${n} (total ${s.chars.length})`); }

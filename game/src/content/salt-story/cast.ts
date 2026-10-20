@@ -1,0 +1,3 @@
+// Named cast from the player-authored SALT story. No plot spoilers loaded here.
+export const SALT_CAST = ["Bando", "Big Dean", "Bill", "Brooke", "Flash", "Glitter", "Grain", "Gurjit", "Hannah", "Hemi", "Hobbs", "Honey", "Hoodie Bloke", "Jace", "Kevin", "Kodak", "Kyle", "Lux", "Mikey", "Mikey Stone", "Mo", "Mr Dwyer", "Mrs Tui", "Night Kiwi", "Nova", "Pip", "Priya", "Ricky", "Ruby", "Ruth", "Saffron", "Sal", "Static", "Tanner", "Tiles", "Tourist", "Velvet", "Vito", "Voice"];
+export function isSaltCast(name: string): boolean { const n=name.toLowerCase(); return SALT_CAST.some(w=>n===w.toLowerCase()||n.startsWith(w.toLowerCase()+" ")); }

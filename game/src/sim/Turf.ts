@@ -181,8 +181,8 @@ export function fireGun(sim: Simulation, c: Character, tx: number, ty: number, t
   for (let i = 0; i < pellets; i++) {
     const b = sim.spawnToy(ws.ammo ?? "bullet", mx, my, mz);
     if (!b) break;
-    const a = base + sim.rng.gauss() * (1 - acc) * 0.3 + (pellets > 1 ? sim.rng.range(-(ws.spread ?? 0.2), ws.spread ?? 0.2) : 0);
-    const time = Math.max(.04,Math.min(ws.reach,Math.hypot(tx-mx,ty-my))/speed), tz = 1.05 + sim.rng.gauss() * 0.2;
+    const a = base + sim.rng.gauss() * (1 - acc) * (c.tier === "player" ? 0.12 : 0.3) + (pellets > 1 ? sim.rng.range(-(ws.spread ?? 0.2), ws.spread ?? 0.2) : 0);
+    const time = Math.max(.04,Math.min(ws.reach,Math.hypot(tx-mx,ty-my))/speed), tz = 1.05 + sim.rng.gauss() * (c.tier === "player" ? 0.045 : 0.2);
     b.vx = Math.cos(a) * speed; b.vy = Math.sin(a) * speed; b.vz = (tz - mz) / time + 0.5 * GRAVITY * time;
     b.state = "flying"; b.thrower = c.id; b.throwTick = sim.tick; b.angle = a;
     b.load=c.combat?.load??'standard';b.weaponOrigin=def;

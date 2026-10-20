@@ -61,6 +61,7 @@ const short = (n: number) => n >= 1e6 ? "$" + (n / 1e6).toFixed(n >= 1e7 ? 0 : 1
 const KINDS = Object.keys(ANIMALS) as AnimalKind[];
 
 export class Luxury {
+  beforeOpen: () => boolean = () => true;
   el: HTMLElement;
   open = false;
   empire: Empire = { items: [], animals: [] };
@@ -75,7 +76,7 @@ export class Luxury {
   }
 
   show(): void {
-    if (this.open) return;
+    if (this.open || !this.beforeOpen()) return;
     this.open = true; this.el.classList.remove("hidden");
     window.addEventListener("keydown", this.onKey);
     this.render();
