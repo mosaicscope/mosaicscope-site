@@ -1,3 +1,4 @@
+import {destinationTranslation} from './DestinationTranslation';
 import {PHRASES,LANGUAGES,languageFor} from '../../../data/destination-dialogue.mjs';
 import {h} from './dom';
 type Phrase=keyof typeof PHRASES;
@@ -10,7 +11,7 @@ export class DestinationConversation{
   this.el.hidden=false;const c=this.context(),text=h('p.local-speech',{text:PHRASES.hello,lang:'en',dir:'auto'}),sub=h('p.local-subtitle',{text:c.local+' · '+c.place}),source=h('small',{text:'Authored game dialogue'}),select=h('select',{'aria-label':'Conversation language'},Object.entries(LANGUAGES).map(([value,label])=>h('option',{value,text:label}))) as HTMLSelectElement;
   select.value=languageFor(this.country);let current:Phrase='hello';
   const say=async(phrase:Phrase)=>{current=phrase;const revision=++this.revision,english=PHRASES[phrase];text.textContent=english;text.lang='en';source.textContent='Authored game dialogue';sub.textContent=c.local+' · '+c.place+(phrase==='directions'&&c.nearby.length?' · Nearby: '+c.nearby.join(' · '):'');if(select.value==='en')return;
-   source.textContent='Translating…';try{const r=await fetch('/api/destination-speech?phrase='+phrase+'&language='+select.value,{signal:AbortSignal.timeout(8000)}),d=await r.json();if(this.disposed||revision!==this.revision)return;text.textContent=d.text||english;text.lang=d.language||'en';source.textContent=d.source||'English fallback';sub.textContent=english+' · '+c.local+' · '+c.place+(phrase==='directions'&&c.nearby.length?' · Nearby: '+c.nearby.join(' · '):'');}catch{if(!this.disposed&&revision===this.revision)source.textContent='English fallback · translation unavailable';}
+   source.textContent='Translating…';try{const d=await destinationTranslation(phrase,select.value);if(this.disposed||revision!==this.revision)return;text.textContent=d.text||english;text.lang=d.language||'en';source.textContent=d.source||'English fallback';sub.textContent=english+' · '+c.local+' · '+c.place+(phrase==='directions'&&c.nearby.length?' · Nearby: '+c.nearby.join(' · '):'');}catch{if(!this.disposed&&revision===this.revision)source.textContent='English fallback · translation unavailable';}
   };
   select.onchange=()=>void say(current);
   const topic:Phrase=c.kind==='water'?'water':c.kind==='green'?'park':c.kind==='hospital'?'hospital':c.kind==='police'?'police':['cafe','restaurant','fast_food','bakery'].includes(c.kind)?'food':'shop';

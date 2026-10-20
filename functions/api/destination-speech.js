@@ -4,7 +4,7 @@ export async function translatePhrase(phrase,language){
  if(!Object.hasOwn(PHRASES,phrase)||!Object.hasOwn(LANGUAGES,language))return null;
  const english=PHRASES[phrase];if(language==='en')return {english,text:english,language,source:'Authored game dialogue',translated:false};
  const url=new URL('https://api.mymemory.translated.net/get');url.searchParams.set('q',english);url.searchParams.set('langpair','en|'+language);
- const r=await fetch(url,{signal:AbortSignal.timeout(6500)});if(!r.ok)throw Error('Translation unavailable');const data=await r.json(),text=data.responseData?.translatedText;
+ const r=await fetch(url,{signal:AbortSignal.timeout(2500)});if(!r.ok)throw Error('Translation unavailable');const data=await r.json(),text=data.responseData?.translatedText;
  if(data.responseStatus!==200||data.quotaFinished||typeof text!=='string'||!text.trim()||text.length>1000)throw Error('Translation unavailable');
  return {english,text,language,source:'MyMemory / Translated',translated:true};
 }
