@@ -7,4 +7,44 @@
 
 .activities .ax-game-nav button[aria-pressed="true"]{background:#d9bd7d!important;color:#183932!important;border-color:#f3dba4!important}
 
+/* A stage and one decision deck, never a tall stack of canvases and catalogues. */
+.activities{height:min(820px,94dvh);max-height:94dvh;overflow:hidden;background:#232620!important;border-color:#756c5455!important;display:flex;flex-direction:column}
+.activities .modal-body{display:flex;flex-direction:column;min-height:0;overflow:hidden;flex:1}
+.activities .ax-nav{position:static;background:none;padding:0;flex:none;gap:5px}
+.activities .ax-nav button{flex:1;min-height:36px;padding:6px}
+.activities .ax-status{margin:9px 0;padding:7px 10px;border-color:#c4b084;background:#1b1f1b;font-size:12px;flex:none}
+.activities .ax-grid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.7fr) minmax(240px,1fr);gap:16px}
+.activities .play-stage{grid-column:auto;align-self:stretch;min-height:0;display:flex;flex-direction:column;background:#252d28;border-radius:10px;box-shadow:none}
+.activities .play-scene{flex:1;min-height:0;object-fit:contain;height:100%;width:100%}
+.activities .ax-deck{min-width:0;min-height:0;display:flex;flex-direction:column;gap:10px;overflow:auto;scrollbar-width:none}
+.activities .ax-deck::-webkit-scrollbar{display:none}
+.activities .ax-card{background:#2a2e26!important;border-color:#8b806344!important;border-radius:8px!important;padding:14px}
+.activities .ax-card h3{color:#d8c394!important;letter-spacing:0;font-size:16px}
+.activities .ax-card p{color:#c7c6b5;font-size:12px;line-height:1.5}
+.activities .ax-pages{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:auto;padding-top:8px}
+.activities .ax-pages span{font-size:12px;color:#c8b58c}
+.activities .ax-deck label{display:flex;flex-direction:column;gap:5px;font-size:12px}
+.activities .ax-deck select,.activities .ax-deck input{width:100%;min-height:36px}
+.activities .ax-numbers{grid-template-columns:repeat(8,minmax(0,1fr));gap:3px}
+.activities .ax-numbers button{min-height:30px;font-size:11px}
+.activities .ax-floor{overflow:auto;scrollbar-width:none}
+.salt-dialogue{width:min(1160px,96vw)!important;max-height:95dvh!important;overflow:hidden!important;background:#242921!important}
+.salt-layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,1fr);gap:18px;height:min(650px,78dvh)}
+.salt-layout>.play-stage{grid-column:auto;display:flex;align-items:center;min-width:0;background:#343d32;border-radius:9px}
+.salt-layout canvas{object-fit:contain;max-height:100%}.salt-decision{min-width:0;overflow:auto;scrollbar-width:none;display:flex;flex-direction:column;gap:10px}.salt-decision h4{color:#dac394;margin:5px 0;font-size:13px}.salt-line{padding:16px!important;background:#30352a!important;border-color:#a99b7366!important;min-height:120px}.salt-line p{font:15px/1.6 Archivo,Arial,sans-serif;margin:8px 0;white-space:pre-wrap}.salt-decision .opts,.salt-choices{display:flex;gap:7px;flex-wrap:wrap}.salt-choices button{width:100%;text-align:left;min-height:40px}.salt-library{font-size:12px;padding:9px 0;margin-top:auto}.salt-library label{display:block;margin:8px 0}.salt-library select{width:100%}.salt-library .salt-transcript{max-height:240px;overflow:auto;scrollbar-width:none}.salt-decision button{min-height:38px;border-radius:6px!important;padding:8px 10px}.salt-decision .dim{font-size:12px}
+@media(max-width:680px){.salt-layout{grid-template-columns:1fr;grid-template-rows:minmax(150px,.7fr) minmax(260px,1fr);height:82dvh;gap:10px}.salt-line{padding:12px!important;min-height:80px}.salt-line p{font-size:14px}.salt-dialogue .modal-header h2{font-size:15px}.salt-choices{gap:4px}}
+@media(max-width:680px){.activities{height:96dvh;max-height:96dvh}.activities .ax-grid{grid-template-columns:1fr;grid-template-rows:minmax(140px,.9fr) minmax(200px,1fr);gap:10px}.activities .ax-card{padding:10px}.activities .ax-card p{margin:5px 0}.activities .ax-deck{gap:7px}.activities .ax-actions button{min-height:37px;padding:7px 10px}.activities .ax-status{margin:6px 0}.activities .ax-nav button{font-size:11px}.activities .venue-controls{padding:5px}.activities .venue-controls button{min-height:32px;padding:5px 10px}}
+
 .venue-controls{display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:#122e30}.venue-controls button{min-height:42px;padding:9px 17px;border:1px solid #b9aa7655;border-radius:8px;background:#24473f;color:#e8ddbc;cursor:pointer}.venue-controls button[aria-pressed=true]{background:#d4bd82;color:#19392e}.venue-heading{display:flex;justify-content:space-between;align-items:center;gap:16px}.venue-heading h1{font:500 28px Georgia,serif;color:#eddfb7;margin:0 0 7px}.venue-heading p{margin:0;color:#adc4bb;font-size:13px}.venue-heading .venue-controls{padding:0;background:none}.cas-lobby>.play-stage{width:100%}@media(max-width:600px){.venue-heading{display:block}.venue-heading .venue-controls{margin-top:10px}.venue-heading h1{font-size:23px}.venue-controls button{flex:1;font-size:11px;padding:8px}}
+
+#ui .panel.activities .ax-grid{grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr)}
+#ui .panel.activities .play-stage{align-self:center;max-height:100%;height:auto;border-radius:9px}
+#ui .panel.activities .play-scene{height:auto;flex:none;max-height:100%;object-fit:contain}
+#ui .panel.activities .ax-deck>label{display:grid;grid-template-columns:82px minmax(0,1fr);align-items:center;gap:8px;margin:0;padding:0;border:0;font-size:12px;min-height:38px;text-align:left}
+#ui .panel.activities .ax-deck>label :is(select,input){min-height:36px;padding:6px 9px}
+#ui .panel.activities .ax-card{padding:12px}
+#ui .panel.activities .ax-card h3{font-size:15px;margin:0 0 6px}
+#ui .panel.activities .ax-card p{font-size:12px;line-height:1.4;margin:6px 0 10px}
+#ui .panel.activities .ax-numbers{grid-template-columns:repeat(10,minmax(0,1fr))}
+#ui .panel.activities .ax-numbers button{min-height:27px;padding:3px;font-size:10px}
+@media(max-width:680px){#ui .panel.activities .ax-grid{grid-template-columns:1fr;grid-template-rows:minmax(140px,.8fr) minmax(210px,1fr)}#ui .panel.activities .play-stage{height:100%;width:100%}#ui .panel.activities .play-scene{flex:1;min-height:0;object-fit:contain}}

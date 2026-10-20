@@ -1,0 +1,11 @@
+export interface Aircraft {id:string;name:string;type:'rotor'|'prop'|'jet'|'seaplane';length:number;span:number;engines:number;seats:number;price:number;color:string;tail:number;rotors?:number;blades?:number}
+const families=[['Kea','prop',9,8,2],['Takahe','prop',13,12,6],['Kestrel','prop',8,12,4],['Albatross','seaplane',12,17,8],['Kahu','prop',15,22,14],['Swift','jet',17,16,8],['Meridian','jet',24,23,16],['Southern','jet',34,32,60],['Pacific','jet',48,45,140],['Atlas','jet',63,59,260]] as const;
+/** Sixty authored airframe specifications: dimensions, engines, cabin and tail vary together. */
+export const AIRCRAFT:Aircraft[]=families.flatMap(([family,type,length,span,seats],f)=>Array.from({length:6},(_,v)=>({id:`${family.toLowerCase()}-${v+1}`,name:`${family} ${100+v*100}`,type,length:length+v*.85,span:span+v*.7,engines:type==='prop'||type==='seaplane'?(v<3?1:2):f===9&&v>2?4:2,seats:seats+v*(f<4?1:4),price:Math.round((type==='prop'?180000:type==='seaplane'?650000:4000000)*(1+f*.65)*(1+v*.22)),color:['#d7d5c8','#a9bbc2','#d2b57d','#9da99d','#c6aaa3','#b4b0bf'][v],tail:v})));
+const rotorFamilies=[['Hebe',7,7,2,1,2],['Kowhai',9,9,4,1,3],['Rimu',11,11,6,1,4],['Totara',14,13,10,1,5],['Kauri',17,16,18,1,6],['Weka',10,10,5,2,2],['Toroa',20,18,28,2,3],['Tui',12,12,8,2,4],['Harakeke',15,15,12,4,2],['Kakapo',23,21,36,2,6]] as const;
+export const HELICOPTERS:Aircraft[]=rotorFamilies.flatMap(([family,length,span,seats,rotors,blades],f)=>Array.from({length:5},(_,v)=>({id:`rotor-${family.toLowerCase()}-${v+1}`,name:`${family} H${100+v*100}`,type:'rotor' as const,length:length+v*.7,span:span+v*.6,seats:seats+v,engines:f>2?2:1,rotors,blades,price:Math.round((650000+f*780000)*(1+v*.19)),color:['#d9d6c7','#899b9c','#b99e6c','#979e7b','#b29588'][v],tail:v+f%3}))) ;
+export const DEALER_AIRCRAFT=HELICOPTERS;
+export const AIR_STOCK_MS=300000;
+/** Ten rotating slots, complete catalogue cycles in twenty-five minutes. Stable within each slot. */
+export function aircraftStock(now=Date.now()):Aircraft[]{const start=(Math.floor(now/AIR_STOCK_MS)%5)*10;return DEALER_AIRCRAFT.slice(start,start+10);}
+export function aircraftForSku(sku:string):Aircraft {const legacy=sku==='air:helicopter'?0:sku==='air:propeller'?12:30;return [...HELICOPTERS,...AIRCRAFT].find(a=>'air:'+a.id===sku)??(sku==='air:helicopter'?HELICOPTERS[0]:AIRCRAFT[legacy]);}

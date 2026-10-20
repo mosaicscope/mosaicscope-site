@@ -1,0 +1,5 @@
+const themes=[['Lucky Pūkeko','🐦','🌿','🥚','☀','🌈','★'],['Coastal Catch','🐟','⚓','🐚','⛵','☀','★'],['Orchard Gold','🍎','🍐','🍊','🍋','🍒','★'],['Night Market','🏮','🍜','☕','🎵','🎁','★'],['Alpine Trails','🏔','❄','🌲','⛷','☀','★'],['Garage Legends','🚗','🔧','🏁','⚙','🔑','★'],['Garden Party','🌹','🌼','🌻','🌷','🦋','★'],['Cosmic Club','🌙','🪐','🚀','☄','☀','★'],['Treasure Wharf','⚓','💎','🗝','🧭','👑','★'],['Friday Fiesta','🎉','🎸','🎺','🎈','🎭','★']];
+const editions=['Dawn','Copper','Silver','Gold','Emerald','Ruby','Sapphire','Midnight','Festival','Diamond'];
+/** One hundred themed editions, ten visual families, stored with each purchased ticket. Odds stay printed. */
+export const SCRATCHCARDS=themes.flatMap(([name,...symbols],family)=>editions.map((edition,v)=>({id:family*10+v,name:`${name} · ${edition}`,symbols,hue:(family*33+v*8)%360,pattern:v,accent:['#c9b989','#ddad83','#c3c8ca','#e1c17c','#a0bb9b'][v%5]})));
+export function scratchDesign(id=0){return SCRATCHCARDS[Math.max(0,Math.min(99,Math.floor(Number.isFinite(id)?id:0)))];}

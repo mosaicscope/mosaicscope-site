@@ -70,13 +70,15 @@ try {
   if (!await page.evaluate(() => !!document.activeElement?.closest('.modal'))) throw Error('Settings keyboard focus escaped');
   await page.keyboard.press('Escape');
   await menu('SALT story');
-  const story = page.getByRole('dialog', { name: 'SALT stories · 11 chapters / 62 scenes', exact: true }); await story.waitFor();
+  const story = page.locator('.salt-dialogue[role=dialog]'); await story.waitFor();
   if (await page.getByLabel('Story chapter', { exact: true }).locator('option').count() !== 11) throw Error('Story chapter missing');
   const first = await page.locator('.salt-line').innerText();
   await page.getByRole('button', { name: 'Next line', exact: true }).click();
   if (await page.locator('.salt-line').innerText() === first) throw Error('Story line did not advance');
+  await page.locator('.salt-library > summary').click();
   await page.getByLabel('Story chapter', { exact: true }).selectOption('10');
-  if (!await page.locator('.salt-story .eyebrow').innerText().then(t => t.includes('The Party'))) throw Error('Final chapter inaccessible');
+  await page.locator('.salt-library > summary').click();
+  if (!await page.locator('.salt-dialogue .modal-header h2').innerText().then(t => t.includes('The Party'))) throw Error('Final chapter inaccessible');
   await page.getByText('Read the full scene dialogue', { exact: true }).click();
   if (!await page.locator('.salt-transcript').innerText().then(t => t.includes('Glitter:'))) throw Error('Full authored dialogue missing');
   await page.setViewportSize({ width: 390, height: 844 });

@@ -54,3 +54,7 @@
 #ui .salt-story label{grid-template-columns:65px minmax(0,1fr)}#ui .salt-story select{width:100%;min-width:0;max-width:100%;text-overflow:ellipsis}#ui .salt-dialogue .modal-header h2{min-width:0;white-space:normal;overflow-wrap:anywhere}#ui .salt-story{min-width:0;overflow-wrap:anywhere}#ui .salt-story .opts button{white-space:normal}
 #ui .salt-story h3{font:600 18px/1.4 var(--sans,Arial,sans-serif);text-transform:none}#ui .salt-story .opts{position:sticky;bottom:-14px;background:#20221ff5;padding:12px 0;border-top:1px solid var(--ui-border);z-index:2}
 @media(max-width:600px){#ui .aim-tools{left:12px;transform:none;width:calc(100% - 178px);flex-wrap:wrap}#ui .aim-tools span{flex-basis:100%;text-align:center}#ui .aim-tools button{min-width:0;flex:1;padding:6px;white-space:normal}#ui .return-player{left:12px;transform:none;top:198px;max-width:calc(100% - 178px);white-space:normal}}
+
+/* Native touch/wheel/keyboard scrolling remains available in dense tools; no browser chrome in the world. */
+#ui *{scrollbar-width:none}#ui *::-webkit-scrollbar{display:none}
+#ui .panel.salt-dialogue{width:min(1160px,96vw)}#ui .salt-line p{font-size:15px;line-height:1.55}#ui .salt-line{min-height:110px}

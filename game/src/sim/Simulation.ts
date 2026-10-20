@@ -1,3 +1,4 @@
+import {prepareFarmPlot} from './FarmPlot';
 import {updateRockets} from './Rockets';
 import {newCommerce} from './Commerce';
 import {newStreetLife} from './StreetLife';
@@ -106,7 +107,7 @@ export class Simulation {
   expansion = newExpansion();
   streetLife = newStreetLife();
   commerce = newCommerce();
-  saltStory = { position: 0, furthest: 0 };
+  saltStory:import('../content/salt-story/progress').SaltProgress = { position: 0, furthest: 0 };
   life = newLife();
   private exploredFrom: { x: number; y: number } | null = null;
   tick = 0;
@@ -143,6 +144,7 @@ export class Simulation {
 
   private build(): void {
     this.world = generateWorld({ size: this.cfg.worldSize, seed: this.cfg.seed });
+    prepareFarmPlot(this.world);
     this.nav = new Navigation(this.world, this.cfg.pathNodeBudget);
     this.physics = new PhysicsWorld(this.world, this.cfg.maxImpulse);
     this.charHash = new SpatialHash(this.world.size, this.world.size, 2, 1024);

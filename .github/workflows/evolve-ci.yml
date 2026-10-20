@@ -27,6 +27,8 @@ jobs:
         run: node --test evolve/test/engine.test.mjs
       - name: Instagram publishing authorization tests
         run: node --test evolve/test/mosaic-instagram.test.mjs
+      - name: Worldwide destination geometry tests
+        run: node --test evolve/test/destination-map.test.mjs
       - name: Security gate (no new high or critical findings)
         run: node evolve/security.mjs gate "origin/${{ github.base_ref }}"
       - name: Verify the proposed change is exactly one engine remedy

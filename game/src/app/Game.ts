@@ -1,3 +1,4 @@
+import {farmPlot} from '../sim/FarmPlot';
 import {launchRocket} from '../sim/Rockets';
 import {WorldMarket} from '../ui/WorldMarket';
 import {Marina} from '../ui/Marina';
@@ -197,6 +198,7 @@ export class Game {
       people: () => this.sim.chars,
       patrons: () => this.sim.chars.filter((c) => c.inside >= 0 && this.sim.world.buildings[c.inside]?.kind === "casino").length + 3,
     }, () => { this.clock.paused = this.pausedBefore; });
+    this.activities.onVisitFarm=()=>{const plot=farmPlot(this.sim.world);if(!plot){this.toast('No clear farm plot on this map');return;}this.returnToPlayer(false);this.moveTarget={...plot.gate};this.renderer.cam.lookAt(plot.gate.x,plot.gate.y,true);this.toast('Your farm gate · walk or tap to explore');};
     this.activities.onFun=kind=>{if(kind==="roast")this.roast.start();else this.burger.start();};
     this.casino.onMoreGames = () => this.activities.show("Betting");
     this.places = new Places(() => this.sim, (t, b, cls) => this.modal.show(t, b, cls), () => this.modal.close(), (t, k) => this.toast(t, k));
@@ -997,6 +999,7 @@ export class Game {
     if (scrapCount(p) > 0) parts.push("Sack ", h("b", { text: `${scrapCount(p)} (${fmtCash(scrapValue(p))})` }), " · ");
     const n = this.nearestPerson();
     if (n >= 0) parts.push(kb(k.talk), " talk to ", h("b", { text: sim.chars[n].name }), " · ");
+    if(this.nearestPerson(1.4)>=0)parts.push(h("button",{text:"Pickpocket · "+k.rob.toUpperCase(),onclick:()=>this.rob(),"aria-label":"Pickpocket nearby person"})," · ");
     parts.push("click people to inspect · ", kb("?"), " help");
     this.hintEl.replaceChildren(...parts);
   }
@@ -1190,7 +1193,7 @@ export class Game {
   private luxury = new Luxury({ getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; this.saveEmpire(); }, toast: (t) => this.toast(t, "acid"), changed:(id,price)=>{if(id)this.deliverLegacy(id,price);this.saveEmpire();} });
   private marina = new Marina(()=>this.sim,()=>this.resumeGame(),()=>{this.travel.arriveFromSea();});
   private remoteLauncher:number|null=null;
-  private market = new WorldMarket({sim:()=>this.sim,show:(title,body)=>this.modal.show(title,body),close:()=>this.modal.close(),toast:t=>this.toast(t),collection:()=>this.luxury.show(),target:id=>{this.remoteLauncher=id;this.returnToPlayer();this.toast("Tap a map position to aim the launcher. Escape cancels. A shot costs $1,000.");},sail:id=>{this.returnToPlayer();this.setSpeed(0);this.marina.show(id);},fly:()=>this.travel.privateDeparture(),visit:id=>{const b=this.sim.world.buildings[id];if(!b)return;this.returnToPlayer();this.moveTarget={x:b.door.x,y:b.door.y};this.pendingEnter={building:b.id,studio:false};this.setSpeed(1);}});
+  private market = new WorldMarket({hangar:(id)=>{const bay=this.sim.commerce.purchases.find(o=>o.id===id)?.bay;if(!bay)return;this.returnToPlayer(false);this.renderer.cam.lookAt(bay.x,bay.y,true);this.moveTarget={...bay};this.toast('Your aircraft hangar');},sim:()=>this.sim,show:(title,body)=>this.modal.show(title,body),close:()=>this.modal.close(),toast:t=>this.toast(t),collection:()=>this.luxury.show(),target:id=>{this.remoteLauncher=id;this.returnToPlayer();this.toast("Tap a map position to aim the launcher. Escape cancels. A shot costs $1,000.");},sail:id=>{this.returnToPlayer();this.setSpeed(0);this.marina.show(id);},fly:()=>this.travel.privateDeparture(),visit:id=>{const b=this.sim.world.buildings[id];if(!b)return;this.returnToPlayer();this.moveTarget={x:b.door.x,y:b.door.y};this.pendingEnter={building:b.id,studio:false};this.setSpeed(1);}});
   private deliverLegacy(id:string,paidPrice?:number):void {
     const sku=id==='gold-hovercraft'?'boat:hovercraft':id==='road-cone-naming'?'civic:cone':id==='cathedral-statue'?'civic:statue':id==='yacht'?'boat:yacht':id==='private-jet'?'air:private-jet':id==='helicopter'?'air:helicopter':id.includes('mansion')||id.includes('house')||id.includes('penthouse')?'property:home':id==='diamond-toaster'?'home:toaster':'';
     if(!sku)return;const item=MARKET.find(i=>i.id===sku);if(!item)return;const building=deliverySite(this.sim,sku);this.sim.commerce.purchases.push({id:this.sim.commerce.serial++,sku,name:item.name,building,price:paidPrice??item.price,tick:this.sim.tick});
