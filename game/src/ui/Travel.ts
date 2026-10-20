@@ -236,6 +236,13 @@ export class Travel {
     this.el.replaceChildren(); this.canvas = null;
   }
 
+  autoHome(): void {
+    if (!this.open) return;
+    const summary = this.summary();
+    this.close();
+    this.host.onReturn(summary, [...this.souvenirs], this.photos);
+  }
+
   private reset(): void {
     this.lounge='terminal';this.passes=new Set(['terminal','quiet','family']);
     this.sel = 0; this.comp = null; this.spent = 0; this.photos = 0; this.souvenirs = []; this.done.clear();
@@ -249,7 +256,7 @@ export class Travel {
     e.stopImmediatePropagation();
     if(this.room?.key(e)||this.district?.key(e))return;
     const target = e.target as HTMLElement;
-    if (e.key === "Escape") { if (this.stage === "board") this.close(); e.preventDefault(); return; }
+    if (e.key === "Escape") { if (this.stage === "board") this.close(); else this.autoHome(); e.preventDefault(); return; }
     if (e.key === "Enter" || e.key === " ") {
       if (target.tagName === "BUTTON" && this.el.contains(target)) return; // native activation
       e.preventDefault(); (this.el.querySelector("button[data-primary]:not([disabled])") as HTMLButtonElement | null)?.click(); return;
@@ -282,7 +289,7 @@ export class Travel {
 
   private scene(kicker: string, title: string, body: (Node | null)[], actions: HTMLElement[]): void {
     const anim = this.animate; this.animate = false;
-    this.el.replaceChildren(h("div.tv-scene" + (anim ? ".tv-in" : ""), { "data-stage": this.stage }, [
+    this.el.replaceChildren(...(this.stage === "board" ? [] : [this.btn("Auto Home", () => this.autoHome(), {cls:"auto-home", aria:"Auto Home · return to Christchurch"})]), h("div.tv-scene" + (anim ? ".tv-in" : ""), { "data-stage": this.stage }, [
       h("header.tv-cap", null, [h("p.tv-kick", { text: kicker }), h("h2.tv-title", { text: title }),
         h("div.tv-wallet", { "aria-label": "Cash" }, [h("span", { text: "Cash" }), h("b", { text: money(this.host.getCash()) })])]),
       h("div.tv-body", null, body),
@@ -523,7 +530,7 @@ export class Travel {
       this.makeCanvas("Christchurch arrivals hall with the Port Hills outside"),
       h("dl.tv-card", { "aria-label": "Trip summary" }, rows.flatMap(([k, v]) => [h("dt", { text: k }), h("dd", { text: v })])),
       h("p.tv-note", { text: this.souvenirs.length ? "The biosecurity beagle sniffs your souvenirs, finds nothing, and seems personally let down." : "The biosecurity beagle sniffs you anyway. Good boy." }),
-    ], [this.btn("Back to the city", () => { const s = this.summary(); this.host.onReturn(s, [...this.souvenirs], this.photos); this.close(); }, { primary: true })]);
+    ], [this.btn("Back to the city", () => { const s = this.summary(); this.close(); this.host.onReturn(s, [...this.souvenirs], this.photos); }, { primary: true })]);
   }
 
   private drawHome(g: G, t: number): void {

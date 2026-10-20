@@ -52,33 +52,11 @@ export class NightFX {
     const t = reduceMotion ? 0 : time;
     const day = Math.floor(sim.tick / (TICKS_PER_HOUR * 24));
     const fog = fogDensity(day, night);
-    const hue = moodHue(sim.player.emo.mood);
     const W = cam.viewW, H = cam.viewH;
     g.save();
     g.globalCompositeOperation = "lighter";
 
-    // neon puddles: some road tiles hold a puddle that glows the player's mood colour while it rains
-    const wet = sim.env.rain;
-    if (wet > 0.12 && z > 0.6) {
-      // puddle budget follows the graphics quality setting
-      const maxPuddles = quality >= 3 ? 90 : quality === 2 ? 50 : 24;
-      let puddles = 0;
-      for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
-        if (tiles[ty * S + tx] !== T.ROAD) continue;
-        const h = h2(tx, ty);
-        if (h > 0.2 || puddles >= maxPuddles) continue;
-        cam.toScreen(tx + 0.3 + h * 2.5, ty + 0.5, 0, this.pt);
-        if (this.pt.x < -60 || this.pt.y < -30 || this.pt.x > W + 60 || this.pt.y > H + 30) continue;
-        puddles++;
-        const shimmer = 0.75 + 0.25 * Math.sin(t * 2.2 + h * 40);
-        const a = Math.min(0.5, wet * night * shimmer * 0.5);
-        const rx = (16 + h * 70) * z, ry = rx * 0.4;
-        g.fillStyle = `hsla(${(hue + h * 40) % 360},100%,62%,${a})`;
-        g.beginPath(); g.ellipse(this.pt.x, this.pt.y, rx, ry, 0, 0, 6.283); g.fill();
-        g.fillStyle = `hsla(${hue},100%,85%,${a * 0.7})`;
-        g.beginPath(); g.ellipse(this.pt.x, this.pt.y, rx * 0.45, ry * 0.45, 0, 0, 6.283); g.fill();
-      }
-    }
+    // Wet roads retain their ground material; no mood-coloured emissive discs.
 
     // lantern river: little paper lanterns drifting down the water, with a soft reflection under each
     if (z > 0.5) {
@@ -124,15 +102,9 @@ export class NightFX {
       cam.toScreen(sim.player.x, sim.player.y, 0, this.pt);
       const r0 = 90 * z + 40, r1 = Math.hypot(W, H) * 0.55;
       const grd = g.createRadialGradient(this.pt.x, this.pt.y, r0, this.pt.x, this.pt.y, r1);
-      grd.addColorStop(0, "rgba(110,125,160,0)"); grd.addColorStop(1, `rgba(110,125,160,${0.55 * fog})`);
+      grd.addColorStop(0, "rgba(110,125,160,0)"); grd.addColorStop(1, `rgba(110,125,160,${0.2 * fog})`);
       g.fillStyle = grd; g.fillRect(0, 0, W, H);
-      if (quality >= 2) {
-        g.fillStyle = `rgba(150,165,200,${0.07 * fog})`;
-        for (let i = 0; i < 4; i++) {
-          const x = ((h2(i, 5) * W * 1.4 + t * (6 + i * 3)) % (W * 1.4)) - W * 0.2, y = H * (0.2 + 0.2 * i);
-          g.beginPath(); g.ellipse(x, y, W * 0.35, 36 * z + 20, 0, 0, 6.283); g.fill();
-        }
-      }
+
     }
   }
 }

@@ -141,9 +141,9 @@ function waterColour(w: World, x: number, y: number, tx: number, ty: number): st
   const sh = Math.min(1, Math.max(0, land * 0.42 - 0.12));                                   // 0 deep .. 1 shallow
   const n = wnoise(x * 0.35, y * 0.35) * 0.65 + wnoise(x * 0.9 + 40, y * 0.9 - 17) * 0.35; // 0..1 large + small patches
   const d = 1 - sh;
-  const r = 5 + sh * 30 + n * 14 - d * 2;
-  const gg = 24 + sh * 78 + n * 30 + (1 - n) * d * 4;
-  const b = 46 + sh * 62 + n * 34;
+  const r = 15 + sh * 9 + n * 7 - d * 2;
+  const gg = 30 + sh * 20 + n * 10;
+  const b = 36 + sh * 16 + n * 12;
   return `rgb(${Math.round(r)},${Math.round(gg)},${Math.round(b)})`;
 }
 
@@ -187,9 +187,9 @@ function detail(g: CanvasRenderingContext2D, t: number, sx: number, sy: number, 
         if (land(-1, 0)) { g.moveTo(sx - hw + inset, sy + hh); g.lineTo(sx, sy + inset); }
       };
       g.lineCap = "round";
-      g.strokeStyle = "rgba(90,230,225,.16)"; g.lineWidth = 7; edges(4); g.stroke();
-      g.strokeStyle = "rgba(140,245,240,.22)"; g.lineWidth = 3.2; edges(2.5); g.stroke();
-      g.strokeStyle = "rgba(235,252,255,.5)"; g.lineWidth = 1.1; edges(1.2); g.stroke();
+      g.strokeStyle = "rgba(85,112,105,.12)"; g.lineWidth = 7; edges(4); g.stroke();
+      g.strokeStyle = "rgba(128,155,145,.16)"; g.lineWidth = 3.2; edges(2.5); g.stroke();
+      g.strokeStyle = "rgba(172,185,170,.22)"; g.lineWidth = 1.1; edges(1.2); g.stroke();
       g.stroke(); g.lineCap = "butt";
       break;
     }

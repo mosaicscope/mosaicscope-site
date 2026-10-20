@@ -529,7 +529,7 @@ export class Renderer {
     }
     if (night < 0.15) return;
     // moon and sky: pale slivers drifting over every water tile, so ponds with no lit shore still shimmer
-    g.fillStyle = `rgba(200,225,255,${(0.7 * night).toFixed(3)})`;
+    g.fillStyle = `rgba(200,225,255,${(0.16 * night).toFixed(3)})`;
     for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
       if (sim.world.tiles[ty * S + tx] !== T.WATER) continue;
       const ph = Math.sin(t * 0.8 + tx * 5.3 + ty * 9.1);

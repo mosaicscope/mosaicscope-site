@@ -4,6 +4,17 @@ import { Camera } from "../src/render/Camera";
 import { NightFX, h2, nightness, fogDensity, moodHue, beatPulse } from "../src/render/NightFX";
 
 describe("night weather look", () => {
+  it("rain does not paint mood-coloured discs over roads", () => {
+    const sim = small(), cam = new Camera(), styles: unknown[] = [];
+    sim.world.tiles.fill(1); sim.env.rain = 1; sim.env.power = false; sim.env.startHour = 0;
+    const g = new Proxy({}, {
+      get: (_t, k) => k === 'createRadialGradient' ? () => ({addColorStop(){}}) : () => {},
+      set: (_t, k, v) => { if(k === 'fillStyle') styles.push(v); return true; },
+    }) as unknown as CanvasRenderingContext2D;
+    const fx = new NightFX();
+    for(const mood of [-1,0,1]) {sim.player.emo.mood = mood; fx.draw(g,sim,cam,1,2,false,0,10,0,10);}
+    expect(styles.some(s => typeof s === 'string' && s.startsWith('hsla('))).toBe(false);
+  });
   it("hash is deterministic and in range", () => {
     for (let i = 0; i < 200; i++) { const v = h2(i, i * 3); expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThan(1); expect(h2(i, i * 3)).toBe(v); }
   });

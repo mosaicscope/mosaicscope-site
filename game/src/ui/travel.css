@@ -1,5 +1,5 @@
 /* ================= travel (Christchurch Airport) ================= */
-.travel { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: #050308; padding: max(12px, env(safe-area-inset-top)) 12px 12px; overflow: auto; }
+.travel { position: fixed; inset: 0; z-index: 50; display: grid; place-items: start center; align-content: start; background: #050308; padding: max(12px, env(safe-area-inset-top)) 12px 12px; overflow: auto; }
 .tv-scene { width: min(1000px, 100%); display: flex; flex-direction: column; gap: 12px; }
 .tv-scene.tv-in { animation: tv-in .45s cubic-bezier(.2, .8, .2, 1); }
 @keyframes tv-in { from { opacity: 0; transform: translateY(14px) scale(.985); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
@@ -82,3 +82,5 @@ button.tv-row:hover { border-color: var(--line); }
 .tv-note{font-size:13px;line-height:1.6;color:#ccc6b7}.tv-body>a{color:#d1ba8d;font-size:12px}
 .tv-chip.on,.tv-scale{box-shadow:none}.tv-in{animation:none!important}
 @media(max-width:640px){.travel{align-items:start}.tv-scene{gap:10px}.tv-canvas{height:360px}.tv-comps{gap:6px}.tv-comps .tv-btn{flex:1 1 46%;font-size:12px;padding:9px}.tv-title{font-size:28px}.tv-board{overflow-x:auto}}
+
+.tv-btn.auto-home { position:sticky; top:0; z-index:3; justify-self:end; flex-shrink:0; background:#282824; color:#eee4d3; border-color:#b5a176; box-shadow:0 4px 20px #0009; margin-bottom:12px; min-height:44px; }
