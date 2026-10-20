@@ -1,31 +1,31 @@
 import { h } from "./dom";
 
 export interface StagePointer { x: number; y: number; down: boolean; type: string }
-export interface StageOptions { label: string; width?: number; height?: number; pointer?: (p: StagePointer) => void; key?: (key: string) => void }
+export interface StageOptions { label: string; fps?:number; width?: number; height?: number; pointer?: (p: StagePointer) => void; key?: (key: string) => void }
 /** Each scene owns its RAF and stops as soon as its modal is removed. Coordinates stay device-independent. */
 export function canvasStage(draw: (g: CanvasRenderingContext2D, time: number, reduced: boolean) => void, options: StageOptions): HTMLElement {
-  const W = options.width ?? 960, H = options.height ?? 480, dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = options.width ?? 960, H = options.height ?? 480;let dpr = Math.min(2, window.devicePixelRatio || 1);
   const cv = h("canvas.play-scene", { width: W * dpr, height: H * dpr, role: "img", "aria-label": options.label, tabindex: options.key ? 0 : undefined, style: `aspect-ratio:${W}/${H}` }) as HTMLCanvasElement;
   const g = cv.getContext("2d")!, reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
   let down = false;
   const point = (e: PointerEvent, type: string) => {
     if (!options.pointer) return;
-    const r = cv.getBoundingClientRect(); options.pointer({ x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height, down, type });
+    const r=cv.getBoundingClientRect(),fit=Math.min(r.width/W,r.height/H);options.pointer({x:(e.clientX-r.left-(r.width-W*fit)/2)/fit,y:(e.clientY-r.top-(r.height-H*fit)/2)/fit,down,type});
   };
   cv.addEventListener("pointerdown", e => { down = true; if (options.pointer) { e.preventDefault(); cv.setPointerCapture(e.pointerId); } point(e, "down"); });
   cv.addEventListener("pointermove", e => point(e, "move"));
   cv.addEventListener("pointerup", e => { point(e, "up"); down = false; });
   cv.addEventListener("pointercancel", () => { down = false; });
   cv.addEventListener("keydown", e => { if (options.key && [" ", "Enter"].includes(e.key)) { e.preventDefault(); options.key(e.key); } });
-  const start = performance.now();
+  let elapsed=0,previous=performance.now();
   let visible=true,lastDraw=0;
   const observer=typeof IntersectionObserver!=='undefined'?new IntersectionObserver(entries=>{visible=entries[0]?.isIntersecting??true;}):null;
   observer?.observe(cv);
   const frame = (now: number) => {
     if (!cv.isConnected || cv.closest(".hidden")){observer?.disconnect();return;}
-    if(!visible||document.hidden||now-lastDraw<1000/30){requestAnimationFrame(frame);return;}lastDraw=now;
-    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
-    g.save(); draw(g, (now - start) / 1000, reduce); g.restore();
+    if(!visible||document.hidden){previous=now;requestAnimationFrame(frame);return;}if(now-lastDraw<1000/(options.fps??30)-1){requestAnimationFrame(frame);return;}lastDraw=now;elapsed+=Math.min(.1,Math.max(0,(now-previous)/1000));previous=now;
+    const bounds=cv.getBoundingClientRect();dpr=Math.min(2,window.devicePixelRatio||1);if(cv.width!==Math.round(bounds.width*dpr)||cv.height!==Math.round(bounds.height*dpr)){cv.width=Math.round(bounds.width*dpr);cv.height=Math.round(bounds.height*dpr);}const fit=Math.min(bounds.width/W,bounds.height/H);
+    g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle='#202925';g.fillRect(0,0,bounds.width,bounds.height);g.save();g.translate((bounds.width-W*fit)/2,(bounds.height-H*fit)/2);g.scale(fit,fit);draw(g,elapsed,reduce);g.restore();
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);

@@ -1,3 +1,4 @@
+import {useSubstance} from '../sim/Substances';
 import {farmPlot} from '../sim/FarmPlot';
 import {launchRocket} from '../sim/Rockets';
 import {WorldMarket} from '../ui/WorldMarket';
@@ -69,7 +70,7 @@ import { Casino } from "../ui/Casino";
 import { Places, Radio } from "../ui/Places";
 import { InteriorOverlay } from "../ui/InteriorOverlay";
 import { nearestCar, playerInput, seat, unseat } from "../sim/Traffic";
-import { useBandage } from "../sim/Life";
+import { wound,useBandage } from "../sim/Life";
 import { commitCrime, fmtCash, exitBuilding, consume } from "../sim/Society";
 import { VEHICLES } from "../content/vehicles";
 import { MOSAIC } from "../content/mosaicscope";
@@ -194,6 +195,7 @@ export class Game {
     this.casino = new Casino({
       getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = Math.round(v * 100) / 100; },
       onEvent: (t, big) => { this.toast(t, big ? "acid" : ""); if (big) this.sim.emit({ type: "casino", x: this.sim.player.x, y: this.sim.player.y, actors: [this.sim.playerId], data: { amount: 0, game: "player" }, summary: t }); },
+      buyDrink:kind=>this.venueDrink(kind),dealer:()=>this.venueDealer(),canConfront:()=>this.canConfrontDealer(),confront:()=>this.confrontDealer(),
       strategy: () => hasUpgrade(this.sim.life.upgrades, "strategy"),
       people: () => this.sim.chars,
       patrons: () => this.sim.chars.filter((c) => c.inside >= 0 && this.sim.world.buildings[c.inside]?.kind === "casino").length + 3,
@@ -352,7 +354,7 @@ export class Game {
       if (!this.interior.open && p.inside >= 0 && this.sim.world.buildings[p.inside]?.kind === 'hospital' && p.jailUntil <= this.sim.tick && p.arrestedBy < 0) exitBuilding(this.sim, p);
       this.returnToPlayer(false); if (this.clock.paused) this.setSpeed(1);
     }
-    if(!this.modal.open&&!this.casino.open&&!this.dev.visible&&(this.keys.has(this.settings.keys.throw)||this.keys.has(this.settings.keys.swing)||this.mouse.down&&this.mouse.button===2||this.touchFire)){const p=this.sim.player;if(p.hand>=0&&TOYS[this.sim.toys[p.hand].def]?.weapon?.mode==='auto')this.act('throw');}
+    if(!this.modal.open&&!this.casino.open&&!this.dev.visible&&!this.travel.open&&!this.club.open&&!this.luxury.open&&!this.interior.open&&(this.keys.has(this.settings.keys.throw)||this.keys.has(this.settings.keys.swing)||this.mouse.down&&this.mouse.button===2||this.touchFire)){const p=this.sim.player;if(p.hand>=0&&TOYS[this.sim.toys[p.hand].def]?.weapon?.mode==='auto')this.act('throw');}
     const steps = this.clock.advance(dt);
     for (let i = 0; i < steps; i++) this.guard("sim", () => { this.controlPlayer(); this.sim.step(); });
     this.ticksThisSecond += steps; this.tickWindow += dt;
@@ -361,13 +363,13 @@ export class Game {
     const ad = this.hovered < 0 && !this.mouse.dragging ? this.renderer.pickAd(this.mouse.x, this.mouse.y) : null;
     this.canvas.style.cursor = ad || this.hovered >= 0 ? "pointer" : "";
     this.canvas.title = ad ? `${ad.label} (opens in a new tab)` : "";
-    if (!this.interior.open) this.guard("render", () => this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames,quietInterface:this.dialogue.open||this.modal.open||this.casino.open||this.dev.visible }));
+    if (!this.interior.open&&!this.travel.open&&!this.club.open&&!this.casino.open&&!this.modal.open) this.guard("render", () => this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames,quietInterface:this.dialogue.open||this.modal.open||this.casino.open||this.dev.visible }));
     this.updateAimUI();
     this.guard("audio", () => {
       const f = this.interior.footing;
       this.audio.scene = { interior: this.interior.building?.kind ?? null, moving: f.moving, running: f.running, in2D: this.renderer.street2D };
       this.audio.update(this.sim, this.interior.kind);
-      this.canvas.style.filter = this.audio.dream > 0.01 && !this.reduceMotion ? `hue-rotate(${(this.audio.dream * 28).toFixed(1)}deg) saturate(${(1 + this.audio.dream * 0.12).toFixed(2)})` : "";
+      const intoxication=impairment(this.sim.player);this.canvas.style.filter = intoxication>.1?`saturate(${1+intoxication*.25}) contrast(${1-intoxication*.12}) sepia(${intoxication*.12})`:this.audio.dream > 0.01 && !this.reduceMotion ? `hue-rotate(${(this.audio.dream * 28).toFixed(1)}deg) saturate(${(1 + this.audio.dream * 0.12).toFixed(2)})` : "";
     });
     this.fpsAvg = this.fpsAvg * 0.95 + (1 / Math.max(dt, 0.001)) * 0.05;
     this.adaptQuality(dt);
@@ -463,7 +465,7 @@ export class Game {
   // ------------------------------------------------------------------ player
   private controlPlayer(): void {
     const sim = this.sim, p = sim.player, k = this.settings.keys;
-    if (this.interior.open || this.modal.open || this.dev.visible || this.casino.open || this.club.open || this.luxury.open) { p.vx = p.vy = 0; playerInput.throttle = 0; playerInput.steer = 0; playerInput.brake = true; return; } // you're indoors; the street body waits at the door
+    if (this.travel.open || this.interior.open || this.modal.open || this.dev.visible || this.casino.open || this.club.open || this.luxury.open) { p.vx = p.vy = 0; playerInput.throttle = 0; playerInput.steer = 0; playerInput.brake = true; return; } // you're indoors; the street body waits at the door
     if (p.inCar >= 0) {
       const up = this.keys.has(k.up) || this.keys.has("arrowup"), down = this.keys.has(k.down) || this.keys.has("arrowdown");
       const left = this.keys.has(k.left) || this.keys.has("arrowleft"), right = this.keys.has(k.right) || this.keys.has("arrowright");
@@ -512,7 +514,7 @@ export class Game {
       else if (Math.hypot(t.x - p.x, t.y - p.y) < 1.8) { stop(p); const id = this.pendingTalk; this.pendingTalk = -1; this.openTalk(id); }
       else moveTo(p, t.x, t.y, sim, 1.4);
     } else stop(p);
-    if (p.anim.pose !== "auto" && sim.tick % 30 === 0) p.anim.pose = "auto";
+    if (p.anim.pose !== "auto" && !(sim.worldFun.poseUntil&&sim.tick<sim.worldFun.poseUntil) && sim.tick % 30 === 0) p.anim.pose = "auto";
   }
 
   private nearestToy(maxD = 1.4) {
@@ -611,7 +613,6 @@ export class Game {
     const car = nearestCar(sim, p.x, p.y, 2.2);
     if (!car) { this.toast("Nothing to pick up here"); return; }
     if (car.forSale) { this.toast(`For sale: ${fmtCash(car.price)}. Buy it inside the dealership.`); return; }
-    if (sim.lifeFlags.driverLicence && sim.life.systems.licence.stage === "learner") { this.toast("Earn a restricted licence before driving alone. Practice and pass the test in your Life phone."); return; }
     const mine = car.owner === p.id;
     if (car.driver >= 0) {
       // carjacking: drag the driver out
@@ -881,7 +882,7 @@ export class Game {
       else if (key === "-") this.renderer.cam.setZoom(this.renderer.cam.targetZoom / 1.2);
     });
     window.addEventListener("keyup", (e) => this.keys.delete(e.key.toLowerCase()));
-    window.addEventListener("blur", () => this.keys.clear());
+    window.addEventListener("blur",()=>{this.keys.clear();this.mouse.down=false;this.mouse.dragging=false;this.touches.clear();this.touchFire=false;this.touchMove={x:0,y:0};this.touchBrake=false;});
     cv.addEventListener("contextmenu", (e) => e.preventDefault());
     cv.addEventListener("pointerdown", (e) => {
       this.rootEl.querySelector('.bar')?.classList.remove('open'); this.rootEl.querySelector('.menu-toggle')?.setAttribute('aria-expanded','false');
@@ -917,7 +918,8 @@ export class Game {
       if(e.button!==2)this.click(e.clientX, e.clientY, e.button);
     };
     cv.addEventListener("pointerup", up);
-    cv.addEventListener("pointercancel", () => { this.mouse.down = false; this.mouse.dragging = false; this.touches.clear(); });
+    cv.addEventListener("lostpointercapture",()=>{this.mouse.down=false;this.mouse.dragging=false;this.touchFire=false;});
+    cv.addEventListener("pointercancel",()=>{this.mouse.down=false;this.mouse.dragging=false;this.touches.clear();this.touchFire=false;this.touchMove={x:0,y:0};});
     cv.addEventListener("wheel", (e) => { e.preventDefault(); this.renderer.cam.setZoom(this.renderer.cam.targetZoom * Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
   }
 
@@ -1214,7 +1216,11 @@ export class Game {
 
   // ------------------------------------------------------------------ the clubs
   private owned = new Set<string>((() => { try { return JSON.parse(localStorage.getItem("mosaics-world:owned") ?? "[]") as string[]; } catch { return []; } })());
-  private club = new Club({
+  private venueDrink(kind:'water'|'beer'|'wine'):string{const s=this.sim,p=s.player,price=kind==='beer'?8:kind==='wine'?12:0;if(p.cash<price)return 'Not enough cash.';if(kind!=='water'&&!useSubstance(s,p,'alcohol'))return 'Finish your current action before ordering another drink.';p.cash-=price;if(kind==='water')p.hunger=Math.min(1,p.hunger+.03);return kind==='water'?'A glass of water. It does not instantly remove intoxication.':`Your ${kind} is served. You feel warm and a little unsteady.`;}
+  private venueDealer():Character|undefined{const casino=this.sim.world.buildings.find(b=>b.kind==='casino');return this.sim.chars.find(c=>c.workplace===casino?.id&&c.id!==this.sim.playerId)??this.sim.chars.find(c=>c.role==='office'&&c.id!==this.sim.playerId)??this.sim.chars.find(c=>c.tier==='background');}
+  private dealerHitAt=-1;private canConfrontDealer():boolean{const s=this.sim.player.substances;return !!s&&!s.crisis&&(s.levels.alcohol>.6||s.levels.stimulant>.6)&&this.sim.tick>=this.dealerHitAt;}
+  private confrontDealer():string{if(!this.canConfrontDealer())return 'You decide to keep your distance.';const d=this.venueDealer();if(!d)return 'The table is closed.';this.dealerHitAt=this.sim.tick+300;wound(this.sim,d,'head',1,'bruise',this.sim.playerId,this.sim.player.x,this.sim.player.y);d.emo.fear=Math.max(.6,d.emo.fear);d.emo.frustration=Math.max(.7,d.emo.frustration);commitCrime(this.sim,this.sim.player,'assault',d);return 'You lash out. The dealer recoils and security reports the assault. Police have been notified.';}
+  private club = new Club({people:()=>this.sim.chars,buyDrink:kind=>this.venueDrink(kind),
     getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; }, toast: (t) => this.toast(t, "acid"),
     playerName: () => "you", owned: (k) => this.owned.has(k),
     setOwned: (k, v) => { if (v) this.owned.add(k); else this.owned.delete(k); try { localStorage.setItem("mosaics-world:owned", JSON.stringify([...this.owned])); } catch { /* private mode */ } },
@@ -1315,6 +1321,7 @@ export class Game {
   private burger = new BurgerShift((r) => { this.sim.player.cash += r.pay; this.toast(`Shift done: ${r.orders} orders, ${r.perfect} perfect. Paid ${fmtCash(r.pay)}`, "acid"); this.focus("Shift over", `Lyttelton Diner paid you ${fmtCash(r.pay)}`, 3); });
   private heist = new HeistUI(this.modal);
   private travel = new Travel({
+    takeComfortTablet:()=>useSubstance(this.sim,this.sim.player,'sedative'),
     player:()=>this.sim.player,people:()=>this.sim.chars,
     refresh:kind=>{const p=this.sim.player;if(kind==='eat')p.hunger=Math.min(1,p.hunger+.25);else p.needs.energy=Math.min(1,p.needs.energy+.2);},
     getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; },
@@ -1419,6 +1426,7 @@ export class Game {
       h("button.btn.menu-toggle", { text: "☰ Menu", "aria-label": "Menu", "aria-expanded": "false", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar")!; const open = bar.classList.toggle("open"); if (open) this.dev.toggle(false); (e.currentTarget as HTMLElement).setAttribute("aria-expanded", String(open)); } }),
       h("nav.game-menu", { "aria-label": "More game options", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar"); bar?.classList.remove("open"); bar?.querySelector(".menu-toggle")?.setAttribute("aria-expanded", "false"); } }, [
         h('button.btn.acid',{text:'Resume game',onclick:()=>this.resumeGame()}),
+        h('button.btn',{text:'Street play · 50 activities',onclick:()=>{void import('../ui/WorldPlay').then(m=>m.showWorldPlay(this.modal,this.sim,text=>this.toast(text)));}}),
         h('button.btn',{text:'Street life',onclick:()=>{void import('../ui/StreetLifePanel').then(m=>m.showStreetLife(this.modal,this.sim,(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);this.canvas.focus();}));}}),
         h('button.btn',{text:'Inventory & condition',onclick:()=>{void import('../ui/InventoryCondition').then(m=>m.showInventoryCondition(this.modal,this.sim,()=>{this.setSpeed(1);this.canvas.focus();}));}}),
         h('button.btn',{text:'Appearance',onclick:()=>showHairStudio(this.modal,this.sim.player)}),

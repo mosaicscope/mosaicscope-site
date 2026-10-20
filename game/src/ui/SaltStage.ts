@@ -1,3 +1,4 @@
+import {sceneDetail} from './SceneDetail';
 import {canvasStage,sceneText,roundBox} from './CanvasStage';
 import {pose,solve,drawFigure} from '../render/StickFigure';
 import type {Simulation} from '../sim/Simulation';
@@ -16,6 +17,7 @@ export function saltStage(sim:Simulation,title:string,context:string,cast:string
   if(setting==='warehouse'){for(let i=0;i<8;i++)box(60+i%4*210,238-Math.floor(i/4)*76,110,74,i%2?'#85765b':'#6c725d');g.strokeStyle='#b19c72';for(let i=0;i<4;i++)g.strokeRect(77+i*210,95,80,217);}
   if(setting==='home'){box(80,98,210,120,'#4c6064');box(130,263,230,57,'#7c8170');box(115,246,260,25,'#929680');box(650,267,180,21,'#8d7657');box(667,288,9,45,'#635a48');box(805,288,9,45,'#635a48');box(744,130,12,112,'#77725f');box(713,105,74,45,'#cfbf91');}
   if(setting==='party'){box(50,240,340,50,'#474c44');for(let i=0;i<8;i++)box(75+i*36,213,12,27,['#b1a073','#6f8877','#8d7180'][i%3]);box(720,180,115,150,'#303b37');g.fillStyle='#807b68';g.beginPath();g.arc(777,270,33,0,7);g.fill();if(!reduced){g.fillStyle='#c8ab6b15';g.beginPath();g.moveTo(480,40);g.lineTo(170+Math.sin(t)*60,400);g.lineTo(770+Math.sin(t)*60,400);g.fill();}}
+  sceneDetail(g,setting,t,reduced);
   people.forEach((c,i)=>{const x=300+i*110,y=368+(i%2)*15,k=.82,active=cast[i]?.toLowerCase()===speaker.toLowerCase(),talk=active&&speaker!=='Scene';g.fillStyle='#151c1833';g.beginPath();g.ellipse(x,y,24,7,0,0,7);g.fill();solve(pose(talk?'talk':'idle','normal',reduced?0:t+i,0,0,0),x,y,k,i%2? -1:1);drawFigure(g,c,x,y,k,i%2?-1:1,reduced?0:t,0,1);if(active){g.strokeStyle='#d7c18a';g.lineWidth=2;g.beginPath();g.ellipse(x,y,26,8,0,0,7);g.stroke();}sceneText(g,cast[i],x,y+23,13,'#e5dcc2');});
   roundBox(g,24,18,912,44,6,'#252b25e8','#a99b7355');sceneText(g,title.replace(/^Scene\s*\d+[:.\s-]*/i,''),44,46,20,'#e5d2a6','left');
   if(/rain|storm/i.test(context)&&!reduced){g.strokeStyle='#b4c3c455';g.lineWidth=1;for(let i=0;i<65;i++){const x=i*163%960,y=(i*73+t*190)%480;g.beginPath();g.moveTo(x,y);g.lineTo(x-4,y+12);g.stroke();}}

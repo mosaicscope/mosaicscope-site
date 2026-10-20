@@ -82,6 +82,15 @@ export function pose(name: string, style: string, t: number, ph: number, speed: 
       A.armL = 2.7 + Math.sin(t * 14) * 0.4; A.armR = 2.7 + Math.cos(t * 13) * 0.4; A.foreL = 0.3; A.foreR = 0.3;
       break;
     }
+    case "breathe": A.bob=-Math.sin(t*1.3)*1.6;A.armL=.35;A.foreL=.9;A.armR=.35;A.foreR=.9;break;
+    case "stretch": A.armL=2.8;A.armR=2.8;A.foreL=.25;A.foreR=.25;A.lean=Math.sin(t*1.2)*.1;break;
+    case "wave": A.armR=2.6;A.foreR=.4+Math.sin(t*7)*.6;A.tilt=-.05;break;
+    case "salute": A.armR=1.65;A.foreR=1.5;A.armL=.08;break;
+    case "bow": A.lean=.55+.15*Math.sin(t*1.8);A.tilt=.2;A.armL=-.3;A.armR=.65;A.foreR=1.1;A.bendL=.15;A.bendR=.15;break;
+    case "give": A.armR=1.1;A.foreR=.4+Math.sin(t*2)*.15;A.armL=.5;A.foreL=1.1;break;
+    case "juggle": A.armL=.7+Math.sin(t*5)*.3;A.armR=.7-Math.sin(t*5)*.3;A.foreL=1.6+Math.sin(t*5)*.4;A.foreR=1.6-Math.sin(t*5)*.4;A.tilt=-.12;break;
+    case "coin": A.armL=.6;A.foreL=1.6;A.armR=.75+Math.sin(t*7)*.12;A.foreR=1.6-Math.sin(t*7)*.3;A.tilt=.12;break;
+    case "punch": {const jab=(Math.sin(t*6)+1)*.5;A.armR=.8+jab*.7;A.foreR=1.6*(1-jab);A.armL=.8;A.foreL=1.6;A.lean=.12+jab*.1;A.thighL=.18;A.thighR=-.18;break;}
     case "dance": dance(style, t); break;
     case "cheer": A.armL = 2.7 + Math.sin(t * 10) * 0.3; A.armR = 2.7 + Math.cos(t * 10) * 0.3; A.bob = -Math.abs(Math.sin(t * 6)) * 4; break;
     case "sitdrink": A.bob=15;A.thighL=1.4;A.thighR=1.3;A.bendL=1.5;A.bendR=1.4;A.armR=.45;A.foreR=2.35+Math.sin(t*.8)*.1;A.armL=.4;A.foreL=.7;break;

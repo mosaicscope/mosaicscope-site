@@ -214,13 +214,11 @@ export class LifePhone {
       ),
       this.panel(
         "Health and daily life",
-        `Fatigue ${Math.round(life.sleep.fatigue * 100)}% · hunger ${Math.round(life.diet.hunger * 100)}% · fitness ${Math.round(life.gym.fitness * 100)}% · ${life.licence.stage} licence · ${life.wof.expires > this.sim().tick && life.wof.regoExpires > this.sim().tick ? "WOF and rego current" : "WOF or rego expired"}.`,
+        `Fatigue ${Math.round(life.sleep.fatigue * 100)}% · hunger ${Math.round(life.diet.hunger * 100)}% · fitness ${Math.round(life.gym.fitness * 100)}% · ${life.wof.expires > this.sim().tick && life.wof.regoExpires > this.sim().tick ? "WOF and rego current" : "WOF or rego expired"}.`,
         [
           this.command("Sleep", "sleep"),
           this.command(`Cook a meal · ${money(COOKING.cost)}`, "cook"),
           this.command(`Work out · ${money(GYM.cost)}`, "workout"),
-          this.command("Practice driving", "licencePractice"),
-          this.command("Take licence test", "licenceTest"),
         ],
       ),
       this.panel(

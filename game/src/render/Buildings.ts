@@ -43,8 +43,8 @@ function roofRise(b: Building, wx: number, wy: number): number {
   const d = Math.min(wx - b.x0, b.x1 + 1 - wx); return Math.max(0, d) * (Math.min(1.3, sx * 0.45) / (sx / 2));
 }
 
-export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Building, tx: number, ty: number, sx: number, sy: number, z: number, time: number, dark: number, alpha: number, graffiti: Map<string, Graffiti>): void {
-  const hw = (TILE_W / 2) * z, hh = (TILE_H / 2) * z, zp = Z_PX * z, H = b.height;
+export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Building, tx: number, ty: number, sx: number, sy: number, z: number, time: number, dark: number, alpha: number, graffiti: Map<string, Graffiti>,verticalScale=1): void {
+  const hw = (TILE_W / 2) * z, hh = (TILE_H / 2) * z, zp = Z_PX * z * verticalScale, H = b.height;
   const same = (x: number, y: number) => w.buildingOf[y * w.size + x] === b.id;
   // a wall is exposed unless the neighbour tile is this building, or a building at least as tall (fully hidden)
   const blocked = (x: number, y: number) => { const o = w.buildingOf[y * w.size + x]; return o === b.id || o >= 0 && w.buildings[o].height >= b.height; };

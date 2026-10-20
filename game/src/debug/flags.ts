@@ -60,7 +60,7 @@ export const newLifeSystemFlags = (): LifeSystemFlags => ({
   jobSearch: true,
   payslips: true,
   renting: true,
-  driverLicence: true,
+  driverLicence: false,
   vehicleCompliance: true,
   schoolExams: true,
   friendships: true,

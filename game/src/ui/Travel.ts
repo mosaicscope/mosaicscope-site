@@ -1,3 +1,4 @@
+import {drawCabin,type CabinState} from './FlightCabin';
 import {DestinationConversation} from './DestinationConversation';
 import {regionalInterior} from '../content/regionalInterior';
 import {regionalFood} from '../content/regionalFood';
@@ -18,6 +19,7 @@ let travelCast:readonly Character[]=[];
  * Procedural artwork over fetched OpenStreetMap geometry; optional bounded dialogue translation.
  */
 export interface TravelHost {
+  takeComfortTablet?():boolean;
   player():Character; people():readonly Character[];
   refresh?(kind:'rest'|'eat'):void;
   getCash(): number; setCash(v: number): void;
@@ -249,14 +251,17 @@ export class Travel {
   }
 
   private reset(): void {
-    this.privateFlight=false;this.lounge='terminal';this.passes=new Set(['terminal','quiet','family']);
+    this.cabin={first:false,seat:'window',meal:0,snack:'',headphones:false,blanket:false,service:''};this.privateFlight=false;this.lounge='terminal';this.passes=new Set(['terminal','quiet','family']);
     this.globalDestination=null;this.sel = 0; this.comp = null; this.spent = 0; this.photos = 0; this.souvenirs = []; this.done.clear();
     this.bagOk = false; this.scanDone = false; this.argued = false; this.cleared = false; this.scanNote = ""; this.landed = false;
   }
 
+  private flightNarrow=false;
+  private cabin:CabinState={first:false,seat:'window',meal:0,snack:'',headphones:false,blanket:false,service:''};
+  private cabinService(item:string,cost:number,action:()=>void):void{const price=this.cabin.first?0:cost;if(this.host.getCash()<price){this.host.toast('Not enough game cash for '+item);return;}this.host.setCash(this.host.getCash()-price);action();this.cabin.service='Cabin crew: '+item+(price?' · $'+price:' · included');this.render();}
   private privateFlight=false;
   arriveFromSea():void {this.show();this.sel=0;this.go("dest");}
-  privateDeparture():void {this.show();this.privateFlight=true;this.go("board");}
+  privateDeparture():void {this.show();this.privateFlight=true;this.cabin.first=true;this.cabin.blanket=this.cabin.headphones=true;this.go("board");}
 
   private globalDestination:Dest|null=null;
   private get dest(): Dest { return this.globalDestination??DESTS[this.sel]; }
@@ -417,6 +422,7 @@ export class Travel {
     const items = this.host.carried().slice(0, 8), n = Math.max(items.length, 1);
     g.shadowBlur = 0; g.fillStyle = "#1a1e24"; g.fillRect(0, 260, W, 40);
     neon(g, "#3a4048", 2, 0); for (let x = (-t * 80) % 30; x < W; x += 30) line(g, [x, 262, x + 10, 298]);
+    for(let i=0;i<8;i++){g.fillStyle=i%2?'#777e78':'#656d68';g.fillRect(25+i*40,303,28,9);}g.fillStyle='#485456';g.fillRect(20,110,170,90);g.fillStyle='#90aaa4';g.fillRect(30,120,150,60);g.font='12px Arial';g.fillStyle='#e2ddc8';g.fillText('TRAYS · EMPTY POCKETS',24,96);g.fillStyle='#737a70';g.fillRect(635,170,70,94);g.fillStyle='#b1b897';g.fillRect(643,179,54,38);g.fillStyle='#c0a268';g.fillRect(673,224,13,16);g.fillStyle='#586461';g.fillRect(860,233,55,62);g.fillStyle='#d3cbb4';g.fillRect(864,224,47,12);for(let i=0;i<3;i++){g.fillStyle='#73807a';g.fillRect(675+i*65,319,5,60);g.strokeStyle='#9f705d';g.lineWidth=4;g.beginPath();g.moveTo(678+i*65,322);g.lineTo(741+i*65,322);g.stroke();}
     // scanner tunnel
     g.fillStyle = "rgba(61,214,255,.08)"; g.fillRect(360, 80, 240, 220); neon(g, "#3dd6ff", 3, 16); g.strokeRect(360, 80, 240, 220);
     g.font = "600 13px 'IBM Plex Mono', monospace"; g.fillText("X-RAY 02 · CHC", 372, 100);
@@ -451,42 +457,24 @@ export class Travel {
 
   // ------------------------------------------------------------------ 4. flight
   private flightLines(): string[] {
-    const d = this.dest;
-    if (!this.comp) return ["The stranger in 14B is watching a film about plane crashes. Bold.", `Captain: "We'll be landing in ${d.name} shortly-ish."`, "You get the whole armrest. Living the dream."];
-    const c = this.comp.name;
-    return [`${c}: "Window seat's wasted on you. You're asleep in five minutes."`, `${c}: "Do you reckon the pilot's ever been to ${d.name}? Should we ask?"`, `${c}: "These peanuts are the best thing I've ever eaten. Is that altitude?"`, `${c}: "Wake me when we're there. Actually, don't. Actually, do."`];
+    const d=this.dest;
+    if(!this.cabin.service)return ['Cabin crew: Would you prefer nuts or fruit? Ask us for headphones, a blanket or a comfort supply.',`Captain: We are flying towards ${d.name}.`,this.comp?this.comp.name+': You picked a good seat.':'The cabin settles into a quiet cruise.'];
+    return [this.cabin.service,`Captain: We are on our way to ${d.name}.`,this.cabin.first?'Your suite has a reading light, a fresh blanket and three-course service.':'Cabin crew: Would you prefer nuts or fruit?'];
   }
 
   private flightView(): void {
     this.lineEl = h("p.tv-speech", { "aria-live": "polite", text: this.flightLines()[0] });
-    this.scene(`Flight MS${100 + this.sel * 7} · CHC to ${this.dest.code}`, this.landed ? `Landed in ${this.dest.name}` : "In flight", [this.makeCanvas(`Plane window view and a map of the route from Christchurch to ${this.dest.name}`), this.lineEl],
-      [this.btn(this.landed ? "Step off the plane" : "Skip to landing", () => this.go("dest"), { primary: true })]);
+    this.scene(`Flight MS${100+this.sel*7} · CHC to ${this.dest.code}`,this.landed?`Landed in ${this.dest.name}`:this.cabin.first?'First class · private suite':'In flight · cabin service',[this.makeCanvas('Detailed aircraft cabin with a wing and window view, aisle, crew, seats and meal service'),this.lineEl],[
+      this.btn(this.cabin.seat==='window'?'Switch to aisle view':'Switch to window view',()=>{this.cabin.seat=this.cabin.seat==='window'?'aisle':'window';this.render();}),
+      ...(!this.cabin.first?[this.btn('Upgrade to first · $450',()=>{if(this.host.getCash()<450){this.host.toast('First class upgrade costs $450 in game money.');return;}this.host.setCash(this.host.getCash()-450);this.cabin.first=true;this.cabin.blanket=true;this.cabin.headphones=true;this.cabin.headphonePairs=1;this.cabin.service='Welcome to your private suite. Soup, main course and dessert are included.';this.render();})]:[this.btn(['Serve soup','Serve main course','Serve dessert','Three courses served'][this.cabin.meal],()=>this.cabinService('Your next course',0,()=>{this.cabin.meal=Math.min(3,this.cabin.meal+1);this.host.refresh?.('eat');}),{disabled:this.cabin.meal>=3})]),
+      this.btn('Choose nuts',()=>this.cabinService('Roasted nuts',5,()=>{this.cabin.snack='Nuts';this.host.refresh?.('eat');})),this.btn('Choose fruit',()=>this.cabinService('Fruit plate',6,()=>{this.cabin.snack='Fruit';this.host.refresh?.('eat');})),
+      this.btn('Extra headphones',()=>this.cabinService('Fresh headphones',8,()=>{this.cabin.headphones=true;this.cabin.headphonePairs=(this.cabin.headphonePairs??0)+1;})),this.btn('Blanket & pillow',()=>this.cabinService('Blanket and pillow',this.cabin.blanket?0:5,()=>{this.cabin.blanket=true;this.host.refresh?.('rest');})),
+      this.btn('Request comfort tablet',()=>{if(this.cabin.tablet)return;if(this.host.takeComfortTablet?.()){this.cabin.tablet=true;this.cabin.service='Cabin crew: Your comfort kit and water are here. We will check in again before landing.';this.render();}else this.host.toast('A comfort tablet is unavailable right now.');},{disabled:!!this.cabin.tablet}),
+      this.btn(this.landed?'Step off the plane':'Skip to landing',()=>this.go('dest'),{primary:true})]);
   }
 
   private drawFlight(g: G, t: number, p: number): void {
-    sky(g, "#0b0814", "#120c1e");
-    const d = this.dest, rm = reduced();
-    // window
-    g.save(); g.beginPath(); g.roundRect(60, 40, 300, 300, 120); g.clip();
-    const sg = g.createLinearGradient(0, 40, 0, 340); sg.addColorStop(0, d.sky[0]); sg.addColorStop(1, d.sky[1]); g.fillStyle = sg; g.fillRect(60, 40, 300, 300);
-    g.fillStyle = "rgba(238,228,211,.75)";
-    for (let i = 0; i < 7; i++) { const x = 380 - (((rm ? 20 : t * 60) * (1 + (i % 3) * 0.6) + i * 90) % 420), y = 90 + (i * 47) % 230; g.beginPath(); g.ellipse(x, y, 46 + (i % 3) * 14, 14, 0, 0, Math.PI * 2); g.ellipse(x + 26, y - 8, 26, 12, 0, 0, Math.PI * 2); g.fill(); }
-    neon(g, "#c8c8d8", 6, 0); line(g, [60, 300, 360, 262]);
-    g.restore(); neon(g, "#eee4d3", 6, 10); g.beginPath(); g.roundRect(60, 40, 300, 300, 120); g.stroke();
-    // map
-    const mx = (lon: number) => 440 + ((((lon - 60) % 360) + 360) % 360) / 300 * 460, my = (lat: number) => 150 - lat * 1.5;
-    neon(g, "#2a2a3a", 1, 0); g.strokeRect(440, 40, 480, 210); for (let x = 470; x < 920; x += 40) line(g, [x, 40, x, 250]); for (let y = 60; y < 250; y += 30) line(g, [440, y, 920, y]);
-    const ax = mx(172.6), ay = my(-43.5), bx = mx(d.lon), by = my(d.lat), cx = (ax + bx) / 2, cy = Math.min(ay, by) - 50;
-    neon(g, d.neon, 2, 10); g.setLineDash([6, 6]); g.beginPath(); g.moveTo(ax, ay); g.quadraticCurveTo(cx, cy, bx, by); g.stroke(); g.setLineDash([]);
-    const q = (a: number, c: number, b: number) => (1 - p) * (1 - p) * a + 2 * (1 - p) * p * c + p * p * b;
-    g.beginPath(); g.arc(q(ax, cx, bx), q(ay, cy, by), 6, 0, 7); g.fill();
-    neon(g, "#eee4d3", 2, 4); g.font = "600 13px 'IBM Plex Mono', monospace"; g.fillText("CHC", ax + 8, ay + 4); g.fillText(d.code, bx + 8, by + 4);
-    g.fillText(`${Math.round(p * 100)}% · ${p >= 1 ? "ARRIVED" : "CRUISING 38,000 FT"}`, 450, 238);
-    // seats
-    g.shadowBlur = 0; g.fillStyle = "#1e1830"; g.fillRect(470, 290, 90, 110); g.fillRect(620, 290, 90, 110);
-    const bob = rm ? 0 : Math.sin(t * 2) * 2;
-    stick(g, 500, 392 + bob, 80, "#c6ff3d", t, { sit: true });
-    stick(g, 650, 392 - bob, 80, this.comp ? this.comp.color : "#6a6a7a", t + 1, { sit: true, wave: !!this.comp && Math.sin(t) > 0.6 });
+    drawCabin(g,t,p,this.cabin,[this.host.player(),...this.host.people()],reduced(),this.flightNarrow);
   }
 
   // ------------------------------------------------------------------ 5. destination
@@ -569,11 +557,11 @@ export class Travel {
     const c = this.canvas; if (!c || !c.isConnected) return;
     const g = c.getContext("2d"); if (!g) return;
     const el = (now - this.stageStart) / 1000, t = reduced() ? 0 : el;
-    g.save(); g.clearRect(0, 0, W, H);
+    const bounds=c.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);if(c.width!==Math.round(bounds.width*dpr)||c.height!==Math.round(bounds.height*dpr)){c.width=Math.round(bounds.width*dpr);c.height=Math.round(bounds.height*dpr);}g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle='#232927';g.fillRect(0,0,bounds.width,bounds.height);this.flightNarrow=bounds.width<680;const portrait=this.flightNarrow&&(this.stage==='flight'||this.stage==='security'),fit=portrait?Math.max(bounds.width/W,bounds.height/H):Math.min(bounds.width/W,bounds.height/H),focus=this.stage==='flight'&&this.cabin.seat==='window'?310:480;g.save();g.translate(portrait?bounds.width/2-focus*fit:(bounds.width-W*fit)/2,(bounds.height-H*fit)/2);g.scale(fit,fit);
     switch (this.stage) {
       case "security": this.drawSecurity(g, t); break;
       case "flight": {
-        const p = Math.min(1, el / (reduced() ? 4 : 10));
+        const p = Math.min(1, el / (reduced() ? 4 : this.cabin.first?90:60));
         this.drawFlight(g, t, p);
         const lines = this.flightLines(), idx = Math.floor(el / 3.3) % lines.length;
         if (idx !== this.lineIdx && this.lineEl) { this.lineIdx = idx; this.lineEl.textContent = lines[idx]; }

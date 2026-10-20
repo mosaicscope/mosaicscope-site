@@ -1,3 +1,6 @@
+import {hospitality,type HospitalityHost} from './VenueHospitality';
+import {pose as nativePose,solve,drawFigure} from '../render/StickFigure';
+import type {Character} from '../entities/types';
 import { h } from "./dom";
 
 /**
@@ -6,7 +9,7 @@ import { h } from "./dom";
  * club", where doors only ever open on punchlines). Strictly PG-13: neon stick figures in cartoon
  * outfits, innuendo and slapstick, nothing shown. Styles live in ./club.css (classes prefixed `cl-`).
  */
-export interface ClubHost { getCash(): number; setCash(v: number): void; toast(t: string): void; playerName(): string; owned(key: string): boolean; setOwned(key: string, v: boolean): void }
+export interface ClubHost extends HospitalityHost { people?():readonly Character[]; getCash(): number; setCash(v: number): void; toast(t: string): void; playerName(): string; owned(key: string): boolean; setOwned(key: string, v: boolean): void }
 
 type Venue = "strip" | "velvet";
 interface Spot { id: string; label: string; x: number; y: number; w: number; h: number }
@@ -398,7 +401,7 @@ export class Club {
     const stage = h("div.cl-stage", null, [this.cv, this.card ? this.cardEl() : null]);
     const panel = strip ? this.stripPanel() : this.velvetPanel();
     const spotBtns = h("div.cl-row", null, this.spots().map((s) => h("button.cl-btn.sm", { onclick: () => this.activate(s.id), text: s.label + (s.id === "dj" ? " · request $50" : s.id === "bar" ? " · L&P $14" : "") })));
-    this.el.replaceChildren(h("div.cl-frame." + (strip ? "pink" : "velvet"), null, [head, stage, this.tickerEl, spotBtns, panel,
+    this.el.replaceChildren(h("div.cl-frame." + (strip ? "pink" : "velvet"), null, [head, stage, this.tickerEl, spotBtns,hospitality(this.host), panel,
       h("footer.cl-foot", { text: strip ? "All performers are fictional adult stick figures. Nobody is ever unclothed; the sequins are load-bearing." : "Nothing is ever shown. Everything is implied. Sir Ponsonby's lawyers insist." })]));
   }
 
@@ -579,7 +582,7 @@ export class Club {
   }
 
   // ------------------------------------------------------------------ drawing
-  private begin(): CanvasRenderingContext2D { const g = this.g; g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0); g.shadowBlur = 0; g.globalAlpha = 1; g.textAlign = "center"; g.lineCap = "round"; g.lineJoin = "round"; return g; }
+  private begin(): CanvasRenderingContext2D { const dpr=dprOf();if(dpr!==this.dpr){this.dpr=dpr;this.cv.width=Math.round(W*dpr);this.cv.height=Math.round(H*dpr);}const g = this.g; g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0); g.shadowBlur = 0; g.globalAlpha = 1; g.textAlign = "center"; g.lineCap = "round"; g.lineJoin = "round"; return g; }
 
   private neonText(text: string, x: number, y: number, size: number, col: string, t: number, font = "'Big Shoulders Display', Impact, sans-serif"): void {
     const g = this.g;
@@ -589,7 +592,7 @@ export class Club {
 
   /** A neon stick figure in a pose, feet at (x, y). */
   private fig(x: number, y: number, pose: number[], col: string, o: { hat?: boolean; boa?: boolean; sequins?: boolean; fedora?: boolean; tophat?: boolean; shades?: boolean; headphones?: boolean; monocle?: boolean; skirt?: boolean; s?: number; t?: number; mic?: boolean } = {}): void {
-    const g = this.g, s = o.s ?? 1, t = o.t ?? 0;
+    const g = this.g, s = o.s ?? 1, t = o.t ?? 0;const cast=this.host.people?.()??[];if(cast.length){const pool=o.skirt?cast.filter(c=>c.look.kind==='girl'):cast;const base=pool[Math.abs([...col+(o.skirt?'dancer':o.fedora?'patron':o.mic?'mc':'staff')].reduce((a,c)=>a+c.charCodeAt(0),0))%Math.max(1,pool.length)]??cast[0];const c={...base,look:{...base.look,main:true,glam:!!o.skirt,color:col,top:o.skirt?'dress' as const:base.look.top,build:o.skirt?1.15:base.look.build}};const k=s*.62,dir=x<480?1:-1;solve(nativePose(o.skirt?'dance':o.fedora?'sit':o.mic?'talk':'idle','normal',this.reduce?0:t,t,0,0),x,y,k,dir);drawFigure(g,c,x,y,k,dir,t,0,1);if(o.sequins&&!this.reduce){g.fillStyle='#f2d6a9';for(let i=0;i<6;i++)g.fillRect(x+Math.sin(t*2+i*2)*8,y-39+i*3,1.5,1.5);}return;}
     const [lsa, lea, rsa, rea, lha, lka, rha, rka, lean, hop] = pose;
     const hip = { x, y: y - 26 * s - hop };
     const up = { x: Math.sin(lean), y: -Math.cos(lean) };

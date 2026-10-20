@@ -16,10 +16,11 @@ const SYSTEM_KEYS = {
 } as const;
 
 describe("life-system wiring", () => {
-  it("has one default-on switch for every Batch 1 system", () => {
+  it("keeps the retired licence restriction off while other life systems remain enabled", () => {
     const flags = newLifeSystemFlags();
     expect(Object.keys(flags).sort()).toEqual(Object.keys(LIFE_SYSTEM_LABELS).sort());
-    expect(Object.values(flags).every(Boolean)).toBe(true);
+    expect(flags.driverLicence).toBe(false);
+    expect(Object.entries(flags).filter(([key])=>key!=="driverLicence").every(([,value])=>value)).toBe(true);
     expect(Object.keys(flags)).toHaveLength(18);
   });
 
