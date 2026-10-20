@@ -176,7 +176,7 @@ export function fireGun(sim: Simulation, c: Character, tx: number, ty: number, t
   const kick=(def==='shotgun'?.18:.06)*(c.combat?.load==='heavy'?1.3:1);
   c.kx-=Math.cos(base)*kick;c.ky-=Math.sin(base)*kick;
   const muzzleReach=Math.min(def==='rifle'||def==='shotgun'?.8:.5,Math.hypot(tx-c.x,ty-c.y)*.4);
-  const mx = c.x + Math.cos(base) * muzzleReach, my = c.y + Math.sin(base) * muzzleReach, mz = c.z + 1.2;
+  const mx = c.x + Math.cos(base) * muzzleReach, my = c.y + Math.sin(base) * muzzleReach, mz = c.z + 1.6;
   const pellets = ws.pellets ?? 1, speed = 18;
   for (let i = 0; i < pellets; i++) {
     const b = sim.spawnToy(ws.ammo ?? "bullet", mx, my, mz);
@@ -191,7 +191,7 @@ export function fireGun(sim: Simulation, c: Character, tx: number, ty: number, t
   // muzzle flash, a spent casing, the bang
   sim.bus.emit("fx", { kind: "flash", x: mx, y: my, z: mz, n: 1 });
   sim.bus.emit("fx", { kind: "spark", x: mx, y: my, z: mz, n: 3, color: "#ff9a3d" });
-  sim.bus.emit("fx", { kind: "spark", x: c.x - Math.sin(base) * 0.25, y: c.y + Math.cos(base) * 0.25, z: c.z + 1.1, n: pellets > 1 ? 1 : 1, color: pellets > 1 ? "#ec2a1c" : "#f6b62c" });
+  sim.bus.emit("fx", { kind: "spark", x: c.x - Math.sin(base) * 0.25, y: c.y + Math.cos(base) * 0.25, z: c.z + 1.5, n: 1, color: pellets > 1 ? "#ec2a1c" : "#f6b62c" });
   if (def === "golden_pistol") sim.bus.emit("fx", { kind: "confetti", x: mx, y: my, z: mz, n: 6 });
   sim.bus.emit("sound", { kind: def === "shotgun" ? "bang_shotgun" : def === "smg" ? "bang_smg" : "bang", x: c.x, y: c.y, vol: 1 });
   c.stats.throws++;

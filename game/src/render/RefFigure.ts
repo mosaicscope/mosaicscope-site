@@ -1,7 +1,7 @@
 import {drawFaceAccessories} from './FaceAccessories';
 import {currentReactionFace,drawReactionMouth,drawReactionAccents} from './ReactionFaces';
 import {drawEmotionDetail} from './NegativeReactions';
-import {drawFaceDamage,drawBodyDamage,detachedOn} from "./DamageArt";
+import {drawFaceDamage,drawBodyDamage,detachedOn,damageBloodEnabled} from "./DamageArt";
 import type { Character } from "../entities/types";
 import { Phys } from "../entities/types";
 import type { ModelSpec } from "./Models";
@@ -17,6 +17,20 @@ import { drawFaceGenes } from "./FaceGenes";
  */
 type Ctx = CanvasRenderingContext2D;
 const INK = "#121010", WHITE = "#f7f4ee";
+const smallHeads=new Map<Character,{key:string;canvas:HTMLCanvasElement}>();
+/** Small faces retain their artwork in a bounded retina cache; close-ups always render as vectors. */
+function paintHead(g:Ctx,c:Character,M:ModelSpec,P:FacePlan,r:number,k:number,dir:number,lw:number,alpha:number,hd:boolean,flash:boolean):void{
+ if(k>=.8||flash||typeof document==='undefined'){drawRefHead(g,c,M,P,moodOf(c),0,0,r,k,dir,lw,alpha,hd,flash);return;}
+ const f=currentReactionFace(c),key=JSON.stringify([M.id,M.skin,M.hair,M.hairColor,M.hat,M.hatColor,M.face,M.gear,c.look.face,c.look.accessories,c.look.accessoryWear,c.combat?.helmet,moodOf(c),dir,hd,damageBloodEnabled(),f&&Object.values(f).map(v=>Math.round(v*100)),c.wounds.filter(w=>w.part==='head')]);
+ let entry=smallHeads.get(c);
+ if(!entry||entry.key!==key){
+  const canvas=entry?.canvas??document.createElement('canvas');canvas.width=176;canvas.height=200;
+  const ctx=canvas.getContext('2d');if(!ctx){drawRefHead(g,c,M,P,moodOf(c),0,0,r,k,dir,lw,alpha,hd,flash);return;}
+  ctx.setTransform(2,0,0,2,88,100);drawRefHead(ctx,c,M,P,moodOf(c),0,0,r/k,1,dir,2.3,1,hd,false);entry={key,canvas};
+ }
+ smallHeads.delete(c);smallHeads.set(c,entry);if(smallHeads.size>192)smallHeads.delete(smallHeads.keys().next().value!);
+ g.globalAlpha=alpha;g.drawImage(entry.canvas,-44*k,-50*k,88*k,100*k);
+}
 /** Limbs are pale lines so they read on the night street (the drawing's black ink would vanish on dark ground). */
 const LIMB = "#eee4d3";
 // eye slots (liner, glasses) are left out: the figure's own eyes already carry the style, and stacking both looked cluttered
@@ -234,7 +248,7 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
   halo([nx, ny, x - (hdx / hl) * r, y - (hdy / hl) * r], lw); line([nx, ny, x - (hdx / hl) * r, y - (hdy / hl) * r], lw, limbCol);
   J[4]=x;J[5]=y;
   g.save();g.translate(x,y);g.rotate(Math.atan2(hdx,-hdy));
-  drawRefHead(g,c,M,P,moodOf(c),0,0,r,k,dir,lw,alpha,hd,flash);g.restore();
+  paintHead(g,c,M,P,r,k,dir,lw,alpha,hd,flash);g.restore();
   g.globalAlpha = alpha;
 }
 

@@ -19,7 +19,9 @@ describe('distinct visible face and body sequences',()=>{
  it('shows a facial and upper-body reaction during a knockdown while preserving the physical floor pose',()=>{
   const c=small().player;c.wounds=[{part:'head',kind:'bruise',severity:3,bandaged:false,tick:0}];c.phys=2;c.hand=-1;const a={...pose('down','normal',0,0,0,0)},before={...a};applyNegativeReaction(a,c,1.6,0,'down');expect(a.lying).toBe(1);expect(a.armL!==before.armL||a.armR!==before.armR||a.tilt!==before.tilt).toBe(true);expect(currentReactionFace(c)).toBeDefined();expect(currentReactionFace(c)!.mouthCurve).toBeLessThan(0);
  });
- it('cycles to another action score and keeps reduced-motion face/body poses steady',()=>{
-  const c=small().player;c.emo.fear=1;c.hand=-1;c.phys=0;c.seedPhase=0;const a={...REST_REACTION},b={...REST_REACTION};applyNegativeReaction(a,c,1.6,0,'idle');const f=currentReactionFace(c);applyNegativeReaction(b,c,4.8,0,'idle');expect(a).not.toEqual(b);expect(currentReactionFace(c)).not.toEqual(f);const d={...REST_REACTION},e={...REST_REACTION};applyNegativeReaction(d,c,1,0,'idle',true);const fixed=currentReactionFace(c);applyNegativeReaction(e,c,80,0,'idle',true);expect(d).toEqual(e);expect(currentReactionFace(c)).toEqual(fixed);
+ it('does not rotate reaction clips on the clock and keeps reduced-motion poses steady',()=>{
+  const c=small().player;c.emo.fear=1;c.hand=-1;c.phys=0;const a={...REST_REACTION},b={...REST_REACTION};
+  applyNegativeReaction(a,c,1.6,0,'idle');applyNegativeReaction(b,c,8,0,'idle');const fixed=currentReactionFace(c);const settled={...REST_REACTION};applyNegativeReaction(settled,c,15,0,'idle');expect(settled).toEqual(b);expect(currentReactionFace(c)).toEqual(fixed);
+  const d={...REST_REACTION},e={...REST_REACTION};applyNegativeReaction(d,c,1,0,'idle',true);const reduced=currentReactionFace(c);applyNegativeReaction(e,c,80,0,'idle',true);expect(d).toEqual(e);expect(currentReactionFace(c)).toEqual(reduced);
  });
 });

@@ -923,8 +923,20 @@ export class Simulation {
   // ------------------------------------------------------------------ dev tools
   spawnNpcAt(x: number, y: number, n = 1): void {
     const before = this.chars.length;
+    n=Math.max(0,Math.min(1000,Math.floor(Number.isFinite(n)?n:0)));
     spawnBackground(this, n);
-    for (let i = before; i < this.chars.length; i++) { const c = this.chars[i]; const p = this.world.nearestWalkable(x + this.rng.range(-2, 2), y + this.rng.range(-2, 2)); c.x = c.px = p.x; c.y = c.py = p.y; c.pathGoalX = p.x; c.pathGoalY = p.y; c.homeArea = this.world.areaAt(p.x, p.y)?.id ?? 0; }
+    const occupied=new Set(this.chars.slice(0,before).map(c=>`${Math.floor(c.x*2)}:${Math.floor(c.y*2)}`));
+    const span=this.world.size-4,wrap=(v:number)=>2+((v-2)%span+span)%span;
+    for(let i=before;i<this.chars.length;i++){
+      const c=this.chars[i];let p={x:c.x,y:c.y};
+      for(let retry=0;retry<10;retry++){
+        const angle=(i-before)*2.399963+retry*.73,radius=Math.min(this.world.size*.6,Math.sqrt(i-before+1)*1.6)+retry*.7;
+        const candidate=this.world.nearestWalkable(wrap(x+Math.cos(angle)*radius),wrap(y+Math.sin(angle)*radius));
+        if(!occupied.has(`${Math.floor(candidate.x*2)}:${Math.floor(candidate.y*2)}`)){p=candidate;break;}
+      }
+      occupied.add(`${Math.floor(p.x*2)}:${Math.floor(p.y*2)}`);c.x=c.px=p.x;c.y=c.py=p.y;c.pathGoalX=p.x;c.pathGoalY=p.y;c.homeArea=this.world.areaAt(p.x,p.y)?.id??0;
+    }
+    this.rebuildHash();
   }
 
   toast(text: string, kind = "info"): void { this.toasts.push({ text, tick: this.tick, kind }); }

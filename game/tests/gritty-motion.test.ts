@@ -22,7 +22,7 @@ describe('negative-emotion performances',()=>{
  });
  it('selects reactions from actual injuries, emotions and traits while protecting actions and locomotion',()=>{
   const c=small().player;c.emo.fear=.9;c.pers.boldness=.05;c.hand=-1;c.phys=Phys.OK;
-  expect(reactionFor(c)?.clip.family).toBe('startle');
+  expect(reactionFor(c)?.clip.family).toBe('cower');
   const a={...pose('idle','normal',1,0,0,0)},b={...a};applyNegativeReaction(a,c,2,0,'idle');expect(a).not.toEqual(b);
   const shot={...b};applyNegativeReaction(shot,c,2,0,'shoot');expect([shot.armL,shot.foreL,shot.armR,shot.foreR]).toEqual([b.armL,b.foreL,b.armR,b.foreR]);
   const walk={...pose('walk','normal',1,1,2,0)},legs=[walk.thighL,walk.thighR,walk.bendL,walk.bendR];applyNegativeReaction(walk,c,2,2,'walk');expect([walk.thighL,walk.thighR,walk.bendL,walk.bendR]).toEqual(legs);

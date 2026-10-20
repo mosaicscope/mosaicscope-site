@@ -1,3 +1,4 @@
+import {devControls,type DevControlHost} from './DevControls';
 import type { Simulation } from "../sim/Simulation";
 import type { Renderer } from "../render/Renderer";
 import { DebugFlags, DEBUG_LABELS, LifeSystemFlags, LIFE_SYSTEM_LABELS } from "./flags";
@@ -10,9 +11,11 @@ export class DevPanel {
   el: HTMLElement;
   private grid: HTMLElement;
   private graph: HTMLCanvasElement;
+  private workbench:HTMLElement;
   private frames: number[] = [];
   private lastUpdate = 0;
-  constructor(private sim: () => Simulation, private renderer: Renderer, public flags: DebugFlags, lifeFlags: LifeSystemFlags, private ctl: {
+  private summary=h("p.dev-summary",{"aria-live":"polite"});
+  constructor(private sim: () => Simulation, private renderer: Renderer, public flags: DebugFlags, lifeFlags: LifeSystemFlags, private ctl: DevControlHost & {
     quality: () => string; speed: () => number; fps: () => number; tickRate: () => number;
     reset: (seed?: number) => void; teleport: () => void; toast: (t: string) => void;
   }) {
@@ -33,13 +36,19 @@ export class DevPanel {
       seedIn, h("button", { text: "Reset with seed", onclick: () => this.ctl.reset(+seedIn.value || 1) }),
       h("button", { text: "Reset same seed", onclick: () => this.ctl.reset() }),
     ]);
+    this.workbench=devControls(this.sim,this.renderer,this.ctl);
     this.el = h("section.panel.dev.hidden", { "aria-label": "Developer panel", role: "region" }, [
       h("button.x", { "aria-label": "Close developer panel", onclick: () => this.toggle(false), text: "×" }),
-      h("h2", { text: "Developer" }), this.grid, this.graph, h("h3", { text: "Overlays" }), toggles, h("h3", { text: "Life systems" }), lifeToggles, h("h3", { text: "Controls" }), ctrls,
+      h('header.dev-header',null,[h('h2',{text:'Developer console'}),this.summary]),this.graph,
+      this.workbench,
+      h('details.dev-section',null,[h('summary',{text:'Detailed performance metrics'}),this.grid]),
+      h('details.dev-section',null,[h('summary',{text:'Debug overlays'}),toggles]),
+      h('details.dev-section',null,[h('summary',{text:'Life systems'}),lifeToggles]),
+      h('details.dev-section',null,[h('summary',{text:'World events, objects & reset'}),ctrls]),
       h("p", { style: { color: "var(--dim)", margin: "8px 0 0" }, text: "Dev tools are separate from play. Seeds make runs reproducible." }),
     ]);
   }
-  toggle(on?: boolean): void { const show = on ?? this.el.classList.contains("hidden"); this.el.classList.toggle("hidden", !show); }
+  toggle(on?: boolean): void { const show = on ?? this.el.classList.contains("hidden"); this.el.classList.toggle("hidden", !show); this.el.closest("#ui")?.classList.toggle("dev-open",show); }
   get visible(): boolean { return !this.el.classList.contains("hidden"); }
 
   private spawnNpc(n: number): void { const s = this.sim(), p = s.player; s.spawnNpcAt(p.x, p.y, n); this.ctl.toast(`Spawned ${n} (total ${s.chars.length})`); }
@@ -64,8 +73,9 @@ export class DevPanel {
     if (!this.visible) return;
     const now = performance.now();
     if (now - this.lastUpdate < 250) return;
-    this.lastUpdate = now;
+    this.lastUpdate = now;this.workbench.dispatchEvent(new Event('dev-sync'));
     const s = this.sim(), r = this.renderer, m = s.metrics, tiers = LodManager.countTiers(s.chars);
+    this.summary.textContent=`${s.chars.length} people · ${this.ctl.fps().toFixed(0)} FPS · ${r.stats.figures} detailed figures · ${r.stats.frameMs.toFixed(1)} ms render`;
     const mem = (performance as any).memory?.usedJSHeapSize;
     const rows: [string, string][] = [
       ["FPS", this.ctl.fps().toFixed(0)], ["Frame (render) ms", r.stats.frameMs.toFixed(2)], ["Sim step ms (last)", m.stepMs.toFixed(3)],
@@ -84,7 +94,7 @@ export class DevPanel {
     const g = this.graph.getContext("2d")!, W = this.graph.width, H = this.graph.height;
     g.clearRect(0, 0, W, H);
     g.strokeStyle = "rgba(238,228,211,.2)"; g.beginPath(); g.moveTo(0, H - (16.7 / 50) * H); g.lineTo(W, H - (16.7 / 50) * H); g.stroke();
-    g.strokeStyle = "#c6ff3d"; g.beginPath();
+    g.strokeStyle = "#c8b18a"; g.beginPath();
     this.frames.forEach((f, i) => { const x = (i / 180) * W, y = H - Math.min(1, f / 50) * H; if (i) g.lineTo(x, y); else g.moveTo(x, y); });
     g.stroke();
   }

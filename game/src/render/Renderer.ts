@@ -1,3 +1,5 @@
+import {gunGrips} from './GunRig';
+import {detailedCrowd} from './CrowdDetail';
 import {visibleWeaponMotion} from './WeaponMotion';
 import {drawDetachedLimb} from './DamageArt';
 import {applyNegativeReaction} from './NegativeReactions';
@@ -67,6 +69,7 @@ export class Renderer {
   private time = 0;
   private motion = new Map<number,{x:number;y:number;speed:number}>();
   private lastPose = new Map<number, string>();
+  private gaits=new WeakMap<Character,ReturnType<typeof gaitOf>>();
   /** screen boxes of drawn figures for picking: id, x0, y0, x1, y1 */
   private pickBoxes: number[] = [];
   stats = { items: 0, figures: 0, silhouettes: 0, batches: 0, frameMs: 0 };
@@ -285,6 +288,8 @@ export class Renderer {
     // depth sort
     const items = this.items, n = this.nItems;
     const view = items.slice(0, n).sort((a, b) => a.d - b.d);
+    const detail=detailedCrowd(view.filter(i=>i.kind===0).map(i=>sim.chars[i.ref]),cam.x,cam.y,[20,32,48,72][o.quality],o.selected,o.hovered,cam.follow);
+    const workingCrews=new Set(Object.values(sim.world.civicDamage).map(d=>d.crew));
     this.stats.items = n;
 
     // draw sorted, batching consecutive background silhouettes of the same colour
@@ -294,7 +299,7 @@ export class Renderer {
     for (const it of view) {
       if (it.kind === 0) {
         const c = sim.chars[it.ref];
-        const bg = c.tier === "background" && !c.promoted && z < 1.25 && c.emo.fear<.65 && c.emo.frustration<.7 && c.emo.mood>-.55;
+        const bg = !detail.has(c.id);
         const k = 0.44 * z * c.look.scale;
         const wx=c.px+(c.x-c.px)*alpha,wy=c.py+(c.y-c.py)*alpha;
         const previous=this.motion.get(c.id),distance=previous?Math.hypot(wx-previous.x,wy-previous.y):0;
@@ -302,7 +307,7 @@ export class Renderer {
         const spd=(previous?.speed??0)+(instantaneous-(previous?.speed??0))*(1-Math.exp(-dt*18));
         this.motion.set(c.id,{x:wx,y:wy,speed:spd});
         const moving=spd>.12;
-        const G = gaitOf(c.id);
+        let G=this.gaits.get(c);if(!G){G=gaitOf(c.id);this.gaits.set(c,G);}
         c.anim.phase += Math.min(distance,.18)*Math.PI*2/1.65*G.cadence;
         const name = this.poseName(c, moving, spd);
         if (this.lastPose.get(c.id) !== name) { this.lastPose.set(c.id, name); c.anim.poseT = 0; } else c.anim.poseT += dt;
@@ -319,7 +324,7 @@ export class Renderer {
           if (!batching || col !== batchColor) { flush(); g.strokeStyle = col; g.globalAlpha = 0.42; g.lineWidth = Math.max(0.9, 2.6 * k); g.lineCap = "round"; g.beginPath(); batching = true; batchColor = col; }
           pathSilhouette(g, k);
           sils++;
-          if (o.selected === c.id || o.debug.hitboxes) this.pickBoxes.push(c.id, it.sx - 10 * z, it.sy - 50 * z, it.sx + 10 * z, it.sy);
+          this.pickBoxes.push(c.id, it.sx - 10 * z, it.sy - 50 * z, it.sx + 10 * z, it.sy);
           continue;
         }
         flush();
@@ -339,16 +344,16 @@ export class Renderer {
         const gun = held && TOYS[held.def]?.weapon?.gun && !a.lying;
         if(gun){
           const angle=Math.atan2((Math.sin(c.facing)+Math.cos(c.facing))*.5,Math.abs(Math.cos(c.facing)-Math.sin(c.facing)));
-          const ca=Math.cos(angle),sa=Math.sin(angle),long=held.def==='shotgun'||held.def==='rifle'||held.def==='smg';
-          const grip=(side:0|1,x:number,y:number)=>reachArm(a,side,0,0,x*ca-y*sa,x*sa+y*ca);
-          const mechanism=visibleWeaponMotion(c.weaponAction,sim.tick,performance.now()/1000),since=(sim.tick-(c.weaponAction?.firedAt??c.combat?.recoilTick??-600))/60,kick=since<.2?Math.sin(Math.max(0,since)/.2*Math.PI)*(long?4:3):0;
+          const ca=Math.cos(angle),sa=Math.sin(angle),shx=a.hipX+Math.sin(a.lean)*37*.93,shy=-61+a.bob-Math.cos(a.lean)*37*.93;
+          const grip=(side:0|1,x:number,y:number)=>reachArm(a,side,shx,shy,shx+x*ca-y*sa,shy+x*sa+y*ca);
+          const mechanism=visibleWeaponMotion(c.weaponAction,sim.tick,performance.now()/1000);
           const reloading=c.weaponAction?.weapon===held.def&&(c.weaponAction.reloadFrom??Infinity)<=sim.tick&&(c.weaponAction.reloadUntil??0)>sim.tick;
-          grip(1,18-kick,reloading?14:9-kick*.5);grip(0,reloading?8:long?29-kick-mechanism.pump*5:17-kick,reloading?22:long?4-kick*.5:9-kick*.5);
+          const rig=gunGrips(held.def,mechanism,reloading);grip(1,rig.right.x,rig.right.y);grip(0,rig.left.x,rig.left.y);
         }
         solve(a, it.sx, it.sy - zOff, k, dir);
         // held toy behind or in front depending on hand
         drawFigure(g, c, it.sx, it.sy - zOff, k, dir, time, c.anim.flash, 1, undefined, !!gun);
-        if(Object.values(sim.world.civicDamage).some(d=>d.crew===c.id)){g.fillStyle='#d4a04e';g.strokeStyle='#555d4b';g.lineWidth=k;g.beginPath();g.moveTo(J[6]-5*k,J[7]+3*k);g.lineTo(J[6]+5*k,J[7]+3*k);g.lineTo(J[0]+5*k,J[1]);g.lineTo(J[0]-5*k,J[1]);g.closePath();g.fill();g.stroke();g.strokeStyle='#e4ddbb';g.lineWidth=2*k;g.beginPath();g.moveTo(J[6]-4*k,J[7]+12*k);g.lineTo(J[6]+4*k,J[7]+12*k);g.stroke();}
+        if(workingCrews.has(c.id)){g.fillStyle='#d4a04e';g.strokeStyle='#555d4b';g.lineWidth=k;g.beginPath();g.moveTo(J[6]-5*k,J[7]+3*k);g.lineTo(J[6]+5*k,J[7]+3*k);g.lineTo(J[0]+5*k,J[1]);g.lineTo(J[0]-5*k,J[1]);g.closePath();g.fill();g.stroke();g.strokeStyle='#e4ddbb';g.lineWidth=2*k;g.beginPath();g.moveTo(J[6]-4*k,J[7]+12*k);g.lineTo(J[6]+4*k,J[7]+12*k);g.stroke();}
         if (c.bleed > 0 && Math.random() < c.bleed * dt * 5) this.drip(c.x, c.y);
         // someone down and bleeding leaves a spreading pool
         if (c.phys === Phys.DOWN && c.bleed > 0 && this.fakeBlood && Math.random() < dt * 1.5) { this.decals.push({ x: c.x + (Math.random() - 0.5) * 0.2, y: c.y + (Math.random() - 0.5) * 0.2, r: 0.18 + Math.random() * 0.2, color: "#6a0a10", born: this.time, life: 60, rot: 0 }); if (this.decals.length > 220) this.decals.shift(); }
@@ -597,7 +602,12 @@ export class Renderer {
     if(def.weapon?.gun){
       const angle=Math.atan2((Math.sin(c.facing)+Math.cos(c.facing))*.5,Math.cos(c.facing)-Math.sin(c.facing));
       this.g.save();this.g.translate(J[14],J[15]);this.g.rotate(angle-(dir<0?Math.PI:0));
-      drawToy(this.g,t.def,3*k*dir,-4*k,k,0,t.color,1,dir,visibleWeaponMotion(c.weaponAction,this.sim.tick,performance.now()/1000));this.g.restore();return;
+      const motion=visibleWeaponMotion(c.weaponAction,this.sim.tick,performance.now()/1000),rig=gunGrips(t.def,motion,false);
+      drawToy(this.g,t.def,rig.originX*k*dir,rig.originY*k,k*rig.scale,0,t.color,1,dir,motion);
+      // Wrapped fingers sit over the grip rather than an open palm floating below the receiver.
+      this.g.strokeStyle='#eee4d3';this.g.lineWidth=1.5*k;this.g.lineCap='round';this.g.beginPath();
+      for(let i=-1;i<=1;i++){this.g.moveTo(-1.8*k,i*1.1*k);this.g.quadraticCurveTo(1.8*k,(i+.4)*1.1*k,2.2*k,(i+1)*1.1*k);}this.g.stroke();
+      this.g.restore();return;
     }
     // melee toys extend along the forearm (elbow -> hand)
     const ang = Math.atan2(J[15] - J[13], J[14] - J[12]);

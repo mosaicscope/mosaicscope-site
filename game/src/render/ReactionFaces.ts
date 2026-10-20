@@ -37,6 +37,12 @@ const faces={
  lookDown:face({eyeL:.4,eyeR:.45,browL:-.35,browR:.4,pupilY:.9,mouthCurve:-.55}),
 };
 const familyFaces=[faces.ache,faces.strain,faces.wince,faces.breath,faces.flinch,faces.fear,faces.cower,faces.shock,faces.sob,faces.sad,faces.sigh,faces.vex,faces.tense,faces.angry,faces.disgust,faces.shame,faces.panic,faces.grief,faces.overwhelmed,faces.tired];
+/** Sustained conditions get a quiet expression, never a repeating three-gesture facial performance. */
+export function conditionFace(index:number,strength:number):ReactionFace{
+ const f=mix(neutral,familyFaces[index],Math.min(.85,.35+strength*.4));
+ f.mouthOpen=Math.min(.12,f.mouthOpen);f.tears=0;f.sweat=index<4||index===16?Math.min(.5,f.sweat):0;return f;
+}
+export function focusedFace():ReactionFace{return face({eyeL:.8,eyeR:.8,browL:.3,browR:-.3,mouthCurve:-.1});}
 const gestureFaces:Record<string,keyof typeof faces>={};
 for(const [kind,keys]of Object.entries({left:'tl el al cl wl sl ql at kl jl ll hel nl xl ril pl dl ol gl ul il swl ml rl dlw yl lp',right:'tr er ar cr wr sr qr aw kr jr lr her nr xr rir pr dr or gr ur ir swr mr rr drw yr hp',shut:'tt fh fc rb he dk ds',lookDown:'ct bk kn slp hd',lookUp:'hb hu nb sn',strain:'ah bw bn nt',breath:'bi bo se',flinch:'hs pb sp',cry:'slv sb',plead:'cp wrg',bite:'ak gc ca te',gag:'st ss ff fs',disgust:'mb fp sh',yawn:'yh ws',resolve:'rc ts tu ch',cower:'cg sq'}))for(const key of keys.split(' '))gestureFaces[key]=kind as keyof typeof faces;
 const fields=Object.keys(neutral) as (keyof ReactionFace)[];

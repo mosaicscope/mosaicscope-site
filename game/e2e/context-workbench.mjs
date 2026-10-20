@@ -1,0 +1,21 @@
+import {chromium} from 'playwright-core';
+import fs from 'node:fs';
+const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+try{
+ const page=await browser.newPage({viewport:{width:1366,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));fs.mkdirSync('e2e/screenshots',{recursive:true});
+ await page.route('**/api/**',r=>r.fulfill({json:{weather:'clear',isDay:true,temp:14,wind:10,hour:12}}));await page.goto(process.argv[2]||'http://127.0.0.1:4173/world/');await page.getByRole('button',{name:'Start new game',exact:true}).click();await page.getByRole('button',{name:'Start my story',exact:true}).click();await page.getByRole('button',{name:'Skip',exact:true}).click();await page.evaluate(()=>window.__mosaics.setSpeed(0));
+ await page.getByRole('button',{name:'Menu',exact:true}).click();await page.getByRole('button',{name:'Developer console',exact:true}).click();const dev=page.getByRole('region',{name:'Developer panel',exact:true});await dev.waitFor();
+ await dev.getByText('Command console',{exact:true}).click();const command=dev.getByRole('textbox',{name:'Developer command'});const run=async text=>{await command.fill(text);await command.press('Enter');};
+ await run('give shotgun');if(await page.evaluate(()=>{const s=window.__mosaics.sim;return s.toys[s.player.hand]?.def;})!=='shotgun')throw Error('Give/equip failed');
+ await run('cash 4321');if(await page.evaluate(()=>window.__mosaics.sim.player.cash)!==4321)throw Error('Cash command failed');await run('time 18');if(Math.abs(await page.evaluate(()=>window.__mosaics.sim.hour)-18)>.01)throw Error('Time command failed');
+ let tick=await page.evaluate(()=>window.__mosaics.sim.tick);await dev.getByRole('button',{name:'Step one tick',exact:true}).click();if(await page.evaluate(()=>window.__mosaics.sim.tick)!==tick+1)throw Error('Single-step failed');
+ await run('window.alert(1)');if(!await dev.locator('output').textContent().then(s=>s.includes('Unknown command')))throw Error('Console accepted non-command source');
+ const count=await page.evaluate(()=>window.__mosaics.sim.chars.length);await run('spawn 500');if(await page.evaluate(()=>window.__mosaics.sim.chars.length)!==count+500)throw Error('Bulk spawn failed');
+ await dev.getByText('Character & equipment',{exact:true}).click();await dev.getByLabel('Fear',{exact:true}).fill('0.95');if(await page.evaluate(()=>window.__mosaics.sim.player.emo.fear)!==.95)throw Error('Fear control failed');await dev.getByRole('button',{name:'Test head impact',exact:true}).click();if(!await page.evaluate(()=>window.__mosaics.sim.player.wounds.some(w=>w.part==='head')))throw Error('Impact control failed');await dev.getByRole('button',{name:'Restore target',exact:true}).click();
+ await page.screenshot({path:'e2e/screenshots/context-dev-desktop.png'});await page.getByRole('button',{name:'Close developer panel',exact:true}).click();
+ await page.evaluate(()=>{const g=window.__mosaics,p=g.sim.player;p.emo.mood=0;p.emo.fear=0;p.emo.frustration=0;p.needs.energy=1;p.facing=0;g.renderer.cam.follow=p.id;g.renderer.cam.lookAt(p.x,p.y,true);g.renderer.cam.zoom=g.renderer.cam.targetZoom=5;});await page.waitForTimeout(200);await page.screenshot({path:'e2e/screenshots/world-held-shotgun.png'});
+ const figures=await page.evaluate(()=>window.__mosaics.renderer.stats.figures);if(figures>48)throw Error('High crowd exceeded detail budget: '+figures);
+ const hudButtons=await page.locator('.hud button').count();if(hudButtons!==1)throw Error('HUD duplicated menu tools: '+hudButtons);
+ await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'Menu',exact:true}).click();await page.getByRole('button',{name:'Developer console',exact:true}).click();await dev.waitFor();if(await dev.evaluate(e=>e.scrollWidth>e.clientWidth+2))throw Error('Mobile developer panel overflows');await page.screenshot({path:'e2e/screenshots/context-dev-mobile.png'});
+ if(errors.length)throw Error(errors.join('\n'));console.log('PASS: developer commands, real equipment, step/time, safe command parsing, bulk spawn, emotional/injury controls, world gun rig, detail budget, compact HUD and mobile');
+}finally{await browser.close();}
