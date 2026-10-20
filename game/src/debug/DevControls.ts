@@ -1,3 +1,5 @@
+import {useSubstance,type SubstanceKind} from '../sim/Substances';
+import {triggerStreetIncident,STREET_KINDS,type StreetKind} from '../sim/StreetLife';
 import type {Simulation} from '../sim/Simulation';
 import type {Renderer} from '../render/Renderer';
 import {h} from '../ui/dom';
@@ -12,18 +14,20 @@ export function devControls(sim:()=>Simulation,renderer:Renderer,ctl:DevControlH
  const group=(title:string,kids:HTMLElement[],open=false)=>h('details.dev-section',{open},[h('summary',{text:title}),h('div.dev-controls',null,kids)]);
  const range=(label:string,min:number,max:number,step:number,read:()=>number,change:(n:number)=>void)=>{const input=h('input',{type:'range',min,max,step,value:read(),'aria-label':label,oninput:(e:Event)=>change(+(e.target as HTMLInputElement).value)}) as HTMLInputElement;updates.push(()=>{if(document.activeElement!==input)input.value=String(read());});return h('label',null,[label,input]);};
  const equip=(id:string)=>{const s=sim(),c=target();if(!TOYS[id])return;if(c.hand>=0)s.dropHeld(c);const t=s.spawnToy(id,c.x,c.y);if(!t)return;s.pickupToy(c,t);const combat=c.combat??={style:'jab',xp:0,ammo:{},vest:0,helmet:0};combat.ammo[id==='golden_pistol'?'pistol':id]=250;combat.load='standard';combat.reloadUntil=0;combat.magUsed={};c.weaponAction=undefined;ctl.toast(`${c.name}: ${TOYS[id].name} equipped`);};
- const heal=()=>{const s=sim(),c=target();c.wounds=[];c.blood=1;c.bleed=0;c.phys=0;c.stunUntil=0;c.emo.composure=1;c.emo.fear=0;c.emo.frustration=0;c.needs.energy=1;s.pendingAmbulance.delete(c.id);ctl.toast(`${c.name}: restored`);};
+ const heal=()=>{const s=sim(),c=target();c.substances=undefined;c.wounds=[];c.blood=1;c.bleed=0;c.phys=0;c.stunUntil=0;c.emo.composure=1;c.emo.fear=0;c.emo.frustration=0;c.needs.energy=1;s.pendingAmbulance.delete(c.id);ctl.toast(`${c.name}: restored`);};
  const hour=(v:number)=>{const s=sim();s.env.startHour=((Math.max(0,Math.min(23.99,v))-s.tick/TICKS_PER_HOUR)%24+24)%24;};
  const weapon=h('select',{'aria-label':'Developer equipment'},Object.entries(TOYS).filter(([id,d])=>id!=='fists'&&!!d.weapon).map(([id,d])=>h('option',{value:id,text:d.name}))) as HTMLSelectElement;
  const count=h('input',{type:'number',min:1,max:1000,value:50,'aria-label':'NPC spawn count'}) as HTMLInputElement;
  const output=h('output.dev-output',{'aria-live':'polite',text:'Commands: help · pause · resume · speed 2 · spawn 50 · give pistol · heal · cash 1000 · time 18'});
  const command=h('input',{type:'text','aria-label':'Developer command',placeholder:'Enter a command…',autocomplete:'off',spellcheck:'false'}) as HTMLInputElement;
  const run=()=>{const [name,arg]=command.value.trim().toLowerCase().split(/\s+/),n=Number(arg);let result='Command applied';
-  if(name==='help')result='pause | resume | speed 0/1/2/4 | spawn 1–1000 | give weapon_id | heal | cash amount | time 0–24 | focus';
+  if(name==='help')result='pause | resume | speed 0/1/2/4 | spawn 1–1000 | give item_id | effect alcohol/stimulant/cannabis/sedative | scene meetup/dispute/protection/nightlife/intoxication/police/truce/turf | heal | cash amount | time 0–24 | focus';
+  else if(name==='effect'&&['alcohol','stimulant','cannabis','sedative'].includes(arg))result=useSubstance(sim(),target(),arg as SubstanceKind)?'Effect started on target':'Target is busy or receiving medical help';
+  else if(name==='scene'&&STREET_KINDS.includes(arg as StreetKind)){const e=triggerStreetIncident(sim(),arg as StreetKind);result=e?`${e.title} · ${e.area}`:'No free crew or scene budget available';}
   else if(name==='pause')ctl.setSpeed(0);else if(name==='resume')ctl.setSpeed(1);
   else if(name==='speed'&&[0,1,2,4].includes(n))ctl.setSpeed(n);
   else if(name==='spawn'&&Number.isFinite(n)&&n>=1&&n<=1000){const s=sim();s.spawnNpcAt(s.player.x,s.player.y,n);}
-  else if(name==='give'&&TOYS[arg]?.weapon)equip(arg);else if(name==='heal')heal();
+  else if(name==='give'&&TOYS[arg]?.portable)equip(arg);else if(name==='heal')heal();
   else if(name==='cash'&&Number.isFinite(n)&&n>=0&&n<=1e7)target().cash=n;
   else if(name==='time'&&Number.isFinite(n)&&n>=0&&n<24)hour(n);
   else if(name==='focus'){const c=target();renderer.cam.follow=c.id;renderer.cam.lookAt(c.x,c.y,true);}

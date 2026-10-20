@@ -1,3 +1,4 @@
+import { streetNews } from '../sim/StreetLife';
 import { isSaltCast } from '../content/salt-story/cast';
 import { livedLines } from "../ai/llm/context";
 import { buzz, buzzOpener, buzzFeel, BUZZ_REPLIES } from "../content/buzz";
@@ -330,6 +331,7 @@ export class DialogueEngine {
     const cand: (PlayerOption & { score: number })[] = [];
     const add = (id: string, label: string, score: number) => { if (score > 0 && !st.used.has(id.split(":")[0])) cand.push({ id, label, score: score + sim.rng.next() * 0.2 }); };
     const vary = (...a: string[]) => a[(npc.id + st.turn) % a.length];
+    if (npc.crew || sim.streetLife.history.some(e=>e.until>sim.tick&&!e.resolved&&Math.hypot(npc.x-e.x,npc.y-e.y)<15)) add("street-news","What is happening in the neighbourhood?",.85);
     add("news", vary("What's been happening?", "Heard any goss?", "What's the word on the street?"), npc.memories.some((m) => m.kind !== "talked" && Math.abs(m.val) > 0.1) ? 0.6 : 0.3);
     add("about", t.stranger ? vary("Who are you, then?", "Tell me about yourself.") : vary("Tell me about yourself.", "What's your story?"), t.stranger ? 0.7 : 0.35);
     let other = -1, os = 0;
@@ -446,6 +448,7 @@ export class DialogueEngine {
     // the special moves count as covered too, so the next options move the conversation on
     if (id !== "bye" && id !== "trade" && id !== "mosaic") { this.talk.used.add(id); this.talk.last = id; this.talk.turn++; }
     switch (id) {
+      case "street-news": text=streetNews(sim);break;
       case "news": {
         // only things the NPC actually knows, phrased by provenance
         const ms = npc.memories.filter((m) => m.kind !== "talked" && Math.abs(m.val) > 0.1).sort((a, b) => b.t - a.t).slice(0, 2);

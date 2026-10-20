@@ -41,6 +41,7 @@ export interface ToyDef {
   spawn: number;      // weight in toy chests
   value: number;      // NZD
   weapon?: WeaponStats;
+  substance?: import('../sim/Substances').SubstanceKind;
   food?: { hunger: number; energy: number; drink?: boolean };
   blurb?: string;
 }
@@ -50,6 +51,10 @@ const T = (d: Partial<ToyDef> & Pick<ToyDef, "id" | "name" | "uses">): ToyDef =>
 });
 
 export const TOYS: Record<string, ToyDef> = {
+  beer: T({id:'beer',name:'beer',category:'food',uses:['food'],substance:'alcohol',material:'glass',color:'#b88c40',value:9,food:{hunger:0,energy:0,drink:true},blurb:'Alcohol. Affects balance, aim and judgement; repeated use can require medical help.'}),
+  stimulant_powder: T({id:'stimulant_powder',name:'stimulant powder',category:'prop',uses:['valuable'],substance:'stimulant',material:'paper',color:'#ded8c8',value:65,blurb:'An illicit substance. Restlessness, tremor and a comedown; repeated use can trigger a medical emergency.'}),
+  cannabis: T({id:'cannabis',name:'cannabis',category:'prop',uses:['valuable'],substance:'cannabis',material:'paper',color:'#77815b',value:25,blurb:'Slower reactions, heavy eyelids and impaired coordination.'}),
+  sedative: T({id:'sedative',name:'unknown sedative',category:'prop',uses:['valuable'],substance:'sedative',material:'paper',color:'#b6adcc',value:35,blurb:'Drowsiness and stupor. Mixing or repeated use can trigger medical care.'}),
   // ---- toys / throwables
   ball: T({ id: "ball", name: "bouncy ball", uses: ["throw"], radius: 0.18, mass: 0.4, restitution: 0.75, friction: 0.6, durability: 60, color: "#ec2a1c", punch: 3, material: "rubber", spawn: 5, value: 8 }),
   frisbee: T({ id: "frisbee", name: "frisbee", uses: ["throw"], radius: 0.2, mass: 0.2, restitution: 0.4, friction: 1.4, durability: 40, color: "#3dd6ff", punch: 2, spawn: 3, value: 12 }),
@@ -160,4 +165,5 @@ export const isGun = (def: string) => !!TOYS[def]?.weapon?.gun;
 export const isBullet = (def: string) => def === "bullet" || def === "buckshot";
 /** Firearms for sale at the black-market dealer (the only place that sells them). Price = TOYS[id].value. */
 export const BLACK_MARKET: readonly string[] = ["pistol", "revolver", "smg", "shotgun", "golden_pistol"];
+export const BLACK_MARKET_SUPPLIES: readonly string[] = [...BLACK_MARKET, "stimulant_powder", "cannabis", "sedative"];
 export const valueOf = (def: string) => TOYS[def]?.value ?? 0;

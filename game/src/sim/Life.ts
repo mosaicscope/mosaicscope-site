@@ -1,4 +1,5 @@
 import {hitAccessories} from '../content/accessories';
+import {buildingExit} from '../world/BuildingExit';
 import {applyTrauma} from './Trauma';
 import {woundArt,needsMedicalResponse} from "../content/damageModels";
 import { hasBody } from "./life/body";
@@ -131,12 +132,20 @@ export function updateHealth(sim: Simulation, c: Character, dt: number): void {
 
 /** Paramedics: patched up at the hospital, then sent home. */
 export function hospitalise(sim: Simulation, c: Character): void {
+  c.substances = undefined;
   const h = sim.world.buildings.find((b) => b.kind === "hospital");
   if(c.inCar>=0){const v=sim.vehicles[c.inCar];if(v){v.driver=-1;v.state='parked';v.speed=0;v.vx=v.vy=0;}c.inCar=-1;}
   for (const w of c.wounds) {w.bandaged = true;delete w.detached;w.compound=false;}
   recomputeBleed(c);
   c.vx=c.vy=c.kx=c.ky=c.vz=0;c.z=0;c.stunUntil=sim.tick;
   c.blood = 0.8; c.phys = Phys.OK; c.physTimer = 0; c.emo.composure = 0.6;
-  if (h) { c.inside = h.id; c.insideUntil = sim.tick + 60 * 90; c.x = c.px = h.door.x + 0.5; c.y = c.py = h.door.y + 0.5; c.goal = null; }
+  if (h) {
+    const door = buildingExit(sim.world,h);
+    c.x = c.px = door.x; c.y = c.py = door.y; c.goal = null;
+    // Treatment already happened in the ambulance response. Never hide the player's
+    // simulation body for another 90 seconds beneath an otherwise playable street.
+    c.inside = c.tier === 'player' ? -1 : h.id;
+    c.insideUntil = c.tier === 'player' ? 0 : sim.tick + 60 * 90;
+  }
   sim.emit({ type: "hospital", x: c.x, y: c.y, actors: [c.id], summary: `${c.name} was taken to hospital and patched up` });
 }

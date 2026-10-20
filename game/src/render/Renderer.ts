@@ -1,3 +1,4 @@
+import {applySubstanceMotion,drawSubstanceProps} from './SubstanceMotion';
 import {gunGrips} from './GunRig';
 import {detailedCrowd} from './CrowdDetail';
 import {visibleWeaponMotion} from './WeaponMotion';
@@ -340,6 +341,7 @@ export class Renderer {
         }
         applyNegativeReaction(a,c,time,spd,name,o.reduceMotion);
         if (moving && (name === "walk" || name === "run" || name === "panic")) this.foreshorten(a, c);
+        applySubstanceMotion(a,c,sim.tick,time,o.reduceMotion);
         const held = c.hand >= 0 ? sim.toys[c.hand] : undefined;
         const gun = held && TOYS[held.def]?.weapon?.gun && !a.lying;
         if(gun){
@@ -352,7 +354,8 @@ export class Renderer {
         }
         solve(a, it.sx, it.sy - zOff, k, dir);
         // held toy behind or in front depending on hand
-        drawFigure(g, c, it.sx, it.sy - zOff, k, dir, time, c.anim.flash, 1, undefined, !!gun);
+        drawFigure(g, c, it.sx, it.sy - zOff, k, dir, time, c.anim.flash, 1, undefined, !!gun || (c.substances?.actionUntil??0)>sim.tick);
+        drawSubstanceProps(g,c,sim.tick,time,J,k);
         if(workingCrews.has(c.id)){g.fillStyle='#d4a04e';g.strokeStyle='#555d4b';g.lineWidth=k;g.beginPath();g.moveTo(J[6]-5*k,J[7]+3*k);g.lineTo(J[6]+5*k,J[7]+3*k);g.lineTo(J[0]+5*k,J[1]);g.lineTo(J[0]-5*k,J[1]);g.closePath();g.fill();g.stroke();g.strokeStyle='#e4ddbb';g.lineWidth=2*k;g.beginPath();g.moveTo(J[6]-4*k,J[7]+12*k);g.lineTo(J[6]+4*k,J[7]+12*k);g.stroke();}
         if (c.bleed > 0 && Math.random() < c.bleed * dt * 5) this.drip(c.x, c.y);
         // someone down and bleeding leaves a spreading pool

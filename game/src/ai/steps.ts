@@ -59,6 +59,8 @@ export function runStep(c: Character, s: Step, g: ActiveGoal, sim: Simulation, d
     const p = sim.world.nearestFoot(s.x, s.y); s.x = p.x; s.y = p.y;
   }
   switch (s.kind) {
+    case "street_say": stop(c); if(g.stepTimer<=dt+.0001)sim.say(c,s.text??"Let's talk.","say",3);return g.stepTimer<3?RUN:DONE;
+    case "substance": {stop(c);const item=sim.toys[s.toy??-1];if(g.stepTimer<=dt+.0001&&item)consume(sim,c,item);return g.stepTimer<3?RUN:DONE;}
     case "goto":
     case "wander": {
       c.anim.pose = "auto";

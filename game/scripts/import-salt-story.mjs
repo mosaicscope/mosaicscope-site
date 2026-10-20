@@ -16,4 +16,7 @@ const chapters = fs.readdirSync(root).filter(f => /^mosaicscope-story-part-.*\.m
 });
 if (chapters.length !== 11 || chapters.reduce((n, c) => n + c.scenes.length, 0) !== 62) throw Error('Story import incomplete');
 fs.writeFileSync(path.join(root, 'chapters.json'), JSON.stringify(chapters, null, 2) + '\n');
+let beat = 0;
+const milestones = chapters.map(c => { const entry = { start: beat, title: c.title.split(': ').slice(1).join(': ') }; beat += c.scenes.reduce((n,s)=>n+s.beats.length,0); return entry; });
+fs.writeFileSync(path.join(root, 'milestones.ts'), '// Small story index for world events; full dialogue remains lazy-loaded.\nexport const SALT_MILESTONES = '+JSON.stringify(milestones,null,2)+' as const;\n');
 console.log(`Imported ${chapters.length} chapters / 62 scenes / ${chapters.reduce((n,c)=>n+c.scenes.reduce((n,s)=>n+s.beats.length,0),0)} beats`);

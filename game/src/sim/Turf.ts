@@ -1,3 +1,4 @@
+import { impairment } from './Substances';
 import type { Simulation } from "./Simulation";
 import { Character, Phys, Toy } from "../entities/types";
 import { TOYS, isGun, isBullet } from "../content/toys";
@@ -152,7 +153,7 @@ export function nearestFoe(sim: Simulation, c: Character, r: number): Character 
 export function fireGun(sim: Simulation, c: Character, tx: number, ty: number, targetId: number): boolean {
   const def = heldDef(sim, c);
   const ws = def ? TOYS[def].weapon : undefined;
-  if (!def || !ws?.gun || c.phys!==Phys.OK || c.wounds.some(w=>w.part==='arm'&&w.detached)||!Number.isFinite(tx+ty)) return false;
+  if (!def || !ws?.gun || (c.substances?.actionUntil??0)>sim.tick || c.phys!==Phys.OK || c.wounds.some(w=>w.part==='arm'&&w.detached)||!Number.isFinite(tx+ty)) return false;
   if ((sim.nextAttack.get(c.id) ?? 0) > sim.tick) return false;
   if(c.combat?.reloadWeapon===def&&(c.combat.reloadUntil??0)>sim.tick||c.weaponAction?.weapon===def&&(c.weaponAction.reloadUntil??0)>sim.tick)return false;
   if(c.combat){const base=def==='golden_pistol'?'pistol':def,key=(c.combat.load??'standard')==='standard'?base:base+':'+c.combat.load,rounds=c.combat.ammo[key]??0;if(rounds<=0)return false;c.combat.ammo[key]=rounds-1;}
@@ -171,7 +172,7 @@ export function fireGun(sim: Simulation, c: Character, tx: number, ty: number, t
   const steady = c.tier === "player" ? 1.1 : (0.7 + c.emo.confidence * 0.3) * (c.emo.fear > 0.5 ? 0.8 : 1);
   const recoil=c.combat?Math.max(0,(c.combat.recoil??0)-(sim.tick-(c.combat.recoilTick??0))/60*.9):0;
   const moving=Math.min(1,Math.hypot(c.vx,c.vy)/2),hurt=c.wounds.filter(w=>w.part==='arm').reduce((sum,w)=>sum+w.severity,0);
-  const acc = clamp(ws.accuracy * steady - moving*.16 - hurt*.045 - recoil*.18, 0.05, 0.97);
+  const acc = clamp(ws.accuracy * steady - moving*.16 - impairment(c)*.25 - hurt*.045 - recoil*.18, 0.05, 0.97);
   if(c.combat){c.combat.recoil=Math.min(1.5,recoil+(def==='shotgun'?.55:def==='rifle'?.35:.2));c.combat.recoilTick=sim.tick;}
   const kick=(def==='shotgun'?.18:.06)*(c.combat?.load==='heavy'?1.3:1);
   c.kx-=Math.cos(base)*kick;c.ky-=Math.sin(base)*kick;
@@ -294,25 +295,25 @@ function borderPoint(sim: Simulation, rng: Rng): { x: number; y: number; name: s
 }
 
 /** Start a skirmish between the Famiglia and the Riccarton Boys. `force` skips the time and cooldown checks. */
-export function startTurfWar(sim: Simulation, force = false): boolean {
+export function startTurfWar(sim: Simulation, force = false, sides: [string,string] = ["famiglia","riccarton"], location?: {x:number;y:number;name:string}): boolean {
   ensureGangs(sim);
   const st = state(sim);
   if (st.active) return false;
   if (!force && (sim.tick < st.nextAt || !hourIn(sim.hour, 19, 3))) return false;
-  const spot = borderPoint(sim, st.rng);
+  const spot = location ?? borderPoint(sim, st.rng);
   if (!spot) return false;
   const pickSide = (crew: string) => sim.chars
     .filter((c) => c.crew === crew && c.nickname !== "The Don" && free(c))
     .map((c) => ({ c, d: Math.hypot(c.x - spot.x, c.y - spot.y) + (c.inside >= 0 ? 15 : 0) }))
     .sort((a, b) => a.d - b.d).slice(0, 3).map((x) => x.c);
-  const fam = pickSide("famiglia"), ric = pickSide("riccarton");
+  const fam = pickSide(sides[0]), ric = pickSide(sides[1]);
   if (fam.length < 2 || ric.length < 2) return false;
   const sk: Skirmish = { x: spot.x, y: spot.y, members: [], guns: [], until: sim.tick + 60 * 150, area: spot.name };
   const armoury: Record<string, string[]> = { famiglia: ["revolver", "pistol", "shotgun"], riccarton: ["smg", "pistol", "shotgun"] };
   [fam, ric].forEach((side, s) => side.forEach((c, i) => {
     if (c.inside >= 0) exitBuilding(sim, c);
     if (c.talkWith >= 0) sim.endConversation(c);
-    let def = armoury[c.crew][i % 3];
+    let def = (armoury[c.crew]??["pistol","shotgun","smg"])[i % 3];
     if (c.crew === "famiglia" && c.nickname === "" && st.rng.chance(0.15)) def = "golden_pistol"; // someone always brings the flashy one
     const gun = issue(sim, c, def, false);
     if (gun) sk.guns.push(gun.id);
@@ -325,8 +326,8 @@ export function startTurfWar(sim: Simulation, force = false): boolean {
   }));
   st.active = sk;
   st.nextAt = sim.tick + Math.round(st.rng.range(10, 16) * TICKS_PER_HOUR);
-  sim.emit({ type: "turf_war", x: spot.x, y: spot.y, actors: [fam[0].id, ric[0].id], summary: `Turf war! The Famiglia and the Riccarton Boys are squaring off in ${spot.name}` });
-  sim.toast(`Turf war brewing in ${spot.name}: the Famiglia vs the Riccarton Boys. Keep your head down.`, "red");
+  sim.emit({ type: "turf_war", x: spot.x, y: spot.y, actors: [fam[0].id, ric[0].id], summary: `Turf war! ${CREWS[sides[0]]?.name??sides[0]} and ${CREWS[sides[1]]?.name??sides[1]} are squaring off in ${spot.name}` });
+  sim.toast(`Turf war brewing in ${spot.name}: ${CREWS[sides[0]]?.name??sides[0]} vs ${CREWS[sides[1]]?.name??sides[1]}. Keep your head down.`, "red");
   return true;
 }
 
@@ -344,7 +345,7 @@ export function updateTurf(sim: Simulation): void {
   if (sim.tick % TICKS_PER_HOUR === 0 && sim.tick >= st.nextAt && hourIn(sim.hour, 19, 3) && st.rng.chance(0.3)) startTurfWar(sim);
 }
 
-function endTurfWar(sim: Simulation): void {
+export function endTurfWar(sim: Simulation): void {
   const st = state(sim), sk = st.active;
   if (!sk) return;
   st.active = null;
@@ -357,7 +358,7 @@ function endTurfWar(sim: Simulation): void {
     if (h) { if (h.hand === id) h.hand = h.bag.length ? h.bag.shift()! : -1; else { const i = h.bag.indexOf(id); if (i >= 0) h.bag.splice(i, 1); } }
     t.state = "broken"; t.brokenAt = sim.tick; t.holder = -1; t.x = -100; t.y = -100;
   }
-  for (const id of sk.members) { const c = sim.chars[id]; if (c) { c.bagMax = c.tier === "principal" ? 3 : 1; if (c.bag.length > c.bagMax) c.bagMax = c.bag.length; } }
+  for (const id of sk.members) { const c = sim.chars[id]; if (c) { if(c.goal?.id==='turf'){c.goal=null;c.path=null;c.vx=c.vy=0;c.mode='idle';} c.bagMax = c.tier === "principal" ? 3 : 1; if (c.bag.length > c.bagMax) c.bagMax = c.bag.length; } }
   sim.emit({ type: "turf_war_end", x: sk.x, y: sk.y, summary: `The shooting in ${sk.area} has stopped. Sirens everywhere.` });
 }
 
@@ -373,6 +374,7 @@ export function registerTurfEvents(sim: Simulation): void {
     if (!sim.events.defs.has(type)) sim.events.register({ type, label, priority, severity, radius, cooldown, propagation, topic: "crime", key });
   };
   reg("gunshot", "Gunshots", 8, 4, 14, 90, "sound", (e) => `gunshot:${Math.round(e.x / 6)}:${Math.round(e.y / 6)}`);
+  reg("substance_use", "Substance use", 3, 2, 9, 120, "sight");
   reg("turf_war", "Turf war", 9, 4, 18, 600, "sound", () => "turf_war");
   reg("turf_war_end", "Turf war over", 5, 2, 18, 600, "sound", () => "turf_war_end");
 }

@@ -1,3 +1,5 @@
+import {restoreSubstances} from '../sim/Substances';
+import {newStreetLife} from '../sim/StreetLife';
 import { restoreSaltProgress, type SaltProgress } from '../content/salt-story/progress';
 import {rememberContinue} from './ContinueCookie';
 import { newLife, type LifeState } from "../sim/Chronicles";
@@ -37,6 +39,7 @@ export const packRel = (id: number, r: Rel): RelTuple => [id, r.fam, r.trust, r.
 export const unpackRel = (a: RelTuple): [number, Rel] => [a[0], { fam: a[1], trust: a[2], aff: a[3], respect: a[4], fear: a[5], rivalry: a[6], grudge: a[7], shared: a[8], favours: a[9], last: a[10] }];
 export interface SaveData {
   saltStory?: SaltProgress;
+  streetLife?: import("../sim/StreetLife").StreetLifeState;
   expansion?: ExpansionState;
   life?: LifeState;
   version: number;
@@ -87,6 +90,7 @@ export const MIGRATIONS: Record<number, (d: any) => any> = {
 export function serialize(sim: Simulation, label = "Save"): SaveData {
   return {
     saltStory: { ...sim.saltStory },
+    streetLife: structuredClone(sim.streetLife),
     life: structuredClone(sim.life),
     expansion: structuredClone(sim.expansion),
     version: SAVE_VERSION, savedAt: new Date().toISOString(), label,
@@ -133,6 +137,9 @@ export function parseSave(json: string): SaveData {
 export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemFlags()): Simulation {
   const sim = new Simulation(d.cfg, {}, lifeFlags);
   sim.saltStory = restoreSaltProgress(d.saltStory);
+  const street=d.streetLife;
+  sim.streetLife=street&&Number.isSafeInteger(street.serial)&&Number.isFinite(street.nextAt)&&Array.isArray(street.history)?structuredClone(street):newStreetLife();
+  sim.streetLife.history=sim.streetLife.history.filter(e=>Number.isFinite(e.x+e.y)&&Array.isArray(e.actors)&&typeof e.line==='string'&&typeof e.title==='string').slice(-24);
   sim.expansion = { ...newExpansion(), ...structuredClone(d.expansion ?? {}) };
   sim.expansion.casino = { ...newCasino(), ...sim.expansion.casino };
   sim.life = { ...newLife(), ...structuredClone(d.life ?? {}) };
@@ -148,6 +155,7 @@ export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemF
     const base = makeCharacter(sc.id, sc.name, sc.tier, sc.x, sc.y, sc.look, sc.pers, sim.rng);
     const { rel, memories, ...rest } = sc;
     const c: Character = Object.assign(base, rest, { rel: new Map(rel.map(unpackRel)), memories: memories.map(unpackMem), path: null, goal: null, bubble: null, goalCooldowns: {}, nextThink: d.tick + (sc.id % 20) });
+    c.substances=restoreSubstances(c.substances,d.tick);
     ensureMind(c);
     return c;
   });

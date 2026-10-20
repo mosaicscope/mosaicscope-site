@@ -1,3 +1,4 @@
+import {ensureStreetCrews,updateStreetLife} from './StreetLife';
 import type { Simulation } from "./Simulation";
 import { Character, MemoryKind, Phys, Toy } from "../entities/types";
 import { TOYS } from "../content/toys";
@@ -22,6 +23,7 @@ export function installRules(sim: Simulation): void {
   const name = (id: number) => sim.chars[id]?.name ?? "someone";
   const fx = sim.bus;
   registerTurfEvents(sim);
+  sim.events.register({type:"street_incident",label:"Street life",priority:4,severity:2,radius:14,cooldown:30,propagation:"sound"});
   registerRepEvents(sim);
 
   sim.hooks = {
@@ -325,9 +327,11 @@ export function installRules(sim: Simulation): void {
     if (tick % 600 === 0 && sim.isDark && sim.env.weather === "clear" && sim.rng.chance(0.04)) sim.emit({ type: "rare_meteor", x: sim.world.size / 2, y: sim.world.size / 2, summary: "A shooting star crossed the sky" });
     if (tick % 1200 === 0) competitionCheck();
     updateTurf(sim);
+    updateStreetLife(sim);
     updateRep(sim);
   };
   ensureGangs(sim);
+  ensureStreetCrews(sim);
 
   const knownFriends = new Set<string>();
   let primed = false; // first pass (new world or loaded save) records existing friendships silently
