@@ -85,7 +85,14 @@ try {
   await page.getByRole('button', { name: 'Street encounters', exact: true }).click();
   if (!await page.locator('.modal').innerText().then(t => t.includes('Street discoveries'))) throw Error('Existing street encounters missing');
   await page.keyboard.press('Escape'); await page.setViewportSize({ width: 1366, height: 1000 });
-  await page.evaluate(() => { const g = window.__mosaics; g.modal.close(); g.dialogue.start(g.sim.chars.find(c => c.name === 'Tiles').id); });
+  await page.evaluate(() => {
+    const g = window.__mosaics, p = g.sim.player, c = g.sim.chars.find(c => c.name === 'Tiles');
+    // The earlier live shot can legitimately frighten witnesses. Stage a calm conversation.
+    g.setSpeed(0); g.modal.close(); g.dialogue.close();
+    c.mode = 'idle'; c.goal = null; c.phys = 0; c.talkWith = -1; c.emo.fear = 0;
+    c.x = c.px = p.x + .8; c.y = c.py = p.y; c.vx = c.vy = 0;
+    g.dialogue.start(c.id);
+  });
   await page.getByRole('button', { name: 'SALT stories · 11 authored chapters', exact: true }).waitFor();
   if (await page.locator('.dialogue .opts button').count() > 6) throw Error('Story displaced the dialogue choice budget');
   await page.getByRole('button', { name: 'SALT stories · 11 authored chapters', exact: true }).click(); await story.waitFor();
