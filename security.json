@@ -1,10 +1,10 @@
 {
- "at": 1792500559981,
+ "at": 1792509725978,
  "counts": {
   "critical": 0,
   "high": 0,
   "medium": 0,
-  "low": 73
+  "low": 74
  },
  "findings": [
   {
