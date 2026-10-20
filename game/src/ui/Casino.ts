@@ -173,6 +173,7 @@ function wheelLayers(): { bowl: HTMLCanvasElement; rotor: HTMLCanvasElement } {
 type RMode = "straight" | "split" | "street" | "corner" | "line";
 
 export class Casino {
+  beforeOpen: () => boolean = () => true;
   el: HTMLElement;
   chips = 0;
   private bought = 0; private cashedOut = 0;
@@ -206,7 +207,7 @@ export class Casino {
     this.el = h("div.casino.hidden", { role: "dialog", "aria-modal": "true", "aria-label": "The Tessera Casino" }, []);
   }
 
-  show(): void { this.bjHint = this.w.strategy?.() ?? this.bjHint; this.open = true; this.tab = "floor"; this.el.classList.remove("hidden"); this.render(); }
+  show(): void { if (!this.beforeOpen()) return; this.bjHint = this.w.strategy?.() ?? this.bjHint; this.open = true; this.tab = "floor"; this.el.classList.remove("hidden"); this.render(); }
   close(): void {
     if (this.bj.phase === "player" || this.bj.phase === "insurance") { this.msg = "Finish the hand first."; this.render(); return; }
     if (this.vp.phase === "draw") { this.msg = "Draw your replacement cards before leaving."; this.render(); return; }

@@ -1,4 +1,4 @@
-import { worldToScreen, screenToWorld, Pt } from "../world/iso";
+import { worldToScreen, screenToWorld, Pt, Z_PX } from "../world/iso";
 import { clamp } from "../core/math";
 
 /** World-space camera: looks at (x, y) on the ground plane with a zoom; smooth follow and bounds. */
@@ -42,6 +42,11 @@ export class Camera {
   toWorld(sx: number, sy: number, out: Pt = { x: 0, y: 0 }): Pt {
     worldToScreen(this.x, this.y, 0, this.c);
     return screenToWorld((sx - this.viewW / 2) / this.zoom + this.c.x, (sy - this.viewH / 2) / this.zoom + this.c.y, out);
+  }
+
+  /** Inverse projection at a known height: aiming at a torso must not resolve behind its feet. */
+  toWorldAtHeight(sx: number, sy: number, height: number): Pt {
+    return this.toWorld(sx, sy + height * Z_PX * this.zoom);
   }
 
   /** Pan by a screen-space delta (drag). */

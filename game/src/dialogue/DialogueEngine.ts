@@ -1,3 +1,4 @@
+import { isSaltCast } from '../content/salt-story/cast';
 import { livedLines } from "../ai/llm/context";
 import { buzz, buzzOpener, buzzFeel, BUZZ_REPLIES } from "../content/buzz";
 import type { Simulation } from "../sim/Simulation";
@@ -354,6 +355,10 @@ export class DialogueEngine {
     cand.sort((a, b) => b.score - a.score);
     // never more than five things to say, plus a way out
     const o = cand.slice(0, 5).map(({ id, label }) => ({ id, label }));
+    if (isSaltCast(npc.name)) {
+      if (o.length === 5) o.pop();
+      o.push({ id: "salt-story", label: "SALT stories · 11 authored chapters" });
+    }
     o.push({ id: "bye", label: st.turn >= 3 ? vary("Anyway, I'll let you go.", "Good talk. Later.", "Catch you round.") : vary("Later.", "See ya.", "Gotta run.") });
     return o;
   }

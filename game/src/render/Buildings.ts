@@ -60,7 +60,7 @@ export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Build
   const anchor: TexAnchor = { x: sx - (tx - ty) * hw, y: sy - (tx + ty) * hh, zoom: z };
 
   // nearer buildings hide the glow of the ones behind: this tile's silhouette wipes the glow layer before its own windows go on
-  if (night && z >= 0.8 && dark > 0.27) {
+  if (night && dark > 0.27) {
     const T = H + (st === "house" ? 1.3 : 0.3), hull = [P(tx, ty + 1, 0), P(tx + 1, ty + 1, 0), P(tx + 1, ty, 0), P(tx + 1, ty, T), P(tx, ty, T), P(tx, ty + 1, T)];
     GLOW.push((c) => { c.globalCompositeOperation = "destination-out"; c.globalAlpha = 1; c.fillStyle = "#000"; poly(c, hull); c.fill(); c.globalCompositeOperation = "source-over"; });
   }

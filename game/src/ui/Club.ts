@@ -200,6 +200,7 @@ const POSES: number[][] = [
 ];
 
 export class Club {
+  beforeOpen: () => boolean = () => true;
   el: HTMLElement;
   open = false;
   private venue: Venue = "strip";
@@ -267,6 +268,7 @@ export class Club {
   }
 
   show(venue: Venue): void {
+    if (!this.beforeOpen()) return;
     this.venue = venue; this.open = true; this.reduce = reducedMotion();
     this.el.setAttribute("aria-label", venue === "strip" ? "The Pink Pukeko" : "The Velvet Rooms");
     this.cv.setAttribute("aria-label", venue === "strip" ? "Inside the Pink Pukeko: neon stage, pole, DJ booth, VIP booth, bar and bouncer. Hold on the stage to spray cash if your money gun is loaded." : "The Velvet Rooms corridor: plush doors, chandeliers and a doorman. Choose a door below.");

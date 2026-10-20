@@ -14,6 +14,7 @@ const CHAT_TIMEOUT_MS = 15000;
 export class DialogueUI {
   el: HTMLElement;
   npc = -1;
+  onStory: (npcId: number) => void = () => {};
   onTrade: (npcId: number) => void = () => {};
   /** the typed back-and-forth with the current person (both sides), for the model and the on-screen log */
   private log: { who: "you" | "them"; text: string }[] = [];
@@ -44,6 +45,7 @@ export class DialogueUI {
   }
 
   choose(optId: string): void {
+    if (optId === "salt-story") { const id = this.npc; this.close(); this.onStory(id); return; }
     const sim = this.sim(), c = sim.chars[this.npc];
     if (!c) { this.close(); return; }
     this.render(this.npc, sim.dialogue.playerChoose(c, optId));

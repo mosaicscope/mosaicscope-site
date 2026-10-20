@@ -100,6 +100,7 @@ export class Simulation {
   playerId = 0;
   charHash!: SpatialHash;
   expansion = newExpansion();
+  saltStory = { position: 0, furthest: 0 };
   life = newLife();
   private exploredFrom: { x: number; y: number } | null = null;
   tick = 0;

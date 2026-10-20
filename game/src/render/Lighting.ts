@@ -82,7 +82,8 @@ export class Lighting {
         };
         if (sim.env.power) for (const p of sim.world.pois) if (p.kind === "lamp" && p.on) hole(p.x + 0.3, p.y - 0.3, 1.5, 190, 0.95);
         if(sim.env.power)for(const b of sim.world.buildings)hole(b.door.x,b.door.y,0,90,.48);
-        for(const v of sim.vehicles)if(v.state!=="parked"||v.driver>=0){hole(v.x,v.y,0,50,.18);hole(v.x+Math.cos(v.heading)*3,v.y+Math.sin(v.heading)*3,0,85,.35);}
+        // Vehicle pools and beams live in the depth-sorted glow pass. Cutting broad holes
+        // here would brighten foreground facades even when the vehicle is fully occluded.
         if (sim.env.party) hole(sim.stagePoint.x, sim.stagePoint.y, 0, 300, 0.7);
         const pl = sim.player;
         hole(pl.x, pl.y, 1, 110, 0.55);

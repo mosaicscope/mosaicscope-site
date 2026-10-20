@@ -5,24 +5,34 @@ import { DEFAULT_KEYS } from "../persistence/Settings";
 /** Generic modal host with focus handling and Escape to close. */
 export class ModalHost {
   el: HTMLElement;
+  beforeOpen: () => boolean | void = () => {};
   private prevFocus: Element | null = null;
   constructor() { this.el = h("div.modal-wrap.hidden", { onclick: (e: MouseEvent) => { if (e.target === this.el) this.close(); } }); }
   get open(): boolean { return !this.el.classList.contains("hidden"); }
   show(title: string, body: (HTMLElement | null)[], cls = ""): void {
-    this.prevFocus = document.activeElement;
+    if (this.beforeOpen() === false) return;
+    if (!this.open) this.prevFocus = document.activeElement;
     const box = h("section.panel.modal" + (cls ? "." + cls : ""), { role: "dialog", "aria-modal": "true", "aria-label": title }, [
       h("header.modal-header",null,[h("h2", { text: title }),h("button.x", { "aria-label": "Close", onclick: () => this.close(), text: "×" })]),
       h("div.modal-body",null,body.filter(Boolean) as HTMLElement[]),
     ]);
     this.el.replaceChildren(box);
     this.el.classList.remove("hidden");
+    this.el.closest('#ui')?.classList.add('modal-open');
+    box.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const controls = [...box.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href]')].filter(el => el.getClientRects().length);
+      const first = controls[0], last = controls[controls.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+    });
     (box.querySelector("button:not(.x), input, select") as HTMLElement | null)?.focus();
   }
-  close(): void { this.el.classList.add("hidden"); this.el.classList.remove("touch-tut"); this.el.replaceChildren(); (this.prevFocus as HTMLElement | null)?.focus?.(); }
+  close(): void { this.el.classList.add("hidden"); this.el.classList.remove("touch-tut"); this.el.closest('#ui')?.classList.remove('modal-open'); this.el.replaceChildren(); if (this.prevFocus?.isConnected) (this.prevFocus as HTMLElement).focus?.(); this.prevFocus = null; }
 }
 
 export const KEY_HELP: [string, string][] = [
-  ["WASD / arrows", "walk (or click the ground)"], ["Click a person", "inspect them"], ["T", "talk to the selected or nearest person"],
+  ["WASD / arrows", "walk (or click the ground)"], ["Click a person", "inspect them; with a gun equipped, tap to aim instead"], ["T", "talk to the selected or nearest person"],
   ["E", "pick up / enter a shop or car / get out"], ["R", "rob the nearest person (crime!)"], ["B", "bandage yourself or someone bleeding"], ["H", "horn (while driving)"], ["F / right-click", "fire your equipped gun / throw a held toy; hold for automatic fire"], ["Space", "unarmed attack / strike with a melee weapon / fire a held gun"],
   ["Q", "drop what you're holding"], ["Wheel / + and −", "zoom the game camera"], ["Drag", "pan the camera (C re-centres on you)"], ["P", "pause"], ["1–4", "pick a reply in conversations"],
   ["O", "photo mode: filters, frames, polaroids"], ["L", "event log"], ["I", "inspect yourself"], ["`", "developer panel"], ["Esc", "close panels"],

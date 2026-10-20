@@ -383,6 +383,11 @@ export class Renderer {
         } else drawTallTile(g, t, it.sx, it.sy, z, time, (it.ref * 0.618) % 1);
       } else if (it.kind === 4) {
         flush();
+        // Share painter order with the car. Nearer building silhouettes erase these lights too.
+        if (1 - sim.daylight > 0.3) {
+          const vehicle = sim.vehicles[it.ref], strength = Math.min(1 - sim.daylight, sim.env.power ? 0.65 : 0.35);
+          GLOW.push(layer => headlights(layer, cam, vehicle, strength, sim.world, sim.vehicles));
+        }
         drawCar(g, cam, sim.vehicles[it.ref], alpha, time, 1 - sim.daylight, it.ref === this.selectedCar);
       } else if (it.kind === 5) {
         flush();
@@ -427,12 +432,6 @@ export class Renderer {
       if (a) this.zoo.draw(g, cam, a, this.zooAnimals, time, dt);
     }
     this.drawHeli(g, sim, time, z);
-    const darkness = 1 - sim.daylight;
-    if (darkness > 0.3) {
-      g.globalCompositeOperation = "lighter";
-      for (const v of sim.vehicles) { cam.toScreen(v.x, v.y, 0, this.pt); if (inView(this.pt.x, this.pt.y, 60)) headlights(g, cam, v, Math.min(darkness, sim.env.power ? 0.65 : 0.35),sim.world,sim.vehicles); }
-      g.globalCompositeOperation = "source-over";
-    }
     this.rain.draw(g, sim.env.rain, cam.viewW, cam.viewH, dt, o.quality === 0 ? 60 : o.quality === 1 ? 160 : 260, o.reduceMotion);
 
     drawUpgradeEffects(g, sim, cam, time, o.reduceMotion, o.quality);

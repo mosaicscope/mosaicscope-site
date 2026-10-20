@@ -135,6 +135,10 @@ export class Game {
   private gestured = false;
   private pinchDist = 0;
 
+  private aimPoint: { x: number; y: number; id: number } | null = null;
+  private crosshair = h('div.world-crosshair.hidden', { 'aria-hidden': 'true' });
+  private aimTools = h('div.aim-tools.hidden');
+  private returnButton = h('button.btn.return-player.hidden', { text: 'Return to player · C', onclick: () => this.returnToPlayer() });
   private rootEl: HTMLElement;
   constructor(private canvas: HTMLCanvasElement, root: HTMLElement) {
     canvas.tabIndex=0;
@@ -222,6 +226,16 @@ export class Game {
     const firstGesture = () => { if (this.gestured) return; this.gestured = true; if (this.settings.sound) this.audio.setEnabled(true); }; // the radio only plays when you press ▶
     window.addEventListener("pointerdown", firstGesture, { once: false, capture: true });
     window.addEventListener("keydown", firstGesture, { capture: true });
+    this.modal.beforeOpen = () => this.preparePanel('modal');
+    this.dev.beforeOpen = () => this.preparePanel('dev');
+    this.casino.beforeOpen = () => this.preparePanel('casino');
+    this.club.beforeOpen = () => this.preparePanel('club');
+    this.luxury.beforeOpen = () => this.preparePanel('luxury');
+    this.dialogue.onStory = id => { void this.openSaltStory(id); };
+    this.aimTools.append(h('span', { text: 'Tap / click to aim' }), h('button.btn', { text: 'Fire · F / Space', onpointerdown: (e: PointerEvent) => { e.preventDefault(); this.touchFire = true; this.act('throw'); }, onclick: (e: MouseEvent) => { if (e.detail === 0) this.act('throw'); } }), h('button.btn', { text: 'Clear aim', onclick: () => { this.aimPoint = null; } }));
+    window.addEventListener('pointerup', () => { this.touchFire = false; });
+    window.addEventListener('pointercancel', () => { this.touchFire = false; });
+    root.append(this.crosshair, this.aimTools, this.returnButton);
     this.applySettings();
     this.connectLlm();
     this.bindInput();
@@ -323,7 +337,11 @@ export class Game {
     const dt = Math.min(0.1, (now - this.last) / 1000);
     this.last = now;
     this.pollGamepad();
-    if(!this.modal.open&&!this.casino.open&&(this.keys.has(this.settings.keys.throw)||this.keys.has(this.settings.keys.swing)||this.mouse.down&&this.mouse.button===2||this.touchFire)){const p=this.sim.player;if(p.hand>=0&&TOYS[this.sim.toys[p.hand].def]?.weapon?.mode==='auto')this.act('throw');}
+    const movementKeys = this.settings.keys;
+    if (!this.modal.open && !this.dev.visible && [movementKeys.up, movementKeys.down, movementKeys.left, movementKeys.right, "arrowup", "arrowdown", "arrowleft", "arrowright"].some(k => this.keys.has(k))) {
+      this.returnToPlayer(false); if (this.clock.paused) this.setSpeed(1);
+    }
+    if(!this.modal.open&&!this.casino.open&&!this.dev.visible&&(this.keys.has(this.settings.keys.throw)||this.keys.has(this.settings.keys.swing)||this.mouse.down&&this.mouse.button===2||this.touchFire)){const p=this.sim.player;if(p.hand>=0&&TOYS[this.sim.toys[p.hand].def]?.weapon?.mode==='auto')this.act('throw');}
     const steps = this.clock.advance(dt);
     for (let i = 0; i < steps; i++) this.guard("sim", () => { this.controlPlayer(); this.sim.step(); });
     this.ticksThisSecond += steps; this.tickWindow += dt;
@@ -333,6 +351,7 @@ export class Game {
     this.canvas.style.cursor = ad || this.hovered >= 0 ? "pointer" : "";
     this.canvas.title = ad ? `${ad.label} (opens in a new tab)` : "";
     if (!this.interior.open) this.guard("render", () => this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames,quietInterface:this.dialogue.open||this.modal.open||this.casino.open||this.dev.visible }));
+    this.updateAimUI();
     this.guard("audio", () => {
       const f = this.interior.footing;
       this.audio.scene = { interior: this.interior.building?.kind ?? null, moving: f.moving, running: f.running, in2D: this.renderer.street2D };
@@ -431,7 +450,7 @@ export class Game {
   // ------------------------------------------------------------------ player
   private controlPlayer(): void {
     const sim = this.sim, p = sim.player, k = this.settings.keys;
-    if (this.interior.open || this.modal.open || this.casino.open || this.club.open || this.luxury.open) { p.vx = p.vy = 0; playerInput.throttle = 0; playerInput.steer = 0; playerInput.brake = true; return; } // you're indoors; the street body waits at the door
+    if (this.interior.open || this.modal.open || this.dev.visible || this.casino.open || this.club.open || this.luxury.open) { p.vx = p.vy = 0; playerInput.throttle = 0; playerInput.steer = 0; playerInput.brake = true; return; } // you're indoors; the street body waits at the door
     if (p.inCar >= 0) {
       const up = this.keys.has(k.up) || this.keys.has("arrowup"), down = this.keys.has(k.down) || this.keys.has("arrowdown");
       const left = this.keys.has(k.left) || this.keys.has("arrowleft"), right = this.keys.has(k.right) || this.keys.has("arrowright");
@@ -661,10 +680,10 @@ export class Game {
       case "drop": if (p.hand >= 0) sim.dropHeld(p); break;
       case "throw": {
         if(p.hand>=0&&TOYS[sim.toys[p.hand].def]?.uses.includes('ranged')){
-          const id=this.selected>=0&&this.selected!==p.id?this.selected:this.hovered>=0&&this.hovered!==p.id?this.hovered:-1,target=id>=0?sim.chars[id]:null;
+          const aim = this.aimPoint ?? this.aimAt(this.mouse.x, this.mouse.y);
+          const id = aim.id;
           if(this.clock.paused)this.setSpeed(1);
-          const aim=this.touchFire&&!target?{x:p.x+Math.cos(p.facing)*8,y:p.y+Math.sin(p.facing)*8}:cursor;
-          const fired=sim.shootAt(p,target?.x??aim.x,target?.y??aim.y,id),def=sim.toys[p.hand].def,base=def==='golden_pistol'?'pistol':def,key=(p.combat?.load??'standard')==='standard'?base:base+':'+p.combat?.load;if(!fired&&p.combat&&(p.combat.ammo[key]??0)<=0&&performance.now()>this.ammoAlertAt){this.ammoAlertAt=performance.now()+2500;this.toast('Out of ammunition · visit the armory');}return;
+          const fired=sim.shootAt(p,aim.x,aim.y,id),def=sim.toys[p.hand].def,base=def==='golden_pistol'?'pistol':def,key=(p.combat?.load??'standard')==='standard'?base:base+':'+p.combat?.load;if(!fired&&p.combat&&(p.combat.ammo[key]??0)<=0&&performance.now()>this.ammoAlertAt){this.ammoAlertAt=performance.now()+2500;this.toast('Out of ammunition · visit the armory');}return;
         }
         if (p.hand < 0 || !canThrow(sim.toys[p.hand].def)) { const t = this.nearestToy(); if (t && TOYS[t.def].uses.includes("heavy")) sim.kickToy(p, t, cursor.x, cursor.y); else this.toast(p.hand < 0 ? "Pick something up first (E)" : "That one doesn't throw. Swing it (Space)"); return; }
         const target = this.hovered >= 0 && this.hovered !== p.id ? this.hovered : -1;
@@ -704,12 +723,82 @@ export class Game {
   select(id: number): void {
     this.selected = id;
     this.inspector.show(id);
-    // clicking someone zooms in on them: the camera follows them and they stand out on top
-    const cam = this.renderer.cam;
-    if (id >= 0 && id !== this.sim.playerId) { cam.follow = id; if(!TouchControls.wanted())cam.setZoom(Math.min(2.4, Math.max(cam.targetZoom, 1.8))); }
+    // Inspection is selection only. Following a person is an explicit Inspector action.
+    if (id === this.sim.playerId || id < 0) this.returnToPlayer(false);
   }
 
   // ------------------------------------------------------------------ input
+  private hasGun(): boolean {
+    const p = this.sim.player;
+    return p.hand >= 0 && !!TOYS[this.sim.toys[p.hand]?.def]?.weapon?.gun;
+  }
+
+  private aimAt(x: number, y: number): { x: number; y: number; id: number } {
+    const id = this.renderer.pickCharacter(x, y), target = id >= 0 && id !== this.sim.playerId ? this.sim.chars[id] : null;
+    const point = target ? { x: target.x, y: target.y } : this.renderer.cam.toWorldAtHeight(x, y, 1.05);
+    return { ...point, id: target?.id ?? -1 };
+  }
+
+  private updateAimUI(): void {
+    const blocked = this.starting || this.modal.open || this.dev.visible || this.casino.open || this.interior.open || this.dialogue.open || this.phone.open || this.club.open || this.luxury.open;
+    const armed = this.hasGun() && !blocked;
+    this.aimTools.classList.toggle('hidden', !armed);
+    this.crosshair.classList.toggle('hidden', !armed || !this.aimPoint);
+    this.returnButton.classList.toggle('hidden', blocked || this.renderer.cam.follow === this.sim.playerId);
+    if (armed && this.aimPoint) {
+      const pt = this.renderer.cam.toScreen(this.aimPoint.x, this.aimPoint.y, 1.05, { x: 0, y: 0 });
+      this.crosshair.style.transform = `translate(${pt.x}px,${pt.y}px)`;
+    }
+  }
+
+  private returnToPlayer(snap = true): void {
+    this.replay.stop();
+    this.renderer.cam.follow = this.sim.playerId;
+    if (snap) {
+      this.pendingTalk = -1; this.pendingEnter = null; this.moveTarget = null;
+      this.dialogue.close(); this.terrance.close(); this.unfocus();
+      this.phone.open = false; this.phone.el.classList.add('hidden');
+      this.renderer.cam.lookAt(this.sim.player.x, this.sim.player.y, true);
+      this.canvas.focus({ preventScroll: true });
+    } else if (this.focusHeld && [this.settings.keys.up, this.settings.keys.down, this.settings.keys.left, this.settings.keys.right, 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].some(k => this.keys.has(k))) {
+      this.dialogue.close(); this.unfocus();
+    }
+  }
+
+  private preparePanel(owner: 'modal' | 'dev' | 'casino' | 'club' | 'luxury'): boolean {
+    // A paid casino hand must settle before opening a different full-screen panel.
+    if (owner !== 'casino' && this.casino.open) {
+      this.casino.close();
+      if (this.casino.open) { this.toast('Finish the current casino round before opening another panel'); return false; }
+    }
+    if (owner !== 'modal') this.modal.close();
+    if (owner !== 'dev') this.dev.toggle(false);
+    if (owner !== 'club') this.club.close();
+    if (owner !== 'luxury') this.luxury.close();
+    this.closeTransientMenus();
+    return true;
+  }
+
+  private closeTransientMenus(): void {
+    this.replay.stop();
+    this.keys.clear(); this.mouse.down = false; this.touchFire = false;
+    this.dialogue.close(); this.terrance.close(); this.log.toggle(false); this.minimap.toggle(false); this.unfocus();
+    this.phone.open = false; this.phone.el.classList.add('hidden');
+    this.rootEl.querySelector('.bar')?.classList.remove('open');
+    this.rootEl.querySelector('.menu-toggle')?.setAttribute('aria-expanded', 'false');
+  }
+
+  private async openSaltStory(npc = -1): Promise<void> {
+    this.modal.show('SALT story', [h('p', { text: 'Opening your story…' })]);
+    try {
+      const { showSaltStory } = await import('../ui/SaltStory');
+      if (!this.modal.open || this.modal.el.querySelector('h2')?.textContent !== 'SALT story') return;
+      showSaltStory(this.modal, this.sim, npc >= 0 ? () => this.dialogue.start(npc) : undefined, () => this.activities.show('Explore'));
+    } catch {
+      if (this.modal.open && this.modal.el.querySelector('h2')?.textContent === 'SALT story') this.modal.show('SALT story', [h('p', { text: 'The story could not load. Check your connection and open SALT story again.' })]);
+    }
+  }
+
   private bindInput(): void {
     const cv = this.canvas;
     window.addEventListener("keydown", (e) => {
@@ -725,7 +814,7 @@ export class Game {
       if (key === "escape" && this.casino.open) { this.casino.close(); return; }
       if (key === "escape" && this.minimap.bigOpen) { this.minimap.toggle(false); return; }
       if (key === "escape") { if (this.modal.open) this.modal.close(); else if (this.terrance.open) this.terrance.close(); else if (this.dialogue.open) this.dialogue.close(); else { this.select(-1); this.dev.toggle(false); this.log.toggle(false); } return; }
-      if (this.modal.open) return;
+      if (this.modal.open || this.dev.visible && key !== k.dev && key !== '~') return;
       if (this.terrance.open && /^[1-9]$/.test(key)) { if (this.terrance.key(+key)) e.preventDefault(); return; }
       if (this.dialogue.open && /^[1-9]$/.test(key)) { if (this.dialogue.key(+key)) e.preventDefault(); return; }
       if ((tag === "BUTTON" || tag === "INPUT") && (key === " " || key === "enter")) return;
@@ -747,7 +836,7 @@ export class Game {
       else if (key === "m") this.minimap.toggle();
       else if (key === "j" && ![k.up, k.down, k.left, k.right].includes(key)) { this.settings.sfx = !this.settings.sfx; this.applySettings(); this.persistSettings(); this.toast(this.settings.sfx ? "World sounds on (J)" : "World sounds off (J)", ""); }
       else if (key === k.dev || key === "~") this.dev.toggle();
-      else if (key === "c") { this.renderer.cam.follow = this.sim.playerId; }
+      else if (key === "c") this.returnToPlayer();
       else if (key === "o") this.photos.open();
       else if (key === "=" || key === "+") this.renderer.cam.setZoom(this.renderer.cam.targetZoom * 1.2);
       else if (key === "-") this.renderer.cam.setZoom(this.renderer.cam.targetZoom / 1.2);
@@ -761,7 +850,7 @@ export class Game {
       this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (this.touches.size === 2) { const [a, b] = [...this.touches.values()]; this.pinchDist = Math.hypot(a.x - b.x, a.y - b.y); }
       this.mouse = { ...this.mouse, x: e.clientX, y: e.clientY, down: true, dragging: false, sx: e.clientX, sy: e.clientY, button: e.button };
-      if(e.button===2){e.preventDefault();this.act('throw');}
+      if(e.button===2){e.preventDefault();if(this.hasGun())this.aimPoint=this.aimAt(e.clientX,e.clientY);this.act('throw');}
     });
     cv.addEventListener("pointermove", (e) => {
       const prev = this.touches.get(e.pointerId);
@@ -777,6 +866,7 @@ export class Game {
         this.renderer.cam.panBy(e.clientX - this.mouse.x, e.clientY - this.mouse.y);
       }
       this.mouse.x = e.clientX; this.mouse.y = e.clientY;
+      if (this.mouse.down && this.mouse.button === 2 && this.hasGun()) this.aimPoint = this.aimAt(e.clientX, e.clientY);
     });
     const up = (e: PointerEvent) => {
       this.touches.delete(e.pointerId);
@@ -794,6 +884,11 @@ export class Game {
   private click(x: number, y: number, button: number): void {
     const sim = this.sim, p = sim.player;
     if (button === 2) { this.mouse.x = x; this.mouse.y = y; this.act("throw"); return; }
+    if (this.hasGun()) {
+      this.aimPoint = this.aimAt(x, y); this.moveTarget = null; this.pendingTalk = -1; this.pendingEnter = null;
+      p.path = null; p.vx = p.vy = 0; p.facing = Math.atan2(this.aimPoint.y - p.y, this.aimPoint.x - p.x);
+      return;
+    }
     const id = this.renderer.pickCharacter(x, y);
     if (id >= 0) { this.select(id === this.selected && id !== p.id ? -1 : id); if (id !== p.id && this.selected === id && Math.hypot(sim.chars[id].x - p.x, sim.chars[id].y - p.y) < 1.8) this.openTalk(id); return; }
     const ad = this.renderer.pickAd(x, y);
@@ -1272,9 +1367,11 @@ export class Game {
     return h("header.bar", null, [
       h("a.brand", { href: "/", title: "Back to MosaicScope" }, [h("span.brand-gem", { text: "◆" }), h("b", { text: "The Mosaics" }), h("i", { text: "Ōtautahi / After Hours" })]),
       this.clockEl, h("div.spacer"), h("div.seg", { role: "group", "aria-label": "Simulation speed" }, this.speedEls), this.soundBtn,
-      h("button.btn.menu-toggle", { text: "☰ Menu", "aria-label": "Menu", "aria-expanded": "false", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar")!; const open = bar.classList.toggle("open"); (e.currentTarget as HTMLElement).setAttribute("aria-expanded", String(open)); } }),
+      h("button.btn.menu-toggle", { text: "☰ Menu", "aria-label": "Menu", "aria-expanded": "false", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar")!; const open = bar.classList.toggle("open"); if (open) this.dev.toggle(false); (e.currentTarget as HTMLElement).setAttribute("aria-expanded", String(open)); } }),
       h("nav.game-menu", { "aria-label": "More game options", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar"); bar?.classList.remove("open"); bar?.querySelector(".menu-toggle")?.setAttribute("aria-expanded", "false"); } }, [
         ...(["Betting", "Racing", "Farm", "UC"] as const).map(tab => h("button.btn", { text: tab === "Betting" ? "Sports & more games" : tab, onclick: () => this.activities.show(tab) })),
+        h("button.btn", { text: "SALT story", onclick: () => { void this.openSaltStory(); } }),
+        h("button.btn", { text: "Return to player", onclick: () => this.returnToPlayer() }),
         h("button.btn", { text: "Fight / gun controls", onclick: () => this.openCombatControls() }),
         h("button.btn", { text: "Armory & gun store", onclick: () => this.armory.show() }),
         h("button.btn", { text: "Luxury", onclick: () => this.luxury.show() }), h("button.btn", { text: "Heist", onclick: () => this.heist.open() }),
@@ -1513,7 +1610,7 @@ export class Game {
     sim.fakeBlood = this.settings.fakeBlood;
     this.dialogue.close();
     this.replay.stop();
-    this.sim = sim; this.minimap.reset();
+    this.sim = sim; this.aimPoint = null; this.minimap.reset();
     this.renderer.setSim(sim);
     this.audio.attach(sim);
     this.select(-1); this.moveTarget = null; this.pendingTalk = -1;
@@ -1535,10 +1632,10 @@ export class Game {
     const styles=h('div.combat-styles',{'aria-label':'Fighting style'},Object.entries(UNARMED).map(([id,m])=>h('button.btn',{text:m.name+(combat.xp<m.xp?` · ${m.xp} XP`:''),disabled:combat.xp<m.xp,'aria-pressed':combat.style===id,onclick:()=>{combat.style=id as typeof combat.style;this.openCombatControls();}})));
     const row=(title:string,text:string)=>h('article.ax-card',null,[h('h3',{text:title}),h('p',{text})]);
     this.modal.show('Fight / gun controls',[
-      h('p.ax-status',{text:'Select a person to aim. Get close for melee. Close this panel to resume play.'}),
+      h('p.ax-status',{text:'Tap or click to place the crosshair, then fire. Get close for melee. Close this panel to resume play.'}),
       h('div.ax-grid',null,[
         row('Fighting',`${key(k.swing)} attacks with your selected style or held melee weapon. On mobile, tap the named attack button (Jab, Slap, Shove or Strike). Empty your hands to use unarmed moves.`),
-        row('Guns',`${key(k.throw)} or right-click fires your equipped gun. Space also fires a held gun. Hold it for automatic fire with an SMG; tap for semi-auto guns. On mobile, tap Fire; hold Fire with an SMG. Select a person to aim at them, or aim the mouse at a position on desktop.`),
+        row('Guns',`${key(k.throw)} or right-click fires your equipped gun. Space also fires a held gun. Hold it for automatic fire with an SMG; tap for semi-auto guns. On mobile, tap Fire; hold Fire with an SMG. Tap or left-click a person or position to place the crosshair, then fire. Right-click aims and fires immediately; hold and move it to track. WASD moves; C returns the camera to you.`),
         row('Tank cannon',`While driving a tank, ${key(k.throw)} fires the cannon. On mobile, tap Cannon. The cannon needs shells and has a cooldown between shots.`),
         row('Equipment and ammunition',`${key(k.pickup)} picks up nearby equipment. ${key(k.drop)} drops the held item. Use Armory & gun store to buy or equip a weapon, choose an ammunition load and refill its reserve. Magazines reload automatically; an empty reserve needs ammunition.`),
         row('Injuries and protection',`${key('b')} bandages bleeding. Armour protects covered areas and wears down. Moving, repeated shots and arm injuries reduce aim. Heavy gear slows walking. Attacks can cause injuries, witnesses and police pursuit.`),
