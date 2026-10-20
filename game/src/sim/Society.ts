@@ -337,7 +337,7 @@ export function paint(sim: Simulation, c: Character, spot: { tx: number; ty: num
 
 /* =============================== MosaicScope business =============================== */
 
-export interface Booking { id: number; client: number; shoot: string; label: string; price: number; place: string; at: number; photographer: number; done: boolean; shotAt: number }
+export interface Booking { spot?:{x:number;y:number}; id: number; client: number; shoot: string; label: string; price: number; place: string; at: number; photographer: number; done: boolean; shotAt: number }
 
 /** An NPC books a shoot with MosaicScope (real price list). */
 export function book(sim: Simulation, c: Character): Booking | null {
@@ -353,6 +353,7 @@ export function book(sim: Simulation, c: Character): Booking | null {
   const last = sim.bookings.filter((x) => x.photographer === photographer.id && !x.done).reduce((m, x) => Math.max(m, x.at), 0);
   const at = Math.max(sim.tick + 60 * 20, last + 60 * 25);
   const b: Booking = { id: sim.bookings.length + 1, client: c.id, shoot: s.id, label: s.label, price: s.price, place: s.place, at, photographer: photographer.id, done: false, shotAt: 0 };
+  const set=shootArea(sim,b.place);b.spot=sim.world.nearestWalkable(set.cx,set.cy);
   sim.bookings.push(b);
   if (sim.bookings.length > 60) sim.bookings.splice(0, sim.bookings.length - 60);
   sim.emit({ type: "booking", x: c.x, y: c.y, actors: [c.id, photographer.id], data: { price: s.price }, summary: `${c.name} booked ${s.label} with MosaicScope (${fmtCash(s.price)})` });

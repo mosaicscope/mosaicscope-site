@@ -140,6 +140,8 @@ export function installRules(sim: Simulation): void {
     applyInteraction(att, v, "hit", false, tick, spar ? 0.3 : 1);
     if (spar) { v.needs.fun = Math.min(1, v.needs.fun + 0.1); att.needs.fun = Math.min(1, att.needs.fun + 0.1); }
     else { v.emo.frustration = Math.min(1, v.emo.frustration + 0.15 + v.pers.temper * 0.15); v.emo.fear = Math.min(1, v.emo.fear + 0.15 * (1 - v.pers.boldness)); }
+    if(!v.bubble||tick>v.bubble.until||v.stats.hitsTaken%3===1)sim.say(v,res.down?"Oof! Somebody help!":v.pers.boldness>.6?"Oi! Back off!":"Stop! Leave me alone!","shout",2);
+    fx.emit("fx",{kind:res.down?"star":"impact",x:v.x,y:v.y,z:1.4,n:res.down?9:5,color:'#e1c894'});
     att.emo.confidence = Math.min(1, att.emo.confidence + 0.03);
     att.prefs[def] = Math.min(1, (att.prefs[def] ?? 0) + 0.05); // learning: this toy works for me
     remember(v, { t: tick, kind: "hit_by", subj: att.id, obj: v.id, toy: def, area, val: spar ? -0.1 : -0.5, ev: -1, src: "did" });
@@ -166,8 +168,8 @@ export function installRules(sim: Simulation): void {
       // immediate reaction: retaliate, flee or shrug it off, by personality
       const r = peek(v, att.id);
       const retaliate = spar ? v.pers.playfulness * 0.6 : v.pers.temper * 0.6 + v.pers.boldness * 0.4 + hostility(r) * 0.4 - v.pers.kindness * 0.2;
-      if (retaliate > 0.55 && sim.rng.chance(0.75)) sim.afterConversation(() => forceGoal(v, sim, "fight", { u: 1, target: att.id }));
-      else if (!spar && v.pers.boldness < 0.4) v.emo.fear = Math.min(1, v.emo.fear + 0.25);
+      if (retaliate > 0.55 && !v.wounds.some(w=>w.severity===3) && !(TOYS[def]?.weapon?.gun && !TOYS[sim.toys[v.hand]?.def]?.weapon?.gun)) sim.afterConversation(() => forceGoal(v, sim, "fight", { u: 1, target: att.id }));
+      else if (!spar) {v.emo.fear = Math.min(1, v.emo.fear + 0.4);sim.afterConversation(()=>{v.goal={id:"flee",target:att.id,plan:[{kind:"flee",x:att.x,y:att.y,time:4}],stepIdx:0,stepTimer:0,started:sim.tick,replans:0};v.path=null;v.nextThink=sim.tick;});}
     }
   };
 

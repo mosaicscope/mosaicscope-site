@@ -432,3 +432,13 @@ button.cx-circle:hover { border-color: #fff0b8; box-shadow: 0 0 0 5px rgba(243,2
 .cx .cx-rtable{background:radial-gradient(ellipse at 50% 20%,#246349,#103e30);border:1px solid #c3aa7544;box-shadow:inset 0 0 0 5px #473423,inset 0 0 0 7px #ad945d70,0 10px 24px #0004}
 .cx .cx-rn span:not(.cx-bet-chip){font:600 14px/1 system-ui}
 .cx .cx-ro span:not(.cx-bet-chip){font:600 12px/1 system-ui;letter-spacing:.02em}
+
+/* Tessera follows the world HUD: charcoal, warm paper, restrained brass. */
+.casino { --ink:#171917;--ink2:#252723;--ink3:#30332d;--paper:#eee4d3;--dim:#b8b4a8;--gold:#c8b17c;--acid:#c8b17c;--line:#62635366; background:#090a09d9; color:var(--paper); font-family:Archivo,Arial,sans-serif; }
+.casino .cas-frame,.casino .cas-body,.casino .cas-head,.casino .cas-tabs,.casino .cas-session { background:#20221f; color:#eee4d3; }
+.casino h2,.casino h3,.casino h4,.casino button,.casino .cas-sub { font-family:Archivo,Arial,sans-serif; text-shadow:none; }.casino .cas-tabs button.on{background:#37392f;color:#dfc796;border-color:#9e8b63;}
+.casino .cx-btn {border-radius:7px;box-shadow:none; background:#30332d;color:#eee4d3;border:1px solid #77786566;}.casino .cx-btn.gold,.casino .cx-btn.red {background:#c8b17c;color:#181a17;box-shadow:none;}.casino .cx-chiprow{flex-wrap:wrap;gap:10px;}.casino .cx-chip{width:42px;height:42px;}.casino .cx-chip span{font-size:11px;}
+.casino .cas-head h2 {font-size:25px;}.casino .cas-sub {font-size:10px;letter-spacing:.06em;color:#b8b4a8;}.casino .cx-result{background:#151715;border-color:#68695666;box-shadow:none;}.casino .cx-ro,.casino .cx-rn{font-family:Archivo,Arial,sans-serif;}
+@media(max-width:640px){.casino .cas-head{gap:8px;}.casino .cas-head .cx-btn{font-size:11px;min-height:44px;}.casino .cx-chiprow{gap:7px;}.casino .cx-chip{width:38px;height:38px;}}
+
+.casino .cas-layout,.casino .cas-sidebar{background:#20221f}.casino .cas-frame button,.casino .cas-frame h2,.casino .cas-frame h3,.casino .cas-bank b,.casino .cas-session b{font-family:Archivo,Arial,sans-serif}.casino .cx-result,.casino .cx-resultbar{box-shadow:none;background:#171917}.casino .cas-tabs{background:#20221f}

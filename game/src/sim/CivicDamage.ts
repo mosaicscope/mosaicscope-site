@@ -8,7 +8,7 @@ import {VEHICLES} from '../content/vehicles';
 export interface CivicDamage{fixture?:string;key:string;kind:'building'|'furniture';x:number;y:number;tx:number;ty:number;face?:'s'|'e'|'n'|'w';severity:number;at:number;crew?:number;phase:'reported'|'travelling'|'working';workUntil?:number;repairBy:number}
 const buckets=new WeakMap<World,Map<number,number[]>>();
 function poiBuckets(w:World){let b=buckets.get(w);if(b)return b;b=new Map();for(const p of w.pois){if(!['busstop','streetsign','roadsign','lamp','billboard','bench','bin'].includes(p.kind))continue;const key=Math.floor(p.y)*w.size+Math.floor(p.x),a=b.get(key)??[];a.push(p.id);b.set(key,a);}buckets.set(w,b);return b;}
-function record(sim:Simulation,v:Vehicle,key:string,kind:CivicDamage['kind'],x:number,y:number,speed:number,face?:CivicDamage['face']):void{
+function record(sim:Simulation,v:Pick<Vehicle,"cls"|"driver"|"damage">,key:string,kind:CivicDamage['kind'],x:number,y:number,speed:number,face?:CivicDamage['face']):void{
  const old=sim.world.civicDamage[key];if(old&&sim.tick-old.at<45)return;
  const severity=Math.min(1,(old?.severity??0)+speed*VEHICLES[v.cls].mass*.055),spot=sim.world.nearestWalkable(x,y);
  const d:CivicDamage=old??{key,kind,x:spot.x,y:spot.y,tx:Math.floor(x),ty:Math.floor(y),severity,at:sim.tick,phase:'reported',repairBy:sim.tick+60*180};d.fixture=kind==='furniture'&&key.startsWith('p:')?sim.world.pois[Number(key.slice(2))]?.kind:undefined;d.face=face;d.severity=severity;d.at=sim.tick;sim.world.civicDamage[key]=d;
@@ -16,7 +16,7 @@ function record(sim:Simulation,v:Vehicle,key:string,kind:CivicDamage['kind'],x:n
  if(!old){sim.emit({type:'property_damage',x,y,actors:v.driver>=0?[v.driver]:[],summary:`${kind==='building'?'Facade impact':'Broken street furniture'} reported. A maintenance crew has been requested.`});if(v.driver===sim.playerId)commitCrime(sim,sim.player,'vandalism',null);}
 }
 /** Record a facade at the actual impact tile. Masonry remains solid; broken glazing is boarded during repairs. */
-export function hitFacade(sim:Simulation,v:Vehicle,x:number,y:number,speed:number):void{
+export function hitFacade(sim:Simulation,v:Pick<Vehicle,"cls"|"driver"|"damage">,x:number,y:number,speed:number):void{
  for(const [dx,dy]of [[0,0],[.4,0],[-.4,0],[0,.4],[0,-.4]]){const tx=Math.floor(x+dx),ty=Math.floor(y+dy),b=sim.world.buildingAt(tx,ty);if(!b)continue;const edges:[CivicDamage['face'],number][]=[['s',Math.abs(ty-b.y1)],['e',Math.abs(tx-b.x1)],['n',Math.abs(ty-b.y0)],['w',Math.abs(tx-b.x0)]];edges.sort((a,b)=>a[1]-b[1]);record(sim,v,`b:${b.id}:${tx}:${ty}`, 'building',tx+.5,ty+.5,speed,edges[0][0]);return;}
 }
 export function updateCivicDamage(sim:Simulation):void{

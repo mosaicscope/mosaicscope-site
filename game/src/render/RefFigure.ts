@@ -232,16 +232,17 @@ export function drawRefFigure(g: Ctx, J: Float32Array, c: Character, M: ModelSpe
     const ax = pts[4] - pts[2], ay = pts[5] - pts[3], al = Math.hypot(ax, ay) || 1, dx = ax / al, dy = ay / al;
     const cx = pts[4] + dx * (gripped ? 0 : 2 * k), cy = pts[5] + dy * (gripped ? 0 : 2 * k);
     J[el]=ep[0];J[el+1]=ep[1];J[hn]=cx;J[hn+1]=cy;
-    g.fillStyle = limbCol; g.strokeStyle = INK; g.lineWidth = Math.max(0.6, 0.8 * k); g.beginPath(); g.arc(cx, cy, 2.8 * k, 0, 6.283); g.fill(); g.stroke();
-    g.strokeStyle = limbCol; g.lineWidth = Math.max(0.8, 1.5 * k); g.beginPath();
-    for (const a of [-0.9, -0.3, 0.3, 0.9]) { // four splayed fingers
-      const fa = Math.atan2(dy, dx) + a, fl = 4.2 * k;
+    g.fillStyle = limbCol; g.strokeStyle = INK; g.lineWidth = Math.max(0.6, 0.8 * k); g.beginPath(); g.arc(cx, cy, 2.2 * k, 0, 6.283); g.fill(); g.stroke();
+    g.strokeStyle = limbCol; g.lineWidth = Math.max(0.7, 1.15 * k); g.lineCap="round"; g.beginPath();
+    for (const a of (gripped ? [] : [-0.65, -0.22, 0.22, 0.65])) { // four splayed fingers
+      const fa = Math.atan2(dy, dx) + a, fl = 3.5 * k;
       g.moveTo(cx + Math.cos(fa) * 2 * k, cy + Math.sin(fa) * 2 * k); g.lineTo(cx + Math.cos(fa) * fl, cy + Math.sin(fa) * fl);
     }
     g.stroke();
   }
 
   if(c.look.accessories?.includes("watch")){g.fillStyle='#d0bb7a';g.strokeStyle=INK;g.lineWidth=k;g.beginPath();g.arc(J[14],J[15],3.5*k,0,Math.PI*2);g.fill();g.stroke();}
+  if(c.crew&&c.role==='mobster'&&k>.35){const x=(sx+hx)/2,y=(sy+hy)/2;g.save();g.translate(x,y);g.fillStyle='#202522';g.strokeStyle=M.trim;g.lineWidth=.7*k;g.beginPath();g.roundRect(-4*k,-5*k,8*k,8*k,2*k);g.fill();g.stroke();g.fillStyle=M.trim;g.font=`700 ${4*k}px Arial`;g.textAlign='center';g.fillText(c.crew.slice(0,2).toUpperCase(),0,k);g.restore();}
   drawBodyDamage(g,c,J,k);
   // ---- neck and head
   const nx = J[2], ny = J[3];

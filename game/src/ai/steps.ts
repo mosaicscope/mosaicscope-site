@@ -376,10 +376,11 @@ export function runCityStep(c: Character, s: Step, g: ActiveGoal, sim: Simulatio
       const cl = bk ? sim.chars[bk.client] : undefined;
       if (!bk || !cl || bk.done) return DONE;
       const dx = cl.x - c.x, dy = cl.y - c.y, d = Math.hypot(dx, dy);
-      if (d > 3) { c.anim.pose = "auto"; moveTo(c, cl.x - 2, cl.y + 0.5, sim, 1.2); return g.stepTimer > 40 ? FAIL : RUN; }
+      if (d > 3 || cl.inside>=0) { c.anim.pose = "auto"; const spot=bk.spot??{x:cl.x,y:cl.y};moveTo(c, spot.x, spot.y, sim, 1.2); s.time=0;return sim.tick-g.started>60*150?FAIL:RUN; }
+      s.time=(s.time??0)+dt;
       stop(c); c.facing = Math.atan2(dy, dx); c.anim.pose = "camera";
       if (sim.tick % 45 === 0) sim.bus.emit("fx", { kind: "flash", x: c.x + Math.cos(c.facing) * 0.4, y: c.y + Math.sin(c.facing) * 0.4, z: 1.3, n: 1 });
-      if (g.stepTimer < 9) return RUN;
+      if ((s.time??0) < 9) return RUN;
       bk.done = true; bk.shotAt = sim.tick;
       for (const [a, b2] of [[c, cl], [cl, c]] as const) { remember(a, { t: sim.tick, kind: "shoot", subj: a.id, obj: b2.id, toy: null, area: sim.world.areaAt(a.x, a.y)?.id ?? 0, val: 0.5, ev: -1, src: "did" }); }
       cl.emo.mood = Math.min(1, cl.emo.mood + 0.3); cl.emo.confidence = Math.min(1, cl.emo.confidence + 0.1);
@@ -389,7 +390,7 @@ export function runCityStep(c: Character, s: Step, g: ActiveGoal, sim: Simulatio
     case "pose": {
       const bk = sim.bookings.find((b) => b.id === s.booking);
       if (!bk || bk.done) return DONE;
-      if (!moveTo(c, s.x!, s.y!, sim, 0.6)) { c.anim.pose = "auto"; return g.stepTimer > 50 ? FAIL : RUN; }
+      if (!moveTo(c, s.x!, s.y!, sim, 0.6,sim.tick>bk.at+600?1.35:1)) { c.anim.pose = "auto"; return g.stepTimer > 180 ? FAIL : RUN; }
       stop(c); c.anim.pose = sim.chars[bk.photographer] && Math.hypot(sim.chars[bk.photographer].x - c.x, sim.chars[bk.photographer].y - c.y) < 4 ? "posecool" : "phone";
       return g.stepTimer > 150 ? FAIL : RUN;
     }

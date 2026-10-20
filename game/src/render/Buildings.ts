@@ -451,6 +451,7 @@ function paintGraffiti(g: CanvasRenderingContext2D, gr: Graffiti | undefined, A:
 }
 
 function roofTop(g: CanvasRenderingContext2D, b: Building, x: number, y: number, z: number, time: number, dark: number): void {
+  z=Math.min(z,1.5);
   // neon name sign on a little frame
   const fs = Math.max(8, Math.round(12 * z));
   g.font = `800 ${fs}px "Big Shoulders Display", Impact, sans-serif`;
@@ -475,6 +476,7 @@ function roofTop(g: CanvasRenderingContext2D, b: Building, x: number, y: number,
 
 /** Rooftop ads: the casino's own board, MosaicScope (logo + one short line, clickable) on galleries, and Kiwi brands elsewhere. */
 function billboard(g: CanvasRenderingContext2D, b: Building, x: number, y: number, z: number, _time: number, dark: number): void {
+  z=Math.min(z,1.5);
   const w = Math.min(100,Math.max(42,(b.x1-b.x0+b.y1-b.y0+2)*14))*z, h = 34 * z;
   if(!reserveSign(`ad:${b.id}`,{x:x-w/2,y:y-12*z-h,w,h:h+12*z}))return;
   g.strokeStyle = "#3a3430"; g.lineWidth = 2 * z;

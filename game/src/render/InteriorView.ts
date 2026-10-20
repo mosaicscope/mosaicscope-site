@@ -457,6 +457,8 @@ export class InteriorView {
         const l = fS(0.5, 0.12); g.fillStyle = "rgba(0,0,0,.6)"; g.fillRect(l[0] - 5, l[1] - 2, 10, 3);
         break;
       }
+      case "wheel": {const foot=P(x+w/2,y+h/2,0),top=P(x+w/2,y+h/2,3);g.strokeStyle='#b8b1a0';g.lineWidth=3;g.beginPath();g.moveTo(foot[0]-s*1.8,foot[1]);g.lineTo(top[0],top[1]);g.lineTo(foot[0]+s*1.8,foot[1]);g.stroke();break;}
+      case "aquarium": {box(x,y,w,h,0,.25,'#5c625a');box(x,y,w,h,.25,z1,'#3c6268');g.strokeStyle='#8fa8a6';g.lineWidth=2;const a=P(x,y+h,z1),b=P(x+w,y+h,z1);g.beginPath();g.moveTo(...a);g.lineTo(...b);g.stroke();break;}
       case "machine": {
         box(x, y, w, h, 0, z1, c, 1.1);
         const a = fS(0.15, 0.4), b = fS(0.85, 0.4), c2 = fS(0.85, 0.85), d = fS(0.15, 0.85);
@@ -591,7 +593,9 @@ export class InteriorView {
   }
 
   private liveBits(g: CanvasRenderingContext2D, P: Proj, p: Prop, t: number): void {
-    if (p.type === "machine" || p.type === "vending") { const m = P(p.x + p.w * 0.85, p.y + p.h, PROP_INFO[p.type].ht * 0.95); const on = Math.sin(t * 2 + p.x * 3) > -0.2; g.fillStyle = on ? "#6bff9a" : "#1a3a22"; g.fillRect(m[0] - 1, m[1] - 1, 2.5, 2.5); }
+    if(p.type==='wheel'){const [cx,cy]=P(p.x+p.w/2,p.y+p.h/2,3),r=this.s*2.5;g.save();g.strokeStyle='#c5baa1';g.lineWidth=2;g.beginPath();g.arc(cx,cy,r,0,Math.PI*2);g.stroke();for(let i=0;i<10;i++){const a=i*Math.PI/5+t*.1,x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;g.beginPath();g.moveTo(cx,cy);g.lineTo(x,y);g.stroke();g.fillStyle=['#9e6755','#a7915c','#5f7c78'][i%3];g.fillRect(x-5,y,10,7);g.strokeRect(x-5,y,10,7);}g.restore();}
+    else if(p.type==='aquarium'){g.save();for(let i=0;i<8;i++){const u=.15+((t*.035+i*.127)%1)*.7,v=.2+(i%3)*.22,[x,y]=P(p.x+p.w*u,p.y+p.h,.55+v);g.fillStyle=i%2?'#d0ba86':'#a4b8b5';g.beginPath();g.ellipse(x,y,3.5,1.6,0,0,Math.PI*2);g.fill();}g.restore();}
+    else if (p.type === "machine" || p.type === "vending") { const m = P(p.x + p.w * 0.85, p.y + p.h, PROP_INFO[p.type].ht * 0.95); const on = Math.sin(t * 2 + p.x * 3) > -0.2; g.fillStyle = on ? "#6bff9a" : "#1a3a22"; g.fillRect(m[0] - 1, m[1] - 1, 2.5, 2.5); }
     else if (p.type === "bed" && p.label) { /* obs monitors blink via machine */ }
   }
 

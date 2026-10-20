@@ -315,8 +315,8 @@ export function startTurfWar(sim: Simulation, force = false, sides: [string,stri
     if (c.talkWith >= 0) sim.endConversation(c);
     let def = (armoury[c.crew]??["pistol","shotgun","smg"])[i % 3];
     if (c.crew === "famiglia" && c.nickname === "" && st.rng.chance(0.15)) def = "golden_pistol"; // someone always brings the flashy one
-    const gun = issue(sim, c, def, false);
-    if (gun) sk.guns.push(gun.id);
+    const gun = issue(sim, c, def, true);
+    if (gun) {sk.guns.push(gun.id);if(c.combat){const key=def==="golden_pistol"?"pistol":def;c.combat.ammo[key]=Math.max(c.combat.ammo[key]??0,(TOYS[def].weapon?.mag??6)*3);}}
     sk.members.push(c.id);
     sim.lod.markHot(c.id, sim.tick, 60 * 150);
     // each crew lines up on its own side of the street

@@ -1,3 +1,4 @@
+import {restoreCommerce,type CommerceState} from '../sim/Commerce';
 import {restoreSubstances} from '../sim/Substances';
 import {newStreetLife} from '../sim/StreetLife';
 import { restoreSaltProgress, type SaltProgress } from '../content/salt-story/progress';
@@ -39,6 +40,7 @@ export const packRel = (id: number, r: Rel): RelTuple => [id, r.fam, r.trust, r.
 export const unpackRel = (a: RelTuple): [number, Rel] => [a[0], { fam: a[1], trust: a[2], aff: a[3], respect: a[4], fear: a[5], rivalry: a[6], grudge: a[7], shared: a[8], favours: a[9], last: a[10] }];
 export interface SaveData {
   saltStory?: SaltProgress;
+  commerce?: CommerceState;
   streetLife?: import("../sim/StreetLife").StreetLifeState;
   expansion?: ExpansionState;
   life?: LifeState;
@@ -91,6 +93,7 @@ export function serialize(sim: Simulation, label = "Save"): SaveData {
   return {
     saltStory: { ...sim.saltStory },
     streetLife: structuredClone(sim.streetLife),
+    commerce: structuredClone(sim.commerce),
     life: structuredClone(sim.life),
     expansion: structuredClone(sim.expansion),
     version: SAVE_VERSION, savedAt: new Date().toISOString(), label,
@@ -137,6 +140,7 @@ export function parseSave(json: string): SaveData {
 export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemFlags()): Simulation {
   const sim = new Simulation(d.cfg, {}, lifeFlags);
   sim.saltStory = restoreSaltProgress(d.saltStory);
+  sim.commerce=restoreCommerce(d.commerce);
   const street=d.streetLife;
   sim.streetLife=street&&Number.isSafeInteger(street.serial)&&Number.isFinite(street.nextAt)&&Array.isArray(street.history)?structuredClone(street):newStreetLife();
   sim.streetLife.history=sim.streetLife.history.filter(e=>Number.isFinite(e.x+e.y)&&Array.isArray(e.actors)&&typeof e.line==='string'&&typeof e.title==='string').slice(-24);

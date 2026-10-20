@@ -267,7 +267,7 @@ export const CITY_GOALS: GoalDef[] = [
       const b = sim.bookings.find((x) => !x.done && x.client === c.id && sim.tick >= x.at - 600);
       return b ? { u: 1.1, target: -1, poi: b.id } : null;
     },
-    build: (_c, sim, ch) => { const b = sim.bookings.find((x) => x.id === ch.poi)!; const a = shootArea(sim, b.place); const p = sim.world.randomPointIn(a, sim.rng); return [{ kind: "pose", booking: b.id, x: p.x, y: p.y }]; },
+    build: (_c, sim, ch) => { const b = sim.bookings.find((x) => x.id === ch.poi)!; const a = shootArea(sim, b.place); const p = b.spot??(b.spot=sim.world.nearestWalkable(a.cx,a.cy)); return [{ kind: "pose", booking: b.id, x: p.x, y: p.y }]; },
   },
   {
     id: "photograph", cooldown: 5, interruptible: false,
