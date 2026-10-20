@@ -39,6 +39,8 @@ import { AudioSystem } from "../audio/Audio";
 import { LocalStorageProvider } from "../persistence/storage";
 import { SaveSystem, SaveError } from "../persistence/SaveSystem";
 import { setGravityScale, gravityScale } from "../physics/PhysicsWorld";
+import {substancePhase,impairment} from '../sim/Substances';
+import {showHairStudio} from '../ui/HairStudio';
 import { Settings, loadSettings, saveSettings } from "../persistence/Settings";
 import { newDebugFlags, newLifeSystemFlags } from "../debug/flags";
 import { DevPanel } from "../debug/DevPanel";
@@ -55,7 +57,7 @@ import { h, fmtHour } from "../ui/dom";
 import { moveTo, stop } from "../ai/steps";
 import { canPickUp } from "../inventory/Inventory";
 import {continueSlot} from '../persistence/ContinueCookie';
-import { TOYS, canThrow, isMelee, BLACK_MARKET } from "../content/toys";
+import { TOYS, canThrow, isMelee, BLACK_MARKET_SUPPLIES } from "../content/toys";
 import { setImpactIntensity } from "../physics/combat";
 import { Phys } from "../entities/types";
 import { Casino } from "../ui/Casino";
@@ -63,7 +65,7 @@ import { Places, Radio } from "../ui/Places";
 import { InteriorOverlay } from "../ui/InteriorOverlay";
 import { nearestCar, playerInput, seat, unseat } from "../sim/Traffic";
 import { useBandage } from "../sim/Life";
-import { commitCrime, fmtCash } from "../sim/Society";
+import { commitCrime, fmtCash, exitBuilding, consume } from "../sim/Society";
 import { VEHICLES } from "../content/vehicles";
 import { MOSAIC } from "../content/mosaicscope";
 import { carried, detach, transfer } from "../inventory/Inventory";
@@ -339,6 +341,8 @@ export class Game {
     this.pollGamepad();
     const movementKeys = this.settings.keys;
     if (!this.modal.open && !this.dev.visible && [movementKeys.up, movementKeys.down, movementKeys.left, movementKeys.right, "arrowup", "arrowdown", "arrowleft", "arrowright"].some(k => this.keys.has(k))) {
+      const p = this.sim.player;
+      if (!this.interior.open && p.inside >= 0 && this.sim.world.buildings[p.inside]?.kind === 'hospital' && p.jailUntil <= this.sim.tick && p.arrestedBy < 0) exitBuilding(this.sim, p);
       this.returnToPlayer(false); if (this.clock.paused) this.setSpeed(1);
     }
     if(!this.modal.open&&!this.casino.open&&!this.dev.visible&&(this.keys.has(this.settings.keys.throw)||this.keys.has(this.settings.keys.swing)||this.mouse.down&&this.mouse.button===2||this.touchFire)){const p=this.sim.player;if(p.hand>=0&&TOYS[this.sim.toys[p.hand].def]?.weapon?.mode==='auto')this.act('throw');}
@@ -377,6 +381,7 @@ export class Game {
     if (titleOf(sim.expansion)) kids.push(h("div.car", { text: titleOf(sim.expansion) + " · " + (sim.expansion.graduated[sim.expansion.graduated.length - 1] ?? "") }));
     if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; kids.push(h("div.car", null, [h("b", { text: String(Math.round(Math.abs(v.speed) * 7.2)) }), " km/h · " + VEHICLES[v.cls].name + (v.flatLeft || v.flatRight ? " · FLAT TYRE" : "") + ((v.heat ?? 0) > 0.5 ? " · ENGINE HOT: pull over" : "")])); }
     if(sim.pendingAmbulance.has(p.id))kids.push(h('div.car.medical-status',{text:p.phys===Phys.DOWN?'Ambulance on the way · stay still for treatment':'Ambulance on the way · move clear of traffic'}));
+    if(p.substances)kids.push(h('div.car',{text:substancePhase(p,sim.tick)}));
     if (p.bleed > 0) kids.push(h("div.car", { text: "You're bleeding. B to bandage." }));
     if(p.hand>=0){const d=sim.toys[p.hand].def,w=TOYS[d].weapon;if(w?.gun){const base=d==='golden_pistol'?'pistol':d,load=p.combat?.load??'standard',key=load==='standard'?base:base+':'+load;kids.push(h('div.combat-status',{text:`${TOYS[d].name} · ${p.combat?.ammo[key]??'∞'} rounds · ${w.mode??'semi'}`}));}}
     this.combatHelpButton??=h("button.btn.combat-help",{text:"Fight / gun controls",onclick:()=>this.openCombatControls()}) as HTMLButtonElement;kids.push(this.combatHelpButton);
@@ -456,6 +461,7 @@ export class Game {
       const left = this.keys.has(k.left) || this.keys.has("arrowleft"), right = this.keys.has(k.right) || this.keys.has("arrowright");
       playerInput.throttle = up ? 1 : down ? -1 : 0;
       playerInput.steer = (right ? 1 : 0) - (left ? 1 : 0);
+      playerInput.throttle *= 1-impairment(p)*.4;
       playerInput.brake = this.keys.has(" ") || this.touchBrake;
       // touch: stick x steers, y is gas (up) / reverse (down)
       if (this.touchMove.x || this.touchMove.y) { playerInput.steer = this.touchMove.x; playerInput.throttle = -this.touchMove.y; }
@@ -765,6 +771,25 @@ export class Game {
     }
   }
 
+  private useHeldItem(): void {
+    const p=this.sim.player,t=p.hand>=0?this.sim.toys[p.hand]:null;
+    if(!t||t.def==='bandage'||!consume(this.sim,p,t)){this.toast('Hold a consumable first. Inventory & condition lists what you carry.');return;}
+    this.moveTarget=null;this.pendingTalk=-1;this.pendingEnter=null;stop(p);
+    this.setSpeed(1);this.canvas.focus();
+  }
+
+  private resumeGame(): void {
+    if (!this.preparePanel('modal')) return;
+    this.modal.close(); this.interior.close();
+    const p = this.sim.player;
+    if (p.inside >= 0 && p.jailUntil <= this.sim.tick && p.arrestedBy < 0) exitBuilding(this.sim, p);
+    if (p.inside < 0 && p.inCar < 0 && !this.sim.world.walkable(p.x, p.y)) {
+      const point = this.sim.world.nearestWalkable(p.x, p.y); p.x = p.px = point.x; p.y = p.py = point.y;
+    }
+    this.returnToPlayer(); this.setSpeed(1);
+    this.canvas.focus({ preventScroll: true });
+  }
+
   private preparePanel(owner: 'modal' | 'dev' | 'casino' | 'club' | 'luxury'): boolean {
     // A paid casino hand must settle before opening a different full-screen panel.
     if (owner !== 'casino' && this.casino.open) {
@@ -811,6 +836,11 @@ export class Game {
       // only fields you type into swallow keys; a ticked checkbox or slider shouldn't freeze the controls
       const typing = tag === "SELECT" || tag === "TEXTAREA" || tag === "INPUT" && !["checkbox", "radio", "range", "button"].includes((el as HTMLInputElement).type);
       if (key !== "escape" && typing) return;
+      if ([k.up,k.down,k.left,k.right,'arrowup','arrowdown','arrowleft','arrowright'].includes(key) && !this.modal.open && !this.dev.visible) {
+        this.rootEl.querySelector('.bar')?.classList.remove('open');
+        this.rootEl.querySelector('.menu-toggle')?.setAttribute('aria-expanded','false');
+      }
+      if (key === "escape" && this.rootEl.querySelector('.bar.open')) { this.rootEl.querySelector('.bar')?.classList.remove('open'); this.rootEl.querySelector('.menu-toggle')?.setAttribute('aria-expanded','false'); this.canvas.focus(); return; }
       if (key === "escape" && this.casino.open) { this.casino.close(); return; }
       if (key === "escape" && this.minimap.bigOpen) { this.minimap.toggle(false); return; }
       if (key === "escape") { if (this.modal.open) this.modal.close(); else if (this.terrance.open) this.terrance.close(); else if (this.dialogue.open) this.dialogue.close(); else { this.select(-1); this.dev.toggle(false); this.log.toggle(false); } return; }
@@ -830,6 +860,7 @@ export class Game {
       else if (key === k.throw) this.act("throw");
       else if (key === k.swing) this.act("swing");
       else if (key === k.talk) this.act("talk");
+      else if (key === "u") this.useHeldItem();
       else if (key === k.pause) this.setSpeed(this.clock.paused ? this.clock.speed : 0);
       else if (key === k.inspect) this.select(this.sim.playerId);
       else if (key === k.log) this.log.toggle();
@@ -845,6 +876,7 @@ export class Game {
     window.addEventListener("blur", () => this.keys.clear());
     cv.addEventListener("contextmenu", (e) => e.preventDefault());
     cv.addEventListener("pointerdown", (e) => {
+      this.rootEl.querySelector('.bar')?.classList.remove('open'); this.rootEl.querySelector('.menu-toggle')?.setAttribute('aria-expanded','false');
       cv.focus({preventScroll:true});
       try{cv.setPointerCapture(e.pointerId);}catch{/* cancelled or synthetic pointer */}
       this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -1155,7 +1187,7 @@ export class Game {
   // ------------------------------------------------------------------ black market (Dodge sells guns out of a boot)
   private blackMarket(who: string): void {
     const sim = this.sim, p = sim.player;
-    const rows = BLACK_MARKET.map((id) => {
+    const rows = BLACK_MARKET_SUPPLIES.map((id) => {
       const d = TOYS[id];
       return h("li.item", null, [h("div", null, [h("b", { text: d.name }), h("small", { text: d.blurb ?? "" })]), h("span.price", { text: fmtCash(d.value) }),
         h("button.btn", { disabled: p.cash < d.value, onclick: () => { if (p.cash < d.value) return; p.cash -= d.value; const t = sim.spawnToy(id, p.x, p.y); if (t) sim.pickupToy(p, t); this.toast(`${who}: "Never saw you."`, "acid"); this.modal.close(); }, text: "Buy" })]);
@@ -1369,6 +1401,10 @@ export class Game {
       this.clockEl, h("div.spacer"), h("div.seg", { role: "group", "aria-label": "Simulation speed" }, this.speedEls), this.soundBtn,
       h("button.btn.menu-toggle", { text: "☰ Menu", "aria-label": "Menu", "aria-expanded": "false", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar")!; const open = bar.classList.toggle("open"); if (open) this.dev.toggle(false); (e.currentTarget as HTMLElement).setAttribute("aria-expanded", String(open)); } }),
       h("nav.game-menu", { "aria-label": "More game options", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar"); bar?.classList.remove("open"); bar?.querySelector(".menu-toggle")?.setAttribute("aria-expanded", "false"); } }, [
+        h('button.btn.acid',{text:'Resume game',onclick:()=>this.resumeGame()}),
+        h('button.btn',{text:'Street life',onclick:()=>{void import('../ui/StreetLifePanel').then(m=>m.showStreetLife(this.modal,this.sim,(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);this.canvas.focus();}));}}),
+        h('button.btn',{text:'Inventory & condition',onclick:()=>{void import('../ui/InventoryCondition').then(m=>m.showInventoryCondition(this.modal,this.sim,()=>{this.setSpeed(1);this.canvas.focus();}));}}),
+        h('button.btn',{text:'Appearance',onclick:()=>showHairStudio(this.modal,this.sim.player)}),
         ...(["Betting", "Racing", "Farm", "UC"] as const).map(tab => h("button.btn", { text: tab === "Betting" ? "Sports & more games" : tab, onclick: () => this.activities.show(tab) })),
         h("button.btn", { text: "SALT story", onclick: () => { void this.openSaltStory(); } }),
         h("button.btn", { text: "Return to player", onclick: () => this.returnToPlayer() }),

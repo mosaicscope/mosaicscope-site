@@ -1,3 +1,5 @@
+import {newStreetLife} from './StreetLife';
+import {updateSubstances,impairment} from './Substances';
 import {advanceDetachedLimbs} from './Trauma';
 import {updateCivicDamage} from "./CivicDamage";
 import {sendAmbulance,updateMedicalResponses} from "./MedicalResponse";
@@ -100,6 +102,7 @@ export class Simulation {
   playerId = 0;
   charHash!: SpatialHash;
   expansion = newExpansion();
+  streetLife = newStreetLife();
   saltStory = { position: 0, furthest: 0 };
   life = newLife();
   private exploredFrom: { x: number; y: number } | null = null;
@@ -251,6 +254,7 @@ export class Simulation {
     this.metrics.moveMs = performance.now() - tm - aiMs;
     this.metrics.aiMs = aiMs;
 
+    updateSubstances(this);
     updateVehicles(this, dt);
     updateCivicDamage(this);
     const tp = performance.now();
@@ -281,6 +285,8 @@ export class Simulation {
   private moveCharacter(c: Character, dt: number): void {
     if (c.phys === Phys.DOWN || c.phys === Phys.RECOVER) { c.vx = 0; c.vy = 0; }
     let vx = c.vx, vy = c.vy;
+    const intox = impairment(c);
+    if(intox>0){const pace=1-intox*.48, speed=Math.hypot(vx,vy);const weave=Math.sin(this.tick*.045+c.seedPhase)*intox*.11;const ox=-vy,oy=vx;vx=vx*pace+ox*weave;vy=vy*pace+oy*weave;if(speed<.01){vx=0;vy=0;}}
     if (c.phys === Phys.STUMBLE) { vx *= 0.2; vy *= 0.2; }
     // a hurt body moves like one: a bad leg limps and slows, a hurt torso hunches and slows, a knock to the head weaves
     if (c.wounds.length && (vx !== 0 || vy !== 0)) {

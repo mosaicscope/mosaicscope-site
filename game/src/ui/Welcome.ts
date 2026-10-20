@@ -1,8 +1,9 @@
+import {hairControls} from './HairStudio';
 import {accessoryControls} from './Accessories';
 import { h } from './dom';
 import { canvasStage, roundBox, sceneText } from './CanvasStage';
 import { pose, solve, drawFigure } from '../render/StickFigure';
-import type { Character, Look, HairStyle, HatStyle } from '../entities/types';
+import type { Character, Look, HatStyle } from '../entities/types';
 import './welcome.css';
 
 export interface WelcomeHost {
@@ -11,7 +12,6 @@ export interface WelcomeHost {
   continue(slot:string):string|null;
   create(name:string,look:Look):string|null;
 }
-const HAIR:HairStyle[]=['none','big','buzz','sidepart','spiky','curly','long','bob','bun','pony','braids','afro','mohawk','pigtails','topknot'];
 const HATS:HatStyle[]=['none','bandana','cap','beanie','bucket','beret','headphones','cowboy','snapback','hood'];
 const COLORS=['#eee4d3','#ec2a1c','#f6b62c','#6fe3b0','#3dd6ff','#b48cff','#ff7ad9','#657b92'];
 export class Welcome {
@@ -52,7 +52,7 @@ export class Welcome {
       h('small',{text:'MAKE YOURSELF AT HOME'}),h('h2',{text:'Your character'}),
       h('label',null,['Name',h('input',{value:this.name,maxlength:28,'aria-label':'Character name',oninput:(e:Event)=>{this.name=(e.target as HTMLInputElement).value;}})]),
       select('Body',['guy','girl'],this.draft.look.kind,v=>update('kind',v as Look['kind'])),
-      select('Hair',HAIR,this.draft.look.hair,v=>update('hair',v as HairStyle)),
+      hairControls(this.draft.look),
       select('Headwear',HATS,this.draft.look.hat,v=>update('hat',v as HatStyle)),
       select('Clothing',['tank','tee','long','hoodie','coat','vest','poncho','dress','suit','jersey','apron','hawaiian'],this.draft.look.top??'tee',v=>update('top',v as Look['top'])),
       select('Legwear',['shorts','jeans','ripped','trackies','skirt','kilt','slacks','boardies'],this.draft.look.bottom??'shorts',v=>update('bottom',v as Look['bottom'])),

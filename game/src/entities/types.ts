@@ -9,7 +9,7 @@ export const LOD_INTERVAL = [1, 3, 8, 15, 45];
 
 export type BodyKind = "guy" | "girl";
 export type HatStyle = "bandana" | "cap" | "beanie" | "none" | "bucket" | "beret" | "headphones" | "helmet" | "cowboy" | "police" | "snapback" | "hood";
-export type HairStyle = "big" | "bun" | "pony" | "none" | "afro" | "mohawk" | "buzz" | "long" | "braids" | "curly" | "spiky" | "sidepart" | "bob" | "pigtails" | "topknot";
+export type HairStyle = `hair-${number}` | "big" | "bun" | "pony" | "none" | "afro" | "mohawk" | "buzz" | "long" | "braids" | "curly" | "spiky" | "sidepart" | "bob" | "pigtails" | "topknot";
 export interface Face {
   eyes: "shades" | "round" | "dots" | "visor" | "aviator" | "happy" | "wide" | "sleepy" | "wink" | "shutter" | "cateye";
   brows: "none" | "straight" | "angry" | "raised" | "thick" | "worried";
@@ -130,7 +130,7 @@ export interface Step {
   booking?: number;
 }
 export type StepKind =
-  | "goto" | "approach" | "pickup" | "throw" | "swing" | "talk" | "sit" | "wait" | "play" | "dance" | "flee"
+  | "street_say" | "substance" | "goto" | "approach" | "pickup" | "throw" | "swing" | "talk" | "sit" | "wait" | "play" | "dance" | "flee"
   | "comfort" | "search" | "give" | "drop" | "craft" | "watch" | "cheer" | "push" | "shoot" | "kick" | "music" | "wander"
   | "enter" | "buy" | "eat" | "steal" | "spray" | "clean" | "chase" | "photo" | "pose" | "skate" | "busk" | "flee_far" | "trade" | "book" | "treat" | "mug" | "flirt" | "kiss" | "date" | "follow" | "gunfight";
 
@@ -158,6 +158,7 @@ export type WoundKind = "bruise" | "graze" | "cut" | "gash" | "stab" | "fracture
 export interface Wound { detached?:import("../sim/Trauma").DetachedLimb;compound?:boolean;weapon?:string; art?:number; marks?:number[]; hits?:number; part: WoundPart; kind: WoundKind; severity: 1 | 2 | 3; bandaged: boolean; tick: number }
 
 export interface Character {
+  substances?: import('../sim/Substances').SubstanceState;
   id: number;
   name: string;
   tier: Tier;

@@ -1,4 +1,8 @@
 /* Charcoal, stone and restrained amber. These rules style interface chrome, not the city artwork. */
+#ui .bar.open{z-index:75}#ui:has(.bar.open)>.hud{visibility:hidden;pointer-events:none!important}#ui .game-menu button{white-space:normal;text-align:left;min-height:44px}#ui .game-menu .acid{grid-column:1/-1;text-align:center}#ui .hud{min-width:0;width:190px}#ui .hud .bars{grid-template-columns:48px minmax(0,1fr)}
+.hair-controls{min-width:0}.hair-controls label{display:grid;grid-template-columns:85px minmax(0,1fr);gap:10px;align-items:center;padding:8px 0}.hair-controls select{min-width:0;width:100%;max-width:100%}.hair-controls small{color:var(--ui-muted);line-height:1.5}
+#ui .hud .bars{width:100%;justify-self:stretch}#ui .hud .bars span{display:block}
+#ui .street-card{border:1px solid var(--ui-border);padding:14px;border-radius:8px;margin:14px 0;background:#292c27}#ui .street-card h3{font:600 17px/1.4 Arial,sans-serif;text-transform:none}#ui .street-card .opts{display:flex;gap:8px;flex-wrap:wrap}#ui .street-card button{white-space:normal;min-height:44px}#ui .street-heat label{grid-template-columns:minmax(100px,1fr) minmax(50px,1fr) 40px;gap:10px}#ui .street-heat meter{width:100%;min-width:0}
 #ui .modal-wrap{z-index:80}#ui.modal-open :is(.hud,.inspector,.dialogue,.phone,.hint,.game-dock,.aim-tools,.return-player,.world-crosshair){visibility:hidden;pointer-events:none!important}
 #ui .game-menu{max-height:calc(100dvh - 90px);overflow-y:auto;overscroll-behavior:contain}
 #ui .aim-tools{position:absolute;top:84px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:7px 10px;background:#202121ed;border:1px solid var(--ui-border);border-radius:8px;z-index:4;font-size:12px;pointer-events:auto;white-space:nowrap}

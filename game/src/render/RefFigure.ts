@@ -1,3 +1,6 @@
+import {impairment} from '../sim/Substances';
+import {drawCatalogueHair} from './HairArt';
+import {HAIR_VARIANTS} from '../content/hair';
 import {drawFaceAccessories} from './FaceAccessories';
 import {currentReactionFace,drawReactionMouth,drawReactionAccents} from './ReactionFaces';
 import {drawEmotionDetail} from './NegativeReactions';
@@ -21,7 +24,7 @@ const smallHeads=new Map<Character,{key:string;canvas:HTMLCanvasElement}>();
 /** Small faces retain their artwork in a bounded retina cache; close-ups always render as vectors. */
 function paintHead(g:Ctx,c:Character,M:ModelSpec,P:FacePlan,r:number,k:number,dir:number,lw:number,alpha:number,hd:boolean,flash:boolean):void{
  if(k>=.8||flash||typeof document==='undefined'){drawRefHead(g,c,M,P,moodOf(c),0,0,r,k,dir,lw,alpha,hd,flash);return;}
- const f=currentReactionFace(c),key=JSON.stringify([M.id,M.skin,M.hair,M.hairColor,M.hat,M.hatColor,M.face,M.gear,c.look.face,c.look.accessories,c.look.accessoryWear,c.combat?.helmet,moodOf(c),dir,hd,damageBloodEnabled(),f&&Object.values(f).map(v=>Math.round(v*100)),c.wounds.filter(w=>w.part==='head')]);
+ const f=currentReactionFace(c),key=JSON.stringify([M.id,M.skin,M.hair,M.hairColor,M.hat,M.hatColor,M.face,M.gear,c.look.face,c.look.accessories,c.look.accessoryWear,c.combat?.helmet,Math.round(impairment(c)*8),moodOf(c),dir,hd,damageBloodEnabled(),f&&Object.values(f).map(v=>Math.round(v*100)),c.wounds.filter(w=>w.part==='head')]);
  let entry=smallHeads.get(c);
  if(!entry||entry.key!==key){
   const canvas=entry?.canvas??document.createElement('canvas');canvas.width=176;canvas.height=200;
@@ -116,7 +119,7 @@ export function personalize(M: ModelSpec, c: Character): ModelSpec {
     shoeColor: pick(SHOES),
     skin: r() < 0.6 ? pick(SKINS) : M.skin,
     hairColor: pick(HAIRS),
-    hair: r() < 0.45 ? pick(girl ? GIRL_HAIR : GUY_HAIR) : M.hair,
+    hair: r() < 0.7 ? HAIR_VARIANTS[(c.id * 37) % HAIR_VARIANTS.length].id : pick(girl ? GIRL_HAIR : GUY_HAIR),
     hat: M.hat === "none" ? (hatRoll < 0.22 ? pick(HATS) : "none") : hatRoll < 0.3 ? "none" : M.hat,
     hatColor: pick(TOPS),
     belly: Math.floor(r() * 4), wide: 0.85 + r() * 0.35,
@@ -133,6 +136,7 @@ export function moodOf(c: Character): Mood {
   if (!e) return "neutral";
   if (e.fear > 0.6) return "scared";
   if (e.frustration > 0.6) return "angry";
+  if (impairment(c) > .12) return "neutral";
   if (e.mood > 0.4) return "happy";
   if (e.mood < -0.4) return "sad";
   return "neutral";
@@ -303,7 +307,7 @@ function drawRefHead(g: Ctx, c: Character, M: ModelSpec, P: FacePlan, mood: Mood
 
   // hair: a spiky tuft in the model's hair colour, density and length per person; hats replace the tuft
   const hatted = M.hat !== "none";
-  if (M.hair !== "none" && !hatted) {
+  if (M.hair !== "none" && !hatted && !drawCatalogueHair(g,M.hair,x,y,rx,ry,hairCol,ink)) {
     const n = M.hair === "buzz" ? P.spikes + 2 : P.spikes;
     const len = (M.hair === "buzz" ? 0.14 : M.hair === "spiky" || M.hair === "mohawk" ? 0.5 : M.hair === "curly" || M.hair === "afro" ? 0.3 : 0.38) * P.spikeLen;
     g.fillStyle = hairCol; g.beginPath();
@@ -330,7 +334,7 @@ function drawRefHead(g: Ctx, c: Character, M: ModelSpec, P: FacePlan, mood: Mood
   if (P.freckles > 0 || F.extra === "freckles") { const n = F.extra === "freckles" ? 5 : Math.round(P.freckles * 4); for (const s of [-1, 1]) for (let i = 0; i < n; i++) dot(fx + s * r * (0.4 + (i % 3) * 0.08), y + r * (0.2 + Math.floor(i / 3) * 0.08 + (i % 2) * 0.03), r * 0.025, "rgba(120,60,40,.7)"); }
 
   // eyes: per-person size, spacing and tilt; the model's eye kind sets a resting lid; the mood can override it all
-  const restLid = Math.max(P.lid, ES ? (ES.kind === "heavy" ? ES.lid + 0.15 : ES.kind === "closed" ? 0.5 : ES.kind === "cross" ? 0.25 : 0) : 0);
+  const restLid = Math.max(impairment(c)*.65, P.lid, ES ? (ES.kind === "heavy" ? ES.lid + 0.15 : ES.kind === "closed" ? 0.5 : ES.kind === "cross" ? 0.25 : 0) : 0);
   const eyeH = ES ? (ES.kind === "slit" ? 0.7 : ES.kind === "almond" ? 0.8 : 1) * (0.85 + ES.h * 0.15) : 1;
   for (const s of [-1, 1]) {
     const ex = fx + s * sep;

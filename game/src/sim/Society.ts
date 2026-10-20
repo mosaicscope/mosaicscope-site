@@ -1,3 +1,5 @@
+import { useSubstance } from './Substances';
+import { buildingExit } from '../world/BuildingExit';
 import { hasUpgrade } from "../content/upgrades";
 import type { Simulation } from "./Simulation";
 import { onPlayerCrime } from "./Rep";
@@ -58,15 +60,17 @@ export function buy(sim: Simulation, c: Character, def: string, seller: { buildi
 
 /** Eat or drink an item: restores hunger/energy, then it's gone. */
 export function consume(sim: Simulation, c: Character, t: Toy): boolean {
-  const f = TOYS[t.def].food;
-  if (!f || t.holder !== c.id) return false;
+  const def = TOYS[t.def], f = def?.food;
+  if ((!f && !def?.substance) || t.holder !== c.id) return false;
+  if (def.substance && !useSubstance(sim,c,def.substance)) return false;
+  if (def.substance && c.hand >= 0 && TOYS[sim.toys[c.hand]?.def]?.weapon?.gun) { c.bag.push(c.hand); c.hand = -1; }
   detach(c, t.id);
   t.state = "broken"; t.brokenAt = sim.tick; t.holder = -1; t.x = -100; t.y = -100;
   // the mind learns from the outcome (and a too-hot drink burns: Garcia one-trial aversion)
-  const scalded = onConsume(sim, c, t.def, c.hunger);
+  const scalded = !!f && !def.substance && onConsume(sim, c, t.def, c.hunger);
   if (scalded) { sim.say(c, sim.rng.pick(["OW! Hot hot hot!", "Ahh, my tongue!", "Who made that, the sun?!"]), "shout", 1.6); }
-  c.hunger = Math.min(1, c.hunger + f.hunger);
-  c.needs.energy = Math.min(1, c.needs.energy + f.energy);
+  c.hunger = Math.min(1, c.hunger + (f?.hunger??0));
+  c.needs.energy = Math.min(1, c.needs.energy + (f?.energy??0));
   c.emo.mood = Math.min(1, c.emo.mood + 0.08);
   c.anim.pose = "eat"; c.anim.poseT = 0;
   return true;
@@ -128,7 +132,7 @@ export function enterBuilding(sim: Simulation, c: Character, b: Building, minute
 export function exitBuilding(sim: Simulation, c: Character): void {
   const b = sim.world.buildings[c.inside];
   c.inside = -1; c.insideUntil = 0;
-  if (b) { const p = sim.world.nearestWalkable(b.door.x + 0.5, b.door.y + 0.5); c.x = c.px = p.x; c.y = c.py = p.y; }
+  if (b) { const p = buildingExit(sim.world,b); c.x = c.px = p.x; c.y = c.py = p.y; }
   c.nextThink = sim.tick + 1;
 }
 
