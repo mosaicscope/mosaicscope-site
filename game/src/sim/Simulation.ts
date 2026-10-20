@@ -1,3 +1,5 @@
+import {newWorldFun,updateWorldFun} from './WorldFun';
+import {advanceHorseRace} from './HorseRace';
 import {prepareFarmPlot} from './FarmPlot';
 import {updateRockets} from './Rockets';
 import {newCommerce} from './Commerce';
@@ -106,6 +108,7 @@ export class Simulation {
   charHash!: SpatialHash;
   expansion = newExpansion();
   streetLife = newStreetLife();
+  worldFun=newWorldFun();
   commerce = newCommerce();
   saltStory:import('../content/salt-story/progress').SaltProgress = { position: 0, furthest: 0 };
   life = newLife();
@@ -179,7 +182,8 @@ export class Simulation {
   step(): void {
     const t0 = performance.now();
     const dt = this.step_dt;
-    this.tick++;
+    this.tick++;updateWorldFun(this);
+    const horseRace=this.expansion.casino.race?.physics;if(horseRace&&!horseRace.finished)advanceHorseRace(horseRace,this.tick);
     if (hasUpgrade(this.life.upgrades, "bando")) {
       const u = this.life.upgrades, p = this.player, home = this.world.buildings[p.home];
       const roaming = hasUpgrade(u, "petdoor") && home && Math.hypot(p.x - home.door.x, p.y - home.door.y) < 8;

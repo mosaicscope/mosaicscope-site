@@ -53,7 +53,7 @@ export class Inspector {
       h("p.card-now", null, [h("span.emo", { text: MOOD_EMOJI(c.emo.mood, c.emo.fear, c.emo.frustration) }), h("span", null, [h("b", { text: moodWord(c) }), " · " + status])]),
       h("h3", { text: "Life" }),
       h("p.card-now", { text: c.tier === "player"
-        ? `Fatigue ${Math.round(life.sleep.fatigue * 100)}% · hunger ${Math.round(c.hunger * 100)}% · ${c.wounds.length ? `${c.wounds.length} injury/injuries` : "no injuries"} · ${sim.life.career.role || "between jobs"} · ${life.licence.stage} licence · rent arrears $${sim.life.systems.budget.arrears}.`
+        ? `Fatigue ${Math.round(life.sleep.fatigue * 100)}% · hunger ${Math.round(c.hunger * 100)}% · ${c.wounds.length ? `${c.wounds.length} injury/injuries` : "no injuries"} · ${sim.life.career.role || "between jobs"} · rent arrears $${sim.life.systems.budget.arrears}.`
         : `${role} · hunger ${Math.round(c.hunger * 100)}% · energy ${Math.round(c.needs.energy * 100)}% · ${c.wounds.length ? `${c.wounds.length} injury/injuries` : "no injuries"}.` }),
       withYou ? h("p.card-you", { text: withYou }) : null,
       facts.length ? h("div.inv", null, facts.map((f) => h("span.chip", { text: f }))) : null,

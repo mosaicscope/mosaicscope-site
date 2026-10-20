@@ -1,3 +1,4 @@
+import {restoreWorldFun} from '../sim/WorldFun';
 import {restoreCommerce,type CommerceState} from '../sim/Commerce';
 import {restoreSubstances} from '../sim/Substances';
 import {newStreetLife} from '../sim/StreetLife';
@@ -39,6 +40,7 @@ export const unpackMem = (a: MemTuple): Memory => { const m: Memory = { t: a[0],
 export const packRel = (id: number, r: Rel): RelTuple => [id, r.fam, r.trust, r.aff, r.respect, r.fear, r.rivalry, r.grudge, r.shared, r.favours, r.last];
 export const unpackRel = (a: RelTuple): [number, Rel] => [a[0], { fam: a[1], trust: a[2], aff: a[3], respect: a[4], fear: a[5], rivalry: a[6], grudge: a[7], shared: a[8], favours: a[9], last: a[10] }];
 export interface SaveData {
+  worldFun?:import('../sim/WorldFun').WorldFunState;
   saltStory?: SaltProgress;
   commerce?: CommerceState;
   streetLife?: import("../sim/StreetLife").StreetLifeState;
@@ -92,7 +94,7 @@ export const MIGRATIONS: Record<number, (d: any) => any> = {
 export function serialize(sim: Simulation, label = "Save"): SaveData {
   return {
     saltStory: { ...sim.saltStory },
-    streetLife: structuredClone(sim.streetLife),
+    streetLife: structuredClone(sim.streetLife),worldFun:structuredClone(sim.worldFun),
     commerce: structuredClone(sim.commerce),
     life: structuredClone(sim.life),
     expansion: structuredClone(sim.expansion),
@@ -139,7 +141,7 @@ export function parseSave(json: string): SaveData {
 /** Build a fresh simulation from a save. */
 export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemFlags()): Simulation {
   const sim = new Simulation(d.cfg, {}, lifeFlags);
-  sim.saltStory = restoreSaltProgress(d.saltStory);
+  sim.saltStory = restoreSaltProgress(d.saltStory);sim.worldFun=restoreWorldFun(d.worldFun);
   sim.commerce=restoreCommerce(d.commerce);
   const street=d.streetLife;
   sim.streetLife=street&&Number.isSafeInteger(street.serial)&&Number.isFinite(street.nextAt)&&Array.isArray(street.history)?structuredClone(street):newStreetLife();

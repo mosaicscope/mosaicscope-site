@@ -1,3 +1,4 @@
+import {hospitality,type HospitalityHost} from './VenueHospitality';
 import type { Character } from "../entities/types";
 import { casinoVenue } from "./VenueArt";
 import { h } from "./dom";
@@ -12,7 +13,7 @@ import { PAYS, SYMBOLS, payFor, spinReels, Sym, rtp } from "../casino/slots";
  * Live play uses Math.random (not the seeded world RNG) like a real shuffle machine.
  * Styles live in ./casino.css (all new markup uses the `cx-` prefix).
  */
-export interface CasinoWallet { people?(): readonly Character[]; strategy?(): boolean; getCash(): number; setCash(v: number): void; onEvent(text: string, big: boolean): void; patrons(): number }
+export interface CasinoWallet extends HospitalityHost { people?(): readonly Character[]; strategy?(): boolean; getCash(): number; setCash(v: number): void; onEvent(text: string, big: boolean): void; patrons(): number }
 
 interface Chip { v: number; c: string; t: string; e: string }
 const CHIPS: Chip[] = [
@@ -512,7 +513,7 @@ export class Casino {
           ]),
         ]),
       ]),
-      h("div.cx-rtable", null, [board]),
+      h("div.cx-rtable", null, [board]),hospitality(this.w,this.rSpinning||this.rBets.length>0),
       this.rBets.length ? h("ul.cx-rbets", null, this.rBets.map((b) => h("li", { text: `${b.label} · ${money(b.amount)} · pays ${payoutFor(b.numbers)}:1` }))) : null,
     ]);
   }
@@ -524,6 +525,7 @@ export class Casino {
     g.drawImage(bowl, 0, 0);
     g.setTransform(d, 0, 0, d, 0, 0); g.translate(c, c);
     g.save(); g.rotate(this.rRot); g.drawImage(rotor, -c, -c, S, S); g.restore();
+    if(this.rSpinning&&!reducedMotion()){for(let i=1;i<9;i++){const a=this.rBall+i*.06;g.fillStyle=`rgba(240,225,184,${(1-i/9)*.24})`;g.beginPath();g.arc(Math.cos(a)*this.rBallR,Math.sin(a)*this.rBallR,Math.max(1,5-i*.4),0,7);g.fill();}g.strokeStyle='#e4c47d66';g.lineWidth=2;g.beginPath();g.arc(0,0,c-8,this.rRot,this.rRot+Math.PI*1.1);g.stroke();}
     const bx = Math.cos(this.rBall) * this.rBallR, by = Math.sin(this.rBall) * this.rBallR;
     g.fillStyle = "rgba(0,0,0,.45)"; g.beginPath(); g.arc(bx + 1.5, by + 2, 5.5, 0, 6.2832); g.fill();
     const ball = g.createRadialGradient(bx - 2, by - 2, 0.5, bx, by, 6); ball.addColorStop(0, "#fff"); ball.addColorStop(0.6, "#e8e4dc"); ball.addColorStop(1, "#8d877c");
