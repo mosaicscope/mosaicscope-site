@@ -1,4 +1,4 @@
-import cities from '../../data/world-cities.json' with {type:'json'};
+import cities from '../../data/world-cities.mjs';
 const globalCities=new Map(cities.map(c=>['G'+c.id,{name:c.name+', '+c.country,lat:c.lat,lon:c.lon}]));
 // OpenStreetMap geometry is ODbL data. Fixed destination centres and bounded tiles; never an arbitrary URL proxy.
 export const DESTINATION_CENTRES={SYD:{name:'Circular Quay, Sydney',lat:-33.8605,lon:151.2095},RAR:{name:'Avarua, Rarotonga',lat:-21.2077,lon:-159.7753},DPS:{name:'Ubud, Bali',lat:-8.5068,lon:115.2625},NRT:{name:'Shibuya, Tokyo',lat:35.6595,lon:139.7005},LAX:{name:'Santa Monica, Los Angeles',lat:34.0129,lon:-118.4957},LHR:{name:'Westminster, London',lat:51.5007,lon:-.1246}};
