@@ -13,7 +13,7 @@ export function lightCycle(hour: number, daylight: number): LightCycle {
   const night = Math.max(0, Math.min(1, (0.45 - daylight) / 0.4));
   return {
     warm: Math.min(0.2, (dusk + dawn * 0.7) * 0.14 * (0.5 + daylight * 0.5)),
-    neon: night * 0.12,
+    neon: night * 0.04,
     haze: haze * 0.1,
   };
 }
@@ -36,9 +36,9 @@ export class Lighting {
 
   draw(main: CanvasRenderingContext2D, sim: Simulation, cam: Camera, time: number, quality: number, reduceMotion: boolean): void {
     const day = sim.daylight;
-    let dark = (1 - day) * 0.58 + (sim.env.storm ? 0.18 : sim.env.raining ? 0.08 : 0);
+    let dark = (1 - day) * 0.48 + (sim.env.storm ? 0.12 : sim.env.raining ? 0.06 : 0);
     if (!sim.env.power) dark += 0.12 * (1 - day);
-    dark = Math.min(0.76, dark);
+    dark = Math.min(0.68, dark);
     const W = cam.viewW, H = cam.viewH;
     this.scale = quality >= 3 ? 0.4 : quality === 2 ? 0.32 : 0.22;
     // colour grade follows the light cycle (golden hour, dawn haze, neon night); soft-light keeps the neon palette intact
@@ -80,15 +80,11 @@ export class Lighting {
           grd.addColorStop(0, `rgba(0,0,0,${a})`); grd.addColorStop(1, "rgba(0,0,0,0)");
           g.fillStyle = grd; g.beginPath(); g.arc(px, py, rr, 0, 6.283); g.fill();
         };
-        if (sim.env.power) for (const p of sim.world.pois) if (p.kind === "lamp" && p.on) hole(p.x + 0.3, p.y - 0.3, 1.5, 190, 0.95);
+        if (sim.env.power) for (const p of sim.world.pois) if (p.kind === "lamp" && p.on) hole(p.x + 0.3, p.y - 0.3, 0, 115, 0.65);
         if(sim.env.power)for(const b of sim.world.buildings)hole(b.door.x,b.door.y,0,90,.48);
         // Vehicle pools and beams live in the depth-sorted glow pass. Cutting broad holes
         // here would brighten foreground facades even when the vehicle is fully occluded.
         if (sim.env.party) hole(sim.stagePoint.x, sim.stagePoint.y, 0, 300, 0.7);
-        const pl = sim.player;
-        hole(pl.x, pl.y, 1, 110, 0.55);
-        // anyone holding a phone light / fleeing in the dark gets a little glow
-        for (const c of sim.chars) if (c.tier === "principal" && c.lod === 0) hole(c.x, c.y, 1, 45, 0.3);
         main.drawImage(this.cv, 0, 0, W, H);
       }
     }

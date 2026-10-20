@@ -1689,3 +1689,14 @@ a.scrollcue { padding-block: 2px; margin-block: -2px; }
 
 /* evolve:cls hero__where: keep the scroll cue on its own line on phones so late text/font changes can't re-wrap the hero */
 @media (max-width: 600px) { .hero__where > .scrollcue { flex-basis: 100%; } }
+
+/* After-hours keypad: the same paper, charcoal and gold as the Mosaics. */
+.mosaic-keypad { box-sizing:border-box; width:min(360px,calc(100% - 32px)); max-height:calc(100dvh - 32px); overflow:auto; padding:24px; background:#20211f; color:#eee4d3; border:1px solid #82765e; border-radius:18px; box-shadow:0 24px 90px #0009; font:15px/1.5 Archivo,system-ui,sans-serif; }
+.mosaic-keypad::backdrop { background:#080a0bd9; backdrop-filter:blur(6px); }
+.mosaic-keypad form { margin:0; }.mosaic-keypad h2 { font:800 34px/1.1 Archivo,system-ui,sans-serif; margin:10px 0; }.mosaic-keypad p { margin:10px 0; }
+.keypad-cap { display:flex;align-items:center;justify-content:space-between;color:#c7ad79; }.keypad-kicker { font:500 11px 'IBM Plex Mono',monospace;letter-spacing:.15em;color:#c7ad79; }
+.mosaic-keypad button { cursor:pointer; min-height:48px; border:1px solid #55564e; border-radius:8px; background:#30312d; color:#eee4d3; font:600 18px Archivo,system-ui,sans-serif; }.keypad-cap button { width:44px; min-height:44px; }
+.mosaic-keypad input { box-sizing:border-box; width:100%; min-height:56px; border:1px solid #757365;border-radius:8px;background:#151715;color:#eee4d3;text-align:center;letter-spacing:.5em;font:26px Archivo,system-ui,sans-serif; }
+.keypad-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px; }.mosaic-keypad button:hover {background:#414139;}.mosaic-keypad :focus-visible {outline:3px solid #cfb47b;outline-offset:3px;}
+.mosaic-keypad .keypad-enter {width:100%;margin-top:16px;background:#c7ad79;color:#181a18;font-size:15px;}.mosaic-keypad [role=status] {min-height:22px;font-size:13px;color:#dfc59b;}
+#wordmark,#foot-mark {cursor:pointer;}

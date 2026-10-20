@@ -192,7 +192,7 @@ export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Build
       }
     }
     // signs are lights: repaint them over the night overlay
-    if (dark > 0.3) GLOW.push(() => { g.globalAlpha = a0; roofTop(g, b, p[0], p[1], z, time, dark); g.globalAlpha = 1; });
+    if (dark > 0.3) GLOW.push((c) => { c.globalAlpha = a0; roofTop(c, b, p[0], p[1], z, time, dark); c.globalAlpha = 1; });
   }
   g.globalAlpha = 1;
 }

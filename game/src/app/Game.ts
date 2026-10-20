@@ -1305,7 +1305,7 @@ export class Game {
     carried: () => carried(this.sim.player).map((id) => this.sim.toys[id]).filter(Boolean).map((t) => ({ id: t.id, name: TOYS[t.def].name, category: TOYS[t.def].category ?? "toy" })),
     confiscate: (ids) => { const p = this.sim.player; for (const id of ids) { const t = this.sim.toys[id]; if (!t) continue; detach(p, id); t.state = "broken"; t.x = -100; t.holder = -1; } },
     onReturn: (summary, souvenirs, photos) => {
-      this.toast(summary, "acid"); this.focus("Home", "Welcome back to Christchurch", 3);
+      this.resumeGame(); this.toast(summary, "acid");
       // the trip goes in the Empire tab as a travel log entry
       const when = new Date().toLocaleDateString("en-NZ", { day: "numeric", month: "short" });
       this.luxury.empire.items.push(`✈ ${when}: ${summary}${souvenirs.length ? ` · souvenirs: ${souvenirs.join(", ")}` : ""}${photos ? ` · ${photos} photos for @mosaicscope` : ""}`);
