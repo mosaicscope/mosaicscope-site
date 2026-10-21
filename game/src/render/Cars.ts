@@ -1,3 +1,5 @@
+import {drawTwoWheeler} from './TwoWheelers';
+import type {Character} from '../entities/types';
 import {drawCarDamage} from "./DamageArt";
 import { T, type World } from "../world/World";
 import type { Vehicle } from "../entities/types";
@@ -48,6 +50,24 @@ interface Shape {
 }
 const SEDAN: Shape = { cf: 0.24, cr: 0.16, hood: 0.5, deck: 0.56, cab: [-0.27, 0.17], roof: [-0.15, -0.02], cw: 0.88, rw: 0.74, wheel: 0.27 };
 const SHAPES: Record<VehicleClass, Shape> = {
+motorcycle:{...SEDAN,cab:[-.23,.24],roof:[-.15,.1]},
+sportbike:{...SEDAN,cab:[-.23,.24],roof:[-.15,.1]},
+cruiser:{...SEDAN,cab:[-.23,.24],roof:[-.15,.1]},
+bicycle:{...SEDAN,cab:[-.23,.24],roof:[-.15,.1]},
+ebike:{...SEDAN,cab:[-.23,.24],roof:[-.15,.1]},
+escooter:{...SEDAN,cab:[-.23,.24],roof:[-.15,.1]},
+kei_coupe:{...SEDAN,cab:[-.23,.24],roof:[-.15,.1]},
+retro_micro:{...SEDAN,hood:.45,cab:[-.32,.2],roof:[-.22,.08],cw:.9,rw:.8},
+euro_hatch:{...SEDAN,hood:.45,cab:[-.32,.2],roof:[-.22,.08],cw:.9,rw:.8},
+fast_sedan:{...SEDAN,cab:[-.23,.24],roof:[-.15,.1]},
+box_suv:{...SEDAN,boxy:true,cab:[-.4,.16],roof:[-.35,.07],rh:1.1},
+offroad_wagon:{...SEDAN,boxy:true,cab:[-.4,.16],roof:[-.35,.07],rh:1.1},
+rally_sedan:{...SEDAN,hood:.35,deck:.44,cab:[-.25,.12],roof:[-.13,.02],wing:true},
+retro_ute:{...SEDAN,cab:[-.23,.24],roof:[-.15,.1]},
+lift_suv:{...SEDAN,boxy:true,cab:[-.4,.16],roof:[-.35,.07],rh:1.1},
+compact_ev:{...SEDAN,hood:.45,cab:[-.32,.2],roof:[-.22,.08],cw:.9,rw:.8},
+estate_ev:{...SEDAN,hood:.45,cab:[-.32,.2],roof:[-.22,.08],cw:.9,rw:.8},
+super_wedge:{...SEDAN,hood:.35,deck:.44,cab:[-.25,.12],roof:[-.13,.02],wing:true},
   tank:{...SEDAN,boxy:true},
   hatch: { cf: 0.28, cr: 0.12, hood: 0.5, deck: 0.6, cab: [-0.47, 0.19], roof: [-0.43, -0.03], cw: 0.88, rw: 0.76, wheel: 0.27 },
   sedan: SEDAN,
@@ -147,8 +167,8 @@ function ring(x0: number, x1: number, hw: number, cf: number, cr: number, h: (x:
   return P.map(([x, y]) => [x, y, h(x)]);
 }
 
-interface Ctx { g: CanvasRenderingContext2D; cam: Camera; x: number; y: number; c: number; s: number }
-const W3 = (k: Ctx, p: V3) => { k.cam.toScreen(k.x + p[0] * k.c - p[1] * k.s, k.y + p[0] * k.s + p[1] * k.c, p[2], pt); return [pt.x, pt.y]; };
+interface Ctx { g: CanvasRenderingContext2D; cam: Camera; x: number; y: number; c: number; s: number; roll?:number; pitch?:number }
+const W3 = (k: Ctx, p: V3) => { k.cam.toScreen(k.x + p[0] * k.c - p[1] * k.s, k.y + p[0] * k.s + p[1] * k.c, Math.max(.015,p[2]+(k.roll??0)*p[1]+(k.pitch??0)*p[0]), pt); return [pt.x, pt.y]; };
 /** Local -> world normal. */
 const WN = (k: Ctx, n: V3): V3 => [n[0] * k.c - n[1] * k.s, n[0] * k.s + n[1] * k.c, n[2]];
 const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -215,12 +235,13 @@ function wheel(k: Ctx, lx: number, ly: number, r: number, near: boolean, spin: n
 
 const spinOf = new WeakMap<Vehicle, number>();
 
-export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, alpha: number, time: number, dark: number, selected: boolean): void {
+export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, alpha: number, time: number, dark: number, selected: boolean, driver?:Character): void {
   const mods=v.lifeMods??[], shapeClass=mods.includes("Hearse body")?"hearse":mods.includes("Limousine chassis")?"limo":v.cls;
   const d = VEHICLES[v.cls], S = SHAPES[shapeClass], M = carMutationOf(v.plate, v.cls);
   const x = v.px + (v.x - v.px) * alpha, y = v.py + (v.y - v.py) * alpha;
   const z = cam.zoom, ang = v.heading;
   const k: Ctx = { g, cam, x, y, c: Math.cos(ang), s: Math.sin(ang) };
+  if(drawTwoWheeler(g,cam,v,alpha,time,driver))return;
   if(v.cls==='tank'){
     const L=d.length,hw=d.width/2;
     for(const side of[-1,1]){const y=side*(hw-.14),lo=ring(-L/2,L/2,.18,.1,.1,()=>.08).map(p=>[p[0],p[1]+y,p[2]] as V3),hi=lo.map(p=>[p[0],p[1],.52] as V3);loft(k,lo,hi,()=> '#2b302c','#171e1b');cap(k,hi,rgb('#414a40'));for(let i=0;i<5;i++)wheel(k,-L*.36+i*L*.18,side*hw,.18,side>0,time*v.speed,'#68715b');}
@@ -231,7 +252,8 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   // drawn size only: the simulation still uses the class dimensions, so movement and collisions are unchanged
   const L = d.length * M.scale * (mods.includes("Limousine chassis")?1.35:1), hw = (d.width / 2) * M.scale, H = d.height * 1.08 * M.scale * (mods.includes("Double deck")?1.6:1);
   // crumple zones: a hit end is pushed in (Traffic.bump records where the car was hit)
-  const dF = v.dmgF ?? 0, dR = v.dmgR ?? 0, dL = v.dmgL ?? 0, dS = v.dmgS ?? 0;
+  const panels=v.components?.panels??[];
+  const dF=Math.max(v.dmgF??0,(panels[0]??0)*.65),dR=Math.max(v.dmgR??0,(panels[1]??0)*.65),dL=Math.max(v.dmgL??0,(panels[2]??0)*.65),dS=Math.max(v.dmgS??0,(panels[3]??0)*.65);
   const x0 = -L / 2 + dR * 0.16 * L, x1 = L / 2 - dF * 0.18 * L;
   const deadLamp = dF > 0.35 ? (v.plate.charCodeAt(1) % 2 ? 1 : -1) : 0, deadTail = dR > 0.35 ? (v.plate.charCodeAt(2) % 2 ? 1 : -1) : 0;
   const night = dark > 0.35;
@@ -270,8 +292,10 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const wr = S.wheel * H, wx = L * (S.wb ?? (v.cls === "van" || v.cls === "ambulance" ? 0.33 : 0.31)), wy = hw - 0.02;
   const rimCol = ST.rim ?? (v.cls === "police" || v.cls === "ambulance" || v.cls === "van" ? "#8a8580" : v.cls === "super" || v.cls === "sports" ? "#2a2a2a" : "#cfc8c0");
   const axles = M.axles === 1 ? [0] : M.axles === 2 ? [wx, -wx] : [wx, 0, -wx];
-  for (const lx of axles) wheel(k, lx, -nearSign * wy, wr, false, spin, rimCol, -nearSign < 0 ? !!v.flatLeft : !!v.flatRight);
+  for (const lx of axles) roadWheel(k,v,lx,-nearSign*wy,wr,false,spin,rimCol);
 
+  // The chassis settles toward a failed corner; grounded wheels keep their own contact plane.
+  if(v.components){const drop=(i:number)=>{const w=v.components!.wheels[i];return w.missing?.2:(w.puncture?.06:0)+w.suspension*.045;};k.roll=((drop(0)+drop(2))-(drop(1)+drop(3)))/Math.max(.2,hw*4);k.pitch=((drop(2)+drop(3))-(drop(0)+drop(1)))/Math.max(.4,L*2);}
   // ---- lower skirt ----
   const hs = H * 0.3, ground = 0.08;
   const bodyTop = (lx: number) => { const t = (lx - x0) / L; return H * (S.deck + (S.hood - S.deck) * Math.max(0, Math.min(1, (t - 0.25) / 0.75))); };
@@ -279,7 +303,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const rSk1 = ring(x0, x1, hw, S.cf, S.cr, () => hs);
   const lower = (n: V3) => lit(paint, shadeFor(n) * 0.72 * dmg);
   loft(k, rSk0, rSk1, lower);
-  for (const lx of axles) wheel(k, lx, nearSign * wy, wr, true, spin, rimCol, nearSign < 0 ? !!v.flatLeft : !!v.flatRight);
+  for (const lx of axles) roadWheel(k,v,lx,nearSign*wy,wr,true,spin,rimCol);
 
   // ---- body sides (with a slight tumblehome) and the bonnet/boot deck ----
   const rTop = ring(x0 + 0.03, x1 - 0.02, hw * 0.95, S.cf * 1.05, S.cr * 1.05, bodyTop);
@@ -439,6 +463,11 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     if (S.boxy) continue;
     fillPoly(k, [onFace(f, 0.15, 0.15), onFace(f, 0.3, 0.15), onFace(f, 0.5, 0.9), onFace(f, 0.35, 0.9)], "rgba(220,235,255,.16)");
   }
+  for(const f of glassFaces){const n=f.n,zone=Math.abs(n[0])>=Math.abs(n[1])?(n[0]>0?0:1):(n[1]>0?3:2),damage=v.components?.glass[zone]??v.glassDamage??0;if(damage<.25||S.boxy&&zone!==0)continue;
+   g.save();g.beginPath();[f.a0,f.b0,f.b1,f.a1].forEach((p,i)=>{const q=W3(k,p);if(i)g.lineTo(q[0],q[1]);else g.moveTo(q[0],q[1]);});g.closePath();g.clip();const C=W3(k,onFace(f,.43,.48));g.strokeStyle='#d8e6e0bb';g.lineWidth=Math.max(.45,.5*z);for(let j=0;j<3+Math.floor(damage*7);j++){const E=W3(k,onFace(f,(j%3)*.47,.08+(j%4)*.3)),mx=C[0]+(E[0]-C[0])*.56,my=C[1]+(E[1]-C[1])*.56;g.beginPath();g.moveTo(C[0],C[1]);g.lineTo(mx+(j%2?1:-1)*z,my-z);g.lineTo(E[0],E[1]);g.stroke();}
+   if(damage>.68){const hole=[[.31,.31],[.56,.2],[.63,.46],[.54,.73],[.35,.66],[.28,.48]].map(([u,v])=>onFace(f,u,v));fillPoly(k,hole,'#162329');strokePoly(k,hole,'#a5b9b4',.6*z,true);for(let j=0;j<3;j++){fillPoly(k,[onFace(f,.35+j*.08,.65),onFace(f,.39+j*.08,.79),onFace(f,.43+j*.08,.61)],'#a8c4bd88');}}
+   g.restore();
+  }
   cap(k, rCab1, (S.open ? seat : roofPaint).map((c) => c * dmg) as [number, number, number], S.open ? 4 : 8);
   if (S.box && !frontVisible) drawBox();
   if (S.boxy) { // window line on vans
@@ -569,20 +598,24 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     }
   }
 
-  // Glass fractures remain fixed to panels; leaks and loose trim sit on the road.
-  if ((v.glassDamage ?? 0) > 0.35) {
-    for (const f of glassFaces.slice(0, 4)) {
-      const C = W3(k, onFace(f, 0.5, 0.5));
-      g.strokeStyle = (v.glassDamage ?? 0) > 0.8 ? "#111" : "rgba(235,245,255,.8)";
-      g.lineWidth = Math.max(1, z);
-      for (let i=0;i<5;i++) { const E=W3(k,onFace(f,(i%2)*0.9+0.05,i/5)); g.beginPath();g.moveTo(C[0],C[1]);g.lineTo(E[0],E[1]);g.stroke(); }
-    }
-  }
   if (v.leak) { const P=W3(k,[-L*.2,0,.01]);g.fillStyle="rgba(12,8,10,.75)";g.beginPath();g.ellipse(P[0],P[1]+8*z,12*z*v.leak,4*z,0,0,Math.PI*2);g.fill(); }
   if (v.bumperLost || v.mirrorLost) { const P=W3(k,[-L*.65,hw*1.3,.03]);g.strokeStyle="#aaa";g.lineWidth=2*z;g.beginPath();g.moveTo(P[0]-5*z,P[1]);g.lineTo(P[0]+5*z,P[1]+3*z);g.stroke(); }
   if (v.burning) { for(let i=0;i<5;i++){const P=W3(k,[x1-L*.2,(i-2)*.06,H*.7]);g.fillStyle=i%2?"#ffb52e":"#ec3b12";g.beginPath();g.moveTo(P[0]-4*z,P[1]);g.lineTo(P[0]+Math.sin(time*9+i)*3*z,P[1]-(10+Math.sin(time*7+i)*5)*z);g.lineTo(P[0]+4*z,P[1]);g.fill();} }
   if (v.burnt && (v.burntAge ?? 0) < 0.8) { const P=W3(k,[0,0,H]); const r=(12+(v.burntAge??0)*40)*z; g.fillStyle="rgba(255,170,30,.6)";g.beginPath();g.arc(P[0],P[1],r,0,Math.PI*2);g.fill(); }
   if (v.flatLeft || v.flatRight || v.burnt) { const P=W3(k,[0,0,H+.2]);g.font=`${Math.max(9,10*z)}px monospace`;g.fillStyle="#f6b62c";g.fillText(v.burnt?"BURNT OUT":v.flatLeft&&v.flatRight?"FLAT TYRES":"FLAT TYRE",P[0]-25*z,P[1]); }
+
+  if(v.components){const p=v.components;
+   if(p.hoodGone){const a=Math.max(S.cab[1]*L,L*.12),b=x1-.04,h=bodyTop(b)+.016;
+    fillPoly(k,[[a,-hw*.8,h],[b,-hw*.8,h],[b,hw*.8,h],[a,hw*.8,h]],'#202b2c');
+    const middle=(a+b)/2;fillPoly(k,[[a+.06,-hw*.35,h+.01],[b-.1,-hw*.35,h+.01],[b-.1,hw*.35,h+.1],[a+.06,hw*.35,h+.1]],'#64716a');
+    for(let j=0;j<4;j++){const y=-hw*.3+j*hw*.2;strokePoly(k,[[a+.1,y,h+.12],[b-.13,y,h+.12]],'#a6afa2',z,false);}
+    strokePoly(k,[[a,hw*.65,h+.03],[middle,hw*.54,h+.06],[b-.06,hw*.65,h+.03]],'#b39164',1.5*z,false);
+    strokePoly(k,[[b-.08,-hw*.65,h+.02],[b-.08,hw*.65,h+.02]],'#7d8983',2*z,false);
+   }
+   if(p.hoodLoose&&!p.hoodGone){const lift=.12+(1-p.hood)*.35+Math.sin(time*16)*Math.min(.16,Math.abs(v.speed)*.012);fillPoly(k,[[L*.2,-hw*.85,H*.51],[L*.49,-hw*.85,H*.51+lift],[L*.49,hw*.85,H*.51+lift],[L*.2,hw*.85,H*.51]],v.color);}
+   if(p.bumperLoose&&!v.bumperLost)strokePoly(k,[[L*.5,-hw,.12],[L*.55,0,.07+Math.sin(time*9)*.03],[L*.5,hw,.16]],'#676e68',Math.max(1,2*z),false);
+
+  }
 
   drawCarDamage(g,v,L,hw,H,z,(x,y,h)=>W3(k,[x,y,h]),zone=>zone===2?dot(WN(k,[0,-1,0]),VIEW)>0:zone===3||zone===9?dot(WN(k,[0,1,0]),VIEW)>0:zone===1||zone===6||zone===8?!frontVisible:zone===0||zone===5||zone===7?frontVisible:true);
   if (v.forSale) {
@@ -654,3 +687,15 @@ export function headlights(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle,
     g.fillStyle = core; g.beginPath(); g.arc(p.x, p.y, r, 0, 6.283); g.fill();
   }
 }
+
+function roadWheel(k:Ctx,v:Vehicle,x:number,y:number,r:number,near:boolean,spin:number,color:string):void{
+ const i=(x>0?0:2)+(y>0?1:0),w=v.components?.wheels[i];if(w?.missing)return;
+ const cx=k.x+x*k.c-y*k.s,cy=k.y+x*k.s+y*k.c,ang=v.heading+(x>0?(v.steerAngle??0):0)+(w?.alignment??0),ctx={...k,x:cx,y:cy,c:Math.cos(ang),s:Math.sin(ang),roll:0,pitch:0};
+ wheel(ctx,0,0,r*(1-(w?.rim??0)*.08),near,spin,color,w?w.puncture:(y<0?v.flatLeft:v.flatRight));
+ if(w&&w.rim>.3){const q=W3(ctx,[0,0,r]);k.g.strokeStyle='#a9b3a2';k.g.lineWidth=k.cam.zoom;k.g.beginPath();k.g.moveTo(q[0]-3*k.cam.zoom,q[1]-r*12*k.cam.zoom);k.g.lineTo(q[0]+3*k.cam.zoom,q[1]+r*10*k.cam.zoom);k.g.stroke();}
+}
+export function drawVehicleFragment(g:CanvasRenderingContext2D,cam:Camera,v:Vehicle,index:number):void{
+ for(const d of (v.components?.debris[index]?[v.components.debris[index]]:[])){const q=cam.toScreen(d.x,d.y,d.z,{x:0,y:0}),z=cam.zoom;g.save();g.translate(q.x,q.y);g.rotate(d.spin);if(d.kind==='wheel'){g.fillStyle='#26302e';g.beginPath();g.ellipse(0,0,5*z,7*z,0,0,6.3);g.fill();g.strokeStyle='#9ca89c';g.lineWidth=z;g.stroke();}else{g.fillStyle=d.kind==='glass'?'#b7d5d2b0':v.color;g.strokeStyle=d.kind==='glass'?'#d9ece0':'#4a5952';g.lineWidth=.5*z;g.beginPath();g.moveTo(-3*z,-z);g.lineTo(2*z,-4*z);g.lineTo(4*z,2*z);g.lineTo(-z,3*z);g.closePath();g.fill();g.stroke();}g.restore();}
+}
+
+function strokePoly(k:Ctx,points:V3[],color:string,width:number,closed=false):void{k.g.strokeStyle=color;k.g.lineWidth=width;k.g.beginPath();points.forEach((p,i)=>{const q=W3(k,p);if(i)k.g.lineTo(q[0],q[1]);else k.g.moveTo(q[0],q[1]);});if(closed)k.g.closePath();k.g.stroke();}

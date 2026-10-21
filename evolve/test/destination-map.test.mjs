@@ -14,3 +14,9 @@ test('new city codes use their own origin for road and footprint projection',()=
  const c=districtCentre('G285787'),d=convertDestination({elements:[{id:1,tags:{building:'yes',name:'Mapped building','building:levels':'3'},geometry:[{lat:c.lat,lon:c.lon},{lat:c.lat,lon:c.lon+.0001},{lat:c.lat+.0001,lon:c.lon+.0001},{lat:c.lat,lon:c.lon}]}]},'G285787');
  assert.equal(d.buildings.length,1);assert.deepEqual(d.buildings[0].points[0],[0,-0]);assert.equal(d.buildings[0].heightEstimated,false);assert.equal(d.source,'OpenStreetMap contributors');
 });
+
+test('architectural source attributes and worldwide country survive map conversion',()=>{
+ const c=districtCentre('G285787'),geometry=[{lat:c.lat,lon:c.lon},{lat:c.lat,lon:c.lon+.0001},{lat:c.lat+.0001,lon:c.lon+.0001},{lat:c.lat,lon:c.lon}];
+ const d=convertDestination({elements:[{id:42,tags:{building:'house','building:material':'stone','building:colour':'#ccbbaa','building:architecture':'vernacular','roof:shape':'flat','roof:colour':'#aabbcc','roof:material':'concrete','building:levels':'2'},geometry}]},'G285787');
+ assert.equal(d.buildings[0].tags.country,'KW');for(const [k,v]of Object.entries({'building:material':'stone','building:colour':'#ccbbaa','building:architecture':'vernacular','roof:shape':'flat','roof:colour':'#aabbcc','roof:material':'concrete'}))assert.equal(d.buildings[0].tags[k],v);
+});

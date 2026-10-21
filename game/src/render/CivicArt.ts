@@ -36,5 +36,14 @@ export function drawFacadeDamage(g:G,w:World,id:number,tx:number,ty:number,sx:nu
  const pts=[[.25,.25],[.22,.85],[.48,1],[.77,.78],[.73,.28]].map(([u,h])=>P(.5+(u-.5)*scale,.55+(h-.55)*scale));g.save();g.fillStyle=d.phase==='working'?'#9c7d54':d.severity<.45?'#847a68aa':variant===1?'#4a5760bb':'#302d2bcc';g.strokeStyle='#afa38d';g.lineWidth=z;g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();g.fill();g.stroke();
  if(d.phase==='working'){for(const h of[.4,.6,.8]){const a=P(.24,h),b=P(.75,h);g.strokeStyle='#65593d';g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke();}cones(g,sx,sy+25*z,z);}
  else{if(d.severity>.6&&variant===2){for(let i=0;i<5;i++){const a=P(.3+i*.09,.3+(i%2)*.18);g.fillStyle=i%2?'#9b8164':'#b39677';g.fillRect(a[0]-3*z,a[1]-2*z,6*z,3*z);}}const c=P(.5,.65);g.strokeStyle='#c0b9a6';for(const [u,h]of [[.15,.98],[.85,.9],[.8,.14],[.1,.2]]){const a=P(u,h);g.beginPath();g.moveTo(c[0],c[1]);g.lineTo(a[0],a[1]);g.stroke();}}
+
+ if(d.phase!=='working'){
+  const material=d.material??'brick',seed=d.variant??0;
+  // Damage is constrained to this facade plane; fragments match its actual material.
+  for(let i=0;i<5+Math.floor(d.severity*12);i++){const u=.18+((i*17+seed*7)%65)/100,h=.15+((i*23+seed)%70)/100,q=P(u,h);g.strokeStyle=material==='glass'?'#d9efecbb':material==='timber'?'#574a35':'#c0b39a';g.lineWidth=Math.max(.5,z*.65);g.beginPath();g.moveTo(q[0],q[1]);const end=P(u+(material==='timber'?.15:.05),h+(i%2?.07:-.09));g.lineTo(end[0],end[1]);g.stroke();}
+  if(material==='timber'){for(let i=0;i<4;i++){const a=P(.25+i*.14,.25),b=P(.31+i*.14,.83);g.strokeStyle=i%2?'#a68c62':'#665b43';g.lineWidth=2*z;g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke();}}
+  if(material==='metal'){for(let i=0;i<5;i++){const a=P(.2+i*.13,.25),b=P(.24+i*.13,.85);g.strokeStyle='#b3bfc044';g.lineWidth=2*z;g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke();}}
+  if(d.severity>.45){const q=P(.5,.06);for(let i=0;i<Math.ceil(d.severity*9);i++){g.fillStyle=material==='glass'?'#bfdedcb0':material==='timber'?'#a48c66':material==='brick'?'#a27963':'#a3a292';const x=q[0]+((i*19+seed)%35-17)*z,y=q[1]+(i%3)*3*z;g.beginPath();g.moveTo(x,y);g.lineTo(x+5*z,y-z);g.lineTo(x+2*z,y+4*z);g.closePath();g.fill();}}
+ }
  g.restore();
 }

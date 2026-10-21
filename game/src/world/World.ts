@@ -34,7 +34,7 @@ export interface Building {
   x0: number; y0: number; x1: number; y1: number;  // inclusive tile rect
   floors: number;
   height: number;                                  // world z units
-  color: string; roof: string; sign: string;
+  color: string; roof: string; sign: string; facadeMaterial?:string;roofShape?:string;architecture?:string;
   door: { x: number; y: number; face: "n" | "s" | "e" | "w" };
   area: number;
   billboard: boolean;
