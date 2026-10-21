@@ -101,3 +101,10 @@ These are **12 distinct skill games and 38 street interactions**, not 50 copies 
 - Browser walkthrough: baggage, class upgrade, all three courses, included extras, comfort effects, bar purchases, dealer injury/crime, native club cast, circuit game reward, all 50 catalogue entries, browser zoom and mobile cabin.
 - Destination benchmark: the zoomed-out Tokyo fixture averaged 16.67 ms between frames, with 10.1 ms destination-render p95 and 50 cached building sprites using about 21 MiB after warm-up on the test machine. This is measured performance, not a guarantee for every device or map.
 - Public map data, live traffic availability and venue interiors retain the limitations described in the previous destination release.
+
+## Cabin art refinement
+
+- Aisle view uses the same 2:1 ground axes and upright native Mosaic cast as world interiors. Economy has paired seats; first class has wider individual seats, a service console and extra space. Geometry, seams, cushions, seat belts, bins, latches, galley drawers, exit door, reading lights and trolley have consistent projected depth.
+- Window view retains a close scenic composition, with recessed fuselage framing, layered clouds and distant terrain, wing slats and hinges, fairings and an engine. Nearby seats and service furniture use the same isometric axes and muted teal, cream, charcoal and brass palette.
+- Food, cutlery, a napkin, cups, the comfort kit, blanket and headphones follow the existing service state. Mobile aisle framing keeps the actual player and meal near the centre; window framing retains the scenic close-up. Canvas scaling is uniform with retina backing, and motion respects the existing reduced-motion setting.
+- Validation: TypeScript and production build; seven visual combinations covering both views/classes, desktop, portrait and landscape; the complete existing flight/venues/street-play browser walkthrough.
