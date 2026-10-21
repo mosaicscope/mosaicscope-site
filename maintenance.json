@@ -1,5 +1,5 @@
 {
- "at": 1792532731780,
+ "at": 1792540938342,
  "totals": {
   "duplicate-code": 2,
   "long-function": 17,
@@ -51,9 +51,9 @@
    "kind": "oversized-module",
    "severity": "medium",
    "where": "game/src/app/Game.ts",
-   "detail": "1735 lines",
+   "detail": "1743 lines",
    "fix": "split by feature into modules",
-   "fp": "oversized-module|1n0nyoz"
+   "fp": "oversized-module|2bb2e6"
   },
   {
    "kind": "oversized-module",
@@ -155,9 +155,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Simulation.ts",
-   "detail": "967 lines",
+   "detail": "971 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|13b63ae"
+   "fp": "oversized-module|1slvhn1"
   },
   {
    "kind": "long-function",
@@ -187,9 +187,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/ui/LifePhone.ts",
-   "detail": "1037 lines",
+   "detail": "1035 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|qjdki3"
+   "fp": "oversized-module|qby4dl"
   },
   {
    "kind": "oversized-module",
