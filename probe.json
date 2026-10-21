@@ -1,5 +1,5 @@
 {
- "at": 1792559005975,
+ "at": 1792584283324,
  "target": "https://mosaicscope.pages.dev",
  "sha": "d5752f034cb2c4f64fc7b338ab41c89f17b080a4",
  "results": [
@@ -9,6 +9,10 @@
    "width": 390,
    "errors": [],
    "consoleErrors": [
+    {
+     "text": "Failed to load resource: the server responded with a status of 402 ()",
+     "own": false
+    },
     {
      "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
      "own": false
@@ -34,47 +38,43 @@
      "own": false
     }
    ],
-   "failed": [],
-   "requests": 71,
-   "bytes": 4094,
+   "failed": [
+    {
+     "url": "https://feeds.behold.so/BTTwoWiBb9xHhr96wOcE",
+     "own": false,
+     "why": "HTTP 402"
+    },
+    {
+     "url": "https://www.youtube-nocookie.com/embed/cZFXA3scOC4",
+     "own": false,
+     "why": "net::ERR_ABORTED"
+    }
+   ],
+   "requests": 66,
+   "bytes": 3732,
    "ownBytes": 79,
-   "thirdParty": 65,
+   "thirdParty": 60,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 309,
-    "loadMs": 1435,
-    "lcpMs": 764,
-    "cls": 0.154,
-    "tbtMs": 433,
+    "domContentLoadedMs": 256,
+    "loadMs": 1171,
+    "lcpMs": 648,
+    "cls": 0.125,
+    "tbtMs": 275,
     "longTasks": 3,
     "heapMB": 33.5,
-    "domNodes": 1296,
+    "domNodes": 1241,
     "renderBlocking": 3,
-    "resourceEntries": 18,
-    "screens": 10.6
+    "resourceEntries": 12,
+    "screens": 10.1
    },
    "ui": {
     "overflowPx": 0,
     "smallTargets": [
      {
-      "el": "#hero-plate",
-      "w": 127,
-      "h": 20
-     },
-     {
       "el": "a.follow",
       "w": 119,
       "h": 23
-     },
-     {
-      "el": "a.tag-link",
-      "w": 98,
-      "h": 14
-     },
-     {
-      "el": "a.tag-link",
-      "w": 84,
-      "h": 14
      }
     ],
     "smallText": [
@@ -87,23 +87,24 @@
       "px": 9
      },
      {
+      "el": "span.tag-yt",
+      "px": 10
+     },
+     {
       "el": "span.slide__label > span",
       "px": 11
-     },
-     {
-      "el": "a.tag-link",
-      "px": 11
-     },
-     {
-      "el": "span.reel-tag",
-      "px": 10
      },
      {
       "el": "a.prop",
       "px": 8
      }
     ],
-    "lowContrast": [],
+    "lowContrast": [
+     {
+      "el": "span.tag-yt",
+      "ratio": 4.27
+     }
+    ],
     "noFocusStyle": [],
     "inconsistent": [
      {
@@ -117,7 +118,7 @@
      },
      {
       "component": "link",
-      "variants": 7,
+      "variants": 6,
       "examples": [
        "\"IBM Plex Mono\"|13px|400|0px|uppercase",
        "Archivo|16.8px|400|0px|none",
@@ -129,7 +130,7 @@
     "hierarchyInverted": true
    },
    "interactions": {
-    "clicked": 6,
+    "clicked": 10,
     "broken": [],
     "newErrors": 0
    }
@@ -140,6 +141,10 @@
    "width": 1280,
    "errors": [],
    "consoleErrors": [
+    {
+     "text": "Failed to load resource: the server responded with a status of 402 ()",
+     "own": false
+    },
     {
      "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
      "own": false
@@ -165,47 +170,43 @@
      "own": false
     }
    ],
-   "failed": [],
-   "requests": 72,
-   "bytes": 4127,
-   "ownBytes": 79,
-   "thirdParty": 66,
+   "failed": [
+    {
+     "url": "https://feeds.behold.so/BTTwoWiBb9xHhr96wOcE",
+     "own": false,
+     "why": "HTTP 402"
+    },
+    {
+     "url": "https://www.youtube-nocookie.com/embed/cZFXA3scOC4",
+     "own": false,
+     "why": "net::ERR_ABORTED"
+    }
+   ],
+   "requests": 68,
+   "bytes": 3764,
+   "ownBytes": 80,
+   "thirdParty": 62,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 266,
-    "loadMs": 1103,
-    "lcpMs": 284,
-    "cls": 0.096,
-    "tbtMs": 507,
+    "domContentLoadedMs": 179,
+    "loadMs": 743,
+    "lcpMs": 204,
+    "cls": 0.095,
+    "tbtMs": 288,
     "longTasks": 3,
     "heapMB": 33.5,
-    "domNodes": 1572,
+    "domNodes": 1517,
     "renderBlocking": 3,
-    "resourceEntries": 19,
-    "screens": 9.6
+    "resourceEntries": 12,
+    "screens": 8.9
    },
    "ui": {
     "overflowPx": 0,
     "smallTargets": [
      {
-      "el": "#hero-plate",
-      "w": 127,
-      "h": 20
-     },
-     {
       "el": "a.follow",
       "w": 119,
       "h": 23
-     },
-     {
-      "el": "a.tag-link",
-      "w": 98,
-      "h": 14
-     },
-     {
-      "el": "a.tag-link",
-      "w": 84,
-      "h": 14
      }
     ],
     "smallText": [
@@ -218,24 +219,16 @@
       "px": 11
      },
      {
-      "el": "span.cat-photo",
-      "px": 11
-     },
-     {
       "el": "span.cat-film",
       "px": 11
      },
      {
+      "el": "span.tag-yt",
+      "px": 10
+     },
+     {
       "el": "span.slide__label > span",
       "px": 11
-     },
-     {
-      "el": "a.tag-link",
-      "px": 11
-     },
-     {
-      "el": "span.reel-tag",
-      "px": 10
      },
      {
       "el": "p.stage__label",
@@ -246,7 +239,12 @@
       "px": 9
      }
     ],
-    "lowContrast": [],
+    "lowContrast": [
+     {
+      "el": "span.tag-yt",
+      "ratio": 4.27
+     }
+    ],
     "noFocusStyle": [],
     "inconsistent": [
      {
@@ -260,7 +258,7 @@
      },
      {
       "component": "link",
-      "variants": 7,
+      "variants": 6,
       "examples": [
        "\"IBM Plex Mono\"|13px|400|0px|uppercase",
        "Archivo|16.8px|400|0px|none",
@@ -272,7 +270,7 @@
     "hierarchyInverted": true
    },
    "interactions": {
-    "clicked": 7,
+    "clicked": 11,
     "broken": [],
     "newErrors": 0
    }
@@ -296,9 +294,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 190,
-    "loadMs": 190,
-    "lcpMs": 192,
+    "domContentLoadedMs": 152,
+    "loadMs": 152,
+    "lcpMs": 152,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -343,9 +341,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 206,
-    "loadMs": 206,
-    "lcpMs": 140,
+    "domContentLoadedMs": 150,
+    "loadMs": 150,
+    "lcpMs": 104,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -384,9 +382,9 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 274,
-    "loadMs": 383,
-    "lcpMs": 296,
+    "domContentLoadedMs": 158,
+    "loadMs": 220,
+    "lcpMs": 172,
     "cls": 0.007,
     "tbtMs": 0,
     "longTasks": 0,
@@ -425,10 +423,10 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 232,
-    "loadMs": 232,
-    "lcpMs": 252,
-    "cls": 0.147,
+    "domContentLoadedMs": 175,
+    "loadMs": 236,
+    "lcpMs": 196,
+    "cls": 0.152,
     "tbtMs": 0,
     "longTasks": 0,
     "heapMB": 9.5,
@@ -507,84 +505,84 @@
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 390,
-   "ms": 2761,
+   "ms": 2400,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 390,
-   "ms": 2078,
+   "ms": 1726,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 390,
-   "ms": 2232,
+   "ms": 1893,
    "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 390,
-   "ms": 2113,
+   "ms": 1733,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 390,
-   "ms": 2588,
+   "ms": 2266,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 390,
-   "ms": 1143,
+   "ms": 1012,
    "status": "pass"
   },
   {
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 1280,
-   "ms": 2844,
+   "ms": 2434,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 1280,
-   "ms": 2177,
+   "ms": 1831,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 1280,
-   "ms": 2467,
+   "ms": 2046,
    "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 1280,
-   "ms": 2141,
+   "ms": 1759,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 1280,
-   "ms": 2772,
+   "ms": 2292,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 1280,
-   "ms": 1151,
+   "ms": 1050,
    "status": "pass"
   }
  ]
