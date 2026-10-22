@@ -429,10 +429,10 @@ export function drawPoi(g: CanvasRenderingContext2D, p: Poi, sx: number, sy: num
       break;
     }
     case "billboard": {
-      if((p.name==="mosaicscope"||!p.name)&&p.id%5!==0)break;
-      if(z<1.25||!reserveSign(`street-ad:${p.id}`,{x:sx-42*z,y:sy-68*z,w:84*z,h:68*z}))break;
+
+      if(z<.8||!reserveSign(`street-ad:${p.id}`,{x:sx-42*z,y:sy-68*z,w:84*z,h:68*z}))break;
       g.strokeStyle = "#3a3430"; g.lineWidth = 3 * z; g.beginPath(); g.moveTo(sx, sy); g.lineTo(sx, sy - 40 * z); g.stroke();
-      const kind = p.name === "cars" ? "cars" : p.name === "kiwi" ? "kiwi" : "mosaic";
+      const kind = p.name === "cars" ? "cars" : p.name === "kiwi"&&p.id%3===0 ? "kiwi" : "mosaic";
       drawAd(g, kind, sx, sy - 38 * z, 84 * z, 30 * z, p.id, dark ? 1 : 0);
       break;
     }

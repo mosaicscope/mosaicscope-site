@@ -284,6 +284,7 @@ export interface Toy {
 
 export type VehicleState = "drive" | "parked" | "crashed" | "free";
 export interface Vehicle {
+  evadingUntil?:number;evadingFrom?:number;lights?:boolean;hazards?:boolean;indicator?:'left'|'right'|'off';parkingBrake?:boolean;cleaned?:boolean;resprayed?:boolean;engineRepaired?:boolean;
   id: number;
   cls: import("../content/vehicles").VehicleClass;
   x: number; y: number; px: number; py: number;

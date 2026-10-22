@@ -1,3 +1,5 @@
+import {activityAt} from './SceneMotion';
+import {drawScannerItem,prohibitedItem,type ScanItem} from './ScannerItems';
 import {drawCabin,type CabinState} from './FlightCabin';
 import {DestinationConversation} from './DestinationConversation';
 import {regionalInterior} from '../content/regionalInterior';
@@ -26,7 +28,7 @@ export interface TravelHost {
   /** the crew members who can come along: name + colour (hex) */
   companions(): { name: string; color: string }[];
   /** what the player is carrying (for the security x-ray) */
-  carried(): { id: number; name: string; category: string }[];
+  carried(): ScanItem[];
   confiscate(ids: number[]): void;
   /** called when the trip ends, with a one-line summary and souvenirs bought (strings) */
   onReturn(summary: string, souvenirs: string[], photos: number): void;
@@ -50,9 +52,9 @@ function line(g: G, pts: number[]): void { g.beginPath(); g.moveTo(pts[0], pts[1
 function stars(g: G, t: number, n = 40): void { g.shadowBlur = 0; for (let i = 0; i < n; i++) { g.fillStyle = `rgba(238,228,211,${0.3 + 0.3 * Math.sin(t * 2 + i)})`; g.fillRect((i * 197) % W, (i * 83) % 170, 2, 2); } }
 
 /** a neon stick figure, feet at (x, y), ~s px tall */
-function stick(g: G, x: number, y: number, s: number, color: string, t: number, opts: { wave?: boolean; sit?: boolean; dir?: number } = {}): void {
+function stick(g: G, x: number, y: number, s: number, color: string, t: number, opts: { wave?: boolean; sit?: boolean; dir?: number;doing?:string } = {}): void {
   const c=(color==='#c6ff3d'?travelCast[0]:travelCast.find(c=>c.look.color===color))||travelCast[Math.abs(Math.round(x))%Math.max(1,travelCast.length)];
-  if(c){const k=s/120,dir=opts.dir===-1?-1:1;solve(pose(opts.sit?'sit':opts.wave?'wave':'idle','normal',t,0,0,0),x,y,k,dir);drawFigure(g,c,x,y,k,dir,t,0,1);return;}
+  if(c){const k=s/120,dir=opts.dir===-1?-1:1;solve(pose(opts.doing??(opts.sit?activityAt(c.id,t,'lounge'):opts.wave?'inspect':activityAt(c.id,t,'queue')),'normal',t,0,0,0),x,y,k,dir);drawFigure(g,c,x,y,k,dir,t,0,1);return;}
   const k = s / 70, sw = reduced() ? 0 : Math.sin(t * 3);
   neon(g, color, 3.2 * k, 10);
   const hip = y - (opts.sit ? 22 : 32) * k, neck = hip - 26 * k, head = neck - 10 * k;
@@ -390,7 +392,7 @@ export class Travel {
   // ------------------------------------------------------------------ 3. security
   private startScan(): void {
     const items = this.host.carried();
-    this.scanDone = false; this.argued = false; this.cleared = !items.some((i) => this.flagged(i.category));
+    this.scanDone = false; this.argued = false; this.cleared = !items.some((i) => this.flagged(i));
     const notes: string[] = [];
     if (items.some((i) => i.category === "food")) notes.push("Biosecurity squints at your snacks. \"Declare those on the way back or the beagle will find out.\"");
     if (items.some((i) => /water|drink|juice|coffee|beer|wine|bottle|milk|soda/i.test(i.name))) notes.push("Liquids over 100 ml? You chug it on the spot. Officer: \"Impressive. Still no.\"");
@@ -399,10 +401,10 @@ export class Travel {
     this.later(() => { this.scanDone = true; this.render(); }, reduced() ? 300 : 2600);
   }
 
-  private flagged(cat: string): boolean { return cat === "weapon" || cat === "ammo"; }
+  private flagged(item:ScanItem):boolean{return prohibitedItem(item);}
 
   private securityView(): void {
-    const bad = this.host.carried().filter((i) => this.flagged(i.category));
+    const bad = this.host.carried().filter((i) => this.flagged(i));
     let acts: HTMLElement[];
     if (!this.scanDone) acts = [this.btn("Scanning…", () => undefined, { disabled: true, aria: "Scanning your items" })];
     else if (!this.cleared) {
@@ -412,7 +414,7 @@ export class Travel {
       }, { key: "1", primary: true, aria: `Surrender ${bad.map((i) => i.name).join(", ")}` })];
       if (!this.argued) acts.push(this.btn("Argue", () => { this.argued = true; this.msg = pick(ARGUE) + " You must surrender the items."; this.render(); }, { key: "2" }));
     } else acts = [this.btn("To the gate", () => this.go("gate"), { primary: true })];
-    const list = this.scanDone ? h("ul.tv-flags", { "aria-label": "Scan results" }, this.host.carried().map((i) => h("li" + (this.flagged(i.category) ? ".bad" : ""), { text: `${i.name}${this.flagged(i.category) ? (this.cleared ? " · surrendered" : " · FLAGGED") : " · ok"}` }))) : null;
+    const list = this.scanDone ? h("ul.tv-flags", { "aria-label": "Scan results" }, this.host.carried().map((i) => h("li" + (this.flagged(i) ? ".bad" : ""), { text: `${i.name}${this.flagged(i) ? (this.cleared ? " · surrendered" : " · FLAGGED") : " · ok"}` }))) : null;
     if (!this.msg && this.scanDone) this.msg = bad.length && !this.cleared ? `${bad.length} prohibited item${bad.length === 1 ? "" : "s"} detected. ${this.scanNote}` : this.scanNote || "All clear. Have a nice flight.";
     this.scene("Security screening", "X-ray", [this.makeCanvas("Conveyor belt x-ray scanner showing your items as silhouettes"), list], acts);
   }
@@ -429,10 +431,10 @@ export class Travel {
     const speed = this.scanDone ? 0 : 1;
     items.forEach((it, i) => {
       const x = this.scanDone ? 120 + i * (720 / n) : ((t * 140 * speed + i * (W / n)) % (W + 120)) - 60;
-      const inside = this.scanDone || (x > 360 && x < 600), bad = this.flagged(it.category);
+      const inside = this.scanDone || (x > 360 && x < 600), bad = this.flagged(it);
       const col = inside ? (bad ? (Math.sin(t * 10) > 0 || this.cleared ? "#ec2a1c" : "#ff9a8a") : it.category === "food" ? "#f6b62c" : "#3dd6ff") : "#5a5f66";
       neon(g, col, 3, inside ? 14 : 0); g.fillStyle = inside ? col + "44" : "#2a2e34";
-      this.silhouette(g, it.category, x, 236, bad && this.cleared ? 0.4 : 1);
+      drawScannerItem(g,it,x,256,col,bad&&this.cleared?.4:1);
       if (inside) { g.shadowBlur = 0; g.fillStyle = col; g.font = "500 12px 'IBM Plex Mono', monospace"; g.textAlign = "center"; g.fillText(it.name.slice(0, 11), x, 176); g.textAlign = "left"; }
     });
     if (!items.length) { neon(g, "#c6ff3d", 2); g.font = "900 32px 'Big Shoulders Display', Impact"; g.fillText("NOTHING TO SCAN", 380, 200); }
@@ -441,19 +443,6 @@ export class Travel {
     neon(g, "#9aa0a8", 3, 6); stick(g, 250, GROUND, 76, "#9aa0a8", t + 2); g.strokeRect(236, 306, 28, 8);
   }
 
-  private silhouette(g: G, cat: string, x: number, y: number, alpha: number): void {
-    g.globalAlpha = alpha; g.beginPath();
-    switch (cat) {
-      case "weapon": g.moveTo(x - 30, y - 30); g.lineTo(x + 30, y - 30); g.lineTo(x + 30, y - 18); g.lineTo(x - 8, y - 18); g.lineTo(x - 14, y + 4); g.lineTo(x - 28, y + 4); g.lineTo(x - 22, y - 18); g.closePath(); break;
-      case "ammo": for (let i = 0; i < 4; i++) g.rect(x - 22 + i * 12, y - 26, 8, 26); break;
-      case "food": g.arc(x, y - 16, 18, 0, Math.PI * 2); g.moveTo(x + 8, y - 34); g.lineTo(x + 2, y - 44); break;
-      case "valuable": g.moveTo(x, y); g.lineTo(x - 20, y - 22); g.lineTo(x - 10, y - 34); g.lineTo(x + 10, y - 34); g.lineTo(x + 20, y - 22); g.closePath(); break;
-      case "tool": g.moveTo(x - 24, y - 4); g.lineTo(x + 12, y - 28); g.arc(x + 18, y - 32, 9, Math.PI * 0.8, Math.PI * 2.6); break;
-      case "toy": for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 9 : 22; g.lineTo(x + Math.cos(a) * r, y - 20 + Math.sin(a) * r); } g.closePath(); break;
-      default: g.rect(x - 20, y - 30, 40, 30);
-    }
-    g.fill(); g.stroke(); g.globalAlpha = 1;
-  }
 
   // ------------------------------------------------------------------ 4. flight
   private flightLines(): string[] {

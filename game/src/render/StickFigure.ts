@@ -84,7 +84,7 @@ export function pose(name: string, style: string, t: number, ph: number, speed: 
     }
     case "breathe": A.bob=-Math.sin(t*1.3)*1.6;A.armL=.35;A.foreL=.9;A.armR=.35;A.foreR=.9;break;
     case "stretch": A.armL=2.8;A.armR=2.8;A.foreL=.25;A.foreR=.25;A.lean=Math.sin(t*1.2)*.1;break;
-    case "wave": A.armR=2.6;A.foreR=.4+Math.sin(t*7)*.6;A.tilt=-.05;break;
+    case "wave": A.armR=2.35;A.foreR=.55+Math.sin(t*2.4)*.09;A.tilt=-.025;break;
     case "salute": A.armR=1.65;A.foreR=1.5;A.armL=.08;break;
     case "bow": A.lean=.55+.15*Math.sin(t*1.8);A.tilt=.2;A.armL=-.3;A.armR=.65;A.foreR=1.1;A.bendL=.15;A.bendR=.15;break;
     case "give": A.armR=1.1;A.foreR=.4+Math.sin(t*2)*.15;A.armL=.5;A.foreL=1.1;break;
@@ -107,7 +107,7 @@ export function pose(name: string, style: string, t: number, ph: number, speed: 
     case "read": A.armL=.6; A.foreL=1.8; A.armR=.6; A.foreR=1.8; A.tilt=.12; break;
     case "watch": A.armL = 0.7; A.foreL = 1.9; A.armR = 0.7; A.foreR = 1.9; A.tilt = Math.sin(t * 0.7) * 0.08; break;
     case "think": A.armR = 0.45; A.foreR = 2.5; A.armL = 0.5; A.foreL = 1.6; A.tilt = 0.15; break;
-    case "talk": A.armR = 0.5 + Math.sin(t * 5) * 0.35; A.foreR = 0.9 + Math.sin(t * 7) * 0.3; A.armL = 0.15; A.tilt = Math.sin(t * 3) * 0.06; break;
+    case "talk": A.armR = .28 + Math.sin(t * 1.1) * .07; A.foreR = .72 + Math.sin(t * .8) * .12; A.armL = .1; A.tilt = Math.sin(t * .7) * .025; break;
     case "throw": {
       const w = Math.min(1, poseT / 0.38);
       if (w < 1) { A.armR = -1.2 - w * 1.4; A.foreR = -0.6; A.lean = -0.12 * w; A.thighR = -0.25 * w; A.thighL = 0.2 * w; A.armL = 0.9; }
@@ -150,7 +150,11 @@ export function pose(name: string, style: string, t: number, ph: number, speed: 
     case "stunned": A.armL = -0.8 + Math.sin(t * 30) * 0.3; A.armR = 0.8 + Math.cos(t * 28) * 0.3; A.lean = Math.sin(t * 25) * 0.08; A.thighL = 0.1; A.bendL = 0.4; A.bendR = 0.4; break;
     case "kiss": A.lean = 0.28; A.armL = 1.1; A.foreL = 0.9; A.armR = 1.0; A.foreR = 1.0; A.tilt = 0.2; break;
     case "threaten": A.armR = 1.45; A.foreR = 0.05; A.lean = 0.15; A.armL = 0.6; A.foreL = 1.2; A.thighL = 0.3; A.bendL = 0.3; break;
-    case "idle": break;
+    case "type": A.armL=.48;A.foreL=.85+Math.sin(t*3.2)*.055;A.armR=.5;A.foreR=.88+Math.cos(t*2.7)*.05;A.tilt=.06;break;
+    case "inspect": A.armL=.32;A.foreL=1.25;A.armR=.34;A.foreR=1.28;A.tilt=.09;A.lean=.025;break;
+    case "sweep": A.armL=.38;A.foreL=.7;A.armR=.7+Math.sin(t*1.4)*.12;A.foreR=.42;A.lean=.06;break;
+    case "press": A.armR=.58;A.foreR=.7;A.armL=.08;A.tilt=.04;break;
+    case "idle": A.bob=Math.sin(t*1.15)*.24;break;
     case "stumble": A.lean = -0.45; A.armL = -2.0; A.armR = 2.0; A.foreL = 0.4; A.foreR = 0.4; A.thighL = -0.4; A.thighR = 0.3; break;
     case "down": A.lying = 1; A.armL = 2.2; A.armR = 1.4; A.thighL = 0.3; A.thighR = -0.1; A.bendL = 0.6; break;
     case "recover": A.bob = 14; A.thighL = 1.3; A.bendL = 1.7; A.thighR = 0.1; A.bendR = 2.2; A.lean = 0.35; A.armL = 0.8; A.armR = 0.5; break;

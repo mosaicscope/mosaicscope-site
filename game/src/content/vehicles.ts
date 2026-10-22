@@ -1,10 +1,14 @@
+import {FLEET_MODELS,type FleetClass,type FleetModel} from './fleet';
 /** Vehicle classes. Speeds in tiles per second (1 tile ≈ 2 m, so 10 t/s ≈ 72 km/h). Prices in NZD. */
-export type VehicleClass = "motorcycle" | "sportbike" | "cruiser" | "bicycle" | "ebike" | "escooter" | "kei_coupe" | "retro_micro" | "euro_hatch" | "fast_sedan" | "box_suv" | "offroad_wagon" | "rally_sedan" | "retro_ute" | "lift_suv" | "compact_ev" | "estate_ev" | "super_wedge" |  "hatch" | "sedan" | "suv" | "ute" | "taxi" | "police" | "van" | "ambulance" | "jdm" | "muscle" | "sports" | "super"
+export type BaseVehicleClass = "motorcycle" | "sportbike" | "cruiser" | "bicycle" | "ebike" | "escooter" | "kei_coupe" | "retro_micro" | "euro_hatch" | "fast_sedan" | "box_suv" | "offroad_wagon" | "rally_sedan" | "retro_ute" | "lift_suv" | "compact_ev" | "estate_ev" | "super_wedge" |  "hatch" | "sedan" | "suv" | "ute" | "taxi" | "police" | "van" | "ambulance" | "jdm" | "muscle" | "sports" | "super"
   | "tank" | "mini" | "wagon" | "hothatch" | "coupe" | "roadster" | "limo" | "hearse" | "minivan" | "camper" | "dcute" | "flatdeck" | "tradie" | "icecream"
   | "post" | "bus" | "tow" | "fire" | "bin" | "banger" | "retro" | "lowrider" | "fourby" | "ev" | "rally" | "hotrod"
   | "compact_sedan" | "executive" | "liftback" | "fastback" | "shootingbrake" | "microvan" | "deliveryev" | "panelvan" | "stepvan" | "pickup_single" | "sportwagon" | "crossover" | "ranger" | "limousine" | "trackcoupe" | "grandtourer";
 
+export type VehicleClass=BaseVehicleClass|FleetClass;
+
 export interface VehicleDef {
+  design?:FleetModel;
   cls: VehicleClass;
   name: string;
   tier: "everyday" | "work" | "emergency" | "performance";
@@ -17,7 +21,7 @@ export interface VehicleDef {
   blurb: string;
 }
 
-export const VEHICLES: Record<VehicleClass, VehicleDef> = {
+const BASE_VEHICLES: Record<BaseVehicleClass, VehicleDef> = {
   motorcycle:{cls:"motorcycle",name:"Avon Twin",tier:"everyday",length:1.12,width:0.32,height:0.64,topSpeed:11,accel:4.7,brake:9,grip:3,mass:0.22,price:6500,colors:["#5c8984","#bcbeb1","#8d5547","#d2b46a","#394e6b","#627353"],traffic:1,blurb:"Two wheels, actual street traffic and player controls."},
   sportbike:{cls:"sportbike",name:"Kasugi Ninja-R",tier:"performance",length:1.08,width:0.34,height:0.61,topSpeed:16,accel:7,brake:10,grip:3.8,mass:0.19,price:18500,colors:["#5c8984","#bcbeb1","#8d5547","#d2b46a","#394e6b","#627353"],traffic:0.5,blurb:"Two wheels, actual street traffic and player controls."},
   cruiser:{cls:"cruiser",name:"Indian Chiefly",tier:"performance",length:1.3,width:0.4,height:0.64,topSpeed:10,accel:3.3,brake:8,grip:2.4,mass:0.32,price:21000,colors:["#5c8984","#bcbeb1","#8d5547","#d2b46a","#394e6b","#627353"],traffic:0.5,blurb:"Two wheels, actual street traffic and player controls."},
@@ -94,7 +98,9 @@ export const VEHICLES: Record<VehicleClass, VehicleDef> = {
   grandtourer:    { cls: "grandtourer", name: "Coastal Grand Tourer", tier: "everyday", length: 2.3, width: 0.98, height: 0.57, topSpeed: 11, accel: 4.2, brake: 10, grip: 3.0, mass: 1.1, price: 24000, colors: ["#49666b","#8e928a","#b2a38a","#754b43","#28363d"], traffic: 0.45, blurb: "Distinct coastal grand tourer body, cabin and handling." },
 };
 
-export const FOR_SALE: VehicleClass[] = ["motorcycle","sportbike","cruiser","bicycle","ebike","escooter","kei_coupe","retro_micro","euro_hatch","fast_sedan","box_suv","offroad_wagon","rally_sedan","retro_ute","lift_suv","compact_ev","estate_ev","super_wedge","hatch", "sedan", "suv", "ute", "van", "jdm", "muscle", "sports", "super",
+export const VEHICLES:Record<VehicleClass,VehicleDef>={...BASE_VEHICLES,...Object.fromEntries(Object.entries(FLEET_MODELS).map(([cls,m])=>{const b=BASE_VEHICLES[m.base];return[cls,{...b,cls,name:m.name,length:m.length,width:m.width,height:m.height,topSpeed:m.speed,mass:m.mass,price:m.price,design:m,accel:b.accel*Math.sqrt(b.mass/m.mass),brake:b.brake*Math.sqrt(b.mass/m.mass),grip:b.grip*(b.length/m.length),traffic:m.base==='bus'?.08:m.price>80000?.04:m.price>35000?.12:.22,colors:[...b.colors,'#e5dfc9','#456b78','#668b74','#a67865','#bfa573','#4d5060'],blurb:m.name+' · '+(m.length*2).toFixed(1)+' m · '+m.trim+' fittings. Independent wheel, glazing and directional body damage.'}];}))} as Record<VehicleClass,VehicleDef>;
+
+export const FOR_SALE: VehicleClass[] = [...Object.keys(FLEET_MODELS) as FleetClass[],"motorcycle","sportbike","cruiser","bicycle","ebike","escooter","kei_coupe","retro_micro","euro_hatch","fast_sedan","box_suv","offroad_wagon","rally_sedan","retro_ute","lift_suv","compact_ev","estate_ev","super_wedge","hatch", "sedan", "suv", "ute", "van", "jdm", "muscle", "sports", "super",
   "mini", "wagon", "hothatch", "coupe", "roadster", "minivan", "camper", "dcute", "tradie", "banger", "retro", "lowrider", "fourby", "ev", "rally", "hotrod","compact_sedan","executive","liftback","fastback","shootingbrake","microvan","deliveryev","panelvan","stepvan","pickup_single","sportwagon","crossover","ranger","limousine","trackcoupe","grandtourer"];
 
 /** Wider production paints without changing emergency/service liveries. */

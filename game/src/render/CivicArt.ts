@@ -1,5 +1,6 @@
 import type {Poi,World} from '../world/World';
 import type {CivicDamage} from '../sim/CivicDamage';
+import {drawDecor} from './StreetDecor';
 type G=CanvasRenderingContext2D;
 export function drawFixture(g:G,p:Poi,sx:number,sy:number,z:number):boolean{
  if(!['busstop','roadsign','streetsign'].includes(p.kind))return false;
@@ -17,9 +18,11 @@ export function drawFixture(g:G,p:Poi,sx:number,sy:number,z:number):boolean{
   g.textAlign='start';
  }return true;
 }
-export function drawDebris(g:G,d:CivicDamage|undefined,sx:number,sy:number,z:number):boolean{
+export function drawDebris(g:G,d:CivicDamage|undefined,sx:number,sy:number,z:number,fixture?:Poi):boolean{
  if(!d)return false;
  if(d.severity<.25)return false;
+ // Moderate impacts bend the original connected assembly before it becomes wreckage.
+ if(d.severity<.72&&(fixture&&['busstop','roadsign','streetsign'].includes(fixture.kind)||d.fixture?.startsWith('decor-'))){g.save();g.translate(sx,sy);g.transform(1,0,-d.severity*.24,1-d.severity*.08,0,0);if(fixture)drawFixture(g,fixture,0,0,z);else drawDecor(g,Number(d.fixture!.slice(6)),0,0,z,0,0,.5);g.restore();return true;}
  const glass=d.fixture==='busstop',wood=d.fixture==='bench'||d.fixture==='billboard';
  g.save();g.strokeStyle=wood?'#917755':'#717b73';g.lineWidth=2*z;g.beginPath();g.moveTo(sx-17*z,sy+2*z);g.lineTo(sx+16*z,sy+7*z);g.stroke();
  for(let i=0;i<3+Math.ceil(d.severity*7);i++){g.fillStyle=wood?'#9e815b':i%2?'#acc4c18a':'#887359';g.beginPath();g.moveTo(sx+(i-2)*6*z,sy+(i%2)*4*z);g.lineTo(sx+(i-2)*6*z+5*z,sy-3*z);g.lineTo(sx+(i-2)*6*z+3*z,sy+7*z);g.fill();}
@@ -31,11 +34,11 @@ export function drawDebris(g:G,d:CivicDamage|undefined,sx:number,sy:number,z:num
 function cones(g:G,x:number,y:number,z:number){for(const side of[-1,1]){g.fillStyle='#d5a050';g.beginPath();g.moveTo(x+side*24*z-5*z,y+8*z);g.lineTo(x+side*24*z,y-9*z);g.lineTo(x+side*24*z+5*z,y+8*z);g.fill();g.strokeStyle='#e5d8bb';g.lineWidth=2*z;g.beginPath();g.moveTo(x+side*24*z-3*z,y+2*z);g.lineTo(x+side*24*z+3*z,y+2*z);g.stroke();}}
 export function drawFacadeDamage(g:G,w:World,id:number,tx:number,ty:number,sx:number,sy:number,z:number):void{
  const d=w.civicDamage[`b:${id}:${tx}:${ty}`];if(!d||d.face==='n'||d.face==='w')return;
- const P=(u:number,h:number)=>d.face==='s'?[sx+(u-1)*32*z,sy+(u+1)*16*z-h*26*z]:[sx+(1-u)*32*z,sy+(1+u)*16*z-h*26*z];
+ const P=(u:number,h:number)=>{u=Math.max(.015,Math.min(.985,u+(d.impactU??.5)-.5));return d.face==='s'?[sx+(u-1)*32*z,sy+(u+1)*16*z-h*26*z]:[sx+(1-u)*32*z,sy+(1+u)*16*z-h*26*z];};
  const scale=.35+d.severity*.65,variant=(tx*7+ty*11+id)%3;
  const pts=[[.25,.25],[.22,.85],[.48,1],[.77,.78],[.73,.28]].map(([u,h])=>P(.5+(u-.5)*scale,.55+(h-.55)*scale));g.save();g.fillStyle=d.phase==='working'?'#9c7d54':d.severity<.45?'#847a68aa':variant===1?'#4a5760bb':'#302d2bcc';g.strokeStyle='#afa38d';g.lineWidth=z;g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();g.fill();g.stroke();
  if(d.phase==='working'){for(const h of[.4,.6,.8]){const a=P(.24,h),b=P(.75,h);g.strokeStyle='#65593d';g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke();}cones(g,sx,sy+25*z,z);}
- else{if(d.severity>.6&&variant===2){for(let i=0;i<5;i++){const a=P(.3+i*.09,.3+(i%2)*.18);g.fillStyle=i%2?'#9b8164':'#b39677';g.fillRect(a[0]-3*z,a[1]-2*z,6*z,3*z);}}const c=P(.5,.65);g.strokeStyle='#c0b9a6';for(const [u,h]of [[.15,.98],[.85,.9],[.8,.14],[.1,.2]]){const a=P(u,h);g.beginPath();g.moveTo(c[0],c[1]);g.lineTo(a[0],a[1]);g.stroke();}}
+ else{const material=d.material??'brick',c=P(.5,.65);if(['glass','brick','concrete','stone'].includes(material)){g.strokeStyle=material==='glass'?'#c3ded6':'#9c9b87';for(const [u,h]of [[.15,.98],[.85,.9],[.8,.14],[.1,.2]]){const a=P(u,h),b=P(.5+(u-.5)*.55,.65+(h-.65)*.45);g.beginPath();g.moveTo(c[0],c[1]);g.lineTo(b[0],b[1]);g.lineTo(a[0],a[1]);g.stroke();}}}
 
  if(d.phase!=='working'){
   const material=d.material??'brick',seed=d.variant??0;
@@ -43,6 +46,8 @@ export function drawFacadeDamage(g:G,w:World,id:number,tx:number,ty:number,sx:nu
   for(let i=0;i<5+Math.floor(d.severity*12);i++){const u=.18+((i*17+seed*7)%65)/100,h=.15+((i*23+seed)%70)/100,q=P(u,h);g.strokeStyle=material==='glass'?'#d9efecbb':material==='timber'?'#574a35':'#c0b39a';g.lineWidth=Math.max(.5,z*.65);g.beginPath();g.moveTo(q[0],q[1]);const end=P(u+(material==='timber'?.15:.05),h+(i%2?.07:-.09));g.lineTo(end[0],end[1]);g.stroke();}
   if(material==='timber'){for(let i=0;i<4;i++){const a=P(.25+i*.14,.25),b=P(.31+i*.14,.83);g.strokeStyle=i%2?'#a68c62':'#665b43';g.lineWidth=2*z;g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke();}}
   if(material==='metal'){for(let i=0;i<5;i++){const a=P(.2+i*.13,.25),b=P(.24+i*.13,.85);g.strokeStyle='#b3bfc044';g.lineWidth=2*z;g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke();}}
+  if(material==='brick'){for(let row=0;row<4;row++)for(let col=0;col<3;col++){const u=.25+col*.17+(row%2)*.04,h=.25+row*.15,a=P(u,h),b=P(u+.15,h),c=P(u+.15,h+.11),e=P(u,h+.11);g.fillStyle=(row+col)%2?'#99775c':'#af8a6c';g.strokeStyle='#514f43';g.lineWidth=.5*z;g.beginPath();g.moveTo(...a as [number,number]);g.lineTo(...b as [number,number]);g.lineTo(...c as [number,number]);g.lineTo(...e as [number,number]);g.closePath();g.fill();g.stroke();}}
+  if(material==='metal'){const a=P(.22,.3),b=P(.52,.44),c=P(.79,.28);g.strokeStyle='#d1d1bd';g.lineWidth=z;g.beginPath();g.moveTo(...a as [number,number]);g.lineTo(...b as [number,number]);g.lineTo(...c as [number,number]);g.stroke();}
   if(d.severity>.45){const q=P(.5,.06);for(let i=0;i<Math.ceil(d.severity*9);i++){g.fillStyle=material==='glass'?'#bfdedcb0':material==='timber'?'#a48c66':material==='brick'?'#a27963':'#a3a292';const x=q[0]+((i*19+seed)%35-17)*z,y=q[1]+(i%3)*3*z;g.beginPath();g.moveTo(x,y);g.lineTo(x+5*z,y-z);g.lineTo(x+2*z,y+4*z);g.closePath();g.fill();}}
  }
  g.restore();

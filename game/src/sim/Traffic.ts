@@ -210,7 +210,7 @@ const TAIL_HAPPY = new Set(["muscle", "hotrod", "coupe", "roadster", "super", "s
  */
 function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const d = VEHICLES[v.cls];
-  const inp = v.driver === sim.playerId ? playerInput : { throttle: 0, steer: 0, brake: true };
+  const inp = v.parkingBrake?{throttle:0,steer:0,brake:true}:v.driver === sim.playerId ? playerInput : { throttle: 0, steer: 0, brake: true };
   const mods = v.lifeMods ?? [];
   const top = d.topSpeed * (mods.includes("Tractor engine") ? 1.2 : 1) / (1 + mods.length * 0.06) * (1 - v.damage * 0.5) * (1 - (v.engineDamage ?? 0) * 0.45) * (v.flatLeft || v.flatRight ? 0.65 : 1)*Math.max(.22,1-(v.components?.wheels.filter(w=>w.missing).length??0)*.35);
   const vel = carVel(sim, v);
@@ -351,19 +351,21 @@ function moveBlocked(sim: Simulation, v: Vehicle, dt: number): void {
   const blocked = (x: number, y: number) => !sim.world.walkable(x, y) && sim.world.tile(Math.floor(x), Math.floor(y)) !== T.CRATE || !sim.world.inBounds(Math.floor(x), Math.floor(y));
   // also probe the way the car is actually moving: a drifting or spinning car slides sideways into things too
   const ms = Math.hypot(vel.x, vel.y), mx = ms > 1e-3 ? vel.x / ms : 0, my = ms > 1e-3 ? vel.y / ms : 0;
-  const sideways = blocked(nx, ny) || ms > 1e-3 && blocked(nx + mx * hw, ny + my * hw);
-  if (sideways || blocked(fx + Math.cos(side) * hw, fy + Math.sin(side) * hw) || blocked(fx - Math.cos(side) * hw, fy - Math.sin(side) * hw)) {
-    const hit = Math.hypot(vel.x, vel.y);
+  const contact=[[nx+mx*hw,ny+my*hw],[fx+Math.cos(side)*hw,fy+Math.sin(side)*hw],[fx-Math.cos(side)*hw,fy-Math.sin(side)*hw],[nx,ny]].find(([x,y])=>blocked(x,y));
+  if (contact) {
+    const tx=Math.floor(contact[0]),ty=Math.floor(contact[1]);let cx=nx<tx?1:nx>tx+1?-1:0,cy=ny<ty?1:ny>ty+1?-1:0;
+    if(!cx&&!cy){cx=contact[0]-nx;cy=contact[1]-ny;}const length=Math.hypot(cx,cy)||1;cx/=length;cy/=length;
+    const normalSpeed=vel.x*cx+vel.y*cy,hit=Math.abs(normalSpeed);
     if (hit > 1.2) {
-      impactComponents(v,Math.cos(v.heading)*Math.sign(v.speed||1),Math.sin(v.heading)*Math.sign(v.speed||1),hit,d.mass,sim.tick);
-      hitFacade(sim,v,fx,fy,hit);
+      impactComponents(v,cx,cy,hit,d.mass,sim.tick,{x:contact[0],y:contact[1]});
+      hitFacade(sim,v,contact[0],contact[1],hit);
       v.damage = Math.min(1, v.damage + hit * 0.015);
-      const sg = Math.sign(v.speed || 1); bump(v, Math.cos(v.heading) * sg, Math.sin(v.heading) * sg, hit * 0.015);
+      bump(v,cx,cy,hit*.015);
       sim.bus.emit("sound", { kind: "crash", x: v.x, y: v.y, vol: Math.min(1, hit / 10) });
       sim.bus.emit("fx", { kind: "spark", x: fx, y: fy, z: 0.4, n: 8, color: "#f6b62c" });
     }
-    v.speed = -v.speed * 0.25;
-    if (v.vx !== undefined && v.vy !== undefined) { v.vx *= -0.25; v.vy *= -0.25; v.yaw = (v.yaw ?? 0) * 0.4 + (v.slip ?? 0) * 0.15; }
+    if (v.vx !== undefined && v.vy !== undefined) { const inward=Math.max(0,normalSpeed);v.vx-=cx*inward*1.22;v.vy-=cy*inward*1.22;v.speed=v.vx*Math.cos(v.heading)+v.vy*Math.sin(v.heading);const torque=(contact[0]-nx)*cy-(contact[1]-ny)*cx;v.yaw=(v.yaw??0)*.4+torque*inward/Math.max(1,d.mass*10); }else v.speed=-v.speed*.22;
+    const inward=Math.max(0,normalSpeed),slideX=v.x+(vel.x-cx*inward)*dt,slideY=v.y+(vel.y-cy*inward)*dt;if(!blocked(slideX,slideY)){v.x=slideX;v.y=slideY;}
     v.stuck += dt;
     return;
   }
@@ -459,8 +461,8 @@ function laneDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const [ux, uy] = DIRS[v.dir];
   const tx = Math.floor(v.x), ty = Math.floor(v.y);
   const inX = w.isRoadLine(tx) && w.isRoadLine(ty);
-  const pursuing = v.siren;
-  let target = Math.min(d.topSpeed, pursuing ? d.topSpeed : CITY_SPEED) * (1 - v.damage * 0.5);
+  const pursuing = v.siren,fleeing=(v.evadingUntil??0)>sim.tick;
+  let target = v.parkingBrake?0:Math.min(d.topSpeed, pursuing||fleeing ? d.topSpeed : CITY_SPEED) * (1 - v.damage * 0.5);
   /** fastest speed that still stops within `gap` tiles at a comfortable deceleration */
   const stopFor = (gap: number) => (gap <= 0.05 ? 0 : Math.sqrt(2 * d.brake * 0.55 * gap));
 
@@ -486,6 +488,7 @@ function laneDrive(sim: Simulation, v: Vehicle, dt: number): void {
       decidedAt.set(v, key);
       const opts = validDirs(ic, ir, v.dir, maxL);
       if (inX) v.nextDir = opts.includes(v.dir) ? v.dir : opts[0];
+      else if(fleeing){const patrol=sim.vehicles[v.evadingFrom??-1];v.nextDir=opts.sort((a,b)=>{const A=DIRS[a],B=DIRS[b];return patrol?Math.hypot(v.x+B[0]*8-patrol.x,v.y+B[1]*8-patrol.y)-Math.hypot(v.x+A[0]*8-patrol.x,v.y+A[1]*8-patrol.y):0;})[0]??v.dir;}
       else if (pursuing && (v.driver >= 0 || v.rescueTarget!==undefined)) {
         // head toward the suspect
         const cop = sim.chars[v.driver], s = v.rescueTarget!==undefined?sim.chars[v.rescueTarget]:cop ? sim.chars[cop.pursuing] : undefined;

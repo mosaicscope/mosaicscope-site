@@ -8,16 +8,16 @@ import { MOSAIC } from "../content/mosaicscope";
 export interface AdBox { x0: number; y0: number; x1: number; y1: number; url: string; label: string }
 export const AD_BOXES: AdBox[] = [];
 
-const FRAME = new Path2D("M2 9V2h7M23 2h7v7M30 23v7h-7M9 30H2v-7");
-const TILE = new Path2D("M10.5 23V15.5M10.5 18.2c0-4.4 6-4.4 6 0V23M16.5 18.2c0-4.4 6-4.4 6 0V23");
+let FRAME:Path2D|undefined;
+let TILE:Path2D|undefined;
 
 /** The MosaicScope mark, `s` px square, top-left at (x, y). */
 export function drawLogo(g: CanvasRenderingContext2D, x: number, y: number, s: number, frame = "#0e0b0a"): void {
   g.save();
   g.translate(x, y); g.scale(s / 32, s / 32);
   g.lineCap = "butt"; g.lineJoin = "miter";
-  g.strokeStyle = frame; g.lineWidth = 2.6; g.stroke(FRAME);
-  g.strokeStyle = "#ec2a1c"; g.lineWidth = 2.8; g.lineCap = "square"; g.stroke(TILE);
+  g.strokeStyle = frame; g.lineWidth = 2.6; g.stroke(FRAME??=new Path2D("M2 9V2h7M23 2h7v7M30 23v7h-7M9 30H2v-7"));
+  g.strokeStyle = "#ec2a1c"; g.lineWidth = 2.8; g.lineCap = "square"; g.stroke(TILE??=new Path2D("M10.5 23V15.5M10.5 18.2c0-4.4 6-4.4 6 0V23M16.5 18.2c0-4.4 6-4.4 6 0V23"));
   g.fillStyle = "#f6b62c"; g.fillRect(23.6, 8, 3.6, 3.6);
   g.restore();
 }
@@ -54,7 +54,7 @@ export const KIWI_ADS: { title: string; sub: string; bg: string; fg: string; ink
 /** Taglines rotate; all short enough to read from a moving car. */
 function mosaicLine(variant: number): string {
   const from = MOSAIC.rates[0]?.price ?? "$40";
-  return ["Photos from " + from, "Music videos", "Book a shoot", MOSAIC.handle][variant % 4];
+  return ["Photos from " + from, "Your good side exists.", "Book a shoot", MOSAIC.handle, "Evidence you went outside.", "Music videos. Big energy.", "Car meets. Better angles.", "Portraits. Zero stiff poses."][variant % 8];
 }
 
 /**
@@ -74,7 +74,7 @@ export function drawAd(g: CanvasRenderingContext2D, kind: AdKind, cx: number, by
     drawLogo(g, x0 + pad, y0 + pad, ls);
     const tx = x0 + pad * 2 + ls, tw = w - (tx - x0) - pad;
     // wordmark: "Mosaic" upright + "scope" italic, like the site
-    const px = fit(g, "MOSAICscope", tw, h * 0.42, DISPLAY(900));
+    const px = fit(g, "Mosaicscope", tw*.88, h * 0.42, DISPLAY(900));
     g.fillStyle = "#0e0b0a"; g.fillText("Mosaic", tx, y0 + h * 0.36);
     const mw = g.measureText("Mosaic").width;
     g.font = `italic 700 ${px}px Georgia, "Times New Roman", serif`; g.fillStyle = "#ec2a1c";
@@ -97,5 +97,5 @@ export function drawAd(g: CanvasRenderingContext2D, kind: AdKind, cx: number, by
     g.fillStyle = ad ? ad.ink : "#eee4d3"; g.fillText(sub, cx, y0 + h * 0.74);
   }
   g.restore();
-  if (kind === "mosaic") AD_BOXES.push({ x0, y0, x1: x0 + w, y1: by, url: MOSAIC.site, label: "Visit MosaicScope" });
+  if (kind === "mosaic") AD_BOXES.push({ x0, y0, x1: x0 + w, y1: by, url: variant%3===0?MOSAIC.instagram:variant%3===1?MOSAIC.booking:MOSAIC.site, label: variant%3===0?"MosaicScope on Instagram":variant%3===1?"Book a MosaicScope shoot":"Visit MosaicScope" });
 }

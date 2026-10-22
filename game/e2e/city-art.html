@@ -1,0 +1,21 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>City renderer visual checks</title><style>body{margin:0;background:#273b34;color:#e7d7b5;font:14px Arial}canvas{display:block;margin:auto;max-width:100%}</style><canvas id="art"></canvas><script type="module">
+import {Simulation} from '../src/sim/Simulation';
+import {makeVehicle} from '../src/sim/Traffic';
+import {impactComponents} from '../src/sim/VehicleDamage';
+import {FLEET_MODELS} from '../src/content/fleet';
+import {VEHICLES} from '../src/content/vehicles';
+import {GLOW} from '../src/render/Buildings';
+import {drawBuildingTile} from '../src/render/Buildings';
+import {drawFacadeDamage} from '../src/render/CivicArt';
+import {PROP_KINDS} from '../src/content/streetProps';
+import {drawCar} from '../src/render/Cars';
+import {drawStreetProp} from '../src/render/StreetProps';
+import {Camera} from '../src/render/Camera';
+const sim=new Simulation({seed:3,midCount:2,backgroundCount:4}),cv=document.querySelector('canvas'),g=cv.getContext('2d'),query=new URLSearchParams(location.search),mode=query.get('mode')??'fleet',page=+(query.get('page')??0),ids=mode==='facades'?['timber','brick','glass','concrete','metal','stone']:mode==='props'?PROP_KINDS:mode==='damage'?Array.from({length:12},()=>query.get('cls')??'supra'):Object.keys(mode==='all'?VEHICLES:FLEET_MODELS).slice(page*24,page*24+24),cols=mode==='props'?6:mode==='facades'?3:4,cw=250,ch=mode==='facades'?250:160,rows=Math.ceil(ids.length/cols),W=cols*cw,H=rows*ch;
+cv.width=W*2;cv.height=H*2;cv.style.width=W+'px';cv.style.height=H+'px';g.scale(2,2);g.fillStyle='#3d4b43';g.fillRect(0,0,W,H);const cam=new Camera();cam.resize(cw,ch);cam.x=cam.y=cam.targetX=cam.targetY=0;cam.zoom=cam.targetZoom=mode==='props'?2.5:2;
+for(const [i,id]of ids.entries()){g.save();g.translate(i%cols*cw,Math.floor(i/cols)*ch);g.strokeStyle='#6a7c5e55';g.strokeRect(0,0,cw,ch);g.fillStyle='#e4d8ba';g.font='12px Arial';g.textAlign='center';
+if(mode==='props'){drawStreetProp(g,cam,{id:i,kind:id,x:0,y:0,z:0,vx:0,vy:0,vz:0,turn:0,spin:0,health:query.has('crashed')?.2:1,lastHit:0,uses:1},8);g.fillText(id,cw/2,ch-13);}
+else if(mode==='facades'){const b=sim.world.buildings.find(b=>b.kind==='house'),tx=b.x1,ty=b.y1,key=`b:${b.id}:${tx}:${ty}`;sim.world.civicDamage[key]={key,kind:'building',x:tx,y:ty,tx,ty,face:'s',material:id,severity:.8,at:0,phase:'reported',repairBy:10000,impactU:.4};GLOW.length=0;drawBuildingTile(g,sim.world,b,tx,ty,cw/2,160,2.5,40,0,1,new Map());drawFacadeDamage(g,sim.world,b.id,tx,ty,cw/2,160,2.5);g.fillStyle='#e4d8ba';g.textAlign='center';g.font='12px Arial';g.fillText(id,cw/2,ch-13);}
+else{const v=makeVehicle(sim,id,0,0,0,'parked');v.color=['#9c6658','#829b9b','#cab782','#516f75'][i%4];v.heading=mode==='damage'?i%4*Math.PI/2:.45;if(mode==='damage'||query.has('crashed')){const end=query.get('end')==='rear'?-1:1,d=VEHICLES[id],ca=Math.cos(v.heading),sa=Math.sin(v.heading);impactComponents(v,ca*end,sa*end,(Math.floor(i/4)%3+1)*5,1,50,{x:ca*d.length*.5*end-sa*d.width*.28,y:sa*d.length*.5*end+ca*d.width*.28});v.damage=.15+Math.floor(i/4)%3*.3;v.state='crashed';v.lights=true;}GLOW.length=0;drawCar(g,cam,v,1,30,query.has('night')?.7:0,false);for(const glow of GLOW)glow(g);g.fillStyle='#e4d8ba';g.fillText(mode==='damage'?'Impact '+(Math.floor(i/4)+1)+' · heading '+i%4:VEHICLES[id].name,cw/2,ch-13);}
+g.restore();}window.__artReady=ids.length;
+</script></html>

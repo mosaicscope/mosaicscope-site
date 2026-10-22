@@ -1,3 +1,5 @@
+import {FLEET_MODELS} from '../content/fleet';
+import type {BaseVehicleClass} from '../content/vehicles';
 /**
  * Hunter S Bombson's in-world sound layer: everything you would hear standing in the city, and nothing
  * you would call music. All original, all synthesised live with Web Audio (no samples, no files).
@@ -100,7 +102,7 @@ export function dopplerRate(radial: number): number {
 
 export interface EngineProfile { idle: number; top: number; cut: number; burble: number; sub: number; pops: boolean }
 const E = (idle: number, top: number, cut: number, burble = 0.05, sub = 0.5, pops = false): EngineProfile => ({ idle, top, cut, burble, sub, pops });
-export const ENGINE: Record<VehicleClass, EngineProfile> = {
+const BASE_ENGINE: Record<BaseVehicleClass, EngineProfile> = {
 motorcycle:E(55,180,850,.16,.5),
 sportbike:E(85,310,1800,.1,.3,true),
 cruiser:E(55,180,850,.16,.5),
@@ -177,6 +179,8 @@ super_wedge:E(55,180,850,.16,.5),
 };
 
 /** Engine note for a car: five "gears", pitch climbing inside each and dropping at the shift. */
+export const ENGINE:Record<VehicleClass,EngineProfile>={...BASE_ENGINE,...Object.fromEntries(Object.entries(FLEET_MODELS).map(([id,m])=>[id,{...BASE_ENGINE[m.base],idle:BASE_ENGINE[m.base].idle*Math.sqrt(m.mass/(m.base==='bicycle'?.08:1.2)),top:BASE_ENGINE[m.base].top*(m.speed/10)}]))} as Record<VehicleClass,EngineProfile>;
+
 export function engineFreq(p: EngineProfile, speed: number, topSpeed: number): number {
   const s = clamp01(Math.abs(speed) / Math.max(1, topSpeed));
   const g = Math.min(4, Math.floor(s * 5)), t = s * 5 - g;
