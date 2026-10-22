@@ -83,33 +83,6 @@ import { Photos } from "../ui/Photos";
 import { MOMENTS } from "../content/photos";
 
 /** Wires simulation, renderer, input, audio, UI and persistence together and runs the loop. */
-/** People who ring you. Lines can mention {place} and {cash}. */
-interface Call { name: string; label: string; missed: string; script: { say: string; opts: [string, number, ("money" | "send")?][] }[] }
-const FAMILY: Call[] = [
-  { name: "Mum", label: "Mum", missed: "Fine. I'll just talk to the dog then.", script: [
-    { say: "Hello love! Have you eaten today? Proper food, not a pie.", opts: [["Yes Mum", 1], ["...it was a pie", 2]] },
-    { say: "Good. Your aunty saw you on Instagram at {place}. Very famous!", opts: [["It's @mosaicscope Mum", 3], ["Tell her hi", 3]] },
-    { say: "A pie is not a meal. I'm sending you some money for vegetables.", opts: [["Love you Mum", 3, "money"], ["I'm fine, honest", 3]] },
-    { say: "Call your nana this week. And wear a jacket, the nor'wester's coming.", opts: [["Will do. Love you", -1], ["Gotta go, love you", -1]] },
-  ] },
-  { name: "Dad", label: "Dad", missed: "Righto. Ring back when you've got a minute.", script: [
-    { say: "G'day. Quick one. How's the car going?", opts: [["Haven't crashed it", 1], ["Define 'going'", 1]] },
-    { say: "Check the oil. And the tyres. When did you last check the tyres?", opts: [["Yesterday", 2], ["What's a tyre", 2]] },
-    { say: "Your mother says you're doing photos now. Proud of you. Don't tell her I said that.", opts: [["Cheers Dad", -1], ["Can I borrow $40?", 3]] },
-    { say: "...Fine. But I want it back. With interest. Love you, bye.", opts: [["Legend", -1, "money"]] },
-  ] },
-  { name: "Little sis", label: "Sister", missed: "ok rude 🙄", script: [
-    { say: "omg are you at {place}?? can you get me a hokey pokey", opts: [["Sure", 1], ["Get your own", 2]] },
-    { say: "ur the best. also I need $40 for a concert don't tell mum", opts: [["Send it", -1, "send"], ["Nice try", -1]] },
-    { say: "wow ok. telling mum you ate a pie for dinner", opts: [["...fine, sending money", -1, "send"], ["Do it, coward", -1]] },
-  ] },
-  { name: "Nana", label: "Nana", missed: "Nana left a voicemail. It's four minutes long and mostly about the cat.", script: [
-    { say: "Is that you, sweetheart? I can never work this phone.", opts: [["It's me Nana", 1]] },
-    { say: "Are you keeping warm? Are you courting anyone nice?", opts: [["Working on it", 2], ["Nana!", 2]] },
-    { say: "Well I've put a little something in your account. Don't spend it on the pokies.", opts: [["Thanks Nana ❤", -1, "money"]] },
-  ] },
-];
-
 export class Game {
   sim: Simulation;
   clock = new SimulationClock({ step: 1 / 60, maxStepsPerFrame: 8 });
@@ -426,7 +399,7 @@ export class Game {
     this.tickStory(now);
     this.minimap.update(now);
     if (now - this.lastUi < 250) return;
-    this.maybeCall();
+
     this.lastUi = now;
     this.upgradeAmbience.update(this.gestured && this.settings.sound && this.settings.sfx && this.sim.env.raining && hasUpgrade(this.sim.life.upgrades, "rainsound"), this.settings.volume * this.settings.sfxVolume);
     const sim = this.sim;
@@ -1330,7 +1303,7 @@ export class Game {
     refresh:kind=>{const p=this.sim.player;if(kind==='eat')p.hunger=Math.min(1,p.hunger+.25);else p.needs.energy=Math.min(1,p.needs.energy+.2);},
     getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; },
     companions: () => this.sim.chars.filter((c) => c.tier === "principal" && c.name !== "Chris").map((c) => ({ name: c.name, color: c.look.color })),
-    carried: () => carried(this.sim.player).map((id) => this.sim.toys[id]).filter(Boolean).map((t) => ({ id: t.id, name: TOYS[t.def].name, category: TOYS[t.def].category ?? "toy" })),
+    carried: () => carried(this.sim.player).map((id) => this.sim.toys[id]).filter(Boolean).map((t) => ({ id: t.id, def:t.def,name: TOYS[t.def].name, category: TOYS[t.def].category ?? "toy" })),
     confiscate: (ids) => { const p = this.sim.player; for (const id of ids) { const t = this.sim.toys[id]; if (!t) continue; detach(p, id); t.state = "broken"; t.x = -100; t.holder = -1; } },
     onReturn: (summary, souvenirs, photos) => {
       this.resumeGame(); this.toast(summary, "acid");
@@ -1367,40 +1340,7 @@ export class Game {
     if (this.focusHeld && !this.dialogue.open && !this.phone.open) this.unfocus();
   }
 
-  // ------------------------------------------------------------------ family
-  private phone = new RetroPhone(()=>this.sim,()=>this.unfocus(),FAMILY.map(f=>f.name),index=>this.familyCall(FAMILY[index],true));
-  private maybeCall(): void {
-    const sim = this.sim;
-    if (this.phone.open || this.dialogue.open || this.casino.open || this.modal.open || this.luxury.open || this.club.open || this.travel.open || this.marina.open || this.interior.open || this.dev.visible) return;
-    if (!this.phone.nextCall) { this.phone.nextCall = sim.tick + 60 * 60 * 3; return; }
-    if (sim.tick < this.phone.nextCall) return;
-    this.phone.nextCall = sim.tick + 60 * 60 * (6 + Math.random() * 6);
-    const who = FAMILY[this.phone.calls++ % FAMILY.length];
-    this.familyCall(who);
-  }
-  private familyCall(who:typeof FAMILY[number],outgoing=false):void{
-    const sim=this.sim;sim.cityPlay.phone.calls.push({name:who.name,at:sim.tick,missed:!outgoing});sim.cityPlay.phone.calls=sim.cityPlay.phone.calls.slice(-20);
-    this.phone.open = true;
-    this.toast(outgoing?"Calling "+who.name+"…":who.name+" is calling your phone.");
-    const p = sim.player;
-    const close = (msg?: string) => { this.phone.close(); if(msg&&sim.cityPlay.phone.calls.length)sim.cityPlay.phone.calls[sim.cityPlay.phone.calls.length-1].missed=true; if (msg) this.toast(msg); this.unfocus(); };
-    const step = (i: number) => {
-      const call=sim.cityPlay.phone.calls[sim.cityPlay.phone.calls.length-1];if(call)call.missed=false;
-      const line = who.script[i];
-      if (!line) { close(); return; }
-      this.phone.display(
-        h("div.who", null, [h("b", { text: who.name }), h("span", { text: who.label })]),
-        h("p.line", { text: `“${line.say.replace("{place}", sim.world.areaAt(p.x, p.y)?.name ?? "town").replace("{cash}", "$" + Math.round(p.cash))}”` }),
-        h("div.opts", null, line.opts.map(([label, next, effect], k) => h("button", { onclick: () => { if (effect === "money") { p.cash += 50; this.toast(`${who.name} sent you $50`, "acid"); } if (effect === "send") { const amt = Math.min(p.cash, 40); p.cash -= amt; this.toast(`You sent ${who.name} $${amt}`); } if (next < 0) close(); else step(next); } }, [h("kbd", { text: String(k + 1) }), label]))),
-      );
-    };
-    if(outgoing){step(0);return;}
-    this.phone.el.classList.remove("hidden");
-    this.phone.display(h("div.who", null, [h("b", { text: who.name }), h("span", { text: `${who.label} · calling…` })]), h("div.opts", null, [
-      h("button.btn.acid", { onclick: () => step(0), text: "Answer" }),
-      h("button.btn", { onclick: () => close(`${who.name}: "${who.missed}"`), text: "Decline" }),
-    ]));
-  }
+  private phone = new RetroPhone(()=>this.sim,()=>this.unfocus());
 
   private toast(text: string, kind = ""): void {
     const el = h("div.toast" + (kind ? "." + kind : ""), { text });
@@ -1436,9 +1376,10 @@ export class Game {
       h("button.btn.menu-toggle", { text: "☰ Menu", "aria-label": "Menu", "aria-expanded": "false", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar")!; const open = bar.classList.toggle("open"); if (open) this.dev.toggle(false); (e.currentTarget as HTMLElement).setAttribute("aria-expanded", String(open)); } }),
       h("nav.game-menu", { "aria-label": "More game options", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar"); bar?.classList.remove("open"); bar?.querySelector(".menu-toggle")?.setAttribute("aria-expanded", "false"); } }, [
         h('button.btn.acid',{text:'Resume game',onclick:()=>this.resumeGame()}),
-        h('button.btn',{text:'Mobile phone',onclick:()=>this.phone.home(FAMILY.map(f=>f.name))}),
+        h('button.btn',{text:'Mobile phone',onclick:()=>this.phone.home()}),
         h('button.btn',{text:'Street play · 50 activities',onclick:()=>{void import('../ui/WorldPlay').then(m=>m.showWorldPlay(this.modal,this.sim,text=>this.toast(text)));}}),
         h('button.btn',{text:'Street life',onclick:()=>{void import('../ui/StreetLifePanel').then(m=>m.showStreetLife(this.modal,this.sim,(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);this.canvas.focus();}));}}),
+        h('button.btn',{text:'Vehicle & street workshop',onclick:()=>{void import('../ui/VehicleWorkshop').then(m=>m.showVehicleWorkshop(this.modal,this.sim));}}),
         h('button.btn',{text:'Inventory & condition',onclick:()=>{void import('../ui/InventoryCondition').then(m=>m.showInventoryCondition(this.modal,this.sim,()=>{this.setSpeed(1);this.canvas.focus();}));}}),
         h('button.btn',{text:'Appearance',onclick:()=>showHairStudio(this.modal,this.sim.player)}),
         ...(["Betting", "Racing", "Farm", "UC"] as const).map(tab => h("button.btn", { text: tab === "Betting" ? "Sports & more games" : tab, onclick: () => this.activities.show(tab) })),

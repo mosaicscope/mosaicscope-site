@@ -362,6 +362,7 @@ export class Renderer {
         }
         applyNegativeReaction(a,c,time,spd,name,o.reduceMotion);
         if (moving && (name === "walk" || name === "run" || name === "panic")) this.foreshorten(a, c);
+        else if(["talk","give","wave","inspect","press"].includes(name)){const f=.5+.5*Math.abs(Math.cos(c.facing)-Math.sin(c.facing))/Math.SQRT2;a.armL*=f;a.armR*=f;a.foreL*=.85;a.foreR*=.85;}
         applySubstanceMotion(a,c,sim.tick,time,o.reduceMotion);
         const held = c.hand >= 0 ? sim.toys[c.hand] : undefined;
         const gun = held && TOYS[held.def]?.weapon?.gun && !a.lying;
@@ -428,10 +429,10 @@ export class Renderer {
       } else {
         flush();
         if(it.kind===13){drawVehicleFragment(g,cam,sim.vehicles[Math.floor(it.ref/32)],it.ref%32);continue;}
-        if(it.kind===12){drawStreetProp(g,cam,sim.cityPlay.props[it.ref]);continue;}
+        if(it.kind===12){drawStreetProp(g,cam,sim.cityPlay.props[it.ref],time);continue;}
         if(it.kind===11){const order=sim.commerce.purchases[it.ref],a=aircraftForSku(order.sku);g.save();g.translate(it.sx,it.sy);g.scale(z,z);g.fillStyle='#444f4b';g.strokeStyle='#a9a58d';g.lineWidth=1;g.beginPath();g.moveTo(-34,-16);g.lineTo(-34,-43);g.quadraticCurveTo(0,-65,34,-43);g.lineTo(34,-16);g.closePath();g.fill();g.stroke();g.fillStyle='#242c29';g.fillRect(-29,-38,58,25);drawAircraft(g,a,0,-4,Math.min(1.4,64/(a.length*5)));g.restore();continue;}
         if(it.kind===10){drawFarmObject(g,cam,farm[it.ref],time);continue;}
-        if(drawDebris(g,sim.world.civicDamage[`p:${it.ref}`],it.sx,it.sy,z))continue;
+        if(drawDebris(g,sim.world.civicDamage[`p:${it.ref}`],it.sx,it.sy,z,sim.world.pois[it.ref]))continue;
         if(it.kind===9){drawCommerceObject(g,sim,cam,o.reduceMotion,it.ref);continue;}
         drawPoi(g, sim.world.pois[it.ref], it.sx, it.sy, z, time, party, isDark);
       }

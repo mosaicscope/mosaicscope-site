@@ -55,12 +55,12 @@ try{
   const launch=button('Launch · $25');await launch.scrollIntoViewIfNeeded();const box=await launch.boundingBox();check(box.width>=40&&box.height>=38,'Flight controls too small');
  }
  await page.setViewportSize({width:1600,height:1000});await page.getByRole('button',{name:'Leave the casino',exact:true}).click();
- await page.evaluate(()=>window.__mosaics.phone.home(['Mum','Dad','Little sis']));await button('Contacts').click();await button('Call Dad').click();
- check(await page.locator('.retro-screen .who').textContent().then(t=>t.includes('Dad')),'Contacts lost authored family dialogue');await shot('phone-call');
+ await page.evaluate(()=>window.__mosaics.phone.home());await button('Contacts').click();
+ check(await page.getByRole('button',{name:/Call (Dad|Mum|Nana|Little sis)/}).count()===0,'Removed family call actions returned');check(await page.locator('.retro-screen a').count()===3,'City contacts missing');await shot('phone-contacts');
  await page.getByLabel('Phone menu',{exact:true}).click();await button('Snake').click();await shot('phone-snake');
  await page.keyboard.press('5');await page.waitForFunction(()=>document.querySelector('.retro-screen').textContent.includes('Paused'));await page.keyboard.press('5');
  await page.setViewportSize({width:390,height:844});await shot('phone-mobile');
- check(await page.evaluate(()=>{const r=document.querySelector('.retro-phone').getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight+1&&r.width>=280;}),'Phone clipped or too small on mobile');
+ check(await page.evaluate(()=>{const r=document.querySelector('.retro-phone').getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight+1&&r.width>=220&&r.width<=240;}),'Phone clipped or too small on mobile');
  await page.getByLabel('Close phone',{exact:true}).click();
  await page.setViewportSize({width:1600,height:1000});
  // Inspect actual road labels, native riders and separated damaged components in the world renderer.
@@ -71,5 +71,5 @@ try{
  });await shot('damaged-car-riders-signs');
  await page.evaluate(()=>{const g=window.__mosaics,s=g.sim,p=s.world.areas.find(a=>a.kind==='plaza'),q=s.world.nearestWalkable(p.x0+5,p.y0+5);let i=0;for(const v of s.vehicles.filter(v=>['motorcycle','bicycle','escooter'].includes(v.cls)&&v.driver>=0).slice(-3)){v.x=v.px=q.x-2+i*2;v.y=v.py=q.y;v.speed=2;i++;}const cam=g.renderer.cam;cam.follow=-1;cam.x=cam.targetX=q.x;cam.y=cam.targetY=q.y;cam.zoom=cam.targetZoom=3;s.player.inCar=-1;s.player.x=s.player.px=q.x;s.player.y=s.player.py=q.y+3;});await shot('rider-controls');
  await page.evaluate(()=>{const g=window.__mosaics;g.renderer.cam.follow=g.sim.playerId;g.setSpeed(1);});const start=await page.evaluate(()=>({x:window.__mosaics.sim.player.x,y:window.__mosaics.sim.player.y}));await page.keyboard.down('w');await page.waitForTimeout(400);await page.keyboard.up('w');check(await page.evaluate(({start})=>{const g=window.__mosaics;return Math.hypot(g.sim.player.x-start.x,g.sim.player.y-start.y)>.1&&g.renderer.cam.follow===g.sim.playerId;},{start}),'Phone left movement or follow locked');
- check(!errors.length,errors.join(' | '));console.log('PASS annotations: casino social wagers, drinks and credit; roulette outcome settlement; actual poker and tournament bankroll; 60-aircraft flight and frozen cash-out; desktop/mobile/zoom layout; authored phone contacts and keypad Snake; native world damage/rider rendering; no runtime errors');
+ check(!errors.length,errors.join(' | '));console.log('PASS annotations: casino social wagers, drinks and credit; roulette outcome settlement; actual poker and tournament bankroll; 60-aircraft flight and frozen cash-out; desktop/mobile/zoom layout; compact city phone contacts and keypad Snake; native world damage/rider rendering; no runtime errors');
 }finally{await browser.close();}

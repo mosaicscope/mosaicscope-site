@@ -2,7 +2,9 @@ import { h } from "./dom";
 
 export interface StagePointer { x: number; y: number; down: boolean; type: string }
 export interface StageSize {width:number;height:number}
-export interface StageOptions { layout?:()=>StageSize;label: string; overlay?:HTMLElement; fps?:number; width?: number; height?: number; pointer?: (p: StagePointer) => void; key?: (key: string) => void }
+export interface StageCamera {scale:number;x:number;y:number}
+export function stagePoint(x:number,y:number,W:number,H:number,camera?:StageCamera):{x:number;y:number}{return camera?{x:(x-W/2)/camera.scale+camera.x,y:(y-H/2)/camera.scale+camera.y}:{x,y};}
+export interface StageOptions { camera?:()=>StageCamera;wheel?:(delta:number)=>void;layout?:()=>StageSize;label: string; overlay?:HTMLElement; fps?:number; width?: number; height?: number; pointer?: (p: StagePointer) => void; key?: (key: string) => void }
 /** Each scene owns its RAF and stops as soon as its modal is removed. Coordinates stay device-independent. */
 export function canvasStage(draw: (g: CanvasRenderingContext2D, time: number, reduced: boolean,size:StageSize) => void, options: StageOptions): HTMLElement {
   let W = options.layout?.().width??options.width??960, H = options.layout?.().height??options.height??480;let dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -11,12 +13,13 @@ export function canvasStage(draw: (g: CanvasRenderingContext2D, time: number, re
   let down = false;
   const point = (e: PointerEvent, type: string) => {
     if (!options.pointer) return;
-    const r=cv.getBoundingClientRect(),fit=Math.min(r.width/W,r.height/H);options.pointer({x:(e.clientX-r.left-(r.width-W*fit)/2)/fit,y:(e.clientY-r.top-(r.height-H*fit)/2)/fit,down,type});
+    const r=cv.getBoundingClientRect(),fit=Math.min(r.width/W,r.height/H),p=stagePoint((e.clientX-r.left-(r.width-W*fit)/2)/fit,(e.clientY-r.top-(r.height-H*fit)/2)/fit,W,H,options.camera?.());options.pointer({...p,down,type});
   };
   cv.addEventListener("pointerdown", e => { down = true; if (options.pointer) { e.preventDefault(); cv.setPointerCapture(e.pointerId); } point(e, "down"); });
   cv.addEventListener("pointermove", e => point(e, "move"));
   cv.addEventListener("pointerup", e => { point(e, "up"); down = false; });
   cv.addEventListener("pointercancel", () => { down = false; });
+  if(options.wheel)for(const target of [cv,options.overlay].filter((e):e is HTMLElement=>!!e))target.addEventListener('wheel',e=>{e.preventDefault();options.wheel!((e as WheelEvent).deltaY);},{passive:false});
   cv.addEventListener("keydown", e => { if (options.key && [" ", "Enter"].includes(e.key)) { e.preventDefault(); options.key(e.key); } });
   let elapsed=0,previous=performance.now();
   let visible=true,lastDraw=0;
@@ -26,8 +29,9 @@ export function canvasStage(draw: (g: CanvasRenderingContext2D, time: number, re
     if (!cv.isConnected || cv.closest(".hidden")){observer?.disconnect();return;}
     if(!visible||document.hidden){previous=now;requestAnimationFrame(frame);return;}if(now-lastDraw<1000/(options.fps??30)-1){requestAnimationFrame(frame);return;}lastDraw=now;elapsed+=Math.min(.1,Math.max(0,(now-previous)/1000));previous=now;
     const layout=options.layout?.();if(layout){W=layout.width;H=layout.height;}const bounds=cv.getBoundingClientRect();dpr=Math.min(2,window.devicePixelRatio||1);if(cv.width!==Math.round(bounds.width*dpr)||cv.height!==Math.round(bounds.height*dpr)){cv.width=Math.round(bounds.width*dpr);cv.height=Math.round(bounds.height*dpr);}const fit=Math.min(bounds.width/W,bounds.height/H);
-    if(options.overlay){options.overlay.style.transform=`translate(${(bounds.width-W*fit)/2}px,${(bounds.height-H*fit)/2}px) scale(${fit})`;}
-    g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle='#202925';g.fillRect(0,0,bounds.width,bounds.height);g.save();g.translate((bounds.width-W*fit)/2,(bounds.height-H*fit)/2);g.scale(fit,fit);draw(g,elapsed,reduce,{width:W,height:H});g.restore();
+    const camera=options.camera?.(),cx=camera?W/2-camera.x*camera.scale:0,cy=camera?H/2-camera.y*camera.scale:0,zoom=camera?.scale??1;
+    if(options.overlay){options.overlay.style.transform=`translate(${(bounds.width-W*fit)/2+cx*fit}px,${(bounds.height-H*fit)/2+cy*fit}px) scale(${fit*zoom})`;}
+    g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle='#202925';g.fillRect(0,0,bounds.width,bounds.height);g.save();g.translate((bounds.width-W*fit)/2+cx*fit,(bounds.height-H*fit)/2+cy*fit);g.scale(fit*zoom,fit*zoom);draw(g,elapsed,reduce,{width:W,height:H});g.restore();
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);

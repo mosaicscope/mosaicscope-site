@@ -1,3 +1,4 @@
+import {fleetModel} from '../content/fleet';
 import type { VehicleClass } from "../content/vehicles";
 
 /**
@@ -49,7 +50,7 @@ const SERVICE = new Set<VehicleClass>(["police", "ambulance", "fire", "post", "b
 
 export function patinaOf(cls: VehicleClass, plate: string, price = 0, damage = 0): Patina {
   const s = plateSeed(plate), r = (n: number): number => hash(s + n * 977);
-  const base = AGE[cls] ?? 0.4;
+  const design=fleetModel(cls),base=AGE[cls]??(design?Math.min(.28,AGE[design.base]??.22):.4);
   const age = Math.max(0, Math.min(1, base + (r(1) - 0.5) * 0.4 - (price > 40000 ? 0.15 : 0)));
   const service = SERVICE.has(cls);
   const dirt = Math.max(0, Math.min(1, age * 0.7 + r(2) * 0.35 - 0.12));
@@ -75,7 +76,7 @@ export function patinaOf(cls: VehicleClass, plate: string, price = 0, damage = 0
   if (dirt > 0.25) add("mud", 1, () => ({ t: 0.02, u: 0, w: 0.96, h: 0.1 + dirt * 0.2, col: `rgba(70,52,34,${(0.18 + dirt * 0.32).toFixed(2)})` }));
   const v = (n: number): number => 1 + (r(n) - 0.5) * 0.14;
   const topRust: [number, number, number, number][] = [];
-  if (!service) for (let i = 0, n = Math.round(age * 4); i < n; i++) topRust.push([r(130 + i) < 0.6 ? 0 : 1, r(140 + i), (r(150 + i) - 0.5) * 1.3, 0.05 + r(160 + i) * 0.06]);
+  if (!service&&age>.5) for (let i = 0, n = Math.round((age-.3) * 4); i < n; i++) topRust.push([r(130 + i) < 0.6 ? 0 : 1, r(140 + i), (r(150 + i) - 0.5) * 1.3, 0.05 + r(160 + i) * 0.06]);
   return {
     age, dirt, marks, topRust,
     bleach: service ? 0 : Math.min(0.3, age * 0.32),

@@ -1,3 +1,4 @@
+import {routeAt} from './SceneMotion';
 import type {Character} from '../entities/types';
 import {CasinoIso,TABLE_Z,type V3} from './CasinoIso';
 import {casinoCompany} from './CasinoFloorPlan';
@@ -34,4 +35,4 @@ export function drawRouletteTable(g:CanvasRenderingContext2D,s:RouletteArtState,
  g.fillStyle='#e5d6ad';g.font='600 15px Arial';g.textAlign='center';g.fillText(s.spinning?'NO MORE BETS · BALL IN PLAY':s.last<0?'PLACE YOUR CHIPS ON THE CLOTH':s.last+' '+colorOf(s.last).toUpperCase(),ROULETTE_W/2,ROULETTE_H-25);
 }
 
-export function rouletteSurroundingGuests(people:readonly Character[],exclude:readonly number[]){const spots=[{x:-5.5,y:-3.35,seated:true,pose:'bet'},{x:-3.15,y:-3.35,seated:true,pose:'sit'},{x:2.2,y:-3.35,seated:true,pose:'bet'},{x:4.65,y:-3.35,seated:true,pose:'sit'},{x:-5.85,y:3.15,seated:true,pose:'sitdrink'},{x:-1.6,y:4.95,seated:true,pose:'sitdrink'},{x:-.25,y:4.95,seated:true,pose:'talk'},{x:1.15,y:4.95,seated:true,pose:'sitdrink'},{x:-3.7,y:3.6,seated:false,pose:'give'}];const cast=casinoCompany(people,exclude,spots.length);return spots.map((a,i)=>({...a,c:cast[i]})).filter((a):a is typeof a&{c:Character}=>!!a.c);}
+export function rouletteSurroundingGuests(people:readonly Character[],exclude:readonly number[]){const spots=[{x:-5.45,y:-3.35,seated:true,pose:'bet'},{x:-2.9,y:-3.35,seated:true,pose:'sit'},{x:2.2,y:-3.35,seated:true,pose:'bet'},{x:4.75,y:-3.35,seated:true,pose:'sit'},{x:-5.85,y:2.88,seated:true,pose:'sitdrink'},{x:-1.6,y:4.95,seated:true,pose:'sitdrink'},{x:-.25,y:4.95,seated:true,pose:'talk'},{x:1.15,y:4.95,seated:true,pose:'sitdrink'},{x:-3.7,y:3.6,seated:false,pose:'give'}];const route=routeAt([[-3.7,3.6],[-4.3,4],[-4.3,2.9]],(typeof matchMedia!=='undefined'&&matchMedia('(prefers-reduced-motion: reduce)').matches)?0:performance.now()/1000,.24,8);Object.assign(spots[8],{x:route.x,y:route.y,pose:route.moving?'walk':'give'});const cast=casinoCompany(people,exclude,spots.length);return spots.map((a,i)=>({...a,c:cast[i]})).filter((a):a is typeof a&{c:Character}=>!!a.c);}

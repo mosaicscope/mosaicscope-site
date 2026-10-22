@@ -74,3 +74,11 @@
 #ui .phone.retro-phone{transform:none}#ui .retro-screen button,#ui .retro-screen button.btn{background:#94a47c;color:#203b25;border-color:#536a4e;box-shadow:none}#ui .retro-screen{scrollbar-width:none}#ui .retro-screen .who{margin:0 0 10px;display:flex;flex-direction:column;gap:5px}#ui .retro-softkeys button,#ui .retro-dpad button{min-height:36px}
 
 #ui .retro-screen canvas{display:block;width:100%;height:calc(100% - 65px);min-height:100px;max-height:none;object-fit:contain}#ui .retro-screen canvas+p{margin:4px 0 0;font-size:12px}
+
+/* The handset leaves the street visible; its screen remains readable at browser zoom. */
+#ui .phone.retro-phone{width:min(234px,calc(100vw - 20px));right:10px;bottom:10px;max-height:calc(100dvh - 70px)}
+#ui .retro-handset{padding:10px;border-radius:23px 23px 29px 29px}#ui .retro-brand{margin-bottom:7px;font-size:11px}#ui .retro-brand span{font-size:6px}
+#ui .retro-screen{height:180px;padding:7px}#ui .retro-screen h3{font-size:14px}#ui .retro-screen p{font-size:11px;line-height:1.4}
+#ui .retro-screen button{min-height:36px;padding:6px;font-size:11px}#ui .retro-screen a{display:block;color:#203b25;font:12px/1.4 monospace;padding:9px 3px;border-bottom:1px solid #5b6d5a}
+#ui .retro-softkeys{margin:7px 0;gap:20px}#ui .retro-softkeys button,#ui .retro-dpad button{min-height:28px}#ui .retro-dpad{max-width:112px}#ui .retro-keypad{gap:3px;margin-top:6px}#ui .retro-keypad button{min-height:24px}
+@media(pointer:coarse){#ui .retro-softkeys button,#ui .retro-dpad button{min-height:40px}#ui .retro-keypad{display:none}#ui .retro-screen button{min-height:40px}}

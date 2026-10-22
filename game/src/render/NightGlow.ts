@@ -40,11 +40,13 @@ const INK = "rgba(18,13,22,.88)";
 /** Draw one lit window's story inside it. */
 function paintStory(g: CanvasRenderingContext2D, w: Win, story: Story, time: number): void {
   if (story === "none") return;
-  g.beginPath();
+  g.save();g.beginPath();quadPath(g,w,0,1,0,1);g.clip();g.beginPath();
   if (story === "figure" || story === "couple") {
     const xs = story === "couple" ? [0.3, 0.7] : [0.35 + hash(w.seed + 3) * 0.3];
-    for (const u of xs) { blob(g, w, u, 0.62, 0.11, 0.1); quadPath(g, w, u - 0.14, u + 0.14, 0, 0.5); }
+    const drift=Math.sin(time*.23+w.seed)*.12;
+    for (const base of xs) {const u=Math.max(.16,Math.min(.84,base+drift)); blob(g, w, u, 0.62, 0.11, 0.1); quadPath(g, w, u - 0.14, u + 0.14, 0, 0.5); }
     g.fillStyle = INK; g.fill();
+    g.beginPath();const u=.5+drift;quadPath(g,w,u-.2,u+.12,.25+Math.sin(time*.7+w.seed)*.025,.31);g.fill();
     if (story === "couple") { g.beginPath(); quadPath(g, w, 0.46, 0.54, 0.35, 0.42); g.fillStyle = INK; g.fill(); }   // arms around each other
   } else if (story === "tv") {
     // a screen throwing blue-grey light, changing a few times a second
@@ -72,6 +74,7 @@ function paintStory(g: CanvasRenderingContext2D, w: Win, story: Story, time: num
     g.beginPath(); g.moveTo(...at(w, 0.68, 0.74)); g.lineTo(...at(w, 0.9, 0.74)); g.lineTo(...at(w, 0.85, 0.56)); g.lineTo(...at(w, 0.73, 0.56)); g.closePath();
     g.fillStyle = "rgba(255,244,214,.95)"; g.fill();
   }
+  g.restore();
 }
 
 /** Repaint lit windows over the night overlay: the glass itself, a soft bloom, then whatever the household is doing. */

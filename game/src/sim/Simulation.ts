@@ -1,3 +1,5 @@
+import {updateWorkshopMotion} from './VehicleWorkshop';
+import {updateCityRoutine} from './CityRoutine';
 import {updateStreetProps} from './StreetProps';
 import {updateCityDrama} from './CityDrama';
 import {newCityPlay} from './CityPlay';
@@ -269,7 +271,7 @@ export class Simulation {
     updateSubstances(this);
     updateVehicles(this, dt);
     updateRockets(this);
-    updateCivicDamage(this);updateStreetProps(this,dt);updateCityDrama(this);
+    updateCivicDamage(this);updateStreetProps(this,dt);updateCityDrama(this);updateCityRoutine(this);updateWorkshopMotion(this);
     const tp = performance.now();
     this.physics.step(dt, this.toys, this.chars, this.charHash, this.tick, this.hooks);
     for (const t of this.toys) if (t.state === "held") this.attachHeld(t);

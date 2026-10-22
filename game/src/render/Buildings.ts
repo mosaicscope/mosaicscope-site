@@ -44,6 +44,9 @@ function roofRise(b:Building,wx:number,wy:number):number{
  return Math.max(0,1-Math.abs((a>=d?y:x)*2-1))*1.3;
 }
 
+/** Individual households switch rooms on a slow, stable schedule instead of flickering together. */
+export function windowOn(seed:number,building:number,time:number):boolean{const span=34+Math.floor(hash(seed,building)*47),epoch=Math.floor((time+hash(seed+9,building)*span)/span);return hash(seed+epoch*113,building)<.52;}
+
 export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Building, tx: number, ty: number, sx: number, sy: number, z: number, time: number, dark: number, alpha: number, graffiti: Map<string, Graffiti>,verticalScale=1): void {
   const hw = (TILE_W / 2) * z, hh = (TILE_H / 2) * z, zp = Z_PX * z * verticalScale, H = b.height;
   const same = (x: number, y: number) => w.buildingOf[y * w.size + x] === b.id;
@@ -70,12 +73,14 @@ export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Build
   // facades read brighter by day; at night the neon and windows do the work
   const day = Math.max(0, 1 - dark);
   const kS = 1.15 + 0.45 * day, kE = 0.8 + 0.3 * day;
-  const lite = z < 0.8; // zoomed out: flat walls, no windows/awnings/props (keeps it smooth)
+  const lite = z < 0.8; // Retain batched windows at city scale; omit expensive surface textures.
   if (lite) {
     const flat = (ax: number, ay: number, bx: number, by: number, k: number) => { g.fillStyle = shade(b.color, k); poly(g, [P(ax, ay, 0), P(bx, by, 0), P(bx, by, top(bx, by)), P(ax, ay, top(ax, ay))]); g.fill(); };
     if (southOpen) flat(tx, ty + 1, tx + 1, ty + 1, kS);
     if (eastOpen) flat(tx + 1, ty + 1, tx + 1, ty, kE);
     g.fillStyle = shade(b.roof, 0.45); poly(g, [P(tx, ty, top(tx, ty)), P(tx + 1, ty, top(tx + 1, ty)), P(tx + 1, ty + 1, top(tx + 1, ty + 1)), P(tx, ty + 1, top(tx, ty + 1))]); g.fill();
+    const windows=(ax:number,ay:number,bx:number,by:number,face:number)=>{for(let f=0;f<Math.min(7,Math.max(1,b.floors));f++)for(let k=0;k<2;k++){const u=.16+k*.43,v=u+.25,base=f===0?0:GROUND_H+(f-1)*FLOOR_H,h0=base+.22,h1=Math.min(H-.08,base+(f===0?GROUND_H:FLOOR_H)*.73);if(h1<=h0)continue;const A=P(ax+(bx-ax)*u,ay+(by-ay)*u,h0),B=P(ax+(bx-ax)*v,ay+(by-ay)*v,h0),C=P(ax+(bx-ax)*v,ay+(by-ay)*v,h1),D=P(ax+(bx-ax)*u,ay+(by-ay)*u,h1),on=night&&windowOn(tx*7+ty*13+f*3+k+face,b.id,time);g.fillStyle=on?'#d8b97a':'#3b505c';poly(g,[A,B,C,D]);g.fill();}};
+    if(southOpen)windows(tx,ty+1,tx+1,ty+1,0);if(eastOpen)windows(tx+1,ty+1,tx+1,ty,50);
     g.globalAlpha = 1;
     return;
   }
@@ -89,8 +94,9 @@ export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Build
   };
   if (southOpen) ao(tx, ty + 1, tx + 1, ty + 1, 0, 0.55);
   if (eastOpen) ao(tx + 1, ty, tx + 1, ty + 1, 0.55, 0);
-  if (southOpen) wall(g, b, P, top, tx, ty + 1, tx + 1, ty + 1, kS, "s", tx, ty, z, dark, night, time);
-  if (eastOpen) wall(g, b, P, top, tx + 1, ty + 1, tx + 1, ty, kE, "e", tx, ty, z, dark, night, time);
+  const hit=w.civicDamage[`b:${b.id}:${tx}:${ty}`];
+  if (southOpen) wall(g, b, P, top, tx, ty + 1, tx + 1, ty + 1, kS, "s", tx, ty, z, dark, night, time,hit?.face==='s'&&hit.severity>.4);
+  if (eastOpen) wall(g, b, P, top, tx + 1, ty + 1, tx + 1, ty, kE, "e", tx, ty, z, dark, night, time,hit?.face==='e'&&hit.severity>.4);
   if (southOpen) paintGraffiti(g, graffiti.get(`${tx},${ty},s`), P(tx, ty + 1, 0), P(tx + 1, ty + 1, 0), Math.min(H, GROUND_H) * zp, z);
   if (southOpen && eastOpen) {
     // the building's front corner: a crisp edge so blocks read as solid volumes
@@ -235,10 +241,10 @@ function tank(g: CanvasRenderingContext2D, P: (x: number, y: number, h: number) 
  * Windows and ledges follow the building's storeys so neighbouring tiles line up seamlessly.
  */
 function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number, h: number) => [number, number], top: (x: number, y: number) => number,
-  ax: number, ay: number, bx: number, by: number, lightK: number, face: "s" | "e", tx: number, ty: number, z: number, dark: number, night: boolean, time: number): void {
+  ax: number, ay: number, bx: number, by: number, lightK: number, face: "s" | "e", tx: number, ty: number, z: number, dark: number, night: boolean, time: number,groundDamage=false): void {
   const st = styleOf(b), H = b.height;
   const glowA = night ? Math.min(1, (dark - 0.25) * 2.2) : 0, a0 = g.globalAlpha, wins: Win[] = [];
-  const winAt = (a0_: number, a1: number, h0: number, h1: number, col: string, f: number, k: number) => { const A = at(a0_, h0), B = at(a1, h0), C = at(a1, h1), D = at(a0_, h1); wins.push({ A, B, C, D, col, seed: (tx * 131 + ty * 17 + f * 7 + k * 3 + b.id * 977 + (face === "e" ? 1 : 0)) | 0 }); };
+  const winAt = (a0_: number, a1: number, h0: number, h1: number, col: string, f: number, k: number) => { if(groundDamage&&f===0)return;const A = at(a0_, h0), B = at(a1, h0), C = at(a1, h1), D = at(a0_, h1); wins.push({ A, B, C, D, col, seed: (tx * 131 + ty * 17 + f * 7 + k * 3 + b.id * 977 + (face === "e" ? 1 : 0)) | 0 }); };
   const o0 = P(0, 0, 0), anchor: TexAnchor = { x: o0[0], y: o0[1], zoom: z };
   const at = (t: number, h: number) => P(ax + (bx - ax) * t, ay + (by - ay) * t, h);
   // outline, following a gable if the roof rises along this edge
@@ -259,7 +265,7 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
   const floors = b.floors;
   const floorBase = (f: number) => (f === 0 ? 0 : GROUND_H + (f - 1) * FLOOR_H);
   const floorH = (f: number) => (f === 0 ? GROUND_H : FLOOR_H);
-  const lit = (f: number, k: number) => night && hash(tx * 7 + ty * 13 + f * 3 + k + (face === "e" ? 50 : 0), b.id) < (st === "flats" || st === "tower" ? 0.55 : 0.45);
+  const lit = (f:number,k:number)=>night&&windowOn(tx*7+ty*13+f*3+k+(face==='e'?50:0),b.id,time);
   const litCol = (f: number, k: number) => { const r = hash(f * 11 + k, tx + ty * 3); return r < 0.15 ? "#9fe8ff" : r < 0.55 ? "#ffd27a" : "#fff0c0"; };
   const quad = (t0: number, t1: number, h0: number, h1: number) => { const A = at(t0, h0), B = at(t1, h0), C = at(t1, h1), D = at(t0, h1); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.lineTo(C[0], C[1]); g.lineTo(D[0], D[1]); g.closePath(); };
   const doorHere = b.door.face === face && (face === "s" ? b.door.x === tx && b.door.y === ty + 1 : b.door.x === tx + 1 && b.door.y === ty);
@@ -294,6 +300,7 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
   } else {
     // houses & flats: two windows on the ground floor
     windows(g, quad, 0, GROUND_H * 0.25, GROUND_H * 0.72, lit(0, 0) || lit(0, 1), litCol(0, 0), night, 2);
+    if((lit(0,0)||lit(0,1))&&z>=.8)for(const [a,b]of[[.14,.42],[.58,.86]])winAt(a,b,GROUND_H*.25,GROUND_H*.72,litCol(0,0),0,a>.5?1:0);
   }
   // ---------- upper floors ----------
   if (st === "tower") {
@@ -370,7 +377,7 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
     }
   }
   // lit windows glow past the night overlay, with a household behind some of them
-  if (wins.length && glowA > 0.02) { const own = wins.slice(), stories = z >= 1.1; GLOW.push((c) => { c.globalAlpha = a0; paintWindows(c, own, glowA, time, stories); c.globalAlpha = 1; }); }
+  if (wins.length && glowA > 0.02) { const own = wins.slice(), stories = z >= .85; GLOW.push((c) => { c.globalAlpha = a0; paintWindows(c, own, glowA, time, stories); c.globalAlpha = 1; }); }
   // shop fronts and lobbies throw warm light onto the footpath
   if (glowA > 0.02 && z >= 0.8 && (st === "shop" || st === "club" || st === "fuel" || st === "tower" || st === "civic")) {
     const ox = face === "e" ? 0.9 : 0, oy = face === "s" ? 0.9 : 0, n0 = P(ax, ay, 0), n1 = P(bx, by, 0), f0 = P(ax + ox, ay + oy, 0), f1 = P(bx + ox, by + oy, 0);
@@ -480,7 +487,7 @@ function roofTop(g: CanvasRenderingContext2D, b: Building, x: number, y: number,
     g.fillStyle = b.sign;
     g.fillText(label, x, y - 8 * z,w-8);
   }
-  if (b.kind === "gallery" || b.kind === "casino" || b.billboard&&b.id%11===0) billboard(g, b, x, y - (label ? fs + 14 * z : 0), z, time, dark);
+  if (b.kind === "gallery" || b.kind === "casino" || b.billboard&&b.id%4===0) billboard(g, b, x, y - (label ? fs + 14 * z : 0), z, time, dark);
   g.textAlign = "start";
 }
 
@@ -492,6 +499,6 @@ function billboard(g: CanvasRenderingContext2D, b: Building, x: number, y: numbe
   g.strokeStyle = "#3a3430"; g.lineWidth = 2 * z;
   g.beginPath(); g.moveTo(x - w * 0.3, y); g.lineTo(x - w * 0.3, y - 12 * z); g.moveTo(x + w * 0.3, y); g.lineTo(x + w * 0.3, y - 12 * z); g.stroke();
   if (dark > 0.3) { g.fillStyle = "rgba(255,240,190,.12)"; g.beginPath(); g.moveTo(x - w * 0.3, y - 12 * z); g.lineTo(x - w / 2, y - 12 * z - h); g.lineTo(x + w / 2, y - 12 * z - h); g.lineTo(x + w * 0.3, y - 12 * z); g.closePath(); g.fill(); }
-  const kind = b.kind === "casino" ? "casino" : b.kind === "gallery" ? "mosaic" : "kiwi";
+  const kind = b.kind === "casino" ? "casino" : b.kind === "gallery" || b.id%3!==0 ? "mosaic" : "kiwi";
   drawAd(g, kind, x, y - 12 * z, w, h, b.id, dark);
 }

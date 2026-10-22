@@ -1,3 +1,5 @@
+import {propDef} from '../content/streetProps';
+import {prepareStreetProps,useStreetProp} from '../sim/StreetProps';
 import type { Simulation } from '../sim/Simulation';
 import type { ModalHost } from './Modals';
 import { h } from './dom';
@@ -6,10 +8,12 @@ import { resolveStreetIncident, storyPhase } from '../sim/StreetLife';
 import { SALT_MILESTONES } from '../content/salt-story/milestones';
 
 export function showStreetLife(modal:ModalHost,sim:Simulation,walk:(x:number,y:number)=>void):void{
+  prepareStreetProps(sim);
   const events=[...sim.streetLife.history].reverse().slice(0,8);
   modal.show('Street life · crews & neighbourhoods',[
     h('p',{text:`Story context: ${SALT_MILESTONES[storyPhase(sim)].title}. Existing street encounters and authored dialogue remain available.`}),
-    h('div.street-heat',null,Object.entries(sim.streetLife.heat).map(([id,heat])=>h('label',null,[CREWS[id]?.name??id,h('meter',{min:0,max:1,value:heat,'aria-label':`${CREWS[id]?.name??id} tension`}),`${Math.round(heat*100)}%`]))),
+    h('details',null,[h('summary',{text:'Street furniture · '+sim.cityPlay.props.length+' usable objects'}),...sim.cityPlay.props.slice().sort((a,b)=>Math.hypot(a.x-sim.player.x,a.y-sim.player.y)-Math.hypot(b.x-sim.player.x,b.y-sim.player.y)).map(p=>{const d=propDef(p.kind),near=Math.hypot(p.x-sim.player.x,p.y-sim.player.y)<1.35;return h('div.opts',null,[h('span',{text:d.name}),h('button',{text:near?d.action:'Walk here',onclick:()=>{modal.close();if(near)useStreetProp(sim,sim.player,p);else walk(p.x,p.y);}})]);})]),
+    h('div.street-heat' ,null,Object.entries(sim.streetLife.heat).map(([id,heat])=>h('label',null,[CREWS[id]?.name??id,h('meter',{min:0,max:1,value:heat,'aria-label':`${CREWS[id]?.name??id} tension`}),`${Math.round(heat*100)}%`]))),
     ...(!events.length?[h('p',{text:'The neighbourhood is settling in. Meetings, disputes and nightlife develop as the city runs.'})]:[]),
     ...sim.cityPlay.drama.history.slice(-4).reverse().map(e=>{
       const people=e.actors.map(id=>sim.chars[id]).filter(Boolean),feedback=h('p',{role:'status'});
