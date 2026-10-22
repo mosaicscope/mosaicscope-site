@@ -15,7 +15,8 @@ try{
  await page.getByLabel('Change table limits',{exact:true}).click();await tab('Cashier').click();await page.getByRole('button',{name:'Buy $10,000 in chips',exact:true}).click();await page.getByLabel('Change table limits',{exact:true}).click();
  check(await page.evaluate(()=>window.__mosaics.sim.cityPlay.casino.chips)===10000,'Chip purchase not persistent');
  await tab('Roulette').click();
- check(await page.locator('.casino-company canvas').count()===1,'Live casino company missing');
+ check(await page.locator('.iso-roulette>figure canvas').count()===1,'Integrated isometric table missing');
+ await page.locator('.iso-roulette>details>summary').click();
  await shot('roulette-desktop');
  await button('Bank: borrow $500 · repay $525').click();
  check(await page.evaluate(()=>{const s=window.__mosaics.sim;return s.player.cash===10500&&s.cityPlay.casino.debt===525;}),'Credit terms or payment incorrect');
@@ -34,7 +35,7 @@ try{
  check(await page.evaluate(()=>!!window.__mosaics.sim.cityPlay.casino.sideBet),'Flight settled roulette side bet');
  const ended=await page.evaluate(()=>window.__mosaics.sim.cityPlay.casino.flight.endedAt);await page.waitForTimeout(150);
  check(await page.evaluate(()=>window.__mosaics.sim.cityPlay.casino.flight.endedAt)===ended,'Flight result did not freeze');await shot('flight-coast');
- await tab('Roulette').click();const before=await page.evaluate(()=>window.__mosaics.sim.cityPlay.casino.chips);
+ await tab('Roulette').click();await page.locator('.iso-roulette>details>summary').click();const before=await page.evaluate(()=>window.__mosaics.sim.cityPlay.casino.chips);
  await button('7 red').click();await page.getByRole('button',{name:/Spin the wheel with/}).click();
  await page.waitForFunction(()=>!window.__mosaics.casino.rSpinning);
  check(await page.evaluate(({before})=>{const g=window.__mosaics,n=g.casino.rLast;return !g.sim.cityPlay.casino.sideBet&&g.casino.chips===before-5+(n===7?180:0)+(n>0&&n%2===0?50:0);},{before}),'Roulette side wager or main payout incorrect');
