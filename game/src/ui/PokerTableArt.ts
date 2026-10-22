@@ -1,50 +1,33 @@
 import type {Character} from '../entities/types';
 import type {PokerTable} from '../casino/holdem';
-import {pose,solve,drawFigure,J} from '../render/StickFigure';
-import {roundBox,playingCard,sceneText} from './CanvasStage';
-interface Seat{x:number;y:number;cx:number;cy:number;dir:number}
-function seats(t:PokerTable):Seat[]{
- if(t.seats.length===4)return[{x:480,y:554,cx:552,cy:503,dir:1},{x:146,y:371,cx:225,cy:323,dir:1},{x:480,y:215,cx:478,cy:235,dir:1},{x:814,y:371,cx:735,cy:323,dir:-1}];
- return t.seats.map((_,i)=>{const a=Math.PI/2+i/t.seats.length*Math.PI*2,x=480+Math.cos(a)*340,y=Math.max(250,330+Math.sin(a)*220);return{x,y,cx:x-Math.cos(a)*55,cy:y-48,dir:Math.cos(a)>0?-1:1};});
-}
-export function pokerSeatAt(t:PokerTable,x:number,y:number):number{const all=seats(t);let picked=-1;all.forEach((s,i)=>{if(Math.hypot(x-s.x,y-(s.y-60))<43||Math.abs(x-s.cx)<58&&Math.abs(y-s.cy)<42)picked=i;});return picked;}
-/** World-native characters and flat-lit furniture; cards and chips are placed on the table plane. */
-export function drawPokerTable(g:CanvasRenderingContext2D,t:PokerTable,people:readonly Character[],time:number,reduced:boolean,age:number,selected:number):void{
- const W=960,H=600,all=seats(t),money=(n:number)=>'$'+Math.round(n).toLocaleString('en-NZ');
- const polygon=(pts:number[][],col:string,edge?:string)=>{g.fillStyle=col;g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();g.fill();if(edge){g.strokeStyle=edge;g.lineWidth=1;g.stroke();}};
- const ellipse=(x:number,y:number,rx:number,ry:number,fill:string,stroke?:string,width=1)=>{g.fillStyle=fill;g.beginPath();g.ellipse(x,y,rx,ry,0,0,Math.PI*2);g.fill();if(stroke){g.strokeStyle=stroke;g.lineWidth=width;g.stroke();}};
- const stack=(x:number,y:number,n:number,colour:string)=>{for(let i=0;i<Math.min(11,Math.ceil(n));i++){ellipse(x,y-i*3,9,3.8,colour,'#dfd4aa77',.7);g.strokeStyle='#e4dab8';g.lineWidth=1;g.beginPath();g.moveTo(x-7,y-i*3);g.lineTo(x-4,y-i*3);g.moveTo(x+4,y-i*3);g.lineTo(x+7,y-i*3);g.stroke();}};
- const chair=(s:Seat)=>{ellipse(s.x,s.y+10,29,10,'#10181566');polygon([[s.x-20,s.y-30],[s.x-15,s.y+6],[s.x-11,s.y+8],[s.x-13,s.y-27]],'#6c6350');polygon([[s.x+20,s.y-30],[s.x+15,s.y+6],[s.x+11,s.y+8],[s.x+13,s.y-27]],'#6c6350');roundBox(g,s.x-24,s.y-74,48,44,8,'#34423a','#a2926e');for(let j=-1;j<=1;j++)roundBox(g,s.x+j*11-3,s.y-66,6,26,3,'#435047');ellipse(s.x,s.y-30,26,11,'#626951','#b1a281');};
- const character=(i:number,frontArms=false)=>{const a=t.seats[i],s=all[i],c=people.find(c=>c.id===a.id);if(!c)return;const doing=t.winners.includes(i)?'cheer':t.actor===i&&t.phase==='betting'?'bet':'sit';solve(pose(doing,'normal',reduced?0:time,0,0,0),s.x,s.y,.65,s.dir);if(frontArms){for(const n of[8,12]){g.lineCap='round';g.strokeStyle='#1d2922';g.lineWidth=3;g.beginPath();g.moveTo(J[n],J[n+1]);g.lineTo(J[n+2],J[n+3]);g.stroke();g.strokeStyle='#ded7bd';g.lineWidth=1.6;g.stroke();}return;}g.save();drawFigure(g,c,s.x,s.y,.65,s.dir,time,0,1);g.restore();};
- g.fillStyle='#282d27';g.fillRect(0,0,W,H);
- for(let row=-2;row<13;row++)for(let col=-2;col<16;col++){const x=col*85+(row%2)*42.5,y=row*36+135;polygon([[x,y],[x+42.5,y-18],[x+85,y],[x+42.5,y+18]],(row+col)%2?'#333a2f':'#30372d','#46503b55');}
- g.fillStyle='#252e27';g.fillRect(0,0,W,126);g.fillStyle='#303b30';g.fillRect(0,94,W,25);g.fillStyle='#8d8161';g.fillRect(0,117,W,3);
- for(let x=35;x<960;x+=90){roundBox(g,x,38,62,63,3,'#2d382d','#53604a');g.fillStyle='#928567';g.fillRect(x+5,43,52,2);}
- for(const x of[115,845]){polygon([[x-18,37],[x,20],[x+18,37],[x+12,60],[x-12,60]],'#b5a276','#d9c699');g.fillStyle='#d5c69b';g.fillRect(x-2,60,4,26);}
- sceneText(g,'THE TESSERA',480,45,22,'#d8c49a');sceneText(g,t.mode==='tournament'?'SIT & GO · HAND '+t.round:'TEXAS HOLD’EM · HAND '+t.round,480,70,12,'#c5bda4');
- const back=all.map((s,i)=>({s,i})).filter(a=>a.s.y<300);for(const a of back){chair(a.s);character(a.i);}const dealer=people.find(c=>c.phys===0&&c.tier!=='player'&&!t.seats.some(s=>s.id===c.id));let dealerArms:number[]=[];if(dealer){solve(pose('deal','normal',reduced?0:time,0,0,0),680,240,.56,-1);g.save();drawFigure(g,dealer,680,240,.56,-1,time,0,1);g.restore();dealerArms=Array.from(J.slice(8,16));roundBox(g,659,151,43,15,3,'#252f27','#9c926d');sceneText(g,'DEALER',680,162,8,'#d8c69e');}
- // A pedestal, bevelled timber skirt, padded rail and separate baize surface give the table weight.
- ellipse(480,472,335,63,'#121b1666');polygon([[360,383],[387,488],[423,499],[403,377]],'#4c4838','#74674b');polygon([[557,377],[537,499],[574,488],[600,383]],'#62533b','#74674b');
- ellipse(480,344,354,143,'#3d392c','#191f1b',2);ellipse(480,330,354,143,'#6c5940','#b7a078',2);ellipse(480,317,353,140,'#2c3c31','#b9a77d',2);ellipse(480,316,331,120,'#42604a','#627a57',1.5);
- // Quiet felt texture and stitched betting line stay in the same subdued game palette.
- g.save();g.beginPath();g.ellipse(480,316,328,117,0,0,Math.PI*2);g.clip();for(let i=0;i<220;i++){g.fillStyle=i%2?'#b6c1a10a':'#132c220d';g.fillRect(160+(i*73)%650,202+(i*37)%228,2,1);}g.restore();
- g.strokeStyle='#b3b08a77';g.lineWidth=1;g.setLineDash([3,4]);g.beginPath();g.ellipse(480,318,294,91,0,0,Math.PI*2);g.stroke();g.setLineDash([]);
- // Dealer tray, cut card and shoe are physical props, followed by the actual five-card board.
- roundBox(g,558,200,123,28,5,'#28332b','#9c906b');for(let i=0;i<6;i++)stack(572+i*18,219,3+i%3,['#b57b68','#c4b27d','#273d37'][i%3]);
- for(let i=0;i<4;i++)playingCard(g,650+i*1.6,258-i*1.4,2,'♠',0,.3);
- for(let i=0;i<5;i++){roundBox(g,343+i*58,281,47,65,4,'#37513e','#b0b28e44');const c=t.board[i];if(c)playingCard(g,366+i*58,313,c.rank,c.suit,1,.58);}
- if(!reduced&&age<.7&&t.board.length&&t.phase==='betting'){const c=t.board[t.board.length-1],f=Math.min(1,age/.7);g.save();g.translate(650+(366+(t.board.length-1)*58-650)*f,255+58*f);g.rotate((1-f)*.35);playingCard(g,0,0,c.rank,c.suit,f>.5?1:0,.58);g.restore();}
- for(let i=0;i<3;i++)stack(454+i*25,376,Math.min(9,Math.ceil(t.pot/15)-i*4),['#bd856e','#ceb782','#30463b'][i]);sceneText(g,'POT '+money(t.pot),480,405,17,'#e2d4b0');
- if(dealerArms.length){g.lineCap='round';g.strokeStyle='#e3dcc2';g.lineWidth=1.6;for(const n of[0,4]){g.beginPath();g.moveTo(dealerArms[n],dealerArms[n+1]);g.lineTo(dealerArms[n+2],dealerArms[n+3]);g.stroke();}}
- for(let i=0;i<all.length;i++){
-  const s=all[i],a=t.seats[i];if(s.y>=300){chair(s);character(i);}else character(i,true);
-  a.hand.forEach((c,j)=>playingCard(g,s.cx-18+j*36,s.cy,c.rank,c.suit,i===0||t.phase!=='betting'?1:0,.43));
-  if(a.folded){g.save();g.globalAlpha=.65;roundBox(g,s.cx-40,s.cy-11,80,23,3,'#253129');sceneText(g,'FOLDED',s.cx,s.cy+5,10,'#c4bba3');g.restore();}
-  const bx=i===0?s.x-60:s.cx+42,by=i===0?s.y-26:s.cy+35;stack(bx,by,Math.min(8,a.stack/10),'#c2aa77');if(a.bet)stack(bx+22,by-12,Math.min(7,a.bet/5),'#b47b69');
-  if(i===t.button){ellipse(bx-21,by-5,9,5,'#ddd6b8','#a29a78');sceneText(g,'D',bx-21,by-2,8,'#354335');}
-  const ny=s.y-94,label=a.name.split(' ')[0]+' · '+money(a.stack);roundBox(g,s.x-67,ny-13,134,23,5,selected===i?'#5f6046':'#26352cf0',t.actor===i&&t.phase==='betting'?'#d2b77b':'#6e7d59');sceneText(g,label,s.x,ny+2,11,'#e1d5b2');
-  if(a.allIn)sceneText(g,'ALL IN',s.x,ny-20,12,'#e3be7d');
- }
- if(!reduced&&t.pot>0&&age<.8){const i=Math.max(0,t.seats.findIndex(a=>(t.log[t.log.length-1]??'').startsWith(a.name))),s=all[i],f=Math.min(1,age/.8);stack(s.cx+(480-s.cx)*f,s.cy+(372-s.cy)*f,3,'#cbb57d');}
- if(t.phase!=='betting'&&t.winners.length){const text=t.winners.map(i=>t.seats[i].name.split(' ')[0]).join(' & ')+' wins';roundBox(g,362,422,236,27,5,'#243a2c','#b5a16d');sceneText(g,text,480,440,14,'#e7d49e');}
+import {CasinoIso,TABLE_Z} from './CasinoIso';
+export const POKER_W=900,POKER_H=620;
+interface Seat{x:number;y:number;cx:number;cy:number}
+function seats(t:PokerTable):Seat[]{if(t.seats.length===4)return[{x:2.8,y:2.55,cx:2.5,cy:1.3},{x:5.05,y:-.45,cx:3.8,cy:-.45},{x:-1.7,y:-2.85,cx:-1.4,cy:-1.45},{x:-5.05,y:-.55,cx:-3.7,cy:-.55}];return t.seats.map((_,i)=>{const a=Math.PI/2+i/t.seats.length*Math.PI*2;return{x:Math.cos(a)*5.05,y:Math.sin(a)*2.85,cx:Math.cos(a)*3.65,cy:Math.sin(a)*1.4};});}
+export function pokerSeatAt(t:PokerTable,x:number,y:number,width=POKER_W):number{const project=new CasinoIso(null as unknown as CanvasRenderingContext2D,width),all=seats(t);return all.findIndex(s=>{const p=project.p(s.x,s.y,1.35);return Math.hypot(x-p[0],y-p[1])<38;});}
+export function drawPokerTable(g:CanvasRenderingContext2D,t:PokerTable,people:readonly Character[],time:number,reduced:boolean,age:number,selected:number,preview=false,width=POKER_W):void{
+ const iso=new CasinoIso(g,width,POKER_H),all=seats(t),person=(i:number)=>people.find(c=>c.id===t.seats[i].id),motion=reduced?0:time;
+ iso.room();
+ const figure=(i:number,arms=false)=>{const s=all[i],c=person(i);if(!c||preview&&i===0)return;const doing=t.winners.includes(i)&&!preview?'cheer':t.actor===i?'bet':'sit';iso.actor(c,s.x,s.y,motion,doing,true,[s.cx,s.cy,TABLE_Z],arms);};
+ const back=all.map((s,i)=>({s,i})).filter(a=>a.s.x+a.s.y<0).sort((a,b)=>a.s.x+a.s.y-b.s.x-b.s.y);
+ for(const {s,i}of back){iso.chair(s.x,s.y,Math.atan2(s.y,s.x)-Math.PI/2);figure(i);}
+ const dealer=people.find(c=>c.phys===0&&c.tier!=='player'&&!t.seats.some(s=>s.id===c.id));if(dealer)iso.actor(dealer,-4.6,1.6,motion,'deal',false,[-3.3,.45,TABLE_Z]);
+ iso.table(4.65,2.3);
+ iso.plane(TABLE_Z+.03,p=>{p.textAlign='center';p.fillStyle='#b4bd8c';p.font='600 .22px Arial';p.fillText('TEXAS HOLD’EM',0,-1.33);p.font='.13px Arial';p.fillText('THE TESSERA · '+(preview?'TAKE A SEAT':t.mode==='cash'?'CASH TABLE':'TOURNAMENT'),0,-1.07);for(let i=0;i<5;i++){p.strokeStyle='#a7b78399';p.lineWidth=.015;p.strokeRect(-1.65+i*.69,-.39,.53,.79);}});
+ // Dealer rack, deck, cut card, five community cards and a single shared pot all share this plane.
+ iso.box(-3.9,.25,.9,.55,TABLE_Z,.045,'#344733');for(let i=0;i<4;i++)iso.chip(-3.77+i*.21,.55,TABLE_Z+.07,4+i%2,['#b77760','#d0b67c','#4e7661','#d6cdb0'][i]);
+ iso.plane(TABLE_Z+.045,p=>{p.fillStyle='#c9b274';p.fillRect(-3.6,-.55,.43,.66);});for(let i=0;i<4;i++)iso.card(-3.2,-.2,2,'♠',false,TABLE_Z+.05+i*.012,.4,.6);
+ const moving=!preview&&!reduced&&age<.65&&t.phase==='betting',last=t.board.length-1;
+ t.board.forEach((c,i)=>{if(!(moving&&i===last))iso.card(-1.38+i*.69,0,c.rank,c.suit,true,TABLE_Z+.06,.55,.8);});
+ if(moving&&last>=0){const f=Math.min(1,age/.65),c=t.board[last];iso.card(-3.2+(-1.38+last*.69+3.2)*f,-.2+.2*f,c.rank,c.suit,f>.35,TABLE_Z+.06+Math.sin(f*Math.PI)*.22,.55,.8);}
+ if(preview){for(let i=0;i<3;i++)iso.card(-1.38+i*.69,0,[13,10,9][i],['♠','♥','♣'][i],true,TABLE_Z+.06,.55,.8);}
+ if(t.pot){for(let i=0;i<3;i++)iso.chip(-.45+i*.42,.96,TABLE_Z+.05,Math.min(10,Math.ceil(t.pot/20)-i*3),['#b77760','#c9af75','#4c7160'][i]);}
+ for(const s of all){const i=all.indexOf(s),a=t.seats[i];if(preview&&i===0)continue;a.hand.forEach((c,j)=>iso.card(s.cx+(j-.5)*.48,s.cy,c.rank,c.suit,i===0||!preview&&t.phase!=='betting',TABLE_Z+.06,.43,.66));iso.chip(s.cx+.55,s.cy,TABLE_Z+.05,Math.min(9,Math.ceil(a.stack/25)),'#c3ac74');if(a.bet)iso.chip(s.cx,s.cy*.6,TABLE_Z+.05,Math.min(8,Math.ceil(a.bet/5)),'#b87861');iso.glass(s.cx-.6,s.cy+.15);if(i===t.button)iso.plane(TABLE_Z+.06,p=>{p.fillStyle='#e6dfc5';p.beginPath();p.arc(s.cx+.65,s.cy+.3,.11,0,Math.PI*2);p.fill();p.fillStyle='#2b4432';p.font='600 .13px Arial';p.textAlign='center';p.fillText('D',s.cx+.65,s.cy+.35);});}
+ if(dealer)iso.actor(dealer,-4.6,1.6,motion,'deal',false,[-3.3,.45,TABLE_Z],true);
+ for(const {i}of back)figure(i,true);
+ for(const {s,i}of all.map((s,i)=>({s,i})).filter(a=>a.s.x+a.s.y>=0).sort((a,b)=>a.s.x+a.s.y-b.s.x-b.s.y)){iso.chair(s.x,s.y,Math.atan2(s.y,s.x)-Math.PI/2);figure(i);}
+ all.forEach((s,i)=>{const c=person(i);if(!c)return;iso.name(c,s.x,s.y,preview&&i===0?'Your seat':c.name.split(' ')[0]+(preview?'':' · $'+t.seats[i].stack+(t.seats[i].folded?' · folded':t.seats[i].allIn?' · ALL IN':''))+(i===selected?' ◇':''));});
+ const label=preview?'TABLE PREVIEW · YOUR SEAT IS READY':t.phase==='betting'?['PREFLOP','FLOP','TURN','RIVER'][t.street]+' · POT $'+t.pot:t.message;
+ g.font='600 15px Arial';g.textAlign='center';g.fillStyle='#e6d7af';g.fillText(label,width/2,POKER_H-24,width-50);
+ if(dealer)iso.name(dealer,-4.6,1.6,'Dealer · '+dealer.name.split(' ')[0],true);
 }
