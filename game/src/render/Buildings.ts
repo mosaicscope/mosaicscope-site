@@ -36,11 +36,12 @@ export const GLOW: ((layer: CanvasRenderingContext2D) => void)[] = [];
 const NEON = new Set(["casino", "nightclub", "diner", "pizza", "sushi", "fishchips", "records", "toyshop", "barber", "hotel", "dealership", "gallery", "studio", "cafe", "pawn", "recycling"]);
 
 /** Pitched roof height above the eaves at a world point (0 for flat roofs). */
-function roofRise(b: Building, wx: number, wy: number): number {
-  if (styleOf(b) !== "house") return 0;
-  const sx = b.x1 + 1 - b.x0, sy = b.y1 + 1 - b.y0;
-  if (sx >= sy) { const d = Math.min(wy - b.y0, b.y1 + 1 - wy); return Math.max(0, d) * (Math.min(1.3, sy * 0.45) / (sy / 2)); }
-  const d = Math.min(wx - b.x0, b.x1 + 1 - wx); return Math.max(0, d) * (Math.min(1.3, sx * 0.45) / (sx / 2));
+function roofRise(b:Building,wx:number,wy:number):number{
+ if(styleOf(b)!=='house'||b.roofShape==='flat')return 0;
+ const a=b.x1+1-b.x0,d=b.y1+1-b.y0,x=(wx-b.x0)/a,y=(wy-b.y0)/d;
+ if(b.roofShape==='skillion')return Math.max(0,1-y)*1.3;
+ if(b.roofShape==='hipped'||b.roofShape==='pyramidal')return Math.max(0,Math.min(x,1-x,y,1-y))*2.6;
+ return Math.max(0,1-Math.abs((a>=d?y:x)*2-1))*1.3;
 }
 
 export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Building, tx: number, ty: number, sx: number, sy: number, z: number, time: number, dark: number, alpha: number, graffiti: Map<string, Graffiti>,verticalScale=1): void {
@@ -98,6 +99,14 @@ export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Build
   }
   if (eastOpen) paintGraffiti(g, graffiti.get(`${tx},${ty},e`), P(tx + 1, ty + 1, 0), P(tx + 1, ty, 0), Math.min(H, GROUND_H) * zp, z);
 
+  if(b.architecture&&z>.45){
+   const accent=(east:boolean)=>{const Q=(u:number,h:number)=>east?P(tx+1,ty+1-u,h):P(tx+u,ty+1,h);g.save();g.lineWidth=Math.max(.45,z*.5);
+    if(b.facadeMaterial==='brick'||b.architecture==='british'){g.strokeStyle='#463e3435';for(let h=.25;h<H;h+=.23){const a=Q(0,h),c=Q(1,h);g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(c[0],c[1]);g.stroke();for(let u=(Math.floor(h/.23)%2)*.22;u<1;u+=.44){const a=Q(u,h),c=Q(u,h+.22);g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(c[0],c[1]);g.stroke();}}}
+    if(b.architecture==='india'||/mediterranean|art_deco/.test(b.architecture??'')){for(let h=GROUND_H+.2;h<H;h+=FLOOR_H){const a=Q(.08,h),c=Q(.92,h);g.strokeStyle='#c9c1a2';g.lineWidth=1.8*z;g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(c[0],c[1]);g.stroke();for(let u=.1;u<.95;u+=.14){const a=Q(u,h),c=Q(u,h+.22);g.lineWidth=.7*z;g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(c[0],c[1]);g.stroke();}}}
+    if(b.architecture==='gulf'){g.strokeStyle='#927f5b77';for(let h=.7;h<H;h+=FLOOR_H){for(let u=.2;u<.9;u+=.22){const a=Q(u,h),c=Q(u+.13,h+.1);g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(c[0],c[1]);g.stroke();}}}
+    if(b.architecture==='japan'){g.strokeStyle='#554d3b88';for(const u of[.08,.92]){const a=Q(u,.15),c=Q(u,H-.15);g.lineWidth=1.1*z;g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(c[0],c[1]);g.stroke();}}
+    g.restore();};if(southOpen)accent(false);if(eastOpen)accent(true);
+  }
   // ---- roof ----
   if (st === "house") {
     // split the tile along the ridge so each half is one flat plane
@@ -179,10 +188,11 @@ export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Build
   }
 
   // sign over the centre of the building
-  const cx = Math.floor((b.x0 + b.x1) / 2), cy = Math.floor((b.y0 + b.y1) / 2);
-  if (tx === cx && ty === cy && alpha > .85 && z >= .85) {
-    const p = P(tx + 0.5, ty + 0.5, top(tx + 0.5, ty + 0.5) + (st === "house" ? 0 : 0.22)), a0 = alpha;
-    p[1]-=(b.x1-b.x0+b.y1-b.y0+2)*hh*.5+4*z;
+  const cx = (b.x0+b.x1+1)/2, cy=b.y1+.62;
+  if (tx === b.x1 && ty === b.y1 && alpha > .85 && z >= .85) {
+    const p = P(cx, cy, top(cx, cy) + (st === "house" ? 0 : 0.22)), a0 = alpha;
+    // Keep names on their actual rooftop, not displaced onto another street.
+    p[1]-=2*z;
     roofTop(g, b, p[0], p[1], z, time, dark);
     // tenement roofs breathe steam in the cold, a SimCity night staple
     if ((st === "flats" || st === "civic") && z >= 0.8 && dark > 0.1) {

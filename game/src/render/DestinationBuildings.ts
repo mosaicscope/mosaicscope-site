@@ -1,5 +1,5 @@
 import {BUILDINGS,GROUND_H,FLOOR_H} from '../content/buildings';
-import {mappedBuildingStyle} from '../content/mappedBuildingStyle';
+import {mappedBuildingStyle,regionalArchitecture} from '../content/mappedBuildingStyle';
 import {World,type Building} from '../world/World';
 import {drawBuildingTile} from './Buildings';
 import type {MappedBuilding} from '../ui/DestinationDistrict';
@@ -13,8 +13,8 @@ export class DestinationBuildings{
  private sprite(m:MappedBuilding):Sprite{
   const old=this.cache.get(m.id);if(old){this.cache.delete(m.id);this.cache.set(m.id,old);return old;}
   const minX=Math.min(...m.points.map(p=>p[0])),minY=Math.min(...m.points.map(p=>p[1])),maxX=Math.max(...m.points.map(p=>p[0])),maxY=Math.max(...m.points.map(p=>p[1]));
-  const unit=Math.max(4,(maxX-minX)/28,(maxY-minY)/28),nx=Math.max(1,Math.ceil((maxX-minX)/unit)),ny=Math.max(1,Math.ceil((maxY-minY)/unit)),w=new World(Math.max(nx,ny)+4),style=mappedBuildingStyle(m),def=BUILDINGS[style.kind];
-  const b:Building={id:0,kind:style.kind,name:'',x0:1,y0:1,x1:nx,y1:ny,floors:style.floors,height:GROUND_H+(style.floors-1)*FLOOR_H,color:def.colors[m.id%def.colors.length],roof:def.roof,sign:def.sign,door:{x:Math.round(nx/2),y:ny,face:'s'},area:0,billboard:false};w.buildings=[b];
+  const unit=Math.max(4,(maxX-minX)/28,(maxY-minY)/28),nx=Math.max(1,Math.ceil((maxX-minX)/unit)),ny=Math.max(1,Math.ceil((maxY-minY)/unit)),w=new World(Math.max(nx,ny)+4),style=mappedBuildingStyle(m),architecture=regionalArchitecture(m.tags),def=BUILDINGS[style.kind];
+  const b:Building={id:0,kind:style.kind,name:'',x0:1,y0:1,x1:nx,y1:ny,floors:style.floors,height:GROUND_H+(style.floors-1)*FLOOR_H,color:architecture.wall,roof:architecture.roof,sign:def.sign,facadeMaterial:architecture.material,roofShape:architecture.shape,architecture:architecture.architecture,door:{x:Math.round(nx/2),y:ny,face:'s'},area:0,billboard:false};w.buildings=[b];
   const inside=(x:number,y:number)=>{let yes=false;for(let i=0,j=m.points.length-1;i<m.points.length;j=i++){const a=m.points[i],b=m.points[j];if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])yes=!yes;}return yes;};
   const tiles:{x:number;y:number}[]=[];for(let y=1;y<=ny;y++)for(let x=1;x<=nx;x++){if(!inside(minX+(x-.5)*unit,minY+(y-.5)*unit))continue;w.buildingOf[y*w.size+x]=0;tiles.push({x,y});}
   // A narrow mapped footprint still gets a native one-tile building, rather than disappearing.

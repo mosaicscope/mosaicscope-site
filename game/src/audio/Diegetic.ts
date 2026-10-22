@@ -101,6 +101,24 @@ export function dopplerRate(radial: number): number {
 export interface EngineProfile { idle: number; top: number; cut: number; burble: number; sub: number; pops: boolean }
 const E = (idle: number, top: number, cut: number, burble = 0.05, sub = 0.5, pops = false): EngineProfile => ({ idle, top, cut, burble, sub, pops });
 export const ENGINE: Record<VehicleClass, EngineProfile> = {
+motorcycle:E(55,180,850,.16,.5),
+sportbike:E(85,310,1800,.1,.3,true),
+cruiser:E(55,180,850,.16,.5),
+bicycle:E(0,0,100,0,0),
+ebike:E(25,210,1000,0,.1),
+escooter:E(25,210,1000,0,.1),
+kei_coupe:E(55,180,850,.16,.5),
+retro_micro:E(55,180,850,.16,.5),
+euro_hatch:E(55,180,850,.16,.5),
+fast_sedan:E(55,180,850,.16,.5),
+box_suv:E(55,180,850,.16,.5),
+offroad_wagon:E(55,180,850,.16,.5),
+rally_sedan:E(55,180,850,.16,.5),
+retro_ute:E(55,180,850,.16,.5),
+lift_suv:E(55,180,850,.16,.5),
+compact_ev:E(25,210,1000,0,.1),
+estate_ev:E(25,210,1000,0,.1),
+super_wedge:E(55,180,850,.16,.5),
   tank:E(28,95,450,.35,1),
   hatch: E(72, 200, 950),                 // buzzy little three-pot
   sedan: E(62, 170, 850),

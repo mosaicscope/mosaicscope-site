@@ -1,3 +1,5 @@
+import {nudgeStreetProp} from '../sim/StreetProps';
+import {RetroPhone} from '../ui/RetroPhone';
 import {useSubstance} from '../sim/Substances';
 import {farmPlot} from '../sim/FarmPlot';
 import {launchRocket} from '../sim/Rockets';
@@ -193,6 +195,7 @@ export class Game {
     this.hintEl = h("div.hint");
     this.clockEl = h("span.clock");
     this.casino = new Casino({
+      socialState:()=>this.sim.cityPlay.casino,tick:()=>this.sim.tick,guestDrink:id=>{const c=this.sim.chars[id];if(!c||c.id%6===0||c.substances?.crisis)return "They decline politely. No charge.";if(this.sim.player.cash<12)return "Not enough cash.";if(!useSubstance(this.sim,c,"alcohol"))return "They have had enough for now.";this.sim.player.cash-=12;const rel=this.sim.relate(c,this.sim.playerId);rel.aff=Math.min(1,rel.aff+.05);return "A drink is served to "+c.name+". They thank you.";},
       getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = Math.round(v * 100) / 100; },
       onEvent: (t, big) => { this.toast(t, big ? "acid" : ""); if (big) this.sim.emit({ type: "casino", x: this.sim.player.x, y: this.sim.player.y, actors: [this.sim.playerId], data: { amount: 0, game: "player" }, summary: t }); },
       buyDrink:kind=>this.venueDrink(kind),dealer:()=>this.venueDealer(),canConfront:()=>this.canConfrontDealer(),confront:()=>this.confrontDealer(),
@@ -354,7 +357,7 @@ export class Game {
       if (!this.interior.open && p.inside >= 0 && this.sim.world.buildings[p.inside]?.kind === 'hospital' && p.jailUntil <= this.sim.tick && p.arrestedBy < 0) exitBuilding(this.sim, p);
       this.returnToPlayer(false); if (this.clock.paused) this.setSpeed(1);
     }
-    if(!this.modal.open&&!this.casino.open&&!this.dev.visible&&!this.travel.open&&!this.club.open&&!this.luxury.open&&!this.interior.open&&(this.keys.has(this.settings.keys.throw)||this.keys.has(this.settings.keys.swing)||this.mouse.down&&this.mouse.button===2||this.touchFire)){const p=this.sim.player;if(p.hand>=0&&TOYS[this.sim.toys[p.hand].def]?.weapon?.mode==='auto')this.act('throw');}
+    if(!this.phone.open&&!this.modal.open&&!this.casino.open&&!this.dev.visible&&!this.travel.open&&!this.club.open&&!this.luxury.open&&!this.interior.open&&(this.keys.has(this.settings.keys.throw)||this.keys.has(this.settings.keys.swing)||this.mouse.down&&this.mouse.button===2||this.touchFire)){const p=this.sim.player;if(p.hand>=0&&TOYS[this.sim.toys[p.hand].def]?.weapon?.mode==='auto')this.act('throw');}
     const steps = this.clock.advance(dt);
     for (let i = 0; i < steps; i++) this.guard("sim", () => { this.controlPlayer(); this.sim.step(); });
     this.ticksThisSecond += steps; this.tickWindow += dt;
@@ -465,7 +468,7 @@ export class Game {
   // ------------------------------------------------------------------ player
   private controlPlayer(): void {
     const sim = this.sim, p = sim.player, k = this.settings.keys;
-    if (this.travel.open || this.interior.open || this.modal.open || this.dev.visible || this.casino.open || this.club.open || this.luxury.open) { p.vx = p.vy = 0; playerInput.throttle = 0; playerInput.steer = 0; playerInput.brake = true; return; } // you're indoors; the street body waits at the door
+    if (this.phone.open || this.travel.open || this.interior.open || this.modal.open || this.dev.visible || this.casino.open || this.club.open || this.luxury.open) { p.vx = p.vy = 0; playerInput.throttle = 0; playerInput.steer = 0; playerInput.brake = true; return; } // you're indoors; the street body waits at the door
     if (p.inCar >= 0) {
       const up = this.keys.has(k.up) || this.keys.has("arrowup"), down = this.keys.has(k.down) || this.keys.has("arrowdown");
       const left = this.keys.has(k.left) || this.keys.has("arrowleft"), right = this.keys.has(k.right) || this.keys.has("arrowright");
@@ -610,6 +613,7 @@ export class Game {
     if (door) { this.enterPlace(door); return; }
     if (this.nearestToy()) { this.act("pickup"); return; }
     if (this.scavenge()) return;
+    if(nudgeStreetProp(sim))return;
     const car = nearestCar(sim, p.x, p.y, 2.2);
     if (!car) { this.toast("Nothing to pick up here"); return; }
     if (car.forSale) { this.toast(`For sale: ${fmtCash(car.price)}. Buy it inside the dealership.`); return; }
@@ -1364,7 +1368,7 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ family
-  private phone = { open: false, el: h("div.phone.hidden", { role: "dialog", "aria-label": "Phone call" }), nextCall: 0, calls: 0 };
+  private phone = new RetroPhone(()=>this.sim,()=>this.unfocus(),FAMILY.map(f=>f.name),index=>this.familyCall(FAMILY[index],true));
   private maybeCall(): void {
     const sim = this.sim;
     if (this.phone.open || this.dialogue.open || this.casino.open || this.modal.open || this.luxury.open || this.club.open || this.travel.open || this.marina.open || this.interior.open || this.dev.visible) return;
@@ -1372,21 +1376,27 @@ export class Game {
     if (sim.tick < this.phone.nextCall) return;
     this.phone.nextCall = sim.tick + 60 * 60 * (6 + Math.random() * 6);
     const who = FAMILY[this.phone.calls++ % FAMILY.length];
+    this.familyCall(who);
+  }
+  private familyCall(who:typeof FAMILY[number],outgoing=false):void{
+    const sim=this.sim;sim.cityPlay.phone.calls.push({name:who.name,at:sim.tick,missed:!outgoing});sim.cityPlay.phone.calls=sim.cityPlay.phone.calls.slice(-20);
     this.phone.open = true;
-    this.focus(`${who.name} is calling`, "Answer or decline", 0);
+    this.toast(outgoing?"Calling "+who.name+"…":who.name+" is calling your phone.");
     const p = sim.player;
-    const close = (msg?: string) => { this.phone.open = false; this.phone.el.classList.add("hidden"); if (msg) this.toast(msg); this.unfocus(); };
+    const close = (msg?: string) => { this.phone.close(); if(msg&&sim.cityPlay.phone.calls.length)sim.cityPlay.phone.calls[sim.cityPlay.phone.calls.length-1].missed=true; if (msg) this.toast(msg); this.unfocus(); };
     const step = (i: number) => {
+      const call=sim.cityPlay.phone.calls[sim.cityPlay.phone.calls.length-1];if(call)call.missed=false;
       const line = who.script[i];
       if (!line) { close(); return; }
-      this.phone.el.replaceChildren(
+      this.phone.display(
         h("div.who", null, [h("b", { text: who.name }), h("span", { text: who.label })]),
         h("p.line", { text: `“${line.say.replace("{place}", sim.world.areaAt(p.x, p.y)?.name ?? "town").replace("{cash}", "$" + Math.round(p.cash))}”` }),
         h("div.opts", null, line.opts.map(([label, next, effect], k) => h("button", { onclick: () => { if (effect === "money") { p.cash += 50; this.toast(`${who.name} sent you $50`, "acid"); } if (effect === "send") { const amt = Math.min(p.cash, 40); p.cash -= amt; this.toast(`You sent ${who.name} $${amt}`); } if (next < 0) close(); else step(next); } }, [h("kbd", { text: String(k + 1) }), label]))),
       );
     };
+    if(outgoing){step(0);return;}
     this.phone.el.classList.remove("hidden");
-    this.phone.el.replaceChildren(h("div.who", null, [h("b", { text: who.name }), h("span", { text: `${who.label} · calling…` })]), h("div.opts", null, [
+    this.phone.display(h("div.who", null, [h("b", { text: who.name }), h("span", { text: `${who.label} · calling…` })]), h("div.opts", null, [
       h("button.btn.acid", { onclick: () => step(0), text: "Answer" }),
       h("button.btn", { onclick: () => close(`${who.name}: "${who.missed}"`), text: "Decline" }),
     ]));
@@ -1426,6 +1436,7 @@ export class Game {
       h("button.btn.menu-toggle", { text: "☰ Menu", "aria-label": "Menu", "aria-expanded": "false", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar")!; const open = bar.classList.toggle("open"); if (open) this.dev.toggle(false); (e.currentTarget as HTMLElement).setAttribute("aria-expanded", String(open)); } }),
       h("nav.game-menu", { "aria-label": "More game options", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar"); bar?.classList.remove("open"); bar?.querySelector(".menu-toggle")?.setAttribute("aria-expanded", "false"); } }, [
         h('button.btn.acid',{text:'Resume game',onclick:()=>this.resumeGame()}),
+        h('button.btn',{text:'Mobile phone',onclick:()=>this.phone.home(FAMILY.map(f=>f.name))}),
         h('button.btn',{text:'Street play · 50 activities',onclick:()=>{void import('../ui/WorldPlay').then(m=>m.showWorldPlay(this.modal,this.sim,text=>this.toast(text)));}}),
         h('button.btn',{text:'Street life',onclick:()=>{void import('../ui/StreetLifePanel').then(m=>m.showStreetLife(this.modal,this.sim,(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);this.canvas.focus();}));}}),
         h('button.btn',{text:'Inventory & condition',onclick:()=>{void import('../ui/InventoryCondition').then(m=>m.showInventoryCondition(this.modal,this.sim,()=>{this.setSpeed(1);this.canvas.focus();}));}}),

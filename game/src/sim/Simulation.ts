@@ -1,3 +1,6 @@
+import {updateStreetProps} from './StreetProps';
+import {updateCityDrama} from './CityDrama';
+import {newCityPlay} from './CityPlay';
 import {newWorldFun,updateWorldFun} from './WorldFun';
 import {advanceHorseRace} from './HorseRace';
 import {prepareFarmPlot} from './FarmPlot';
@@ -108,7 +111,7 @@ export class Simulation {
   charHash!: SpatialHash;
   expansion = newExpansion();
   streetLife = newStreetLife();
-  worldFun=newWorldFun();
+  worldFun=newWorldFun();cityPlay=newCityPlay();
   commerce = newCommerce();
   saltStory:import('../content/salt-story/progress').SaltProgress = { position: 0, furthest: 0 };
   life = newLife();
@@ -266,7 +269,7 @@ export class Simulation {
     updateSubstances(this);
     updateVehicles(this, dt);
     updateRockets(this);
-    updateCivicDamage(this);
+    updateCivicDamage(this);updateStreetProps(this,dt);updateCityDrama(this);
     const tp = performance.now();
     this.physics.step(dt, this.toys, this.chars, this.charHash, this.tick, this.hooks);
     for (const t of this.toys) if (t.state === "held") this.attachHeld(t);

@@ -1,6 +1,6 @@
 import {hitFacade} from "./CivicDamage";
 import {junctionAvailable} from "./TrafficControl";
-import { damageTick, damageParts, repairVehicle } from "./VehicleDamage";
+import { impactComponents, damageTick, damageParts, repairVehicle } from "./VehicleDamage";
 import type { Simulation } from "./Simulation";
 import { Character, Vehicle, Phys } from "../entities/types";
 import { VEHICLES, VehicleClass, FOR_SALE } from "../content/vehicles";
@@ -212,7 +212,7 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const d = VEHICLES[v.cls];
   const inp = v.driver === sim.playerId ? playerInput : { throttle: 0, steer: 0, brake: true };
   const mods = v.lifeMods ?? [];
-  const top = d.topSpeed * (mods.includes("Tractor engine") ? 1.2 : 1) / (1 + mods.length * 0.06) * (1 - v.damage * 0.5) * (1 - (v.engineDamage ?? 0) * 0.45) * (v.flatLeft || v.flatRight ? 0.65 : 1);
+  const top = d.topSpeed * (mods.includes("Tractor engine") ? 1.2 : 1) / (1 + mods.length * 0.06) * (1 - v.damage * 0.5) * (1 - (v.engineDamage ?? 0) * 0.45) * (v.flatLeft || v.flatRight ? 0.65 : 1)*Math.max(.22,1-(v.components?.wheels.filter(w=>w.missing).length??0)*.35);
   const vel = carVel(sim, v);
   const fx = Math.cos(v.heading), fy = Math.sin(v.heading);
   let lon = vel.x * fx + vel.y * fy, lat = -vel.x * fy + vel.y * fx;
@@ -238,10 +238,12 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   // how loose the rear is: a locked handbrake, or (tail-happy cars) too much throttle while turning
   const powerOver = TAIL_HAPPY.has(v.cls) && inp.throttle > 0 && lon > 1 ? inp.throttle * Math.min(1, s / 5) : 0;
   const rearLoose = inp.brake && s > 2 ? 1 : powerOver;
+  const wheelDamage=v.components?.wheels??[],loss=wheelDamage.reduce((n,w)=>n+(w.missing?.35:w.puncture?.1:0)+w.suspension*.05,0);
+  const steering=clamp(inp.steer,-1,1);v.steerAngle=(v.steerAngle??0)+(steering*.55-(v.steerAngle??0))*Math.min(1,dt*5);
   const wheelbase = d.length * 0.62, lock = 0.6 * (1 - 0.55 * Math.min(1, s / top));
   // a bent side (wheel knocked out of line) drags the car toward it
   const bent = ((v.dmgS ?? 0) - (v.dmgL ?? 0)) * 0.12;
-  const want = lon * Math.tan(inp.steer * lock + bent) / wheelbase;
+  const want = lon * Math.tan((v.steerAngle??0)/.55 * lock + bent+(wheelDamage[0]?.alignment??0)*.3+(wheelDamage[1]?.alignment??0)*.3) / wheelbase;
   const cap = (grip * (1 + 1.2 * rearLoose)) / Math.max(s, 1);   // a loose rear lets the nose swing past the grip line
   const yawWant = clamp(want, -cap, cap);
   v.yaw = (v.yaw ?? 0) + (yawWant - (v.yaw ?? 0)) * Math.min(1, dt * (3 + grip * 0.6));
@@ -250,7 +252,7 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const nfx = Math.cos(v.heading), nfy = Math.sin(v.heading);
   const vxW = fx * lon - fy * lat, vyW = fy * lon + fx * lat;
   lon = vxW * nfx + vyW * nfy; lat = -vxW * nfy + vyW * nfx;
-  const latGrip = grip * (1 - 0.55 * rearLoose);
+  const latGrip = grip * (1 - 0.55 * rearLoose)*Math.max(.18,1-loss);
   const pull = clamp(lat * 14, -latGrip, latGrip);
   lat = Math.abs(lat) <= Math.abs(pull) * dt ? 0 : lat - pull * dt;
   if (Math.abs(lat) > 0.8) lon -= Math.sign(lon) * Math.min(Math.abs(lon), Math.abs(pull) * 0.18 * dt);     // sliding scrubs speed
@@ -352,7 +354,8 @@ function moveBlocked(sim: Simulation, v: Vehicle, dt: number): void {
   const sideways = blocked(nx, ny) || ms > 1e-3 && blocked(nx + mx * hw, ny + my * hw);
   if (sideways || blocked(fx + Math.cos(side) * hw, fy + Math.sin(side) * hw) || blocked(fx - Math.cos(side) * hw, fy - Math.sin(side) * hw)) {
     const hit = Math.hypot(vel.x, vel.y);
-    if (hit > 3) {
+    if (hit > 1.2) {
+      impactComponents(v,Math.cos(v.heading)*Math.sign(v.speed||1),Math.sin(v.heading)*Math.sign(v.speed||1),hit,d.mass,sim.tick);
       hitFacade(sim,v,fx,fy,hit);
       v.damage = Math.min(1, v.damage + hit * 0.015);
       const sg = Math.sign(v.speed || 1); bump(v, Math.cos(v.heading) * sg, Math.sin(v.heading) * sg, hit * 0.015);
@@ -691,9 +694,11 @@ function crashImpulse(sim: Simulation, a: Vehicle, b: Vehicle, va: { x: number; 
   if (vn >= 0) return;
   const j = -(1 + 0.25) * vn / (1 / ma + 1 / mb);
   for (const [v, vel, m, sgn] of [[a, va, ma, -1], [b, vb, mb, 1]] as [Vehicle, { x: number; y: number }, number, number][]) {
-    if (v.state === "parked") continue;
-    v.vx = vel.x + sgn * nx * j / m; v.vy = vel.y + sgn * ny * j / m; v.dynT = sim.tick;
-    bump(v, -sgn * nx, -sgn * ny, Math.min(0.4, j * 0.03 / m));
+    // The handbrake resists motion, not deformation: parked targets take component damage too.
+    bump(v,-sgn*nx,-sgn*ny,Math.min(.4,j*.03/m));
+    impactComponents(v,-sgn*nx,-sgn*ny,Math.min(Math.abs(vn),j/VEHICLES[v.cls].mass),VEHICLES[v.cls].mass,sim.tick);
+    if(v.state==='parked')continue;
+    v.vx=vel.x+sgn*nx*j/m;v.vy=vel.y+sgn*ny*j/m;v.dynT=sim.tick;
     // the hit lands off the car's centre line: that lever arm turns into spin
     const L = VEHICLES[v.cls].length, side = -Math.sin(v.heading) * nx + Math.cos(v.heading) * ny;
     const along = Math.cos(v.heading) * nx + Math.sin(v.heading) * ny;

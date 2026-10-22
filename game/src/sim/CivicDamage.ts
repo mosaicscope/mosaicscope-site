@@ -5,13 +5,15 @@ import {decorGrid} from '../render/StreetDecor';
 import {moveTo,stop} from '../ai/steps';
 import {commitCrime} from './Society';
 import {VEHICLES} from '../content/vehicles';
-export interface CivicDamage{fixture?:string;key:string;kind:'building'|'furniture';x:number;y:number;tx:number;ty:number;face?:'s'|'e'|'n'|'w';severity:number;at:number;crew?:number;phase:'reported'|'travelling'|'working';workUntil?:number;repairBy:number}
+export type FacadeMaterial='timber'|'brick'|'glass'|'concrete'|'metal'|'stone';
+export function facadeMaterial(kind:string,floors=1):FacadeMaterial{return kind==='house'?'timber':kind==='warehouse'||kind==='garage'?'metal':kind==='office'&&floors>4?'glass':kind==='apartments'||kind==='dairy'||kind==='cafe'?'brick':kind==='church'||kind==='museum'?'stone':'concrete';}
+export interface CivicDamage{material?:FacadeMaterial;building?:number;energy?:number;variant?:number;fixture?:string;key:string;kind:'building'|'furniture';x:number;y:number;tx:number;ty:number;face?:'s'|'e'|'n'|'w';severity:number;at:number;crew?:number;phase:'reported'|'travelling'|'working';workUntil?:number;repairBy:number}
 const buckets=new WeakMap<World,Map<number,number[]>>();
 function poiBuckets(w:World){let b=buckets.get(w);if(b)return b;b=new Map();for(const p of w.pois){if(!['busstop','streetsign','roadsign','lamp','billboard','bench','bin'].includes(p.kind))continue;const key=Math.floor(p.y)*w.size+Math.floor(p.x),a=b.get(key)??[];a.push(p.id);b.set(key,a);}buckets.set(w,b);return b;}
 function record(sim:Simulation,v:Pick<Vehicle,"cls"|"driver"|"damage">,key:string,kind:CivicDamage['kind'],x:number,y:number,speed:number,face?:CivicDamage['face']):void{
  const old=sim.world.civicDamage[key];if(old&&sim.tick-old.at<45)return;
  const severity=Math.min(1,(old?.severity??0)+speed*VEHICLES[v.cls].mass*.055),spot=sim.world.nearestWalkable(x,y);
- const d:CivicDamage=old??{key,kind,x:spot.x,y:spot.y,tx:Math.floor(x),ty:Math.floor(y),severity,at:sim.tick,phase:'reported',repairBy:sim.tick+60*180};d.fixture=kind==='furniture'&&key.startsWith('p:')?sim.world.pois[Number(key.slice(2))]?.kind:undefined;d.face=face;d.severity=severity;d.at=sim.tick;sim.world.civicDamage[key]=d;
+ const d:CivicDamage=old??{key,kind,x:spot.x,y:spot.y,tx:Math.floor(x),ty:Math.floor(y),severity,at:sim.tick,phase:'reported',repairBy:sim.tick+60*180};const building=sim.world.buildingAt(Math.floor(x),Math.floor(y));if(kind==='building'&&building){d.building=building.id;d.material=(['timber','brick','glass','concrete','metal','stone'].includes(building.facadeMaterial??'')?building.facadeMaterial:facadeMaterial(building.kind,building.floors)) as FacadeMaterial;d.energy=speed*speed*VEHICLES[v.cls].mass*.5;d.variant=(building.id*13+d.tx*17+d.ty*23)%12;}d.fixture=kind==='furniture'&&key.startsWith('p:')?sim.world.pois[Number(key.slice(2))]?.kind:undefined;d.face=face;d.severity=severity;d.at=sim.tick;sim.world.civicDamage[key]=d;
  v.damage=Math.min(1,v.damage+severity*.08);sim.bus.emit('fx',{kind:kind==='building'?'dust':'spark',x,y,z:.5,n:Math.min(18,6+Math.round(speed)),color:'#c4b49b'});
  if(!old){sim.emit({type:'property_damage',x,y,actors:v.driver>=0?[v.driver]:[],summary:`${kind==='building'?'Facade impact':'Broken street furniture'} reported. A maintenance crew has been requested.`});if(v.driver===sim.playerId)commitCrime(sim,sim.player,'vandalism',null);}
 }

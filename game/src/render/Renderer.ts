@@ -1,3 +1,4 @@
+import {drawStreetProp} from './StreetProps';
 import {drawAircraft} from './Aircraft';
 import {aircraftForSku} from '../content/aircraft';
 import {farmObjects,drawFarmObject} from './Farm';
@@ -32,7 +33,7 @@ import { resetHdBudget } from "./StickFigure";
 import { hurtOf } from "../sim/Life";
 import { setTextureTier } from "./Textures";
 import { AD_BOXES, AdBox } from "./Ads";
-import { drawCar, headlights } from "./Cars";
+import { drawCar, drawVehicleFragment, headlights } from "./Cars";
 import { lightGreenFor, Light } from "../sim/Traffic";
 import type { Graffiti } from "../world/World";
 import type { DebugFlags } from "../debug/flags";
@@ -44,7 +45,7 @@ import { StreetView } from "./Street2D";
 const STREET_2D = false;
 
 export type Quality = 0 | 1 | 2 | 3; // low, medium, high, ultra
-interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter, 7 street decor
+interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter, 7 street decor
 interface Decal { x: number; y: number; r: number; color: string; born: number; life: number; rot: number; blood?:boolean; fall?:number }
 
 export interface RenderOptions { selected: number; hovered: number; debug: DebugFlags; reduceMotion: boolean; quality: Quality; showNames: boolean; quietInterface?:boolean }
@@ -253,6 +254,8 @@ export class Renderer {
       this.push(this.behind(x, y, x + y + 0.01), 1, t.id, pt.x, pt.y);
     }
     for(const c of sim.chars){if(c.inside>=0)continue;for(let wi=0;wi<c.wounds.length;wi++){const l=c.wounds[wi].detached;if(!l)continue;cam.toScreen(l.x,l.y,l.z,pt);if(inView(pt.x,pt.y,45*z))this.push(this.behind(l.x,l.y,l.x+l.y+.01),8,c.id*8+wi,pt.x,pt.y);}}
+    for(const v of sim.vehicles)for(let i=0;i<(v.components?.debris.length??0);i++){const d=v.components!.debris[i];cam.toScreen(d.x,d.y,d.z,pt);if(inView(pt.x,pt.y,30))this.push(this.behind(d.x,d.y,d.x+d.y+.01),13,v.id*32+i,pt.x,pt.y);}
+    for(const prop of sim.cityPlay.props){cam.toScreen(prop.x,prop.y,prop.z,pt);if(inView(pt.x,pt.y,40))this.push(this.behind(prop.x,prop.y,prop.x+prop.y+.02),12,prop.id,pt.x,pt.y);}
     // litter on the ground: cans, bottles, wrappers and cups
     for (const l of sim.litter.pieces) {
       if (l.taken) continue;
@@ -409,7 +412,7 @@ export class Renderer {
           const vehicle = sim.vehicles[it.ref], strength = Math.min(1 - sim.daylight, sim.env.power ? 0.65 : 0.35);
           GLOW.push(layer => headlights(layer, cam, vehicle, strength, sim.world, sim.vehicles));
         }
-        drawCar(g, cam, sim.vehicles[it.ref], alpha, time, 1 - sim.daylight, it.ref === this.selectedCar);
+        drawCar(g, cam, sim.vehicles[it.ref], alpha, time, 1 - sim.daylight, it.ref === this.selectedCar,sim.chars[sim.vehicles[it.ref].driver]);
       } else if (it.kind === 5) {
         flush();
         this.drawLight(it.ref % 64, Math.floor(it.ref / 64), it.sx, it.sy, z);
@@ -424,6 +427,8 @@ export class Renderer {
         drawDecor(g, decorGrid(sim.world)[it.ref], it.sx, it.sy, z, time, 1 - sim.daylight, (it.ref * 0.618) % 1);
       } else {
         flush();
+        if(it.kind===13){drawVehicleFragment(g,cam,sim.vehicles[Math.floor(it.ref/32)],it.ref%32);continue;}
+        if(it.kind===12){drawStreetProp(g,cam,sim.cityPlay.props[it.ref]);continue;}
         if(it.kind===11){const order=sim.commerce.purchases[it.ref],a=aircraftForSku(order.sku);g.save();g.translate(it.sx,it.sy);g.scale(z,z);g.fillStyle='#444f4b';g.strokeStyle='#a9a58d';g.lineWidth=1;g.beginPath();g.moveTo(-34,-16);g.lineTo(-34,-43);g.quadraticCurveTo(0,-65,34,-43);g.lineTo(34,-16);g.closePath();g.fill();g.stroke();g.fillStyle='#242c29';g.fillRect(-29,-38,58,25);drawAircraft(g,a,0,-4,Math.min(1.4,64/(a.length*5)));g.restore();continue;}
         if(it.kind===10){drawFarmObject(g,cam,farm[it.ref],time);continue;}
         if(drawDebris(g,sim.world.civicDamage[`p:${it.ref}`],it.sx,it.sy,z))continue;

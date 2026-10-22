@@ -312,6 +312,7 @@ export interface Vehicle {
   rescueTarget?:number; rescueAt?:number; rescueMedic?:number;
   cannonRounds?:number;
   lifeMods?: string[];
+  components?: import("../sim/VehicleDamage").VehicleComponents; steerAngle?:number;
   engineDamage?: number; glassDamage?: number; flatLeft?: boolean; flatRight?: boolean;
   bumperLost?: boolean; mirrorLost?: boolean; leak?: number; heat?: number; burning?: boolean; burnTime?: number; burnt?: boolean; burntAge?: number; towAt?: number;
 }
