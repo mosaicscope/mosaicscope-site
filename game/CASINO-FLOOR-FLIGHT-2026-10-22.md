@@ -32,3 +32,5 @@ Roulette remains isometric. Its table is resized relative to native people, with
 - Security and exact deployed-asset verification are recorded in the release pull request.
 
 Rollback: revert the release squash commit and deploy the preceding main. Existing save fields and game rules are retained; guest capacity is the only expanded bound.
+
+Saved-game follow-up: reopening the casino selects the existing unclaimed poker table or active flight before the lobby. Browser regression reopens a flight whose crash time elapsed offscreen, verifies one settlement and then verifies normal lobby navigation.

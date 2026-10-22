@@ -221,7 +221,7 @@ export class Casino {
     this.el = h("div.casino.hidden", { role: "dialog", "aria-modal": "true", "aria-label": "The Tessera Casino" }, []);
   }
 
-  show(): void { if (!this.beforeOpen()) return; this.bjHint = this.w.strategy?.() ?? this.bjHint; this.open = true; this.tab = "floor"; this.el.classList.remove("hidden"); this.render(); }
+  show(): void { if (!this.beforeOpen()) return; this.bjHint = this.w.strategy?.() ?? this.bjHint; this.open = true; this.tab = this.social.poker&&!this.social.poker.claimed?"holdem":this.social.flight&&!this.social.flight.paid?"flight":"floor"; this.el.classList.remove("hidden"); this.render(); }
   close(): void {
     if(this.extra.locked()){this.msg="Finish your hand or flight first. Tournament entries can be forfeited at the poker table between hands.";this.render();return;}
     this.extra.leave();if(this.social.sideBet){this.chips+=this.social.sideBet.stake;this.social.sideBet=undefined;}
