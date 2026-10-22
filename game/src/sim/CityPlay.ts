@@ -11,7 +11,7 @@ export function restoreCityPlay(raw:unknown):CityPlay{
  if(Array.isArray(r.props))out.props=structuredClone(r.props.filter(p=>p&&['cone','crate','barrel','cart','ball'].includes(p.kind)&&[p.id,p.x,p.y,p.vx,p.vy,p.z,p.vz,p.turn,p.spin,p.health,p.lastHit].every(Number.isFinite)).slice(0,60).map((p,id)=>({...p,id})));
  const c=r.casino;if(c&&finite(c.chips)&&finite(c.debt)){
   out.casino={...out.casino,...structuredClone(c)};const s=out.casino;
-  s.guests=Array.isArray(c.guests)?c.guests.filter(g=>g&&finite(g.id)&&finite(g.balance)&&finite(g.bet)&&finite(g.pick,0,36)&&['patient','pressure','tricky','loose'].includes(g.style)&&typeof g.line==='string').slice(0,8):[];
+  s.guests=Array.isArray(c.guests)?c.guests.filter(g=>g&&finite(g.id)&&finite(g.balance)&&finite(g.bet)&&finite(g.pick,0,36)&&['patient','pressure','tricky','loose'].includes(g.style)&&typeof g.line==='string').slice(0,24).map(g=>({...g})):[];
   if(!finite(s.debtAt))s.debtAt=0;if(!['bank','famiglia'].includes(s.creditor??''))s.creditor=null;
   const t=s.poker,card=(c:unknown)=>!!c&&typeof c==='object'&&finite((c as {rank:number}).rank,2,14)&&['♠','♥','♦','♣'].includes((c as {suit:string}).suit);
   if(t&&(!Array.isArray(t.seats)||t.seats.length<2||t.seats.length>6||!t.seats.every(a=>a&&finite(a.stack)&&finite(a.bet)&&finite(a.paid)&&Array.isArray(a.hand)&&a.hand.length<=2&&a.hand.every(card))||!Array.isArray(t.board)||t.board.length>5||!t.board.every(card)||!Array.isArray(t.deck)||t.deck.length>52||!t.deck.every(card)||!finite(t.pot)||!finite(t.actor,t.phase==='betting'?0:-1,t.seats.length-1)||!['betting','result','finished'].includes(t.phase)))s.poker=undefined;

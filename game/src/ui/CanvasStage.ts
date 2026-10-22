@@ -1,10 +1,11 @@
 import { h } from "./dom";
 
 export interface StagePointer { x: number; y: number; down: boolean; type: string }
-export interface StageOptions { label: string; overlay?:HTMLElement; fps?:number; width?: number; height?: number; pointer?: (p: StagePointer) => void; key?: (key: string) => void }
+export interface StageSize {width:number;height:number}
+export interface StageOptions { layout?:()=>StageSize;label: string; overlay?:HTMLElement; fps?:number; width?: number; height?: number; pointer?: (p: StagePointer) => void; key?: (key: string) => void }
 /** Each scene owns its RAF and stops as soon as its modal is removed. Coordinates stay device-independent. */
-export function canvasStage(draw: (g: CanvasRenderingContext2D, time: number, reduced: boolean) => void, options: StageOptions): HTMLElement {
-  const W = options.width ?? 960, H = options.height ?? 480;let dpr = Math.min(2, window.devicePixelRatio || 1);
+export function canvasStage(draw: (g: CanvasRenderingContext2D, time: number, reduced: boolean,size:StageSize) => void, options: StageOptions): HTMLElement {
+  let W = options.layout?.().width??options.width??960, H = options.layout?.().height??options.height??480;let dpr = Math.min(2, window.devicePixelRatio || 1);
   const cv = h("canvas.play-scene", { width: W * dpr, height: H * dpr, role: "img", "aria-label": options.label, tabindex: options.key ? 0 : undefined, style: `aspect-ratio:${W}/${H}` }) as HTMLCanvasElement;
   const g = cv.getContext("2d")!, reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
   let down = false;
@@ -24,9 +25,9 @@ export function canvasStage(draw: (g: CanvasRenderingContext2D, time: number, re
   const frame = (now: number) => {
     if (!cv.isConnected || cv.closest(".hidden")){observer?.disconnect();return;}
     if(!visible||document.hidden){previous=now;requestAnimationFrame(frame);return;}if(now-lastDraw<1000/(options.fps??30)-1){requestAnimationFrame(frame);return;}lastDraw=now;elapsed+=Math.min(.1,Math.max(0,(now-previous)/1000));previous=now;
-    const bounds=cv.getBoundingClientRect();dpr=Math.min(2,window.devicePixelRatio||1);if(cv.width!==Math.round(bounds.width*dpr)||cv.height!==Math.round(bounds.height*dpr)){cv.width=Math.round(bounds.width*dpr);cv.height=Math.round(bounds.height*dpr);}const fit=Math.min(bounds.width/W,bounds.height/H);
+    const layout=options.layout?.();if(layout){W=layout.width;H=layout.height;}const bounds=cv.getBoundingClientRect();dpr=Math.min(2,window.devicePixelRatio||1);if(cv.width!==Math.round(bounds.width*dpr)||cv.height!==Math.round(bounds.height*dpr)){cv.width=Math.round(bounds.width*dpr);cv.height=Math.round(bounds.height*dpr);}const fit=Math.min(bounds.width/W,bounds.height/H);
     if(options.overlay){options.overlay.style.transform=`translate(${(bounds.width-W*fit)/2}px,${(bounds.height-H*fit)/2}px) scale(${fit})`;}
-    g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle='#202925';g.fillRect(0,0,bounds.width,bounds.height);g.save();g.translate((bounds.width-W*fit)/2,(bounds.height-H*fit)/2);g.scale(fit,fit);draw(g,elapsed,reduce);g.restore();
+    g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle='#202925';g.fillRect(0,0,bounds.width,bounds.height);g.save();g.translate((bounds.width-W*fit)/2,(bounds.height-H*fit)/2);g.scale(fit,fit);draw(g,elapsed,reduce,{width:W,height:H});g.restore();
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);

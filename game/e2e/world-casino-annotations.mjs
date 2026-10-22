@@ -35,7 +35,7 @@ try{
  check(await page.evaluate(()=>!!window.__mosaics.sim.cityPlay.casino.sideBet),'Flight settled roulette side bet');
  const ended=await page.evaluate(()=>window.__mosaics.sim.cityPlay.casino.flight.endedAt);await page.waitForTimeout(150);
  check(await page.evaluate(()=>window.__mosaics.sim.cityPlay.casino.flight.endedAt)===ended,'Flight result did not freeze');await shot('flight-coast');
- await tab('Roulette').click();await page.locator('.iso-roulette>details>summary').click();const before=await page.evaluate(()=>window.__mosaics.sim.cityPlay.casino.chips);
+ await tab('Roulette').click();if(await page.locator('.iso-roulette>details').evaluate(e=>e.open))await page.locator('.iso-roulette>details>summary').click();const before=await page.evaluate(()=>window.__mosaics.sim.cityPlay.casino.chips);
  await button('7 red').click();await page.getByRole('button',{name:/Spin the wheel with/}).click();
  await page.waitForFunction(()=>!window.__mosaics.casino.rSpinning);
  check(await page.evaluate(({before})=>{const g=window.__mosaics,n=g.casino.rLast;return !g.sim.cityPlay.casino.sideBet&&g.casino.chips===before-5+(n===7?180:0)+(n>0&&n%2===0?50:0);},{before}),'Roulette side wager or main payout incorrect');

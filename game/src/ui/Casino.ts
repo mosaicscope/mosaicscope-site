@@ -1,5 +1,6 @@
 import {canvasStage} from './CanvasStage';
-import {drawRouletteTable,rouletteCells,cellQuad,ROULETTE_W,ROULETTE_H} from './RouletteTableArt';
+import {CasinoFloor} from './CasinoFloor';
+import {drawRouletteTable,rouletteCells,cellQuad,rouletteSurroundingGuests,ROULETTE_W,ROULETTE_H} from './RouletteTableArt';
 import {CasinoExtras} from './CasinoExtras';
 import {newCityPlay,type CasinoSocial} from '../sim/CityPlay';
 import {hospitality,type HospitalityHost} from './VenueHospitality';
@@ -190,7 +191,7 @@ export class Casino {
   private get bought():number{return this.social.bought??0;}private set bought(n:number){this.social.bought=n;}
   private get cashedOut():number{return this.social.cashedOut??0;}private set cashedOut(n:number){this.social.cashedOut=n;}
   private tab = "floor";
-  private venueOutside = false;
+  private venueOutside = false;private floor=new CasinoFloor();
   private body: HTMLElement;
   private chipSel = 5;
   private bj = new Blackjack(rnd);
@@ -198,12 +199,12 @@ export class Casino {
   private bjHint = false;
   private bjSeen = new WeakSet<Card>();
   private bjHoleShown = false;
-  private rBets: RouletteBet[] = [];
+  private rBets: RouletteBet[] = [];private rUndo:{id:string;amount:number}[]=[];
   private rMode: RMode = "straight";
   private rPending = -1;
   private rHistory: number[] = [];
   private rSpinning = false;
-  private rLast = -1;private rHovered='';private rNumber=7;private rOutside='red';private rServicesOpen=false;
+  private rLast = -1;private rHovered='';private rNumber=7;private rOutside='red';private rServicesOpen=false;private rBetView=false;private rPage=0;
   private rRot = 0; private rBall = -Math.PI / 2; private rBallR = TRACK_R;
   private vp = new VideoPoker(rnd);
   private vpCoins = 5; private vpValue = 1; private vpWin = 0; private vpFresh = [false, false, false, false, false];
@@ -229,7 +230,7 @@ export class Casino {
     if (this.rSpinning || this.slotSpinning) return;
     // the cashier cashes your chips out on the way out
     for (const b of this.rBets) this.chips += b.amount;
-    this.rBets = [];
+    this.rBets = [];this.rUndo=[];
     if (this.chips > 0) { this.w.setCash(this.w.getCash() + this.chips); this.cashedOut += this.chips; this.chips = 0; }
     const net = this.cashedOut - this.bought;
     if (this.bought > 0) this.w.onEvent(net >= 0 ? `You walked out of the Tessera ${money(net)} up` : `You left the Tessera ${money(-net)} down`, Math.abs(net) >= 200);
@@ -242,7 +243,7 @@ export class Casino {
     if (this.extra.locked() || this.rSpinning || this.slotSpinning || this.bj.phase === "player" || this.bj.phase === "insurance" || this.vp.phase === "draw") {
       this.msg = "Finish your current round before changing tables."; this.render(); return;
     }
-    this.tab = tab; this.msg = ""; this.render();
+    this.tab = tab; this.msg = "";this.rServicesOpen=false;this.render();
   }
   private record(game: string, net: number): void {
     this.extra.round(game,net,game==="Roulette"?this.rLast:undefined);
@@ -265,7 +266,7 @@ export class Casino {
       case "pokies": view = this.pokiesView(); break;
       case "poker": view = this.pokerView(); break;
       case "holdem": view=this.extra.holdem();break;
-      case "flight": view=this.extra.flight();break;
+      case "flight": view=this.extra.flight();view.append(this.tableServices("Flight",this.extra.locked()));break;
       case "floor": view = this.lobbyView(); break;
       default: view = this.cashierView();
     }
@@ -289,31 +290,17 @@ export class Casino {
     if(["blackjack","pokies","poker"].includes(this.tab))view=h("div.casino-live-table",null,[this.extra.crowd(this.tab,this.rSpinning||this.slotSpinning),view]);
     if(this.tab==="cashier")view.append(this.extra.social(this.rSpinning));
     this.body.replaceChildren(h("div.cas-view-title", null, [h("small", { text: this.tab === "floor" ? "WELCOME BACK" : "THE TESSERA / TABLE GAMES" }), h("h2", { text: tabs.find(t => t[0] === this.tab)?.[1] ?? "Cashier" })]), this.msg ? h("p.cas-msg", { role: "status", text: this.msg }) : h("span"), view);
-    this.el.replaceChildren(h("div.cas-frame.cx"+(["holdem","roulette"].includes(this.tab)?".cas-table-frame":""), null, [head, h("div.cas-layout", null, [h("aside.cas-sidebar", null, [nav, session]), this.body]), h("footer.cas-foot", { text: "THE TESSERA · Fictional casino · No real money · Finish your round, then leave to cash out automatically." })]));
+    this.el.replaceChildren(h("div.cas-frame.cx"+(["floor","flight","holdem","roulette"].includes(this.tab)?".cas-table-frame":""), null, [head, h("div.cas-layout", null, [h("aside.cas-sidebar", null, [nav, session]), this.body]), h("footer.cas-foot", { text: "THE TESSERA · Fictional casino · No real money · Finish your round, then leave to cash out automatically." })]));
   }
 
   // ------------------------------------------------------------------ the floor
   /** Clickable cutaway floor and exterior use the same figures and materials as the street. */
   private lobbyView(): HTMLElement {
-    const games = [
-      {id:'holdem',name:'Read the table',title:'Texas hold’em & tournaments',mark:'♣',note:'Cash tables · sit-and-go',copy:'Four betting rounds, real hands and a table of distinctive Mosaic opponents.',tag:'LIVE TABLE'},
-      {id:'flight',name:'Ready for takeoff',title:'Crash flight',mark:'✈',note:'60 aircraft · three scenic routes',copy:'Choose an aircraft and cash out before the flight ends.',tag:'FLIGHT DECK'},
-      { id: "blackjack", name: "Twenty-one. One more?", title: "Blackjack", mark: "♠", note: "$5–$500 · Blackjack pays 3:2", copy: "Read the table. Play your hand. Six decks and a dealer who stands on soft 17.", tag: "TABLE CLASSIC" },
-      { id: "roulette", name: "Let the wheel decide.", title: "European roulette", mark: "◎", note: "Single zero · Straight pays 35:1", copy: "Red, black, or your lucky number. Place your chips on a full European layout.", tag: "AROUND & AROUND" },
-      { id: "pokies", name: "A little Kiwi Gold.", title: "Kiwi Gold", mark: "7", note: "$1–$10 per spin · Three reels", copy: "A classic cabinet, bright reels and the original Kiwi Gold paytable.", tag: "ON THE FLOOR" },
-      { id: "poker", name: "A good hand to hold.", title: "Video poker", mark: "♦", note: "Jacks or Better · 9/6 paytable", copy: "Five cards. Choose what stays. Draw your replacements and see where you land.", tag: "MAKE YOUR PLAY" },
-    ];
-    return h("div.cas-lobby", null, [
-      h("div.venue-heading",null,[h("div",null,[h("h1",{text:"Welcome to the Tessera"}),h("p",{text:"Explore the floor. Choose a table. Make it a night."})]),h("div.venue-controls",{"aria-label":"Casino view"},[this.btn("Casino interior",()=>{this.venueOutside=false;this.render();},{cls:this.venueOutside?"":".gold"}),this.btn("Casino exterior",()=>{this.venueOutside=true;this.render();},{cls:this.venueOutside?".gold":""})])]),
-      casinoVenue(id=>{if(this.venueOutside){this.venueOutside=false;this.render();}else this.go(id);},this.venueOutside,this.w.patrons(),this.w.people?.()??[]),
-      h("div.cas-sectionhead", null, [h("h2", { text: "Find your table" }), h("span", { text: "Find your favourite game" })]),
-      h("div.cas-games", null, games.map(game => h("button.cas-game." + game.id, { onclick: () => this.go(game.id), "aria-label": `Play ${game.title}` }, [
-        h("div.cas-game-art", { "aria-hidden": "true" }, [h("span", { text: game.mark }), h("i", { text: game.id === "blackjack" ? "A" : game.id === "roulette" ? "0 / 32 / 15" : game.id === "pokies" ? "7  7" : "J Q K" })]),
-        h("div.cas-game-copy", null, [h("small", { text: game.tag }), h("h3", { text: game.title }), h("p", { text: game.copy }), h("span", { text: game.note }), h("b", { text: "Take a seat ↗" })]),
-      ]))),
-
-    ]);
+    if(this.venueOutside)return h('section.iso-game.iso-casino-floor',null,[casinoVenue(()=>{this.venueOutside=false;this.render();},true,this.w.patrons(),this.w.people?.()??[]),h('div.iso-table-console',null,[this.btn('Casino interior',()=>{this.venueOutside=false;this.render();})])]);
+    const view=this.floor.view(this.w.people?.()??[],id=>this.go(id),id=>{if(id!==undefined)this.extra.selectGuest(id);this.rServicesOpen=true;this.render();});
+    view.append(this.tableServices('Casino floor',false));view.querySelector('.venue-service-actions')?.append(this.btn('Casino exterior',()=>{this.venueOutside=true;this.render();}));return view;
   }
+  private tableServices(game:string,locked:boolean,barLocked=locked):HTMLElement{return h('details.iso-table-popover',{open:this.rServicesOpen,ontoggle:(e:Event)=>{this.rServicesOpen=(e.target as HTMLDetailsElement).open;}},[h('summary',{text:'Players, bar & credit'}),this.extra.crowd(game,locked,false),hospitality(this.w,barLocked,false),this.extra.social(locked)]);}
 
   private chipRow(): HTMLElement {
     return h("div.cx-chiprow", { role: "group", "aria-label": "Chip value" }, this.activeChips.map((c) => h("button.cx-chip" + (this.chipSel === c.v ? ".sel" : ""), {
@@ -321,8 +308,8 @@ export class Casino {
     }, [h("span", { text: chipLabel(c.v) })])));
   }
 
-  private btn(label: string, onclick: () => void, opts: { cls?: string; disabled?: boolean; aria?: string } = {}): HTMLElement {
-    return h("button.cx-btn" + (opts.cls ?? ""), { onclick, disabled: !!opts.disabled, "aria-label": opts.aria ?? label, text: label });
+  private btn(label: string, onclick: () => void, opts: { cls?: string; disabled?: boolean; aria?: string;pressed?:boolean } = {}): HTMLElement {
+    return h("button.cx-btn" + (opts.cls ?? ""), { onclick, disabled: !!opts.disabled, "aria-label": opts.aria ?? label,"aria-pressed":opts.pressed===undefined?undefined:String(opts.pressed), text: label });
   }
 
   // ------------------------------------------------------------------ cashier
@@ -469,7 +456,7 @@ export class Casino {
       const id = nums.join("-");
       const ex = this.rBets.find((b) => b.id === id);
       if (ex) ex.amount += this.chipSel; else this.rBets.push({ id, label, numbers: nums, amount: this.chipSel });
-      this.msg = `${label} (${payoutFor(nums)}:1)`; this.render();
+      this.rUndo.push({id,amount:this.chipSel});this.msg = `${label} (${payoutFor(nums)}:1)`; this.render();
     };
     const clickNumber = (n: number) => {
       if (this.rMode === "straight") return place(insideBet("straight", n), `Straight ${n}`);
@@ -478,20 +465,26 @@ export class Casino {
       if (this.rMode === "corner") { const s = insideBet("corner", n); return place(s, `Corner ${s?.join("-")}`); }
       const s = insideBet("line", n); return place(s, `Six line ${s ? s[0] + "–" + s[5] : ""}`);
     };
-    const totalBet=this.rBets.reduce((sum,b)=>sum+b.amount,0),overlay=h('div.iso-table-hitplane',{'aria-label':'Roulette layout',role:'group'});
+    const totalBet=this.rBets.reduce((sum,b)=>sum+b.amount,0),overlay=h('div.iso-table-hitplane',{'aria-label':'Roulette layout',role:'group',style:`width:${ROULETTE_W}px;height:${ROULETTE_H}px`});
     for(const c of rouletteCells){const q=cellQuad(c),xs=q.map(p=>p[0]),ys=q.map(p=>p[1]),x=Math.min(...xs),y=Math.min(...ys),width=Math.max(...xs)-x,height=Math.max(...ys)-y,clip=q.map(p=>`${(p[0]-x)/width*100}% ${(p[1]-y)/height*100}%`).join(',');
       overlay.append(h('button.iso-wager-hit',{style:`left:${x}px;top:${y}px;width:${width}px;height:${height}px;clip-path:polygon(${clip})`,title:c.n!==undefined?c.n+' '+colorOf(c.n):OUTSIDE[c.key].label,'aria-label':c.n!==undefined?c.n+' '+colorOf(c.n):OUTSIDE[c.key].label,disabled:this.rSpinning,onpointerenter:()=>{this.rHovered=c.key;},onpointerleave:()=>{this.rHovered='';},onblur:()=>{this.rHovered='';},onfocus:()=>{this.rHovered=c.key;},onclick:()=>c.n!==undefined?clickNumber(c.n):place(OUTSIDE[c.key].numbers,OUTSIDE[c.key].label)}));
     }
-    const scene=canvasStage((g,time,reduced)=>{this.drawWheel(wheel);const state=this.social;drawRouletteTable(g,{wheel,bets:this.rBets,last:this.rLast,spinning:this.rSpinning,hover:this.rHovered||String(this.rPending),people:this.w.people?.()??[],guests:this.extra.guests(),player:this.w.people?.().find(c=>c.tier==='player'),dealer:this.w.dealer?.(),recent:Date.now()-state.lastAt<6000,net:state.lastNet},time,reduced);},{width:ROULETTE_W,height:ROULETTE_H,overlay,label:'Isometric roulette table with wheel, betting cloth, chips, seated Mosaics and croupier'});
+    const betOn=(numbers:number[])=>this.rBets.filter(b=>b.numbers.length===numbers.length&&numbers.every(n=>b.numbers.includes(n))).reduce((sum,b)=>sum+b.amount,0);
+    const precise=h('div.precision-roulette',{'aria-label':'Flat roulette betting layout'},[
+      h('div.precision-head',null,[h('strong',{text:'Place your chips'}),h('select',{'aria-label':'Roulette number range',onchange:(e:Event)=>{this.rPage=+(e.target as HTMLSelectElement).value;this.render();}},['1–12','13–24','25–36'].map((text,i)=>h('option',{value:i,selected:this.rPage===i,text}))),h('span',{text:'Single zero · select a chip, then a number'})]),
+      h('div.precision-numbers',null,Array.from({length:37},(_,n)=>{const amount=betOn([n]);return h('button.precision-number.'+colorOf(n)+(n===0?'.zero':'')+(n>0&&Math.floor((n-1)/12)===this.rPage?'.range-on':'')+(this.rPending===n?'.pending':'')+(!this.rSpinning&&this.rLast===n?'.win':''),{style:n?`--col:${2+Math.floor((n-1)/3)};--row:${3-(n-1)%3};--mcol:${2+(n-1)%3};--mrow:${1+Math.floor((n-1)%12/3)}`:undefined,'aria-label':n+' '+colorOf(n),disabled:this.rSpinning,onclick:()=>clickNumber(n)},[h('b',{text:String(n)}),amount?h('span.precision-stack',{text:chipLabel(amount),title:money(amount)}):null]);})),
+      h('div.precision-outside',null,Object.entries(OUTSIDE).map(([key,o])=>{const amount=betOn(o.numbers);return h('button.precision-outside-bet.'+key,{'aria-label':o.label,disabled:this.rSpinning,onclick:()=>place(o.numbers,o.label)},[o.label,amount?h('span.precision-stack',{text:chipLabel(amount)}):null]);}))
+    ]);
+    const scene=canvasStage((g,time,reduced)=>{this.drawWheel(wheel);const state=this.social;drawRouletteTable(g,{wheel,bets:this.rBets,last:this.rLast,spinning:this.rSpinning,hover:this.rHovered||String(this.rPending),people:this.w.people?.()??[],guests:this.extra.guests(),player:this.w.people?.().find(c=>c.tier==='player'),dealer:this.w.dealer?.(),recent:Date.now()-state.lastAt<6000,net:state.lastNet},time,reduced);},{width:ROULETTE_W,height:ROULETTE_H,overlay,label:'Isometric roulette casino room with wheel, betting cloth, bar, lounge, slots, Mosaic women and men, chips and croupier',pointer:p=>{if(p.type!=='up')return;const members=rouletteSurroundingGuests(this.w.people?.()??[],[...this.extra.guests().slice(0,3).map(a=>a.id),this.w.dealer?.()?.id??-1]);for(const a of members){const x=ROULETTE_W/2+(a.x-a.y)*52,y=390+(a.x+a.y)*26-(a.seated?1.1:1.5)*64;if(Math.hypot(p.x-x,p.y-y)<35){this.extra.selectGuest(a.c.id);this.rServicesOpen=true;this.render();return;}}}});
     const mode=h('select',{'aria-label':'Bet type',disabled:this.rSpinning,onchange:(e:Event)=>{this.rMode=(e.target as HTMLSelectElement).value as RMode;this.rPending=-1;this.render();}},(['straight','split','street','corner','line'] as const).map(m=>h('option',{value:m,selected:this.rMode===m,text:m==='line'?'Six line':m[0].toUpperCase()+m.slice(1)})));
     const number=h('select',{'aria-label':'Roulette number',disabled:this.rSpinning,onchange:(e:Event)=>{this.rNumber=+(e.target as HTMLSelectElement).value;}},Array.from({length:37},(_,n)=>h('option',{value:n,selected:this.rNumber===n,text:n+' '+colorOf(n)})));
     const outside=h('select',{'aria-label':'Outside bet',disabled:this.rSpinning,onchange:(e:Event)=>{this.rOutside=(e.target as HTMLSelectElement).value;}},Object.entries(OUTSIDE).map(([key,o])=>h('option',{value:key,selected:this.rOutside===key,text:o.label})));
-    const controls=h('div.iso-table-console',null,[h('div.iso-bet-controls',null,[mode,number,this.btn(this.rPending>=0?'Add adjacent number':'Place number bet',()=>clickNumber(this.rNumber),{disabled:this.rSpinning}),outside,this.btn('Place outside bet',()=>place(OUTSIDE[this.rOutside].numbers,OUTSIDE[this.rOutside].label),{disabled:this.rSpinning})]),
-      h('div.iso-chip-actions',null,[this.chipRow(),h('div.cx-row',null,[this.btn(this.rSpinning?'No more bets…':'Spin · '+money(totalBet),()=>this.spinRoulette(),{cls:'.gold',disabled:!totalBet||this.rSpinning,aria:'Spin the wheel with '+money(totalBet)+' on the table'}),this.btn('Clear bets',()=>{for(const b of this.rBets)this.chips+=b.amount;this.rBets=[];this.render();},{disabled:!totalBet||this.rSpinning}),this.btn('Buy $100 chips',()=>{if(this.w.getCash()<100){this.msg='Not enough cash for $100 in chips.';}else{this.w.setCash(this.w.getCash()-100);this.chips+=100;this.bought+=100;this.msg='Bought $100 in chips.';}this.render();},{disabled:this.rSpinning})])]),
+    const controls=h('div.iso-table-console',null,[h('div.roulette-view-controls',{role:'group','aria-label':'Roulette view'},[this.btn('Casino room',()=>{this.rBetView=false;this.render();},{cls:this.rBetView?'':'.gold',pressed:!this.rBetView}),this.btn('Betting layout',()=>{this.rBetView=true;this.render();},{cls:this.rBetView?'.gold':'',pressed:this.rBetView})]),h('div.iso-bet-controls',null,[mode,...(this.rBetView?[]:[number,this.btn(this.rPending>=0?'Add adjacent number':'Place number bet',()=>clickNumber(this.rNumber),{disabled:this.rSpinning}),outside,this.btn('Place outside bet',()=>place(OUTSIDE[this.rOutside].numbers,OUTSIDE[this.rOutside].label),{disabled:this.rSpinning})])]),
+      h('div.iso-chip-actions',null,[this.chipRow(),h('div.cx-row',null,[this.btn(this.rSpinning?'No more bets…':'Spin · '+money(totalBet),()=>this.spinRoulette(),{cls:'.gold',disabled:!totalBet||this.rSpinning,aria:'Spin the wheel with '+money(totalBet)+' on the table'}),this.btn('Clear bets',()=>{for(const b of this.rBets)this.chips+=b.amount;this.rBets=[];this.rUndo=[];this.rPending=-1;this.render();},{disabled:(!totalBet&&this.rPending<0)||this.rSpinning}),this.btn(this.rPending>=0?'Cancel split':'Undo last chip',()=>{if(this.rPending>=0)this.rPending=-1;else{const move=this.rUndo.pop(),bet=move&&this.rBets.find(b=>b.id===move.id);if(move&&bet){const amount=Math.min(bet.amount,move.amount);bet.amount-=amount;this.chips+=amount;this.rBets=this.rBets.filter(b=>b.amount>0);}}this.render();},{disabled:this.rSpinning||!this.rUndo.length&&this.rPending<0}),this.btn('Buy $100 chips',()=>{if(this.w.getCash()<100){this.msg='Not enough cash for $100 in chips.';}else{this.w.setCash(this.w.getCash()-100);this.chips+=100;this.bought+=100;this.msg='Bought $100 in chips.';}this.render();},{disabled:this.rSpinning})])]),
       h('p.iso-round-status',{role:'status',text:this.msg||'Choose a chip, then tap the cloth or use the number selector. Zero loses outside bets.'}),h('p.iso-last-results',{'aria-label':'Last results',text:'Last results: '+(this.rHistory.slice(0,12).join(' · ')||'—')})]);
     if(this.rBets.length)controls.append(h('details.iso-bet-slip',null,[h('summary',{text:'Your wagers · '+money(totalBet)}),h('ul',null,this.rBets.map(b=>h('li',{text:b.label+' · '+money(b.amount)+' · pays '+payoutFor(b.numbers)+':1'})))]));
-    const services=h('details.iso-table-popover',{open:this.rServicesOpen,ontoggle:(e:Event)=>{this.rServicesOpen=(e.target as HTMLDetailsElement).open;}},[h('summary',{text:'Players, bar & credit'}),this.extra.crowd('Roulette',this.rSpinning,false),hospitality(this.w,this.rSpinning||totalBet>0,false),this.extra.social(this.rSpinning)]);
-    return h('section.iso-game.iso-roulette',null,[scene,controls,services]);
+    const services=this.tableServices('Roulette',this.rSpinning,this.rSpinning||totalBet>0);
+    return h('section.iso-game.iso-roulette',null,[this.rBetView?precise:scene,controls,services]);
   }
 
   private drawWheel(cv: HTMLCanvasElement): void {
@@ -510,7 +503,7 @@ export class Casino {
 
   private spinRoulette(): void {
     if (this.rSpinning || !this.rBets.length) return;
-    this.rSpinning = true; this.rPending = -1; this.msg = "No more bets.";
+    this.rSpinning = true;this.rBetView=false; this.rPending = -1;this.rUndo=[]; this.msg = "No more bets.";
     const result = spinWheel(rnd);
     const idx = WHEEL_ORDER.indexOf(result), step = (Math.PI * 2) / 37;
     const dur = reducedMotion() ? 300 : 5200, t0 = performance.now(), startRot = this.rRot % (Math.PI * 2);
