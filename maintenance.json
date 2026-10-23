@@ -1,5 +1,5 @@
 {
- "at": 1792731924235,
+ "at": 1792755746287,
  "totals": {
   "duplicate-code": 2,
   "long-function": 17,
@@ -35,17 +35,17 @@
    "kind": "long-function",
    "severity": "low",
    "where": "game/src/ai/steps.ts:49",
-   "detail": "190 lines",
+   "detail": "192 lines",
    "fix": "split into named steps",
-   "fp": "long-function|9hmaom"
+   "fp": "long-function|dn9s6o"
   },
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/ai/steps.ts:250",
+   "where": "game/src/ai/steps.ts:252",
    "detail": "250 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1z12gt7"
+   "fp": "long-function|1c287l9"
   },
   {
    "kind": "oversized-module",
@@ -155,9 +155,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Simulation.ts",
-   "detail": "976 lines",
+   "detail": "977 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|16df1o0"
+   "fp": "oversized-module|c77qzf"
   },
   {
    "kind": "long-function",
@@ -171,17 +171,17 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Traffic.ts",
-   "detail": "817 lines",
+   "detail": "897 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|1ysd8ly"
+   "fp": "oversized-module|1qk0hni"
   },
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/sim/Traffic.ts:537",
-   "detail": "182 lines",
+   "where": "game/src/sim/Traffic.ts:568",
+   "detail": "194 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1cralda"
+   "fp": "long-function|ncnjm1"
   },
   {
    "kind": "long-function",
