@@ -1,6 +1,7 @@
 import {lampFixture,surfacePoint,surfacePatch} from './SurfaceFixtures';
 import {vehicleGeometry} from '../sim/VehicleGeometry';
 import {handlingProfile} from '../sim/VehicleHandling';
+import {utilitySpec} from '../sim/VehicleUtility';
 import {lampDamage} from '../sim/VehicleDamage';
 import {drawTwoWheeler} from './TwoWheelers';
 import type {Character} from '../entities/types';
@@ -316,6 +317,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   // The chassis settles toward a failed corner; grounded wheels keep their own contact plane.
   if(v.components){const drop=(i:number)=>{const w=v.components!.wheels[i];return w.missing?.2:(w.puncture?.06:0)+w.suspension*.045;};k.roll=((drop(0)+drop(2))-(drop(1)+drop(3)))/Math.max(.2,hw*4);k.pitch=((drop(2)+drop(3))-(drop(0)+drop(1)))/Math.max(.4,L*2);}
   k.roll=(k.roll??0)+(v.bodyRoll??0);k.pitch=(k.pitch??0)+(v.bodyPitch??0);
+  if(v.utility){k.roll+=(v.utility.sway??0)*.35;k.pitch+=(v.utility.loadShift??0)*.25;}
   // ---- lower skirt ----
   const hs = H * 0.3, ground = 0.08;
   const bodyTop = (lx: number) => { const t = (lx - x0) / L; return H * (S.deck + (S.hood - S.deck) * Math.max(0, Math.min(1, (t - 0.25) / 0.75))); };
@@ -641,16 +643,52 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     g.fillStyle = "#c6ff3d"; g.fillRect(pt.x - w / 2, pt.y - fs * 0.8, w, fs * 1.6);
     g.fillStyle = "#0e0b0a"; g.fillText(label, pt.x, pt.y + 1); g.textAlign = "start"; g.textBaseline = "alphabetic";
   }
-  // exhaust: three puffs rising from the back of a moving car, bigger for bigger engines
-  if (Math.abs(v.speed) > 0.3 || v.state === "drive") {
+  drawWorkingDetails(k,v,L,hw,H,time,S.tray===true);
+  // Electric vehicles have no tailpipe. Working diesels darken gently under engine load.
+  const working=utilitySpec(v),electric=working?!working.diesel:['ev','compact_ev','estate_ev','deliveryev'].includes(d.design?.base??v.cls);
+  if (!electric&&z>=.8&&(Math.abs(v.speed) > 0.3 || v.state === "drive")) {
     for (let i = 0; i < 3; i++) {
       const ph = (time * 0.9 + i / 3 + spin * 0.01) % 1;
       const p = W3(k, [x0 - 0.04 - ph * 0.5 * M.scale, (i % 2 ? 1 : -1) * hw * 0.45, 0.06 + ph * 0.4 * M.scale]);
-      g.fillStyle = `rgba(200,196,190,${((1 - ph) * 0.28).toFixed(3)})`;
+      const load=working?.diesel?(v.utility?.engineLoad??.25):0;
+      g.fillStyle = `rgba(${load>.6?'108,111,108':'200,196,190'},${((1 - ph) * (0.2+load*.16)).toFixed(3)})`;
       g.beginPath(); g.arc(p[0], p[1], (0.035 + ph * 0.12) * M.scale * z * 10, 0, 6.283); g.fill();
     }
   }
   if (selected) { cam.toScreen(x, y, 0, pt); g.strokeStyle = "#c6ff3d"; g.lineWidth = 2; g.beginPath(); g.ellipse(pt.x, pt.y, L * 26 * z, L * 13 * z, 0, 0, 6.283); g.stroke(); }
+}
+
+/** Fixed-cost fittings: catalogue size never determines per-car geometry or particle counts. */
+function drawWorkingDetails(k:Ctx,v:Vehicle,L:number,hw:number,H:number,time:number,tray:boolean):void {
+ const spec=utilitySpec(v);if(!spec||k.cam.zoom<.9)return;
+ const fill=Math.max(0,Math.min(1,(v.utility?.payload??spec.capacity*spec.defaultLoad)/Math.max(.1,spec.capacity))),z=k.cam.zoom;
+ const box=(x:number,y:number,w:number,d:number,h:number,colour:string)=>{const lo:V3[]=[[x-w/2,y-d/2,H*.55],[x+w/2,y-d/2,H*.55],[x+w/2,y+d/2,H*.55],[x-w/2,y+d/2,H*.55]],hi=lo.map(p=>[p[0],p[1],p[2]+h] as V3);loft(k,lo,hi,()=>colour,'#3c463c');cap(k,hi,rgb(colour));};
+ if((spec.kind==='tanker'||spec.kind==='fire')&&tray) {
+   const radius=hw*.75,cx=-L*.15,half=L*.23,cy=0,cz=H*.73;
+   const left:V3[]=[],right:V3[]=[];
+   for(let i=0;i<10;i++){const a=i/10*Math.PI*2;left.push([cx-half,cy+Math.cos(a)*radius,cz+Math.sin(a)*radius*.72]);right.push([cx+half,cy+Math.cos(a)*radius,cz+Math.sin(a)*radius*.72]);}
+   for(let i=0;i<10;i++)fillPoly(k,[left[i],left[(i+1)%10],right[(i+1)%10],right[i]],i<5?'#a4ada6':'#69766e');
+   fillPoly(k,left,'#64746b');fillPoly(k,right,'#a9b2aa');
+   for(const x of[cx-half*.65,cx+half*.65])strokePoly(k,Array.from({length:11},(_,i)=>[x,Math.cos(i/10*Math.PI*2)*radius,cz+Math.sin(i/10*Math.PI*2)*radius*.72] as V3),'#41524b',1.5*z);
+ } else if(spec.kind==='refuse') {
+   box(-L*.16,0,L*.46,hw*1.75,H*.48,'#6a7e58');
+   strokePoly(k,[[-L*.34,-hw*.89,H*.64],[-L*.09,-hw*.89,H*.92],[L*.04,-hw*.89,H*.7]],'#b7ba87',2*z);
+ } else if(fill>.05&&tray&&['freight','equipment','timber','roadwork','aggregate'].includes(spec.kind)) {
+   if(spec.kind==='timber') {
+     for(let i=0;i<Math.min(4,1+Math.ceil(fill*3));i++){const y=(i-1.5)*hw*.32;strokePoly(k,[[-L*.49,y,H*.63],[L*.025,y,H*.63]],i%2?'#9d8055':'#b29b6b',Math.max(2,hw*9*z));}
+   } else if(spec.kind==='aggregate') {
+     box(-L*.2,0,L*.43,hw*1.55,H*.12+fill*H*.2,'#8e8c77');
+   } else {
+     const n=Math.min(3,Math.ceil(fill*3));for(let i=0;i<n;i++){const x=-L*.35+i*L*.13;box(x,0,L*.12,hw*1.3,H*(.17+fill*.1),i%2?'#858671':'#a18d69');strokePoly(k,[[x,-hw*.65,H*.56],[x,0,H*(.75+fill*.1)],[x,hw*.65,H*.56]],'#444d43',z);}
+   }
+ }
+ if(spec.kind==='refrigerated'&&z>1.1){box(-L*.24,0,L*.14,hw*.9,H*.12,'#c3c8b7');strokePoly(k,[[-L*.28,-hw*.46,H*.63],[-L*.18,-hw*.46,H*.63]],'#53665d',z);}
+ if(spec.kind==='tow'){strokePoly(k,[[-L*.3,0,H*.8],[-L*.56,0,H*.52],[-L*.56,0,.15]],'#b3b4a5',z);strokePoly(k,[[-L*.56,0,.15],[-L*.52,0,.12],[-L*.50,0,.18]],'#7c8880',2*z);}
+ if(spec.beacon&&(v.driver>=0||v.siren||v.hazards)&&!v.burnt){
+   const flashing=.55+.45*Math.sin(time*5+v.id),point=W3(k,[L*.16,0,H*1.04]);
+   k.g.fillStyle=spec.kind==='police'?'#75a4cf':spec.kind==='ambulance'||spec.kind==='fire'?'#b95345':'#ca9e42';k.g.globalAlpha=.65+flashing*.3;
+   k.g.beginPath();k.g.ellipse(point[0],point[1],Math.max(1.5,3*z),Math.max(1,2*z),0,0,Math.PI*2);k.g.fill();k.g.globalAlpha=1;
+ }
 }
 
 /** Headlight beams (drawn in the lighting pass, additive): a beam from each lamp fanning onto a lit pool of road ahead. */
@@ -692,6 +730,7 @@ function roadWheel(k:Ctx,v:Vehicle,x:number,y:number,r:number,near:boolean,spin:
  const drive=handlingProfile(v.cls).drive;if(drive==='awd'||(drive==='fwd'?x>0:x<0))spin+=(v.wheelSpinTravel??0)/Math.max(.05,r);
  const cx=k.x+x*k.c-y*k.s,cy=k.y+x*k.s+y*k.c,ang=v.heading+(x>0?(v.wheelSteer??v.steerAngle??0):0)+(w?.alignment??0),ctx={...k,x:cx,y:cy,c:Math.cos(ang),s:Math.sin(ang),roll:0,pitch:0,deform:undefined};
  wheel(ctx,0,0,r*(1-(w?.rim??0)*.08),near,spin,color,w?w.puncture:(y<0?v.flatLeft:v.flatRight));
+ if(near&&(v.utility?.brakeHeat??0)>.55&&k.cam.zoom>1.2){const heat=(v.utility!.brakeHeat-.55)/.45,q=W3(ctx,[0,0,r]);k.g.strokeStyle=`rgba(205,111,53,${heat*.65})`;k.g.lineWidth=Math.max(.7,k.cam.zoom);k.g.beginPath();k.g.ellipse(q[0],q[1],r*11*k.cam.zoom,r*15*k.cam.zoom,-.4,0,Math.PI*2);k.g.stroke();}
  if(w&&w.rim>.3){const q=W3(ctx,[0,0,r]);k.g.strokeStyle='#a9b3a2';k.g.lineWidth=k.cam.zoom;k.g.beginPath();k.g.moveTo(q[0]-3*k.cam.zoom,q[1]-r*12*k.cam.zoom);k.g.lineTo(q[0]+3*k.cam.zoom,q[1]+r*10*k.cam.zoom);k.g.stroke();}
 }
 export function drawVehicleFragment(g:CanvasRenderingContext2D,cam:Camera,v:Vehicle,index:number):void{

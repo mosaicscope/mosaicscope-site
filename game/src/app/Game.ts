@@ -129,7 +129,7 @@ export class Game {
     canvas.tabIndex=0;
     this.rootEl = root;
     this.settings = loadSettings(this.store);
-    this.sim = new Simulation({ backgroundCount: Math.min(this.settings.density, 300) }, {}, this.lifeFlags);
+    this.sim = new Simulation({ cityMap:'christchurch',trafficCars:150,backgroundCount: Math.min(this.settings.density, 300) }, {}, this.lifeFlags);
     this.renderer = new Renderer(canvas, this.sim);
     this.audio = new AudioSystem(() => this.renderer.cam);
     this.audio.attach(this.sim);
@@ -1627,7 +1627,7 @@ export class Game {
   }
 
   reset(seed?: number): void {
-    const sim = new Simulation({ seed: seed ?? this.sim.cfg.seed, backgroundCount: Math.min(this.settings.density, 300) }, {}, this.lifeFlags);
+    const sim = new Simulation({ cityMap:'christchurch',trafficCars:150,seed: seed ?? this.sim.cfg.seed, backgroundCount: Math.min(this.settings.density, 300) }, {}, this.lifeFlags);
     this.swapSim(sim);
     this.toast(seed !== undefined ? `New world · seed ${seed}` : "World restarted");
   }

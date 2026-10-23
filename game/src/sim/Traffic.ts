@@ -1,7 +1,9 @@
 import {hitFacade} from "./CivicDamage";
+import {spawnMappedVehicles,driveMappedVehicle,snapMappedVehicle,nearbyVehiclePairs} from './MappedTraffic';
 import { handlingProfile, roadSurface, slipGrip, corneringBudget } from "./VehicleHandling";
 import { vehicleGeometry, chassisContact } from "./VehicleGeometry";
 import { drivingSetup, stepPowertrain, stepDrift } from "./DrivingExperience";
+import { utilityDynamics, stepUtility } from "./VehicleUtility";
 import {junctionAvailable} from "./TrafficControl";
 import { impactComponents, damageTick, damageParts, repairVehicle } from "./VehicleDamage";
 import type { Simulation } from "./Simulation";
@@ -110,6 +112,7 @@ export function unseat(sim: Simulation, v: Vehicle): Character | null {
 }
 
 export function spawnVehicles(sim: Simulation): void {
+  if(sim.world.mapped){spawnMappedVehicles(sim,makeVehicle);return;}
   const w = sim.world, rng = sim.rng;
   const parkingPool=Object.values(VEHICLES).filter(d=>d.traffic>0&&d.length<3.5&&d.width>.6&&d.cls!=='police'&&d.cls!=='ambulance').map(d=>d.cls);
   let parkingBag:VehicleClass[]=parkingPool.filter(id=>!!VEHICLES[id].design);const parkedClass=()=>{if(!parkingBag.length)parkingBag=[...parkingPool];return parkingBag.splice(rng.int(0,parkingBag.length-1),1)[0];};
@@ -189,7 +192,7 @@ export function updateVehicles(sim: Simulation, dt: number): void {
       if (sim.tick > v.crashedUntil) v.state = v.driver === sim.playerId ? "free" : v.driver >= 0 ? (snapToLane(sim, v) ? "drive" : "free") : "parked";
       continue;
     }
-    if (v.state === "drive") laneDrive(sim, v, dt);
+    if (v.state === "drive") {if(sim.world.mapped)driveMappedVehicle(sim,v,dt);else laneDrive(sim, v, dt);}
     else freeDrive(sim, v, dt);
     // keep the driver with the car
     if (v.driver >= 0) { const c = sim.chars[v.driver]; if (c) { c.x = v.x; c.y = v.y; c.px = v.px; c.py = v.py; c.facing = v.heading; } }
@@ -220,7 +223,7 @@ function tyreGrip(sim: Simulation, v: Vehicle): number {
     const condition = wheel ? wheel.missing ? 0 : (wheel.puncture ? 0.55 : 1)*(1-wheel.suspension*0.25-wheel.rim*0.1) : (i%2 === 0 ? v.flatLeft : v.flatRight) ? 0.55 : 1;
     surfaceGrip += roadSurface(sim.world.tile(Math.floor(v.x+x*c-y*s), Math.floor(v.y+x*s+y*c)), sim.env.rain, profile.offroad).grip * condition / (profile.twoWheeler?2:4);
   }
-  return d.grip * 2.5 * surfaceGrip * (v.lifeMods?.includes("Racing tyres") ? 1.3 : 1) / (v.lifeMods?.includes("Double deck") ? 1.2 : 1) * (1 - v.damage * 0.3);
+  return d.grip * 2.5 * surfaceGrip * (v.lifeMods?.includes("Racing tyres") ? 1.3 : 1) / (v.lifeMods?.includes("Double deck") ? 1.2 : 1) * (1 - v.damage * 0.3) * utilityDynamics(v).grip;
 }
 
 /**
@@ -235,6 +238,7 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const inp = v.parkingBrake?{throttle:0,steer:0,brake:true}:v.driver === sim.playerId ? playerInput : { throttle: 0, steer: 0, brake: true };
   const mods = v.lifeMods ?? [];
   const setup=drivingSetup(v);
+  const working=utilityDynamics(v);
   const top = Math.max(0.1, d.topSpeed * setup.range * (mods.includes("Tractor engine") ? 1.2 : 1) / (1 + mods.length * 0.06) * (1 - v.damage * 0.5) * (1 - (v.engineDamage ?? 0) * 0.45) * (v.flatLeft || v.flatRight ? 0.65 : 1)*Math.max(.22,1-(v.components?.wheels.filter(w=>w.missing).length??0)*.35));
   const vel = carVel(sim, v);
   const fx = Math.cos(v.heading), fy = Math.sin(v.heading);
@@ -260,7 +264,8 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   if (inp.brake) a = -Math.sign(lon) * d.brake * (s > 2 ? 0.5 : 1);
   else if (throttle > 0) a = lon < -0.05 ? d.brake * throttle : d.accel * throttle * Math.max(0, 1 - (lon / top) ** 2);
   else if (throttle < 0) a = lon > 0.05 ? -d.brake * -throttle : -d.accel * 0.6 * -throttle * Math.max(0, 1 - (lon / (top * 0.35)) ** 2);
-  const engineForce = a * (1 - (v.engineDamage ?? 0) * 0.55) * transmission * setup.torque;
+  if(braking) a*=working.braking;
+  const engineForce = a * (1 - (v.engineDamage ?? 0) * 0.55) * transmission * setup.torque * working.acceleration;
   // Acceleration shifts load rearward; AWD can use both axles, FWD unloads its driven tyres.
   const transfer = clamp(engineForce * geometry.height * 0.45 / (4.905 * geometry.wheelbase), -0.22, 0.22);
   const drivenLoad = profile.drive === "awd" ? 1 : profile.drive === "rwd" ? 0.64 + transfer : 0.7 - transfer;
@@ -269,7 +274,7 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   v.wheelspin = spin;
   if (!braking) a = clamp(engineForce, -traction, traction);
   else a = clamp(a, -grip, grip);
-  const resist = 0.35 + surface.drag + 1.4 * (lon / top) ** 2;
+  const resist = 0.35 + surface.drag + 1.4 * (lon / top) ** 2 + (pedal===0?working.engineDrag:0);
   if (braking || a === 0) {
     // brakes and drag can stop the car but never push it backwards
     const dec = Math.abs(a) + resist;
@@ -286,9 +291,9 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const wheelDamage=v.components?.wheels??[],loss=wheelDamage.reduce((n,w)=>n+(w.missing?.35:w.puncture?.1:0)+w.suspension*.05,0);
   const steering=clamp(inp.steer,-1,1);
   const countersteering = steering * (v.steerAngle ?? 0) < 0;
-  const steerResponse = countersteering ? 11 : steering === 0 ? 9 : 7;
+  const steerResponse = (countersteering ? 11 : steering === 0 ? 9 : 7) * working.turnResponse;
   v.steerAngle=(v.steerAngle??0)+(steering*.55-(v.steerAngle??0))*(1-Math.exp(-dt*steerResponse));
-  const wheelbase = geometry.wheelbase, lock = 0.6 * setup.steer * (1 - 0.55 * Math.min(1, s / top));
+  const wheelbase = geometry.wheelbase, lock = 0.6 * setup.steer * working.steering * (1 - 0.55 * Math.min(1, s / top));
   // a bent side (wheel knocked out of line) drags the car toward it
   const bent = ((v.dmgS ?? 0) - (v.dmgL ?? 0)) * 0.12;
   v.wheelSteer = (v.steerAngle??0)/.55 * lock;
@@ -296,7 +301,7 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const cap = (grip * (1 + 1.2 * rearLoose)) / Math.max(s, 1);   // a loose rear lets the nose swing past the grip line
   const frontPush = profile.drive === "fwd" ? 1 / (1 + spin * 0.15) : 1;
   const yawWant = clamp(want * frontPush, -cap, cap);
-  v.yaw = (v.yaw ?? 0) + (yawWant - (v.yaw ?? 0)) * Math.min(1, dt * (3 + grip * 0.6));
+  v.yaw = (v.yaw ?? 0) + (yawWant - (v.yaw ?? 0)) * Math.min(1, dt * (3 + grip * 0.6) * working.turnResponse);
   v.heading += v.yaw * dt;
   // the body turned under the velocity: re-express it in the new frame, then let the tyres fight the sideways part
   const nfx = Math.cos(v.heading), nfy = Math.sin(v.heading);
@@ -316,10 +321,11 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   v.wheelTravel = (v.wheelTravel ?? 0) + lon * dt;
   v.wheelSpinTravel = (v.wheelSpinTravel ?? 0) + Math.sign(throttle)*spin*0.35*dt;
   const settle = 1-Math.exp(-dt*7);
-  v.bodyRoll = (v.bodyRoll ?? 0) + (clamp(v.yaw*lon*geometry.height*0.018/geometry.width,-0.12,0.12)-(v.bodyRoll ?? 0))*settle;
+  v.bodyRoll = (v.bodyRoll ?? 0) + (clamp(v.yaw*lon*geometry.height*0.018*working.roll/geometry.width,-0.12,0.12)-(v.bodyRoll ?? 0))*settle;
   v.bodyPitch = (v.bodyPitch ?? 0) + (clamp(a*geometry.height*0.025/geometry.wheelbase,-0.08,0.08)-(v.bodyPitch ?? 0))*settle;
   const scrub = Math.abs(lat) * Math.min(1, s / 3) + spin * 0.5 + (inp.brake && s > 2 ? s * 0.25 : 0);
   v.tyreHeat = clamp((v.tyreHeat ?? 0) + (scrub * 0.16 - 0.22) * dt, 0, 1);
+  if(working.active)stepUtility(v,a,(v.yaw??0)*lon,lon,braking,dt);
   skidMarks(sim, v, lat, inp.brake && s > 2 ? s : 0);
   const oldX=v.x,oldY=v.y;
   moveBlocked(sim, v, dt);
@@ -424,9 +430,10 @@ function moveBlocked(sim: Simulation, v: Vehicle, dt: number): void {
   const d = { ...VEHICLES[v.cls], ...vehicleGeometry(v) };
   const vel = carVel(sim, v);
   const nx = v.x + vel.x * dt, ny = v.y + vel.y * dt;
+  if(sim.world.mapped){const ox=v.x,oy=v.y,px=v.px,py=v.py;v.px=ox;v.py=oy;v.x=nx;v.y=ny;const hit=sim.mappedDamage.contact(sim.world.mapped.damageFootprints.filter(b=>{const id=sim.world.mapped!.buildingIds.get(Number(b.id)),building=id===undefined?null:sim.world.buildings[id];return !!building&&nx>building.x0-8&&nx<building.x1+8&&ny>building.y0-8&&ny<building.y1+8;}),v,sim.tick/60,1);v.px=px;v.py=py;if(hit){if(hit.speed>1){sim.bus.emit('sound',{kind:'crash',x:v.x,y:v.y,vol:Math.min(1,hit.speed/10)});sim.bus.emit('fx',{kind:'dust',x:hit.x,y:hit.y,z:.3,n:Math.min(16,Math.ceil(hit.speed*2))});}return;}v.x=ox;v.y=oy;}
   const fx = nx + Math.cos(v.heading) * (d.length / 2) * Math.sign(v.speed || 1), fy = ny + Math.sin(v.heading) * (d.length / 2) * Math.sign(v.speed || 1);
   const side = v.heading + Math.PI / 2, hw = d.width / 2 * 0.9;
-  const blocked = (x: number, y: number) => !sim.world.walkable(x, y) && sim.world.tile(Math.floor(x), Math.floor(y)) !== T.CRATE || !sim.world.inBounds(Math.floor(x), Math.floor(y));
+  const blocked = (x: number, y: number) => !sim.world.walkable(x, y) && sim.world.tile(Math.floor(x), Math.floor(y)) !== T.CRATE && !(sim.world.mapped&&sim.world.tile(Math.floor(x),Math.floor(y))===T.BUILDING) || !sim.world.inBounds(Math.floor(x), Math.floor(y));
   // also probe the way the car is actually moving: a drifting or spinning car slides sideways into things too
   const ms = Math.hypot(vel.x, vel.y), mx = ms > 1e-3 ? vel.x / ms : 0, my = ms > 1e-3 ? vel.y / ms : 0;
   const contact=[[nx+mx*hw,ny+my*hw],[fx+Math.cos(side)*hw,fy+Math.sin(side)*hw],[fx-Math.cos(side)*hw,fy-Math.sin(side)*hw],[nx,ny]].find(([x,y])=>blocked(x,y));
@@ -451,6 +458,7 @@ function moveBlocked(sim: Simulation, v: Vehicle, dt: number): void {
 }
 
 export function snapToLane(sim: Simulation, v: Vehicle): boolean {
+  if(sim.world.mapped)return snapMappedVehicle(sim,v);
   const w = sim.world;
   // find a lane through a nearby road tile, aligned to the closest cardinal heading
   const dir = ((Math.round(v.heading / (Math.PI / 2)) % 4) + 4) % 4;
@@ -743,7 +751,7 @@ function collisions(sim: Simulation): void {
     }
   }
   const vs = sim.vehicles, shapes=vs.map(vehicleGeometry);
-  for (let i = 0; i < vs.length; i++) for (let j = i + 1; j < vs.length; j++) {
+  for (const [i,j] of nearbyVehiclePairs(vs)) {
     const a = vs[i], b = vs[j];
     if (a.state === "parked" && b.state === "parked") continue;
     const dx = b.x - a.x, dy = b.y - a.y, dd = dx * dx + dy * dy;

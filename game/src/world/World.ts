@@ -66,6 +66,7 @@ export class World {
   /** building id per tile (-1 none) */
   readonly buildingOf: Int16Array;
   civicDamage:Record<string,import("../sim/CivicDamage").CivicDamage>={};
+  mapped?: import('./MappedWorld').MappedCity;
   graffiti: Graffiti[] = [];
   /** road grid: roads at coordinates where c % period < ROAD_W */
   readonly period = PERIOD;
@@ -85,14 +86,15 @@ export class World {
 
   /** "Colombo St" etc. for a point on (or next to) a road; the nearest street otherwise. */
   streetName(x: number, y: number): string {
+    if(this.mapped){let best=Infinity,name='';for(const r of this.mapped.streetSegments){const u=Math.max(0,Math.min(1,((x-r.x)*r.dx+(y-r.y)*r.dy)/r.length));const d=Math.hypot(x-r.x-r.dx*u*r.length,y-r.y-r.dy*u*r.length);if(d<best&&r.name){best=d;name=r.name;}}return name;}
     const half = ROAD_W / 2;
     const lx = Math.round((x - half) / this.period), ly = Math.round((y - half) / this.period);
     const dx = Math.abs(x - lx * this.period - half), dy = Math.abs(y - ly * this.period - half);
     return (dx <= dy ? this.streetsX[lx] : this.streetsY[ly]) ?? "";
   }
-  isRoadLine(c: number): boolean { return c >= 0 && c % this.period < ROAD_W; }
+  isRoadLine(c: number): boolean { return !this.mapped && c >= 0 && c % this.period < ROAD_W; }
   /** Index of the last road line (roads run along both map edges). */
-  get maxLine(): number { return Math.floor((this.size - ROAD_W) / this.period); }
+  get maxLine(): number { return this.mapped ? -1 : Math.floor((this.size - ROAD_W) / this.period); }
   drivable(x: number, y: number): boolean { return DRIVABLE.has(this.tile(Math.floor(x), Math.floor(y))); }
   buildingAt(tx: number, ty: number): Building | undefined { if (!this.inBounds(tx, ty)) return undefined; const b = this.buildingOf[ty * this.size + tx]; return b >= 0 ? this.buildings[b] : undefined; }
   walkCost(tx: number, ty: number): number { return WALK_COST[this.tiles[ty * this.size + tx]] ?? 1; }

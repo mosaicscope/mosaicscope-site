@@ -317,6 +317,8 @@ export interface Vehicle {
   driveMode?: import("../sim/DrivingExperience").DriveMode;
   powertrain?: import("../sim/DrivingExperience").PowertrainState;
   drift?: import("../sim/DrivingExperience").DriftState;
+  /** Working load and mechanical feedback, persisted with this individual vehicle. */
+  utility?: import("../sim/VehicleUtility").UtilityState;
   /** Where the car has been hit, 0..1 each: front, rear, left, right (the body crumples there; see Traffic.bump). */
   dmgF?: number; dmgR?: number; dmgL?: number; dmgS?: number;
   rescueTarget?:number; rescueAt?:number; rescueMedic?:number;

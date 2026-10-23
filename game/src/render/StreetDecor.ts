@@ -29,8 +29,8 @@ export function decorGrid(w: World): Uint8Array {
   for (let ty = 1; ty < S - 1; ty++) for (let tx = 1; tx < S - 1; tx++) {
     const i = ty * S + tx;
     if (w.tiles[i] !== T.SIDEWALK || busy[i]) continue;
-    const roadS = w.isRoadLine(ty + 1) && !w.isRoadLine(tx), roadN = w.isRoadLine(ty - 1) && !w.isRoadLine(tx);
-    const roadE = w.isRoadLine(tx + 1) && !w.isRoadLine(ty), roadW = w.isRoadLine(tx - 1) && !w.isRoadLine(ty);
+    const roadS = w.mapped?w.tile(tx,ty+1)===T.ROAD:w.isRoadLine(ty + 1) && !w.isRoadLine(tx), roadN = w.mapped?w.tile(tx,ty-1)===T.ROAD:w.isRoadLine(ty - 1) && !w.isRoadLine(tx);
+    const roadE = w.mapped?w.tile(tx+1,ty)===T.ROAD:w.isRoadLine(tx + 1) && !w.isRoadLine(ty), roadW = w.mapped?w.tile(tx-1,ty)===T.ROAD:w.isRoadLine(tx - 1) && !w.isRoadLine(ty);
     const kerbX = roadS || roadN, kerbY = roadE || roadW; // kerb runs along x (road to the north/south) or along y
     const h = hash01(tx * 7919 + ty * 104729 + w.size);
     if (kerbX || kerbY) {

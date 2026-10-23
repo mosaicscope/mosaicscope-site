@@ -42,6 +42,7 @@ export const unpackMem = (a: MemTuple): Memory => { const m: Memory = { t: a[0],
 export const packRel = (id: number, r: Rel): RelTuple => [id, r.fam, r.trust, r.aff, r.respect, r.fear, r.rivalry, r.grudge, r.shared, r.favours, r.last];
 export const unpackRel = (a: RelTuple): [number, Rel] => [a[0], { fam: a[1], trust: a[2], aff: a[3], respect: a[4], fear: a[5], rivalry: a[6], grudge: a[7], shared: a[8], favours: a[9], last: a[10] }];
 export interface SaveData {
+  mappedDamage?:import('../sim/MappedFacadeDamage').MappedFacadeRecord[];
   ambientFleetVersion?:number;
   cityPlay?:import("../sim/CityPlay").CityPlay;
   worldFun?:import('../sim/WorldFun').WorldFunState;
@@ -97,6 +98,7 @@ export const MIGRATIONS: Record<number, (d: any) => any> = {
 
 export function serialize(sim: Simulation, label = "Save"): SaveData {
   return {
+    mappedDamage:sim.mappedDamage.snapshot(),
     ambientFleetVersion:2,
     saltStory: { ...sim.saltStory },
     cityPlay:structuredClone(sim.cityPlay),streetLife: structuredClone(sim.streetLife),worldFun:structuredClone(sim.worldFun),
@@ -183,6 +185,7 @@ export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemF
   sim.bookings = d.bookings.map((b) => ({ ...b }));
   if (d.litter) restoreLitter(sim.litter, d.litter);
   sim.world.civicDamage=structuredClone(d.civicDamage??{});
+  sim.mappedDamage.restore(d.mappedDamage??[]);
   sim.pendingAmbulance=new Map(d.pendingAmbulance??[]);
   sim.rebuildHash();
   sim.lod.update(sim);

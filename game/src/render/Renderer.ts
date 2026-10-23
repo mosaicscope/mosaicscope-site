@@ -40,12 +40,15 @@ import type { DebugFlags } from "../debug/flags";
 import { friendship, hostility } from "../social/Social";
 import { LOD_NAMES } from "../entities/types";
 import { StreetView } from "./Street2D";
+import {MappedArchitecture} from './MappedArchitecture';
+import {MappedGround} from './MappedGround';
+import {drawMappedFacadeDamage} from './MappedFacadeArt';
 
 /** The side-on 2D street is switched off: the 3D city is the only view. Flip to true to bring it back. */
 const STREET_2D = false;
 
 export type Quality = 0 | 1 | 2 | 3; // low, medium, high, ultra
-interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13; ref: number; sx: number; sy: number } // 0 char, 1 toy, 2 tall tile, 3 poi, 4 car, 5 traffic light, 6 litter, 7 street decor
+interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14; ref: number; sx: number; sy: number } // 14 exact mapped building
 interface Decal { x: number; y: number; r: number; color: string; born: number; life: number; rot: number; blood?:boolean; fall?:number }
 
 export interface RenderOptions { selected: number; hovered: number; debug: DebugFlags; reduceMotion: boolean; quality: Quality; showNames: boolean; quietInterface?:boolean }
@@ -60,6 +63,7 @@ export class Renderer {
   readonly cam = new Camera();
   readonly g: CanvasRenderingContext2D;
   terrain: Terrain;
+  private mappedArt=new MappedArchitecture();private mappedGround=new MappedGround();
   particles: Particles;
   private lighting = new Lighting();
   private glowCv = document.createElement("canvas");
@@ -101,6 +105,7 @@ export class Renderer {
   }
 
   setSim(sim: Simulation): void {
+    this.mappedArt.clear();this.mappedGround=new MappedGround();
     this.bubblePositions.clear();this.decals.length=0;
     this.sim = sim; this.terrain = new Terrain(sim.world); this.terrain.setUltra(this.qualityNow === 3); this.particles.clear(); this.lastPose.clear(); this.motion.clear();
     this.cam.worldSize = sim.world.size; this.cam.lookAt(sim.player.x, sim.player.y, true); this.cam.follow = sim.playerId;
@@ -174,6 +179,8 @@ export class Renderer {
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     g.fillStyle = INK; g.fillRect(0, 0, cam.viewW, cam.viewH);
     this.terrain.draw(g, cam);
+    const mapped=sim.world.mapped;
+    if(mapped)this.mappedGround.draw(g,cam,mapped);
     // ground decals
     for (let i = this.decals.length - 1; i >= 0; i--) {
       const dcl = this.decals[i], age = this.time - dcl.born;
@@ -209,6 +216,7 @@ export class Renderer {
     const pt = this.pt;
     for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
       const t = sim.world.tiles[ty * S + tx];
+      if(mapped&&t===T.BUILDING)continue;
       if (TILE_HEIGHT[t] === undefined && t !== T.TREE && t !== T.BUILDING) continue;
       if (t === T.STAGE) continue;
       cam.toScreen(tx, ty, 0, pt);
@@ -217,6 +225,7 @@ export class Renderer {
       this.push(tx + ty + 1, 2, ty * S + tx, pt.x, pt.y);
       if (t === T.BUILDING) this.viewB.add(sim.world.buildingOf[ty * S + tx]);
     }
+    if(mapped){this.mappedArt.beginFrame();for(const b of sim.world.buildings){if(b.x1<minX-20||b.y1<minY-20||b.x0>maxX+20||b.y0>maxY+20)continue;cam.toScreen(b.x0,b.y0,0,pt);const footprint=mapped.byBuilding.get(b.id);if(!footprint)continue;const depth=Math.max(...footprint.points.map(p=>(p[0]+p[1])/2+mapped.offsetX+mapped.offsetY));this.push(depth,14,b.id,pt.x,pt.y);this.viewB.add(b.id);}}
     for (const p of sim.world.pois) {
       cam.toScreen(p.x, p.y, 0, pt);
       if (!inView(pt.x, pt.y, 120 * z)) continue;
@@ -239,7 +248,7 @@ export class Renderer {
     this.drawWater(g, sim, o, minX, maxX, minY, maxY, time);
 
     // real street names painted on the road between intersections
-    this.streetLabels(g, sim, z, inView);
+    if(!mapped)this.streetLabels(g, sim, z, inView);
 
     // shadows + sortables for toys and characters (interpolated)
     g.fillStyle = "rgba(0,0,0,.35)";
@@ -265,7 +274,7 @@ export class Renderer {
     this.pickBoxes.length = 0;
     AD_BOXES.length = 0;
     sim.commerce.purchases.forEach((order,i)=>{if(!order.bay||!order.sku.startsWith('air:'))return;cam.toScreen(order.bay.x,order.bay.y,0,pt);if(inView(pt.x,pt.y,120*z))this.push(this.behind(order.bay.x,order.bay.y,order.bay.x+order.bay.y+.03),11,i,pt.x,pt.y);});
-    const farm=farmObjects(sim,o.reduceMotion?0:time,this.zooAnimals);
+    const farm=mapped?[]:farmObjects(sim,o.reduceMotion?0:time,this.zooAnimals);
     farm.forEach((a,i)=>{cam.toScreen(a.x,a.y,0,pt);if(inView(pt.x,pt.y,80*z))this.push(this.behind(a.x,a.y,a.x+a.y+.03),10,i,pt.x,pt.y);});
     // cars and traffic lights
     for (const v of sim.vehicles) {
@@ -405,6 +414,12 @@ export class Renderer {
           drawBuildingTile(g, sim.world, b, tx, ty, it.sx, it.sy, z, time, 1 - sim.daylight + (sim.env.power ? 0 : -0.5), a, this.graffitiMap);
           drawFacadeDamage(g,sim.world,b.id,tx,ty,it.sx,it.sy,z);
         } else drawTallTile(g, t, it.sx, it.sy, z, time, (it.ref * 0.618) % 1);
+      } else if(it.kind===14){
+        flush();const source=mapped!.byBuilding.get(it.ref)!;
+        const P=(x:number,y:number,height=0):[number,number]=>{const p=cam.toScreen(x/2+mapped!.offsetX,y/2+mapped!.offsetY,height/1.625,{x:0,y:0});return[p.x,p.y];};
+        this.mappedArt.draw(g,source,P,16*z,[focusSX,focusSY]);
+        const damageP=(x:number,y:number,height=0):[number,number]=>{const p=cam.toScreen(x,y,height/0.8125,{x:0,y:0});return[p.x,p.y];};
+        drawMappedFacadeDamage(g,sim.mappedDamage,damageP,32*z,sim.tick/60,source.id);
       } else if (it.kind === 4) {
         flush();
         // Share painter order with the car. Nearer building silhouettes erase these lights too.

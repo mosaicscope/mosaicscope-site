@@ -1,4 +1,5 @@
 /** Authored body families: roofline, overhangs and glazing differ independently of paint and lamps. */
+import {EXPANDED_FLEET,EXPANSION_BODY_FAMILIES} from './fleetExpansion';
 export interface BodyShape{cf:number;cr:number;hood:number;deck:number;cab:[number,number];roof:[number,number];cw:number;rw:number;wheel:number;rh?:number;boxy?:boolean;open?:boolean;pill?:number;tray?:boolean}
 const families:[string,string,BodyShape][]=[
  ['short hatch','demi fit peugeot colt',{cf:.23,cr:.05,hood:.42,deck:.6,cab:[-.45,.13],roof:[-.39,-.08],cw:.89,rw:.76,wheel:.26}],
@@ -26,5 +27,6 @@ const families:[string,string,BodyShape][]=[
  ['rally saloon','gsr',{cf:.17,cr:.08,hood:.43,deck:.56,cab:[-.28,.17],roof:[-.19,.01],cw:.9,rw:.76,wheel:.31,pill:2}],
 ];
 const bodies=new Map(families.flatMap(([family,ids,shape])=>ids.split(' ').map(id=>[id,{family,shape}] as const)));
+for(const[id,model]of Object.entries(EXPANDED_FLEET))if(model.body)bodies.set(id,model.body);
 export const fleetBody=(id:string)=>bodies.get(id);
-export const BODY_FAMILIES=families.map(([name])=>name);
+export const BODY_FAMILIES=[...families.map(([name])=>name),...EXPANSION_BODY_FAMILIES];
