@@ -3,7 +3,7 @@ import type { VehicleClass } from "../content/vehicles";
 /**
  * Subtle per-car manufacturing variation,
  * derived from its plate so the same car always looks the same. Drawing (Cars.ts) and sound
- * (Diegetic.ts) read it; the simulation never does, so traffic movement and collisions are unchanged.
+ * (Diegetic.ts) read it; VehicleGeometry shares the scale with simulation contact shapes.
  */
 export interface CarMutation {
   scale: number;        // within three percent of class dimensions

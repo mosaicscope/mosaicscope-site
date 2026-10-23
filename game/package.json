@@ -13,6 +13,7 @@
     "test": "vitest run",
     "e2e:upgrades": "node e2e/upgrades.mjs",
     "e2e:touch": "node e2e/touch.mjs",
+    "e2e:driving": "node e2e/driving.mjs",
     "bench": "vite-node scripts/bench.ts",
     "catalogue": "vite-node scripts/catalogue.ts",
     "smoke": "node e2e/smoke.mjs",

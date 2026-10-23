@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### 23 October 2026: live districts, persistent crush, casino rooms, driving and building life
+- Added a **Live city** dock/menu entry, direct access to real mapped Christchurch, worldwide city selection, and twenty functional street tools. Added MET Norway weather models worldwide, NZTA highway notices in New Zealand and TfL road disruptions in London, with provider/time/coverage attribution and explicit unavailable states. Vehicles and pedestrians remain simulated.
+- Map selection prioritizes water and preserves both road and pedestrian networks. River centre-lines use OSM geometry with explicitly estimated widths when no width tag exists. A verified Christchurch snapshot remains available when the map service fails.
+- Vehicle impacts retain up to eight local crush fields across saves. Subdivided metal surfaces change shape and shading; body fittings and lamp mounts sample the same deformation. Individual panel repairs clear their own crush history. Mapped traffic retains damage across frames and district revisits.
+- Authored 23 distinct body families across the new four-wheel fleet. Normal parking and regional streets expose more models; old saves refresh only untouched, unowned background cars.
+- Replaced the old flat spectator strip in blackjack, slots and video poker with native isometric rooms, occupied cabinets, bar/lounge activity, live cards/reels/held cards, room cameras and accessible game controls. Seated joints now use the chair's world plane. Crash Flight remains 2D.
+- Combined the driving chat's Road/Sport/Drift/Trail modes, drivetrain/surface grip, automatic gears/RPM, drift chains, shared chassis contact geometry, tyre smoke/spray/dust and integrated engine sound.
+- Combined the building chat's 60 authored occupant/activity tracks, animated window details, signs, lighting and rooftop activity in both the main world and mapped districts.
+- Validation and data provenance are recorded in [LIVE-CITY-RELEASE.md](LIVE-CITY-RELEASE.md). This is a tuned 2.5D game simulation, with partial public road-data coverage; it does not claim a universal live traffic feed, engineering-grade crash physics or guaranteed frame rates on every device.
+
 ### Upgrade roadmap and game interface
 - Added 77 purchasable upgrades across skills, crew, home, money, city, style and the Mosaics (roadmap items 12–77 and 89–99).
 - Wired purchases into throwing, stealth, food, repair costs, justice, shifts, savings, businesses, crew healing, transport, stash storage, photo filters and animated world effects.

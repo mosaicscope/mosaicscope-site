@@ -9,7 +9,7 @@ interface P { on: boolean; x: number; y: number; z: number; vx: number; vy: numb
 
 /** Slapstick bits that fly off stick figures on big hits (26 kinds). */
 const GIBS = ["💫", "⭐", "🩹", "😵", "🌀", "💥", "🧦", "🧢", "👟", "💨", "🔩", "🪥", "✦", "✧", "!", "!!", "OOF", "OW", "OUCH", "POW", "ZAP", "★", "☆", "〰", "☁", "✶"];
-const K_DOT = 0, K_SPARK = 1, K_SQ = 2, K_TEXT = 3, K_RING = 4, K_STAR = 5;
+const K_DOT = 0, K_SPARK = 1, K_SQ = 2, K_TEXT = 3, K_RING = 4, K_STAR = 5, K_SMOKE = 6;
 
 export class Particles {
   private pool: P[] = [];
@@ -37,6 +37,7 @@ export class Particles {
       p.on = true; p.x = x; p.y = y; p.z = z; p.life = 0; p.color = color; p.text = text; p.g = 9;
       const a = rand() * 6.283, s = rand();
       switch (kind) {
+        case "tyre_smoke": p.kind=K_SMOKE; p.vx=Math.cos(a)*0.35; p.vy=Math.sin(a)*0.35; p.vz=0.25+s*0.35; p.max=1.6+s*0.9; p.size=3+s*3; p.g=-0.12; break;
         case "impact": p.kind = K_SPARK; p.vx = Math.cos(a) * (1 + s * 2); p.vy = Math.sin(a) * (1 + s * 2); p.vz = 1 + s * 3; p.max = 0.35; p.size = 2; break;
         case "spark": p.kind = K_SPARK; p.vx = Math.cos(a) * 2 * s; p.vy = Math.sin(a) * 2 * s; p.vz = 2 + s * 3; p.max = 0.5; p.size = 1.5; break;
         case "dust": p.kind = K_DOT; p.color = "rgba(154,141,128,.6)"; p.vx = Math.cos(a) * 0.5; p.vy = Math.sin(a) * 0.5; p.vz = 0.5 + s; p.max = 0.6; p.size = 2.5 + s * 2; p.g = 1; break;
@@ -85,6 +86,13 @@ export class Particles {
       g.globalAlpha = t > 0.6 ? (1 - t) / 0.4 : 1;
       g.fillStyle = g.strokeStyle = p.color;
       switch (p.kind) {
+        case K_SMOKE: {
+          const radius=p.size*z*(0.6+t*3.5);
+          g.globalAlpha=Math.sin(Math.PI*t)*(1-t)*0.7;
+          const cloud=g.createRadialGradient(pt.x,pt.y,0,pt.x,pt.y,radius);
+          cloud.addColorStop(0,p.color); cloud.addColorStop(1,"rgba(210,214,216,0)");
+          g.fillStyle=cloud;g.beginPath();g.arc(pt.x,pt.y,radius,0,6.283);g.fill();break;
+        }
         case K_DOT: g.beginPath(); g.arc(pt.x, pt.y, p.size * z * (1 + t), 0, 6.283); g.fill(); break;
         case K_SPARK: g.lineWidth = p.size * z; g.beginPath(); g.moveTo(pt.x, pt.y); g.lineTo(pt.x - (p.vx - p.vy) * 4 * z, pt.y - ((p.vx + p.vy) * 2 - p.vz * 3) * z); g.stroke(); break;
         case K_SQ: g.fillRect(pt.x - p.size * z / 2, pt.y - p.size * z / 2, p.size * z, p.size * z * 0.6); break;

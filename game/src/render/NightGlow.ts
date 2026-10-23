@@ -1,3 +1,4 @@
+import { paintActivity } from './WindowActivities';
 /**
  * NIGHT GLOW: lit windows that actually glow, and the small domestic stories behind them.
  *
@@ -9,16 +10,16 @@
  * Pure and deterministic (a hash of the window's seed): no RNG, nothing saved, the sim is untouched.
  * The painter runs after the darkness overlay (Buildings.GLOW), so windows stay bright and bloom.
  */
-export type Story = "none" | "figure" | "couple" | "tv" | "curtains" | "cat" | "plant" | "lamp";
+export type Story = "none" | "figure" | "couple" | "tv" | "curtains" | "cat" | "plant" | "lamp" | "walking" | "dancing" | "working";
 
 const hash = (n: number): number => { n = Math.imul(n ^ 0x9e3779b9, 0x85ebca6b); n ^= n >>> 13; n = Math.imul(n, 0xc2b2ae35); return ((n ^ (n >>> 16)) >>> 0) / 4294967296; };
 
-/** What is going on behind one lit window. About a third have a story; the rest are just warm. */
+/** Stable room identities; most rooms now have a visible occupant or domestic detail. */
 export function storyOf(seed: number): Story {
   const r = hash(seed);
-  if (r < 0.64) return "none";
-  const t = ["figure", "couple", "tv", "tv", "curtains", "cat", "plant", "lamp"] as const;
-  return t[Math.floor(((r - 0.64) / 0.36) * t.length) % t.length];
+  if (r < 0.22) return "none";
+  const t = ["figure", "couple", "walking", "walking", "dancing", "working", "tv", "curtains", "cat", "plant", "lamp"] as const;
+  return t[Math.floor(((r - 0.22) / 0.78) * t.length) % t.length];
 }
 
 export type Pt = [number, number];
@@ -41,13 +42,9 @@ const INK = "rgba(18,13,22,.88)";
 function paintStory(g: CanvasRenderingContext2D, w: Win, story: Story, time: number): void {
   if (story === "none") return;
   g.save();g.beginPath();quadPath(g,w,0,1,0,1);g.clip();g.beginPath();
-  if (story === "figure" || story === "couple") {
-    const xs = story === "couple" ? [0.3, 0.7] : [0.35 + hash(w.seed + 3) * 0.3];
-    const drift=Math.sin(time*.23+w.seed)*.12;
-    for (const base of xs) {const u=Math.max(.16,Math.min(.84,base+drift)); blob(g, w, u, 0.62, 0.11, 0.1); quadPath(g, w, u - 0.14, u + 0.14, 0, 0.5); }
-    g.fillStyle = INK; g.fill();
-    g.beginPath();const u=.5+drift;quadPath(g,w,u-.2,u+.12,.25+Math.sin(time*.7+w.seed)*.025,.31);g.fill();
-    if (story === "couple") { g.beginPath(); quadPath(g, w, 0.46, 0.54, 0.35, 0.42); g.fillStyle = INK; g.fill(); }   // arms around each other
+  if (story === "walking" || story === "dancing" || story === "working" || story === "figure" || story === "couple") {
+    paintActivity(g,(u,v)=>at(w,u,v),w.seed,time);
+    if(story==='couple')paintActivity(g,(u,v)=>at(w,.52+u*.45,v*.82),w.seed+101,time);
   } else if (story === "tv") {
     // a screen throwing blue-grey light, changing a few times a second
     const f = Math.floor(time * 3 + w.seed) % 3, cols = ["rgba(120,170,255,.55)", "rgba(190,150,255,.45)", "rgba(160,220,255,.5)"];
@@ -55,26 +52,37 @@ function paintStory(g: CanvasRenderingContext2D, w: Win, story: Story, time: num
     g.beginPath(); quadPath(g, w, 0.3, 0.7, 0.18, 0.5); g.fillStyle = "rgba(235,245,255,.9)"; g.fill();
     g.beginPath(); blob(g, w, 0.18, 0.2, 0.08, 0.1); quadPath(g, w, 0.08, 0.28, 0, 0.18); g.fillStyle = INK; g.fill();   // the back of a head on the couch
   } else if (story === "curtains") {
-    g.moveTo(...at(w, 0, 1)); g.lineTo(...at(w, 0.34, 1)); g.lineTo(...at(w, 0.08, 0.1)); g.lineTo(...at(w, 0, 0.1)); g.closePath();
-    g.moveTo(...at(w, 1, 1)); g.lineTo(...at(w, 0.66, 1)); g.lineTo(...at(w, 0.92, 0.1)); g.lineTo(...at(w, 1, 0.1)); g.closePath();
+    const sway=Math.sin(time*(.4+hash(w.seed+2)*.5)+w.seed)*.06;
+    g.moveTo(...at(w, 0, 1)); g.lineTo(...at(w, 0.34, 1)); g.lineTo(...at(w, 0.08+sway, 0.1)); g.lineTo(...at(w, 0, 0.1)); g.closePath();
+    g.moveTo(...at(w, 1, 1)); g.lineTo(...at(w, 0.66, 1)); g.lineTo(...at(w, 0.92+sway, 0.1)); g.lineTo(...at(w, 1, 0.1)); g.closePath();
     g.fillStyle = w.seed % 2 ? "rgba(150,48,40,.78)" : "rgba(60,96,120,.78)"; g.fill();
   } else if (story === "cat") {
     blob(g, w, 0.5, 0.2, 0.15, 0.17); blob(g, w, 0.66, 0.4, 0.07, 0.08);
     g.moveTo(...at(w, 0.6, 0.46)); g.lineTo(...at(w, 0.63, 0.62)); g.lineTo(...at(w, 0.67, 0.48)); g.moveTo(...at(w, 0.68, 0.48)); g.lineTo(...at(w, 0.72, 0.62)); g.lineTo(...at(w, 0.74, 0.46));
     g.fillStyle = INK; g.fill();
+    g.strokeStyle=INK;g.lineWidth=1;g.beginPath();g.moveTo(...at(w,.4,.15));g.quadraticCurveTo(...at(w,.18,.2),...at(w,.24,.4+Math.sin(time*(.6+hash(w.seed)))*.1));g.stroke();
   } else if (story === "plant") {
     quadPath(g, w, 0.42, 0.58, 0, 0.16);
     g.fillStyle = "rgba(150,70,40,.9)"; g.fill();
-    g.beginPath(); blob(g, w, 0.4, 0.3, 0.09, 0.1); blob(g, w, 0.6, 0.32, 0.09, 0.1); blob(g, w, 0.5, 0.42, 0.1, 0.12);
+    const sway=Math.sin(time*(.3+hash(w.seed)) + w.seed)*.035;
+    g.beginPath(); blob(g, w, 0.4+sway, 0.3, 0.09, 0.1); blob(g, w, 0.6+sway, 0.32, 0.09, 0.1); blob(g, w, 0.5+sway, 0.42, 0.1, 0.12);
     g.fillStyle = "rgba(34,110,56,.92)"; g.fill();
   } else {
     // a standard lamp: shade glowing brighter than the room
     g.moveTo(...at(w, 0.78, 0)); g.lineTo(...at(w, 0.8, 0)); g.lineTo(...at(w, 0.8, 0.6)); g.lineTo(...at(w, 0.78, 0.6)); g.closePath();
     g.fillStyle = INK; g.fill();
     g.beginPath(); g.moveTo(...at(w, 0.68, 0.74)); g.lineTo(...at(w, 0.9, 0.74)); g.lineTo(...at(w, 0.85, 0.56)); g.lineTo(...at(w, 0.73, 0.56)); g.closePath();
-    g.fillStyle = "rgba(255,244,214,.95)"; g.fill();
+    g.fillStyle = `rgba(255,244,214,${.8+Math.sin(time*(.2+hash(w.seed))+w.seed)*.12})`; g.fill();
   }
   g.restore();
+}
+
+/** Also used on daytime glass; the emissive pass repaints the same occupants at night. */
+export function paintWindowStories(g: CanvasRenderingContext2D, wins: readonly Win[], time: number): void {
+  for (const w of wins) {
+    // Sub-pixel people add cost without adding readable detail at distant zoom levels.
+    if (Math.hypot(w.B[0]-w.A[0],w.B[1]-w.A[1]) >= 5) paintStory(g,w,storyOf(w.seed),time);
+  }
 }
 
 /** Repaint lit windows over the night overlay: the glass itself, a soft bloom, then whatever the household is doing. */
@@ -92,7 +100,7 @@ export function paintWindows(g: CanvasRenderingContext2D, wins: readonly Win[], 
     }
   }
   g.globalCompositeOperation = "source-over";
-  if (stories) for (const w of wins) paintStory(g, w, storyOf(w.seed), time);
+  if (stories) paintWindowStories(g, wins, time);
   g.globalAlpha = prev;
 }
 

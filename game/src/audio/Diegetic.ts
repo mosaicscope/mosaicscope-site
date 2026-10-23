@@ -1,5 +1,5 @@
 import {FLEET_MODELS} from '../content/fleet';
-import type {BaseVehicleClass} from '../content/vehicles';
+import {VEHICLES, type BaseVehicleClass} from '../content/vehicles';
 /**
  * Hunter S Bombson's in-world sound layer: everything you would hear standing in the city, and nothing
  * you would call music. All original, all synthesised live with Web Audio (no samples, no files).
@@ -973,16 +973,18 @@ export class Diegetic {
     for (const c of cands.slice(0, this.engines.length)) {
       let e = this.engines.find((x) => x.veh === c.id);
       if (!e) { e = this.engines.find((x) => x.veh < 0); if (!e) continue; e.veh = c.id; owned.add(c.id); e.amp.gain.cancelScheduledValues(t); e.amp.gain.setValueAtTime(0, t); }
-      const v = veh.get(c.id)!, p = ENGINE[v.cls], top = 12;
+      const v = veh.get(c.id)!, p = ENGINE[v.cls], top = VEHICLES[v.cls].topSpeed;
       const s = clamp01(c.spd / top);
       const mine = c.id === myCar;
+      const load = mine ? Math.abs(v.driveThrottle ?? 0) : s;
       const M = carMutationOf(v.plate, v.cls);   // bigger cars sound lower and heavier (visual size only, see CarMutation.ts)
-      const f = engineFreq(p, c.spd, top) * dopplerRate(c.rad) * M.pitch;
+      const revs = mine && v.powertrain ? p.idle+(p.top-p.idle)*clamp01((v.powertrain.rpm-900)/6100) : engineFreq(p,c.spd,top);
+      const f = revs * dopplerRate(c.rad) * M.pitch;
       e.a.frequency.setTargetAtTime(f, t, 0.06); e.b.frequency.setTargetAtTime(f * 0.5, t, 0.06);
-      e.filt.frequency.setTargetAtTime(p.cut * (0.55 + s * 0.9) * (mine ? 0.55 : 1), t, 0.1);
+      e.filt.frequency.setTargetAtTime(p.cut * (0.55 + s * 0.65 + load * 0.5) * (mine ? 0.55 : 1), t, 0.1);
       e.lfo.frequency.setTargetAtTime(7 + s * 12, t, 0.1); e.lfoDepth.gain.setTargetAtTime(p.burble, t, 0.1);
       const idle = c.spd < 0.4;
-      e.amp.gain.setTargetAtTime(c.sp.gain * (mine ? 0.2 : 0.14) * (idle ? 0.55 : 0.65 + s * 0.6) * M.rumble, t, 0.07);
+      e.amp.gain.setTargetAtTime(c.sp.gain * (mine ? 0.2 : 0.14) * (idle ? 0.55 + load * 0.25 : 0.55 + s * 0.4 + load * 0.3) * M.rumble, t, 0.07);
       e.road.gain.setTargetAtTime(c.sp.gain * clamp01(c.spd / 7) ** 1.4 * (0.04 + wet * 0.07), t, 0.08);
       if (e.pan) e.pan.pan.setTargetAtTime(mine ? 0 : c.sp.pan, t, 0.05);
     }

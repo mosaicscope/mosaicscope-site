@@ -1,4 +1,6 @@
 import {lampFixture,surfacePoint,surfacePatch} from './SurfaceFixtures';
+import {vehicleGeometry} from '../sim/VehicleGeometry';
+import {handlingProfile} from '../sim/VehicleHandling';
 import {lampDamage} from '../sim/VehicleDamage';
 import {drawTwoWheeler} from './TwoWheelers';
 import type {Character} from '../entities/types';
@@ -9,6 +11,8 @@ import type { Camera } from "./Camera";
 import { GLOW } from "./Buildings";
 import { patinaOf, weather } from "./CarPatina";
 import { carMutationOf } from "./CarMutation";
+import {fleetBody} from '../content/vehicleBodies';
+import {vehicleDents,deformVehiclePoint} from './VehicleMesh';
 
 /**
  * Cars are little lofted 3D models projected into the iso view: a rocker skirt, a body whose top
@@ -168,8 +172,8 @@ function ring(x0: number, x1: number, hw: number, cf: number, cr: number, h: (x:
   return P.map(([x, y]) => [x, y, h(x)]);
 }
 
-interface Ctx { g: CanvasRenderingContext2D; cam: Camera; x: number; y: number; c: number; s: number; roll?:number; pitch?:number }
-const W3 = (k: Ctx, p: V3) => { k.cam.toScreen(k.x + p[0] * k.c - p[1] * k.s, k.y + p[0] * k.s + p[1] * k.c, Math.max(.015,p[2]+(k.roll??0)*p[1]+(k.pitch??0)*p[0]), pt); return [pt.x, pt.y]; };
+interface Ctx { g: CanvasRenderingContext2D; cam: Camera; x: number; y: number; c: number; s: number; roll?:number; pitch?:number; deform?:(p:V3)=>V3 }
+const W3 = (k: Ctx, raw: V3) => { const p=k.deform?.(raw)??raw;k.cam.toScreen(k.x + p[0] * k.c - p[1] * k.s, k.y + p[0] * k.s + p[1] * k.c, Math.max(.015,p[2]+(k.roll??0)*p[1]+(k.pitch??0)*p[0]), pt); return [pt.x, pt.y]; };
 /** Local -> world normal. */
 const WN = (k: Ctx, n: V3): V3 => [n[0] * k.c - n[1] * k.s, n[0] * k.s + n[1] * k.c, n[2]];
 const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -180,6 +184,18 @@ function fillPoly(k: Ctx, pts: V3[], col: string): void {
   g.closePath(); g.fill();
 }
 const shadeFor = (n: V3) => 0.5 + 0.62 * Math.max(0, dot(norm(n), LIGHT));
+
+/** Subdivide damaged sheet metal so an impact between corners changes the surface and its light. */
+function meshTriangle(k:Ctx,a:V3,b:V3,c:V3,col:string,normal:V3,level:number):void{
+ if(level>0){const mid=(p:V3,q:V3):V3=>[(p[0]+q[0])/2,(p[1]+q[1])/2,(p[2]+q[2])/2],ab=mid(a,b),bc=mid(b,c),ca=mid(c,a);for(const tri of [[a,ab,ca],[ab,b,bc],[ca,bc,c],[ab,bc,ca]])meshTriangle(k,tri[0],tri[1],tri[2],col,normal,level-1);return;}
+ const A=k.deform!(a),B=k.deform!(b),C=k.deform!(c);let n=cross([B[0]-A[0],B[1]-A[1],B[2]-A[2]],[C[0]-A[0],C[1]-A[1],C[2]-A[2]]);if(dot(n,normal)<0)n=n.map(v=>-v) as V3;
+ const base=col.startsWith('#')?rgb(col):col.match(/[\d.]+/g)?.slice(0,3).map(Number) as [number,number,number]|undefined,ratio=Math.max(.55,Math.min(1.3,shadeFor(WN(k,n))/shadeFor(WN(k,normal)))),shade=base?lit(base,ratio):col;fillPoly(k,[a,b,c],shade);const g=k.g;g.strokeStyle=shade;g.lineWidth=.4;g.stroke();
+}
+function meshFace(k:Ctx,points:V3[],col:string,normal:V3):void{
+ if(!k.deform||k.cam.zoom<.45){fillPoly(k,points,col);return;}
+ const centre=points.reduce((a,p)=>[a[0]+p[0]/points.length,a[1]+p[1]/points.length,a[2]+p[2]/points.length] as V3,[0,0,0] as V3),level=k.cam.zoom>1.6?2:1;
+ for(let i=0;i<points.length;i++)meshTriangle(k,centre,points[i],points[(i+1)%points.length],col,normal,level);
+}
 
 /** Draw the visible side faces of a loft between two rings. Returns the faces drawn (for liveries). */
 function loft(k: Ctx, r0: V3[], r1: V3[], colorOf: (n: V3, i: number) => string, edge?: string): { a0: V3; b0: V3; a1: V3; b1: V3; n: V3 }[] {
@@ -195,7 +211,7 @@ function loft(k: Ctx, r0: V3[], r1: V3[], colorOf: (n: V3, i: number) => string,
     if (n[0] * mx + n[1] * my < 0) n = [-n[0], -n[1], -n[2]];
     const wn = WN(k, n);
     if (dot(wn, VIEW) <= 0) continue;
-    fillPoly(k, [a0, b0, b1, a1], colorOf(wn, i));
+    meshFace(k, [a0, b0, b1, a1], colorOf(wn, i),n);
     if (edge) { const g = k.g, A = W3(k, a1), B = W3(k, b1); g.strokeStyle = edge; g.lineWidth = Math.max(1, k.cam.zoom); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke(); }
     out.push({ a0, b0, a1, b1, n: wn });
   }
@@ -206,7 +222,7 @@ function cap(k: Ctx, r: V3[], col: [number, number, number], add = 0): void {
   const a = r[0], b = r[Math.floor(r.length / 2)], c = r[Math.floor(r.length / 4)], d = r[Math.floor((3 * r.length) / 4)];
   let n = cross([b[0] - a[0], b[1] - a[1], b[2] - a[2]], [d[0] - c[0], d[1] - c[1], d[2] - c[2]]);
   if (n[2] < 0) n = [-n[0], -n[1], -n[2]];
-  fillPoly(k, r, lit(col, shadeFor(WN(k, n)) * 1.05, add));
+  meshFace(k, r, lit(col, shadeFor(WN(k, n)) * 1.05, add),n);
 }
 /** Point on a face: t along the edge, u up the face. */
 const onFace = (f: { a0: V3; b0: V3; a1: V3; b1: V3 }, t: number, u: number): V3 => {
@@ -234,13 +250,12 @@ function wheel(k: Ctx, lx: number, ly: number, r: number, near: boolean, spin: n
   g.stroke();
 }
 
-const spinOf = new WeakMap<Vehicle, number>();
 // World positions from the rendered assembly are also used by the lighting pass.
 const lampMounts = new WeakMap<Vehicle, V3[]>();
 
 export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, alpha: number, time: number, dark: number, selected: boolean, driver?:Character): void {
   const mods=v.lifeMods??[], shapeClass=mods.includes("Hearse body")?"hearse":mods.includes("Limousine chassis")?"limo":v.cls;
-  const d = VEHICLES[v.cls], baseShape=SHAPES[d.design?.base??shapeClass as BaseVehicleClass], S:Shape = d.design?{...baseShape,wb:d.design.wb,wing:d.design.trim==='wing'||baseShape.wing,cf:d.design.lamp==='square'?.12:d.design.lamp==='slit'?.3:baseShape.cf}:baseShape, M = carMutationOf(v.plate, v.cls);
+  const d = VEHICLES[v.cls], baseShape=SHAPES[d.design?.base??shapeClass as BaseVehicleClass], authored=mods.includes('Hearse body')||mods.includes('Limousine chassis')?undefined:fleetBody(v.cls)?.shape,S:Shape = d.design?{...baseShape,...authored,wb:d.design.wb,wing:d.design.trim==='wing'||baseShape.wing}:baseShape, M = carMutationOf(v.plate, v.cls);
   const x = v.px + (v.x - v.px) * alpha, y = v.py + (v.y - v.py) * alpha;
   const z = cam.zoom, ang = v.heading;
   const k: Ctx = { g, cam, x, y, c: Math.cos(ang), s: Math.sin(ang) };
@@ -254,12 +269,12 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     fillPoly(k,[[.2,-.09,1.17],[L*.85,-.09,1.17],[L*.85,.09,1.17],[.2,.09,1.17]],'#8c977a');fillPoly(k,[[.2,.09,1.04],[L*.85,.09,1.04],[L*.85,.09,1.17],[.2,.09,1.17]],'#3f4b37');
     for(const f of armour){if(Math.abs(f.a0[0]-f.b0[0])>.1)continue;const frontEnd=f.a0[0]>0;for(const side of[-1,1] as const){const fixture=lampFixture(f,side,frontEnd,'square');fillPoly(k,fixture.housing,'#24342a');if(lampDamage(v,(frontEnd?0:2)+(side>0?1:0))<.94)fillPoly(k,fixture.lens,frontEnd?'#bac4a4':'#a0604b');}}return;
   }
-  // drawn size only: the simulation still uses the class dimensions, so movement and collisions are unchanged
-  const L = d.length * M.scale * (mods.includes("Limousine chassis")?1.35:1), hw = (d.width / 2) * M.scale, H = d.height * 1.08 * M.scale * (mods.includes("Double deck")?1.6:1);
+  const geometry=vehicleGeometry(v),L=geometry.length,hw=geometry.width/2,H=geometry.height;
   // crumple zones: a hit end is pushed in (Traffic.bump records where the car was hit)
   const panels=v.components?.panels??[];
   const dF=Math.max(v.dmgF??0,(panels[0]??0)*.65),dR=Math.max(v.dmgR??0,(panels[1]??0)*.65),dL=Math.max(v.dmgL??0,(panels[2]??0)*.65),dS=Math.max(v.dmgS??0,(panels[3]??0)*.65);
-  const x0 = -L / 2 + dR * 0.16 * L, x1 = L / 2 - dF * 0.18 * L;
+  const dents=vehicleDents(v);if(dents.length)k.deform=p=>deformVehiclePoint(dents,p,L,hw*2,H);
+  const x0 = -L / 2, x1 = L / 2;
 
   const night = dark > 0.35;
   const ST:Style = {...STYLE[d.design?.base??v.cls],...(d.design?.trim==='rack'?{roof:'rack' as const}:d.design?.trim==='spare'?{spare:true}:d.design?.trim==='work'?{roof:'ladder' as const}:d.design?.trim==='stripe'?{bands:[{u0:.36,u1:.45,cols:['#e1dac2']}]}:{}),...(mods.includes("Neon kit")?{neon:true}:{}),...(mods.includes("Tractor engine")?{roof:"cone" as const}:{}),...(mods.includes("Hearse body")?{paint:"#171420"}:{})};
@@ -267,8 +282,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const paint = weather(rgb(v.cls === "police" ? "#f2f2ee" : v.cls === "ambulance" ? "#f4f1e6" : ST.paint ?? v.color), PT);
   const roofPaint = PT.roof ? rgb(PT.roof) : paint;
   const dmg = 1 - v.damage * 0.35;
-  const spin = (spinOf.get(v) ?? 0) + v.speed * 0.016 / (S.wheel * H);
-  spinOf.set(v, spin);
+  const spin = (v.wheelTravel ?? time*v.speed) / (S.wheel * H);
 
   // contact shadow (soft, two layers)
   cam.toScreen(x, y, 0, pt);
@@ -294,17 +308,18 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
 
   // which side faces the camera
   const nearSign = dot(WN(k, [0, 1, 0]), VIEW) > 0 ? 1 : -1;
-  const wr = S.wheel * H, wx = L * (S.wb ?? (v.cls === "van" || v.cls === "ambulance" ? 0.33 : 0.31)), wy = hw - 0.02;
+  const wr = S.wheel * H, wx = geometry.wheelbase/2, wy = hw - 0.02;
   const rimCol = ST.rim ?? (v.cls === "police" || v.cls === "ambulance" || v.cls === "van" ? "#8a8580" : v.cls === "super" || v.cls === "sports" ? "#2a2a2a" : "#cfc8c0");
   const axles = M.axles === 1 ? [0] : M.axles === 2 ? [wx, -wx] : [wx, 0, -wx];
   for (const lx of axles) roadWheel(k,v,lx,-nearSign*wy,wr,false,spin,rimCol);
 
   // The chassis settles toward a failed corner; grounded wheels keep their own contact plane.
   if(v.components){const drop=(i:number)=>{const w=v.components!.wheels[i];return w.missing?.2:(w.puncture?.06:0)+w.suspension*.045;};k.roll=((drop(0)+drop(2))-(drop(1)+drop(3)))/Math.max(.2,hw*4);k.pitch=((drop(2)+drop(3))-(drop(0)+drop(1)))/Math.max(.4,L*2);}
+  k.roll=(k.roll??0)+(v.bodyRoll??0);k.pitch=(k.pitch??0)+(v.bodyPitch??0);
   // ---- lower skirt ----
   const hs = H * 0.3, ground = 0.08;
   const bodyTop = (lx: number) => { const t = (lx - x0) / L; return H * (S.deck + (S.hood - S.deck) * Math.max(0, Math.min(1, (t - 0.25) / 0.75))); };
-  const dent=(ring:V3[]):V3[]=>ring.map(([a,b,h])=>{const side=b<0?dL:dS,contact=v.components?.contacts?.[b<0?2:3],hit=Math.exp(-Math.pow((a/L-(contact?.x??-.04))*4.5,2)),front=Math.exp(-Math.pow((a-x1)/L*7,2))*dF,rear=Math.exp(-Math.pow((a-x0)/L*7,2))*dR,frontBias=.65+.35*Math.max(0,1-Math.abs(b/(hw*2)-(v.components?.contacts?.[0]?.y??0))*2),rearBias=.65+.35*Math.max(0,1-Math.abs(b/(hw*2)-(v.components?.contacts?.[1]?.y??0))*2);return[a-front*frontBias*L*.045+rear*rearBias*L*.035,b*(1-side*hit*.3),h-side*hit*.07*H-(front+rear)*.025*H];});
+  const dent=(ring:V3[]):V3[]=>ring;
   const rSk0 = dent(ring(x0 + 0.04, x1 - 0.04, hw * 0.9, S.cf, S.cr, () => ground));
   const rSk1 = dent(ring(x0, x1, hw, S.cf, S.cr, () => hs));
   const lower = (n: V3) => lit(paint, shadeFor(n) * 0.72 * dmg);
@@ -315,7 +330,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const rTop = dent(ring(x0 + 0.03, x1 - 0.02, hw * 0.95, S.cf * 1.05, S.cr * 1.05, bodyTop));
   const sides = loft(k, rSk1, rTop, (n) => lit(paint, shadeFor(n) * dmg), "rgba(255,255,255,.32)");
   const frontFace={a0:rSk1[0],b0:rSk1[1],a1:rTop[0],b1:rTop[1]};
-  lampMounts.set(v,([-1,1] as const).map(side=>{const p=lampFixture(frontFace,side,true,d.design?.lamp).center;const hurt=lampDamage(v,side<0?0:1);return[x+p[0]*k.c-p[1]*k.s,y+p[0]*k.s+p[1]*k.c,p[2]-(hurt>.72&&hurt<.94?.08:0)] as V3;}));
+  lampMounts.set(v,([-1,1] as const).map(side=>{const raw=lampFixture(frontFace,side,true,d.design?.lamp).center,p=k.deform?.(raw)??raw;const hurt=lampDamage(v,side<0?0:1);return[x+p[0]*k.c-p[1]*k.s,y+p[0]*k.s+p[1]*k.c,p[2]+(k.roll??0)*p[1]+(k.pitch??0)*p[0]-(hurt>.72&&hurt<.94?.08:0)] as V3;}));
   // shoulder crease highlight (the "gloss" line)
   for (const f of sides) {
     const A = W3(k, onFace(f, 0, 0.62)), B = W3(k, onFace(f, 1, 0.62));
@@ -674,7 +689,8 @@ export function headlights(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle,
 
 function roadWheel(k:Ctx,v:Vehicle,x:number,y:number,r:number,near:boolean,spin:number,color:string):void{
  const i=(x>0?0:2)+(y>0?1:0),w=v.components?.wheels[i];if(w?.missing)return;
- const cx=k.x+x*k.c-y*k.s,cy=k.y+x*k.s+y*k.c,ang=v.heading+(x>0?(v.steerAngle??0):0)+(w?.alignment??0),ctx={...k,x:cx,y:cy,c:Math.cos(ang),s:Math.sin(ang),roll:0,pitch:0};
+ const drive=handlingProfile(v.cls).drive;if(drive==='awd'||(drive==='fwd'?x>0:x<0))spin+=(v.wheelSpinTravel??0)/Math.max(.05,r);
+ const cx=k.x+x*k.c-y*k.s,cy=k.y+x*k.s+y*k.c,ang=v.heading+(x>0?(v.wheelSteer??v.steerAngle??0):0)+(w?.alignment??0),ctx={...k,x:cx,y:cy,c:Math.cos(ang),s:Math.sin(ang),roll:0,pitch:0,deform:undefined};
  wheel(ctx,0,0,r*(1-(w?.rim??0)*.08),near,spin,color,w?w.puncture:(y<0?v.flatLeft:v.flatRight));
  if(w&&w.rim>.3){const q=W3(ctx,[0,0,r]);k.g.strokeStyle='#a9b3a2';k.g.lineWidth=k.cam.zoom;k.g.beginPath();k.g.moveTo(q[0]-3*k.cam.zoom,q[1]-r*12*k.cam.zoom);k.g.lineTo(q[0]+3*k.cam.zoom,q[1]+r*10*k.cam.zoom);k.g.stroke();}
 }

@@ -1,15 +1,16 @@
 import type {Camera} from './Camera';
 import type {Character,Vehicle} from '../entities/types';
 import {VEHICLES} from '../content/vehicles';
+import {vehicleGeometry} from '../sim/VehicleGeometry';
 import {pose,solve,drawFigure,J} from './StickFigure';
 type Point=[number,number,number];
 const kinds=new Set(['motorcycle','sportbike','cruiser','bicycle','ebike','escooter']);
 /** Local geometry is projected through the same camera as cars, with a real wheel contact plane. */
 export function drawTwoWheeler(g:CanvasRenderingContext2D,cam:Camera,v:Vehicle,alpha:number,time:number,driver?:Character,dark=0):boolean{
  const body=VEHICLES[v.cls].design?.base??v.cls;if(!kinds.has(body))return false;
- const d=VEHICLES[v.cls],z=cam.zoom,L=d.length,x=v.px+(v.x-v.px)*alpha,y=v.py+(v.y-v.py)*alpha,c=Math.cos(v.heading),s=Math.sin(v.heading);
+ const d=VEHICLES[v.cls],geometry=vehicleGeometry(v),z=cam.zoom,L=geometry.length,x=v.px+(v.x-v.px)*alpha,y=v.py+(v.y-v.py)*alpha,c=Math.cos(v.heading),s=Math.sin(v.heading);
  const bicycle=body==='bicycle'||body==='ebike',scooter=body==='escooter',sport=body==='sportbike',cruiser=body==='cruiser';
- const radius=bicycle?.19:scooter?.095:cruiser?.195:.18,rear=-L*.36,front=L*(cruiser?.4:.36),spin=time*v.speed/Math.max(.1,radius),steer=v.steerAngle??0;
+ const radius=(bicycle?.19:scooter?.095:cruiser?.195:.18)*(L/d.length),rear=-geometry.wheelbase/2,front=geometry.wheelbase/2,spin=(v.wheelTravel??time*v.speed)/Math.max(.1,radius),steer=v.wheelSteer??v.steerAngle??0;
  const bank=scooter||bicycle?0:Math.max(-.22,Math.min(.22,-(v.yaw??0)*v.speed*.025));
  const frontDamage=v.components?.panels[0]??v.dmgF??0,rearDamage=v.components?.panels[1]??v.dmgR??0;
  const P=(p:Point):[number,number]=>{const dx=p[0]>0?p[0]*(1-frontDamage*.16):p[0]*(1-rearDamage*.12),bend=(v.components?.wheels[0].suspension??0)*Math.max(0,p[0]/L)*.065,yy=p[1]*Math.cos(bank)-(p[2]-radius)*Math.sin(bank)+bend,zz=radius+p[1]*Math.sin(bank)+(p[2]-radius)*Math.cos(bank),q=cam.toScreen(x+dx*c-yy*s,y+dx*s+yy*c,zz,{x:0,y:0});return[q.x,q.y];};
@@ -26,7 +27,7 @@ export function drawTwoWheeler(g:CanvasRenderingContext2D,cam:Camera,v:Vehicle,a
   g.beginPath();for(const points of[near,inner.slice().reverse()]){points.forEach((p,i)=>{const q=P(p);if(i)g.lineTo(...q);else g.moveTo(...q);});g.closePath();}g.fillStyle='#1c2523';g.fill('evenodd');
   line([...inner,inner[0]],bicycle?'#b5bdb0':'#909c94',bicycle?.65:1.3);
   const hub=transform([0,width/2+.002,radius]),n=z<1?6:bicycle?20:sport?7:10;
-  for(let i=0;i<n;i++){const a=spin+i/n*Math.PI*2,edge=transform([Math.cos(a)*radius*.78,width/2+.002,radius+Math.sin(a)*radius*.78]);line([hub,edge],bicycle?'#bbc4b1aa':'#7b8980',bicycle?.35:1.3);}
+  for(let i=0;i<n;i++){const a=spin+(axle<0?(v.wheelSpinTravel??0)/radius:0)+i/n*Math.PI*2,edge=transform([Math.cos(a)*radius*.78,width/2+.002,radius+Math.sin(a)*radius*.78]);line([hub,edge],bicycle?'#bbc4b1aa':'#7b8980',bicycle?.35:1.3);}
   const rotor=ring(0,width/2+.004,radius,radius*(bicycle?.32:.47),16).map(transform);face(rotor,'#84938b77');line([...rotor,rotor[0]],'#b2b8a8',.55);
   const q=P(hub);g.fillStyle='#c6c8b3';g.beginPath();g.arc(q[0],q[1],Math.max(.8,z*.8),0,Math.PI*2);g.fill();
   if(!bicycle&&!scooter)tube([transform([-.055,width/2+.008,radius+.035]),transform([-.055,width/2+.008,radius+.1])],'#aa8a57',1.4);

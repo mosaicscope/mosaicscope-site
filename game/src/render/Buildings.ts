@@ -1,5 +1,6 @@
 import { reserveSign } from "./ScreenBounds";
-import { paintWindows, paintSpill, type Win } from "./NightGlow";
+import { paintWindows, paintWindowStories, paintSpill, type Win } from "./NightGlow";
+import { paintRoofLife } from "./BuildingLife";
 import { World, Building, Graffiti } from "../world/World";
 import { TILE_W, TILE_H, Z_PX } from "../world/iso";
 import { drawAd } from "./Ads";
@@ -47,7 +48,7 @@ function roofRise(b:Building,wx:number,wy:number):number{
 /** Individual households switch rooms on a slow, stable schedule instead of flickering together. */
 export function windowOn(seed:number,building:number,time:number):boolean{const span=34+Math.floor(hash(seed,building)*47),epoch=Math.floor((time+hash(seed+9,building)*span)/span);return hash(seed+epoch*113,building)<.52;}
 
-export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Building, tx: number, ty: number, sx: number, sy: number, z: number, time: number, dark: number, alpha: number, graffiti: Map<string, Graffiti>,verticalScale=1): void {
+export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Building, tx: number, ty: number, sx: number, sy: number, z: number, time: number, dark: number, alpha: number, graffiti: Map<string, Graffiti>,verticalScale=1,life=true,captureWindows?:(wins:readonly Win[])=>void): void {
   const hw = (TILE_W / 2) * z, hh = (TILE_H / 2) * z, zp = Z_PX * z * verticalScale, H = b.height;
   const same = (x: number, y: number) => w.buildingOf[y * w.size + x] === b.id;
   // a wall is exposed unless the neighbour tile is this building, or a building at least as tall (fully hidden)
@@ -95,8 +96,8 @@ export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Build
   if (southOpen) ao(tx, ty + 1, tx + 1, ty + 1, 0, 0.55);
   if (eastOpen) ao(tx + 1, ty, tx + 1, ty + 1, 0.55, 0);
   const hit=w.civicDamage[`b:${b.id}:${tx}:${ty}`];
-  if (southOpen) wall(g, b, P, top, tx, ty + 1, tx + 1, ty + 1, kS, "s", tx, ty, z, dark, night, time,hit?.face==='s'&&hit.severity>.4);
-  if (eastOpen) wall(g, b, P, top, tx + 1, ty + 1, tx + 1, ty, kE, "e", tx, ty, z, dark, night, time,hit?.face==='e'&&hit.severity>.4);
+  if (southOpen) wall(g, b, P, top, tx, ty + 1, tx + 1, ty + 1, kS, "s", tx, ty, z, dark, night, time,hit?.face==='s'&&hit.severity>.4,life,captureWindows);
+  if (eastOpen) wall(g, b, P, top, tx + 1, ty + 1, tx + 1, ty, kE, "e", tx, ty, z, dark, night, time,hit?.face==='e'&&hit.severity>.4,life,captureWindows);
   if (southOpen) paintGraffiti(g, graffiti.get(`${tx},${ty},s`), P(tx, ty + 1, 0), P(tx + 1, ty + 1, 0), Math.min(H, GROUND_H) * zp, z);
   if (southOpen && eastOpen) {
     // the building's front corner: a crisp edge so blocks read as solid volumes
@@ -174,6 +175,8 @@ export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Build
     }
   }
 
+  if (z >= .8 && life) paintRoofLife(g, P, b, tx, ty, time, z, alpha);
+
   // ---- neon trim along the roofline at night ----
   if (night && NEON.has(b.kind) && st !== "house" && (southStreet || eastStreet)) {
     const glowA = Math.min(1, (dark - 0.25) * 2.2), a0 = alpha;
@@ -241,10 +244,10 @@ function tank(g: CanvasRenderingContext2D, P: (x: number, y: number, h: number) 
  * Windows and ledges follow the building's storeys so neighbouring tiles line up seamlessly.
  */
 function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number, h: number) => [number, number], top: (x: number, y: number) => number,
-  ax: number, ay: number, bx: number, by: number, lightK: number, face: "s" | "e", tx: number, ty: number, z: number, dark: number, night: boolean, time: number,groundDamage=false): void {
+  ax: number, ay: number, bx: number, by: number, lightK: number, face: "s" | "e", tx: number, ty: number, z: number, dark: number, night: boolean, time: number,groundDamage=false,life=true,captureWindows?:(wins:readonly Win[])=>void): void {
   const st = styleOf(b), H = b.height;
-  const glowA = night ? Math.min(1, (dark - 0.25) * 2.2) : 0, a0 = g.globalAlpha, wins: Win[] = [];
-  const winAt = (a0_: number, a1: number, h0: number, h1: number, col: string, f: number, k: number) => { if(groundDamage&&f===0)return;const A = at(a0_, h0), B = at(a1, h0), C = at(a1, h1), D = at(a0_, h1); wins.push({ A, B, C, D, col, seed: (tx * 131 + ty * 17 + f * 7 + k * 3 + b.id * 977 + (face === "e" ? 1 : 0)) | 0 }); };
+  const glowA = night ? Math.min(1, (dark - 0.25) * 2.2) : 0, a0 = g.globalAlpha, wins: Win[] = [], dayWins: Win[] = [];
+  const winAt = (a0_: number, a1: number, h0: number, h1: number, col: string, f: number, k: number, emissive=true) => { if(groundDamage&&f===0)return;const A = at(a0_, h0), B = at(a1, h0), C = at(a1, h1), D = at(a0_, h1); const win={ A, B, C, D, col, seed: (tx * 131 + ty * 17 + f * 7 + k * 3 + b.id * 977 + (face === "e" ? 1 : 0)) | 0 };dayWins.push(win);if(emissive)wins.push(win); };
   const o0 = P(0, 0, 0), anchor: TexAnchor = { x: o0[0], y: o0[1], zoom: z };
   const at = (t: number, h: number) => P(ax + (bx - ax) * t, ay + (by - ay) * t, h);
   // outline, following a gable if the roof rises along this edge
@@ -300,7 +303,7 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
   } else {
     // houses & flats: two windows on the ground floor
     windows(g, quad, 0, GROUND_H * 0.25, GROUND_H * 0.72, lit(0, 0) || lit(0, 1), litCol(0, 0), night, 2);
-    if((lit(0,0)||lit(0,1))&&z>=.8)for(const [a,b]of[[.14,.42],[.58,.86]])winAt(a,b,GROUND_H*.25,GROUND_H*.72,litCol(0,0),0,a>.5?1:0);
+    if(z>=.8)for(const [a,b]of[[.14,.42],[.58,.86]])winAt(a,b,GROUND_H*.25,GROUND_H*.72,litCol(0,0),0,a>.5?1:0,lit(0,0)||lit(0,1));
   }
   // ---------- upper floors ----------
   if (st === "tower") {
@@ -314,6 +317,7 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
       if (night) {
         for (let f = 1; f < floors; f++) for (let k = 0; k < 3; k++) if (lit(f, k)) { g.fillStyle = litCol(f, k); g.beginPath(); quad(k / 3 + 0.03, (k + 1) / 3 - 0.03, floorBase(f) + 0.08, floorBase(f) + FLOOR_H - 0.12); g.fill(); if (z >= 0.8) winAt(k / 3 + 0.03, (k + 1) / 3 - 0.03, floorBase(f) + 0.08, floorBase(f) + FLOOR_H - 0.12, litCol(f, k), f, k); }
       }
+      if (!night && z >= .8) for(let f=1;f<floors;f++) for(let k=0;k<3;k++) winAt(k/3+.03,(k+1)/3-.03,floorBase(f)+.08,floorBase(f)+FLOOR_H-.12,litCol(f,k),f,k,false);
       g.strokeStyle = shade(b.color, 0.85 * lightK); g.lineWidth = Math.max(1, 0.9 * z); g.beginPath();
       for (let f = 1; f <= floors; f++) { const h = Math.min(h1, floorBase(f)); const P0 = at(0, h), P1 = at(1, h); g.moveTo(P0[0], P0[1]); g.lineTo(P1[0], P1[1]); }
       for (const t of [0, 1 / 3, 2 / 3]) { const P0 = at(t, h0), P1 = at(t, h1); g.moveTo(P0[0], P0[1]); g.lineTo(P1[0], P1[1]); }
@@ -329,7 +333,8 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
       const on = lit(f, 0) || (lit(f, 1) && n === 2), col = litCol(f, 0);
       for (const [a0, a1] of spans) {
         frames.push([a0 - 0.03, a1 + 0.03, h0 - 0.05, h1 + 0.05]);
-        if (on) { const arr = litBy.get(col) ?? []; arr.push([a0, a1, h0, h1]); litBy.set(col, arr); if (z >= 0.8) winAt(a0, a1, h0, h1, col, f, a0 > 0.5 ? 1 : 0); } else dark.push([a0, a1, h0, h1]);
+        if (on) { const arr = litBy.get(col) ?? []; arr.push([a0, a1, h0, h1]); litBy.set(col, arr); } else dark.push([a0, a1, h0, h1]);
+        if(z>=.8)winAt(a0,a1,h0,h1,col,f,a0>.5?1:0,on);
         if (!night) refl.push([a0, a0 + (a1 - a0) * 0.35, h0 + (h1 - h0) * 0.4, h1]);
         sills.push([a0 - 0.04, a1 + 0.04, h0 - 0.06, h0 - 0.01]);
       }
@@ -376,7 +381,14 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
       }
     }
   }
-  // lit windows glow past the night overlay, with a household behind some of them
+  // Shop customers and lobby workers occupy individual panes, leaving the frames visible.
+  if(!groundDamage && z>=.8 && st!=='house' && st!=='flats'){
+    const spans=st==='tower'||st==='civic'?[[.12,.34],[.38,.61],[.65,.88]]:[[.08,.48],[.52,.92]];
+    for(const [k,[a,b]]of spans.entries())winAt(a,b,.14,GROUND_H*.74,st==='club'?litCol(0,k):'#ffe6b0',0,k);
+  }
+  captureWindows?.(dayWins);
+  if(!night&&life)paintWindowStories(g,dayWins,time);
+  // Lit windows glow past the night overlay, with occupants behind the glass.
   if (wins.length && glowA > 0.02) { const own = wins.slice(), stories = z >= .85; GLOW.push((c) => { c.globalAlpha = a0; paintWindows(c, own, glowA, time, stories); c.globalAlpha = 1; }); }
   // shop fronts and lobbies throw warm light onto the footpath
   if (glowA > 0.02 && z >= 0.8 && (st === "shop" || st === "club" || st === "fuel" || st === "tower" || st === "civic")) {
@@ -388,6 +400,12 @@ function wall(g: CanvasRenderingContext2D, b: Building, P: (x: number, y: number
   if (st === "club" && night) {
     const hue = (time * 40 + tx * 30) % 360;
     g.fillStyle = `hsla(${hue},90%,60%,.35)`; g.beginPath(); quad(0.06, 0.94, 0.12, GROUND_H * 0.78); g.fill();
+  }
+  if(!groundDamage && night && (st==='club'||NEON.has(b.kind))){
+    const bulbs=Array.from({length:9},(_,i)=>at(.06+i*.11,GROUND_H*.87));
+    const phase=Math.floor(time*2+b.id+tx+ty),strength=glowA;
+    const marquee=(c:CanvasRenderingContext2D)=>{c.save();c.globalAlpha=a0*strength;for(const [i,p]of bulbs.entries()){const active=(i+phase)%3===0;c.fillStyle=active?'#fff1b2':b.sign;c.beginPath();c.arc(p[0],p[1],(active?1.5:.8)*z,0,Math.PI*2);c.fill();}c.restore();};
+    marquee(g);GLOW.push(marquee);
   }
   // Tessera's gilded facade and vertical fins read as a casino from the street.
   if(b.kind==='casino'){

@@ -54,7 +54,7 @@ import { fireGun, startTurfWar, turfWarActive } from "./Turf";
 import { LitterState, updateLitter } from "./Litter";
 import { LifeSystemFlags, newLifeSystemFlags } from "../debug/flags";
 
-export type FxKind = "dust" | "impact" | "spark" | "confetti" | "break" | "heart" | "rain_splash" | "text" | "spring" | "zzz" | "music" | "star" | "blood" | "spray" | "flash" | "paint" | "water" | "cash" | "gib" | "skid";
+export type FxKind = "dust" | "impact" | "spark" | "confetti" | "break" | "heart" | "rain_splash" | "text" | "spring" | "zzz" | "music" | "star" | "blood" | "spray" | "flash" | "paint" | "water" | "cash" | "gib" | "skid" | "tyre_smoke";
 export interface SimSignals {
   fx: { kind: FxKind; x: number; y: number; z: number; color?: string; n?: number; text?: string };
   sound: { kind: string; x: number; y: number; vol: number };
