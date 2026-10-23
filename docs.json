@@ -1,6 +1,6 @@
 {
- "at": 1792706119848,
- "key": "cndrrv",
+ "at": 1792728106705,
+ "key": "7su595",
  "findings": [
   {
    "kind": "doc-dead-path",
@@ -43,6 +43,13 @@
    "where": "functions/api/destination-speech.js",
    "detail": "/api/destination-speech isn't mentioned in any README",
    "fp": "doc-missing-api|is1yri"
+  },
+  {
+   "kind": "doc-missing-api",
+   "severity": "low",
+   "where": "functions/api/live-city.js",
+   "detail": "/api/live-city isn't mentioned in any README",
+   "fp": "doc-missing-api|1y5ir5c"
   },
   {
    "kind": "doc-missing-api",
