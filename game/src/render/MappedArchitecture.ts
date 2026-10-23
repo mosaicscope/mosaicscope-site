@@ -18,7 +18,7 @@ export class MappedArchitecture{
   const polygon=(ps:Pt[],color:string,stroke='#222c2d')=>{g.beginPath();ps.forEach((p,i)=>i?g.lineTo(...p):g.moveTo(...p));g.closePath();g.fillStyle=color;g.fill();g.strokeStyle=stroke;g.lineWidth=.7;g.stroke();};
   const area=points.reduce((sum,p,i)=>{const q=points[(i+1)%points.length];return sum+p[0]*q[1]-q[0]*p[1];},0),winding=area>=0?1:-1;
   const edges=points.map((p,i)=>({a:p,b:points[(i+1)%points.length],i})).filter(({a,b})=>((b[1]-a[1])-(b[0]-a[0]))*winding>0).sort((a,b)=>a.a[0]+a.a[1]+a.b[0]+a.b[1]-b.a[0]-b.a[1]-b.b[0]-b.b[1]);
-  for(const {a,c:unused,b:e,i} of edges.map(e=>({...e,c:0}))){void unused;const dx=e[0]-a[0],dy=e[1]-a[1],length=Math.hypot(dx,dy),at=(u:number,z:number)=>P(a[0]+dx*u,a[1]+dy*u,z),wall=shade(arch.wall,dx>dy?-18:4);
+  for(const {a,b:e,i} of edges){const dx=e[0]-a[0],dy=e[1]-a[1],length=Math.hypot(dx,dy),at=(u:number,z:number)=>P(a[0]+dx*u,a[1]+dy*u,z),wall=shade(arch.wall,dx>dy?-18:4);
    polygon([at(0,0),at(1,0),at(1,top),at(0,top)],wall);
    const rows=Math.max(1,Math.min(14,style.floors)),floor=top/rows,columns=Math.max(1,Math.min(30,Math.floor(length/3.4))),bay=1/columns;
    // Continuous cornice/plinth and real edge-aligned floor bands anchor every facade part.
@@ -31,6 +31,7 @@ export class MappedArchitecture{
    // Rainwater pipes follow wall ends; shop awnings share the same polygon coordinates.
    g.strokeStyle=shade(wall,-35);g.lineWidth=Math.max(1,unit*.08);for(const u of[.025,.975]){g.beginPath();g.moveTo(...at(u,.15));g.lineTo(...at(u,top-.1));g.stroke();}
    if(['dairy','cafe','hotel'].includes(style.kind)&&length>5){const u0=.08,u1=.92,h=Math.min(3,top-.7),out=.65,nx=(dy/length)*winding,ny=(-dx/length)*winding;polygon([at(u0,h),at(u1,h),P(a[0]+dx*u1+nx*out,a[1]+dy*u1+ny*out,h-.3),P(a[0]+dx*u0+nx*out,a[1]+dy*u0+ny*out,h-.3)],'#b3a873');}
+   const name=b.name||b.tags.address;if(name&&length>7&&i===edges[0].i){const start=at(.12,Math.min(top-.35,3)),end=at(.88,Math.min(top-.35,3)),width=Math.hypot(end[0]-start[0],end[1]-start[1]);g.save();g.translate(...start);g.transform((end[0]-start[0])/width,(end[1]-start[1])/width,0,1,0,0);g.fillStyle='#233b3e';g.fillRect(0,-unit*.65,width,unit*.7);g.font=`600 ${Math.min(10,unit*.45)}px Arial`;g.textAlign='center';g.fillStyle='#dbce9f';g.fillText(name.slice(0,36),width/2,-unit*.16,width-unit*.5);g.restore();}
   }
   polygon(points.map(p=>P(p[0],p[1],top)),arch.roof,'#343e3c');
   // Roof seams are clipped to the exact surveyed outline, with restrained service fittings.
@@ -49,5 +50,6 @@ export class MappedArchitecture{
   if(scale>=3){const stamp=Math.floor(performance.now()/83),visible=mesh.windows.filter(w=>{const sx=x+w.A[0]*f,sy=y+w.A[1]*f;return sx>-20&&sx<W+20&&sy>-20&&sy<H+20&&Math.hypot(w.A[0]-w.B[0],w.A[1]-w.B[1])*f>=5;}).slice(0,36);if(stamp!==mesh.stamp){mesh.stamp=stamp;const lg=mesh.life.getContext('2d')!;lg.clearRect(0,0,mesh.life.width,mesh.life.height);paintWindowStories(lg,visible,stamp/12);}g.drawImage(mesh.life,x,y,mesh.life.width*f,mesh.life.height*f);}
   g.restore();
  }
+ glow(g:CanvasRenderingContext2D,b:MappedBuilding,P:Project,scale:number,strength:number):void{const m=this.cache.get(b.id);if(!m)return;const p=P(...m.at),f=scale/m.unit,x=p[0]-m.ox*f,y=p[1]-m.oy*f;g.save();g.globalCompositeOperation='destination-out';g.drawImage(m.cv,x,y,m.cv.width*f,m.cv.height*f);g.globalCompositeOperation='source-over';g.globalAlpha=Math.min(.65,strength*.8);g.translate(x,y);g.scale(f,f);for(const w of m.windows){if(w.seed%7>=3)continue;g.beginPath();g.moveTo(...w.A);g.lineTo(...w.B);g.lineTo(...w.C);g.lineTo(...w.D);g.closePath();g.fillStyle=w.col;g.fill();}g.globalAlpha=Math.min(.8,strength);g.drawImage(m.life,0,0);g.restore();}
 }
 function pointInside(p:Pt,points:Pt[]):boolean{let hit=false;for(let i=0,j=points.length-1;i<points.length;j=i++){const a=points[i],b=points[j];if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])hit=!hit;}return hit;}

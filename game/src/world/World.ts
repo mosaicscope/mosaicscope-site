@@ -31,6 +31,7 @@ export interface Building {
   id: number;
   kind: import("../content/buildings").BuildingKind;
   name: string;
+  legacyName?:string;
   x0: number; y0: number; x1: number; y1: number;  // inclusive tile rect
   floors: number;
   height: number;                                  // world z units

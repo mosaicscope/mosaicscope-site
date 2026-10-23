@@ -21,6 +21,7 @@ let travelCast:readonly Character[]=[];
  * Procedural artwork over fetched OpenStreetMap geometry; optional bounded dialogue translation.
  */
 export interface TravelHost {
+  homeCity?():void;
   takeComfortTablet?():boolean;
   player():Character; people():readonly Character[];
   refresh?(kind:'rest'|'eat'):void;
@@ -237,7 +238,7 @@ export class Travel {
     this.raf = requestAnimationFrame(tick);
   }
   private liveMode=false;
-  liveCity():void{this.show();this.liveMode=true;this.el.setAttribute('aria-label','Live mapped city');this.el.classList.add('live-city');this.globalDestination={...DESTS[0],code:'CHC',name:'Christchurch · live city',lat:-43.5309,lon:172.6366,country:'NZ',fare:0,tag:'Real mapped streets, current conditions and simulated city life',acts:[]};this.go('dest');}
+  liveCity():void{if(this.host.homeCity){this.close();this.host.homeCity();return;}this.show();this.liveMode=true;this.el.setAttribute('aria-label','Live mapped city');this.el.classList.add('live-city');this.globalDestination={...DESTS[0],code:'CHC',name:'Christchurch · live city',lat:-43.5309,lon:172.6366,country:'NZ',fare:0,tag:'Real mapped streets, current conditions and simulated city life',acts:[]};this.go('dest');}
 
   close(): void {
     this.conversation?.dispose();this.conversation=null;this.room?.dispose();this.room=null;this.district?.dispose();this.district=null;

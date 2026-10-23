@@ -227,6 +227,7 @@ export class Renderer {
     }
     if(mapped){this.mappedArt.beginFrame();for(const b of sim.world.buildings){if(b.x1<minX-20||b.y1<minY-20||b.x0>maxX+20||b.y0>maxY+20)continue;cam.toScreen(b.x0,b.y0,0,pt);const footprint=mapped.byBuilding.get(b.id);if(!footprint)continue;const depth=Math.max(...footprint.points.map(p=>(p[0]+p[1])/2+mapped.offsetX+mapped.offsetY));this.push(depth,14,b.id,pt.x,pt.y);this.viewB.add(b.id);}}
     for (const p of sim.world.pois) {
+      if(mapped&&!mapped.visibility.fixtures&&p.kind!=='door')continue;
       cam.toScreen(p.x, p.y, 0, pt);
       if (!inView(pt.x, pt.y, 120 * z)) continue;
       this.push(p.x + p.y, 3, p.id, pt.x, pt.y);
@@ -236,7 +237,7 @@ export class Renderer {
       const f=order.flight;if(f){const t=Math.max(0,Math.min(1,(sim.tick-f.at)/(f.until-f.at))),x=b.door.x+(f.x-b.door.x)*t,y=b.door.y+(f.y-b.door.y)*t;cam.toScreen(x,y,Math.sin(t*Math.PI)*8+.5,pt);if(inView(pt.x,pt.y,80*z))this.push(this.behind(x,y,x+y+.03),9,i*2+1,pt.x,pt.y);}
     }
     // street dressing (kerb trees, planters, bollards, bike racks, cafe tables); skipped when zoomed far out
-    if (z >= 0.5) {
+    if (z >= 0.5&&(!mapped||mapped.visibility.fixtures)) {
       const dg = decorGrid(sim.world);
       for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
         if (!dg[ty * S + tx]) continue;
@@ -278,6 +279,7 @@ export class Renderer {
     farm.forEach((a,i)=>{cam.toScreen(a.x,a.y,0,pt);if(inView(pt.x,pt.y,80*z))this.push(this.behind(a.x,a.y,a.x+a.y+.03),10,i,pt.x,pt.y);});
     // cars and traffic lights
     for (const v of sim.vehicles) {
+      if(mapped&&!mapped.visibility.traffic&&v.driver!==sim.playerId)continue;
       cam.toScreen(v.x, v.y, 0, pt);
       if (!inView(pt.x, pt.y, 80 * z)) continue;
       this.push(this.behind(v.x, v.y, v.x + v.y + 0.03), 4, v.id, pt.x, pt.y);
@@ -292,6 +294,7 @@ export class Renderer {
       this.push(lx + ly, 5, r * 64 + cc, pt.x, pt.y);
     }
     for (const c of sim.chars) {
+      if(mapped&&!mapped.visibility.people&&c.id!==sim.playerId)continue;
       if (c.lod === Lod.SLEEP || c.inside >= 0 || c.inCar >= 0) continue;
       const x = c.px + (c.x - c.px) * alpha, y = c.py + (c.y - c.py) * alpha;
       cam.toScreen(x, y, 0, pt);
@@ -420,6 +423,7 @@ export class Renderer {
         this.mappedArt.draw(g,source,P,16*z,[focusSX,focusSY]);
         const damageP=(x:number,y:number,height=0):[number,number]=>{const p=cam.toScreen(x,y,height/0.8125,{x:0,y:0});return[p.x,p.y];};
         drawMappedFacadeDamage(g,sim.mappedDamage,damageP,32*z,sim.tick/60,source.id);
+        if(1-sim.daylight>.3)GLOW.push(layer=>{this.mappedArt.glow(layer,source,P,16*z,1-sim.daylight);drawMappedFacadeDamage(layer,sim.mappedDamage,damageP,32*z,sim.tick/60,source.id,true);});
       } else if (it.kind === 4) {
         flush();
         // Share painter order with the car. Nearer building silhouettes erase these lights too.
@@ -471,10 +475,11 @@ export class Renderer {
       g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(cv, 0, 0); g.restore();
     }
     this.drawHeli(g, sim, time, z);
-    this.rain.draw(g, sim.env.rain, cam.viewW, cam.viewH, dt, o.quality === 0 ? 60 : o.quality === 1 ? 160 : 260, o.reduceMotion);
+    if(!mapped||mapped.visibility.weather)this.rain.draw(g, sim.env.rain, cam.viewW, cam.viewH, dt, o.quality === 0 ? 60 : o.quality === 1 ? 160 : 260, o.reduceMotion);
 
     drawUpgradeEffects(g, sim, cam, time, o.reduceMotion, o.quality);
     drawCommerceArt(g,sim,cam,o.reduceMotion);
+    if(mapped?.visibility.labels&&!o.quietInterface){g.font='600 11px system-ui';g.textAlign='center';for(const id of this.viewB){const b=sim.world.buildings[id],source=mapped.byBuilding.get(id)!;const text=source.name||source.tags.address||(['casino','studio','hospital','police','airport'].includes(b.kind)?b.name:'');if(!text)continue;const p=cam.toScreen((b.x0+b.x1+1)/2,(b.y0+b.y1+1)/2,source.height/1.625+.25,{x:0,y:0}),name=text.length>36?text.slice(0,35)+'…':text,w=Math.min(250,g.measureText(name).width+14),box={x:p.x-w/2,y:p.y-18,w,h:20};if(!reserveSign('mapped:'+id,box))continue;g.fillStyle='#142c30e6';g.fillRect(box.x,box.y,box.w,box.h);g.fillStyle='#ded4ad';g.fillText(name,p.x,p.y-4,w-8);}g.textAlign='start';}
     if(!o.quietInterface)this.drawBubbles(view, o);
     this.drawDebug(o.debug, alpha);
     if (o.quality === 3) this.cinematic(sim);

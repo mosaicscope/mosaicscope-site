@@ -9,4 +9,6 @@ await Promise.all([0,1].map(async()=>{while(next<jobs.length){const [x,y]=jobs[n
  tiles.push(tile);console.log(x,y,tile.buildings.length,tile.roads.length);
 }}));
 tiles.sort((a,b)=>a.cy-b.cy||a.cx-b.cx);
-await writeFile(new URL('../src/world/christchurch.json',import.meta.url),JSON.stringify({version:1,metresPerTile:2,coverage:{west:-1060,east:660,north:-660,south:1060},tiles}));
+const base={...tiles.find(t=>t.cx===0&&t.cy===0)};
+for(const key of ['buildings','roads','terrain','venues'])base[key]=[...new Map(tiles.flatMap(t=>t[key]??[]).map(item=>[item.id,item])).values()];
+await writeFile(new URL('../src/world/christchurch.json',import.meta.url),JSON.stringify({version:1,metresPerTile:2,coverage:{west:-1060,east:660,north:-660,south:1060},surveyTiles:tiles.map(t=>({x:t.cx,y:t.cy,fetchedAt:t.fetchedAt})),tiles:[base]}));

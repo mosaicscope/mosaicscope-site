@@ -1,6 +1,7 @@
 import type {Simulation} from './Simulation';
 import type {Vehicle} from '../entities/types';
 import {VEHICLES,type VehicleClass} from '../content/vehicles';
+import {T} from '../world/World';
 import type {CitySegment} from '../world/MappedWorld';
 import {vehicleGeometry} from './VehicleGeometry';
 import {utilityDynamics,stepUtility} from './VehicleUtility';
@@ -8,6 +9,7 @@ interface Edge{segment:CitySegment;sign:number;from:string;to:string;x:number;y:
 interface Route{edge:number;at:number;wait:number}
 interface Network{edges:Edge[];routes:WeakMap<Vehicle,Route>;buckets:Map<string,Vehicle[]>;tick:number}
 const networks=new WeakMap<Simulation,Network>();
+const crossingPeople:number[]=[];
 const key=(x:number,y:number)=>x.toFixed(1)+','+y.toFixed(1);
 function network(sim:Simulation):Network{
  let n=networks.get(sim);if(n)return n;const edges:Edge[]=[],nodes=new Map<string,number[]>();
@@ -40,11 +42,13 @@ export function driveMappedVehicle(sim:Simulation,v:Vehicle,dt:number):void{
  const near=Math.hypot(v.x-sim.focus.x,v.y-sim.focus.y)<100;if(!near&&(sim.tick+v.id)%4!==0)return;if(!near)dt*=4;
  buckets(sim,n);let e=n.edges[route.edge];if(!e){v.state='parked';return;}const d=VEHICLES[v.cls],utility=utilityDynamics(v),geometry=vehicleGeometry(v),oldSpeed=v.speed;let target=Math.min(e.segment.speed,d.topSpeed*.7);
  const cx=Math.floor(v.x/8),cy=Math.floor(v.y/8);for(let y=cy-2;y<=cy+2;y++)for(let x=cx-2;x<=cx+2;x++)for(const o of n.buckets.get(x+','+y)??[]){if(o===v)continue;const dx=o.x-v.x,dy=o.y-v.y,along=dx*e.dx+dy*e.dy,cross=Math.abs(-dx*e.dy+dy*e.dx),gap=along-(geometry.length+vehicleGeometry(o).length)/2;if(along>0&&along<15&&cross<(geometry.width+vehicleGeometry(o).width)/2+.18)target=Math.min(target,Math.max(0,(gap-.8)/1.2));}
+ if(sim.world.mapped?.closedRoads?.has(e.segment.id))target=0;
+ if(near){const count=sim.charHash.query(v.x+e.dx*3,v.y+e.dy*3,4,crossingPeople);for(let i=0;i<count;i++){const c=sim.chars[crossingPeople[i]];if(c.inCar>=0||c.inside>=0||sim.world.tile(Math.floor(c.x),Math.floor(c.y))!==T.CROSSWALK)continue;const along=(c.x-v.x)*e.dx+(c.y-v.y)*e.dy,cross=Math.abs(-(c.x-v.x)*e.dy+(c.y-v.y)*e.dx);if(along>0&&cross<e.segment.half+1)target=Math.min(target,Math.sqrt(Math.max(0,2*d.brake*(along-geometry.length/2-1))));}}
  // Give way to crossing pedestrians and vehicles already entering this actual mapped junction.
  if(e.length-route.at<4&&e.next.length>1){const cycle=(sim.tick/60+Math.abs(e.segment.id)%8)%16,ns=Math.abs(e.dy)>Math.abs(e.dx),green=ns?cycle<7:cycle>=8&&cycle<15;if(!green&&e.length-route.at>1)target=Math.min(target,Math.sqrt(Math.max(0,2*d.brake*(e.length-route.at-1))));}
  const delta=target-v.speed,rate=delta>0?d.accel*.55*utility.acceleration:d.brake*utility.braking;v.speed=Math.max(0,v.speed+Math.sign(delta)*Math.min(Math.abs(delta),rate*dt));
  let nextAt=route.at+v.speed*dt;route.wait=v.speed<.15?route.wait+dt:0;
- if(nextAt>=e.length){const options=e.next;if(!options.length){v.speed=0;v.state='parked';return;}const turn=sim.rng.weighted(options.map(i=>{const q=n.edges[i],dot=e.dx*q.dx+e.dy*q.dy;return dot>.9?6:dot>-.1?2:.15;}));const old=e;route.edge=options[turn];e=n.edges[route.edge];nextAt=Math.min(e.length,nextAt-old.length);}
+ if(nextAt>=e.length){const options=e.next.filter(i=>!sim.world.mapped?.closedRoads?.has(n.edges[i].segment.id));if(!options.length){v.speed=0;v.state='parked';return;}const turn=sim.rng.weighted(options.map(i=>{const q=n.edges[i],dot=e.dx*q.dx+e.dy*q.dy;return dot>.9?6:dot>-.1?2:.15;}));const old=e;route.edge=options[turn];e=n.edges[route.edge];nextAt=Math.min(e.length,nextAt-old.length);}
  const p=position(e,nextAt);if(sim.world.walkable(p.x,p.y)){v.x=p.x;v.y=p.y;route.at=nextAt;}else{v.speed=0;route.wait+=dt;}
  const heading=Math.atan2(e.dy,e.dx),angle=Math.atan2(Math.sin(heading-v.heading),Math.cos(heading-v.heading));v.heading+=angle*Math.min(1,dt*5*utility.turnResponse);v.dir=((Math.round(heading/(Math.PI/2))%4)+4)%4;v.yaw=angle*Math.min(5,1/Math.max(.001,dt));v.wheelTravel=(v.wheelTravel??0)+v.speed*dt;
  stepUtility(v,(v.speed-oldSpeed)/dt,v.yaw*v.speed,v.speed,delta<-.3,dt);

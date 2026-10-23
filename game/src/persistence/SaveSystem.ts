@@ -1,4 +1,5 @@
 import {restoreCityPlay} from '../sim/CityPlay';
+import {migrateMappedPositions} from './MappedMigration';
 import {refreshAmbientFleet} from '../sim/Traffic';
 import {restoreWorldFun} from '../sim/WorldFun';
 import {restoreCommerce,type CommerceState} from '../sim/Commerce';
@@ -146,8 +147,10 @@ export function parseSave(json: string): SaveData {
 }
 
 /** Build a fresh simulation from a save. */
-export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemFlags()): Simulation {
-  const sim = new Simulation(d.cfg, {}, lifeFlags);
+export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemFlags(),mapped=false): Simulation {
+  const migrate=mapped&&!d.cfg.cityMap;
+  const sim = new Simulation({...d.cfg,...(mapped?{cityMap:'christchurch' as const,trafficCars:150,pathsPerTick:2}:{})}, {}, lifeFlags);
+  const freshFleet=migrate?sim.vehicles:[];
   sim.saltStory = restoreSaltProgress(d.saltStory);sim.worldFun=restoreWorldFun(d.worldFun);sim.cityPlay=restoreCityPlay(d.cityPlay);
   sim.commerce=restoreCommerce(d.commerce);
   const street=d.streetLife;
@@ -187,6 +190,7 @@ export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemF
   sim.world.civicDamage=structuredClone(d.civicDamage??{});
   sim.mappedDamage.restore(d.mappedDamage??[]);
   sim.pendingAmbulance=new Map(d.pendingAmbulance??[]);
+  if(migrate){migrateMappedPositions(sim);const plates=new Set(sim.vehicles.map(v=>v.plate));for(const fresh of freshFleet){if(sim.vehicles.length>=360)break;if(sim.vehicles.some(v=>Math.hypot(v.x-fresh.x,v.y-fresh.y)<3))continue;const v=structuredClone(fresh);v.id=sim.vehicles.length;v.driver=-1;if(plates.has(v.plate))v.plate='MAP'+(100+v.id);plates.add(v.plate);sim.vehicles.push(v);}}
   sim.rebuildHash();
   sim.lod.update(sim);
   return sim;
@@ -198,7 +202,7 @@ export function toJSON(d: SaveData): string {
 }
 
 export class SaveSystem {
-  constructor(private store: StorageProvider) {}
+  constructor(private store: StorageProvider,private mapped=false) {}
   key(slot: string) { return NS + "save:" + slot; }
   save(sim: Simulation, slot: string, label?: string): { ok: boolean; bytes: number; error?: string } {
     const json = toJSON(serialize(sim, label ?? slot));
@@ -209,7 +213,7 @@ export class SaveSystem {
   load(slot: string, lifeFlags: LifeSystemFlags = newLifeSystemFlags()): Simulation {
     const raw = this.store.get(this.key(slot));
     if (!raw) throw new SaveError("There is no save in that slot.");
-    const sim=restore(parseSave(raw), lifeFlags);rememberContinue(slot);return sim;
+    const sim=restore(parseSave(raw), lifeFlags,this.mapped);rememberContinue(slot);return sim;
   }
   info(slot: string): { savedAt: string; label: string; tick: number } | null {
     const raw = this.store.get(this.key(slot));

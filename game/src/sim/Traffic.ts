@@ -63,6 +63,7 @@ export function lightGreenFor(dir: number, c: number, r: number, tick: number): 
  * cross north/southbound traffic (axis 1), on an east-west road east/westbound traffic (axis 0).
  */
 export function crossingOf(w: World, tx: number, ty: number): { c: number; r: number; axis: number } | null {
+  if(w.mapped)return null; // surveyed crossings are not controlled by the former generated-grid signals
   if (w.tile(tx, ty) !== T.CROSSWALK) return null;
   const half = ROAD_W / 2;
   if (w.isRoadLine(tx)) return { c: lineOf(tx), r: Math.round((ty - half) / P), axis: 1 };
@@ -454,7 +455,7 @@ function skidMarks(sim: Simulation, v: Vehicle, lat: number, lock: number): void
 
 /** Move with the car's velocity; solid tiles stop the car, bounce it back and dent it. */
 function moveBlocked(sim: Simulation, v: Vehicle, dt: number): void {
-  const d = { ...VEHICLES[v.cls], ...vehicleGeometry(v) };
+  const d = { ...VEHICLES[v.cls], ...vehicleGeometry(v),mass:utilityDynamics(v).mass };
   const vel = carVel(sim, v);
   const nx = v.x + vel.x * dt, ny = v.y + vel.y * dt;
   if(sim.world.mapped){const ox=v.x,oy=v.y,px=v.px,py=v.py;v.px=ox;v.py=oy;v.x=nx;v.y=ny;const hit=sim.mappedDamage.contact(sim.world.mapped.damageFootprints.filter(b=>{const id=sim.world.mapped!.buildingIds.get(Number(b.id)),building=id===undefined?null:sim.world.buildings[id];return !!building&&nx>building.x0-8&&nx<building.x1+8&&ny>building.y0-8&&ny<building.y1+8;}),v,sim.tick/60,1);v.px=px;v.py=py;if(hit){if(hit.speed>1){sim.bus.emit('sound',{kind:'crash',x:v.x,y:v.y,vol:Math.min(1,hit.speed/10)});sim.bus.emit('fx',{kind:'dust',x:hit.x,y:hit.y,z:.3,n:Math.min(16,Math.ceil(hit.speed*2))});}return;}v.x=ox;v.y=oy;}
@@ -853,7 +854,7 @@ function collisions(sim: Simulation): void {
  * handbrake on, so it counts as much heavier), and an off-centre hit spins the car round.
  */
 function crashImpulse(sim: Simulation, a: Vehicle, b: Vehicle, va: { x: number; y: number }, vb: { x: number; y: number }, nx: number, ny: number, cx: number, cy: number): void {
-  const ma = VEHICLES[a.cls].mass * (1+(a.lifeMods?.length??0)*0.08) * (a.state === "parked" ? 3 : 1), mb = VEHICLES[b.cls].mass * (1+(b.lifeMods?.length??0)*0.08) * (b.state === "parked" ? 3 : 1);
+  const ma = utilityDynamics(a).mass * (1+(a.lifeMods?.length??0)*0.08) * (a.state === "parked" ? 3 : 1), mb = utilityDynamics(b).mass * (1+(b.lifeMods?.length??0)*0.08) * (b.state === "parked" ? 3 : 1);
   const ga=vehicleGeometry(a),gb=vehicleGeometry(b);
   const avx=va.x-(a.yaw??0)*(cy-a.y),avy=va.y+(a.yaw??0)*(cx-a.x);
   const bvx=vb.x-(b.yaw??0)*(cy-b.y),bvy=vb.y+(b.yaw??0)*(cx-b.x);

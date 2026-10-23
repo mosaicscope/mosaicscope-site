@@ -1,5 +1,6 @@
 import type {Vehicle} from '../entities/types';
 import {VEHICLES} from '../content/vehicles';
+import {utilityDynamics} from './VehicleUtility';
 import {vehicleGeometry} from './VehicleGeometry';
 import {impactComponents} from './VehicleDamage';
 import {facadeResponse,FACADE_RESPONSE,materialOf} from './FacadeImpact';
@@ -72,7 +73,7 @@ export class MappedFacadeDamage {
     const along=Math.max(0,Math.min(1,contact.u))*len,key=`mapped:${building.id}:${contact.edge}:${Math.floor(along/(2*units))}`,old=this.records.get(key);
     // A sustained push is one collision; subsequent genuine impacts can extend the damage.
     if(old&&seconds-old.at<.75)return old;
-    const material=materialOf(building.tags,building.kind,Math.max(1,(building.height??3.2)/3.2)),response=facadeResponse(material,contact.speed,VEHICLES[v.cls].mass,old?.severity);
+    const material=materialOf(building.tags,building.kind,Math.max(1,(building.height??3.2)/3.2)),response=facadeResponse(material,contact.speed,utilityDynamics(v).mass,old?.severity);
     const start=Math.max(0,along-units*1.05),end=Math.min(len,along+units*1.05),point=(distance:number):[number,number]=>[a[0]+(b[0]-a[0])*distance/len,a[1]+(b[1]-a[1])*distance/len];
     const d:MappedFacadeRecord={key,kind:'building',buildingId:building.id,building:typeof building.id==='number'?building.id:undefined,edge:contact.edge,a:point(start),b:point(end),normal:[contact.nx,contact.ny],units,
       x:contact.x-contact.nx*units*.7,y:contact.y-contact.ny*units*.7,tx:Math.floor(contact.x),ty:Math.floor(contact.y),impactU:(along-start)/(end-start),severity:response.severity,material,energy:response.energy,variant:Math.abs(Math.floor(contact.x*17+contact.y*31))%12,

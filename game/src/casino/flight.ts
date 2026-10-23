@@ -13,7 +13,7 @@ export function flightMultiplier(f:CrashFlight,now=Date.now()):number {
 export function finishFlight(f:CrashFlight,cashOut:boolean,now=Date.now()):number|null {
   if(f.paid)return null;
   const automatic=f.autoCash&&f.autoCash>1?f.start+Math.log(f.autoCash)/flightRate(f)*1000:Infinity;
-  const settleAt=Math.max(f.start,Math.min(now,automatic)),multiplier=flightMultiplier(f,settleAt),won=(cashOut||now>=automatic)&&multiplier<f.bust;
+  const settleAt=Math.max(f.start,Math.min(now,automatic)),multiplier=now>=automatic?f.autoCash!:flightMultiplier(f,settleAt),won=(cashOut||now>=automatic)&&multiplier<f.bust;
   if(!cashOut&&now<automatic&&multiplier<f.bust)return null;
   f.paid=true;
   f.endedAt=won?settleAt:f.start+Math.log(f.bust)/flightRate(f)*1000;
