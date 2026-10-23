@@ -1,4 +1,7 @@
 import {hitFacade} from "./CivicDamage";
+import { handlingProfile, roadSurface, slipGrip, corneringBudget } from "./VehicleHandling";
+import { vehicleGeometry, chassisContact } from "./VehicleGeometry";
+import { drivingSetup, stepPowertrain, stepDrift } from "./DrivingExperience";
 import {junctionAvailable} from "./TrafficControl";
 import { impactComponents, damageTick, damageParts, repairVehicle } from "./VehicleDamage";
 import type { Simulation } from "./Simulation";
@@ -70,11 +73,10 @@ export function walkSignal(w: World, tx: number, ty: number, tick: number): "wal
   return l.walk ? "walk" : l.flash ? "flash" : "stop";
 }
 
-let plateN = 0;
 function plate(sim: Simulation): string {
   const L = "ABCDEFGHJKLMNPRSTUVWXYZ";
-  plateN++;
-  return L[sim.rng.int(0, L.length - 1)] + L[sim.rng.int(0, L.length - 1)] + L[sim.rng.int(0, L.length - 1)] + String(100 + ((plateN * 37) % 900));
+  const ordinal=sim.vehicles.length+1;
+  return L[sim.rng.int(0, L.length - 1)] + L[sim.rng.int(0, L.length - 1)] + L[sim.rng.int(0, L.length - 1)] + String(100 + ((ordinal * 37) % 900));
 }
 
 export function makeVehicle(sim: Simulation, cls: VehicleClass, x: number, y: number, dir: number, state: Vehicle["state"]): Vehicle {
@@ -109,6 +111,8 @@ export function unseat(sim: Simulation, v: Vehicle): Character | null {
 
 export function spawnVehicles(sim: Simulation): void {
   const w = sim.world, rng = sim.rng;
+  const parkingPool=Object.values(VEHICLES).filter(d=>d.traffic>0&&d.length<3.5&&d.width>.6&&d.cls!=='police'&&d.cls!=='ambulance').map(d=>d.cls);
+  let parkingBag:VehicleClass[]=parkingPool.filter(id=>!!VEHICLES[id].design);const parkedClass=()=>{if(!parkingBag.length)parkingBag=[...parkingPool];return parkingBag.splice(rng.int(0,parkingBag.length-1),1)[0];};
   // traffic: drivers are real (background) people commuting
   const drivers = sim.chars.filter((c) => c.tier === "background" && c.inCar < 0);
   const traffic = Object.values(VEHICLES).filter((d) => d.traffic > 0);
@@ -145,11 +149,11 @@ export function spawnVehicles(sim: Simulation): void {
     if (sim.vehicles.some((o) => o.state === "parked" && Math.abs(o.x - (x + 0.5)) < 0.1 && Math.abs(o.y - (y - 2)) < 0.1)) continue;
     const area = w.areaAt(x + 0.5, y + 0.5);
     if (!area || area.kind === "street") continue;
-    let cls: VehicleClass = rng.pick(["hatch", "sedan", "suv", "ute", "jdm"] as VehicleClass[]);
+    let cls: VehicleClass = parkedClass();
     if (area.kind === "police") cls = "police";
     else if (area.kind === "hospital") cls = "ambulance";
     else if (area.kind === "dealership") cls = rng.pick(FOR_SALE);
-    else if (area.kind === "casino") cls = rng.pick(["sedan", "suv", "sports", "muscle", "jdm", "super"] as VehicleClass[]);
+    else if (area.kind === "casino") cls = rng.pick(["seven", "mercs", "supra", "mustang", "nsx", "corvette", "camry", "crown", "cxfive", "navara"] as VehicleClass[]);
     const v = makeVehicle(sim, cls, x + 0.5, y + 1, 1, "parked");
     if (area.kind === "dealership") { v.forSale = true; v.owner = -2; v.color = rng.pick(VEHICLES[cls].colors); }
   }
@@ -157,9 +161,20 @@ export function spawnVehicles(sim: Simulation): void {
 
 const tmp: number[] = [];
 
+/** Refresh only untouched, unowned background parking in older saves. Owned or damaged assemblies keep their history. */
+export function refreshAmbientFleet(sim:Simulation):void{
+ const pool=Object.values(VEHICLES).filter(d=>d.design&&d.width>.6&&d.length<2.8&&d.traffic>0);
+ for(const v of sim.vehicles){if(v.state!=='parked'||v.driver>=0||v.owner>=0||v.forSale||v.components||v.damage>0||v.lifeMods?.length||VEHICLES[v.cls].design||['police','ambulance','fire','tow','bus','bin'].includes(v.cls))continue;const hash=[...v.plate].reduce((n,c)=>(n*31+c.charCodeAt(0))>>>0,v.id),d=pool[hash%pool.length];v.cls=d.cls;v.color=d.colors[hash%d.colors.length];}
+}
+
 export function updateVehicles(sim: Simulation, dt: number): void {
   for (const v of sim.vehicles) {
     v.px = v.x; v.py = v.y;
+    if(v.state!=="free") {
+      v.wheelTravel=(v.wheelTravel??0)+v.speed*dt;
+      v.bodyRoll=(v.bodyRoll??0)*Math.exp(-dt*7);v.bodyPitch=(v.bodyPitch??0)*Math.exp(-dt*7);
+      v.tyreHeat=Math.max(0,(v.tyreHeat??0)-dt*.22);
+    }
     damageTick(v, dt);
     if (v.burning || v.burnt || ((v.engineDamage ?? 0) > 0.8 || v.flatLeft || v.flatRight) && v.driver !== sim.playerId) {
       if (v.driver >= 0) unseat(sim, v);
@@ -195,11 +210,18 @@ export function carVel(sim: Simulation, v: Vehicle): { x: number; y: number } {
 /** Tyre grip in tiles/s² of sideways acceleration before the car starts to slide. */
 function tyreGrip(sim: Simulation, v: Vehicle): number {
   const d = VEHICLES[v.cls];
-  return d.grip * 2.5 * (v.lifeMods?.includes("Racing tyres") ? 1.3 : 1) / (v.lifeMods?.includes("Double deck") ? 1.2 : 1) * (v.flatLeft || v.flatRight ? 0.55 : 1) * (1 - v.damage * 0.3) * (1 - 0.35 * sim.env.rain);
+  const profile = handlingProfile(v.cls), geometry = vehicleGeometry(v), c = Math.cos(v.heading), s = Math.sin(v.heading);
+  let surfaceGrip = 0;
+  // Each contact patch sees its own surface, including when straddling a verge.
+  for (let i = 0; i < 4; i++) {
+    if(profile.twoWheeler && i%2) continue;
+    const x = (i < 2 ? 1 : -1) * geometry.wheelbase / 2, y = profile.twoWheeler ? 0 : (i % 2 ? 1 : -1) * (geometry.width/2-0.02);
+    const wheel = v.components?.wheels[i];
+    const condition = wheel ? wheel.missing ? 0 : (wheel.puncture ? 0.55 : 1)*(1-wheel.suspension*0.25-wheel.rim*0.1) : (i%2 === 0 ? v.flatLeft : v.flatRight) ? 0.55 : 1;
+    surfaceGrip += roadSurface(sim.world.tile(Math.floor(v.x+x*c-y*s), Math.floor(v.y+x*s+y*c)), sim.env.rain, profile.offroad).grip * condition / (profile.twoWheeler?2:4);
+  }
+  return d.grip * 2.5 * surfaceGrip * (v.lifeMods?.includes("Racing tyres") ? 1.3 : 1) / (v.lifeMods?.includes("Double deck") ? 1.2 : 1) * (1 - v.damage * 0.3);
 }
-
-/** Rear-driven cars that step the tail out under power. */
-const TAIL_HAPPY = new Set(["muscle", "hotrod", "coupe", "roadster", "super", "sports", "lowrider", "limo"]);
 
 /**
  * Free driving as a simple tyre model: the car has a real velocity that is separate from where it points.
@@ -212,56 +234,96 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const d = VEHICLES[v.cls];
   const inp = v.parkingBrake?{throttle:0,steer:0,brake:true}:v.driver === sim.playerId ? playerInput : { throttle: 0, steer: 0, brake: true };
   const mods = v.lifeMods ?? [];
-  const top = d.topSpeed * (mods.includes("Tractor engine") ? 1.2 : 1) / (1 + mods.length * 0.06) * (1 - v.damage * 0.5) * (1 - (v.engineDamage ?? 0) * 0.45) * (v.flatLeft || v.flatRight ? 0.65 : 1)*Math.max(.22,1-(v.components?.wheels.filter(w=>w.missing).length??0)*.35);
+  const setup=drivingSetup(v);
+  const top = Math.max(0.1, d.topSpeed * setup.range * (mods.includes("Tractor engine") ? 1.2 : 1) / (1 + mods.length * 0.06) * (1 - v.damage * 0.5) * (1 - (v.engineDamage ?? 0) * 0.45) * (v.flatLeft || v.flatRight ? 0.65 : 1)*Math.max(.22,1-(v.components?.wheels.filter(w=>w.missing).length??0)*.35));
   const vel = carVel(sim, v);
   const fx = Math.cos(v.heading), fy = Math.sin(v.heading);
   let lon = vel.x * fx + vel.y * fy, lat = -vel.x * fy + vel.y * fx;
   const s = Math.abs(lon);
+  const grip = tyreGrip(sim, v);
+  const profile = handlingProfile(v.cls);
+  const geometry = vehicleGeometry(v);
+  const surface = roadSurface(sim.world.tile(Math.floor(v.x), Math.floor(v.y)), sim.env.rain, profile.offroad);
+  // Pedal response builds torque smoothly; braking always responds immediately.
+  const pedal = clamp(inp.throttle, -1, 1);
+  const braking = inp.brake || pedal < 0 && lon > 0.05 || pedal > 0 && lon < -0.05;
+  const previousThrottle = v.dynT !== undefined && sim.tick - v.dynT <= 1 && (v.driveThrottle ?? 0) * pedal >= 0 ? v.driveThrottle ?? 0 : 0;
+  const targetThrottle = braking ? 0 : pedal;
+  v.driveThrottle = previousThrottle + (targetThrottle - previousThrottle) * (1 - Math.exp(-dt * (targetThrottle === 0 ? 16 : setup.response)));
+  const throttle = braking ? pedal : v.driveThrottle;
+  const transmission=stepPowertrain(v,lon,top,throttle,dt);
   if (v.flatLeft !== v.flatRight) v.heading += (v.flatLeft ? -1 : 1) * Math.min(s, 5) * dt * 0.025;
 
   // ---- along the car: engine, brakes, rolling resistance, aero drag ----
   let a = 0;
   // Space is the handbrake: it locks the rear wheels, so it slows you less than full brakes but lets the tail go
   if (inp.brake) a = -Math.sign(lon) * d.brake * (s > 2 ? 0.5 : 1);
-  else if (inp.throttle > 0) a = lon < -0.05 ? d.brake * inp.throttle : d.accel * inp.throttle * Math.max(0, 1 - (lon / top) ** 2);
-  else if (inp.throttle < 0) a = lon > 0.05 ? -d.brake * -inp.throttle : -d.accel * 0.6 * -inp.throttle * Math.max(0, 1 - (lon / (top * 0.35)) ** 2);
-  const resist = 0.35 + 1.4 * (lon / top) ** 2;
-  const braking = inp.brake || inp.throttle < 0 && lon > 0.05 || inp.throttle > 0 && lon < -0.05;
+  else if (throttle > 0) a = lon < -0.05 ? d.brake * throttle : d.accel * throttle * Math.max(0, 1 - (lon / top) ** 2);
+  else if (throttle < 0) a = lon > 0.05 ? -d.brake * -throttle : -d.accel * 0.6 * -throttle * Math.max(0, 1 - (lon / (top * 0.35)) ** 2);
+  const engineForce = a * (1 - (v.engineDamage ?? 0) * 0.55) * transmission * setup.torque;
+  // Acceleration shifts load rearward; AWD can use both axles, FWD unloads its driven tyres.
+  const transfer = clamp(engineForce * geometry.height * 0.45 / (4.905 * geometry.wheelbase), -0.22, 0.22);
+  const drivenLoad = profile.drive === "awd" ? 1 : profile.drive === "rwd" ? 0.64 + transfer : 0.7 - transfer;
+  const traction = grip * Math.max(0.25, drivenLoad);
+  const spin = (!braking ? Math.max(0, Math.abs(engineForce) - traction) : 0)*(setup.tractionControl?0.08:1);
+  v.wheelspin = spin;
+  if (!braking) a = clamp(engineForce, -traction, traction);
+  else a = clamp(a, -grip, grip);
+  const resist = 0.35 + surface.drag + 1.4 * (lon / top) ** 2;
   if (braking || a === 0) {
     // brakes and drag can stop the car but never push it backwards
     const dec = Math.abs(a) + resist;
     lon = Math.abs(lon) <= dec * dt ? 0 : lon - Math.sign(lon) * dec * dt;
-  } else lon += (a - Math.sign(lon) * resist) * dt;
+  } else {
+    lon += a * dt;
+    lon = Math.sign(lon) * Math.max(0, Math.abs(lon) - resist * dt);
+  }
 
   // ---- turning: yaw toward what the steering asks, capped by what the tyres can hold ----
-  const grip = tyreGrip(sim, v);
   // how loose the rear is: a locked handbrake, or (tail-happy cars) too much throttle while turning
-  const powerOver = TAIL_HAPPY.has(v.cls) && inp.throttle > 0 && lon > 1 ? inp.throttle * Math.min(1, s / 5) : 0;
+  const powerOver = profile.drive !== "fwd" && throttle > 0 && lon > 1 ? throttle * Math.min(1, s / 5) * Math.min(1, Math.abs(v.steerAngle ?? 0) / 0.3) * setup.rearSlip * (profile.drive==='awd'?0.4:1) : 0;
   const rearLoose = inp.brake && s > 2 ? 1 : powerOver;
   const wheelDamage=v.components?.wheels??[],loss=wheelDamage.reduce((n,w)=>n+(w.missing?.35:w.puncture?.1:0)+w.suspension*.05,0);
-  const steering=clamp(inp.steer,-1,1);v.steerAngle=(v.steerAngle??0)+(steering*.55-(v.steerAngle??0))*Math.min(1,dt*5);
-  const wheelbase = d.length * 0.62, lock = 0.6 * (1 - 0.55 * Math.min(1, s / top));
+  const steering=clamp(inp.steer,-1,1);
+  const countersteering = steering * (v.steerAngle ?? 0) < 0;
+  const steerResponse = countersteering ? 11 : steering === 0 ? 9 : 7;
+  v.steerAngle=(v.steerAngle??0)+(steering*.55-(v.steerAngle??0))*(1-Math.exp(-dt*steerResponse));
+  const wheelbase = geometry.wheelbase, lock = 0.6 * setup.steer * (1 - 0.55 * Math.min(1, s / top));
   // a bent side (wheel knocked out of line) drags the car toward it
   const bent = ((v.dmgS ?? 0) - (v.dmgL ?? 0)) * 0.12;
-  const want = lon * Math.tan((v.steerAngle??0)/.55 * lock + bent+(wheelDamage[0]?.alignment??0)*.3+(wheelDamage[1]?.alignment??0)*.3) / wheelbase;
+  v.wheelSteer = (v.steerAngle??0)/.55 * lock;
+  const want = lon * Math.tan(v.wheelSteer + bent+(wheelDamage[0]?.alignment??0)*.3+(wheelDamage[1]?.alignment??0)*.3) / wheelbase;
   const cap = (grip * (1 + 1.2 * rearLoose)) / Math.max(s, 1);   // a loose rear lets the nose swing past the grip line
-  const yawWant = clamp(want, -cap, cap);
+  const frontPush = profile.drive === "fwd" ? 1 / (1 + spin * 0.15) : 1;
+  const yawWant = clamp(want * frontPush, -cap, cap);
   v.yaw = (v.yaw ?? 0) + (yawWant - (v.yaw ?? 0)) * Math.min(1, dt * (3 + grip * 0.6));
   v.heading += v.yaw * dt;
   // the body turned under the velocity: re-express it in the new frame, then let the tyres fight the sideways part
   const nfx = Math.cos(v.heading), nfy = Math.sin(v.heading);
   const vxW = fx * lon - fy * lat, vyW = fy * lon + fx * lat;
   lon = vxW * nfx + vyW * nfy; lat = -vxW * nfy + vyW * nfx;
-  const latGrip = grip * (1 - 0.55 * rearLoose)*Math.max(.18,1-loss);
+  // Acceleration and cornering share the tyre's traction budget.
+  const slipAngle = Math.atan2(lat, Math.max(0.8, Math.abs(lon)));
+  const loadSensitivity = 1 - Math.min(0.18, Math.abs(v.yaw * lon) * profile.cg / Math.max(1, d.width) * 0.025);
+  const latGrip = corneringBudget(grip, inp.brake ? a * 0.35 : a) * slipGrip(slipAngle) * loadSensitivity * (1 - 0.55 * rearLoose)*Math.max(.18,1-loss);
   const pull = clamp(lat * 14, -latGrip, latGrip);
   lat = Math.abs(lat) <= Math.abs(pull) * dt ? 0 : lat - pull * dt;
   if (Math.abs(lat) > 0.8) lon -= Math.sign(lon) * Math.min(Math.abs(lon), Math.abs(pull) * 0.18 * dt);     // sliding scrubs speed
-  lon = clamp(lon, -top * 0.35, top);
+  // Engine power fades at its speed limit; damage cannot instantly delete existing momentum.
 
   v.vx = nfx * lon - nfy * lat; v.vy = nfy * lon + nfx * lat; v.dynT = sim.tick;
   v.speed = lon; v.slip = lat;
-  skidMarks(sim, v, lat, braking && s > 4 ? s : 0);
+  v.wheelTravel = (v.wheelTravel ?? 0) + lon * dt;
+  v.wheelSpinTravel = (v.wheelSpinTravel ?? 0) + Math.sign(throttle)*spin*0.35*dt;
+  const settle = 1-Math.exp(-dt*7);
+  v.bodyRoll = (v.bodyRoll ?? 0) + (clamp(v.yaw*lon*geometry.height*0.018/geometry.width,-0.12,0.12)-(v.bodyRoll ?? 0))*settle;
+  v.bodyPitch = (v.bodyPitch ?? 0) + (clamp(a*geometry.height*0.025/geometry.wheelbase,-0.08,0.08)-(v.bodyPitch ?? 0))*settle;
+  const scrub = Math.abs(lat) * Math.min(1, s / 3) + spin * 0.5 + (inp.brake && s > 2 ? s * 0.25 : 0);
+  v.tyreHeat = clamp((v.tyreHeat ?? 0) + (scrub * 0.16 - 0.22) * dt, 0, 1);
+  skidMarks(sim, v, lat, inp.brake && s > 2 ? s : 0);
+  const oldX=v.x,oldY=v.y;
   moveBlocked(sim, v, dt);
+  if(v.driver===sim.playerId)stepDrift(v,Math.hypot(v.x-oldX,v.y-oldY),dt);
 }
 
 /**
@@ -270,6 +332,7 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
  * then smokes, and a bent side drags the steering toward it.
  */
 export function bump(v: Vehicle, nx: number, ny: number, amount: number): void {
+  if(amount>.005&&v.drift){v.drift.points=0;v.drift.chain=0;v.drift.grace=0;}
   const c = Math.cos(v.heading), s = Math.sin(v.heading);
   const along = nx * c + ny * s, side = -nx * s + ny * c;
   const add = (cur: number | undefined, w: number) => Math.min(1, (cur ?? 0) + amount * w * 2.2);
@@ -334,16 +397,31 @@ function startle(sim: Simulation, v: Vehicle): void {
 
 /** Tyre marks and smoke while a car is sliding or locking its brakes (the renderer turns "skid" into marks). */
 function skidMarks(sim: Simulation, v: Vehicle, lat: number, lock: number): void {
-  const amt = Math.max(Math.abs(lat) - 1.2, lock > 0 ? 0.6 : 0);
-  if (amt <= 0 || (sim.tick + v.id) % 4 !== 0) return;
-  const d = VEHICLES[v.cls], bx = v.x - Math.cos(v.heading) * d.length * 0.32, by = v.y - Math.sin(v.heading) * d.length * 0.32;
-  sim.bus.emit("fx", { kind: "skid", x: bx, y: by, z: 0, n: Math.min(4, 1 + Math.round(amt)), color: "rgba(14,11,10,.5)" });
-  if ((sim.tick + v.id) % 24 === 0) { sim.bus.emit("sound", { kind: "skid", x: v.x, y: v.y, vol: Math.min(1, amt / 4) }); startle(sim, v); }
+  if ((sim.tick + v.id) % 4 !== 0) return;
+  const amt = Math.max(Math.abs(lat) - 0.65, lock > 0 ? 0.6 : 0, (v.wheelspin ?? 0)*0.5);
+  const geometry = vehicleGeometry(v), profile = handlingProfile(v.cls), c = Math.cos(v.heading), s = Math.sin(v.heading);
+  for (let i = 0; i < 4; i++) {
+    if(profile.twoWheeler && i%2) continue;
+    if (v.components?.wheels[i]?.missing) continue;
+    const lx = (i < 2 ? 1 : -1)*geometry.wheelbase/2, ly = profile.twoWheeler ? 0 : (i%2 ? 1 : -1)*(geometry.width/2-0.02);
+    const x=v.x+lx*c-ly*s, y=v.y+lx*s+ly*c;
+    const surface = roadSurface(sim.world.tile(Math.floor(x),Math.floor(y)),sim.env.rain,profile.offroad);
+    const powered = profile.drive === "awd" || (profile.drive === "fwd" ? i<2 : i>=2);
+    const scrub = Math.max(Math.abs(lat)-0.65, i>=2 && lock>0 ? 0.6 : 0, powered ? (v.wheelspin ?? 0)*0.5 : 0);
+    if (surface.loose && Math.abs(v.speed)>1.5) {
+      sim.bus.emit("fx",{kind:"dust",x,y,z:0.06,n:Math.min(3,1+Math.floor(scrub)),color:"#a59a83"});
+    } else {
+      if (scrub>0) sim.bus.emit("fx",{kind:"skid",x,y,z:0,n:1});
+      if (sim.env.rain>0.25 && Math.abs(v.speed)>3) sim.bus.emit("fx",{kind:"spray",x,y,z:0.08,n:1,color:"rgba(190,207,217,.28)"});
+      else if (scrub>0.3 && (v.tyreHeat ?? 0)>0.08) sim.bus.emit("fx",{kind:"tyre_smoke",x,y,z:0.12,n:Math.min(3,Math.ceil(scrub*(v.tyreHeat ?? 0))),color:"rgba(210,214,216,.24)"});
+    }
+  }
+  if (amt>0 && (sim.tick + v.id) % 24 === 0) { sim.bus.emit("sound", { kind: "skid", x: v.x, y: v.y, vol: Math.min(1, amt / 4) }); startle(sim, v); }
 }
 
 /** Move with the car's velocity; solid tiles stop the car, bounce it back and dent it. */
 function moveBlocked(sim: Simulation, v: Vehicle, dt: number): void {
-  const d = VEHICLES[v.cls];
+  const d = { ...VEHICLES[v.cls], ...vehicleGeometry(v) };
   const vel = carVel(sim, v);
   const nx = v.x + vel.x * dt, ny = v.y + vel.y * dt;
   const fx = nx + Math.cos(v.heading) * (d.length / 2) * Math.sign(v.speed || 1), fy = ny + Math.sin(v.heading) * (d.length / 2) * Math.sign(v.speed || 1);
@@ -645,7 +723,7 @@ function collisions(sim: Simulation): void {
   for (const v of sim.vehicles) {
     if (v.state === "parked") continue;
     const sp = Math.abs(v.speed);
-    const d = VEHICLES[v.cls];
+    const d = vehicleGeometry(v);
     const n = sim.charHash.query(v.x, v.y, d.length / 2 + 0.6 + Math.min(4, sp * 0.45), tmp);
     const cos = Math.cos(v.heading), sin = Math.sin(v.heading);
     for (let i = 0; i < n; i++) {
@@ -664,13 +742,15 @@ function collisions(sim: Simulation): void {
       sim.onCarHit(v, c, sp);
     }
   }
-  const vs = sim.vehicles;
+  const vs = sim.vehicles, shapes=vs.map(vehicleGeometry);
   for (let i = 0; i < vs.length; i++) for (let j = i + 1; j < vs.length; j++) {
     const a = vs[i], b = vs[j];
     if (a.state === "parked" && b.state === "parked") continue;
     const dx = b.x - a.x, dy = b.y - a.y, dd = dx * dx + dy * dy;
-    const r = (VEHICLES[a.cls].length + VEHICLES[b.cls].length) * 0.5;
-    if (dd > r * r || !bodiesTouch(a, b)) continue;
+    const r = (shapes[i].length + shapes[j].length) * 0.6;
+    if (dd > r * r) continue;
+    const contact = chassisContact(a,b);
+    if (!contact) continue;
     if(a.state==='drive'&&b.state==='drive'){
       // Normal drivers brake and yield; they do not enter the crash/sideways shove physics used for a player impact.
       const yieldCar=a.id>b.id?a:b;yieldCar.x=yieldCar.px;yieldCar.y=yieldCar.py;yieldCar.speed=0;yieldCar.nextDir=-1;
@@ -679,11 +759,16 @@ function collisions(sim: Simulation): void {
       continue;
     }
     const va = carVel(sim, a), vb = carVel(sim, b);
-    const rel = Math.hypot(va.x - vb.x, va.y - vb.y);
-    const dl = Math.sqrt(dd) || 0.01, push = (r - dl) / 2;
-    if (a.state !== "parked") { a.x -= (dx / dl) * push; a.y -= (dy / dl) * push; }
-    if (b.state !== "parked") { b.x += (dx / dl) * push; b.y += (dy / dl) * push; }
-    if (rel > 2.5) { crashImpulse(sim, a, b, va, vb, dx / dl, dy / dl); sim.onCarCrash(a, b, rel); }
+    const push = contact.depth / (a.state === "parked" || b.state === "parked" ? 1 : 2);
+    if (a.state !== "parked") { a.x -= contact.nx * push; a.y -= contact.ny * push; }
+    if (b.state !== "parked") { b.x += contact.nx * push; b.y += contact.ny * push; }
+    let nx=contact.nx,ny=contact.ny;
+    // Old saves or spawned cars can already be deeply interpenetrating. Recover an incoming impact normal.
+    const separation=Math.sqrt(dd);
+    if (contact.depth>0.2 && Math.abs((va.x-vb.x)*nx+(va.y-vb.y)*ny)<0.01 && separation>0.01 && (va.x-vb.x)*dx+(va.y-vb.y)*dy>0) { nx=dx/separation;ny=dy/separation; }
+    const closing = (va.x-vb.x)*nx+(va.y-vb.y)*ny;
+    if (closing > 0) crashImpulse(sim, a, b, va, vb, nx, ny);
+    if (closing > 2.5) sim.onCarCrash(a, b, closing);
   }
 }
 
@@ -695,32 +780,26 @@ function crashImpulse(sim: Simulation, a: Vehicle, b: Vehicle, va: { x: number; 
   const ma = VEHICLES[a.cls].mass * (1+(a.lifeMods?.length??0)*0.08) * (a.state === "parked" ? 3 : 1), mb = VEHICLES[b.cls].mass * (1+(b.lifeMods?.length??0)*0.08) * (b.state === "parked" ? 3 : 1);
   const vn = (vb.x - va.x) * nx + (vb.y - va.y) * ny;
   if (vn >= 0) return;
-  const j = -(1 + 0.25) * vn / (1 / ma + 1 / mb);
+  const ga=vehicleGeometry(a),gb=vehicleGeometry(b),cx=(a.x+b.x)/2,cy=(a.y+b.y)/2;
+  const ra=(cx-a.x)*ny-(cy-a.y)*nx,rb=(cx-b.x)*ny-(cy-b.y)*nx;
+  const ia=ma*(ga.length**2+ga.width**2)/12,ib=mb*(gb.length**2+gb.width**2)/12;
+  const j = -(1 + 0.25) * vn / (1 / ma + 1 / mb + (a.state==='parked'?0:ra*ra/ia) + (b.state==='parked'?0:rb*rb/ib));
   for (const [v, vel, m, sgn] of [[a, va, ma, -1], [b, vb, mb, 1]] as [Vehicle, { x: number; y: number }, number, number][]) {
     // The handbrake resists motion, not deformation: parked targets take component damage too.
     bump(v,-sgn*nx,-sgn*ny,Math.min(.4,j*.03/m));
-    impactComponents(v,-sgn*nx,-sgn*ny,Math.min(Math.abs(vn),j/VEHICLES[v.cls].mass),VEHICLES[v.cls].mass,sim.tick);
+    impactComponents(v,-sgn*nx,-sgn*ny,Math.min(Math.abs(vn),j/VEHICLES[v.cls].mass),VEHICLES[v.cls].mass,sim.tick,{x:(a.x+b.x)/2,y:(a.y+b.y)/2});
     if(v.state==='parked')continue;
     v.vx=vel.x+sgn*nx*j/m;v.vy=vel.y+sgn*ny*j/m;v.dynT=sim.tick;
     // the hit lands off the car's centre line: that lever arm turns into spin
-    const L = VEHICLES[v.cls].length, side = -Math.sin(v.heading) * nx + Math.cos(v.heading) * ny;
-    const along = Math.cos(v.heading) * nx + Math.sin(v.heading) * ny;
-    v.yaw = (v.yaw ?? 0) + clamp(sgn * side * along * j / (m * L * 0.35), -6, 6);
+    const geometry=vehicleGeometry(v),rx=(a.x+b.x)/2-v.x,ry=(a.y+b.y)/2-v.y;
+    const inertia=m*(geometry.length**2+geometry.width**2)/12;
+    v.yaw = (v.yaw ?? 0) + clamp(sgn*j*(rx*ny-ry*nx)/inertia,-6,6);
   }
 }
 
-/** Each car body is three circles along its length (radius = half width), so lanes side by side never touch. */
+/** Oriented chassis envelopes match the rendered body, including chassis modifications. */
 function bodiesTouch(a: Vehicle, b: Vehicle): boolean {
-  const da = VEHICLES[a.cls], db = VEHICLES[b.cls];
-  const ra = da.width * 0.4, rb = db.width * 0.4, rr = (ra + rb) * (ra + rb);
-  for (const ka of [-1, 0, 1]) {
-    const ax = a.x + Math.cos(a.heading) * ka * da.length / 3, ay = a.y + Math.sin(a.heading) * ka * da.length / 3;
-    for (const kb of [-1, 0, 1]) {
-      const bx = b.x + Math.cos(b.heading) * kb * db.length / 3, by = b.y + Math.sin(b.heading) * kb * db.length / 3;
-      if ((ax - bx) ** 2 + (ay - by) ** 2 < rr) return true;
-    }
-  }
-  return false;
+  return chassisContact(a,b) !== null;
 }
 
 export function isPlayerDriving(sim: Simulation): Vehicle | null {

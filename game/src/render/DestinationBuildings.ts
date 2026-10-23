@@ -2,12 +2,14 @@ import {BUILDINGS,GROUND_H,FLOOR_H} from '../content/buildings';
 import {mappedBuildingStyle,regionalArchitecture} from '../content/mappedBuildingStyle';
 import {World,type Building} from '../world/World';
 import {drawBuildingTile} from './Buildings';
+import {paintWindowStories,type Win} from './NightGlow';
+import {paintRoofLife} from './BuildingLife';
 import type {MappedBuilding} from '../ui/DestinationDistrict';
 
-interface Sprite{canvas:HTMLCanvasElement;minX:number;minY:number;ox:number;oy:number;unit:number;top:number;sampleX?:number;sampleY?:number;covers?:boolean;ready:boolean;bytes:number}
+interface Sprite{canvas:HTMLCanvasElement;minX:number;minY:number;ox:number;oy:number;unit:number;top:number;windows:Win[];building:Building;sampleX?:number;sampleY?:number;covers?:boolean;ready:boolean;bytes:number}
 export class DestinationBuildings{
  private cache=new Map<number,Sprite>();private jobs:{sprite:Sprite;world:World;building:Building;tiles:{x:number;y:number}[];at:number;g:CanvasRenderingContext2D;ox:number;oy:number}[]=[];private bytes=0;
- beginFrame():void{const until=performance.now()+3;while(this.jobs.length&&performance.now()<until){const job=this.jobs[0],t=job.tiles[job.at++];if(t)drawBuildingTile(job.g,job.world,job.building,t.x,t.y,job.ox+(t.x-t.y)*32,job.oy+(t.x+t.y)*16,1,0,0,1,new Map(),4/job.sprite.unit);if(job.at>=job.tiles.length){job.sprite.ready=true;this.jobs.shift();}}}
+ beginFrame():void{const until=performance.now()+3;while(this.jobs.length&&performance.now()<until){const job=this.jobs[0],t=job.tiles[job.at++];if(t)drawBuildingTile(job.g,job.world,job.building,t.x,t.y,job.ox+(t.x-t.y)*32,job.oy+(t.x+t.y)*16,1,0,0,1,new Map(),4/job.sprite.unit,false,wins=>job.sprite.windows.push(...wins.map(w=>({...w,seed:w.seed+job.sprite.building.id}))));if(job.at>=job.tiles.length){job.sprite.ready=true;this.jobs.shift();}}}
  clear():void{this.cache.clear();this.jobs=[];this.bytes=0;}
  top(b:MappedBuilding):number{const s=mappedBuildingStyle(b);return (GROUND_H+(s.floors-1)*FLOOR_H+(s.kind==='house'?1.3:.3))*3.25;}
  private sprite(m:MappedBuilding):Sprite{
@@ -22,7 +24,7 @@ export class DestinationBuildings{
   tiles.sort((a,b)=>a.x+a.y-b.x-b.y||a.y-b.y);
   const canvas=document.createElement('canvas'),pad=64,top=(b.height+(style.kind==='house'?1.5:2.5))*26,ox=(ny+1)*32+pad,oy=top+pad;
   const quality=.5;canvas.width=Math.ceil(((nx+ny+2)*32+pad*2)*quality);canvas.height=Math.ceil(((nx+ny+2)*16+top+pad*2)*quality);const g=canvas.getContext('2d',{willReadFrequently:true})!;g.scale(quality,quality);
-  const sprite:Sprite={canvas,minX:minX-unit,minY:minY-unit,ox:ox*quality,oy:oy*quality,unit,top:this.top(m),ready:false,bytes:canvas.width*canvas.height*4};this.cache.set(m.id,sprite);this.bytes+=sprite.bytes;this.jobs.push({sprite,world:w,building:b,tiles,at:0,g,ox,oy});while(this.cache.size>96||this.bytes>128*1024*1024){const id=this.cache.keys().next().value!;const old=this.cache.get(id)!;this.bytes-=old.bytes;this.cache.delete(id);this.jobs=this.jobs.filter(j=>j.sprite!==old);}return sprite;
+  const sprite:Sprite={canvas,minX:minX-unit,minY:minY-unit,ox:ox*quality,oy:oy*quality,unit,top:this.top(m),windows:[],building:{...b,id:m.id},ready:false,bytes:canvas.width*canvas.height*4};this.cache.set(m.id,sprite);this.bytes+=sprite.bytes;this.jobs.push({sprite,world:w,building:b,tiles,at:0,g,ox,oy});while(this.cache.size>96||this.bytes>128*1024*1024){const id=this.cache.keys().next().value!;const old=this.cache.get(id)!;this.bytes-=old.bytes;this.cache.delete(id);this.jobs=this.jobs.filter(j=>j.sprite!==old);}return sprite;
  }
  draw(g:CanvasRenderingContext2D,m:MappedBuilding,project:(x:number,y:number,z?:number)=>[number,number],scale:number,focus:[number,number]):void{
   const corners=m.points.map(p=>project(p[0],p[1])),xs=corners.map(p=>p[0]),ys=corners.map(p=>p[1]),height=this.top(m)*scale;
@@ -31,6 +33,14 @@ export class DestinationBuildings{
   // The main world fades buildings hiding the player. Share that behaviour, rather than losing the character behind a roof.
   if(sx<0||sy<0||sx>=s.canvas.width||sy>=s.canvas.height)s.covers=false;
   else if(s.sampleX===undefined||Math.abs(sx-s.sampleX)>3||Math.abs(sy-s.sampleY!)>3){s.sampleX=sx;s.sampleY=sy;s.covers=s.canvas.getContext('2d')!.getImageData(sx,sy,1,1).data[3]>30;}
-  g.save();if(s.covers)g.globalAlpha=.25;g.drawImage(s.canvas,x,y,s.canvas.width*f,s.canvas.height*f);g.restore();
+  g.save();if(s.covers)g.globalAlpha=.25;g.drawImage(s.canvas,x,y,s.canvas.width*f,s.canvas.height*f);
+  // Keep architecture cached, but repaint inhabitants every frame so mapped cities move too.
+  if(f>=.65){
+    g.translate(x,y);g.scale(f*.5,f*.5);const time=performance.now()/1000;
+    paintWindowStories(g,s.windows,time);
+    const b=s.building,tx=b.kind==='house'?b.x0:b.x1,ty=b.kind==='house'?b.y0:b.y1;
+    paintRoofLife(g,(wx,wy,h)=>[s.ox*2+(wx-wy)*32,s.oy*2+(wx+wy)*16-h*26*4/s.unit],b,tx,ty,time,1,s.covers?.25:1);
+  }
+  g.restore();
  }
 }

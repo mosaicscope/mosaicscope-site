@@ -1,4 +1,5 @@
 import {restoreCityPlay} from '../sim/CityPlay';
+import {refreshAmbientFleet} from '../sim/Traffic';
 import {restoreWorldFun} from '../sim/WorldFun';
 import {restoreCommerce,type CommerceState} from '../sim/Commerce';
 import {restoreSubstances} from '../sim/Substances';
@@ -41,6 +42,7 @@ export const unpackMem = (a: MemTuple): Memory => { const m: Memory = { t: a[0],
 export const packRel = (id: number, r: Rel): RelTuple => [id, r.fam, r.trust, r.aff, r.respect, r.fear, r.rivalry, r.grudge, r.shared, r.favours, r.last];
 export const unpackRel = (a: RelTuple): [number, Rel] => [a[0], { fam: a[1], trust: a[2], aff: a[3], respect: a[4], fear: a[5], rivalry: a[6], grudge: a[7], shared: a[8], favours: a[9], last: a[10] }];
 export interface SaveData {
+  ambientFleetVersion?:number;
   cityPlay?:import("../sim/CityPlay").CityPlay;
   worldFun?:import('../sim/WorldFun').WorldFunState;
   saltStory?: SaltProgress;
@@ -95,6 +97,7 @@ export const MIGRATIONS: Record<number, (d: any) => any> = {
 
 export function serialize(sim: Simulation, label = "Save"): SaveData {
   return {
+    ambientFleetVersion:2,
     saltStory: { ...sim.saltStory },
     cityPlay:structuredClone(sim.cityPlay),streetLife: structuredClone(sim.streetLife),worldFun:structuredClone(sim.worldFun),
     commerce: structuredClone(sim.commerce),
@@ -172,7 +175,7 @@ export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemF
   sim.groups.restore(d.groups);
   sim.routines = new Map(d.routines);
   d.lamps.forEach((on, i) => { if (sim.world.pois[i]) sim.world.pois[i].on = on; });
-  if (d.vehicles) sim.vehicles = d.vehicles.map((v) => structuredClone(v));
+  if (d.vehicles) {sim.vehicles = d.vehicles.map((v) => structuredClone(v));if((d.ambientFleetVersion??0)<2)refreshAmbientFleet(sim);}
   else for (const v of sim.vehicles) if (v.driver >= 0 && sim.chars[v.driver]?.inCar !== v.id) { v.driver = -1; v.state = "parked"; v.speed = 0; } // old save: fresh traffic, nobody behind the wheel
   sim.world.graffiti = d.graffiti.map((g) => ({ ...g }));
   sim.tills = { ...d.tills };

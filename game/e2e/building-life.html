@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Living building visual check</title>
+<style>body{margin:0;background:#101923;color:#eee;font:15px system-ui}canvas{display:block;margin:auto;max-width:100%}</style>
+<canvas width="1440" height="900"></canvas>
+<script type="module">
+import {Simulation} from '../src/sim/Simulation';
+import {drawBuildingTile,GLOW} from '../src/render/Buildings';
+import {paintActivity,WINDOW_ACTIVITIES,windowActivity} from '../src/render/WindowActivities';
+const sim=new Simulation({seed:3,midCount:2,backgroundCount:4}),canvas=document.querySelector('canvas'),g=canvas.getContext('2d');
+const kinds=['house','apartments','office','nightclub','casino','cafe'];
+const gallery=new URLSearchParams(location.search).has('activities'),seeds=new Map();
+for(let seed=0;seed<4000;seed++)seeds.set(windowActivity(seed).name,seed);
+window.drawLife=(time=30)=>{
+g.clearRect(0,0,1440,900);
+if(gallery){
+  for(const [i,a]of WINDOW_ACTIVITIES.entries()){
+    const x=i%10*144,y=Math.floor(i/10)*150;
+    g.fillStyle='#1b2835';g.fillRect(x,y,144,150);g.fillStyle='#ead4a0';g.fillRect(x+24,y+8,96,109);
+    g.save();g.beginPath();g.rect(x+24,y+8,96,109);g.clip();
+    paintActivity(g,(u,v)=>[x+24+u*96,y+117-v*109],seeds.get(a.name),time);g.restore();
+    g.fillStyle='#f4ead2';g.font='10px system-ui';g.textAlign='center';g.fillText(a.name,x+72,y+137,140);
+  }
+  window.__lifeReady=true;return;
+}
+for(let row=0;row<2;row++)for(let col=0;col<6;col++){
+const b=sim.world.buildings.find(b=>b.kind===kinds[col]);if(!b)continue;
+g.save();g.beginPath();g.rect(col*240,row*450,240,450);g.clip();g.translate(col*240,row*450);
+g.fillStyle=row?'#18232f':'#6f8582';g.fillRect(0,0,240,450);
+GLOW.length=0;
+const tx=b.x1,ty=b.y1;drawBuildingTile(g,sim.world,b,tx,ty,120,365,2.8,time,row?.8:0,1,new Map());
+if(row){g.fillStyle='rgba(5,8,22,.35)';g.fillRect(0,0,240,450);for(const glow of GLOW)glow(g);}
+g.fillStyle='#f4ead2';g.font='15px system-ui';g.textAlign='center';g.fillText(kinds[col]+(row?' · night':' · day'),120,425);g.restore();
+}
+window.__lifeReady=true;
+};
+const start=performance.now();function frame(){window.drawLife((performance.now()-start)/1000+30);requestAnimationFrame(frame);}frame();
+</script></html>

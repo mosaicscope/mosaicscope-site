@@ -69,7 +69,7 @@ export function workshopAction(sim:Simulation,id:WorkshopAction,vehicleId=-1,pro
  switch(id){
  case 'mirrors':if(!p!.mirrors!.some(n=>n>0)&&!v!.mirrorLost)return unchanged();p!.mirrors!.fill(0);v!.mirrorLost=false;break;
  case 'punctures':if(!p!.wheels.some(w=>w.puncture&&!w.missing))return unchanged();for(const w of p!.wheels)if(!w.missing)w.puncture=false;v!.flatLeft=p!.wheels[0].puncture||p!.wheels[2].puncture;v!.flatRight=p!.wheels[1].puncture||p!.wheels[3].puncture;break;
- case 'panelFront':case 'panelRear':case 'panelLeft':case 'panelRight':{const n=['panelFront','panelRear','panelLeft','panelRight'].indexOf(id),key=(['dmgF','dmgR','dmgL','dmgS'] as const)[n];if(!p!.panels[n]&&!v![key])return unchanged();p!.panels[n]=0;v![key]=0;v!.damage=Math.min(v!.damage,Math.max(...p!.panels,v!.engineDamage??0));break;}
+ case 'panelFront':case 'panelRear':case 'panelLeft':case 'panelRight':{const n=['panelFront','panelRear','panelLeft','panelRight'].indexOf(id),key=(['dmgF','dmgR','dmgL','dmgS'] as const)[n];if(!p!.panels[n]&&!v![key])return unchanged();p!.panels[n]=0;p!.dents=p!.dents?.filter(d=>d.zone!==n);v![key]=0;v!.damage=Math.min(v!.damage,Math.max(...p!.panels,v!.engineDamage??0));break;}
  case 'bumperFront':case 'bumperRear':{const n=id==='bumperFront'?0:1;if(p!.bumpers![n]>=1)return unchanged();p!.bumpers![n]=1;p!.bumper=Math.min(...p!.bumpers!);p!.bumperLoose=p!.bumper<.6;v!.bumperLost=p!.bumper===0;break;}
  case 'lampsFront':case 'lampsRear':{const n=id==='lampsFront'?0:2;if(!p!.lamps!.slice(n,n+2).some(n=>n>0))return unchanged();p!.lamps!.fill(0,n,n+2);break;}
  case 'glassLeft':case 'glassRight':case 'glassRear':{const n=id==='glassLeft'?2:id==='glassRight'?3:1;if(!p!.glass[n])return unchanged();p!.glass[n]=0;v!.glassDamage=Math.max(...p!.glass);break;}
@@ -87,7 +87,7 @@ export function workshopAction(sim:Simulation,id:WorkshopAction,vehicleId=-1,pro
  case 'glass':if(!p!.glass.slice(1).some(n=>n>0))return unchanged();p!.glass.fill(0,1);v!.glassDamage=p!.glass[0];break;
  case 'bonnet':if(!p!.hoodLoose&&!p!.hoodGone&&p!.hood===1)return unchanged();p!.hood=1;p!.hoodLoose=false;p!.hoodGone=false;break;
  case 'bumper':if(!v!.bumperLost&&!p!.bumperLoose&&p!.bumper===1)return unchanged();v!.bumperLost=false;p!.bumper=1;p!.bumpers!.fill(1);p!.bumperLoose=false;break;
- case 'panels':if(!p!.panels.some(n=>n>0)&&!v!.damage)return unchanged();p!.panels.fill(0);p!.mirrors!.fill(0);v!.mirrorLost=false;v!.dmgF=v!.dmgR=v!.dmgL=v!.dmgS=0;v!.damage=Math.max(v!.engineDamage??0,...p!.wheels.map(w=>w.missing?.4:w.puncture?.12:0))*.5;break;
+ case 'panels':if(!p!.panels.some(n=>n>0)&&!v!.damage)return unchanged();p!.panels.fill(0);p!.dents=[];p!.mirrors!.fill(0);v!.mirrorLost=false;v!.dmgF=v!.dmgR=v!.dmgL=v!.dmgS=0;v!.damage=Math.max(v!.engineDamage??0,...p!.wheels.map(w=>w.missing?.4:w.puncture?.12:0))*.5;break;
  case 'engine':if(!v!.engineDamage&&!v!.burning&&!v!.burnt&&!v!.leak)return unchanged();v!.engineDamage=0;v!.engineRepaired=true;v!.burning=false;v!.burnt=false;v!.burnTime=0;v!.heat=0;v!.leak=0;break;
  case 'wash':if(v!.cleaned)return unchanged();v!.cleaned=true;pose='clean';text='Road grime washed off. Physical damage still needs repairs.';break;
  case 'repaint':v!.color=paint(colour);v!.resprayed=true;pose='clean';break;

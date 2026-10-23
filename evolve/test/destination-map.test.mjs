@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {districtCentre,convertDestination,osmXml} from '../../functions/api/destination-map.js';
+test('real river centre-lines survive the map limit and retain estimated-width provenance',()=>{const c=districtCentre('CHC'),geometry=[{lat:c.lat,lon:c.lon},{lat:c.lat+.001,lon:c.lon+.001}],d=convertDestination({elements:[...Array.from({length:320},(_,id)=>({id,tags:{landuse:'tree_pit'},geometry:[...geometry,geometry[0],geometry[0]]})),{id:999,tags:{waterway:'river',name:'Actual river'},geometry}]},'CHC');assert.equal(d.terrain[0].kind,'water');assert.equal(d.terrain[0].name,'Actual river');assert.equal(d.terrain[0].tags.widthEstimated,'yes');assert.equal(d.terrain[0].points.length,4);});
 test('worldwide destinations have bounded, whitelisted district centres',()=>{
  const kuwait=districtCentre('G285787');assert.match(kuwait.name,/Kuwait/);assert.ok(kuwait.lat>28&&kuwait.lat<31);
  assert.equal(districtCentre('__proto__'),null);assert.equal(districtCentre('Gunknown'),null);assert.equal(districtCentre('G285787',21,0),null);assert.equal(districtCentre('G285787',.5,0),null);

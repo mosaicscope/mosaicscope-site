@@ -31,6 +31,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .hud .stars { font-size:12px; letter-spacing:5px; color:#ffffff30; margin:6px 0 10px; }
 .hud .stars b { color:var(--ui-gold); }
 .hud .car { color:var(--ui-muted); font-size:10px; max-width:240px; }
+.hud .drive-mode { pointer-events:auto; min-height:36px; margin:6px 0; padding:6px 12px; }
+@media(pointer:coarse) { .hud .drive-mode { min-height:44px; } }
 .modal-wrap { background:#061619aa; backdrop-filter:blur(6px); }
 .modal,.panel { border-color:var(--ui-border); border-radius:16px; background:var(--ui-bg); color:var(--ui-text); }
 .modal .btn,.activities .btn { border-radius:9px; border-color:var(--ui-border); background:var(--ui-raised); padding:10px 14px; }

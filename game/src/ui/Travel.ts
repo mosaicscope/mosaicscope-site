@@ -236,6 +236,8 @@ export class Travel {
     const tick = (now: number) => { if (!this.open) return; this.raf = requestAnimationFrame(tick); this.frame(now); };
     this.raf = requestAnimationFrame(tick);
   }
+  private liveMode=false;
+  liveCity():void{this.show();this.liveMode=true;this.el.setAttribute('aria-label','Live mapped city');this.el.classList.add('live-city');this.globalDestination={...DESTS[0],code:'CHC',name:'Christchurch · live city',lat:-43.5309,lon:172.6366,country:'NZ',fare:0,tag:'Real mapped streets, current conditions and simulated city life',acts:[]};this.go('dest');}
 
   close(): void {
     this.conversation?.dispose();this.conversation=null;this.room?.dispose();this.room=null;this.district?.dispose();this.district=null;
@@ -247,12 +249,14 @@ export class Travel {
 
   autoHome(): void {
     if (!this.open) return;
+    if(this.liveMode){this.close();return;}
     const summary = this.summary();
     this.close();
     this.host.onReturn(summary, [...this.souvenirs], this.photos);
   }
 
   private reset(): void {
+    this.liveMode=false;this.el.classList.remove('live-city');
     this.cabin={first:false,seat:'window',meal:0,snack:'',headphones:false,blanket:false,service:''};this.privateFlight=false;this.lounge='terminal';this.passes=new Set(['terminal','quiet','family']);
     this.globalDestination=null;this.sel = 0; this.comp = null; this.spent = 0; this.photos = 0; this.souvenirs = []; this.done.clear();
     this.bagOk = false; this.scanDone = false; this.argued = false; this.cleared = false; this.scanNote = ""; this.landed = false;
@@ -307,7 +311,7 @@ export class Travel {
 
   private scene(kicker: string, title: string, body: (Node | null)[], actions: HTMLElement[]): void {
     const anim = this.animate; this.animate = false;
-    this.el.replaceChildren(...(this.stage === "board" ? [] : [this.btn("Auto Home", () => this.autoHome(), {cls:"auto-home", aria:"Auto Home · return to Christchurch"})]), h("div.tv-scene" + (anim ? ".tv-in" : ""), { "data-stage": this.stage }, [
+    this.el.replaceChildren(...(this.stage === "board" ? [] : [this.btn(this.liveMode?"Exit live city":"Auto Home", () => this.autoHome(), {cls:"auto-home", aria:this.liveMode?"Exit live city":"Auto Home · return to Christchurch"})]), h("div.tv-scene" + (anim ? ".tv-in" : ""), { "data-stage": this.stage }, [
       h("header.tv-cap", null, [h("p.tv-kick", { text: kicker }), h("h2.tv-title", { text: title }),
         h("div.tv-wallet", { "aria-label": "Cash" }, [h("span", { text: "Cash" }), h("b", { text: money(this.host.getCash()) })])]),
       h("div.tv-body", null, body),
@@ -317,7 +321,7 @@ export class Travel {
   }
 
   private render(): void {
-    if(this.district)this.visits.set(this.dest.code,this.district.snapshot());
+    if(this.district)this.visits.set(this.district.cityCode,this.district.snapshot());
     this.conversation?.dispose();this.conversation=null;this.room?.dispose();this.room=null;this.district?.dispose();this.district=null;
     this.canvas = null; this.lineEl = null;
     switch (this.stage) {
@@ -355,7 +359,7 @@ export class Travel {
       h('p.tv-note',{text:this.globalDestination?'Selected: '+this.dest.name:this.dest.tag}),
       h("h3.tv-h3", { text: "Who's coming?" }), comps,
     ], [
-      this.btn(`Buy ticket${this.comp ? "s" : ""} · ${money(fare)}`, () => this.buy(), { primary: true, aria: `Buy ${this.comp ? "two return tickets" : "a return ticket"} to ${this.dest.name} for ${money(fare)}` }),
+      this.liveMode?this.btn('Open live city · '+this.dest.name,()=>this.go('dest'),{primary:true}):this.btn(`Buy ticket${this.comp ? "s" : ""} · ${money(fare)}`, () => this.buy(), { primary: true, aria: `Buy ${this.comp ? "two return tickets" : "a return ticket"} to ${this.dest.name} for ${money(fare)}` }),
       this.btn("Leave airport", () => this.close(), { aria: "Leave the airport (Escape)" }),
       this.btn('Explore terminal & lounges',()=>this.go('gate')),
     ]);
@@ -484,13 +488,13 @@ export class Travel {
   private destView(): void {
     const d = this.dest;
     const acts = d.acts.map((a, i) => this.btn(`${a.label}${a.cost ? " · " + money(a.cost) : ""}`, () => this.doAct(a), { key: String(i + 1), disabled: this.done.has(a.id) && a.kind !== "photo", aria: `${a.label}${a.cost ? ", costs " + money(a.cost) : ", free"} (key ${i + 1})` }));
-    acts.push(this.btn("Fly home", () => this.go("return"), { primary: true, aria: "Fly home to Christchurch" }));
+    if(this.liveMode){acts.push(this.btn('Choose another city',()=>this.go('board')),this.btn('Back to my city game',()=>this.close(),{primary:true}));}else acts.push(this.btn("Fly home", () => this.go("return"), { primary: true, aria: "Fly home to Christchurch" }));
     const canvas=this.makeCanvas(`${d.name}: real mapped buildings and roads with your Mosaics character`),status=h('p.tv-note',{text:'Loading mapped neighbourhood…'}),enter=this.btn('Enter selected venue',()=>this.enterMappedVenue());enter.setAttribute('disabled','');
     this.scene(`${d.name} · ${this.comp ? "with " + this.comp.name : "solo"} · ${this.photos} photos`, d.name,
-      [canvas,h('div.destination-zoom',{'aria-label':'Map zoom'},[this.btn('−',()=>this.district?.zoom(-1),{aria:'Zoom out destination map'}),this.btn('+',()=>this.district?.zoom(1),{aria:'Zoom in destination map'})]),h('a.destination-credit',{href:'https://www.openstreetmap.org/copyright',target:'_blank',rel:'noopener',text:'© OpenStreetMap contributors'}),h('details.destination-guide',null,[h('summary',{text:'Map & controls'}),status,h('p.tv-note',{text:'WASD / arrows to walk. Tap the ground to move; tap a building or venue to inspect it. Approach within 30 metres to enter. Map footprints, roads and available land cover come from OpenStreetMap. Water blocks walking; sand and grass affect your pace. Traffic is simulated on mapped roads. Building materials, colours and roof forms use available OSM tags; missing details use regional estimates.'}),
+      [canvas,h('div.destination-zoom',{'aria-label':'Map zoom'},[this.btn('−',()=>this.district?.zoom(-1),{aria:'Zoom out destination map'}),this.btn('+',()=>this.district?.zoom(1),{aria:'Zoom in destination map'})]),h('a.destination-credit',{href:'https://www.openstreetmap.org/copyright',target:'_blank',rel:'noopener',text:'© OpenStreetMap contributors'}),h('details.destination-guide',null,[h('summary',{text:'Map & controls'}),status,h('p.tv-note',{text:'WASD / arrows to walk. Tap the ground to move; tap a building or venue to inspect it. Approach within 30 metres to enter. Map footprints, roads and available land cover come from OpenStreetMap. Water blocks walking; sand and grass affect your pace. River centre-lines come from OSM; widths are estimated when no width tag is supplied. Traffic is simulated on mapped roads. Building materials, colours and roof forms use available OSM tags; missing details use regional estimates.'}),
        h('a',{href:'https://www.openstreetmap.org/copyright',target:'_blank',rel:'noopener',text:'© OpenStreetMap contributors · ODbL 1.0'}),h('a',{href:'https://www.geonames.org/',target:'_blank',rel:'noopener',text:'City centres: GeoNames · CC BY 4.0'})])], [enter,this.btn('Drive / park · E',()=>this.district?.vehicle()),this.btn('Talk to a local',()=>this.conversation?.talk()),...acts]);
     this.district=new DestinationDistrict(canvas,d.code,this.host.player(),s=>{status.textContent=s;},()=>{enter.removeAttribute('disabled');},this.visits.get(d.code),this.comp?this.host.people().filter(c=>c.name===this.comp!.name||c.name.startsWith(this.comp!.name+' ')).slice(0,1):[],this.host.people().filter(c=>c.tier==='background').slice(0,12),d.country??'',()=>this.conversation?.talk());
-    this.conversation=new DestinationConversation(countryFor(d.code,d.country??''),()=>this.district!.context(),text=>{const msg=this.el.querySelector('.tv-msg');if(msg)msg.textContent=text;});this.el.querySelector('.tv-body')?.append(this.conversation.el);
+    this.conversation=new DestinationConversation(countryFor(d.code,d.country??''),()=>this.district!.context(),text=>{const msg=this.el.querySelector('.tv-msg');if(msg)msg.textContent=text;});this.el.querySelector('.tv-body')?.append(this.district.tools(),this.conversation.el);
   }
 
   private enterMappedVenue():void{

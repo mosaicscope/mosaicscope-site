@@ -1,5 +1,6 @@
 import {canvasStage} from './CanvasStage';
 import {CasinoFloor} from './CasinoFloor';
+import {drawCasinoStation,STATION_W,STATION_H} from './CasinoStations';
 import {drawRouletteTable,rouletteCells,cellQuad,rouletteSurroundingGuests,ROULETTE_W,ROULETTE_H} from './RouletteTableArt';
 import {CasinoExtras} from './CasinoExtras';
 import {newCityPlay,type CasinoSocial} from '../sim/CityPlay';
@@ -287,10 +288,15 @@ export class Casino {
     ]);
     if(window.innerWidth<=640)requestAnimationFrame(()=>nav.querySelector('[aria-selected="true"]')?.scrollIntoView({block:'nearest',inline:'nearest'}));
     this.body.id = "casino-table"; this.body.setAttribute("role", "tabpanel"); this.body.setAttribute("aria-label", tabs.find(t => t[0] === this.tab)?.[1] ?? "Cashier");
-    if(["blackjack","pokies","poker"].includes(this.tab))view=h("div.casino-live-table",null,[this.extra.crowd(this.tab,this.rSpinning||this.slotSpinning),view]);
+    if(["blackjack","pokies","poker"].includes(this.tab)){
+      const kind=this.tab as 'blackjack'|'pokies'|'poker';let zoom=1;
+      const scene=canvasStage((g,t,reduced)=>drawCasinoStation(g,{kind,people:this.w.people?.()??[],dealer:this.w.dealer?.(),blackjack:this.bj,bet:kind==='blackjack'?this.bjBet:this.slotBet,reels:this.reels,spinning:this.slotSpinning,hand:this.vp.hand,held:this.vp.held,win:kind==='pokies'?this.slotWin:this.vpWin},t,reduced),{width:STATION_W,height:STATION_H,camera:()=>({scale:zoom,x:zoom===1?600:kind==='blackjack'?600:545,y:zoom===1?350:kind==='blackjack'?370:310}),label:kind==='blackjack'?'Isometric blackjack room with dealer, actual cards, chips and Mosaic players':'Isometric '+(kind==='pokies'?'slot machine':'video poker')+' lounge with occupied cabinets and your live screen'});
+      scene.append(h('nav.roulette-camera',{'aria-label':'Game room camera'},[this.btn('Full room',()=>{zoom=1;}),this.btn(kind==='blackjack'?'Table close-up':'My machine',()=>{zoom=1.7;})]));
+      view=h('section.iso-game.casino-station',null,[scene,view,this.tableServices(kind,this.slotSpinning||round||this.vp.phase==='draw')]);
+    }
     if(this.tab==="cashier")view.append(this.extra.social(this.rSpinning));
     this.body.replaceChildren(h("div.cas-view-title", null, [h("small", { text: this.tab === "floor" ? "WELCOME BACK" : "THE TESSERA / TABLE GAMES" }), h("h2", { text: tabs.find(t => t[0] === this.tab)?.[1] ?? "Cashier" })]), this.msg ? h("p.cas-msg", { role: "status", text: this.msg }) : h("span"), view);
-    this.el.replaceChildren(h("div.cas-frame.cx"+(["floor","flight","holdem","roulette"].includes(this.tab)?".cas-table-frame":""), null, [head, h("div.cas-layout", null, [h("aside.cas-sidebar", null, [nav, session]), this.body]), h("footer.cas-foot", { text: "THE TESSERA · Fictional casino · No real money · Finish your round, then leave to cash out automatically." })]));
+    this.el.replaceChildren(h("div.cas-frame.cx"+(["floor","flight","holdem","roulette","blackjack","pokies","poker"].includes(this.tab)?".cas-table-frame":""), null, [head, h("div.cas-layout", null, [h("aside.cas-sidebar", null, [nav, session]), this.body]), h("footer.cas-foot", { text: "THE TESSERA · Fictional casino · No real money · Finish your round, then leave to cash out automatically." })]));
   }
 
   // ------------------------------------------------------------------ the floor
@@ -418,7 +424,7 @@ export class Casino {
       ])];
     }
     const hintBox = h("label.cx-hintbox", null, [h("input", { type: "checkbox", checked: this.bjHint, disabled: !this.w.strategy?.(), onchange: (e: Event) => { this.bjHint = (e.target as HTMLInputElement).checked; this.render(); } }), this.w.strategy?.() ? " Basic-strategy card" : " Strategy card: unlock in Life & upgrades → Skills"]);
-    return h("div.cx-wrap", null, [table, h("div.cx-controls", null, [...controls, hintBox])]);
+    return h("div.cx-wrap", null, [h('details.blackjack-card-detail',null,[h('summary',{text:'Cards, hand totals & betting circles'}),table]),h('p.cx-say',{role:'status',text:inRound?`Dealer ${dTotal} · Your hand ${bj.hand?total(bj.hand.cards,!bj.hand.fromSplit):''}`:bj.phase==='settled'?bj.log.slice(-1)[0]||'Round settled.':'Place chips, then deal. Blackjack pays 3 to 2.'}), h("div.cx-controls", null, [...controls, hintBox])]);
   }
 
   private dealBJ(): void {

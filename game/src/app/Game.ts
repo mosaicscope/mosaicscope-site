@@ -72,6 +72,8 @@ import { Casino } from "../ui/Casino";
 import { Places, Radio } from "../ui/Places";
 import { InteriorOverlay } from "../ui/InteriorOverlay";
 import { nearestCar, playerInput, seat, unseat } from "../sim/Traffic";
+import { cycleDriveMode, DRIVE_MODE_LABELS } from "../sim/DrivingExperience";
+import { handlingProfile } from "../sim/VehicleHandling";
 import { wound,useBandage } from "../sim/Life";
 import { commitCrime, fmtCash, exitBuilding, consume } from "../sim/Society";
 import { VEHICLES } from "../content/vehicles";
@@ -364,7 +366,16 @@ export class Game {
     const kids: HTMLElement[] = [h("div.cash", { text: fmtCash(p.cash) }), h("div.stars" + (p.wanted ? ".flash" : ""), { "aria-label": `Wanted level ${p.wanted}` }, [h("b", { text: stars.slice(0, p.wanted) }), stars.slice(p.wanted)]),
       h("div.bars", null, [...bar("health", p.blood * p.emo.composure ** 0.3, p.bleed > 0 ? "#c56d64" : "#b2b49a"), ...bar("hunger", p.hunger, "#bea56e"), ...bar("energy", p.needs.energy, "#8b9fa7"), ...bar("mood", (p.emo.mood + 1) / 2, "#a29aac")])];
     if (titleOf(sim.expansion)) kids.push(h("div.car", { text: titleOf(sim.expansion) + " · " + (sim.expansion.graduated[sim.expansion.graduated.length - 1] ?? "") }));
-    if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; kids.push(h("div.car", null, [h("b", { text: String(Math.round(Math.abs(v.speed) * 7.2)) }), " km/h · " + VEHICLES[v.cls].name + (v.flatLeft || v.flatRight ? " · FLAT TYRE" : "") + ((v.heat ?? 0) > 0.5 ? " · ENGINE HOT: pull over" : "")])); }
+    if (p.inCar >= 0) {
+      const v=sim.vehicles[p.inCar],speed=Math.hypot(v.vx??Math.cos(v.heading)*v.speed,v.vy??Math.sin(v.heading)*v.speed),pt=v.powertrain,drift=v.drift;
+      kids.push(h("div.car",null,[h("b",{text:String(Math.round(speed*7.2))})," km/h · "+VEHICLES[v.cls].name,
+        h("div",{text:`${handlingProfile(v.cls).drive.toUpperCase()} · ${pt?(pt.gear<0?'R':'D'+pt.gear)+' · '+Math.round(pt.rpm)+' rpm':'Automatic'}`}),
+        h("button.btn.drive-mode",{type:"button",text:DRIVE_MODE_LABELS[v.driveMode??"road"]+" mode ↻","aria-label":"Change driving mode",onclick:()=>{cycleDriveMode(v);this.updateHud();}}),
+        h("div",{text:`Tyres ${Math.round((v.tyreHeat??0)*100)}% warm${(v.wheelspin??0)>.3?' · WHEELSPIN':''}${(v.slip??0)>1|| (v.slip??0)<-1?' · SLIDING':''}`}),
+        ...(drift&&drift.points>1?[h("div",{text:`DRIFT ${Math.round(drift.points)} · ×${1+Math.min(3,Math.floor(drift.chain/2))} · ${Math.round(drift.angle)}°`})]:drift&&drift.best>0?[h("div",{text:`Best drift ${drift.best}`})]:[]),
+        (v.flatLeft||v.flatRight?" · FLAT TYRE":"")+((v.heat??0)>.5?" · ENGINE HOT: pull over":"")
+      ]));
+    }
     if(sim.pendingAmbulance.has(p.id))kids.push(h('div.car.medical-status',{text:p.phys===Phys.DOWN?'Ambulance on the way · stay still for treatment':'Ambulance on the way · move clear of traffic'}));
     if(p.substances)kids.push(h('div.car',{text:substancePhase(p,sim.tick)}));
     if (p.bleed > 0) kids.push(h("div.car", { text: "You're bleeding. B to bandage." }));
@@ -1364,6 +1375,7 @@ export class Game {
     const dock = h("nav.game-dock", { "aria-label": "Game actions" }, [
       command("Life & upgrades", "◆", () => this.lifePhone.show()),
       command("City map", "▦", () => this.minimap.toggle()),
+      command('Live city','◉',()=>this.travel.liveCity()),
       command("Casino", "♠", () => { this.pausedBefore = this.clock.paused; this.casino.show(); }, ".casino-launch"),
       command("Explore", "◎", () => this.activities.show("Explore")),
       command("Photo", "▣", () => this.photos.open()),
@@ -1377,6 +1389,7 @@ export class Game {
       h("nav.game-menu", { "aria-label": "More game options", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar"); bar?.classList.remove("open"); bar?.querySelector(".menu-toggle")?.setAttribute("aria-expanded", "false"); } }, [
         h('button.btn.acid',{text:'Resume game',onclick:()=>this.resumeGame()}),
         h('button.btn',{text:'Mobile phone',onclick:()=>this.phone.home()}),
+        h('button.btn',{text:'Live mapped city',onclick:()=>this.travel.liveCity()}),
         h('button.btn',{text:'Street play · 50 activities',onclick:()=>{void import('../ui/WorldPlay').then(m=>m.showWorldPlay(this.modal,this.sim,text=>this.toast(text)));}}),
         h('button.btn',{text:'Street life',onclick:()=>{void import('../ui/StreetLifePanel').then(m=>m.showStreetLife(this.modal,this.sim,(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);this.canvas.focus();}));}}),
         h('button.btn',{text:'Vehicle & street workshop',onclick:()=>{void import('../ui/VehicleWorkshop').then(m=>m.showVehicleWorkshop(this.modal,this.sim));}}),
