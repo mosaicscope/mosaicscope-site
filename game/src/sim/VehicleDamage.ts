@@ -13,12 +13,13 @@ export function impactComponents(v:Vehicle,nx:number,ny:number,speed:number,mass
  p.contacts??=[{x:.5,y:0},{x:-.5,y:0},{x:0,y:-.5},{x:0,y:.5}];if(contact){const dx=contact.x-v.x,dy=contact.y-v.y,d=vehicleGeometry(v);p.contacts[zone]={x:Math.max(-.5,Math.min(.5,(dx*c+dy*s)/d.length)),y:Math.max(-.5,Math.min(.5,(-dx*s+dy*c)/d.width))};}
  if(energy>.005){const at=p.contacts[zone],len=Math.hypot(along,side)||1,dent={zone,x:at.x,y:at.y,z:.44,nx:along/len,ny:side/len,energy,depth:energy*(zone<2?.2:.3),radius:.24+energy*.15};p.dents??=[];const old=p.dents.find(d=>d.zone===zone&&Math.hypot(d.x-at.x,d.y-at.y)<.18);if(old){old.depth=Math.min(.34,old.depth+dent.depth*.7);old.energy=Math.min(1,old.energy+energy);old.radius=Math.max(old.radius,dent.radius);}else{if(p.dents.length>=8)p.dents.shift();p.dents.push(dent);}}
  if(zone===0&&energy>.2)v.engineRepaired=false;
+ const oldGlass=p.glass[zone];
  p.panels[zone]=Math.min(1,p.panels[zone]+energy);p.glass[zone]=Math.min(1,p.glass[zone]+energy*.95);p.lastImpact=tick;
  const lamp=(along>=0?0:2)+(side>=0?1:0),oldLamp=p.lamps![lamp];p.lamps![lamp]=Math.min(1,p.lamps![lamp]+energy*1.05);if(Math.abs(side)>.35)p.mirrors![side>0?1:0]=Math.min(1,p.mirrors![side>0?1:0]+energy);
  const wheel=(along>=0?0:2)+(side>=0?1:0),w=p.wheels[wheel];w.rim=Math.min(1,w.rim+energy*.8);w.suspension=Math.min(1,w.suspension+energy*.9);w.alignment=Math.max(-.42,Math.min(.42,w.alignment+(side>=0?1:-1)*energy*.2));if(energy>.3)w.puncture=true;
- const toss=(kind:VehicleDebris['kind'],n:number)=>{for(let i=0;i<n&&p.debris.length<24;i++)p.debris.push({kind,x:v.x+nx*.6,y:v.y+ny*.6,z:kind==='glass'?.7:.2,vx:nx*(1+i%3)+Math.cos(i*2.4),vy:ny*(1+i%3)+Math.sin(i*2.4),vz:1.4+i%3*.35,age:0,spin:i*1.7});};
+ const toss=(kind:VehicleDebris['kind'],n:number)=>{for(let i=0;i<n&&p.debris.length<24;i++)p.debris.push({kind,x:contact?.x??v.x+nx*.6,y:contact?.y??v.y+ny*.6,z:kind==='glass'?.7:.2,vx:(v.vx??0)*.45+nx*(1+i%3)+Math.cos(i*2.4),vy:(v.vy??0)*.45+ny*(1+i%3)+Math.sin(i*2.4),vz:1.4+i%3*.35,age:0,spin:i*1.7});};
  if(oldLamp<.94&&p.lamps![lamp]>=.94){toss('lamp',1);p.debris[p.debris.length-1].colour=lamp<2?'#c2d0bb':'#b56b5b';}
- if(p.glass[zone]>.45)toss('glass',3+Math.floor(energy*5));
+ if(oldGlass<=.45&&p.glass[zone]>.45||oldGlass<=.85&&p.glass[zone]>.85)toss('glass',3+Math.floor(energy*5));
  if(energy>.68&&w.suspension>.82&&!w.missing){w.missing=true;toss('wheel',1);}
  if(zone===0){p.hood=Math.max(0,p.hood-energy*.8);p.hoodLoose=p.hood<.55;}
  if(zone<2){p.bumperZone=zone;p.bumpers![zone]=Math.max(0,p.bumpers![zone]-energy);p.bumper=Math.min(...p.bumpers!);p.bumperLoose=p.bumper<.6;}

@@ -36,3 +36,15 @@ export function corneringBudget(grip: number, longitudinal: number): number {
   const used = clamp(Math.abs(longitudinal) / Math.max(0.1, grip), 0, 0.98);
   return grip * Math.sqrt(1 - used * used);
 }
+
+/** Comfortable following speed with a reaction gap and relative braking distance. */
+export function followingSpeed(gap: number, leaderSpeed: number, brake: number, headway = 0.65): number {
+  const b = Math.max(0.1, brake), lead = Math.max(0, leaderSpeed);
+  return Math.max(0, Math.sqrt((b * headway) ** 2 + lead * lead + 2 * b * Math.max(0, gap - 0.2)) - b * headway);
+}
+
+/** Warm rubber has a broad sweet spot; sustained burnouts eventually cost adhesion. */
+export function temperatureGrip(heat: number): number {
+  const h = clamp(heat, 0, 1);
+  return 1 + Math.min(h, 0.45) * 0.12 - Math.max(0, h - 0.65) * 0.38;
+}
