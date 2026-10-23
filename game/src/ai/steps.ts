@@ -48,7 +48,9 @@ function face(c: Character, x: number, y: number): void { c.facing = Math.atan2(
 /** Execute one primitive step for one AI tick. dt = simulated seconds since the last think. */
 export function runStep(c: Character, s: Step, g: ActiveGoal, sim: Simulation, dt: number): StepStatus {
   g.stepTimer += dt;
-  if (g.stepTimer > (s.time ?? 0) + 60) return FAIL; // generic timeout: recover from stuck goals
+  // Appointments have their own longer travel/wait limits below; red-light queues can exceed a minute.
+  const timeout = s.booking !== undefined && (s.kind === "pose" || s.kind === "photo") ? 180 : (s.time ?? 0) + 60;
+  if (g.stepTimer > timeout) return FAIL; // generic timeout: recover from stuck goals
   if (c.pathReq === -1) { c.pathReq = 0; c.path = null; return FAIL; } // unreachable
   const target = s.target !== undefined ? sim.chars[s.target] : undefined;
   if (s.target !== undefined && (!target || target.lod === 4 /* sleeping far away */)) return FAIL;

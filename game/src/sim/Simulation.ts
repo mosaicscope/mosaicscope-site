@@ -532,9 +532,10 @@ export class Simulation {
 
   onCarCrash(a: Vehicle, b: Vehicle, rel: number): void {
     if (a.state === "crashed" && b.state === "crashed") return;
-    for (const v of [a, b]) { v.damage = Math.min(1, v.damage + rel * 0.03); if (v.state !== "parked") { v.state = "crashed"; v.crashedUntil = this.tick + 60 * (v.driver === this.playerId ? 1 : 6); } v.speed *= 0.2; }
+    for (const v of [a, b]) { v.damage = Math.min(1, v.damage + rel * 0.03); if (v.state !== "parked") { v.state = "crashed"; v.crashedUntil = this.tick + 60 * (v.driver === this.playerId ? Math.min(.85,.15+rel*.045) : Math.min(6,1+rel*.3)); } }
     this.bus.emit("sound", { kind: "crash", x: a.x, y: a.y, vol: Math.min(1, rel / 8) });
-    this.bus.emit("fx", { kind: "break", x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: 0.5, n: 14, color: "#9a8d80" });
+    this.bus.emit("fx", { kind: "break", x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: 0.5, n: Math.min(28,6+Math.floor(rel*1.5)), color: "#9a8d80" });
+    if(rel>5)this.bus.emit("fx",{kind:"spark",x:(a.x+b.x)/2,y:(a.y+b.y)/2,z:.3,n:Math.min(18,Math.floor(rel)),color:"#f6b62c"});
     const da = a.driver >= 0 ? this.chars[a.driver] : null, db = b.driver >= 0 ? this.chars[b.driver] : null;
     const e = this.emit({ type: "car_crash", x: a.x, y: a.y, actors: [da?.id ?? -1, db?.id ?? -1].filter((x) => x >= 0), severity: 3, summary: `Crash: ${da ? da.name : "a parked car"}'s ${VEHICLES[a.cls].name} and ${db ? db.name : "a parked car"}'s ${VEHICLES[b.cls].name}` });
     // both drivers get out and have words (road rage chain)

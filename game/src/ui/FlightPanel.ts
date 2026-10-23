@@ -2,7 +2,7 @@ import {h} from './dom';
 import {canvasStage} from './CanvasStage';
 import {drawCrashFlight,FLIGHT_W,FLIGHT_H} from './CrashFlightArt';
 import {AIRCRAFT} from '../content/aircraft';
-import {finishFlight,flightMultiplier,flightPreferences,recordFlight,FLIGHT_ROUTES,type FlightPreferences,type CrashFlight} from '../casino/flight';
+import {finishFlight,flightMultiplier,flightPreferences,recordFlight,FLIGHT_ROUTES,type FlightPreferences} from '../casino/flight';
 import type {CasinoSocial} from '../sim/CityPlay';
 import type {Character} from '../entities/types';
 interface Host{state():CasinoSocial;people():readonly Character[];chips():number;setChips(n:number):void;render():void;buyChips?(n:number):boolean;round(game:string,net:number):void}
