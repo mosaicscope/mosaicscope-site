@@ -1,1 +1,0 @@
-export{t as DestinationBuildings}from"./index-DcTNK4Mx.js";
