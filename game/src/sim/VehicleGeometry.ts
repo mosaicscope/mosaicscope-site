@@ -42,9 +42,9 @@ export function chassisContact(a: Vehicle, b: Vehicle): { nx: number; ny: number
 }
 
 /** Continuous separating axes for translation during one small physics step. */
-export function sweptChassisContact(a:Vehicle,b:Vehicle):{nx:number;ny:number;t:number}|null {
+export function sweptChassisContact(a:Vehicle,b:Vehicle,stationaryB=false):{nx:number;ny:number;t:number}|null {
   const ga=vehicleGeometry(a),gb=vehicleGeometry(b),ac=Math.cos(a.heading),as=Math.sin(a.heading),bc=Math.cos(b.heading),bs=Math.sin(b.heading);
-  const dx=b.px-a.px,dy=b.py-a.py,vx=(b.x-b.px)-(a.x-a.px),vy=(b.y-b.py)-(a.y-a.py);
+  const dx=(stationaryB?b.x:b.px)-a.px,dy=(stationaryB?b.y:b.py)-a.py,vx=(stationaryB?0:b.x-b.px)-(a.x-a.px),vy=(stationaryB?0:b.y-b.py)-(a.y-a.py);
   let enter=0,leave=1,nx=0,ny=0;
   for(const [x,y] of [[ac,as],[-as,ac],[bc,bs],[-bs,bc]]){
     const radius=(Math.abs(x*ac+y*as)*ga.length+Math.abs(-x*as+y*ac)*ga.width+Math.abs(x*bc+y*bs)*gb.length+Math.abs(-x*bs+y*bc)*gb.width)/2;

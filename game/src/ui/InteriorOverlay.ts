@@ -60,7 +60,7 @@ export class InteriorOverlay {
   private onBlur = () => { this.held.clear(); };
 
   constructor(private host: InteriorHost) {
-    this.cv = h("canvas.iv-cv", { role: "img", "aria-label": "Inside the building" }) as HTMLCanvasElement;
+    this.cv = h("canvas.iv-cv", { role: "img", tabIndex:0, "aria-label": "Inside the building. Walk with WASD, arrows, tap the floor or drag the movement stick." }) as HTMLCanvasElement;
     this.view = new InteriorView(this.cv);
     this.titleEl = h("b.iv-title"); this.zoneEl = h("span.iv-zone-name"); this.clockEl = h("span.iv-clock"); this.cashEl = h("span.iv-cash");
     this.promptBtn = h("button.iv-prompt.hidden", { type: "button" }) as HTMLButtonElement;
@@ -83,6 +83,7 @@ export class InteriorOverlay {
       this.cv,
       h("div.iv-top", null, [h("div.iv-head", null, [this.titleEl, this.zoneEl]), h("div.iv-meta", null, [this.clockEl, this.cashEl]), leave]),
       this.needsEl, this.capEl, this.actionsEl, this.promptBtn,
+      zone,this.stickEl,
     ]);
     // never let gestures reach the world canvas beneath, and never let the page zoom
     for (const ev of ["wheel", "contextmenu", "dblclick", "gesturestart"]) this.el.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
@@ -99,7 +100,7 @@ export class InteriorOverlay {
   get footing(): { moving: boolean; running: boolean } { return { moving: this.open && this.me.speed > 0.2, running: this.open && this.me.speed > 3.6 }; }
 
   show(b: Building): void {
-    const sim = this.host.sim(), def = furnishInterior(sim,b.id,interiorForBuilding(b));
+    const sim = this.host.sim(),source=sim.world.mapped?.byBuilding.get(b.id),def = furnishInterior(sim,b.id,interiorForBuilding({...b,usage:[source?.kind,b.legacyName].filter(Boolean).join(' ')}));
     this.b = b; this.def = def;this.path=[];this.destination=null;
     this.actionsEl.replaceChildren(...def.interactables.map(it=>h("button",{text:it.label,onclick:()=>this.walkTo(it)})));
     this.crowd = new InteriorCrowd(def, sim, b);
@@ -121,6 +122,7 @@ export class InteriorOverlay {
     cancelAnimationFrame(this.raf); this.raf = requestAnimationFrame(this.loop);
     this.host.onChange?.(true);
     (this.el.querySelector(".iv-leave") as HTMLElement | null)?.blur();
+    this.cv.focus({preventScroll:true});
   }
 
   close(): void {
@@ -144,8 +146,10 @@ export class InteriorOverlay {
   // ------------------------------------------------------------------ input
   private key(e: KeyboardEvent, down: boolean): void {
     if (!this.open) return;
-    if (this.host.modalOpen()) return; // panels launched from here own the keyboard while they are up
+    if (this.host.modalOpen()) {this.held.clear();return;} // panels launched from here own the keyboard while they are up
     const k = e.key.toLowerCase(), m = this.host.keys();
+    const typing=(e.target as HTMLElement|null)?.closest('input,textarea,select,[contenteditable=true]');
+    if(typing)return;
     const move = [m.up, m.down, m.left, m.right, "arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"];
     if (down) {
       if(k==='b'){e.stopImmediatePropagation();e.preventDefault();if(!e.repeat){const sim=this.host.sim();this.host.toast(useBandage(sim,sim.player,sim.player)?"Bandaged. Bleeding controlled.":"You need a bandage and an untreated wound.");}return;}
@@ -308,7 +312,7 @@ export class InteriorOverlay {
     if (def.shouts?.length && !this.capUntil && this.t > this.shoutAt) { this.say(def.shouts[Math.floor(Math.random() * def.shouts.length)], 5); this.shoutAt = this.t + 10 + Math.random() * 8; }
     if (this.t - this.closeCheck > 1) {
       this.closeCheck = this.t;
-      if (!isOpen(BUILDINGS[this.b.kind], sim.hour)) { this.host.toast(`${this.b.name} is closing. Out you go.`); this.close(); return; }
+      if (!isOpen(BUILDINGS[this.b.kind], sim.hour)) this.zoneEl.textContent=this.def.title+' · staffed counter closed';
     }
     this.hud();
     setDamageBlood(sim.fakeBlood);

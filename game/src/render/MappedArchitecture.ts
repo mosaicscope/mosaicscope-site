@@ -3,7 +3,7 @@ import {mappedBuildingStyle,regionalArchitecture} from '../content/mappedBuildin
 import {paintWindowStories,type Win} from './NightGlow';
 
 type Pt=[number,number];type Project=(x:number,y:number,z?:number)=>Pt;
-interface Mesh{cv:HTMLCanvasElement;life:HTMLCanvasElement;at:Pt;ox:number;oy:number;unit:number;windows:Win[];stamp:number;bytes:number;top:number}
+interface Mesh{cv:HTMLCanvasElement;life:HTMLCanvasElement;at:Pt;ox:number;oy:number;unit:number;windows:Win[];stamp:number;bytes:number;top:number;signature:string}
 const shade=(hex:string,n:number)=>{const s=hex.replace('#','');return '#'+[0,2,4].map(i=>Math.max(0,Math.min(255,parseInt(s.slice(i,i+2),16)+n)).toString(16).padStart(2,'0')).join('');};
 /** Exact polygon extrusion. Static architecture is cached; a small room layer updates at 12 Hz. */
 export class MappedArchitecture{
@@ -38,12 +38,12 @@ export class MappedArchitecture{
   g.save();g.beginPath();points.forEach((p,i)=>i?g.lineTo(...P(p[0],p[1],top)):g.moveTo(...P(p[0],p[1],top)));g.closePath();g.clip();const bb={x0:Math.min(...points.map(p=>p[0])),x1:Math.max(...points.map(p=>p[0])),y0:Math.min(...points.map(p=>p[1])),y1:Math.max(...points.map(p=>p[1]))};g.strokeStyle=shade(arch.roof,-16);g.lineWidth=.6;for(let x=bb.x0;x<bb.x1;x+=2.5){g.beginPath();g.moveTo(...P(x,bb.y0,top));g.lineTo(...P(x,bb.y1,top));g.stroke();}g.restore();
   // A bounded detail set per roof, positioned within the footprint rather than floating beside it.
   const cx=points.reduce((n,p)=>n+p[0],0)/points.length,cy=points.reduce((n,p)=>n+p[1],0)/points.length,r=P(cx,cy,top);g.fillStyle='#737d75';g.fillRect(r[0]-unit*.65,r[1]-unit*.45,unit*1.3,unit*.8);g.strokeStyle='#a1aaa0';g.strokeRect(r[0]-unit*.65,r[1]-unit*.45,unit*1.3,unit*.8);
-  const life=document.createElement('canvas');life.width=cv.width;life.height=cv.height;return{cv,life,at:origin,ox,oy,unit,windows,stamp:-1,bytes:cv.width*cv.height*8,top};
+  const life=document.createElement('canvas');life.width=cv.width;life.height=cv.height;return{cv,life,at:origin,ox,oy,unit,windows,stamp:-1,bytes:cv.width*cv.height*8,top,signature:JSON.stringify([b.name,b.tags])};
  }
  draw(g:CanvasRenderingContext2D,b:MappedBuilding,P:Project,scale:number,focus:Pt):void{
   const corners=b.points.map(p=>P(p[0],p[1])),xs=corners.map(p=>p[0]),ys=corners.map(p=>p[1]),height=b.height*scale,W=g.canvas.clientWidth||g.canvas.width,H=g.canvas.clientHeight||g.canvas.height;
   if(Math.max(...xs)<-70||Math.min(...xs)>W+70||Math.max(...ys)<-70||Math.min(...ys)-height>H+70)return;
-  let mesh=this.cache.get(b.id);if(!mesh){if(this.jobs&&performance.now()>this.deadline){g.fillStyle='#6f7b72';g.beginPath();b.points.forEach((p,i)=>i?g.lineTo(...P(p[0],p[1],b.height)):g.moveTo(...P(p[0],p[1],b.height)));g.closePath();g.fill();return;}mesh=this.create(b);this.jobs++;this.cache.set(b.id,mesh);this.bytes+=mesh.bytes;while(this.cache.size>100||this.bytes>128*1024*1024){const id=this.cache.keys().next().value!;if(id===b.id)break;const old=this.cache.get(id)!;this.bytes-=old.bytes;this.cache.delete(id);}}
+  let mesh=this.cache.get(b.id);if(mesh&&(mesh.top!==b.height||mesh.signature!==JSON.stringify([b.name,b.tags]))){this.bytes-=mesh.bytes;this.cache.delete(b.id);mesh=undefined;}if(!mesh){if(this.jobs&&performance.now()>this.deadline){g.fillStyle='#6f7b72';g.beginPath();b.points.forEach((p,i)=>i?g.lineTo(...P(p[0],p[1],b.height)):g.moveTo(...P(p[0],p[1],b.height)));g.closePath();g.fill();return;}mesh=this.create(b);this.jobs++;this.cache.set(b.id,mesh);this.bytes+=mesh.bytes;while(this.cache.size>100||this.bytes>128*1024*1024){const id=this.cache.keys().next().value!;if(id===b.id)break;const old=this.cache.get(id)!;this.bytes-=old.bytes;this.cache.delete(id);}}
   else{this.cache.delete(b.id);this.cache.set(b.id,mesh);}
   const p=P(...mesh.at),f=scale/mesh.unit,x=p[0]-mesh.ox*f,y=p[1]-mesh.oy*f,ground=pointInside(focus,corners),cover=!ground&&focus[0]>=Math.min(...xs)&&focus[0]<=Math.max(...xs)&&focus[1]<Math.max(...ys)&&focus[1]>Math.min(...ys)-height;
   g.save();if(cover)g.globalAlpha=.25;g.drawImage(mesh.cv,x,y,mesh.cv.width*f,mesh.cv.height*f);

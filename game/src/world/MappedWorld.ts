@@ -15,6 +15,7 @@ export interface MappedCity {
  visibility:{labels:boolean;traffic:boolean;people:boolean;fixtures:boolean;weather:boolean};
  liveConditions?:import('../ui/LiveCity').LiveCityData;
  closedRoads?:Set<number>;
+ trafficMode?:'cruise'|'city'|'rush';
 }
 export function polygonContains(x:number,y:number,points:number[][]):boolean{let yes=false;for(let i=0,j=points.length-1;i<points.length;j=i++){const a=points[i],b=points[j];if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])yes=!yes;}return yes;}
 const unique=<T extends {id:number}>(items:T[])=>[...new Map(items.map(b=>[b.id,b])).values()];

@@ -6,7 +6,7 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || 
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 3 });
 const page = await ctx.newPage();
 const errors = [];
-page.on("pageerror", (e) => errors.push(e.message));
+page.on("pageerror", (e) => errors.push(e.stack || e.message));
 let failed = 0;
 const check = async (name, fn) => { try { await fn(); console.log("  ✓", name); } catch (e) { failed++; console.log("  ✗", name, "-", e.message); } };
 const assert = (c, m) => { if (!c) throw new Error(m); };

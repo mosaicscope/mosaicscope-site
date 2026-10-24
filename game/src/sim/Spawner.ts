@@ -10,6 +10,7 @@ import { BUILDINGS } from "../content/buildings";
 import { Building } from "../world/World";
 import { deriveProfile, culturalize, setProfile, shiftRoutine } from "../mind/Culture";
 import { dress } from "../mind/Dress";
+import {STREET_NEIGHBOURS} from '../content/streetVoices';
 import { makeFamilies } from "../mind/Kin";
 
 function randomPers(rng: Rng): Personality {
@@ -202,6 +203,16 @@ export function spawnAll(sim: Simulation): void {
     const b = singles.splice(bi, 1)[0];
     couple(a, b, rng.range(0.3, 0.9));
   }
+  if(world.mapped){
+    for(const [i,d] of STREET_NEIGHBOURS.entries()){
+      const p=world.nearestFoot(player.x+Math.cos(i)*12,player.y+Math.sin(i)*12,16),kind=i%2?'guy':'girl';
+      const c=addChar(sim,d.name,'mid',p.x,p.y,uniqueLook(rng,kind,false,usedLooks),randomPers(rng));
+      names.reserve(d.name);c.role=i===1?'mechanic':i===5?'musician':'local';c.home=-1;c.homeArea=plaza.id;c.bio=d.bio;c.catchphrase=d.line;c.cash=20+i*3;enculture(sim,c,plaza.kind);
+    }
+    for(const [i,c] of sim.chars.filter(c=>c.tier==='principal'&&c.name!=='Chris').entries()){
+      const p=world.nearestFoot(player.x+Math.cos(i*2.4)*(12+i*3),player.y+Math.sin(i*2.4)*(12+i*3),16);c.x=c.px=p.x;c.y=c.py=p.y;
+    }
+  }
   spawnBackground(sim, cfg.backgroundCount);
   spawnToys(sim);
   // everyday carry: valuables people can lose to thieves
@@ -265,6 +276,10 @@ export function spawnBackground(sim: Simulation, n: number): void {
 /** A random point on a sidewalk. */
 export function streetSpot(sim: Simulation): { x: number; y: number } {
   const w = sim.world;
+  if(w.mapped&&sim.rng.chance(.65))for(let i=0;i<80;i++){
+    const x=Math.floor(sim.player.x+sim.rng.range(-90,90)),y=Math.floor(sim.player.y+sim.rng.range(-90,90));
+    if(w.tile(x,y)===17)return{x:x+.5,y:y+.5};
+  }
   for (let i = 0; i < 60; i++) {
     const x = sim.rng.int(1, w.size - 2), y = sim.rng.int(1, w.size - 2);
     if (w.tile(x, y) === 17 /* sidewalk */) return { x: x + 0.5, y: y + 0.5 };
