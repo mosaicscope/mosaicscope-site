@@ -1,3 +1,4 @@
+import {challengeStatus} from '../sim/CityChallenges';
 import {nudgeStreetProp} from '../sim/StreetProps';
 import {RetroPhone} from '../ui/RetroPhone';
 import {useSubstance} from '../sim/Substances';
@@ -130,9 +131,9 @@ export class Game {
     canvas.tabIndex=0;
     this.rootEl = root;
     this.settings = loadSettings(this.store);
-    this.sim = new Simulation({ cityMap:'christchurch',trafficCars:150,pathsPerTick:2,backgroundCount: Math.min(this.settings.density, 300) }, {}, this.lifeFlags);
+    this.sim = new Simulation({ cityMap:'christchurch',trafficCars:650,pathsPerTick:2,backgroundCount: Math.min(this.settings.density * 3, 900) }, {}, this.lifeFlags);
     this.renderer = new Renderer(canvas, this.sim);
-    void this.cityPanel.refresh();
+    void this.cityPanel.refresh(true);
     this.audio = new AudioSystem(() => this.renderer.cam);
     this.audio.attach(this.sim);
     this.ui = root;
@@ -185,10 +186,10 @@ export class Game {
     this.casino.onMoreGames = () => this.activities.show("Betting");
     this.places = new Places(() => this.sim, (t, b, cls) => this.modal.show(t, b, cls), () => this.modal.close(), (t, k) => this.toast(t, k));
     this.interior = new InteriorOverlay({
-      sim: () => this.sim, toast: (t, k) => this.toast(t, k), launch: (what, b) => this.places.launch(what, b), modalOpen: () => this.modal.open,
+      sim: () => this.sim, toast: (t, k) => this.toast(t, k), launch: (what, b) => {if(what==='casino'){this.pausedBefore=this.clock.paused;this.casino.show();}else if(what==='travel')this.travel.show();else if(what==='club-strip'||what==='club-velvet')this.club.show(what==='club-strip'?'strip':'velvet');else if(what==='diner-shift')this.burger.start();else if(what==='armory')this.armory.show();else this.places.launch(what, b);}, modalOpen: () => this.modal.open||this.casino.open||this.travel.open||this.club.open,
       keys: () => ({ up: this.settings.keys.up, down: this.settings.keys.down, left: this.settings.keys.left, right: this.settings.keys.right, use: this.settings.keys.pickup }),
     });
-    this.places.openInterior = (b) => this.interior.show(b);
+    this.places.openInterior = (b) => {this.modal.close();this.closeTransientMenus();this.interior.show(b);};
     this.photos = new Photos({
       authors:()=>this.sim.chars.filter(c=>c.tier==="principal"||c.id===this.sim.playerId).map(c=>({id:c.id,name:c.name})),
       unlocked: id => hasUpgrade(this.sim.life.upgrades, id),
@@ -383,7 +384,7 @@ export class Game {
     if (p.bleed > 0) kids.push(h("div.car", { text: "You're bleeding. B to bandage." }));
     if(p.hand>=0){const d=sim.toys[p.hand].def,w=TOYS[d].weapon;if(w?.gun){const base=d==='golden_pistol'?'pistol':d,load=p.combat?.load??'standard',key=load==='standard'?base:base+':'+load;kids.push(h('div.combat-status',{text:`${TOYS[d].name} · ${p.combat?.ammo[key]??'∞'} rounds · ${w.mode??'semi'}`}));}}
     this.combatHelpButton??=h("button.btn.combat-help",{text:"Fight / gun controls",onclick:()=>this.openCombatControls()}) as HTMLButtonElement;kids.push(this.combatHelpButton);
-    const obj = this.objective(); if (obj) kids.push(h("div.car.obj", { text: obj }));
+    const challenge=challengeStatus(sim);if(challenge)kids.push(h("div.car.obj",{text:challenge}));const obj = this.objective(); if (obj) kids.push(h("div.car.obj", { text: obj }));
     this.hudEl.replaceChildren(...kids);
     this.hudEl.classList.toggle("beside-log", !this.log.el.classList.contains("hidden"));
     if (sim.bustedAt !== this.lastBusted && sim.bustedAt >= 0) {
@@ -396,7 +397,7 @@ export class Game {
 
   private uiTick(now: number): void {
     if(this.starting)return;
-    if(now-this.lastAutoSave>30000)this.autoSave();
+    if(now-this.lastAutoSave>30000)this.autoSave();void this.cityPanel.refresh();
     const miniGameOpen=!this.roast.el.classList.contains("hidden")||!this.burger.el.classList.contains("hidden");
     if(miniGameOpen)return;
     this.tickFocus(now);
@@ -560,16 +561,10 @@ export class Game {
   }
 
   private enterPlace(door: { building: number; studio: boolean }): void {
-    if((this.sim.world.buildings[door.building]?.legacyName??this.sim.world.buildings[door.building]?.name)==='Moorhouse Armory'){this.armory.show();return;}
     const sim = this.sim;
-    if (door.studio) { this.places.enter(null, true); return; }
-    const b = sim.world.buildings[door.building];
-    if (b.kind === "airport") { this.travel.show(); return; }
-    if ((b.kind as string) === "stripclub") { this.club.show("strip"); return; }
-    if ((b.kind as string) === "velvet") { this.club.show("velvet"); return; }
-    if (b.kind === "diner") { this.burger.start(); return; } // pick up a shift flipping burgers
+    const b = door.studio?sim.world.buildings.find(b=>b.kind==='studio'):sim.world.buildings[door.building];
+    if(!b)return;
     if (b.kind === "casino") { this.statsCasino++; }
-    if (b.kind === "casino") { this.pausedBefore = this.clock.paused; this.casino.show(); return; }
     this.places.enter(b);
   }
 
@@ -698,6 +693,7 @@ export class Game {
         break;
       }
       case "swing": {
+        if(this.clock.paused)this.setSpeed(1);
         if(p.hand>=0&&TOYS[sim.toys[p.hand]?.def]?.weapon?.gun){this.act('throw');return;}
         const reach=p.hand>=0?TOYS[sim.toys[p.hand].def]?.weapon?.reach??1.4:unarmedMove(p.combat?.style,p.combat?.xp).reach;
         const target=this.selected>=0&&this.selected!==p.id&&Math.hypot(sim.chars[this.selected].x-p.x,sim.chars[this.selected].y-p.y)<reach+1?sim.chars[this.selected]:sim.chars[this.nearestPerson(reach+.3)];
@@ -1395,7 +1391,7 @@ export class Game {
         h('button.btn.acid',{text:'Resume game',onclick:()=>this.resumeGame()}),
         h('button.btn',{text:'Mobile phone',onclick:()=>this.phone.home()}),
         h('button.btn',{text:'Live mapped city',onclick:()=>this.openLiveCity()}),
-        h('button.btn',{text:'Street play · 50 activities',onclick:()=>{void import('../ui/WorldPlay').then(m=>m.showWorldPlay(this.modal,this.sim,text=>this.toast(text)));}}),
+        h('button.btn',{text:'Street play · games, walks & discoveries',onclick:()=>{void import('../ui/WorldPlay').then(m=>m.showWorldPlay(this.modal,this.sim,text=>this.toast(text),(x,y)=>{this.modal.close();this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);}));}}),
         h('button.btn',{text:'Street life',onclick:()=>{void import('../ui/StreetLifePanel').then(m=>m.showStreetLife(this.modal,this.sim,(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);this.canvas.focus();}));}}),
         h('button.btn',{text:'Vehicle & street workshop',onclick:()=>{void import('../ui/VehicleWorkshop').then(m=>m.showVehicleWorkshop(this.modal,this.sim));}}),
         h('button.btn',{text:'Inventory & condition',onclick:()=>{void import('../ui/InventoryCondition').then(m=>m.showInventoryCondition(this.modal,this.sim,()=>{this.setSpeed(1);this.canvas.focus();}));}}),
@@ -1632,7 +1628,7 @@ export class Game {
   }
 
   reset(seed?: number): void {
-    const sim = new Simulation({ cityMap:'christchurch',trafficCars:150,pathsPerTick:2,seed: seed ?? this.sim.cfg.seed, backgroundCount: Math.min(this.settings.density, 300) }, {}, this.lifeFlags);
+    const sim = new Simulation({ cityMap:'christchurch',trafficCars:650,pathsPerTick:2,seed: seed ?? this.sim.cfg.seed, backgroundCount: Math.min(this.settings.density * 3, 900) }, {}, this.lifeFlags);
     this.swapSim(sim);
     this.toast(seed !== undefined ? `New world · seed ${seed}` : "World restarted");
   }
@@ -1643,7 +1639,7 @@ export class Game {
     this.replay.stop();
     this.sim = sim; this.aimPoint = null; this.minimap.reset();
     this.renderer.setSim(sim);
-    void this.cityPanel.refresh();
+    void this.cityPanel.refresh(true);
     this.audio.attach(sim);
     this.select(-1); this.moveTarget = null; this.pendingTalk = -1;
     this.bindSim();
@@ -1661,7 +1657,7 @@ export class Game {
   private openCombatControls():void{
     const p=this.sim.player,k=this.settings.keys,key=(v:string)=>v===' '?'Space':v.toUpperCase();
     const combat=p.combat??={style:'jab',xp:0,ammo:{},vest:0,helmet:0};
-    const styles=h('div.combat-styles',{'aria-label':'Fighting style'},Object.entries(UNARMED).map(([id,m])=>h('button.btn',{text:m.name+(combat.xp<m.xp?` · ${m.xp} XP`:''),disabled:combat.xp<m.xp,'aria-pressed':combat.style===id,onclick:()=>{combat.style=id as typeof combat.style;this.openCombatControls();}})));
+    const styles=h('div.combat-styles',{'aria-label':'Fighting style'},Object.entries(UNARMED).map(([id,m])=>h('button.btn',{text:m.name+(combat.xp<m.xp?` · ${m.xp} XP`:''),disabled:combat.xp<m.xp,'aria-pressed':combat.style===id,onclick:()=>{combat.style=id as typeof combat.style;this.modal.close();this.canvas.focus({preventScroll:true});this.toast(`${m.name} selected · Space attacks nearby people`);}})));
     const row=(title:string,text:string)=>h('article.ax-card',null,[h('h3',{text:title}),h('p',{text})]);
     this.modal.show('Fight / gun controls',[
       h('p.ax-status',{text:'Tap or click to place the crosshair, then fire. Get close for melee. Close this panel to resume play.'}),

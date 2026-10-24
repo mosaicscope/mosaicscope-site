@@ -26,13 +26,13 @@ html,body{overscroll-behavior:none}#ui :is(button,a,input,select,textarea){touch
  #ui .ax-grid{grid-template-columns:1fr}#ui .ax-nav{gap:5px;display:flex;flex-wrap:nowrap;overflow-x:auto}#ui .activities>.ax-nav .btn{padding:8px 12px;font-size:13px;flex-shrink:0}
  #ui .hud{min-width:128px;max-width:145px;padding:9px;top:74px}#ui .hud .bars{grid-template-columns:auto 65px}#ui .hud .cash{font-size:22px}#ui .hud .stars{font-size:13px}
  #ui .game-dock{width:calc(100% - 16px);left:8px;right:8px;transform:none;bottom:max(8px,env(safe-area-inset-bottom));gap:0;padding:4px;border-radius:12px}#ui .dock-command{font-size:11px;min-height:52px;padding:5px 2px}#ui .dock-command b{font-size:10px}
- #ui .tc-zone{display:none!important}#ui .tc-cluster{position:absolute;right:12px;bottom:calc(76px + env(safe-area-inset-bottom));display:flex;width:auto;height:auto;gap:8px;align-items:flex-end}
+ #ui .tc-zone{display:block;left:8px;bottom:calc(76px + env(safe-area-inset-bottom));width:136px;height:136px;max-width:37vw}#ui .tc.in-car .tc-zone{display:none}#ui .tc-base{--tc-stick:112px;left:50%;bottom:50%}#ui .tc-cluster{position:absolute;right:12px;bottom:calc(76px + env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(2,56px);width:auto;height:auto;gap:8px;align-items:flex-end}
  #ui .tc-cluster>.tc-btn{position:static;transform:none;width:56px;height:56px;border-radius:12px;background:#14343bea;border:1px solid #91bba266;box-shadow:none;pointer-events:auto;max-width:110px}
- #ui .tc-cluster>.tc-ctx{width:86px}#ui .tc-cluster .tc-ico{width:23px;height:23px}#ui .tc-cluster .tc-lbl{font:600 10px/1.2 system-ui;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ #ui .tc-cluster>.tc-ctx{width:120px;grid-column:1/-1}#ui .tc-cluster .tc-ico{width:23px;height:23px}#ui .tc-cluster .tc-lbl{font:600 10px/1.2 system-ui;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
  #ui .tc-sheet{right:0;bottom:calc(100% + 10px);grid-template-columns:repeat(3,64px);max-height:55dvh;overflow:auto;box-shadow:0 8px 25px #0007;border-color:#83aa9870;background:#112a30fa}#ui .tc-item{width:64px;height:62px}
  #ui .tc-steering{position:absolute;left:12px;bottom:calc(76px + env(safe-area-inset-bottom));gap:8px;pointer-events:auto}#ui .tc.in-car .tc-steering{display:flex}#ui .tc-steer{position:static;width:48px;height:52px;border-radius:12px;font:600 25px system-ui;transform:none}
- #ui .tc-zoom{left:12px;bottom:calc(148px + env(safe-area-inset-bottom));gap:6px}#ui .tc-zbtn{width:40px;height:40px;border-radius:10px}
- .tc-walk-hint{position:absolute;left:12px;bottom:calc(80px + env(safe-area-inset-bottom));font:500 11px system-ui;color:#d4dfcf;background:#10282ddc;border-radius:7px;padding:7px;pointer-events:none}.tc.in-car .tc-walk-hint{display:none}
+ #ui .tc-zoom{left:12px;bottom:calc(240px + env(safe-area-inset-bottom));gap:6px}#ui .tc-zbtn{width:44px;height:44px;border-radius:10px}
+ .tc-walk-hint{position:absolute;left:12px;max-width:140px;bottom:calc(214px + env(safe-area-inset-bottom));font:500 11px system-ui;color:#d4dfcf;background:#10282ddc;border-radius:7px;padding:7px;pointer-events:none}.tc.in-car .tc-walk-hint{display:none}
  #ui .inspector{left:8px;right:8px;bottom:calc(145px + env(safe-area-inset-bottom));top:auto;width:auto;max-height:40dvh}#ui .dialogue{left:8px;right:8px;bottom:calc(74px + env(safe-area-inset-bottom));width:auto;max-height:55dvh;overflow:auto}
 }
 
@@ -55,3 +55,15 @@ html,body{overscroll-behavior:none}#ui :is(button,a,input,select,textarea){touch
 .weapon-study{margin:16px 0;border:1px solid #b6ab8d44;border-radius:10px;padding:12px;background:#202521}.weapon-study>label{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font:500 13px system-ui}.weapon-study select{min-height:44px;max-width:100%;background:#181d1b;color:#eee7da;border:1px solid #aaa18b66;border-radius:6px;padding:8px}.weapon-study .play-stage{margin-top:12px;width:100%;grid-column:auto}
 
 .reaction-tools,.reaction-pages{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.reaction-tools :is(input,select){font:16px system-ui;min-height:44px;max-width:100%;background:#1a201b;color:#eee7da;border:1px solid #b5ad9255;border-radius:7px;padding:8px}.reaction-tools input{flex:1;min-width:180px}.reaction-count{font:13px/1.6 system-ui;color:#c7b998;overflow-wrap:anywhere}.reaction-catalogue .play-stage{width:100%;margin:12px 0}.reaction-scrub{display:flex;align-items:center;gap:12px;margin:12px 0}.reaction-scrub input{flex:1;min-width:100px}.reaction-scores{padding-left:24px;font:13px/1.6 system-ui}.reaction-scores li{padding:6px}.reaction-scores span{display:block;color:#bdb9ad}.reaction-pages .btn{min-height:44px;flex:1}
+
+/* Keep the mobile menu in its own scrollable sheet, with the full width of the header. */
+@media(pointer:coarse),(max-width:650px){
+ #ui .bar.open{overflow:visible;max-height:none;align-items:center;padding-bottom:6px}
+ #ui .bar.open>.game-menu{display:grid;position:absolute;top:calc(100% + 8px);left:0;right:0;width:100%;max-width:none;height:auto;max-height:calc(100dvh - 100px);grid-template-columns:repeat(2,minmax(0,1fr));overflow-y:auto;touch-action:pan-y;justify-content:stretch;box-sizing:border-box}
+ #ui .game-menu button{max-width:100%;min-width:0;overflow-wrap:anywhere}
+}
+.city-camera-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:12px;margin:16px 0}
+.city-camera{min-width:0;padding:12px;border:1px solid var(--ui-border);border-radius:10px;background:var(--ui-bg)}
+.city-camera summary{min-height:44px;cursor:pointer;font-weight:600;touch-action:manipulation}
+.city-sources a{overflow-wrap:anywhere;color:var(--ui-gold)}
+.city-challenges .ax-card{min-width:0}

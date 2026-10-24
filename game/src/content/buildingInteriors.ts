@@ -1,0 +1,21 @@
+import type {BuildingKind} from './buildings';
+import type {InteriorDef,Launch,Prop} from './interiors';
+import {p,wp,z,spot} from './interiorKit';
+
+/** Public rooms are interpretations of mapped use, not claims about the real building's private layout. */
+export function buildingInterior(kind:BuildingKind,name:string,usage=''):InteriorDef|undefined {
+ const use=usage.toLowerCase(),label=(name+' '+use).toLowerCase();
+ let title='',props:Prop[]=[],action='Information desk',launch:Launch|undefined,effect:'read'|'browse'|'rest'|'work'='browse';
+ if(kind==='casino'){title='Casino floor and reception';launch='casino';action='Play at the casino tables';props=[p('counter',11,1,3,.8,'#426b53','Cashier'),...[[5,3],[9,3],[5,9],[9,9]].map(([x,y])=>p('table',x,y,2,1.4,'#385e49','Card table')),p('machine',13,7,1,2,'#8d744f','Gaming machines')];}
+ else if(kind==='airport'){title='Airport transfer lounge';launch='travel';action='Flights and airport transfers';props=[p('counter',11,1,3,.8,'#657778','Travel desk'),p('bench',4,3,3,.7,'#69766c','Departure seating'),p('bench',8,9,3,.7,'#69766c','Departure seating'),wp('screen','n',5,5,'#344e57','Departures')];}
+ else if(kind==='stripclub'||kind==='velvet'){title='Club lounge';launch=kind==='stripclub'?'club-strip':'club-velvet';action='Visit the club floor';props=[p('counter',11,1,3,.8,'#765c65','Bar'),p('sofa',4,2,3,1,'#735769'),p('sofa',9,9,3,1,'#735769'),p('table',7,3,2,1,'#7e694d')];}
+ else if(kind==='diner'){title='Diner and kitchen';launch='diner-shift';action='Kitchen shift and diner activities';props=[p('counter',11,1,3,.8,'#b0aa94','Kitchen pass'),p('table',4,3,2,1,'#8e7957'),p('table',8,9,2,1,'#8e7957'),p('fridge',14,9,1,1,'#afb5a6')];}
+ else if(/armory|armoury/i.test(label)){title='Armory showroom';launch='armory';action='Armory counter';props=[p('counter',11,1,3,.8,'#7e765b','Licensed equipment desk'),p('rack',5,2,3,.8,'#56665b','Equipment racks'),p('locker',13,8,1,3,'#58695f','Secure storage')];}
+ else if(kind==='studio'){title='Photography studio';launch='legacy';action='Studio bookings and services';props=[p('desk',12,1,2,1,'#95856a','Production desk'),p('screen',7,1,4,.1,'#afbaaf','Backdrop'),p('table',4,9,3,1,'#8a795c','Equipment table'),p('sofa',10,9,3,1,'#6e7e75','Green room')];}
+ else if(/library|books/.test(label)){title='Library and reading room';effect='read';action='Read and browse the collection';props=[...[[4,2],[8,2],[4,9],[8,9]].map(([x,y])=>p('shelf',x,y,2.4,.7,'#8b7658','Books')),p('desk',12,1,2,1,'#a18d6a','Library desk')];}
+ else if(/school|college|university|kindergarten/.test(label)){title='Learning centre foyer';effect='read';action='Read the school noticeboard';props=[p('desk',12,1,2,1,'#9d8b6c','Reception'),...[[4,3],[8,3],[4,9],[8,9]].map(([x,y])=>p('desk',x,y,2,.8,'#a58d63','Study desk')),wp('board','n',4,5,'#657c6b','Classes and community notices')];}
+ else if(/church|chapel|cathedral|place_of_worship|mosque|temple/.test(label)){title='Worship hall and community room';effect='rest';action='Sit quietly';props=[...[[4,3],[8,3],[4,9],[8,9]].map(([x,y])=>p('bench',x,y,2.6,.7,'#8b7054','Seating')),p('table',12,2,2,1,'#a08c69','Community table')];}
+ else if(/warehouse|industrial|factory|storage|workshop/.test(label)){title='Workshop and dispatch';effect='work';action='Check the dispatch desk';props=[p('counter',11,1,3,.8,'#87856e','Dispatch'),p('rack',4,2,3,1,'#6a786e','Stock racks'),p('rack',8,9,3,1,'#6a786e','Stock racks'),p('machine',13,7,1.4,2,'#7d8b7b','Workshop equipment')];}
+ else return;
+ return {kind,title,size:{w:16,h:12},door:{x:.75,y:6},light:'warm',ambience:['room-tone','murmur'],busy:.45,staff:{color:'#7b927e'},zones:[z('room',title,0,0,16,12,'wood','#746b55')],props:[...props,wp('sign','n',2,7,'#546c5b',name),p('plant',14,10,1,1,'#647b53')],interactables:[{id:'main-counter',label:action,x:12,y:3,text:title+' · '+name,...(launch?{launch}:{effect})},{id:'seating',label:'Take a breather',x:3,y:8,effect:'rest',text:'A quiet place to stop before returning to the street.'}],spots:[spot(12,3,'work','s'),spot(3,7,'stand','e'),spot(7,6,'talk','w'),spot(10,6,'phone','e')],flavour:[`${name}: ${title.toLowerCase()}. Walk around, use the counter or leave through the entrance.`]};
+}

@@ -24,7 +24,7 @@ const smallHeads=new Map<Character,{key:string;canvas:HTMLCanvasElement}>();
 /** Small faces retain their artwork in a bounded retina cache; close-ups always render as vectors. */
 function paintHead(g:Ctx,c:Character,M:ModelSpec,P:FacePlan,r:number,k:number,dir:number,lw:number,alpha:number,hd:boolean,flash:boolean):void{
  if(k>=.8||flash||typeof document==='undefined'){drawRefHead(g,c,M,P,moodOf(c),0,0,r,k,dir,lw,alpha,hd,flash);return;}
- const f=currentReactionFace(c),key=JSON.stringify([M.id,M.skin,M.hair,M.hairColor,M.hat,M.hatColor,M.face,M.gear,c.look.face,c.look.accessories,c.look.accessoryWear,c.combat?.helmet,Math.round(impairment(c)*8),moodOf(c),dir,hd,damageBloodEnabled(),f&&Object.values(f).map(v=>Math.round(v*100)),c.wounds.filter(w=>w.part==='head')]);
+ const f=currentReactionFace(c),key=JSON.stringify([M.id,M.skin,M.hair,M.hairColor,M.hat,M.hatColor,M.face,M.gear,c.look.face,c.look.accessories,c.look.accessoryWear,c.combat?.helmet,Math.round(impairment(c)*8),moodOf(c),dir,hd,damageBloodEnabled(),f&&Object.values(f).map(v=>Math.round(v*100)),(c.wounds??[]).filter(w=>w.part==='head')]);
  let entry=smallHeads.get(c);
  if(!entry||entry.key!==key){
   const canvas=entry?.canvas??document.createElement('canvas');canvas.width=176;canvas.height=200;

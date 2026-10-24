@@ -14,6 +14,7 @@
  * Pure data in, data out: DOM-free and Math.random-free, so tests can check every building.
  */
 import { placeActions } from "./interiorActions";
+import {buildingInterior} from './buildingInteriors';
 import { Rng, hashString } from "../core/rng";
 import { BUILDINGS, type BuildingKind } from "./buildings";
 import { FIRST_GIRL, FIRST_GUY, SURNAMES } from "./names";
@@ -21,7 +22,7 @@ import { PROP_INFO, interiorFor, type Effect, type FloorMat, type InteriorDef, t
 import { p } from "./interiorKit";
 import { reachable, blockedAt, type Pt } from "./interiorNav";
 
-export interface BuildingRef { id: number; kind: BuildingKind; name: string }
+export interface BuildingRef { id: number; kind: BuildingKind; name: string; usage?:string }
 
 interface Theme { name: string; floors: FloorMat[]; floor: string; hue: number; sat: number; lit: number; light: LightTone | null; art: string[] }
 const THEMES: Theme[] = [
@@ -117,9 +118,9 @@ function standPoint(def: InteriorDef, q: Prop): Pt | null {
 const cache = new Map<string, InteriorDef>();
 /** This building's interior. Cached per building, so the nav grid and the look are stable between visits. */
 export function interiorForBuilding(b: BuildingRef): InteriorDef {
-  const key = `${b.id}:${b.kind}:${b.name}`;
+  const key = `${b.id}:${b.kind}:${b.name}:${b.usage??''}`;
   let d = cache.get(key);
-  if (!d) { d = placeActions(vary(interiorFor(b.kind), b)); cache.set(key, d); }
+  if (!d) { d = placeActions(vary(buildingInterior(b.kind,b.name,b.usage)??interiorFor(b.kind), b)); cache.set(key, d);while(cache.size>96)cache.delete(cache.keys().next().value!); }
   return d;
 }
 

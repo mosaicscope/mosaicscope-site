@@ -1,8 +1,15 @@
 export interface LiveNotice{id:string;lat:number;lon:number;title:string;detail:string;severity:string;closed:boolean;updatedAt:string|null}
-export interface LiveCityData{code:string;centre:{lat:number;lon:number;name:string};fetchedAt:string;weather:{temperature:number;wind:number;cloud:number;rain:number;symbol:string;forecastAt:string;source:string;sourceUrl:string}|null;weatherStatus:string;traffic:{available:boolean;provider:{source:string;url:string;coverage:string}|null;notices:LiveNotice[];status:string;vehicles:string}}
+export interface CitySources{
+ fetchedAt:string;
+ cameras:{available:boolean;source:string;sourceUrl:string;note:string;items:{id:string;name:string;description:string;direction:string;lat:number;lon:number;imageUrl:string|null;viewUrl:string;offline:boolean;catalogueUpdatedAt:string|null}[]};
+ airQuality:{pm25:number;pm10:number;aqi:number;at:string;source:string;sourceUrl:string}|null;
+ earthquakes:{source:string;sourceUrl:string;items:{id:string;magnitude:number;depth:number;time:string;location:string}[]}|null;
+}
+export interface LiveCityData{sources?:CitySources|null;code:string;centre:{lat:number;lon:number;name:string};fetchedAt:string;weather:{temperature:number;wind:number;cloud:number;rain:number;symbol:string;forecastAt:string;source:string;sourceUrl:string}|null;weatherStatus:string;traffic:{available:boolean;provider:{source:string;url:string;coverage:string}|null;notices:LiveNotice[];status:string;vehicles:string}}
 export const CITY_TOOLS=[
  ['refreshMap','Refresh this mapped district'],['refreshLive','Refresh live conditions'],['resetZoom','Reset map zoom'],['detail','Close street view'],['overview','Neighbourhood overview'],
  ['labels','Show or hide place labels'],['traffic','Show or hide road traffic'],['people','Show or hide local people'],['fixtures','Show or hide street furniture'],['weather','Show or hide weather effects'],
+ ['cruise','Traffic mode: relaxed cruise'],['cityFlow','Traffic mode: city flow'],['rush','Traffic mode: busy rush hour'],
  ['cafe','Walk to the nearest cafe'],['bank','Walk to the nearest bank'],['shop','Walk to the nearest shop'],['park','Walk to the nearest park'],['talk','Talk to the nearest local'],
  ['road','Inspect the nearest mapped road'],['notices','Read current road notices'],['drive','Enter a nearby parked car'],['parkCar','Park and leave this car'],['clearRoute','Cancel the walking route'],
 ] as const;

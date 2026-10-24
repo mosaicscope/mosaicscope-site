@@ -5,6 +5,7 @@ import {makeVehicle,snapToLane,unseat,seat} from './Traffic';
 import {forceGoal} from '../ai/brain';
 import {hospitalise} from './Life';
 import {needsMedicalResponse} from '../content/damageModels';
+import {vehicleGeometry,chassisContact} from './VehicleGeometry';
 function release(sim:Simulation,v:Vehicle):void{
  if(v.driver>=0&&sim.chars[v.driver])unseat(sim,v);
  v.rescueTarget=undefined;v.rescueAt=undefined;v.rescueMedic=undefined;v.siren=false;v.state='parked';v.speed=0;v.vx=v.vy=0;
@@ -14,15 +15,15 @@ export function sendAmbulance(sim:Simulation,c:Character):void{
  if(sim.vehicles.some(v=>v.rescueTarget===c.id)||sim.vehicles.filter(v=>v.rescueTarget!==undefined).length>=4)return;
  let v=sim.vehicles.filter(v=>v.cls==='ambulance'&&v.owner!==sim.playerId&&v.driver<0&&v.rescueTarget===undefined&&!v.burning&&!v.burnt&&v.damage<.5).sort((a,b)=>Math.hypot(a.x-c.x,a.y-c.y)-Math.hypot(b.x-c.x,b.y-c.y))[0];
  if(!v){const h=sim.world.buildings.find(b=>b.kind==='hospital'),origin=h?.door??c;let best:{x:number;y:number;d:number}|undefined;
-  for(let y=Math.max(1,Math.floor(origin.y)-24);y<Math.min(sim.world.size-1,origin.y+24);y++)for(let x=Math.max(1,Math.floor(origin.x)-24);x<Math.min(sim.world.size-1,origin.x+24);x++){if(!sim.world.drivable(x+.5,y+.5))continue;const d=Math.hypot(x-origin.x,y-origin.y);if(!best||d<best.d)best={x:x+.5,y:y+.5,d};}
+  for(let y=Math.max(1,Math.floor(origin.y)-24);y<Math.min(sim.world.size-1,origin.y+24);y++)for(let x=Math.max(1,Math.floor(origin.x)-24);x<Math.min(sim.world.size-1,origin.x+24);x++){if(!sim.world.drivable(x+.5,y+.5)||sim.vehicles.some(o=>Math.hypot(o.x-x-.5,o.y-y-.5)<vehicleGeometry(o).length/2+2.5))continue;const d=Math.hypot(x-origin.x,y-origin.y);if(!best||d<best.d)best={x:x+.5,y:y+.5,d};}
   if(!best)return;v=makeVehicle(sim,'ambulance',best.x,best.y,0,'parked');
  }
  const ox=v.x,oy=v.y;
  let aligned=false;
- for(let dir=0;dir<4&&!aligned;dir++){v.x=ox;v.y=oy;v.heading=dir*Math.PI/2;aligned=snapToLane(sim,v);}
+ for(let dir=0;dir<4&&!aligned;dir++){v.x=ox;v.y=oy;v.heading=dir*Math.PI/2;aligned=snapToLane(sim,v)&&!sim.vehicles.some(o=>o!==v&&chassisContact(v!,o));}
  if(!aligned){let best:{x:number;y:number;d:number}|undefined;
   for(let y=Math.max(1,Math.floor(oy)-24);y<Math.min(sim.world.size-1,oy+24);y++)for(let x=Math.max(1,Math.floor(ox)-24);x<Math.min(sim.world.size-1,ox+24);x++){
-   if(!(sim.world.isRoadLine(x)||sim.world.isRoadLine(y))||!sim.world.drivable(x+.5,y+.5))continue;
+   if(!sim.world.mapped&&!(sim.world.isRoadLine(x)||sim.world.isRoadLine(y))||!sim.world.drivable(x+.5,y+.5)||sim.vehicles.some(o=>o!==v&&Math.hypot(o.x-x-.5,o.y-y-.5)<vehicleGeometry(o).length/2+2.5))continue;
    const d=Math.hypot(x-ox,y-oy);if(!best||d<best.d)best={x:x+.5,y:y+.5,d};
   }
   if(!best)return;v.x=v.px=best.x;v.y=v.py=best.y;v.heading=sim.world.isRoadLine(Math.floor(best.x))?Math.PI/2:0;

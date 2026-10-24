@@ -27,7 +27,8 @@ export class Places {
     if (studio) return this.studio();
     if (!b) return;
     const def = BUILDINGS[b.kind];
-    if (!isOpen(def, sim.hour)) { this.toast(`${b.name} is closed. Open ${def.open[0]}:00–${def.open[1] % 24}:00.`); return; }
+    // Walk-in rooms remain accessible; opening hours apply to the staffed counter.
+    if (!this.openInterior&&!isOpen(def, sim.hour)) { this.toast(`${b.name} is closed. Open ${def.open[0]}:00–${def.open[1] % 24}:00.`); return; }
     if (this.openInterior) return this.openInterior(b);
     this.enterLegacy(b);
   }

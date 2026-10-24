@@ -1,6 +1,8 @@
 import {restoreCityPlay} from '../sim/CityPlay';
+import {STREET_NEIGHBOURS} from '../content/streetVoices';
+import {spawnBackground} from '../sim/Spawner';
 import {migrateMappedPositions} from './MappedMigration';
-import {refreshAmbientFleet} from '../sim/Traffic';
+import {spawnVehicles,refreshAmbientFleet} from '../sim/Traffic';
 import {restoreWorldFun} from '../sim/WorldFun';
 import {restoreCommerce,type CommerceState} from '../sim/Commerce';
 import {restoreSubstances} from '../sim/Substances';
@@ -45,6 +47,7 @@ export const unpackRel = (a: RelTuple): [number, Rel] => [a[0], { fam: a[1], tru
 export interface SaveData {
   mappedDamage?:import('../sim/MappedFacadeDamage').MappedFacadeRecord[];
   ambientFleetVersion?:number;
+  trafficMode?:'cruise'|'city'|'rush';
   cityPlay?:import("../sim/CityPlay").CityPlay;
   worldFun?:import('../sim/WorldFun').WorldFunState;
   saltStory?: SaltProgress;
@@ -100,7 +103,8 @@ export const MIGRATIONS: Record<number, (d: any) => any> = {
 export function serialize(sim: Simulation, label = "Save"): SaveData {
   return {
     mappedDamage:sim.mappedDamage.snapshot(),
-    ambientFleetVersion:2,
+    ambientFleetVersion:3,
+    trafficMode:sim.world.mapped?.trafficMode,
     saltStory: { ...sim.saltStory },
     cityPlay:structuredClone(sim.cityPlay),streetLife: structuredClone(sim.streetLife),worldFun:structuredClone(sim.worldFun),
     commerce: structuredClone(sim.commerce),
@@ -149,8 +153,10 @@ export function parseSave(json: string): SaveData {
 /** Build a fresh simulation from a save. */
 export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemFlags(),mapped=false): Simulation {
   const migrate=mapped&&!d.cfg.cityMap;
-  const sim = new Simulation({...d.cfg,...(mapped?{cityMap:'christchurch' as const,trafficCars:150,pathsPerTick:2}:{})}, {}, lifeFlags);
+  const sim = new Simulation({...d.cfg,...(mapped?{cityMap:'christchurch' as const,trafficCars:650,pathsPerTick:2,backgroundCount:(d.ambientFleetVersion??0)<3?Math.min((d.cfg.backgroundCount??150)*3,900):d.cfg.backgroundCount}:{})}, {}, lifeFlags);
   const freshFleet=migrate?sim.vehicles:[];
+  const freshNeighbours=sim.chars.filter(c=>STREET_NEIGHBOURS.some(n=>n.name===c.name));
+  if(sim.world.mapped&&['cruise','city','rush'].includes(d.trafficMode??''))sim.world.mapped.trafficMode=d.trafficMode;
   sim.saltStory = restoreSaltProgress(d.saltStory);sim.worldFun=restoreWorldFun(d.worldFun);sim.cityPlay=restoreCityPlay(d.cityPlay);
   sim.commerce=restoreCommerce(d.commerce);
   const street=d.streetLife;
@@ -191,6 +197,12 @@ export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemF
   sim.mappedDamage.restore(d.mappedDamage??[]);
   sim.pendingAmbulance=new Map(d.pendingAmbulance??[]);
   if(migrate){migrateMappedPositions(sim);const plates=new Set(sim.vehicles.map(v=>v.plate));for(const fresh of freshFleet){if(sim.vehicles.length>=360)break;if(sim.vehicles.some(v=>Math.hypot(v.x-fresh.x,v.y-fresh.y)<3))continue;const v=structuredClone(fresh);v.id=sim.vehicles.length;v.driver=-1;if(plates.has(v.plate))v.plate='MAP'+(100+v.id);plates.add(v.plate);sim.vehicles.push(v);}}
+  if(mapped&&(d.ambientFleetVersion??0)<3){for(const c of sim.chars)sim.names?.reserve(c.name);spawnBackground(sim,Math.max(0,sim.cfg.backgroundCount-sim.chars.filter(c=>c.tier==='background').length));}
+  if(sim.world.mapped)for(const fresh of freshNeighbours)if(!sim.chars.some(c=>c.name===fresh.name)){
+    const c=structuredClone(fresh),spot=sim.world.nearestFoot(sim.player.x+sim.chars.length%12-6,sim.player.y+8,16);
+    c.id=sim.chars.length;c.x=c.px=spot.x;c.y=c.py=spot.y;c.rel=new Map();c.memories=[];c.hand=-1;c.bag=[];c.inCar=-1;sim.chars.push(c);
+  }
+  if(sim.world.mapped&&(d.ambientFleetVersion??0)<3)spawnVehicles(sim);
   sim.rebuildHash();
   sim.lod.update(sim);
   return sim;

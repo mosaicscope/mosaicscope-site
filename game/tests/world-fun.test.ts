@@ -5,7 +5,7 @@ import {newSkillRound,advanceSkill,skillInput,dartTarget,fishingTarget,keeperLan
 import {finishSkill,streetEffect} from '../src/sim/WorldFun';
 import {serialize,restore} from '../src/persistence/SaveSystem';
 import {small} from './helpers';
-it('ships 12 distinct rule sets and 38 separately wired street interactions',()=>{expect(SKILL_GAMES).toHaveLength(12);expect(STREET_EFFECTS).toHaveLength(38);expect(WORLD_FUN_COUNT).toBe(50);expect(new Set([...SKILL_GAMES,...STREET_EFFECTS].map(e=>e[0])).size).toBe(50);});
+it('ships 12 distinct rule sets and 43 separately wired street interactions',()=>{expect(SKILL_GAMES).toHaveLength(12);expect(STREET_EFFECTS).toHaveLength(43);expect(WORLD_FUN_COUNT).toBe(55);expect(new Set([...SKILL_GAMES,...STREET_EFFECTS].map(e=>e[0])).size).toBe(55);});
 it.each(SKILL_GAMES.map(g=>[g[0]] as const))('supports a complete successful %s round without an auto-win button',id=>{
  const s=newSkillRound(id),tap=(x=480,y=230,type='tap')=>skillInput(s,x,y,type);
  if(id==='basketball'||id==='focus')for(let i=0;i<3;i++)tap();

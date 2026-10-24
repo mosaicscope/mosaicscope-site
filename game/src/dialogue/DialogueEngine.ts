@@ -1,4 +1,5 @@
 import { streetNews } from '../sim/StreetLife';
+import {STREET_NEIGHBOURS} from '../content/streetVoices';
 import { isSaltCast } from '../content/salt-story/cast';
 import { livedLines } from "../ai/llm/context";
 import { buzz, buzzOpener, buzzFeel, BUZZ_REPLIES } from "../content/buzz";
@@ -426,7 +427,8 @@ export class DialogueEngine {
     applyInteraction(npc, p, "talk", true, sim.tick);
     // a short authored back-and-forth (them, then you) before your options appear
     const script = this.director.pick(npc, p);
-    const opener = script ? script.slice(0, 2) : [this.bark(npc, "greet", p)];
+    const neighbour=STREET_NEIGHBOURS.find(n=>n.name===npc.name);
+    const opener = neighbour ? [neighbour.line] : script ? script.slice(0, 2) : [this.bark(npc, "greet", p)];
     const text = opener[0];
     sim.say(npc, text, "say", 3);
     sim.playerAct("talked", npc);

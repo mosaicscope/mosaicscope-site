@@ -9,6 +9,13 @@ import {polygonContains} from '../src/content/destinationTerrain';
 let sim:Simulation;
 beforeAll(()=>{sim=new Simulation({cityMap:'christchurch',midCount:0,backgroundCount:30,trafficCars:150});},30000);
 describe('one playable mapped Christchurch',()=>{
+ it('upgrades an older mapped save once while preserving owned cars, cash and traffic mode',()=>{
+  const saved=serialize(sim);saved.ambientFleetVersion=2;saved.chars[saved.playerId].cash=1234;saved.vehicles![0].owner=saved.playerId;saved.vehicles![0].damage=.27;saved.trafficMode='rush';
+  const upgraded=restore(saved,undefined,true),crowd=upgraded.chars.filter(c=>c.tier==='background').length;
+  expect(upgraded.player.cash).toBe(1234);expect(upgraded.vehicles[0].owner).toBe(upgraded.playerId);expect(upgraded.vehicles[0].damage).toBe(.27);expect(upgraded.world.mapped!.trafficMode).toBe('rush');
+  expect(upgraded.vehicles.filter(v=>v.state==='drive').length).toBeGreaterThanOrEqual(640);expect(crowd).toBe(saved.cfg.backgroundCount*3);
+  const again=restore(serialize(upgraded),undefined,true);expect(again.chars.filter(c=>c.tier==='background')).toHaveLength(crowd);expect(new Set(again.chars.map(c=>c.name)).size).toBe(again.chars.length);
+ },30000);
  it('migrates a legacy save without losing money, inventory or owned crash damage',()=>{const old=new Simulation({midCount:0,backgroundCount:2,trafficCars:0}),p=old.player,v=old.vehicles[0];p.cash=4321;v.owner=p.id;v.damage=.37;const home=p.home,saved=serialize(old),mapped=restore(saved,undefined,true);expect(mapped.world.mapped).toBeTruthy();expect(mapped.player.cash).toBe(4321);expect(mapped.player.home).toBe(home);expect(mapped.player.bag).toEqual(p.bag);expect(mapped.vehicles[v.id].owner).toBe(p.id);expect(mapped.vehicles[v.id].damage).toBe(.37);expect(mapped.world.walkable(mapped.player.x,mapped.player.y)).toBe(true);expect(mapped.vehicles.length).toBeGreaterThan(250);},30000);
  it('uses surveyed geometry at 2 metres per tile, rather than the old 20-tile grid',()=>{const m=sim.world.mapped!;expect(m.buildings.length).toBeGreaterThan(1400);expect(mappedRouteCount(sim)).toBeGreaterThan(2000);expect(sim.world.maxLine).toBe(-1);const p=mappedPoint(m,25,-80);expect(mapMetres(m,p.x,p.y)).toEqual({x:25,y:-80});expect(sim.world.streetName(p.x,p.y)).not.toBe('');});
  it('anchors the arrival square to the actual surveyed place, not an assumed offset',()=>{const m=sim.world.mapped!,source=m.venues.find(v=>v.name==='Cathedral Square')!,square=sim.world.areas.find(a=>a.kind==='plaza')!,point=mapMetres(m,square.cx,square.cy);expect(point.x).toBeCloseTo(source.point[0],6);expect(point.y).toBeCloseTo(source.point[1],6);});

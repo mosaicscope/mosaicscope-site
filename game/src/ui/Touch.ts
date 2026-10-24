@@ -2,8 +2,8 @@ import "./mobile.css";
 
 /**
  * Mobile controls: a floating analog stick on the left, a thumb cluster on the right.
- * On foot: big context button + Throw / Swing / Talk / Rob / More (sheet: Pick up, Drop, Bandage, Horn, Map).
- * In a car: Gas / Brake / Horn / Exit (+ More), and the stick steers.
+ * On foot: analog walking and sprinting, context action, attack, and a More sheet.
+ * In a car: separate steering arrows, Gas / Brake / Horn / Exit (+ More).
  */
 export type TouchAction = "use" | "talk" | "throw" | "swing" | "rob" | "bandage" | "horn" | "map" | "view2d" | "pickup" | "drop" | "sprint";
 
@@ -25,7 +25,7 @@ export interface TouchHost {
 }
 
 /** The joystick captures its own zone; the rest of the city keeps tap-to-walk and pinch gestures. */
-const STICK_ON = false;
+const STICK_ON = true;
 
 const SVG = (d: string) => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const ICONS: Record<string, string> = {
@@ -71,8 +71,12 @@ export class TouchControls {
   private stickId = -1; private ox = 0; private oy = 0; private sx = 0; private sy = 0; private sprinting = false; private sentZero = true;
   // car pedals
   private steering = 0;
+  private steeringHeld=new Set<number>();
   private gas = false; private brakeHeld = false;
   private lastCtx = ""; private lastCar: boolean | null = null;
+  private resetInput=()=>{};
+  private releaseButtons:(()=>void)[]=[];
+  private suspended=false;
 
   static wanted(): boolean {
     try {
@@ -186,10 +190,13 @@ export class TouchControls {
       zoomBox.append(b);
     }
     const steering=el('div','tc-steering car');
-    for(const [text,dir]of[['←',-1],['→',1]] as const){const b=el('button','tc-btn tc-steer',text);b.setAttribute('aria-label',dir<0?'Steer left':'Steer right');this.press(b,()=>{},on=>{this.steering=on?dir:0;});steering.append(b);}
-    this.el.append(cluster,zoomBox,steering);
-    window.addEventListener('blur',()=>{this.gas=false;this.brakeHeld=false;this.steering=0;this.host.move(0,0);this.host.fire?.(false);});
-    const hint=el('div','tc-walk-hint','Tap the street to walk');this.el.append(hint);
+    for(const [text,dir]of[['←',-1],['→',1]] as const){const b=el('button','tc-btn tc-steer',text);b.setAttribute('aria-label',dir<0?'Steer left':'Steer right');this.press(b,()=>{},on=>{if(on)this.steeringHeld.add(dir);else this.steeringHeld.delete(dir);this.steering=[...this.steeringHeld].reduce((sum,n)=>sum+n,0);});steering.append(b);}
+    this.el.append(this.zone,cluster,zoomBox,steering);
+    const reset=()=>{this.stickUp();this.releaseButtons.forEach(release=>release());this.gas=false;this.brakeHeld=false;this.steering=0;this.host.brake?.(false);this.host.move(0,0);this.host.fire?.(false);};
+    this.resetInput=reset;
+    window.addEventListener('blur',reset);
+    document.addEventListener('visibilitychange',()=>{if(document.hidden)reset();});
+    const hint=el('div','tc-walk-hint','Drag to walk · full push to sprint');this.el.append(hint);
 
     // nothing we touch leaks into the canvas / page handlers
     for (const t of ["pointerdown", "pointerup", "pointermove", "click", "dblclick", "contextmenu", "touchstart", "touchend", "touchmove", "wheel"]) {
@@ -201,13 +208,15 @@ export class TouchControls {
 
   /** Call every frame: feeds the stick/pedals to the host and refreshes the context button. */
   update(): void {
-    if (!this.el.classList.contains("on")) return;
+    if (!this.el.classList.contains("on")||this.el.classList.contains('hidden')) {if(!this.suspended)this.resetInput();this.suspended=true;return;}
+    this.suspended=false;
     const inCar = this.host.inCar();
     const attack=this.host.attackLabel?.()??'Attack',label=this.attackButton.querySelector('.tc-lbl');
     if(label&&label.textContent!==attack)label.textContent=attack;
     this.attackButton.title=attack==='Fire'?'Tap to fire; hold for automatic weapons':'Tap to attack a nearby person';
     this.el.classList.toggle("armed",!!this.host.armedVehicle?.());
     if (inCar !== this.lastCar) {
+      if(this.lastCar!==null)this.resetInput();
       this.lastCar = inCar;
       this.el.classList.toggle("in-car", inCar);
       this.toggleSheet(false);
@@ -216,7 +225,7 @@ export class TouchControls {
     // stick / pedals
     if (inCar) {
       const brakeY = this.host.brake ? 0 : 1;
-      const y = this.gas ? -1 : this.brakeHeld ? brakeY : 0;
+      const y = this.brakeHeld ? brakeY : this.gas ? -1 : 0;
       const x = this.steering;
       if (x || y) { this.host.move(x, y); this.sentZero = false; }
       else if (!this.sentZero) { this.host.move(0, 0); this.sentZero = true; }
@@ -244,6 +253,7 @@ export class TouchControls {
   // ---------------------------------------------------------------- internals
   private press(b: HTMLElement, fn: () => void, hold?: (on: boolean) => void): void {
     const ids = new Set<number>();
+    this.releaseButtons.push(()=>{if(ids.size){ids.clear();hold?.(false);}b.classList.remove('down');});
     const up = (e: PointerEvent) => {
       if (!ids.delete(e.pointerId)) return;
       if (ids.size === 0) { b.classList.remove("down"); hold?.(false); }
