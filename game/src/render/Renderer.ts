@@ -1,4 +1,6 @@
+import {MAPPED_FIGURE_SCALE} from '../world/WorldScale';
 import {drawStreetProp} from './StreetProps';
+import {worldIndex} from '../world/WorldIndex';
 import {drawAircraft} from './Aircraft';
 import {aircraftForSku} from '../content/aircraft';
 import {farmObjects,drawFarmObject} from './Farm';
@@ -99,6 +101,7 @@ export class Renderer {
     this.terrain = new Terrain(sim.world);
     this.particles = new Particles(sim.cfg.maxParticles);
     this.cam.worldSize = sim.world.size;
+    this.cam.unbounded=!!sim.world.mapped;
     this.cam.lookAt(sim.player.x, sim.player.y, true);
     this.cam.follow = sim.playerId;
     sim.bus.on("fx", (f) => this.onFx(f));
@@ -108,7 +111,7 @@ export class Renderer {
     this.mappedArt.clear();this.mappedGround=new MappedGround();
     this.bubblePositions.clear();this.decals.length=0;
     this.sim = sim; this.terrain = new Terrain(sim.world); this.terrain.setUltra(this.qualityNow === 3); this.particles.clear(); this.lastPose.clear(); this.motion.clear();
-    this.cam.worldSize = sim.world.size; this.cam.lookAt(sim.player.x, sim.player.y, true); this.cam.follow = sim.playerId;
+    this.cam.worldSize = sim.world.size;this.cam.unbounded=!!sim.world.mapped; this.cam.lookAt(sim.player.x, sim.player.y, true); this.cam.follow = sim.playerId;
     sim.bus.on("fx", (f) => this.onFx(f));
   }
 
@@ -141,7 +144,7 @@ export class Renderer {
     const native = window.devicePixelRatio || 1;
     // Never render below device pixels: a sub-native canvas is upscaled by the browser and reads as blur on the ground and figures.
     // Lower tiers cap the pixel count instead (fill-rate is the real cost on weak machines); ultra stays at full native sharpness.
-    this.dpr = quality === 0 ? Math.min(1.5, native) : quality === 1 ? Math.min(1.5, native) : quality === 2 ? Math.min(2, native) : native;
+    this.dpr = quality === 0 ? Math.min(1, native) : quality === 1 ? Math.min(1.25, native) : quality === 2 ? Math.min(1.5, native) : Math.min(2,native);
     this.canvas.width = Math.round(w * this.dpr); this.canvas.height = Math.round(h * this.dpr);
     this.cam.resize(w, h);
     this.particles.scale = quality === 0 ? 0.35 : quality === 1 ? 0.7 : quality === 2 ? 1 : 1.4;
@@ -206,8 +209,9 @@ export class Renderer {
     // visible tile range (bounding box of the screen corners in world space)
     const c1 = cam.toWorld(0, 0), c2 = cam.toWorld(cam.viewW, 0), c3 = cam.toWorld(0, cam.viewH), c4 = cam.toWorld(cam.viewW, cam.viewH);
     const S = sim.world.size;
-    const minX = Math.max(0, Math.floor(Math.min(c1.x, c2.x, c3.x, c4.x)) - 2), maxX = Math.min(S - 1, Math.ceil(Math.max(c1.x, c2.x, c3.x, c4.x)) + 12);
-    const minY = Math.max(0, Math.floor(Math.min(c1.y, c2.y, c3.y, c4.y)) - 2), maxY = Math.min(S - 1, Math.ceil(Math.max(c1.y, c2.y, c3.y, c4.y)) + 12);
+    const low=mapped?-Infinity:0,high=mapped?Infinity:S-1;
+    const minX = Math.max(low, Math.floor(Math.min(c1.x, c2.x, c3.x, c4.x)) - 2), maxX = Math.min(high, Math.ceil(Math.max(c1.x, c2.x, c3.x, c4.x)) + 12);
+    const minY = Math.max(low, Math.floor(Math.min(c1.y, c2.y, c3.y, c4.y)) - 2), maxY = Math.min(high, Math.ceil(Math.max(c1.y, c2.y, c3.y, c4.y)) + 12);
     const inView = (sx: number, sy: number, m: number) => sx > -m && sy > -m && sx < cam.viewW + m && sy < cam.viewH + m * 0.3;
 
     this.nItems = 0;
@@ -215,7 +219,7 @@ export class Renderer {
     resetHdBudget(Math.abs(cam.targetZoom-z)>.025?12:o.quality === 3 ? 400 : o.quality === 2 ? 40 : o.quality === 1 ? 20 : 0);
     const pt = this.pt;
     for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
-      const t = sim.world.tiles[ty * S + tx];
+      const t = sim.world.tile(tx,ty);
       if(mapped&&t===T.BUILDING)continue;
       if (TILE_HEIGHT[t] === undefined && t !== T.TREE && t !== T.BUILDING) continue;
       if (t === T.STAGE) continue;
@@ -225,8 +229,8 @@ export class Renderer {
       this.push(tx + ty + 1, 2, ty * S + tx, pt.x, pt.y);
       if (t === T.BUILDING) this.viewB.add(sim.world.buildingOf[ty * S + tx]);
     }
-    if(mapped){this.mappedArt.beginFrame();for(const b of sim.world.buildings){if(b.x1<minX-20||b.y1<minY-20||b.x0>maxX+20||b.y0>maxY+20)continue;cam.toScreen(b.x0,b.y0,0,pt);const footprint=mapped.byBuilding.get(b.id);if(!footprint)continue;const depth=Math.max(...footprint.points.map(p=>(p[0]+p[1])/2+mapped.offsetX+mapped.offsetY));this.push(depth,14,b.id,pt.x,pt.y);this.viewB.add(b.id);}}
-    for (const p of sim.world.pois) {
+    if(mapped){this.mappedArt.beginFrame(o.quality);for(const id of worldIndex(sim.world).buildings.query(minX-20,minY-20,maxX+20,maxY+20)){const b=sim.world.buildings[id];if(b.x1<minX-20||b.y1<minY-20||b.x0>maxX+20||b.y0>maxY+20)continue;cam.toScreen(b.x0,b.y0,0,pt);const footprint=mapped.byBuilding.get(b.id);if(!footprint)continue;const depth=Math.max(...footprint.points.map(p=>(p[0]+p[1])/2+mapped.offsetX+mapped.offsetY));this.push(depth,14,b.id,pt.x,pt.y);this.viewB.add(b.id);}}
+    for (const p of mapped?[...worldIndex(sim.world).pois.query(minX-4,minY-4,maxX+4,maxY+4)].map(id=>sim.world.pois[id]):sim.world.pois) {
       if(mapped&&!mapped.visibility.fixtures&&p.kind!=='door')continue;
       cam.toScreen(p.x, p.y, 0, pt);
       if (!inView(pt.x, pt.y, 120 * z)) continue;
@@ -237,7 +241,7 @@ export class Renderer {
       const f=order.flight;if(f){const t=Math.max(0,Math.min(1,(sim.tick-f.at)/(f.until-f.at))),x=b.door.x+(f.x-b.door.x)*t,y=b.door.y+(f.y-b.door.y)*t;cam.toScreen(x,y,Math.sin(t*Math.PI)*8+.5,pt);if(inView(pt.x,pt.y,80*z))this.push(this.behind(x,y,x+y+.03),9,i*2+1,pt.x,pt.y);}
     }
     // street dressing (kerb trees, planters, bollards, bike racks, cafe tables); skipped when zoomed far out
-    if (z >= 0.5&&(!mapped||mapped.visibility.fixtures)) {
+    if (z >= 0.5&&!mapped) {
       const dg = decorGrid(sim.world);
       for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
         if (!dg[ty * S + tx]) continue;
@@ -321,7 +325,7 @@ export class Renderer {
     // depth sort
     const items = this.items, n = this.nItems;
     const view = items.slice(0, n).sort((a, b) => a.d - b.d);
-    const detail=detailedCrowd(view.filter(i=>i.kind===0).map(i=>sim.chars[i.ref]),cam.x,cam.y,[20,32,48,72][o.quality],o.selected,o.hovered,cam.follow);
+    const detail=detailedCrowd(view.filter(i=>i.kind===0).map(i=>sim.chars[i.ref]),cam.x,cam.y,[8,16,24,40][o.quality],o.selected,o.hovered,cam.follow);
     const workingCrews=new Set(Object.values(sim.world.civicDamage).map(d=>d.crew));
     this.stats.items = n;
 
@@ -333,7 +337,7 @@ export class Renderer {
       if (it.kind === 0) {
         const c = sim.chars[it.ref];
         const bg = !detail.has(c.id);
-        const k = 0.44 * z * c.look.scale;
+        const k = (mapped?MAPPED_FIGURE_SCALE:.44) * z * c.look.scale;
         const wx=c.px+(c.x-c.px)*alpha,wy=c.py+(c.y-c.py)*alpha;
         const previous=this.motion.get(c.id),distance=previous?Math.hypot(wx-previous.x,wy-previous.y):0;
         const instantaneous=distance<2?Math.min(9,distance/Math.max(dt,.001)):0;
@@ -423,7 +427,7 @@ export class Renderer {
         this.mappedArt.draw(g,source,P,16*z,[focusSX,focusSY]);
         const damageP=(x:number,y:number,height=0):[number,number]=>{const p=cam.toScreen(x,y,height/0.8125,{x:0,y:0});return[p.x,p.y];};
         drawMappedFacadeDamage(g,sim.mappedDamage,damageP,32*z,sim.tick/60,source.id);
-        if(1-sim.daylight>.3)GLOW.push(layer=>{this.mappedArt.glow(layer,source,P,16*z,1-sim.daylight);drawMappedFacadeDamage(layer,sim.mappedDamage,damageP,32*z,sim.tick/60,source.id,true);});
+        if(o.quality>=2&&1-sim.daylight>.3)GLOW.push(layer=>{this.mappedArt.glow(layer,source,P,16*z,1-sim.daylight);drawMappedFacadeDamage(layer,sim.mappedDamage,damageP,32*z,sim.tick/60,source.id,true);});
       } else if (it.kind === 4) {
         flush();
         // Share painter order with the car. Nearer building silhouettes erase these lights too.
@@ -439,7 +443,7 @@ export class Renderer {
         flush();
         const l = sim.litter.pieces[it.ref];
         drawLitter(g, l.kind, l.tone, l.rot, it.sx, it.sy, z);
-      } else if(it.kind===8){flush();const c=sim.chars[Math.floor(it.ref/8)],w=c?.wounds[it.ref%8];if(c&&w?.detached)drawDetachedLimb(g,c,w,it.sx,it.sy,.44*z*c.look.scale);
+      } else if(it.kind===8){flush();const c=sim.chars[Math.floor(it.ref/8)],w=c?.wounds[it.ref%8];if(c&&w?.detached)drawDetachedLimb(g,c,w,it.sx,it.sy,(mapped?MAPPED_FIGURE_SCALE:.44)*z*c.look.scale);
       } else if (it.kind === 7) {
         flush();
         if(drawDebris(g,sim.world.civicDamage[`d:${it.ref}`],it.sx,it.sy,z))continue;
@@ -488,11 +492,11 @@ export class Renderer {
 
   /** Animated water. Low: the old soft shimmer. Higher tiers: two ripple layers, travelling glints, more on Ultra. */
   private drawWater(g: CanvasRenderingContext2D, sim: Simulation, o: RenderOptions, minX: number, maxX: number, minY: number, maxY: number, time: number): void {
-    const S = sim.world.size, cam = this.cam, z = cam.zoom, pt = this.pt, q = o.quality, t = o.reduceMotion ? 0 : time;
+    const cam = this.cam, z = cam.zoom, pt = this.pt, q = o.quality, t = o.reduceMotion ? 0 : time;
     if (q === 0) {
       g.fillStyle = "rgba(61,214,255,.06)";
       for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
-        if (sim.world.tiles[ty * S + tx] !== T.WATER || ((tx * 7 + ty * 3 + Math.floor(t * 1.5)) % 5) !== 0) continue;
+        if (sim.world.tile(tx,ty) !== T.WATER || ((tx * 7 + ty * 3 + Math.floor(t * 1.5)) % 5) !== 0) continue;
         cam.toScreen(tx + 0.5, ty + 0.5, 0, pt);
         g.beginPath(); g.ellipse(pt.x, pt.y, 14 * z, 4 * z, 0, 0, 6.283); g.fill();
       }
@@ -504,7 +508,7 @@ export class Renderer {
       g.strokeStyle = layer ? "rgba(150,235,255,.2)" : "rgba(255,255,255,.14)"; g.lineWidth = Math.max(1, (layer ? 1 : 1.4) * z);
       g.beginPath();
       for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
-        if (sim.world.tiles[ty * S + tx] !== T.WATER) continue;
+        if (sim.world.tile(tx,ty) !== T.WATER) continue;
         // each tile carries one wavy crest running along the iso x axis; phase comes from world position so crests line up neighbour to neighbour
         const v = 0.5 + 0.28 * Math.sin((tx + ty * 0.7) * 1.7 + layer * 2.1 + t * (0.9 + layer * 0.35));
         for (let i = 0; i <= seg; i++) {
@@ -521,7 +525,7 @@ export class Renderer {
     g.fillStyle = "rgba(255,255,255,.55)";
     const gl = q >= 3 ? 3 : 2;
     for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
-      if (sim.world.tiles[ty * S + tx] !== T.WATER) continue;
+      if (sim.world.tile(tx,ty) !== T.WATER) continue;
       for (let k = 0; k < gl; k++) {
         const ph = Math.sin(t * 1.6 + tx * 12.9898 + ty * 78.233 + k * 4.1);
         if (ph < 0.93) continue;
@@ -564,7 +568,7 @@ export class Renderer {
     if (night < 0.9) {
       g.fillStyle = `rgba(255,236,200,${(0.07 * (1 - night)).toFixed(3)})`;
       for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
-        if (sim.world.tiles[ty * S + tx] !== T.WATER || Math.sin((tx - ty) * 0.9 + t * 0.4) < 0.55) continue;
+        if (sim.world.tile(tx,ty) !== T.WATER || Math.sin((tx - ty) * 0.9 + t * 0.4) < 0.55) continue;
         cam.toScreen(tx + 0.5, ty + 0.5, 0, pt);
         g.beginPath(); g.ellipse(pt.x, pt.y, 20 * z, 6 * z, 0, 0, 6.283); g.fill();
       }
@@ -573,7 +577,7 @@ export class Renderer {
     // moon and sky: pale slivers drifting over every water tile, so ponds with no lit shore still shimmer
     g.fillStyle = `rgba(200,225,255,${(0.16 * night).toFixed(3)})`;
     for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
-      if (sim.world.tiles[ty * S + tx] !== T.WATER) continue;
+      if (sim.world.tile(tx,ty) !== T.WATER) continue;
       const ph = Math.sin(t * 0.8 + tx * 5.3 + ty * 9.1);
       if (ph < 0.3) continue;
       cam.toScreen(tx + 0.5 + Math.sin(t * 0.5 + ty) * 0.15, ty + 0.5, 0, pt);

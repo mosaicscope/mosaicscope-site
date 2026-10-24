@@ -1,3 +1,4 @@
+import {CityStreamer} from '../world/CityStreamer';
 import {challengeStatus} from '../sim/CityChallenges';
 import {nudgeStreetProp} from '../sim/StreetProps';
 import {RetroPhone} from '../ui/RetroPhone';
@@ -105,8 +106,8 @@ export class Game {
   private moveTarget: { x: number; y: number } | null = null;
   private pendingTalk = -1;
   private pendingEnter: { building: number; studio: boolean } | null = null;
-  // auto starts at medium on desktop and high on phones (full detail, more battery), and steps down only if frames drop
-  private quality: Quality = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches ? 2 : 1;
+  // Start phones within a conservative frame budget; desktop starts at medium.
+  private quality: Quality = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches ? 0 : 1;
   private fpsAvg = 60; private slowFor = 0; private fastFor = 0;
   private ticksThisSecond = 0; private tickRate = 0; private tickWindow = 0;
   private toastEl: HTMLElement; private hintEl: HTMLElement; private clockEl: HTMLElement; private speedEls: HTMLButtonElement[] = [];
@@ -336,7 +337,7 @@ export class Game {
       this.returnToPlayer(false); if (this.clock.paused) this.setSpeed(1);
     }
     if(!this.phone.open&&!this.modal.open&&!this.casino.open&&!this.dev.visible&&!this.travel.open&&!this.club.open&&!this.luxury.open&&!this.interior.open&&(this.keys.has(this.settings.keys.throw)||this.keys.has(this.settings.keys.swing)||this.mouse.down&&this.mouse.button===2||this.touchFire)){const p=this.sim.player;if(p.hand>=0&&TOYS[this.sim.toys[p.hand].def]?.weapon?.mode==='auto')this.act('throw');}
-    const steps = this.clock.advance(dt);
+    const steps = this.clock.advance(dt,Math.max(2,Math.ceil(this.clock.speed)));
     for (let i = 0; i < steps; i++) this.guard("sim", () => { this.controlPlayer(); this.sim.step(); });
     this.ticksThisSecond += steps; this.tickWindow += dt;
     if (this.tickWindow >= 1) { this.tickRate = this.ticksThisSecond / this.tickWindow; this.ticksThisSecond = 0; this.tickWindow = 0; }
@@ -395,7 +396,9 @@ export class Game {
     }
   }
 
+  private cityStreamer=new CityStreamer();
   private uiTick(now: number): void {
+    this.cityStreamer.update(this.sim,now);
     if(this.starting)return;
     if(now-this.lastAutoSave>30000)this.autoSave();void this.cityPanel.refresh();
     const miniGameOpen=!this.roast.el.classList.contains("hidden")||!this.burger.el.classList.contains("hidden");
@@ -420,7 +423,7 @@ export class Game {
     const wx = { clear: "clear", cloudy: "cloudy", rain: "rain", storm: "storm" }[sim.env.weather];
     const pl = sim.player, area = sim.world.areaAt(pl.x, pl.y);
     const where = [sim.world.streetName(pl.x, pl.y), area && area.kind !== "street" ? area.name : ""].filter(Boolean).join(" · ");
-    this.clockEl.replaceChildren(h("b", { text: fmtHour(sim.hour) }), h("span.wx", { text: ` · ${wx}${sim.env.power ? "" : " · power out"}${sim.env.party ? " · party on" : ""} · ${where}` }));
+    this.clockEl.replaceChildren(h("b", { text: fmtHour(sim.hour) }), h("span.wx", { text: ` · ${wx}${sim.env.power ? "" : " · power out"}${sim.env.party ? " · party on" : ""} · ${where}${sim.world.mapped?.streaming?.loading ? " · loading streets…" : sim.world.mapped?.streaming?.error ? " · map offline" : ""}` }));
     // GTA-style district title when you walk into a new place
     const areaName = area && area.kind !== "street" ? area.name : "";
     if (areaName && areaName !== this.lastArea) {
@@ -444,11 +447,12 @@ export class Game {
   private zoneId = -1;
 
   private adaptQuality(dt: number): void {
+    this.sim.detailBudget=[8,16,24,40][this.quality];
     if (this.settings.quality !== "auto") return;
     const ms = dt * 1000;
     // aim for 60fps: anything slower than ~55fps for a second steps quality down; recover slowly
-    if (ms > 18.5) { this.slowFor += dt; this.fastFor = 0; } else if (ms < 13) { this.fastFor += dt; this.slowFor = Math.max(0, this.slowFor - dt); } else { this.fastFor = 0; }
-    if (this.slowFor > 1 && this.quality > 0) { this.quality = (this.quality - 1) as Quality; this.slowFor = 0; this.renderer.resize(this.quality); }
+    if (ms > 18.5) { this.slowFor += dt; this.fastFor = 0; } else if (ms < 17.5) { this.fastFor += dt; this.slowFor = Math.max(0, this.slowFor - dt); } else { this.fastFor = 0; }
+    if (this.slowFor > .4 && this.quality > 0) { this.quality = (this.quality - 1) as Quality; this.slowFor = 0; this.renderer.resize(this.quality); }
     if (this.fastFor > 12 && this.quality < 2) { this.quality = (this.quality + 1) as Quality; this.fastFor = 0; this.renderer.resize(this.quality); }
   }
 

@@ -1,3 +1,5 @@
+import {bakeCityDistrict,registerCityBuilding,validDistrict} from '../world/CitySurvey';
+import type {DistrictData,MappedBuilding} from '../ui/DestinationDistrict';
 import {restoreCityPlay} from '../sim/CityPlay';
 import {STREET_NEIGHBOURS} from '../content/streetVoices';
 import {spawnBackground} from '../sim/Spawner';
@@ -45,6 +47,7 @@ export const unpackMem = (a: MemTuple): Memory => { const m: Memory = { t: a[0],
 export const packRel = (id: number, r: Rel): RelTuple => [id, r.fam, r.trust, r.aff, r.respect, r.fear, r.rivalry, r.grudge, r.shared, r.favours, r.last];
 export const unpackRel = (a: RelTuple): [number, Rel] => [a[0], { fam: a[1], trust: a[2], aff: a[3], respect: a[4], fear: a[5], rivalry: a[6], grudge: a[7], shared: a[8], favours: a[9], last: a[10] }];
 export interface SaveData {
+  citySurvey?:{buildings:MappedBuilding[];districts:DistrictData[]};
   mappedDamage?:import('../sim/MappedFacadeDamage').MappedFacadeRecord[];
   ambientFleetVersion?:number;
   trafficMode?:'cruise'|'city'|'rush';
@@ -102,6 +105,7 @@ export const MIGRATIONS: Record<number, (d: any) => any> = {
 
 export function serialize(sim: Simulation, label = "Save"): SaveData {
   return {
+    citySurvey:sim.world.mapped?{buildings:[...(sim.world.mapped.streamedBuildingIds??[])].map(id=>sim.world.mapped!.byBuilding.get(id)!),districts:sim.world.mapped.streamedData??[]}:undefined,
     mappedDamage:sim.mappedDamage.snapshot(),
     ambientFleetVersion:3,
     trafficMode:sim.world.mapped?.trafficMode,
@@ -154,6 +158,13 @@ export function parseSave(json: string): SaveData {
 export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemFlags(),mapped=false): Simulation {
   const migrate=mapped&&!d.cfg.cityMap;
   const sim = new Simulation({...d.cfg,...(mapped?{cityMap:'christchurch' as const,trafficCars:650,pathsPerTick:2,backgroundCount:(d.ambientFleetVersion??0)<3?Math.min((d.cfg.backgroundCount??150)*3,900):d.cfg.backgroundCount}:{})}, {}, lifeFlags);
+  if(sim.world.mapped&&d.citySurvey){const survey=d.citySurvey;
+    if(Array.isArray(survey.buildings)&&survey.buildings.length<50000&&Array.isArray(survey.districts)&&survey.districts.length<=32){
+      for(const b of survey.buildings)if(validDistrict({code:'CHC',cx:0,cy:0,centre:{name:''},buildings:[b],roads:[],venues:[]}))registerCityBuilding(sim.world,b);
+      for(const district of survey.districts)if(validDistrict(district))for(const _ of bakeCityDistrict(sim.world,district)){void _;}
+      sim.world.cityTiles.trim(d.chars[d.playerId]?.x??sim.player.x,d.chars[d.playerId]?.y??sim.player.y);
+    }
+  }
   const freshFleet=migrate?sim.vehicles:[];
   const freshNeighbours=sim.chars.filter(c=>STREET_NEIGHBOURS.some(n=>n.name===c.name));
   if(sim.world.mapped&&['cruise','city','rush'].includes(d.trafficMode??''))sim.world.mapped.trafficMode=d.trafficMode;
