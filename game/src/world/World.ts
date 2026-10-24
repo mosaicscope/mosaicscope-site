@@ -1,4 +1,6 @@
 import { Rng } from "../core/rng";
+import {CityTiles} from './CityTiles';
+import {worldIndex} from './WorldIndex';
 
 export const enum T {
   GRASS = 0, PAVE = 1, PATH = 2, FLOOR = 3, COURT = 4, WATER = 5, WALL = 6, TREE = 7,
@@ -76,6 +78,9 @@ export class World {
   streetsY: string[] = [];
   /** Tiles changed since last render (drives chunk re-render). */
   dirtyTiles = new Set<number>();
+  dirtyChunks=new Set<string>();
+  readonly cityTiles=new CityTiles((x,y)=>this.dirtyChunks.add(Math.floor(x/16)+','+Math.floor(y/16)));
+  coreContains(x:number,y:number){return x>=0&&y>=0&&x<this.size&&y<this.size;}
 
   constructor(size: number) {
     this.size = size;
@@ -87,7 +92,7 @@ export class World {
 
   /** "Colombo St" etc. for a point on (or next to) a road; the nearest street otherwise. */
   streetName(x: number, y: number): string {
-    if(this.mapped){let best=Infinity,name='';for(const r of this.mapped.streetSegments){const u=Math.max(0,Math.min(1,((x-r.x)*r.dx+(y-r.y)*r.dy)/r.length));const d=Math.hypot(x-r.x-r.dx*u*r.length,y-r.y-r.dy*u*r.length);if(d<best&&r.name){best=d;name=r.name;}}return name;}
+    if(this.mapped){let best=Infinity,name='';for(const id of worldIndex(this).roads.query(x-32,y-32,x+32,y+32)){const r=this.mapped.streetSegments[id],u=Math.max(0,Math.min(1,((x-r.x)*r.dx+(y-r.y)*r.dy)/r.length));const dx=x-r.x-r.dx*u*r.length,dy=y-r.y-r.dy*u*r.length,d=dx*dx+dy*dy;if(d<best&&r.name){best=d;name=r.name;}}return name;}
     const half = ROAD_W / 2;
     const lx = Math.round((x - half) / this.period), ly = Math.round((y - half) / this.period);
     const dx = Math.abs(x - lx * this.period - half), dy = Math.abs(y - ly * this.period - half);
@@ -97,23 +102,24 @@ export class World {
   /** Index of the last road line (roads run along both map edges). */
   get maxLine(): number { return this.mapped ? -1 : Math.floor((this.size - ROAD_W) / this.period); }
   drivable(x: number, y: number): boolean { return DRIVABLE.has(this.tile(Math.floor(x), Math.floor(y))); }
-  buildingAt(tx: number, ty: number): Building | undefined { if (!this.inBounds(tx, ty)) return undefined; const b = this.buildingOf[ty * this.size + tx]; return b >= 0 ? this.buildings[b] : undefined; }
-  walkCost(tx: number, ty: number): number { return WALK_COST[this.tiles[ty * this.size + tx]] ?? 1; }
+  buildingAt(tx: number, ty: number): Building | undefined { if (!this.inBounds(tx, ty)) return undefined; const b = this.coreContains(tx,ty)?this.buildingOf[ty * this.size + tx]:this.cityTiles.building(tx,ty); return b >= 0 ? this.buildings[b] : undefined; }
+  walkCost(tx: number, ty: number): number { return WALK_COST[this.tile(tx,ty)] ?? 1; }
 
   idx(tx: number, ty: number): number { return ty * this.size + tx; }
-  inBounds(tx: number, ty: number): boolean { return tx >= 0 && ty >= 0 && tx < this.size && ty < this.size; }
-  tile(tx: number, ty: number): number { return this.inBounds(tx, ty) ? this.tiles[ty * this.size + tx] : T.WALL; }
+  inBounds(tx: number, ty: number): boolean { return Number.isFinite(tx)&&Number.isFinite(ty)&&(!!this.mapped||this.coreContains(tx,ty)); }
+  tile(tx: number, ty: number): number { return this.coreContains(tx,ty) ? this.tiles[ty * this.size + tx] : this.mapped&&this.inBounds(tx,ty)?this.cityTiles.tile(tx,ty):T.WALL; }
   set(tx: number, ty: number, t: number): void {
     if (!this.inBounds(tx, ty)) return;
+    if(!this.coreContains(tx,ty)){this.cityTiles.set(tx,ty,t);return;}
     const i = ty * this.size + tx;
     if (this.tiles[i] !== t) { this.tiles[i] = t; this.dirtyTiles.add(i); }
   }
   /** Extra solid footprints that aren't tiles (the parked jet): blocks walking, not drawing. */
   blocked: Uint8Array = new Uint8Array(0);
-  walkableTile(tx: number, ty: number): boolean { return this.inBounds(tx, ty) && !SOLID.has(this.tiles[ty * this.size + tx]) && !this.blocked[ty * this.size + tx]; }
+  walkableTile(tx: number, ty: number): boolean { return this.inBounds(tx, ty) && !SOLID.has(this.tile(tx,ty)) && (!this.coreContains(tx,ty)||!this.blocked[ty * this.size + tx]); }
   walkable(x: number, y: number): boolean { return this.walkableTile(Math.floor(x), Math.floor(y)); }
-  isSheltered(x: number, y: number): boolean { const tx = Math.floor(x), ty = Math.floor(y); return this.inBounds(tx, ty) && this.shelter[ty * this.size + tx] === 1; }
-  areaAt(x: number, y: number): Area | undefined { const tx = Math.floor(x), ty = Math.floor(y); return this.inBounds(tx, ty) ? this.areas[this.areaOf[ty * this.size + tx]] : undefined; }
+  isSheltered(x: number, y: number): boolean { const tx = Math.floor(x), ty = Math.floor(y); return this.coreContains(tx,ty) && this.shelter[ty * this.size + tx] === 1; }
+  areaAt(x: number, y: number): Area | undefined { const tx = Math.floor(x), ty = Math.floor(y); return this.coreContains(tx,ty) ? this.areas[this.areaOf[ty * this.size + tx]] : this.mapped?this.areas[0]:undefined; }
   groundZ(x: number, y: number): number { return this.tile(Math.floor(x), Math.floor(y)) === T.STAGE ? 0.3 : 0; }
 
   /** Grid DDA line-of-sight test; true when nothing opaque sits between the points. */
@@ -170,7 +176,7 @@ export class World {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
         const tx = cx + dx, ty = cy + dy;
         if (!this.walkableTile(tx, ty)) continue;
-        const t = this.tiles[ty * this.size + tx];
+        const t = this.tile(tx,ty);
         if (t === T.SIDEWALK) return { x: tx + fx, y: ty + fy };
         if (!alt && t !== T.ROAD && t !== T.CROSSWALK) alt = { x: tx + fx, y: ty + fy };
       }

@@ -1,3 +1,5 @@
+import {MappedArchitecture} from '../render/MappedArchitecture';
+import {MAPPED_FIGURE_SCALE} from '../world/WorldScale';
 import {drawPoi} from '../render/Terrain';
 import {drawHorse} from '../render/Horse';
 import {applyNegativeReaction} from '../render/NegativeReactions';
@@ -25,6 +27,7 @@ const TAU = Math.PI * 2;
 /** Street encounters use the real city facade and the same characters as the world outside. */
 export function encounterScene(sim:Simulation,event:Encounter|undefined,completed=false) {
   if(event?.id==='wedding')return weddingScene(sim,event,completed);
+  const mapped=sim.world.mapped;
   const id=event?.id??'',player=sim.player,choice=completed?sim.expansion.outcomes?.[id]:undefined;
   const selected=choice===undefined?undefined:event?.choices[choice];
   const outdoors=['memorial','ring','duck','referee','wedding','skater','seed','magpie','busker','choir'].includes(id);
@@ -32,15 +35,17 @@ export function encounterScene(sim:Simulation,event:Encounter|undefined,complete
   const candidates=sim.world.buildings.filter(b=>domestic?(b.kind==='house'||b.kind==='apartments')&&b.floors<=3:b.floors<=3);
   const b=outdoors?undefined:candidates.sort((a,b)=>Math.hypot(a.door.x-player.x,a.door.y-player.y)-Math.hypot(b.door.x-player.x,b.door.y-player.y))[0]??sim.world.buildings[0];
   const camera=new Camera();camera.resize(960,600);camera.x=b?b.door.x:player.x;camera.y=b?b.door.y:player.y;
-  camera.zoom=b?Math.max(.65,Math.min(1.55,640/((b.x1-b.x0+b.y1-b.y0+4)*32+b.height*12))):2.7;
+  camera.zoom=mapped?3.4:b?Math.max(.65,Math.min(1.55,640/((b.x1-b.x0+b.y1-b.y0+4)*32+b.height*12))):2.7;
   const raw=(x:number,y:number,z=0):Point=>{const p=camera.toScreen(x,y,z,{x:0,y:0});return[p.x,p.y];};
   const bounds=b?[raw(b.x0,b.y0,b.height+1.5),raw(b.x0,b.y1+1),raw(b.x1+1,b.y0),raw(b.x1+1,b.y1+1)]:[[480,200],[480,350]];
-  const ox=480-(Math.min(...bounds.map(p=>p[0]))+Math.max(...bounds.map(p=>p[0])))/2;
-  const oy=240-(Math.min(...bounds.map(p=>p[1]))+Math.max(...bounds.map(p=>p[1])))/2;
+  let ox=480-(Math.min(...bounds.map(p=>p[0]))+Math.max(...bounds.map(p=>p[0])))/2;
+  let oy=240-(Math.min(...bounds.map(p=>p[1]))+Math.max(...bounds.map(p=>p[1])))/2;
   const P:Project=(x,y,z=0)=>{const [sx,sy]=raw(x,y,z);return[sx+ox,sy+oy];};
   const front=b?.door.face==='e',ax=b?(front?b.x1+2.2:Math.max(b.x0+.5,Math.min(b.x1-.5,b.door.x))):player.x,ay=b?(front?Math.max(b.y0+.5,Math.min(b.y1-.5,b.door.y)):b.y1+2.2):player.y;
   // Local event coordinates run along the front wall and out into the footpath.
-  const E:Project=(x,y,z=0)=>front?P(ax+y,ay+x,z):P(ax+x,ay+y,z);
+  if(mapped){const anchor=raw(ax+.25,ay+.5);ox=480-anchor[0];oy=370-anchor[1];}
+  // Scene props and blocking use metres, matching the surveyed street and 1.75m adults.
+  const E:Project=(x,y,z=0)=>{const unit=mapped ? .5 : 1,Z=mapped?z/1.625:z;return front?P(ax+y*unit,ay+x*unit,Z):P(ax+x*unit,ay+y*unit,Z);};
   const background=document.createElement('canvas');background.width=960;background.height=600;
   const bg=background.getContext('2d')!;backdrop(bg);
   const gx=b?b.x0-2:ax-4,gy=b?b.y0-2:ay-4,gw=b?b.x1-b.x0+7:9,gd=b?b.y1-b.y0+7:9;
@@ -52,16 +57,21 @@ export function encounterScene(sim:Simulation,event:Encounter|undefined,complete
   if(b){
     const stamp=GLOW.length;
     try{
+      const source=mapped?.byBuilding.get(b.id);
+      if(source&&mapped){const art=new MappedArchitecture();art.beginFrame(1);art.draw(bg,source,(x,y,z=0)=>P(x/2+mapped.offsetX,y/2+mapped.offsetY,z/1.625),16*camera.zoom,[480,370]);}
+      else{
       const tiles:{x:number;y:number}[]=[];
       for(let y=b.y0;y<=b.y1;y++)for(let x=b.x0;x<=b.x1;x++)tiles.push({x,y});
       tiles.sort((a,b)=>a.x+a.y-b.x-b.y);
       const graffiti=new Map(sim.world.graffiti.map(q=>[`${q.tx},${q.ty},${q.face}`,q]));
       for(const q of tiles){const [x,y]=P(q.x,q.y);drawBuildingTile(bg,sim.world,b,q.x,q.y,x,y,camera.zoom,0,.18,1,graffiti);}
+      }
     }finally{GLOW.length=stamp;}
   }
   const furniture=sim.world.pois.filter(p=>['lamp','bench','bin','busstop','streetsign','roadsign'].includes(p.kind)).sort((a,b)=>Math.hypot(a.x-ax,a.y-ay)-Math.hypot(b.x-ax,b.y-ay)).slice(0,5);for(const prop of furniture){const[x,y]=P(prop.x,prop.y);if(x>-40&&x<1000&&y>80&&y<560)drawPoi(bg,prop,x,y,camera.zoom,sim.tick/60,sim.isDark,false);}
   if(['interview','soup','cake','market','flat','book','parcel'].includes(id)){for(let i=0;i<3;i++){box(bg,E,-2.8+i*.4,.15,.34,.3,.22,['#a28e65','#768b7a','#997665'][i]);}box(bg,E,2.8,.1,.7,.35,.65,'#636d5e');}
   if(sim.env.raining){for(let i=0;i<5;i++){const[x,y]=E(-2+i,2.4,.02);bg.fillStyle='#9aa9a328';bg.beginPath();bg.ellipse(x,y,15,4,0,0,TAU);bg.fill();}}
+  dressEncounter(bg,E,id,camera.zoom);
   const locals=sim.chars.filter(c=>c.id!==player.id&&c.tier!=='principal'&&c.inside<0&&c.inCar<0).sort((a,b)=>Math.hypot(a.x-player.x,a.y-player.y)-Math.hypot(b.x-player.x,b.y-player.y));
   const people=[player,...locals.slice(0,['choir','wedding','protest'].includes(id)?3:1)];
   const stage=canvasStage((g,time,reduced)=>{
@@ -129,7 +139,7 @@ export function encounterScene(sim:Simulation,event:Encounter|undefined,complete
     const motion=completed&&choice!==undefined?choiceMotion(id,choice,t,reduced):null;
     if(motion&&id!=='memorial'){positions[0]=[motion.x,motion.y];poses[0]=motion.pose;}
 
-    positions.slice(0,people.length).map(([x,y],i)=>({x,y,i})).sort((a,b)=>a.x+a.y-b.x-b.y).forEach(a=>{const[x,y]=E(a.x,a.y);drawVenuePerson(g,people[a.i],x,y,t,outdoors?2.6:2.1,poses[a.i],1,a.i===0?motion?.phase:undefined);if(a.i===0&&motion&&motion.stage!=='approach'&&!['sofa','trolley'].includes(motion.item))choiceProp(g,motion.item,J[14],J[15],outdoors?1.1:.9);});
+    positions.slice(0,people.length).map(([x,y],i)=>({x,y,i})).sort((a,b)=>a.x+a.y-b.x-b.y).forEach(a=>{const[x,y]=E(a.x,a.y);drawVenuePerson(g,people[a.i],x,y,t,mapped?camera.zoom*MAPPED_FIGURE_SCALE/.30:camera.zoom*.78,poses[a.i],1,a.i===0?motion?.phase:undefined);if(a.i===0&&motion&&motion.stage!=='approach'&&!['sofa','trolley'].includes(motion.item))choiceProp(g,motion.item,J[14],J[15],mapped?camera.zoom*.17:.8);});
     roundBox(g,20,18,920,57,9,'#102b32ed');sceneText(g,event?.title.toUpperCase()??'STORIES AROUND EVERY CORNER',40,43,21,'#ead7a1','left');
     sceneText(g,completed?'RESOLVED · Your choice is recorded':sim.world.streetName(player.x,player.y)||'ŌTAUTAHI · STREET ENCOUNTER',40,63,12,'#b5c9bd','left');
     roundBox(g,20,542,920,38,8,'#102b32ed');sceneText(g,selected?`${selected[0]} · ${selected[3]}`:completed?'Outcome from an earlier save · keep walking for another story':event?.scene??'Explore the city to discover people who need a hand',40,566,13,'#e4d8b7','left');
@@ -138,6 +148,29 @@ export function encounterScene(sim:Simulation,event:Encounter|undefined,complete
 }
 function polygon(g: CanvasRenderingContext2D, points: Point[], color: string) {
   g.fillStyle = color; g.beginPath(); points.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y)); g.closePath(); g.fill();g.strokeStyle="rgba(14,11,10,.12)";g.lineWidth=.7;g.stroke();
+}
+/** Supporting equipment sits behind the action, leaving a clear approach and working area. */
+function dressEncounter(g:CanvasRenderingContext2D,P:Project,id:string,zoom:number){
+ const line=(a:Point,b:Point,col:string,width=1.5)=>{g.strokeStyle=col;g.lineWidth=width;g.beginPath();g.moveTo(...a);g.lineTo(...b);g.stroke();};
+ const table=(x:number,y:number)=>{for(const dx of[0,1.25])for(const dy of[0,.5])box(g,P,x+dx,y+dy,.055,.055,.7,'#535b58');box(g,P,x-.05,y-.04,1.4,.65,.06,'#9b8261',.7);};
+ if(['bike','bee','water','power','quake','cone','flood'].includes(id)){
+  table(-2.8,-.4);box(g,P,-2.65,-.3,.42,.28,.19,'#72564b',.77);
+  for(let i=0;i<3;i++)line(P(-2.1+i*.15,-.15,.78),P(-2.1+i*.15,.12,.78),'#bfc0ab',2);
+  for(const x of[-3.3,2.8]){box(g,P,x,-.3,.07,.07,1,'#bc8855');box(g,P,x,-.3,.07,.07,.18,'#e9dcc1',.55);}
+  line(P(-3.3,-.3,.9),P(2.8,-.3,.9),'#d8b56c',2);
+ }
+ if(['soup','cake','market','hail','book'].includes(id)){
+  table(-2.8,-.5);for(let i=0;i<3;i++)box(g,P,-2.65+i*.35,-.35,.28,.25,.13,['#849265','#c39165','#b7b1a0'][i],.78);
+  box(g,P,2.7,-.35,.55,.45,.5,'#6e7560');box(g,P,2.74,-.31,.47,.37,.035,'#a4ae91',.5);
+ }
+ if(['busker','choir','piano','film','puppet'].includes(id)){
+  for(const x of[-2.4,2.7]){box(g,P,x,-.4,.35,.3,.6,'#343c3d');const[sx,sy]=P(x+.18,-.08,.32);g.strokeStyle='#82908a';g.lineWidth=1;g.beginPath();g.ellipse(sx,sy,3*zoom,4*zoom,0,0,TAU);g.stroke();}
+  line(P(2.5,-.3),P(1.9,.1),'#343c37',2);line(P(1.9,.1),P(1.9,.1,1.3),'#707974',2);line(P(1.9,.1,1.3),P(1.6,.1,1.4),'#b5b9a7',2);
+ }
+ if(['mural','poster','wind','flat','parcel','seed'].includes(id)){
+  box(g,P,-2.8,-.3,.65,.5,.06,'#8a735b');for(let i=0;i<3;i++){box(g,P,-2.75+i*.2,-.25,.15,.2,.25,['#8aab92','#bf9369','#aaa785'][i],.06);line(P(-2.68+i*.2,-.16,.31),P(-2.68+i*.2,-.16,.55),'#b2a283',1.5);}
+  box(g,P,2.7,-.4,.5,.45,.48,'#a78964');line(P(2.95,-.4,.48),P(2.95,.05,.48),'#e1c69b',3);
+ }
 }
 function shade(hex: string, factor: number) {
   const n = parseInt(hex.slice(1),16);

@@ -1,3 +1,4 @@
+import {worldIndex} from '../world/WorldIndex';
 import {hitFacade} from "./CivicDamage";
 import {spawnMappedVehicles,driveMappedVehicle,snapMappedVehicle} from './MappedTraffic';
 import { handlingProfile, roadSurface, slipGrip, corneringBudget, followingSpeed, temperatureGrip } from "./VehicleHandling";
@@ -174,11 +175,13 @@ export function refreshAmbientFleet(sim:Simulation):void{
 
 export function updateVehicles(sim: Simulation, dt: number): void {
   if (!Number.isFinite(dt) || dt <= 0) return;
+    const fleet=sim.world.mapped?sim.vehicles.filter(v=>v.driver===sim.playerId||v.state==='free'||v.state==='crashed'||v.rescueTarget!==undefined||(v.x-sim.focus.x)**2+(v.y-sim.focus.y)**2<80*80):sim.vehicles;
+    if(sim.world.mapped){const active=new Set(fleet);for(const v of sim.vehicles)if(!active.has(v)){v.px=v.x;v.py=v.y;v.speed=0;v.vx=v.vy=0;}}
   // Bound hitch catch-up work and resolve fast contacts at 120 Hz, independently of rendering.
   const hz=sim.vehicles.some(v=>v.state==='free'||v.state==='crashed')?120:60;
   const elapsed = Math.min(dt, 0.25), steps = Math.ceil(elapsed * hz), step = elapsed / steps;
   const previous = sim.vehicles.map(v => [v.x, v.y]);
-  for (let i = 0; i < steps; i++) stepVehicles(sim, step);
+  for (let i = 0; i < steps; i++) stepVehicles(sim, step,fleet);
   // Other systems (props, interpolation) need the full frame sweep, not only the last substep.
   sim.vehicles.forEach((v, i) => {
     if (previous[i]) { v.px = previous[i][0]; v.py = previous[i][1]; }
@@ -188,9 +191,9 @@ export function updateVehicles(sim: Simulation, dt: number): void {
 }
 
 const nearby: Vehicle[] = [], collisionCandidates: Vehicle[] = [], recoveryCandidates: Vehicle[] = [];
-function stepVehicles(sim: Simulation, dt: number): void {
-  vehicleIndex(sim).rebuild(sim.vehicles);
-  for (const v of sim.vehicles) {
+function stepVehicles(sim: Simulation, dt: number,fleet=sim.vehicles): void {
+  vehicleIndex(sim).rebuild(fleet);
+  for (const v of fleet) {
     v.px = v.x; v.py = v.y;
     if(v.state!=="free") {
       v.wheelTravel=(v.wheelTravel??0)+v.speed*dt;
@@ -217,8 +220,8 @@ function stepVehicles(sim: Simulation, dt: number): void {
     // keep the driver with the car
     if (v.driver >= 0) { const c = sim.chars[v.driver]; if (c) { c.x = v.x; c.y = v.y; c.px = v.px; c.py = v.py; c.facing = v.heading; } }
   }
-  vehicleIndex(sim).rebuild(sim.vehicles, true);
-  collisions(sim);
+  vehicleIndex(sim).rebuild(fleet, true);
+  collisions(sim,fleet);
 }
 
 /** Inputs for free-driving cars (player or joyrider). */
@@ -458,7 +461,7 @@ function moveBlocked(sim: Simulation, v: Vehicle, dt: number): void {
   const d = { ...VEHICLES[v.cls], ...vehicleGeometry(v),mass:utilityDynamics(v).mass };
   const vel = carVel(sim, v);
   const nx = v.x + vel.x * dt, ny = v.y + vel.y * dt;
-  if(sim.world.mapped){const ox=v.x,oy=v.y,px=v.px,py=v.py;v.px=ox;v.py=oy;v.x=nx;v.y=ny;const hit=sim.mappedDamage.contact(sim.world.mapped.damageFootprints.filter(b=>{const id=sim.world.mapped!.buildingIds.get(Number(b.id)),building=id===undefined?null:sim.world.buildings[id];return !!building&&nx>building.x0-8&&nx<building.x1+8&&ny>building.y0-8&&ny<building.y1+8;}),v,sim.tick/60,1);v.px=px;v.py=py;if(hit){if(hit.speed>1){sim.bus.emit('sound',{kind:'crash',x:v.x,y:v.y,vol:Math.min(1,hit.speed/10)});sim.bus.emit('fx',{kind:'dust',x:hit.x,y:hit.y,z:.3,n:Math.min(16,Math.ceil(hit.speed*2))});}return;}v.x=ox;v.y=oy;}
+  if(sim.world.mapped){const ox=v.x,oy=v.y,px=v.px,py=v.py;v.px=ox;v.py=oy;v.x=nx;v.y=ny;const hit=sim.mappedDamage.contact([...worldIndex(sim.world).buildings.query(nx-8,ny-8,nx+8,ny+8)].flatMap(id=>{const b=worldIndex(sim.world).damage.get(id);return b?[b]:[];}),v,sim.tick/60,1);v.px=px;v.py=py;if(hit){if(hit.speed>1){sim.bus.emit('sound',{kind:'crash',x:v.x,y:v.y,vol:Math.min(1,hit.speed/10)});sim.bus.emit('fx',{kind:'dust',x:hit.x,y:hit.y,z:.3,n:Math.min(16,Math.ceil(hit.speed*2))});}return;}v.x=ox;v.y=oy;}
   const fx = nx + Math.cos(v.heading) * (d.length / 2) * Math.sign(v.speed || 1), fy = ny + Math.sin(v.heading) * (d.length / 2) * Math.sign(v.speed || 1);
   const side = v.heading + Math.PI / 2, hw = d.width / 2 * 0.9;
   const blocked = (x: number, y: number) => !sim.world.walkable(x, y) && sim.world.tile(Math.floor(x), Math.floor(y)) !== T.CRATE && !(sim.world.mapped&&sim.world.tile(Math.floor(x),Math.floor(y))===T.BUILDING) || !sim.world.inBounds(Math.floor(x), Math.floor(y));
@@ -771,8 +774,8 @@ function laneDrive(sim: Simulation, v: Vehicle, dt: number): void {
 }
 
 /** Car footprint hits: people get knocked (fake blood at speed); cars crash into each other. */
-function collisions(sim: Simulation): void {
-  for (const v of sim.vehicles) {
+function collisions(sim: Simulation,fleet=sim.vehicles): void {
+  for (const v of fleet) {
     if (v.state === "parked") continue;
     const sp = Math.abs(v.speed);
     const d = vehicleGeometry(v);
@@ -794,7 +797,7 @@ function collisions(sim: Simulation): void {
       sim.onCarHit(v, c, sp);
     }
   }
-  const vs = sim.vehicles;
+  const vs = fleet;
   for (let i = 0; i < vs.length; i++) for (const b of vehicleIndex(sim).query(vs[i].x,vs[i].y,Math.hypot(vehicleGeometry(vs[i]).length,vehicleGeometry(vs[i]).width)/2+Math.hypot(vs[i].x-vs[i].px,vs[i].y-vs[i].py)+.5,collisionCandidates)) {
     const a = vs[i];
     if(a.id>=b.id)continue;

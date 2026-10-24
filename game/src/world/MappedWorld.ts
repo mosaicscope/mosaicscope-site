@@ -16,6 +16,9 @@ export interface MappedCity {
  liveConditions?:import('../ui/LiveCity').LiveCityData;
  closedRoads?:Set<number>;
  trafficMode?:'cruise'|'city'|'rush';
+ revision?:number;
+ streaming?:{loading:number;error:string|null;loaded:string[]};
+ streamedData?:DistrictData[];streamedKeys?:Set<string>;streamedBuildingIds?:Set<number>;
 }
 export function polygonContains(x:number,y:number,points:number[][]):boolean{let yes=false;for(let i=0,j=points.length-1;i<points.length;j=i++){const a=points[i],b=points[j];if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])yes=!yes;}return yes;}
 const unique=<T extends {id:number}>(items:T[])=>[...new Map(items.map(b=>[b.id,b])).values()];
@@ -80,8 +83,7 @@ export function mappedChristchurch(legacy:World):World{
  let ordinal=0;for(const s of m.streetSegments){if(s.length<8)continue;for(let at=8;at<s.length;at+=22){ordinal++;for(const side of[-1,1]){const x=s.x+s.dx*at-s.dy*(s.half+1)*side,y=s.y+s.dy*at+s.dx*(s.half+1)*side;if(!w.walkable(x,y)||w.carriageway(x,y))continue;const close=w.pois.some(p=>Math.hypot(p.x-x,p.y-y)<2.2);if(close)continue;po(ordinal%7===0?'busstop':ordinal%5===0?'bin':'lamp',x,y,0,{dir:Math.abs(s.dx)>.5?0:1});if(side===1&&ordinal%9===0)po('bench',x+s.dx*3,y+s.dy*3);}}}
  for(const p of legacy.pois){if(!['boombox','toychest','hoop','springpad','fountain','foodtruck','mural','billboard','hydrant','streetsign','roadsign'].includes(p.kind))continue;const a=w.areas[p.area]??plaza,foot=w.nearestFoot(a.cx+(p.id%5-2)*2,a.cy+(p.id%7-3)*2,12);if(!w.walkable(foot.x,foot.y)||w.carriageway(foot.x,foot.y)||w.pois.some(q=>Math.hypot(q.x-foot.x,q.y-foot.y)<1.7))continue;po(p.kind,foot.x,foot.y,a.id,{name:['streetsign','roadsign'].includes(p.kind)?w.streetName(foot.x,foot.y):p.name,dir:p.dir});}
  const stage=w.areas.find(a=>a.kind==='stage')!;const clear=w.nearestFoot(stage.cx,stage.cy);stage.cx=clear.x;stage.cy=clear.y;
- // The perimeter is a known coverage boundary, never a pretend continuation of surveyed streets.
- for(let y=0;y<size;y++)for(let x=0;x<size;x++)if(x<pad||y<pad||x>=size-pad||y>=size-pad)w.blocked[y*size+x]=1;
+ // Survey coverage is a streaming boundary, not a physical wall.
  w.dirtyTiles.clear();return w;
 }
 
