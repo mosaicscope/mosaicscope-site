@@ -35,6 +35,7 @@ import { RoastBattle } from "../ui/minigames/Roast";
 import { BurgerShift } from "../ui/minigames/Burger";
 import "../ui/minigames/minigames.css";
 import { Travel } from "../ui/Travel";
+import {WorldCityPanel} from '../ui/WorldCityPanel';
 import { HeistUI } from "../ui/Heist";
 import "../ui/travel.css";
 import { Minimap } from "../ui/Minimap";
@@ -91,7 +92,7 @@ export class Game {
   renderer: Renderer;
   audio: AudioSystem;
   store = new LocalStorageProvider();
-  saves = new SaveSystem(this.store);
+  saves = new SaveSystem(this.store,true);
   settings: Settings;
   debug = newDebugFlags();
   lifeFlags = newLifeSystemFlags();
@@ -129,8 +130,9 @@ export class Game {
     canvas.tabIndex=0;
     this.rootEl = root;
     this.settings = loadSettings(this.store);
-    this.sim = new Simulation({ backgroundCount: Math.min(this.settings.density, 300) }, {}, this.lifeFlags);
+    this.sim = new Simulation({ cityMap:'christchurch',trafficCars:150,pathsPerTick:2,backgroundCount: Math.min(this.settings.density, 300) }, {}, this.lifeFlags);
     this.renderer = new Renderer(canvas, this.sim);
+    void this.cityPanel.refresh();
     this.audio = new AudioSystem(() => this.renderer.cam);
     this.audio.attach(this.sim);
     this.ui = root;
@@ -558,7 +560,7 @@ export class Game {
   }
 
   private enterPlace(door: { building: number; studio: boolean }): void {
-    if(this.sim.world.buildings[door.building]?.name==='Moorhouse Armory'){this.armory.show();return;}
+    if((this.sim.world.buildings[door.building]?.legacyName??this.sim.world.buildings[door.building]?.name)==='Moorhouse Armory'){this.armory.show();return;}
     const sim = this.sim;
     if (door.studio) { this.places.enter(null, true); return; }
     const b = sim.world.buildings[door.building];
@@ -1309,6 +1311,7 @@ export class Game {
   private burger = new BurgerShift((r) => { this.sim.player.cash += r.pay; this.toast(`Shift done: ${r.orders} orders, ${r.perfect} perfect. Paid ${fmtCash(r.pay)}`, "acid"); this.focus("Shift over", `Lyttelton Diner paid you ${fmtCash(r.pay)}`, 3); });
   private heist = new HeistUI(this.modal);
   private travel = new Travel({
+    homeCity:()=>this.openLiveCity(),
     takeComfortTablet:()=>useSubstance(this.sim,this.sim.player,'sedative'),
     player:()=>this.sim.player,people:()=>this.sim.chars,
     refresh:kind=>{const p=this.sim.player;if(kind==='eat')p.hunger=Math.min(1,p.hunger+.25);else p.needs.energy=Math.min(1,p.needs.energy+.2);},
@@ -1365,6 +1368,8 @@ export class Game {
   private armory = new Armory(()=>this.sim,this.modal,t=>this.toast(t));
   private cannonAt=0;
   private lifePhone = new LifePhone(() => this.sim, this.modal, tab => this.activities.show(tab), (x,y) => { this.moveTarget = {x,y}; this.pendingTalk = -1; this.renderer.cam.follow = this.sim.playerId; });
+  private cityPanel=new WorldCityPanel({sim:()=>this.sim,camera:()=>this.renderer.cam,close:()=>this.modal.close(),walk:(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);},talk:id=>this.talkTo(id),vehicle:()=>this.interact(),stop:()=>{this.moveTarget=null;this.pendingTalk=-1;},toast:t=>this.toast(t)});
+  private openLiveCity():void{this.modal.show('Christchurch · live city',[this.cityPanel.render()]);}
   private notifiedEncounter: string | null = null;
 
   private buildBar(): HTMLElement {
@@ -1375,7 +1380,7 @@ export class Game {
     const dock = h("nav.game-dock", { "aria-label": "Game actions" }, [
       command("Life & upgrades", "◆", () => this.lifePhone.show()),
       command("City map", "▦", () => this.minimap.toggle()),
-      command('Live city','◉',()=>this.travel.liveCity()),
+      command('Live city','◉',()=>this.openLiveCity()),
       command("Casino", "♠", () => { this.pausedBefore = this.clock.paused; this.casino.show(); }, ".casino-launch"),
       command("Explore", "◎", () => this.activities.show("Explore")),
       command("Photo", "▣", () => this.photos.open()),
@@ -1389,7 +1394,7 @@ export class Game {
       h("nav.game-menu", { "aria-label": "More game options", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar"); bar?.classList.remove("open"); bar?.querySelector(".menu-toggle")?.setAttribute("aria-expanded", "false"); } }, [
         h('button.btn.acid',{text:'Resume game',onclick:()=>this.resumeGame()}),
         h('button.btn',{text:'Mobile phone',onclick:()=>this.phone.home()}),
-        h('button.btn',{text:'Live mapped city',onclick:()=>this.travel.liveCity()}),
+        h('button.btn',{text:'Live mapped city',onclick:()=>this.openLiveCity()}),
         h('button.btn',{text:'Street play · 50 activities',onclick:()=>{void import('../ui/WorldPlay').then(m=>m.showWorldPlay(this.modal,this.sim,text=>this.toast(text)));}}),
         h('button.btn',{text:'Street life',onclick:()=>{void import('../ui/StreetLifePanel').then(m=>m.showStreetLife(this.modal,this.sim,(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);this.canvas.focus();}));}}),
         h('button.btn',{text:'Vehicle & street workshop',onclick:()=>{void import('../ui/VehicleWorkshop').then(m=>m.showVehicleWorkshop(this.modal,this.sim));}}),
@@ -1627,7 +1632,7 @@ export class Game {
   }
 
   reset(seed?: number): void {
-    const sim = new Simulation({ seed: seed ?? this.sim.cfg.seed, backgroundCount: Math.min(this.settings.density, 300) }, {}, this.lifeFlags);
+    const sim = new Simulation({ cityMap:'christchurch',trafficCars:150,pathsPerTick:2,seed: seed ?? this.sim.cfg.seed, backgroundCount: Math.min(this.settings.density, 300) }, {}, this.lifeFlags);
     this.swapSim(sim);
     this.toast(seed !== undefined ? `New world · seed ${seed}` : "World restarted");
   }
@@ -1638,6 +1643,7 @@ export class Game {
     this.replay.stop();
     this.sim = sim; this.aimPoint = null; this.minimap.reset();
     this.renderer.setSim(sim);
+    void this.cityPanel.refresh();
     this.audio.attach(sim);
     this.select(-1); this.moveTarget = null; this.pendingTalk = -1;
     this.bindSim();

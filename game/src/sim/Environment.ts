@@ -32,8 +32,10 @@ const NEXT: Record<Weather, [Weather, number][]> = {
 
 export function updateEnvironment(sim: Simulation): void {
   const env = sim.env, tick = sim.tick, rng = sim.rng;
+  const current=sim.world.mapped?.liveConditions,liveWeather=current?.weather&&Date.now()-Date.parse(current.fetchedAt)<1800000?current.weather:null;
+  if(liveWeather){env.weather=liveWeather.rain>.1?'rain':liveWeather.cloud>60?'cloudy':'clear';env.raining=liveWeather.rain>.1;env.storm=liveWeather.rain>5;}
   // weather transitions every game half-hour
-  if (sim.flags.weather && tick % (TICKS_PER_HOUR / 2) === 0 && tick > 0) {
+  if (!liveWeather&&sim.flags.weather && tick % (TICKS_PER_HOUR / 2) === 0 && tick > 0) {
     const opts = NEXT[env.weather];
     const next = opts[rng.weighted(opts.map((o) => o[1]))][0];
     if (next !== env.weather) {

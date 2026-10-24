@@ -1,0 +1,14 @@
+import {fetchDestination} from '../../functions/api/destination-map.js';
+import {readFile,writeFile} from 'node:fs/promises';
+const tiles=[];
+const jobs=[];for(let y=-2;y<=1;y++)for(let x=-2;x<=1;x++)jobs.push([x,y]);
+let next=0;
+await Promise.all([0,1].map(async()=>{while(next<jobs.length){const [x,y]=jobs[next++];let tile;
+ if(x===0&&y===0)tile=JSON.parse(await readFile(new URL('../public/destinations/CHC.json',import.meta.url),'utf8'));
+ else tile=await fetchDestination('CHC',x,y);
+ tiles.push(tile);console.log(x,y,tile.buildings.length,tile.roads.length);
+}}));
+tiles.sort((a,b)=>a.cy-b.cy||a.cx-b.cx);
+const base={...tiles.find(t=>t.cx===0&&t.cy===0)};
+for(const key of ['buildings','roads','terrain','venues'])base[key]=[...new Map(tiles.flatMap(t=>t[key]??[]).map(item=>[item.id,item])).values()];
+await writeFile(new URL('../src/world/christchurch.json',import.meta.url),JSON.stringify({version:1,metresPerTile:2,coverage:{west:-1060,east:660,north:-660,south:1060},surveyTiles:tiles.map(t=>({x:t.cx,y:t.cy,fetchedAt:t.fetchedAt})),tiles:[base]}));

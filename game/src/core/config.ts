@@ -1,5 +1,7 @@
 /** Every tunable budget in one typed place. Change these, not magic numbers in systems. */
 export interface SimConfig {
+  /** Gameplay runs on the same surveyed geometry as travel; omitted for legacy saves and fixtures. */
+  cityMap?: 'christchurch';
   seed: number;
   worldSize: number;            // tiles per side
   midCount: number;             // tier-2 NPCs

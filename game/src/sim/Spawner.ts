@@ -72,7 +72,7 @@ export function spawnAll(sim: Simulation): void {
 
   // the player: paper white with a red accent, like the site's ink
   const plaza = areaByKind("plaza");
-  const pp = world.nearestWalkable(plaza.cx + 2, plaza.cy + 3);
+  const pp = world.mapped?world.nearestFoot(plaza.cx+2,plaza.cy+3,16):world.nearestWalkable(plaza.cx + 2, plaza.cy + 3);
   const player = addChar(sim, "You", "player", pp.x, pp.y, { kind: "guy", color: "#eee4d3", accent: "#ec2a1c", hat: "none", hair: "sidepart", scale: 1, face: { eyes: "round", brows: "straight", mouth: "smile", nose: "dot", facial: "none", extra: "none", head: "round" } }, { boldness: 0.6, kindness: 0.6, temper: 0.3, sociability: 0.7, curiosity: 0.8, playfulness: 0.7, honesty: 0.8 });
   player.speed = 2.6; player.bio = "A stranger who found the Mosaics' world."; player.cash = 250; player.role = "local";
   enculture(sim, player, plaza.kind, false);

@@ -23,6 +23,8 @@ import { Rng } from "../core/rng";
 import { EventBus } from "../core/eventBus";
 import { World, Area, ROAD_W, CROSS_W } from "../world/World";
 import { generateWorld } from "../world/WorldGenerator";
+import {mappedChristchurch} from '../world/MappedWorld';
+import {MappedFacadeDamage} from './MappedFacadeDamage';
 import { Navigation } from "../world/Navigation";
 import { SpatialHash } from "../world/SpatialHash";
 import { PhysicsWorld } from "../physics/PhysicsWorld";
@@ -86,6 +88,7 @@ export class Simulation {
   readonly step_dt = 1 / 60;
   rng: Rng;
   world!: World;
+  mappedDamage=new MappedFacadeDamage();
   nav!: Navigation;
   physics!: PhysicsWorld;
   events: WorldEventSystem;
@@ -152,7 +155,8 @@ export class Simulation {
 
   private build(): void {
     this.world = generateWorld({ size: this.cfg.worldSize, seed: this.cfg.seed });
-    prepareFarmPlot(this.world);
+    if(this.cfg.cityMap==='christchurch')this.world=mappedChristchurch(this.world);
+    else prepareFarmPlot(this.world);
     this.nav = new Navigation(this.world, this.cfg.pathNodeBudget);
     this.physics = new PhysicsWorld(this.world, this.cfg.maxImpulse);
     this.charHash = new SpatialHash(this.world.size, this.world.size, 2, 1024);
@@ -270,6 +274,7 @@ export class Simulation {
 
     updateSubstances(this);
     updateVehicles(this, dt);
+    if(this.world.mapped)this.mappedDamage.update(this.tick/60);
     updateRockets(this);
     updateCivicDamage(this);updateStreetProps(this,dt);updateCityDrama(this);updateCityRoutine(this);updateWorkshopMotion(this);
     const tp = performance.now();

@@ -1,6 +1,8 @@
 import { reserveSign } from "./ScreenBounds";
 import { paintWindows, paintWindowStories, paintSpill, type Win } from "./NightGlow";
 import { paintRoofLife } from "./BuildingLife";
+import { eraseFacadeGlow } from './FacadeDamageArt';
+import { facadeBreached } from '../sim/FacadeImpact';
 import { World, Building, Graffiti } from "../world/World";
 import { TILE_W, TILE_H, Z_PX } from "../world/iso";
 import { drawAd } from "./Ads";
@@ -96,8 +98,9 @@ export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Build
   if (southOpen) ao(tx, ty + 1, tx + 1, ty + 1, 0, 0.55);
   if (eastOpen) ao(tx + 1, ty, tx + 1, ty + 1, 0.55, 0);
   const hit=w.civicDamage[`b:${b.id}:${tx}:${ty}`];
-  if (southOpen) wall(g, b, P, top, tx, ty + 1, tx + 1, ty + 1, kS, "s", tx, ty, z, dark, night, time,hit?.face==='s'&&hit.severity>.4,life,captureWindows);
-  if (eastOpen) wall(g, b, P, top, tx + 1, ty + 1, tx + 1, ty, kE, "e", tx, ty, z, dark, night, time,hit?.face==='e'&&hit.severity>.4,life,captureWindows);
+  const broken=!!hit&&(facadeBreached(hit.material,hit.severity)||hit.phase==='working');
+  if (southOpen) wall(g, b, P, top, tx, ty + 1, tx + 1, ty + 1, kS, "s", tx, ty, z, dark, night, time,hit?.face==='s'&&broken,life,captureWindows);
+  if (eastOpen) wall(g, b, P, top, tx + 1, ty + 1, tx + 1, ty, kE, "e", tx, ty, z, dark, night, time,hit?.face==='e'&&broken,life,captureWindows);
   if (southOpen) paintGraffiti(g, graffiti.get(`${tx},${ty},s`), P(tx, ty + 1, 0), P(tx + 1, ty + 1, 0), Math.min(H, GROUND_H) * zp, z);
   if (southOpen && eastOpen) {
     // the building's front corner: a crisp edge so blocks read as solid volumes
@@ -212,6 +215,12 @@ export function drawBuildingTile(g: CanvasRenderingContext2D, w: World, b: Build
     }
     // signs are lights: repaint them over the night overlay
     if (dark > 0.3) GLOW.push((c) => { c.globalAlpha = a0; roofTop(c, b, p[0], p[1], z, time, dark); c.globalAlpha = 1; });
+  }
+  // Openings and replacement boards stay dark after the window-light pass. Otherwise the
+  // night overlay repainted intact glowing glass straight across a real collision scar.
+  if(hit&&(hit.face==='s'||hit.face==='e')){
+    const project=(u:number,h:number,out=0)=>hit.face==='s'?P(tx+u,ty+1+out,h):P(tx+1+out,ty+u,h);
+    GLOW.push(c=>eraseFacadeGlow(c,hit,project));
   }
   g.globalAlpha = 1;
 }

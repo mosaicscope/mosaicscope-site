@@ -2,6 +2,7 @@ import type { Vehicle } from "../entities/types";
 import { VEHICLES } from "../content/vehicles";
 import { clamp } from "../core/math";
 import { handlingProfile } from "./VehicleHandling";
+import {utilityRevRange,utilitySpec} from './VehicleUtility';
 
 export type DriveMode="road"|"sport"|"drift"|"trail";
 export interface PowertrainState { gear:number; rpm:number; shift:number }
@@ -32,8 +33,9 @@ export function drivingSetup(v:Vehicle) {
 /** Automatic transmission with shift hysteresis and an actual torque interruption. */
 export function stepPowertrain(v:Vehicle,speed:number,top:number,pedal:number,dt:number):number {
   const base=VEHICLES[v.cls].design?.base??v.cls;
-  const single=["ev","compact_ev","estate_ev","deliveryev","bicycle","ebike","escooter"].includes(base);
-  const setup=drivingSetup(v),p=v.powertrain??={gear:1,rpm:900,shift:0};
+  const utility=utilitySpec(v),range=utilityRevRange(v),idle=range?.idle??900,redline=range?.redline??7000;
+  const single=["ev","compact_ev","estate_ev","deliveryev","bicycle","ebike","escooter"].includes(base)||utility?.kind==='electriccargo'||utility?.kind==='electricbus';
+  const setup=drivingSetup(v),p=v.powertrain??={gear:1,rpm:idle,shift:0};
   p.shift=Math.max(0,p.shift-dt);
   if(speed < -0.08 || Math.abs(speed)<0.08 && pedal<0) p.gear=-1;
   else if(p.gear<1) p.gear=1;
@@ -45,10 +47,13 @@ export function stepPowertrain(v:Vehicle,speed:number,top:number,pedal:number,dt
     else if(rev<.3&&p.gear>1) {p.gear--;p.shift=.11;}
     rev=s/GEAR_LIMITS[p.gear-1];
   }
-  const target=900+clamp(rev+Math.min(.18,(v.wheelspin??0)*.035)+Math.abs(pedal)*.06,0,1)*6100;
+  const target=idle+clamp(rev+Math.min(.18,(v.wheelspin??0)*.035)+Math.abs(pedal)*.06,0,1)*(redline-idle);
   p.rpm+=(target-p.rpm)*(1-Math.exp(-dt*15));
-  return single?1:p.shift>0?.55:0.94+Math.sin(clamp((p.rpm-900)/6100,0,1)*Math.PI)*.1;
+  return single?1:p.shift>0?.55:0.94+Math.sin(clamp((p.rpm-idle)/(redline-idle),0,1)*Math.PI)*.1;
 }
+
+/** Shared by engine audio: correctly normalizes diesel, electric and passenger-car rev envelopes. */
+export function engineRevFraction(v:Vehicle):number {const range=utilityRevRange(v),idle=range?.idle??900,top=range?.redline??7000;return clamp(((v.powertrain?.rpm??idle)-idle)/(top-idle),0,1);}
 
 /** Rewards distance travelled in a controlled slide. Spins, crashes and stationary burnouts cannot score. */
 export function stepDrift(v:Vehicle,distance:number,dt:number):void {

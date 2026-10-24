@@ -165,6 +165,7 @@ function groundOf(w: World, tx: number, ty: number, t: number): number {
 }
 
 function detail(g: CanvasRenderingContext2D, t: number, sx: number, sy: number, n: number, w: World, tx: number, ty: number): void {
+  if(w.mapped&&(t===T.ROAD||t===T.CROSSWALK||t===T.BUILDING))return;
   const hw = TILE_W / 2, hh = TILE_H / 2;
   switch (t) {
     case T.GRASS: {

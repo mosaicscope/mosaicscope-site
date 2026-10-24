@@ -100,6 +100,7 @@ export class Minimap {
 
   /** Real street data via the site's Cloudflare function (cached at the edge); silent fallback. */
   private loadOsm(): void {
+    if(this.sim().world.mapped)return;
     if (this.osmTried) return;
     this.osmTried = true;
     fetch("/api/chch-map").then((r) => (r.ok ? r.json() : null)).then((d: OsmData | null) => { if (d && Array.isArray(d.ways) && d.ways.length) { this.osm = d; if (this.bigOpen) this.drawBig(); } }).catch(() => {});
@@ -117,7 +118,7 @@ export class Minimap {
     const g = cv.getContext("2d")!, W = cv.width;
     g.fillStyle = "#0e0b0a"; g.fillRect(0, 0, W, W);
     const foot = this.big.querySelector(".bigmap-foot") as HTMLElement;
-    if (this.osm) {
+    if (this.osm&&!w.mapped) {
       // project the real lat/lon box of the Four Avenues onto the canvas
       const lon0 = LON[0] - 0.002, lon1 = LON[LON.length - 1] + 0.003, lat0 = LAT[0] + 0.002, lat1 = LAT[LAT.length - 1] - 0.002;
       const kx = W / (lon1 - lon0), ky = W / (lat1 - lat0) * 0.72;
@@ -150,7 +151,7 @@ export class Minimap {
       for (const a of w.areas) if (a.kind !== "street") g.fillText(a.name, a.cx * k, a.cy * k);
       g.fillStyle = "#ec2a1c"; g.beginPath(); g.arc(p.x * k, p.y * k, 7, 0, 6.283); g.fill(); g.strokeStyle = "#eee4d3"; g.lineWidth = 2; g.stroke();
       for (const marker of sim.life.markers) { g.fillStyle = "#86e8bb"; g.beginPath(); g.arc(marker.x * k, marker.y * k, 5, 0, Math.PI * 2); g.fill(); g.fillText(marker.name, marker.x * k, marker.y * k - 10); }
-      foot.textContent = "Street layout after OpenStreetMap (© OpenStreetMap contributors, ODbL), simplified to the city grid.";
+      foot.textContent = w.mapped?"The same playable Christchurch world · surveyed OpenStreetMap roads and building footprints · © OpenStreetMap contributors, ODbL 1.0 · missing facade details are estimates.":"Street layout after OpenStreetMap (© OpenStreetMap contributors, ODbL), simplified to the city grid.";
     }
   }
 }

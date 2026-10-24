@@ -31,7 +31,7 @@ export function canvasStage(draw: (g: CanvasRenderingContext2D, time: number, re
     const layout=options.layout?.();if(layout){W=layout.width;H=layout.height;}const bounds=cv.getBoundingClientRect();dpr=Math.min(2,window.devicePixelRatio||1);if(cv.width!==Math.round(bounds.width*dpr)||cv.height!==Math.round(bounds.height*dpr)){cv.width=Math.round(bounds.width*dpr);cv.height=Math.round(bounds.height*dpr);}const fit=Math.min(bounds.width/W,bounds.height/H);
     const camera=options.camera?.(),cx=camera?W/2-camera.x*camera.scale:0,cy=camera?H/2-camera.y*camera.scale:0,zoom=camera?.scale??1;
     if(options.overlay){options.overlay.style.transform=`translate(${(bounds.width-W*fit)/2+cx*fit}px,${(bounds.height-H*fit)/2+cy*fit}px) scale(${fit*zoom})`;}
-    g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle='#202925';g.fillRect(0,0,bounds.width,bounds.height);g.save();g.translate((bounds.width-W*fit)/2+cx*fit,(bounds.height-H*fit)/2+cy*fit);g.scale(fit*zoom,fit*zoom);draw(g,elapsed,reduce,{width:W,height:H});g.restore();
+    g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle='#202925';g.fillRect(0,0,bounds.width,bounds.height);g.save();g.beginPath();g.rect((bounds.width-W*fit)/2,(bounds.height-H*fit)/2,W*fit,H*fit);g.clip();g.translate((bounds.width-W*fit)/2+cx*fit,(bounds.height-H*fit)/2+cy*fit);g.scale(fit*zoom,fit*zoom);draw(g,elapsed,reduce,{width:W,height:H});g.restore();
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);

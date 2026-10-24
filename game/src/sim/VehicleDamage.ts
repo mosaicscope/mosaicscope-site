@@ -47,6 +47,7 @@ export function damageTick(v: Vehicle, dt: number): void {
   if ((v.burnTime??0)>12) { v.burnt=true; v.burning=false; v.damage=1; v.speed=0; v.vx=0; v.vy=0; }
 }
 export function repairVehicle(v: Vehicle): void {
+  if(v.utility){v.utility.brakeHeat=0;v.utility.sway=0;v.utility.swayVelocity=0;v.utility.loadShift=0;v.utility.engineLoad=0;v.utility.airRelease=0;}
   v.powertrain=undefined;v.driveThrottle=0;v.wheelspin=0;v.wheelSteer=0;v.tyreHeat=0;
   v.components=undefined;v.steerAngle=0;v.engineRepaired=false;
   v.damage=0; v.dmgF=0; v.dmgR=0; v.dmgL=0; v.dmgS=0;

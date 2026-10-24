@@ -1,7 +1,9 @@
 import type {BaseVehicleClass} from './vehicles';
-export interface FleetModel{name:string;base:BaseVehicleClass;length:number;width:number;height:number;speed:number;mass:number;price:number;wb:number;lamp:'round'|'quad'|'slit'|'square'|'bar';trim:string}
+import {EXPANDED_FLEET} from './fleetExpansion';
+export interface FleetModel{name:string;base:BaseVehicleClass;length:number;width:number;height:number;speed:number;mass:number;price:number;wb:number;lamp:'round'|'quad'|'slit'|'square'|'bar';trim:string;traffic?:number;colors?:readonly string[];body?:{family:string;shape:import('./vehicleBodies').BodyShape};utility?:import('../sim/VehicleUtility').UtilitySpec}
 /** 86 authored, fully damageable additions with physical dimensions, fittings and wheelbases. */
 export const FLEET_MODELS={
+...EXPANDED_FLEET,
 "demi":{"name": "Mazdo Demio", "base": "hatch", "length": 1.84, "width": 0.85, "height": 0.7, "speed": 8.7, "mass": 1.02, "price": 8700, "wb": 0.325, "lamp": "slit", "trim": "plain"},
 "axela":{"name": "Mazdo Axella", "base": "euro_hatch", "length": 2.23, "width": 0.89, "height": 0.71, "speed": 10.7, "mass": 1.28, "price": 16500, "wb": 0.305, "lamp": "slit", "trim": "plain"},
 "atenza":{"name": "Mazdo Atenzaa", "base": "fast_sedan", "length": 2.43, "width": 0.92, "height": 0.72, "speed": 11.3, "mass": 1.49, "price": 22000, "wb": 0.31, "lamp": "slit", "trim": "chrome"},
