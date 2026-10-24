@@ -1,5 +1,5 @@
 {
- "at": 1792876153600,
+ "at": 1792880547422,
  "totals": {
   "duplicate-code": 2,
   "long-function": 17,
@@ -34,26 +34,26 @@
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/ai/steps.ts:49",
+   "where": "game/src/ai/steps.ts:53",
    "detail": "192 lines",
    "fix": "split into named steps",
-   "fp": "long-function|dn9s6o"
+   "fp": "long-function|1jrftsx"
   },
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/ai/steps.ts:252",
+   "where": "game/src/ai/steps.ts:256",
    "detail": "250 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1c287l9"
+   "fp": "long-function|kejaw9"
   },
   {
    "kind": "oversized-module",
    "severity": "medium",
    "where": "game/src/app/Game.ts",
-   "detail": "1710 lines",
+   "detail": "1714 lines",
    "fix": "split by feature into modules",
-   "fp": "oversized-module|164zpru"
+   "fp": "oversized-module|1t6rzx2"
   },
   {
    "kind": "oversized-module",
@@ -115,9 +115,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/render/Renderer.ts",
-   "detail": "1086 lines",
+   "detail": "1090 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|1o4n81u"
+   "fp": "oversized-module|tvh"
   },
   {
    "kind": "oversized-module",
@@ -155,9 +155,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Simulation.ts",
-   "detail": "982 lines",
+   "detail": "987 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|1cm58jj"
+   "fp": "oversized-module|cklio0"
   },
   {
    "kind": "long-function",
@@ -171,17 +171,17 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Traffic.ts",
-   "detail": "906 lines",
+   "detail": "909 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|r1c7ib"
+   "fp": "oversized-module|147jlm"
   },
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/sim/Traffic.ts:577",
+   "where": "game/src/sim/Traffic.ts:580",
    "detail": "194 lines",
    "fix": "split into named steps",
-   "fp": "long-function|fgbnw5"
+   "fp": "long-function|3d906b"
   },
   {
    "kind": "long-function",
