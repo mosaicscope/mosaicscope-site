@@ -79,6 +79,8 @@ export class TouchControls {
   private releaseButtons:(()=>void)[]=[];
   private suspended=false;
 
+  get sprintHeld():boolean{return this.sprinting&&this.stickId>=0&&!this.host.inCar();}
+
   static wanted(): boolean {
     try {
       if (window.matchMedia("(pointer: coarse)").matches) return true;
@@ -199,7 +201,7 @@ export class TouchControls {
     this.resetInput=reset;
     window.addEventListener('blur',reset);
     document.addEventListener('visibilitychange',()=>{if(document.hidden)reset();});
-    const hint=el('div','tc-walk-hint','Drag to walk · full push to sprint');this.walkHint=hint;this.el.append(hint);
+    const hint=el('div','tc-walk-hint','Drag to walk · full push builds sprint');this.walkHint=hint;this.el.append(hint);
 
     // nothing we touch leaks into the canvas / page handlers
     for (const t of ["pointerdown", "pointerup", "pointermove", "click", "dblclick", "contextmenu", "touchstart", "touchend", "touchmove", "wheel"]) {
