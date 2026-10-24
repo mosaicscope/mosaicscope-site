@@ -1,3 +1,4 @@
+import {Running} from '../sim/Running';
 import {CityLifePanel} from '../ui/CityLifePanel';
 import {CityStreamer} from '../world/CityStreamer';
 import {challengeStatus} from '../sim/CityChallenges';
@@ -461,10 +462,12 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ player
+  private running=new Running();
   private controlPlayer(): void {
     const sim = this.sim, p = sim.player, k = this.settings.keys;
-    if (this.phone.open || this.travel.open || this.interior.open || this.modal.open || this.dev.visible || this.casino.open || this.club.open || this.luxury.open) { p.vx = p.vy = 0; playerInput.throttle = 0; playerInput.steer = 0; playerInput.brake = true; return; } // you're indoors; the street body waits at the door
+    if (this.phone.open || this.travel.open || this.interior.open || this.modal.open || this.dev.visible || this.casino.open || this.club.open || this.luxury.open) { this.running.reset();p.vx = p.vy = 0; playerInput.throttle = 0; playerInput.steer = 0; playerInput.brake = true; return; } // you're indoors; the street body waits at the door
     if (p.inCar >= 0) {
+      this.running.reset();
       const up = this.keys.has(k.up) || this.keys.has("arrowup"), down = this.keys.has(k.down) || this.keys.has("arrowdown");
       const left = this.keys.has(k.left) || this.keys.has("arrowleft"), right = this.keys.has(k.right) || this.keys.has("arrowright");
       playerInput.throttle = up ? 1 : down ? -1 : 0;
@@ -477,7 +480,7 @@ export class Game {
       this.renderer.cam.follow = p.id;
       return;
     }
-    if (p.phys !== Phys.OK || sim.tick < p.stunUntil) { stop(p); return; }
+    if (p.phys !== Phys.OK || sim.tick < p.stunUntil) { this.running.reset();stop(p); return; }
     let ix = 0, iy = 0;
     if (this.keys.has(k.up) || this.keys.has("arrowup")) iy -= 1;
     if (this.keys.has(k.down) || this.keys.has("arrowdown")) iy += 1;
@@ -491,27 +494,32 @@ export class Game {
       if (this.renderer.cam.follow !== p.id) this.renderer.cam.follow = p.id;
       // screen directions -> world: screen up = (-1,-1), screen right = (1,-1)
       const wx = ix + iy, wy = iy - ix, l = Math.hypot(wx, wy);
-      const sprint = (this.keys.has("shift") || Math.hypot(this.touchMove.x, this.touchMove.y) > 0.94) && p.needs.energy > 0.1;
+      const sprint = (this.keys.has("shift") || this.touch.sprintHeld || Math.hypot(this.padMove.x,this.padMove.y) > .94) && p.needs.energy > 0.1;
       const bike = sim.life.upgrades.bike && hasUpgrade(sim.life.upgrades, "ruby");
-      const speed = p.speed * equipmentPace(p,sim.toys) * bodyPace(sim.life.body, sim.env.raining, sim.daylight) * (sprint && !bike ? 1.35 : 1) * (bike ? 1.65 * (hasUpgrade(sim.life.upgrades, "bikelanes") ? 1.2 : 1) : 1);
-      if (sprint && !bike) p.needs.energy = Math.max(0, p.needs.energy - sim.step_dt * 0.012 * (hasBody(sim.life.body, "shoes") ? 0.6 : 1));
+      const pace=p.speed*equipmentPace(p,sim.toys)*bodyPace(sim.life.body,sim.env.raining,sim.daylight),effort=Math.min(1,Math.hypot(ix,iy));
+      const run=this.running.step(pace,sprint&&!bike,p.needs.energy,effort,sim.step_dt);
+      const speed=bike?pace*effort*1.65*(hasUpgrade(sim.life.upgrades,"bikelanes")?1.2:1):run.speed;
+      if(bike)this.running.reset();
+      p.needs.energy=Math.max(0,p.needs.energy-run.energyCost*(hasBody(sim.life.body,"shoes")?.6:1));
       p.vx = (wx / l) * speed; p.vy = (wy / l) * speed;
       this.moveTarget = null; this.pendingTalk = -1;
       if (this.dialogue.open) this.dialogue.close();
       if (this.terrance.open) this.terrance.close();
       this.renderer.cam.follow = p.id;
     } else if (this.moveTarget) {
+      this.running.reset();
       if (moveTo(p, this.moveTarget.x, this.moveTarget.y, sim, 0.3)) {
         this.moveTarget = null; stop(p);
         // walked to a door you clicked: go in
         if (this.pendingEnter) { const d = this.pendingEnter; this.pendingEnter = null; this.enterPlace(d); }
       }
     } else if (this.pendingTalk >= 0) {
+      this.running.reset();
       const t = sim.chars[this.pendingTalk];
       if (!t) this.pendingTalk = -1;
       else if (Math.hypot(t.x - p.x, t.y - p.y) < 1.8) { stop(p); const id = this.pendingTalk; this.pendingTalk = -1; this.openTalk(id); }
       else moveTo(p, t.x, t.y, sim, 1.4);
-    } else stop(p);
+    } else {this.running.reset();stop(p);}
     if (p.anim.pose !== "auto" && !(sim.worldFun.poseUntil&&sim.tick<sim.worldFun.poseUntil) && sim.tick % 30 === 0) p.anim.pose = "auto";
   }
 

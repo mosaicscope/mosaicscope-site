@@ -173,18 +173,25 @@ export function refreshAmbientFleet(sim:Simulation):void{
  for(const v of sim.vehicles){if(v.state!=='parked'||v.driver>=0||v.owner>=0||v.forSale||v.components||v.damage>0||v.lifeMods?.length||VEHICLES[v.cls].design||['police','ambulance','fire','tow','bus','bin'].includes(v.cls))continue;const hash=[...v.plate].reduce((n,c)=>(n*31+c.charCodeAt(0))>>>0,v.id),d=pool[hash%pool.length];v.cls=d.cls;v.color=d.colors[hash%d.colors.length];}
 }
 
+const frameScratch=new WeakMap<Simulation,{previous:Float64Array;fleet:Vehicle[]}>();
 export function updateVehicles(sim: Simulation, dt: number): void {
   if (!Number.isFinite(dt) || dt <= 0) return;
-    const fleet=sim.world.mapped?sim.vehicles.filter(v=>v.driver===sim.playerId||v.state==='free'||v.state==='crashed'||v.rescueTarget!==undefined||(v.x-sim.focus.x)**2+(v.y-sim.focus.y)**2<80*80):sim.vehicles;
-    if(sim.world.mapped){const active=new Set(fleet);for(const v of sim.vehicles)if(!active.has(v)){v.px=v.x;v.py=v.y;v.speed=0;v.vx=v.vy=0;}}
+  const count=sim.vehicles.length;let scratch=frameScratch.get(sim);
+  if(!scratch){scratch={previous:new Float64Array(Math.max(32,count*2)),fleet:[]};frameScratch.set(sim,scratch);}
+  if(scratch.previous.length<count*2)scratch.previous=new Float64Array(Math.max(count*2,scratch.previous.length*2));
+  const previous=scratch.previous,fleet=sim.world.mapped?scratch.fleet:sim.vehicles;if(sim.world.mapped)fleet.length=0;
+  for(let i=0;i<count;i++){const v=sim.vehicles[i];previous[i*2]=v.x;previous[i*2+1]=v.y;
+    if(!sim.world.mapped)continue;
+    if(v.driver===sim.playerId||v.state==='free'||v.state==='crashed'||v.rescueTarget!==undefined||(v.x-sim.focus.x)**2+(v.y-sim.focus.y)**2<80*80)fleet.push(v);
+    else{v.px=v.x;v.py=v.y;v.speed=0;v.vx=v.vy=0;}
+  }
   // Bound hitch catch-up work and resolve fast contacts at 120 Hz, independently of rendering.
   const hz=sim.vehicles.some(v=>v.state==='free'||v.state==='crashed')?120:60;
   const elapsed = Math.min(dt, 0.25), steps = Math.ceil(elapsed * hz), step = elapsed / steps;
-  const previous = sim.vehicles.map(v => [v.x, v.y]);
   for (let i = 0; i < steps; i++) stepVehicles(sim, step,fleet);
   // Other systems (props, interpolation) need the full frame sweep, not only the last substep.
   sim.vehicles.forEach((v, i) => {
-    if (previous[i]) { v.px = previous[i][0]; v.py = previous[i][1]; }
+    if (i<count) { v.px = previous[i*2]; v.py = previous[i*2+1]; }
     const driver=sim.chars[v.driver];
     if(driver){driver.x=v.x;driver.y=v.y;driver.px=v.px;driver.py=v.py;driver.facing=v.heading;}
   });
@@ -798,13 +805,13 @@ function collisions(sim: Simulation,fleet=sim.vehicles): void {
     }
   }
   const vs = fleet;
-  for (let i = 0; i < vs.length; i++) for (const b of vehicleIndex(sim).query(vs[i].x,vs[i].y,Math.hypot(vehicleGeometry(vs[i]).length,vehicleGeometry(vs[i]).width)/2+Math.hypot(vs[i].x-vs[i].px,vs[i].y-vs[i].py)+.5,collisionCandidates)) {
+  for (let i = 0; i < vs.length; i++) for (const b of vehicleIndex(sim).query(vs[i].x,vs[i].y,vehicleGeometry(vs[i]).radius+Math.hypot(vs[i].x-vs[i].px,vs[i].y-vs[i].py)+.5,collisionCandidates)) {
     const a = vs[i];
     if(a.id>=b.id)continue;
     if (a.state === "parked" && b.state === "parked") continue;
     const dx = b.x - a.x, dy = b.y - a.y, dd = dx * dx + dy * dy;
     const ga=vehicleGeometry(a),gb=vehicleGeometry(b);
-    const r = (Math.hypot(ga.length,ga.width)+Math.hypot(gb.length,gb.width))/2+Math.hypot(a.x-a.px,a.y-a.py)+Math.hypot(b.x-b.px,b.y-b.py);
+    const r = (ga.radius+gb.radius)+Math.hypot(a.x-a.px,a.y-a.py)+Math.hypot(b.x-b.px,b.y-b.py);
     if (dd > r * r) continue;
     let contact = chassisContact(a,b);
     if(!contact){
@@ -826,7 +833,7 @@ function collisions(sim: Simulation,fleet=sim.vehicles): void {
       // Recover overlapping lane cars from older saves without shoving them sideways into other lanes.
       if(bodiesTouch(a,b)){
         const bx=yieldCar.x,by=yieldCar.y,g=vehicleGeometry(yieldCar);
-        vehicleIndex(sim).query(bx,by,6+Math.hypot(g.length,g.width)/2,recoveryCandidates);
+        vehicleIndex(sim).query(bx,by,6+g.radius,recoveryCandidates);
         for(let back=.25;back<=6;back+=.25){
           const x=bx-Math.cos(yieldCar.heading)*back,y=by-Math.sin(yieldCar.heading)*back;
           if(!sim.world.drivable(x,y))break;

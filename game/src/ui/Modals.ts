@@ -32,7 +32,7 @@ export class ModalHost {
 }
 
 export const KEY_HELP: [string, string][] = [
-  ["WASD / arrows", "walk (or click the ground)"], ["Click a person", "inspect them; with a gun equipped, tap to aim instead"], ["T", "talk to the selected or nearest person"],
+  ["WASD / arrows", "move (or click the ground)"], ["Shift", "hold while moving to build sprint speed"], ["Click a person", "inspect them; with a gun equipped, tap to aim instead"], ["T", "talk to the selected or nearest person"],
   ["E", "pick up / enter a shop or car / get out"], ["R", "rob the nearest person (crime!)"], ["B", "bandage yourself or someone bleeding"], ["H", "horn (while driving)"], ["F / right-click", "fire your equipped gun / throw a held toy; hold for automatic fire"], ["Space", "unarmed attack / strike with a melee weapon / fire a held gun"],
   ["Q", "drop what you're holding"], ["Wheel / + and −", "zoom the game camera"], ["Drag", "pan the camera (C re-centres on you)"], ["P", "pause"], ["1–4", "pick a reply in conversations"],
   ["O", "photo mode: filters, frames, polaroids"], ["L", "event log"], ["I", "inspect yourself"], ["`", "developer panel"], ["Esc", "close panels"],
