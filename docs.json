@@ -1,6 +1,6 @@
 {
- "at": 1792817414462,
- "key": "1b7b486",
+ "at": 1792834759682,
+ "key": "lpswu0",
  "findings": [
   {
    "kind": "doc-dead-path",
@@ -29,6 +29,13 @@
    "where": "game/art-requests/README.md",
    "detail": "mentions `analysis.md`, which doesn't exist",
    "fp": "doc-dead-path|lhfrhs"
+  },
+  {
+   "kind": "doc-missing-api",
+   "severity": "low",
+   "where": "functions/api/city-sources.js",
+   "detail": "/api/city-sources isn't mentioned in any README",
+   "fp": "doc-missing-api|1ed11r2"
   },
   {
    "kind": "doc-missing-api",
