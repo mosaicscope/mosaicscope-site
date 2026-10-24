@@ -1,5 +1,5 @@
 {
- "at": 1792884754222,
+ "at": 1792885234394,
  "totals": {
   "duplicate-code": 2,
   "long-function": 17,
@@ -51,9 +51,9 @@
    "kind": "oversized-module",
    "severity": "medium",
    "where": "game/src/app/Game.ts",
-   "detail": "1720 lines",
+   "detail": "1728 lines",
    "fix": "split by feature into modules",
-   "fp": "oversized-module|19whskx"
+   "fp": "oversized-module|1u576p5"
   },
   {
    "kind": "oversized-module",
@@ -171,17 +171,17 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Traffic.ts",
-   "detail": "909 lines",
+   "detail": "916 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|147jlm"
+   "fp": "oversized-module|1hwb2y"
   },
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/sim/Traffic.ts:580",
+   "where": "game/src/sim/Traffic.ts:587",
    "detail": "194 lines",
    "fix": "split into named steps",
-   "fp": "long-function|3d906b"
+   "fp": "long-function|3pb8lg"
   },
   {
    "kind": "long-function",
