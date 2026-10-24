@@ -1,3 +1,4 @@
+import {CityLifePanel} from '../ui/CityLifePanel';
 import {CityStreamer} from '../world/CityStreamer';
 import {challengeStatus} from '../sim/CityChallenges';
 import {nudgeStreetProp} from '../sim/StreetProps';
@@ -183,6 +184,9 @@ export class Game {
       patrons: () => this.sim.chars.filter((c) => c.inside >= 0 && this.sim.world.buildings[c.inside]?.kind === "casino").length + 3,
     }, () => { this.clock.paused = this.pausedBefore; });
     this.activities.onVisitFarm=()=>{const plot=farmPlot(this.sim.world);if(!plot){this.toast('No clear farm plot on this map');return;}this.returnToPlayer(false);this.moveTarget={...plot.gate};this.renderer.cam.lookAt(plot.gate.x,plot.gate.y,true);this.toast('Your farm gate · walk or tap to explore');};
+    this.activities.onCityLife=()=>this.cityLifePanel.show();
+    this.dialogue.onCityLife=id=>this.cityLifePanel.showForResident(id);
+    this.rootEl.append(this.cityLifePanel.route);
     this.activities.onFun=kind=>{if(kind==="roast")this.roast.start();else this.burger.start();};
     this.casino.onMoreGames = () => this.activities.show("Betting");
     this.places = new Places(() => this.sim, (t, b, cls) => this.modal.show(t, b, cls), () => this.modal.close(), (t, k) => this.toast(t, k));
@@ -406,7 +410,7 @@ export class Game {
     this.tickFocus(now);
     this.rootEl.classList.toggle("panel-open", this.modal.open || this.casino.open || this.club.open || this.luxury.open);
     if (this.sim.expansion.pending && this.notifiedEncounter !== this.sim.expansion.pending && !this.modal.open && !this.casino.open && !this.interior.open && !this.dialogue.open && !this.phone.open) { this.notifiedEncounter = this.sim.expansion.pending; this.toast("A nearby street story: open Explore to choose what happens.", "acid"); this.activities.encounter(); }
-    this.touch.update();
+    this.touch.update();this.cityLifePanel.update();
     if (now - this.clubTickAt > 1000) { const earned = this.club.tick(Math.min(5, (now - (this.clubTickAt || now)) / 1000)); this.clubTickAt = now; if (earned > 0) this.sim.player.cash += earned; }
     this.renderer.zooAnimals = this.luxury.empire.animals; zooState.animals = this.luxury.empire.animals.length;
     this.rootEl.classList.toggle('conversation-open',this.dialogue.open);
@@ -1368,6 +1372,7 @@ export class Game {
   private armory = new Armory(()=>this.sim,this.modal,t=>this.toast(t));
   private cannonAt=0;
   private lifePhone = new LifePhone(() => this.sim, this.modal, tab => this.activities.show(tab), (x,y) => { this.moveTarget = {x,y}; this.pendingTalk = -1; this.renderer.cam.follow = this.sim.playerId; });
+  private cityLifePanel=new CityLifePanel({sim:()=>this.sim,modal:this.modal,sources:()=>this.openLiveCity(),walk:p=>{this.moveTarget={x:p.x,y:p.y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);this.toast("Walking to "+p.name);},toast:t=>this.toast(t)});
   private cityPanel=new WorldCityPanel({sim:()=>this.sim,camera:()=>this.renderer.cam,close:()=>this.modal.close(),walk:(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);},talk:id=>this.talkTo(id),vehicle:()=>this.interact(),stop:()=>{this.moveTarget=null;this.pendingTalk=-1;},toast:t=>this.toast(t)});
   private openLiveCity():void{this.modal.show('Christchurch · live city',[this.cityPanel.render()]);}
   private notifiedEncounter: string | null = null;
@@ -1382,6 +1387,7 @@ export class Game {
       command("City map", "▦", () => this.minimap.toggle()),
       command('Live city','◉',()=>this.openLiveCity()),
       command("Casino", "♠", () => { this.pausedBefore = this.clock.paused; this.casino.show(); }, ".casino-launch"),
+      command("Daily life", "☀", () => this.cityLifePanel.show()),
       command("Explore", "◎", () => this.activities.show("Explore")),
       command("Photo", "▣", () => this.photos.open()),
       command("Save", "↓", () => this.openSaves()),

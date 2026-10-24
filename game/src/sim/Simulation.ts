@@ -1,3 +1,4 @@
+import {updateCityLife} from './CityLife';
 import {updateWorkshopMotion} from './VehicleWorkshop';
 import {updateCityRoutine} from './CityRoutine';
 import {updateStreetProps} from './StreetProps';
@@ -280,7 +281,7 @@ export class Simulation {
     const tv=performance.now();updateVehicles(this, dt);this.metrics.vehicleMs=performance.now()-tv;const tc=performance.now();
     if(this.world.mapped)this.mappedDamage.update(this.tick/60);
     updateRockets(this);
-    updateCivicDamage(this);updateStreetProps(this,dt);updateCityDrama(this);updateCityRoutine(this);updateWorkshopMotion(this);
+    updateCivicDamage(this);updateStreetProps(this,dt);updateCityDrama(this);updateCityRoutine(this);updateWorkshopMotion(this);updateCityLife(this);
     this.metrics.cityMs=performance.now()-tc;
     const tp = performance.now();
     this.physics.step(dt, this.toys, this.chars, this.charHash, this.tick, this.hooks);

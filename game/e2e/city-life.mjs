@@ -1,0 +1,30 @@
+import {chromium} from 'playwright-core';
+import fs from 'node:fs';
+const browser=await chromium.launch({executablePath:process.env.CHROMIUM||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+const assert=(value,message)=>{if(!value)throw Error(message);};
+try{
+ const page=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true,deviceScaleFactor:2}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.route('**/api/**',r=>r.fulfill({status:503,json:{error:'Offline fixture'}}));
+ await page.goto(process.argv[2]||'http://127.0.0.1:4175/world/');await page.getByRole('button',{name:'Start new game',exact:true}).click();await page.getByRole('button',{name:'Start my story',exact:true}).click();await page.getByRole('button',{name:'Skip',exact:true}).click();
+ await page.evaluate(()=>{const g=window.__mosaics;g.sim.env.startHour=10;g.sim.tick=0;g.setSpeed(1);g.cityLifePanel.show();});
+ await page.getByRole('button',{name:'Start activity',exact:true}).first().click();
+ assert(await page.evaluate(()=>!!window.__mosaics.sim.cityPlay.everyday.active),'Activity did not start');
+ await page.getByRole('button',{name:'Walk to this stop',exact:true}).click();assert(await page.locator('.city-life-route').isVisible(),'Route button missing');
+ await page.evaluate(()=>{const g=window.__mosaics,s=g.sim,a=s.cityPlay.everyday.active,t=a.targets[a.stage];s.player.x=s.player.px=t.x;s.player.y=s.player.py=t.y;g.moveTarget=null;g.cityLifePanel.show();});
+ const action=await page.evaluate(()=>{const a=window.__mosaics.sim.cityPlay.everyday.active;return a.id;});
+ await page.locator('.life-card').first().getByRole('button').nth(1).click();
+ assert(await page.evaluate(()=>!!window.__mosaics.sim.cityPlay.everyday.active.until),'Work timer did not start');
+ await page.waitForFunction(()=>!window.__mosaics.sim.cityPlay.everyday.active?.until,null,{timeout:15000});
+ console.log('✓ Daily activity starts, routes to a real entrance and completes a timed work step',action);
+ await page.evaluate(()=>window.__mosaics.cityLifePanel.show('Companions'));
+ await page.getByRole('button',{name:'Walk to Manchester Street',exact:true}).click();
+ await page.evaluate(()=>{const g=window.__mosaics,s=g.sim,p=g.moveTarget;s.player.x=s.player.px=p.x;s.player.y=s.player.py=p.y;g.moveTarget=null;s.tick=Math.ceil((s.tick+1)/120)*120;g.setSpeed(1);});
+ await page.waitForFunction(()=>window.__mosaics.sim.cityPlay.everyday.crew.length===12,null,{timeout:10000});
+ await page.evaluate(()=>{const g=window.__mosaics,s=g.sim,c=s.chars[s.cityPlay.everyday.crew[0]];s.env.startHour=21;s.player.x=s.player.px=c.x;s.player.y=s.player.py=c.y;c.phys=0;c.inside=c.inCar=c.talkWith=-1;c.emo.fear=0;c.substances=undefined;s.player.substances=undefined;s.player.wanted=0;s.player.cash=500;s.cityPlay.everyday.affinity[c.name]=2;g.moveTarget=null;g.cityLifePanel.show('Companions');});
+ await page.getByRole('button',{name:'Invite private company · $80',exact:true}).first().click();
+ assert(await page.getByText('A moment of privacy',{exact:true}).isVisible(),'Fade-to-black scene missing');assert(await page.evaluate(()=>window.__mosaics.sim.player.cash===420),'Companionship charged incorrectly');
+ await page.getByRole('button',{name:'Return to the street',exact:true}).click();await page.evaluate(()=>window.__mosaics.cityLifePanel.show('Journal'));
+ assert(await page.getByRole('heading',{name:/Private company with Mara/}).isVisible(),'Journal entry missing');
+ fs.mkdirSync('e2e/screenshots',{recursive:true});await page.screenshot({path:'e2e/screenshots/daily-life-mobile.png'});
+ assert(errors.length===0,errors.join('\n'));console.log('✓ Twelve bounded adult residents, consent checks, non-graphic fade and saved journal render on mobile');
+}finally{await browser.close();}

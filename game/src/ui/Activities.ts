@@ -19,6 +19,7 @@ const pick = (n: number) => Math.floor(Math.random() * n);
 type Tab = "Farm" | "UC" | "Racing" | "Betting" | "Explore";
 /** All transactions use the current simulation, including after loading another slot. */
 export class Activities {
+  onCityLife?:()=>void;
   onFun?: (kind:"roast"|"burger")=>void;
   private page=0; private design=0; private aircraft=0;
   onVisitFarm?:()=>void;
@@ -72,7 +73,7 @@ export class Activities {
     const e = ENCOUNTERS.find(e => e.id === this.s.pending);
     const last=this.s.seen[this.s.seen.length-1];
     const illustrated=e??ENCOUNTERS.find(scene=>scene.id===last);
-    return [encounterScene(this.sim(),illustrated,!e&&!!illustrated),this.card("Street discoveries", `${this.s.seen.length}/40 stories completed. Walk around town: new scenes appear after travelling, with a cooldown between encounters.`),
+    return [this.card("Daily life & Manchester nights","Work a shift, do the groceries, meet the neighbours or explore fictional adult nightlife.",[h("button.btn",{text:"Open daily life",onclick:()=>this.onCityLife?.()})]),encounterScene(this.sim(),illustrated,!e&&!!illustrated),this.card("Street discoveries", `${this.s.seen.length}/40 stories completed. Walk around town: new scenes appear after travelling, with a cooldown between encounters.`),
       ...(e ? [this.card(e.title, `${this.sim().world.streetName(this.sim().player.x, this.sim().player.y) || "Nearby"}: ${e.scene}`, e.choices.map(([label, money, rep, result],choice) => this.btn(label + (money < 0 ? ` · ${cash(-money)}` : ""), () => {
         if (this.s.pending !== e.id || this.s.seen.includes(e.id) || money < 0 && !this.pay(-money)) return;
         if (money > 0) this.credit(money);
