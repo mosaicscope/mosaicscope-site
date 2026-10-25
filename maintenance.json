@@ -1,5 +1,5 @@
 {
- "at": 1792901840767,
+ "at": 1792903695158,
  "totals": {
   "duplicate-code": 2,
   "long-function": 17,
@@ -171,9 +171,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Traffic.ts",
-   "detail": "926 lines",
+   "detail": "928 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|70y8hh"
+   "fp": "oversized-module|qqp7i3"
   },
   {
    "kind": "long-function",
