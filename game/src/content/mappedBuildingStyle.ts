@@ -15,5 +15,6 @@ export function mappedBuildingStyle(mapped:{kind:string;height:number;heightEsti
  const kind:BuildingKind=mapped.tags.amenity==='cafe'?'cafe':mapped.tags.tourism==='hotel'?'hotel':mapped.tags.shop?'dairy':
   ['house','detached','semidetached_house','terrace','bungalow','yes','residential'].includes(tag)&&mapped.height<=12?'house':
   ['apartments','residential','dormitory'].includes(tag)?'apartments':['retail','commercial','supermarket'].includes(tag)?'dairy':'office';
- return {kind,floors:kind==='house'?(mapped.heightEstimated?2:Math.max(1,Math.min(2,Math.round(mapped.height/3.2)))):Math.max(2,Math.min(11,Math.round(mapped.height/3.2)))};
+ const surveyed=Number.parseFloat(mapped.tags['building:levels']??'');
+ return {kind,floors:Number.isFinite(surveyed)&&surveyed>0?Math.max(1,Math.min(40,Math.round(surveyed))):kind==='house'?(mapped.heightEstimated?2:Math.max(1,Math.min(2,Math.round(mapped.height/3.2)))):Math.max(2,Math.min(11,Math.round(mapped.height/3.2)))};
 }

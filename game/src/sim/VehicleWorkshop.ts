@@ -49,6 +49,8 @@ export const WORKSHOP_ACTIONS=[
 export type WorkshopAction=typeof WORKSHOP_ACTIONS[number]['id'];
 const paint=(s:string)=>/^#[0-9a-f]{6}$/i.test(s)?s:'#688d87';
 export function inspectVehicle(v:Vehicle):string[]{const p=components(v);return[
+ ...(p.impacts??[]).slice(-4).reverse().map(hit=>'Impact: '+['front','rear','left','right'][hit.zone]+' · '+hit.severity+' · change in speed '+(hit.deltaV*7.2).toFixed(0)+' km/h'),
+ 'Crush: '+(p.dents?.length??0)+' local dents · suspension '+p.wheels.map((w,i)=>['FL','FR','RL','RR'][i]+' '+Math.round(w.suspension*100)+'%').join(' · '),
  'Body: '+p.panels.map((n,i)=>['front','rear','left','right'][i]+' '+Math.round(n*100)+'% damaged').join(' · '),
  'Glass: '+p.glass.map((n,i)=>['windscreen','rear','left','right'][i]+' '+Math.round(n*100)+'%').join(' · '),
  ...p.wheels.map((w,i)=>['Front left','Front right','Rear left','Rear right'][i]+': '+(w.missing?'missing':w.puncture?'punctured':'inflated')+' · rim '+Math.round(w.rim*100)+'% · alignment '+Math.round(w.alignment*180/Math.PI)+'°'),
