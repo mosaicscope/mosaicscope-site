@@ -465,7 +465,7 @@ export class Game {
   private running=new Running();
   private controlPlayer(): void {
     const sim = this.sim, p = sim.player, k = this.settings.keys;
-    if (this.phone.open || this.travel.open || this.interior.open || this.modal.open || this.dev.visible || this.casino.open || this.club.open || this.luxury.open) { this.running.reset();p.vx = p.vy = 0; playerInput.throttle = 0; playerInput.steer = 0; playerInput.brake = true; return; } // you're indoors; the street body waits at the door
+    if (this.phone.open || this.travel.open || this.interior.open || this.modal.open || this.dev.visible || this.casino.open || this.club.open || this.luxury.open) { this.running.reset();p.vx = p.vy = 0; playerInput.throttle = 0; playerInput.steer = 0; playerInput.brake = true; playerInput.serviceBrake=0; return; } // you're indoors; the street body waits at the door
     if (p.inCar >= 0) {
       this.running.reset();
       const up = this.keys.has(k.up) || this.keys.has("arrowup"), down = this.keys.has(k.down) || this.keys.has("arrowdown");
@@ -473,7 +473,8 @@ export class Game {
       playerInput.throttle = up ? 1 : down ? -1 : 0;
       playerInput.steer = (right ? 1 : 0) - (left ? 1 : 0);
       playerInput.throttle *= 1-impairment(p)*.4;
-      playerInput.brake = this.keys.has(" ") || this.touchBrake;
+      playerInput.brake = this.keys.has(" ") || this.touchHandbrake;
+      playerInput.serviceBrake = this.touchBrake?1:0;
       // touch: stick x steers, y is gas (up) / reverse (down)
       if (this.touchMove.x || this.touchMove.y) { playerInput.steer = this.touchMove.x; playerInput.throttle = -this.touchMove.y; }
       if (this.padMove.x || this.padMove.y) { playerInput.steer = this.padMove.x; playerInput.throttle = -this.padMove.y; }
@@ -884,7 +885,7 @@ export class Game {
       else if (key === "-") this.renderer.cam.setZoom(this.renderer.cam.targetZoom / 1.2);
     });
     window.addEventListener("keyup", (e) => this.keys.delete(e.key.toLowerCase()));
-    window.addEventListener("blur",()=>{this.keys.clear();this.mouse.down=false;this.mouse.dragging=false;this.touches.clear();this.touchFire=false;this.touchMove={x:0,y:0};this.touchBrake=false;});
+    window.addEventListener("blur",()=>{this.keys.clear();this.mouse.down=false;this.mouse.dragging=false;this.touches.clear();this.touchFire=false;this.touchMove={x:0,y:0};this.touchBrake=false;this.touchHandbrake=false;});
     cv.addEventListener("contextmenu", (e) => e.preventDefault());
     cv.addEventListener("pointerdown", (e) => {
       this.rootEl.querySelector('.bar')?.classList.remove('open'); this.rootEl.querySelector('.menu-toggle')?.setAttribute('aria-expanded','false');
@@ -1230,13 +1231,15 @@ export class Game {
   private clubTickAt = 0;
 
   // ------------------------------------------------------------------ touch controls
-  private touchMove = { x: 0, y: 0 }; private touchBrake = false; private touchFire=false; private ammoAlertAt=0;
+  private touchMove = { x: 0, y: 0 }; private touchBrake = false;
+  private touchHandbrake=false; private touchFire=false; private ammoAlertAt=0;
   private touch = new TouchControls({
     attackLabel:()=>{const p=this.sim.player,d=p.hand>=0?TOYS[this.sim.toys[p.hand].def]:undefined;return d?.weapon?.gun?'Fire':d&&p.hand>=0&&isMelee(this.sim.toys[p.hand].def)?'Strike':unarmedMove(p.combat?.style,p.combat?.xp).name;},
     fire: held=>{this.touchFire=held;},
     armedVehicle:()=>this.sim.player.inCar>=0&&this.sim.vehicles[this.sim.player.inCar].cls==='tank',
     move: (x, y) => { this.touchMove.x = x; this.touchMove.y = y; },
     brake: (held: boolean) => { this.touchBrake = held; },
+    handbrake: (held:boolean)=>{this.touchHandbrake=held;},
     zoom: (dir: number) => { const c = this.renderer.cam; c.setZoom(c.targetZoom * (dir > 0 ? 1.4 : 1 / 1.4)); },
     inCar: () => this.sim.player.inCar >= 0,
     action: (n) => {

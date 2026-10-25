@@ -44,12 +44,14 @@ export function stepPowertrain(v:Vehicle,speed:number,top:number,pedal:number,dt
   let rev=s/(p.gear<0?.35:single?1.1:GEAR_LIMITS[gear-1]);
   if(!single&&p.gear>0&&p.shift===0) {
     if(rev>setup.shiftAt&&p.gear<5) {p.gear++;p.shift=.14;}
-    else if(rev<.3&&p.gear>1) {p.gear--;p.shift=.11;}
+    else if(p.gear>1&&(rev<.3||pedal>.75&&rev<.52&&s/GEAR_LIMITS[p.gear-2]<setup.shiftAt*.95)) {p.gear--;p.shift=.11;}
     rev=s/GEAR_LIMITS[p.gear-1];
   }
   const target=idle+clamp(rev+Math.min(.18,(v.wheelspin??0)*.035)+Math.abs(pedal)*.06,0,1)*(redline-idle);
   p.rpm+=(target-p.rpm)*(1-Math.exp(-dt*15));
-  return single?1:p.shift>0?.55:0.94+Math.sin(clamp((p.rpm-idle)/(redline-idle),0,1)*Math.PI)*.1;
+  // Lower forward gears multiply wheel torque; a kickdown changes acceleration as well as engine sound.
+  const gearTorque=1+(5-clamp(p.gear,1,5))*.025;
+  return single?1:(p.shift>0?.55:0.94+Math.sin(clamp((p.rpm-idle)/(redline-idle),0,1)*Math.PI)*.1)*gearTorque;
 }
 
 /** Shared by engine audio: correctly normalizes diesel, electric and passenger-car rev envelopes. */
