@@ -15,8 +15,9 @@ export interface TouchHost {
   /** What the big context button does right now (e.g. "Enter Casino", "Talk to Ruby", "Get in car"). */
   context(): { label: string; icon: string } | null;
   inCar(): boolean;
-  /** Optional: Brake button held state in a car (Space on PC). Without it, Brake maps to move y = +1. */
+  /** Optional: Service-brake button held state in a car; Space on PC remains the handbrake. Without it, Brake maps to move y = +1. */
   brake?(held: boolean): void;
+  handbrake?(held:boolean):void;
   /** Zoom the camera in (+1) or out (-1); used by the on-screen zoom buttons. */
   zoom?(dir: number): void;
   fire?(held:boolean):void;
@@ -159,6 +160,7 @@ export class TouchControls {
     this.exitLabel = exitBtn.querySelector(".tc-lbl") as HTMLElement;
     const reverse=small('car t-reverse','exit','Reverse',()=>buzz(8),on=>{this.reverseHeld=on;});
     const car = [reverse,
+      small("car t-handbrake","brake","Handbrake",()=>buzz(12),on=>this.host.handbrake?.(on)),
       small("car t-cannon","throw","Fire cannon",()=>this.host.action("throw")),
       arc(small("car t-brake", "brake", "Brake", () => buzz(12), (on) => { this.brakeHeld = on; if (this.host.brake) this.host.brake(on); }), 186, 116),
       arc(small("car t-horn", "horn", "Horn", () => { buzz([30, 20, 30]); this.host.action("horn"); }), 146, 116),
@@ -197,7 +199,7 @@ export class TouchControls {
     const steering=el('div','tc-steering car');
     for(const [text,dir]of[['←',-1],['→',1]] as const){const b=el('button','tc-btn tc-steer',text);b.setAttribute('aria-label',dir<0?'Steer left':'Steer right');this.press(b,()=>{},on=>{if(on)this.steeringHeld.add(dir);else this.steeringHeld.delete(dir);this.steering=[...this.steeringHeld].reduce((sum,n)=>sum+n,0);});steering.append(b);}
     this.el.append(this.zone,cluster,zoomBox,steering);
-    const reset=()=>{this.stickUp();this.releaseButtons.forEach(release=>release());this.gas=false;this.reverseHeld=false;this.brakeHeld=false;this.steering=0;this.host.brake?.(false);this.host.move(0,0);this.host.fire?.(false);};
+    const reset=()=>{this.stickUp();this.releaseButtons.forEach(release=>release());this.gas=false;this.reverseHeld=false;this.brakeHeld=false;this.steering=0;this.host.brake?.(false);this.host.handbrake?.(false);this.host.move(0,0);this.host.fire?.(false);};
     this.resetInput=reset;
     window.addEventListener('blur',reset);
     document.addEventListener('visibilitychange',()=>{if(document.hidden)reset();});
@@ -224,7 +226,7 @@ export class TouchControls {
       if(this.lastCar!==null)this.resetInput();
       this.lastCar = inCar;
       this.el.classList.toggle("in-car", inCar);
-      if(this.walkHint)this.walkHint.textContent=inCar?"Thumb steer · hold Gas · Brake to stop":"Drag to walk · full push to sprint";
+      if(this.walkHint)this.walkHint.textContent=inCar?"Thumb steer · hold Gas · Brake to stop":"Drag to walk · full push builds sprint";
       this.toggleSheet(false);
       if (!inCar) { this.gas = false; this.brakeHeld = false; this.steering=0; }
     }

@@ -1,1 +1,0 @@
-export{u as DestinationBuildings}from"./index-DXIcns_M.js";

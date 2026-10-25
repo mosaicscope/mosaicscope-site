@@ -232,7 +232,7 @@ function stepVehicles(sim: Simulation, dt: number,fleet=sim.vehicles): void {
 }
 
 /** Inputs for free-driving cars (player or joyrider). */
-export interface DriveInput { throttle: number; steer: number; brake: boolean }
+export interface DriveInput { throttle: number; steer: number; brake: boolean; serviceBrake?: number }
 export const playerInput: DriveInput = { throttle: 0, steer: 0, brake: false };
 
 /** World velocity of a car: its free-body velocity when that is live, else straight along the heading. */
@@ -281,11 +281,12 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const surface = roadSurface(sim.world.tile(Math.floor(v.x), Math.floor(v.y)), sim.env.rain, profile.offroad);
   // Pedal response builds torque smoothly; braking always responds immediately.
   const pedal = clamp(inp.throttle, -1, 1);
-  const braking = inp.brake || pedal < 0 && lon > 0.05 || pedal > 0 && lon < -0.05;
+  const serviceBrake=clamp(inp.serviceBrake??0,0,1);
+  const braking = inp.brake || serviceBrake>0 || pedal < 0 && lon > 0.05 || pedal > 0 && lon < -0.05;
   const previousThrottle = v.dynT !== undefined && sim.tick - v.dynT <= 1 && (v.driveThrottle ?? 0) * pedal >= 0 ? v.driveThrottle ?? 0 : 0;
   const targetThrottle = braking ? 0 : pedal;
   v.driveThrottle = previousThrottle + (targetThrottle - previousThrottle) * (1 - Math.exp(-dt * (targetThrottle === 0 ? 16 : setup.response)));
-  const throttle = braking ? pedal : v.driveThrottle;
+  const throttle = inp.brake||serviceBrake>0?0:braking?pedal:v.driveThrottle;
   const transmission=stepPowertrain(v,lon,top,throttle,dt);
   if (v.flatLeft !== v.flatRight) v.heading += (v.flatLeft ? -1 : 1) * Math.min(s, 5) * dt * 0.025;
 
@@ -293,6 +294,7 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   let a = 0;
   // Space is the handbrake: it locks the rear wheels, so it slows you less than full brakes but lets the tail go
   if (inp.brake) a = -Math.sign(lon) * d.brake * (s > 2 ? 0.5 : 1);
+  else if(serviceBrake>0)a=-Math.sign(lon)*d.brake*serviceBrake;
   else if (throttle > 0) a = lon < -0.05 ? d.brake * throttle : d.accel * throttle * Math.max(0, 1 - (lon / top) ** 2);
   else if (throttle < 0) a = lon > 0.05 ? -d.brake * -throttle : -d.accel * 0.6 * -throttle * Math.max(0, 1 - (lon / (top * 0.35)) ** 2);
   if(braking) a*=working.braking;
@@ -304,7 +306,11 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const spin = (!braking ? Math.max(0, Math.abs(engineForce) - traction) : 0)*(setup.tractionControl?0.08:1);
   v.wheelspin = spin;
   if (!braking) a = clamp(engineForce, -traction, traction);
-  else a = clamp(a, -grip, grip);
+  else {
+    // Leave front-tyre capacity for steering under ordinary braking (ABS/ESC in Road mode).
+    const brakeGrip=grip*(setup.tractionControl&&!inp.brake?1-.18*Math.min(1,Math.abs(inp.steer)):1);
+    a=clamp(a,-brakeGrip,brakeGrip);
+  }
   const wheelDrag = (v.components?.wheels.reduce((n,w)=>n+(w.missing?0.9:w.puncture?0.3:0)+w.rim*0.12,0) ?? (v.flatLeft?0.3:0)+(v.flatRight?0.3:0));
   const resist = 0.35 + surface.drag + wheelDrag + (pedal===0?working.engineDrag:0) + 1.4 * (lon / top) ** 2;
   if (braking || a === 0) {
@@ -325,7 +331,10 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const countersteering = steering * (v.steerAngle ?? 0) < 0;
   const steerResponse = (countersteering ? 13 : steering === 0 ? 10 : 8) * working.turnResponse / (1 + s / top * 0.35);
   v.steerAngle=(v.steerAngle??0)+(steering*.55-(v.steerAngle??0))*(1-Math.exp(-dt*steerResponse));
-  const wheelbase = geometry.wheelbase, lock = 0.6 * setup.steer * working.steering * (1 - 0.55 * Math.min(1, s / top));
+  const wheelbase = geometry.wheelbase;
+  let lock = 0.6 * setup.steer * working.steering * (1 - 0.55 * Math.min(1, s / top));
+  // Road/Trail assist scales steering lock to the available tyre force at speed.
+  if(setup.tractionControl&&!inp.brake)lock=Math.min(lock,Math.atan(grip*wheelbase*.85/Math.max(1,s*s)));
   // a bent side (wheel knocked out of line) drags the car toward it
   const bent = ((v.dmgS ?? 0) - (v.dmgL ?? 0)) * 0.12;
   v.wheelSteer = (v.steerAngle??0)/.55 * lock;
@@ -337,6 +346,7 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const yawWant = clamp(want * frontPush + stability, -cap, cap);
   const inertiaResponse = clamp(2 / geometry.wheelbase, .6, 1.5);
   v.yaw = (v.yaw ?? 0) + (yawWant - (v.yaw ?? 0)) * (1 - Math.exp(-dt * (3 + grip * 0.6) * inertiaResponse * working.turnResponse));
+  if(Math.hypot(lon,lat)<.04)v.yaw=0;
   v.heading += v.yaw * dt;
   // the body turned under the velocity: re-express it in the new frame, then let the tyres fight the sideways part
   const nfx = Math.cos(v.heading), nfy = Math.sin(v.heading);
