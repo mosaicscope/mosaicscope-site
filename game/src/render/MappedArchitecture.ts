@@ -1,3 +1,4 @@
+import {MAPPED_HEIGHT_RATIO} from '../world/WorldScale';
 import {architectureRaster} from './ArchitectureRaster';
 import type {MappedBuilding} from '../ui/DestinationDistrict';
 import {mappedBuildingStyle,regionalArchitecture} from '../content/mappedBuildingStyle';
@@ -8,13 +9,13 @@ interface Mesh{cv:HTMLCanvasElement;life:HTMLCanvasElement|null;at:Pt;ox:number;
 const shade=(hex:string,n:number)=>{const s=hex.replace('#','');return '#'+[0,2,4].map(i=>Math.max(0,Math.min(255,parseInt(s.slice(i,i+2),16)+n)).toString(16).padStart(2,'0')).join('');};
 /** Exact polygon extrusion. Static architecture is cached; a small room layer updates at 12 Hz. */
 export class MappedArchitecture{
- private cache=new Map<number,Mesh>();private bytes=0;private jobs=0;private deadline=0;private quality=1;private windowJobs=0;
- beginFrame(quality=1):void{this.jobs=0;this.windowJobs=0;this.quality=quality;this.deadline=performance.now()+1;}
+ private cache=new Map<number,Mesh>();private bytes=0;private jobs=0;private deadline=0;private quality=1;private windowJobs=0;private zoomMoving=false;
+ beginFrame(quality=1,zoomMoving=false):void{this.zoomMoving=zoomMoving;this.jobs=0;this.windowJobs=0;this.quality=quality;this.deadline=performance.now()+1;}
  clear():void{this.cache.clear();this.bytes=0;}
  top(b:MappedBuilding):number{return b.height;}
  private create(b:MappedBuilding,scale:number,dpr:number):Mesh{
   const points=b.points.filter((p,i,a)=>i===0||p[0]!==a[i-1][0]||p[1]!==a[i-1][1]);if(points.length>3&&points[0][0]===points[points.length-1][0]&&points[0][1]===points[points.length-1][1])points.pop();
-  const arch=regionalArchitecture(b.tags),style=mappedBuildingStyle(b),top=b.height,origin=points[0] as Pt,raw=(x:number,y:number,z=0):Pt=>[x-origin[0]-y+origin[1],(x-origin[0]+y-origin[1])*.5-z],all=points.flatMap(p=>[raw(p[0],p[1]),raw(p[0],p[1],top)]),minX=Math.min(...all.map(p=>p[0])),maxX=Math.max(...all.map(p=>p[0])),minY=Math.min(...all.map(p=>p[1])),maxY=Math.max(...all.map(p=>p[1])),extent=Math.max(maxX-minX,maxY-minY),unit=architectureRaster(extent,scale,dpr,this.quality),pad=16,cv=document.createElement('canvas');
+  const arch=regionalArchitecture(b.tags),style=mappedBuildingStyle(b),top=b.height,origin=points[0] as Pt,raw=(x:number,y:number,z=0):Pt=>[x-origin[0]-y+origin[1],(x-origin[0]+y-origin[1])*.5-z*MAPPED_HEIGHT_RATIO],all=points.flatMap(p=>[raw(p[0],p[1]),raw(p[0],p[1],top)]),minX=Math.min(...all.map(p=>p[0])),maxX=Math.max(...all.map(p=>p[0])),minY=Math.min(...all.map(p=>p[1])),maxY=Math.max(...all.map(p=>p[1])),extent=Math.max(maxX-minX,maxY-minY),unit=architectureRaster(extent,scale,dpr,this.quality),pad=16,cv=document.createElement('canvas');
   cv.width=Math.ceil((maxX-minX)*unit+pad*2);cv.height=Math.ceil((maxY-minY)*unit+pad*2);const g=cv.getContext('2d')!,ox=pad-minX*unit,oy=pad-minY*unit,P:Project=(x,y,z=0)=>{const p=raw(x,y,z);return[p[0]*unit+ox,p[1]*unit+oy];},windows:Win[]=[];
   const pitched=points.length===4&&['gabled','gable'].includes(arch.shape)&&top<20;
   const side0=Math.hypot(points[1][0]-points[0][0],points[1][1]-points[0][1]),side1=Math.hypot(points[2][0]-points[1][0],points[2][1]-points[1][1]);
@@ -59,9 +60,9 @@ export class MappedArchitecture{
   return{cv,life:null,at:origin,ox,oy,unit,windows,stamp:-1,bytes:cv.width*cv.height*4,top,extent,tags:b.tags,name:b.name};
  }
  draw(g:CanvasRenderingContext2D,b:MappedBuilding,P:Project,scale:number,focus:Pt):void{
-  const corners=b.points.map(p=>P(p[0],p[1])),xs=corners.map(p=>p[0]),ys=corners.map(p=>p[1]),height=b.height*scale,W=g.canvas.clientWidth||g.canvas.width,H=g.canvas.clientHeight||g.canvas.height;
+  const corners=b.points.map(p=>P(p[0],p[1])),xs=corners.map(p=>p[0]),ys=corners.map(p=>p[1]),height=b.height*scale*MAPPED_HEIGHT_RATIO,W=g.canvas.clientWidth||g.canvas.width,H=g.canvas.clientHeight||g.canvas.height;
   if(Math.max(...xs)<-70||Math.min(...xs)>W+70||Math.max(...ys)<-70||Math.min(...ys)-height>H+70)return;
-  let mesh=this.cache.get(b.id);if(mesh&&(mesh.top!==b.height||mesh.tags!==b.tags||mesh.name!==b.name)){this.bytes-=mesh.bytes;this.cache.delete(b.id);mesh=undefined;}if(mesh&&mesh.unit<architectureRaster(mesh.extent,scale,g.getTransform().a,this.quality)*.7&&(!this.jobs||performance.now()<this.deadline)){this.bytes-=mesh.bytes;this.cache.delete(b.id);mesh=undefined;}if(!mesh){if(this.jobs&&performance.now()>this.deadline){g.fillStyle='#6f7b72';g.beginPath();b.points.forEach((p,i)=>i?g.lineTo(...P(p[0],p[1],b.height)):g.moveTo(...P(p[0],p[1],b.height)));g.closePath();g.fill();return;}mesh=this.create(b,scale,g.getTransform().a);this.jobs++;this.cache.set(b.id,mesh);this.bytes+=mesh.bytes;while(this.cache.size>96||this.bytes>64*1024*1024){const id=this.cache.keys().next().value!;if(id===b.id)break;const old=this.cache.get(id)!;this.bytes-=old.bytes;this.cache.delete(id);}}
+  let mesh=this.cache.get(b.id);if(mesh&&(mesh.top!==b.height||mesh.tags!==b.tags||mesh.name!==b.name)){this.bytes-=mesh.bytes;this.cache.delete(b.id);mesh=undefined;}if(mesh&&!this.zoomMoving&&mesh.unit<architectureRaster(mesh.extent,scale,g.getTransform().a,this.quality)*.7&&(!this.jobs||performance.now()<this.deadline)){this.bytes-=mesh.bytes;this.cache.delete(b.id);mesh=undefined;}if(!mesh){if(this.jobs&&performance.now()>this.deadline){g.fillStyle='#6f7b72';g.beginPath();b.points.forEach((p,i)=>i?g.lineTo(...P(p[0],p[1],b.height)):g.moveTo(...P(p[0],p[1],b.height)));g.closePath();g.fill();return;}mesh=this.create(b,scale,g.getTransform().a);this.jobs++;this.cache.set(b.id,mesh);this.bytes+=mesh.bytes;while(this.cache.size>96||this.bytes>64*1024*1024){const id=this.cache.keys().next().value!;if(id===b.id)break;const old=this.cache.get(id)!;this.bytes-=old.bytes;this.cache.delete(id);}}
   else{this.cache.delete(b.id);this.cache.set(b.id,mesh);}
   const p=P(...mesh.at),f=scale/mesh.unit,x=p[0]-mesh.ox*f,y=p[1]-mesh.oy*f,ground=pointInside(focus,corners),cover=!ground&&focus[0]>=Math.min(...xs)&&focus[0]<=Math.max(...xs)&&focus[1]<Math.max(...ys)&&focus[1]>Math.min(...ys)-height;
   g.save();if(cover)g.globalAlpha=.25;g.drawImage(mesh.cv,x,y,mesh.cv.width*f,mesh.cv.height*f);

@@ -5,14 +5,17 @@ import {fillTextured} from './Textures';
 import {ROAD_PAINT,paintRoadArrow} from './RoadArt';
 import type {DistrictData} from '../ui/DestinationDistrict';
 type P=(x:number,y:number)=>[number,number];
+export interface RoadBounds{x0:number;y0:number;x1:number;y1:number}
 interface Segment{oneway:number;x:number;y:number;dx:number;dy:number;length:number;half:number;walk:boolean;paint:boolean;start:boolean;end:boolean;distance:number;junctions:number[];crossings:{at:number;side:number}[]}
 const walking=(kind:string)=>['footway','path','pedestrian','steps','cycleway','corridor','platform','bridleway'].includes(kind);
 /** Mapped road routes, dressed with the town's asphalt, kerbs, four lanes, paint and zebra stripes. */
 export class DestinationRoads{
- private signature='';private segments:Segment[]=[];
- draw(g:CanvasRenderingContext2D,data:DistrictData[],P:P,width:number,height:number,right=false):void{
-  const signature=data.map(d=>d.cx+','+d.cy).join('/');if(signature!==this.signature){this.signature=signature;this.build(data);}
-  const visible=this.segments.filter(s=>{const a=P(s.x,s.y),b=P(s.x+s.dx*s.length,s.y+s.dy*s.length);return Math.max(a[0],b[0])>-220&&Math.min(a[0],b[0])<width+220&&Math.max(a[1],b[1])>-120&&Math.min(a[1],b[1])<height+120;});
+ private signature='';private segments:Segment[]=[];private cells=new Map<string,Segment[]>();lastCandidates=0;
+ private candidates(bounds?:RoadBounds):Segment[]{if(!bounds)return this.segments;const found=new Set<Segment>();for(let y=Math.floor(bounds.y0/128);y<=Math.floor(bounds.y1/128);y++)for(let x=Math.floor(bounds.x0/128);x<=Math.floor(bounds.x1/128);x++)for(const s of this.cells.get(x+','+y)??[])found.add(s);return [...found];}
+ draw(g:CanvasRenderingContext2D,data:DistrictData[],P:P,width:number,height:number,right=false,bounds?:RoadBounds):void{
+  const signature=data.map(d=>d.cx+','+d.cy+','+d.roads.length).join('/');if(signature!==this.signature){this.signature=signature;this.build(data);}
+  const candidates=this.candidates(bounds);this.lastCandidates=candidates.length;
+  const visible=candidates.filter(s=>{const a=P(s.x,s.y),b=P(s.x+s.dx*s.length,s.y+s.dy*s.length);return Math.max(a[0],b[0])>-220&&Math.min(a[0],b[0])<width+220&&Math.max(a[1],b[1])>-120&&Math.min(a[1],b[1])<height+120;});
   const quad=(s:Segment,half:number,from=0,to=s.length)=>{const nx=-s.dy*half,ny=s.dx*half,a=P(s.x+s.dx*from+nx,s.y+s.dy*from+ny),b=P(s.x+s.dx*to+nx,s.y+s.dy*to+ny),c=P(s.x+s.dx*to-nx,s.y+s.dy*to-ny),d=P(s.x+s.dx*from-nx,s.y+s.dy*from-ny);g.moveTo(...a);g.lineTo(...b);g.lineTo(...c);g.lineTo(...d);g.closePath();};
   const origin=P(0,0),anchor={x:origin[0],y:origin[1],zoom:1};
   g.beginPath();for(const s of visible)quad(s,s.walk?1.7:s.half+2.6);g.fillStyle=GROUND[T.SIDEWALK][0];g.fill();fillTextured(g,'pavers',.9,anchor);
@@ -30,8 +33,9 @@ export class DestinationRoads{
  private build(data:DistrictData[]):void{
   const roads=[...new Map(data.flatMap(d=>d.roads).map(r=>[r.id,r])).values()],nodes=new Map<string,Set<string>>(),key=(p:number[])=>p.map(v=>v.toFixed(1)).join(',');
   for(const r of roads)if(!walking(r.kind)&&r.kind!=='service')for(let i=0;i<r.points.length;i++){const k=key(r.points[i]),edges=nodes.get(k)??new Set<string>();if(i>0)edges.add(key(r.points[i-1]));if(i+1<r.points.length)edges.add(key(r.points[i+1]));nodes.set(k,edges);}
-  this.segments=[];for(const r of roads){const walk=walking(r.kind),paint=!walk&&!['service','track','living_street','construction','proposed'].includes(r.kind),half=roadHalfWidth(r),cumulative=[0];for(let i=1;i<r.points.length;i++)cumulative.push(cumulative[i-1]+Math.hypot(r.points[i][0]-r.points[i-1][0],r.points[i][1]-r.points[i-1][1]));const junctions=cumulative.filter((_,i)=>(nodes.get(key(r.points[i]))?.size??0)>=3).filter((at,i,all)=>!i||at-all[i-1]>14),crossings=junctions.flatMap(j=>[{at:j-11,side:-1},{at:j+11,side:1}]).filter(c=>c.at>0&&c.at<cumulative[cumulative.length-1]);
+  this.segments=[];this.cells.clear();for(const r of roads){const walk=walking(r.kind),paint=!walk&&!['service','track','living_street','construction','proposed'].includes(r.kind),half=roadHalfWidth(r),cumulative=[0];for(let i=1;i<r.points.length;i++)cumulative.push(cumulative[i-1]+Math.hypot(r.points[i][0]-r.points[i-1][0],r.points[i][1]-r.points[i-1][1]));const junctions=cumulative.filter((_,i)=>(nodes.get(key(r.points[i]))?.size??0)>=3).filter((at,i,all)=>!i||at-all[i-1]>14),crossings=junctions.flatMap(j=>[{at:j-11,side:-1},{at:j+11,side:1}]).filter(c=>c.at>0&&c.at<cumulative[cumulative.length-1]);
    for(let i=1;i<r.points.length;i++){const a=r.points[i-1],b=r.points[i],length=cumulative[i]-cumulative[i-1];if(length<.1)continue;this.segments.push({oneway:r.tags?.oneway==='-1'?-1:['yes','1','true'].includes(r.tags?.oneway??'')?1:0,x:a[0],y:a[1],dx:(b[0]-a[0])/length,dy:(b[1]-a[1])/length,length,half,walk,paint,start:(nodes.get(key(a))?.size??0)>=3,end:(nodes.get(key(b))?.size??0)>=3,distance:cumulative[i-1],junctions,crossings:crossings.filter(c=>length>6&&c.at>=cumulative[i-1]&&c.at<cumulative[i])});}
   }
+  for(const s of this.segments){const pad=s.half+4,x1=s.x+s.dx*s.length,y1=s.y+s.dy*s.length;for(let y=Math.floor((Math.min(s.y,y1)-pad)/128);y<=Math.floor((Math.max(s.y,y1)+pad)/128);y++)for(let x=Math.floor((Math.min(s.x,x1)-pad)/128);x<=Math.floor((Math.max(s.x,x1)+pad)/128);x++){const key=x+','+y,bucket=this.cells.get(key)??[];bucket.push(s);this.cells.set(key,bucket);}}
  }
 }

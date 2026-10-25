@@ -229,7 +229,7 @@ export class Renderer {
       this.push(tx + ty + 1, 2, ty * S + tx, pt.x, pt.y);
       if (t === T.BUILDING) this.viewB.add(sim.world.buildingOf[ty * S + tx]);
     }
-    if(mapped){this.mappedArt.beginFrame(o.quality);for(const id of worldIndex(sim.world).buildings.query(minX-20,minY-20,maxX+20,maxY+20)){const b=sim.world.buildings[id];if(b.x1<minX-20||b.y1<minY-20||b.x0>maxX+20||b.y0>maxY+20)continue;cam.toScreen(b.x0,b.y0,0,pt);const footprint=mapped.byBuilding.get(b.id);if(!footprint)continue;const depth=Math.max(...footprint.points.map(p=>(p[0]+p[1])/2+mapped.offsetX+mapped.offsetY));this.push(depth,14,b.id,pt.x,pt.y);this.viewB.add(b.id);}}
+    if(mapped){this.mappedArt.beginFrame(o.quality,Math.abs(cam.zoom-cam.targetZoom)>.015);for(const id of worldIndex(sim.world).buildings.query(minX-20,minY-20,maxX+20,maxY+20)){const b=sim.world.buildings[id];if(b.x1<minX-20||b.y1<minY-20||b.x0>maxX+20||b.y0>maxY+20)continue;cam.toScreen(b.x0,b.y0,0,pt);const footprint=mapped.byBuilding.get(b.id);if(!footprint)continue;const depth=Math.max(...footprint.points.map(p=>(p[0]+p[1])/2+mapped.offsetX+mapped.offsetY));this.push(depth,14,b.id,pt.x,pt.y);this.viewB.add(b.id);}}
     for (const p of mapped?[...worldIndex(sim.world).pois.query(minX-4,minY-4,maxX+4,maxY+4)].map(id=>sim.world.pois[id]):sim.world.pois) {
       if(mapped&&!mapped.visibility.fixtures&&p.kind!=='door')continue;
       cam.toScreen(p.x, p.y, 0, pt);
@@ -423,9 +423,9 @@ export class Renderer {
         } else drawTallTile(g, t, it.sx, it.sy, z, time, (it.ref * 0.618) % 1);
       } else if(it.kind===14){
         flush();const source=mapped!.byBuilding.get(it.ref)!;
-        const P=(x:number,y:number,height=0):[number,number]=>{const p=cam.toScreen(x/2+mapped!.offsetX,y/2+mapped!.offsetY,height/1.625,{x:0,y:0});return[p.x,p.y];};
+        const P=(x:number,y:number,height=0):[number,number]=>{const p=cam.toScreen(x/2+mapped!.offsetX,y/2+mapped!.offsetY,height/2,{x:0,y:0});return[p.x,p.y];};
         this.mappedArt.draw(g,source,P,16*z,[focusSX,focusSY]);
-        const damageP=(x:number,y:number,height=0):[number,number]=>{const p=cam.toScreen(x,y,height/0.8125,{x:0,y:0});return[p.x,p.y];};
+        const damageP=(x:number,y:number,height=0):[number,number]=>{const p=cam.toScreen(x,y,height,{x:0,y:0});return[p.x,p.y];};
         drawMappedFacadeDamage(g,sim.mappedDamage,damageP,32*z,sim.tick/60,source.id);
         if(o.quality>=2&&1-sim.daylight>.3)GLOW.push(layer=>{this.mappedArt.glow(layer,source,P,16*z,1-sim.daylight);drawMappedFacadeDamage(layer,sim.mappedDamage,damageP,32*z,sim.tick/60,source.id,true);});
       } else if (it.kind === 4) {
@@ -483,7 +483,7 @@ export class Renderer {
 
     drawUpgradeEffects(g, sim, cam, time, o.reduceMotion, o.quality);
     drawCommerceArt(g,sim,cam,o.reduceMotion);
-    if(mapped?.visibility.labels&&!o.quietInterface){g.font='600 11px system-ui';g.textAlign='center';for(const id of this.viewB){const b=sim.world.buildings[id],source=mapped.byBuilding.get(id)!;const text=source.name||source.tags.address||(['casino','studio','hospital','police','airport'].includes(b.kind)?b.name:'');if(!text)continue;const p=cam.toScreen((b.x0+b.x1+1)/2,(b.y0+b.y1+1)/2,source.height/1.625+.25,{x:0,y:0}),name=text.length>36?text.slice(0,35)+'…':text,w=Math.min(250,g.measureText(name).width+14),box={x:p.x-w/2,y:p.y-18,w,h:20};if(!reserveSign('mapped:'+id,box))continue;g.fillStyle='#142c30e6';g.fillRect(box.x,box.y,box.w,box.h);g.fillStyle='#ded4ad';g.fillText(name,p.x,p.y-4,w-8);}g.textAlign='start';}
+    if(mapped?.visibility.labels&&!o.quietInterface){g.font='600 11px system-ui';g.textAlign='center';for(const id of this.viewB){const b=sim.world.buildings[id],source=mapped.byBuilding.get(id)!;const text=source.name||source.tags.address||(['casino','studio','hospital','police','airport'].includes(b.kind)?b.name:'');if(!text)continue;const p=cam.toScreen((b.x0+b.x1+1)/2,(b.y0+b.y1+1)/2,source.height/2+.25,{x:0,y:0}),name=text.length>36?text.slice(0,35)+'…':text,w=Math.min(250,g.measureText(name).width+14),box={x:p.x-w/2,y:p.y-18,w,h:20};if(!reserveSign('mapped:'+id,box))continue;g.fillStyle='#142c30e6';g.fillRect(box.x,box.y,box.w,box.h);g.fillStyle='#ded4ad';g.fillText(name,p.x,p.y-4,w-8);}g.textAlign='start';}
     if(!o.quietInterface)this.drawBubbles(view, o);
     this.drawDebug(o.debug, alpha);
     if (o.quality === 3) this.cinematic(sim);
