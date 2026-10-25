@@ -815,10 +815,11 @@ function collisions(sim: Simulation,fleet=sim.vehicles): void {
     }
   }
   const vs = fleet;
-  for (let i = 0; i < vs.length; i++) for (const b of vehicleIndex(sim).query(vs[i].x,vs[i].y,vehicleGeometry(vs[i]).radius+Math.hypot(vs[i].x-vs[i].px,vs[i].y-vs[i].py)+.5,collisionCandidates)) {
+  for (let i = 0; i < vs.length; i++) {
+    if(vs[i].state==="parked")continue;
+    for (const b of vehicleIndex(sim).query(vs[i].x,vs[i].y,vehicleGeometry(vs[i]).radius+Math.hypot(vs[i].x-vs[i].px,vs[i].y-vs[i].py)+.5,collisionCandidates)) {
     const a = vs[i];
-    if(a.id>=b.id)continue;
-    if (a.state === "parked" && b.state === "parked") continue;
+    if(a===b||b.state!=="parked"&&a.id>=b.id)continue;
     const dx = b.x - a.x, dy = b.y - a.y, dd = dx * dx + dy * dy;
     const ga=vehicleGeometry(a),gb=vehicleGeometry(b);
     const r = (ga.radius+gb.radius)+Math.hypot(a.x-a.px,a.y-a.py)+Math.hypot(b.x-b.px,b.y-b.py);
@@ -865,7 +866,8 @@ function collisions(sim: Simulation,fleet=sim.vehicles): void {
     if (contact.depth>0.2 && Math.abs((va.x-vb.x)*nx+(va.y-vb.y)*ny)<0.01 && separation>0.01 && (va.x-vb.x)*dx+(va.y-vb.y)*dy>0) { nx=dx/separation;ny=dy/separation; }
     const closing = (va.x-vb.x)*nx+(va.y-vb.y)*ny;
     if (closing > 0) crashImpulse(sim, a, b, va, vb, nx, ny,contact.x,contact.y);
-    if (closing > 2.5) sim.onCarCrash(a, b, closing);
+    if (closing > 2.5) sim.onCarCrash(a, b, closing,{x:contact.x,y:contact.y});
+  }
   }
 }
 
