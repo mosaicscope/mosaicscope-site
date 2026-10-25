@@ -15,6 +15,7 @@ export interface Settings {
   fakeBlood: boolean;      // cartoon blood, wounds and splatter
   density: number;         // background crowd count
   showNames: boolean;
+  streetZoom?:number;
   tutorialDone: boolean;
   keys: Record<string, string>;
   /** Optional model brains for the Mosaics, keyed by backend id. Keys/tokens stay in this browser only. */
@@ -53,6 +54,7 @@ export function loadSettings(store: StorageProvider): Settings {
     if (typeof d.gentle === "boolean") s.gentle = d.gentle;
     if (typeof d.fakeBlood === "boolean") s.fakeBlood = d.fakeBlood;
     if (typeof d.density === "number" && d.density >= 0 && d.density <= 5000) s.density = Math.round(d.density);
+    if(typeof d.streetZoom==="number"&&Number.isFinite(d.streetZoom)&&d.streetZoom>=.55&&d.streetZoom<=7)s.streetZoom=d.streetZoom;
     if (typeof d.showNames === "boolean") s.showNames = d.showNames;
     if (typeof d.tutorialDone === "boolean") s.tutorialDone = d.tutorialDone;
     if (d.brains && typeof d.brains === "object") for (const id of BRAIN_IDS) {

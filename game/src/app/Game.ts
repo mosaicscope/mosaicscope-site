@@ -136,6 +136,7 @@ export class Game {
     this.settings = loadSettings(this.store);
     this.sim = new Simulation({ cityMap:'christchurch',trafficCars:650,pathsPerTick:2,backgroundCount: Math.min(this.settings.density * 3, 900) }, {}, this.lifeFlags);
     this.renderer = new Renderer(canvas, this.sim);
+    if(this.settings.streetZoom!==undefined){this.renderer.cam.setZoom(this.settings.streetZoom);this.renderer.cam.zoom=this.settings.streetZoom;}
     void this.cityPanel.refresh(true);
     this.audio = new AudioSystem(() => this.renderer.cam);
     this.audio.attach(this.sim);
@@ -881,8 +882,8 @@ export class Game {
       else if (key === k.dev || key === "~") this.dev.toggle();
       else if (key === "c") this.returnToPlayer();
       else if (key === "o") this.photos.open();
-      else if (key === "=" || key === "+") this.renderer.cam.setZoom(this.renderer.cam.targetZoom * 1.2);
-      else if (key === "-") this.renderer.cam.setZoom(this.renderer.cam.targetZoom / 1.2);
+      else if (key === "=" || key === "+") this.setStreetZoom(this.renderer.cam.targetZoom * 1.2);
+      else if (key === "-") this.setStreetZoom(this.renderer.cam.targetZoom / 1.2);
     });
     window.addEventListener("keyup", (e) => this.keys.delete(e.key.toLowerCase()));
     window.addEventListener("blur",()=>{this.keys.clear();this.mouse.down=false;this.mouse.dragging=false;this.touches.clear();this.touchFire=false;this.touchMove={x:0,y:0};this.touchBrake=false;this.touchHandbrake=false;});
@@ -902,7 +903,7 @@ export class Game {
       if (this.touches.size === 2) {
         if(e.pointerType==='touch'){this.mouse.dragging=true;return;}
         const [a, b] = [...this.touches.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
-        if (this.pinchDist > 0) this.renderer.cam.setZoom(this.renderer.cam.targetZoom * (d / this.pinchDist));
+        if (this.pinchDist > 0) this.setStreetZoom(this.renderer.cam.targetZoom * (d / this.pinchDist));
         this.pinchDist = d; this.mouse.dragging = true; return;
       }
       if (this.mouse.down && this.mouse.button!==2 && (this.mouse.dragging || Math.hypot(e.clientX - this.mouse.sx, e.clientY - this.mouse.sy) > 8)) {
@@ -923,7 +924,7 @@ export class Game {
     cv.addEventListener("pointerup", up);
     cv.addEventListener("lostpointercapture",()=>{this.mouse.down=false;this.mouse.dragging=false;this.touchFire=false;});
     cv.addEventListener("pointercancel",()=>{this.mouse.down=false;this.mouse.dragging=false;this.touches.clear();this.touchFire=false;this.touchMove={x:0,y:0};});
-    cv.addEventListener("wheel", (e) => { e.preventDefault(); this.renderer.cam.setZoom(this.renderer.cam.targetZoom * Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
+    cv.addEventListener("wheel", (e) => { e.preventDefault(); this.setStreetZoom(this.renderer.cam.targetZoom * Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
   }
 
   private click(x: number, y: number, button: number): void {
@@ -1240,7 +1241,7 @@ export class Game {
     move: (x, y) => { this.touchMove.x = x; this.touchMove.y = y; },
     brake: (held: boolean) => { this.touchBrake = held; },
     handbrake: (held:boolean)=>{this.touchHandbrake=held;},
-    zoom: (dir: number) => { const c = this.renderer.cam; c.setZoom(c.targetZoom * (dir > 0 ? 1.4 : 1 / 1.4)); },
+    zoom: (dir: number) => { const c = this.renderer.cam; this.setStreetZoom(c.targetZoom * (dir > 0 ? 1.4 : 1 / 1.4)); },
     inCar: () => this.sim.player.inCar >= 0,
     action: (n) => {
       const sim = this.sim, p = sim.player;
@@ -1508,6 +1509,8 @@ export class Game {
     if (q !== this.quality || s.quality !== "auto") { this.quality = q as Quality; this.renderer.resize(this.quality); }
   }
 
+  private zoomSaveTimer=0;
+  private setStreetZoom(z:number):void {this.renderer.cam.setZoom(z);this.settings.streetZoom=this.renderer.cam.targetZoom;clearTimeout(this.zoomSaveTimer);this.zoomSaveTimer=window.setTimeout(()=>this.persistSettings(),350);}
   private persistSettings(): void { saveSettings(this.store, this.settings); }
 
   // ---- optional model brains (the 🧠 tab) ----
@@ -1671,7 +1674,7 @@ export class Game {
     this.modal.show('Equipped gun · live action',[liveWeaponMechanism({
       state:()=>{const p=this.sim.player,def=p.hand>=0?this.sim.toys[p.hand]?.def??'':'',base=def==='golden_pistol'?'pistol':def,load=p.combat?.load??'standard',key=load==='standard'?base:base+':'+load;return{def,action:p.weaponAction,tick:this.sim.tick,rounds:p.combat?.ammo[key]??0,status:(p.combat?.reloadUntil??0)>this.sim.tick?'Reloading':p.phys!==Phys.OK?'Recovering':'Ready'};},
       fire:()=>{const p=this.sim.player,old=this.mouse;const aim=this.renderer.cam.toScreen(p.x+Math.cos(p.facing)*8,p.y+Math.sin(p.facing)*8,0,{x:0,y:0});this.mouse={...old,x:aim.x,y:aim.y};this.act('throw');this.mouse=old;},
-      focus:()=>{this.modal.close();this.renderer.cam.follow=this.sim.playerId;this.renderer.cam.setZoom(Math.min(6,this.renderer.cam.viewH/145));},
+      focus:()=>{this.modal.close();this.renderer.cam.follow=this.sim.playerId;this.renderer.cam.frameStreet();},
     })],'activities');
   }
 

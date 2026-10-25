@@ -13,7 +13,11 @@ export class Camera {
   private s: Pt = { x: 0, y: 0 };
   private c: Pt = { x: 0, y: 0 };
 
-  resize(w: number, h: number): void { this.viewW = w; this.viewH = h; }
+  private automaticFraming=true;
+  resize(w: number, h: number): void { this.viewW = w; this.viewH = h;if(this.automaticFraming)this.frameStreet(); }
+  /** Readable starting scale. Manual zoom survives viewport changes. */
+  frameStreet():void {this.automaticFraming=true;this.zoom=this.targetZoom=clamp(Math.min(this.viewW,this.viewH)/430,1.6,1.8);}
+
 
   update(dt: number, reduceMotion: boolean): void {
     const k = reduceMotion ? 1 : 1 - Math.exp(-dt * 8);
@@ -24,7 +28,7 @@ export class Camera {
     if(!this.unbounded){this.x = clamp(this.x, 0, S); this.y = clamp(this.y, 0, S);}
   }
 
-  setZoom(z: number): void { this.targetZoom = clamp(z, this.minZoom, this.maxZoom); }
+  setZoom(z: number): void { this.automaticFraming=false;this.targetZoom = clamp(z, this.minZoom, this.maxZoom); }
   lookAt(x: number, y: number, snap = false): void {
     this.targetX = this.unbounded?x:clamp(x, 0, this.worldSize); this.targetY = this.unbounded?y:clamp(y, 0, this.worldSize);
     if (snap) { this.x = this.targetX; this.y = this.targetY; }
