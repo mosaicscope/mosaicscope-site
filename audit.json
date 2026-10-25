@@ -1,21 +1,23 @@
 {
- "at": 1792347391247,
+ "at": 1792953199313,
  "url": "https://mosaicscope.pages.dev/",
  "scores": {
-  "performance": 0.24,
+  "performance": 0.28,
   "accessibility": 0.96,
-  "bestPractices": 0.79,
+  "bestPractices": 0.75,
   "seo": 1
  },
  "metrics": {
-  "lcpMs": 11742.057,
-  "cls": 0.144,
-  "tbtMs": 7165.074,
-  "fcpMs": 4325.011,
-  "bytes": 2264441
+  "lcpMs": 6931.566,
+  "cls": 0.134,
+  "tbtMs": 5551.364,
+  "fcpMs": 3180.375,
+  "bytes": 1678558
  },
  "failing": [
+  "errors-in-console",
   "third-party-cookies",
+  "aria-allowed-role",
   "aria-prohibited-attr",
   "label-content-name-mismatch",
   "inspector-issues",
