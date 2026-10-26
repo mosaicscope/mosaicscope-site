@@ -1,6 +1,6 @@
 {
- "at": 1792962053498,
- "key": "4yf7jf",
+ "at": 1792983194988,
+ "key": "1lzj5vz",
  "findings": [
   {
    "kind": "doc-dead-path",
@@ -29,6 +29,13 @@
    "where": "game/art-requests/README.md",
    "detail": "mentions `analysis.md`, which doesn't exist",
    "fp": "doc-dead-path|lhfrhs"
+  },
+  {
+   "kind": "doc-missing-api",
+   "severity": "low",
+   "where": "functions/api/city-address.js",
+   "detail": "/api/city-address isn't mentioned in any README",
+   "fp": "doc-missing-api|xcy5jm"
   },
   {
    "kind": "doc-missing-api",

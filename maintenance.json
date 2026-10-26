@@ -1,5 +1,5 @@
 {
- "at": 1792962053403,
+ "at": 1792983194879,
  "totals": {
   "duplicate-code": 2,
   "long-function": 17,
@@ -51,9 +51,9 @@
    "kind": "oversized-module",
    "severity": "medium",
    "where": "game/src/app/Game.ts",
-   "detail": "1734 lines",
+   "detail": "1737 lines",
    "fix": "split by feature into modules",
-   "fp": "oversized-module|1kzkh20"
+   "fp": "oversized-module|176bcyp"
   },
   {
    "kind": "oversized-module",
@@ -115,9 +115,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/render/Renderer.ts",
-   "detail": "1090 lines",
+   "detail": "1092 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|tvh"
+   "fp": "oversized-module|rgipun"
   },
   {
    "kind": "oversized-module",
@@ -155,9 +155,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Simulation.ts",
-   "detail": "988 lines",
+   "detail": "989 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|1h6ncdh"
+   "fp": "oversized-module|h8g69e"
   },
   {
    "kind": "long-function",
@@ -171,17 +171,17 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Traffic.ts",
-   "detail": "928 lines",
+   "detail": "929 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|qqp7i3"
+   "fp": "oversized-module|11a2vf4"
   },
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/sim/Traffic.ts:597",
+   "where": "game/src/sim/Traffic.ts:598",
    "detail": "194 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1k89ryr"
+   "fp": "long-function|1duwolo"
   },
   {
    "kind": "long-function",
