@@ -1,3 +1,4 @@
+import {AddressPanel} from '../ui/AddressPanel';
 import {Running} from '../sim/Running';
 import {CityLifePanel} from '../ui/CityLifePanel';
 import {CityStreamer} from '../world/CityStreamer';
@@ -1322,7 +1323,7 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ focus mode
-  private minimap = new Minimap(() => this.sim);
+  private minimap = new Minimap(() => this.sim,()=>{this.minimap.toggle(false);this.addressPanel.show();});
   private roast = new RoastBattle((r) => { if (r.won) { this.sim.player.cash += 150; this.focus("You won the roast", `Crowd ${Math.round(r.crowd)}% · +$150 · Roastie respects you now`, 3.5); } else this.focus("Roasted", "Roastie Malone wins this one. Run it back.", 3); });
   private burger = new BurgerShift((r) => { this.sim.player.cash += r.pay; this.toast(`Shift done: ${r.orders} orders, ${r.perfect} perfect. Paid ${fmtCash(r.pay)}`, "acid"); this.focus("Shift over", `Lyttelton Diner paid you ${fmtCash(r.pay)}`, 3); });
   private heist = new HeistUI(this.modal);
@@ -1385,13 +1386,14 @@ export class Game {
   private cannonAt=0;
   private lifePhone = new LifePhone(() => this.sim, this.modal, tab => this.activities.show(tab), (x,y) => { this.moveTarget = {x,y}; this.pendingTalk = -1; this.renderer.cam.follow = this.sim.playerId; });
   private cityLifePanel=new CityLifePanel({sim:()=>this.sim,modal:this.modal,sources:()=>this.openLiveCity(),walk:p=>{this.moveTarget={x:p.x,y:p.y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);this.toast("Walking to "+p.name);},toast:t=>this.toast(t)});
+  private addressPanel=new AddressPanel({sim:()=>this.sim,modal:this.modal,camera:()=>this.renderer.cam,arrive:(x,y)=>{this.moveTarget=null;this.pendingTalk=-1;this.pendingEnter=null;this.keys.clear();this.touchMove={x:0,y:0};this.renderer.cam.lookAt(x,y,true);this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);},walk:(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);},toast:t=>this.toast(t)});
   private cityPanel=new WorldCityPanel({sim:()=>this.sim,camera:()=>this.renderer.cam,close:()=>this.modal.close(),walk:(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);},talk:id=>this.talkTo(id),vehicle:()=>this.interact(),stop:()=>{this.moveTarget=null;this.pendingTalk=-1;},toast:t=>this.toast(t)});
   private openLiveCity():void{this.modal.show('Christchurch · live city',[this.cityPanel.render()]);}
   private notifiedEncounter: string | null = null;
 
   private buildBar(): HTMLElement {
     this.clockEl = h("div.clock");
-    this.speedEls = [[0, "Ⅱ"], [1, "▶"], [2, "▶▶"], [4, "4×"]].map(([v, label]) => h("button", { "data-speed": v, "aria-label": v === 0 ? "Pause" : `Speed ${v}x`, "aria-pressed": "false", onclick: () => this.setSpeed(+v), text: label }) as HTMLButtonElement);
+    this.speedEls = [[0, "Ⅱ"], [1, "▶"]].map(([v, label]) => h("button", { "data-speed": v, "aria-label": v === 0 ? "Pause" : `Speed ${v}x`, "aria-pressed": "false", onclick: () => this.setSpeed(+v), text: label }) as HTMLButtonElement);
     this.soundBtn = h("button.btn.iconbtn", { "aria-label": "Sound on/off", onclick: () => { this.settings.sound = !this.settings.sound; this.applySettings(); this.persistSettings(); } }) as HTMLButtonElement;
     const command = (label: string, icon: string, fn: () => void, cls = "") => h("button.dock-command" + cls, { onclick: fn }, [h("span", { text: icon, "aria-hidden": "true" }), h("b", { text: label })]);
     const dock = h("nav.game-dock", { "aria-label": "Game actions" }, [
@@ -1400,6 +1402,7 @@ export class Game {
       command('Live city','◉',()=>this.openLiveCity()),
       command("Casino", "♠", () => { this.pausedBefore = this.clock.paused; this.casino.show(); }, ".casino-launch"),
       command("Daily life", "☀", () => this.cityLifePanel.show()),
+      command("Address", "⌖",()=>this.addressPanel.show()),
       command("Explore", "◎", () => this.activities.show("Explore")),
       command("Photo", "▣", () => this.photos.open()),
       command("Save", "↓", () => this.openSaves()),
@@ -1449,7 +1452,7 @@ export class Game {
   }
 
   setSpeed(v: number): void {
-    if (v === 0) this.clock.paused = true; else { this.clock.paused = false; this.clock.speed = v; }
+    this.clock.speed=1;this.clock.paused=v<=0;
   }
 
   private padMove = { x: 0, y: 0 };

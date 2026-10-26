@@ -89,6 +89,7 @@ export class Simulation {
   readonly step_dt = 1 / 60;
   /** Nearby full AI/avoidance slots; background residents retain their identity at cheaper LOD. */
   detailBudget=24;
+  trafficRadius=80;
   rng: Rng;
   world!: World;
   mappedDamage=new MappedFacadeDamage();

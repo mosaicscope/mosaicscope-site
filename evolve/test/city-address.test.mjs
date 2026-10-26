@@ -1,0 +1,6 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {addressResults,onRequestGet} from '../../functions/api/city-address.js';
+test('normalizes local Photon results and excludes invalid or out-of-city coordinates',()=>{const result=addressResults({features:[{geometry:{coordinates:[172.63,-43.53]},properties:{osm_type:'W',osm_id:1,housenumber:'311',street:'Montreal Street',city:'Christchurch'}},{geometry:{coordinates:[0,0]},properties:{}},{geometry:{coordinates:[null,-43.53]},properties:{}}]});assert.equal(result.length,1);assert.equal(result[0].label,'311 Montreal Street, Christchurch');assert.equal(result[0].precision,'address');assert.equal(result[0].source,'OpenStreetMap / Photon');});
+test('does not pretend a place or street match is a numbered address',()=>{const [result]=addressResults({features:[{geometry:{coordinates:[172.54,-43.49]},properties:{name:'Christchurch Airport',osm_id:2}}]});assert.equal(result.precision,'place');assert.match(result.label,/Airport/);});
+test('rejects missing and oversized queries before any upstream request',async()=>{for(const q of ['', 'aa','a'.repeat(141)]){const response=await onRequestGet({request:new Request('https://example.test/api/city-address?q='+encodeURIComponent(q))});assert.equal(response.status,400);}});

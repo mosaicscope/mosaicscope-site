@@ -1,6 +1,6 @@
 import {worldIndex} from '../world/WorldIndex';
 import {hitFacade} from "./CivicDamage";
-import {spawnMappedVehicles,driveMappedVehicle,snapMappedVehicle} from './MappedTraffic';
+import {advanceDistantTraffic,spawnMappedVehicles,driveMappedVehicle,snapMappedVehicle} from './MappedTraffic';
 import { handlingProfile, roadSurface, slipGrip, corneringBudget, followingSpeed, temperatureGrip } from "./VehicleHandling";
 import { vehicleIndex } from "./VehicleIndex";
 import { vehicleGeometry, chassisContact, sweptChassisContact } from "./VehicleGeometry";
@@ -176,13 +176,14 @@ export function refreshAmbientFleet(sim:Simulation):void{
 const frameScratch=new WeakMap<Simulation,{previous:Float64Array;fleet:Vehicle[]}>();
 export function updateVehicles(sim: Simulation, dt: number): void {
   if (!Number.isFinite(dt) || dt <= 0) return;
+  if(sim.world.mapped)advanceDistantTraffic(sim);
   const count=sim.vehicles.length;let scratch=frameScratch.get(sim);
   if(!scratch){scratch={previous:new Float64Array(Math.max(32,count*2)),fleet:[]};frameScratch.set(sim,scratch);}
   if(scratch.previous.length<count*2)scratch.previous=new Float64Array(Math.max(count*2,scratch.previous.length*2));
   const previous=scratch.previous,fleet=sim.world.mapped?scratch.fleet:sim.vehicles;if(sim.world.mapped)fleet.length=0;
   for(let i=0;i<count;i++){const v=sim.vehicles[i];previous[i*2]=v.x;previous[i*2+1]=v.y;
     if(!sim.world.mapped)continue;
-    if(v.driver===sim.playerId||v.state==='free'||v.state==='crashed'||v.rescueTarget!==undefined||(v.x-sim.focus.x)**2+(v.y-sim.focus.y)**2<80*80)fleet.push(v);
+    if(v.driver===sim.playerId||v.state==='free'||v.state==='crashed'||v.rescueTarget!==undefined||(v.x-sim.focus.x)**2+(v.y-sim.focus.y)**2<sim.trafficRadius*sim.trafficRadius)fleet.push(v);
     else{v.px=v.x;v.py=v.y;v.speed=0;v.vx=v.vy=0;}
   }
   // Bound hitch catch-up work and resolve fast contacts at 120 Hz, independently of rendering.
