@@ -16,7 +16,7 @@ export class Camera {
   private automaticFraming=true;
   resize(w: number, h: number): void { this.viewW = w; this.viewH = h;if(this.automaticFraming)this.frameStreet(); }
   /** Readable starting scale. Manual zoom survives viewport changes. */
-  frameStreet():void {this.automaticFraming=true;this.zoom=this.targetZoom=clamp(Math.min(this.viewW,this.viewH)/430,1.6,1.8);}
+  frameStreet():void {this.automaticFraming=true;this.zoom=this.targetZoom=clamp(Math.min(this.viewW,this.viewH)/330,2.2,2.4);}
 
 
   update(dt: number, reduceMotion: boolean): void {

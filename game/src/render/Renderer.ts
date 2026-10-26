@@ -67,6 +67,7 @@ export class Renderer {
   readonly cam = new Camera();
   readonly g: CanvasRenderingContext2D;
   terrain: Terrain;
+  get aerialStatus(){return this.mappedArt.aerialStatus;}
   private mappedArt=new MappedArchitecture();private mappedGround=new MappedGround();
   particles: Particles;
   private lighting = new Lighting();
@@ -231,7 +232,7 @@ export class Renderer {
       this.push(tx + ty + 1, 2, ty * S + tx, pt.x, pt.y);
       if (t === T.BUILDING) this.viewB.add(sim.world.buildingOf[ty * S + tx]);
     }
-    if(mapped){this.mappedArt.beginFrame(o.quality,Math.abs(cam.zoom-cam.targetZoom)>.015);for(const id of worldIndex(sim.world).buildings.query(minX-20,minY-20,maxX+20,maxY+20)){const b=sim.world.buildings[id];if(b.x1<minX-20||b.y1<minY-20||b.x0>maxX+20||b.y0>maxY+20)continue;cam.toScreen(b.x0,b.y0,0,pt);const footprint=mapped.byBuilding.get(b.id);if(!footprint)continue;const depth=Math.max(...footprint.points.map(p=>(p[0]+p[1])/2+mapped.offsetX+mapped.offsetY));this.push(depth,14,b.id,pt.x,pt.y);this.viewB.add(b.id);}}
+    if(mapped){this.mappedArt.aerialEnabled=mapped.visibility.aerialRoofs!==false;this.mappedArt.beginFrame(o.quality,Math.abs(cam.zoom-cam.targetZoom)>.015);for(const id of worldIndex(sim.world).buildings.query(minX-20,minY-20,maxX+20,maxY+20)){const b=sim.world.buildings[id];if(b.x1<minX-20||b.y1<minY-20||b.x0>maxX+20||b.y0>maxY+20)continue;cam.toScreen(b.x0,b.y0,0,pt);const footprint=mapped.byBuilding.get(b.id);if(!footprint)continue;const depth=Math.max(...footprint.points.map(p=>(p[0]+p[1])/2+mapped.offsetX+mapped.offsetY));this.push(depth,14,b.id,pt.x,pt.y);this.viewB.add(b.id);}}
     for (const p of mapped?[...worldIndex(sim.world).pois.query(minX-4,minY-4,maxX+4,maxY+4)].map(id=>sim.world.pois[id]):sim.world.pois) {
       if(mapped&&!mapped.visibility.fixtures&&p.kind!=='door')continue;
       cam.toScreen(p.x, p.y, 0, pt);

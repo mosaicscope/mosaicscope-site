@@ -135,7 +135,7 @@ export class Game {
     canvas.tabIndex=0;
     this.rootEl = root;
     this.settings = loadSettings(this.store);
-    this.sim = new Simulation({ cityMap:'christchurch',trafficCars:650,pathsPerTick:2,backgroundCount: Math.min(this.settings.density * 3, 900) }, {}, this.lifeFlags);
+    this.sim = new Simulation({ cityMap:'christchurch',trafficCars:750,pathsPerTick:2,backgroundCount: Math.min(this.settings.density * 3, 900) }, {}, this.lifeFlags);
     this.renderer = new Renderer(canvas, this.sim);
     if(this.settings.streetZoom!==undefined){this.renderer.cam.setZoom(this.settings.streetZoom);this.renderer.cam.zoom=this.settings.streetZoom;}
     void this.cityPanel.refresh(true);
@@ -410,6 +410,7 @@ export class Game {
     if(now-this.lastAutoSave>30000)this.autoSave();void this.cityPanel.refresh();
     const miniGameOpen=!this.roast.el.classList.contains("hidden")||!this.burger.el.classList.contains("hidden");
     if(miniGameOpen)return;
+    const aerial=this.renderer.aerialStatus;this.aerialCredit.hidden=!aerial.loaded||this.sim.world.mapped?.visibility.aerialRoofs===false;this.aerialCredit.textContent='Aerial: '+(aerial.owners.join(', ')||'Canterbury Maps')+' · CC BY 4.0';this.aerialCredit.title=aerial.surveys.join('; ')+' · Reprojected and clipped to mapped roofs. Facades estimated.';
     this.tickFocus(now);
     this.rootEl.classList.toggle("panel-open", this.modal.open || this.casino.open || this.club.open || this.luxury.open);
     if (this.sim.expansion.pending && this.notifiedEncounter !== this.sim.expansion.pending && !this.modal.open && !this.casino.open && !this.interior.open && !this.dialogue.open && !this.phone.open) { this.notifiedEncounter = this.sim.expansion.pending; this.toast("A nearby street story: open Explore to choose what happens.", "acid"); this.activities.encounter(); }
@@ -1390,6 +1391,7 @@ export class Game {
   private cityPanel=new WorldCityPanel({sim:()=>this.sim,camera:()=>this.renderer.cam,close:()=>this.modal.close(),walk:(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);},talk:id=>this.talkTo(id),vehicle:()=>this.interact(),stop:()=>{this.moveTarget=null;this.pendingTalk=-1;},toast:t=>this.toast(t)});
   private openStreetLife():void{void import('../ui/StreetLifePanel').then(m=>m.showStreetLife(this.modal,this.sim,(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);}));}
   private openLiveCity():void{this.modal.show('Christchurch · live city',[this.cityPanel.render()]);}
+  private aerialCredit=h('a.aerial-credit',{href:'https://gisimagery.ecan.govt.nz/arcgis/rest/services/Imagery/Latest_Imagery/ImageServer',target:'_blank',rel:'noopener',text:'Aerial: Canterbury Maps · CC BY 4.0'});
   private notifiedEncounter: string | null = null;
 
   private buildBar(): HTMLElement {
@@ -1409,7 +1411,7 @@ export class Game {
       command("Photo", "▣", () => this.photos.open(), ".dock-secondary"),
       command("Save", "↓", () => this.openSaves(), ".dock-secondary"),
     ]);
-    this.rootEl.append(dock);
+    this.rootEl.append(dock,this.aerialCredit);
     return h("header.bar", null, [
       h("a.brand", { href: "/", title: "Back to MosaicScope" }, [h("span.brand-gem", { text: "◆" }), h("b", { text: "The Mosaics" }), h("i", { text: "Ōtautahi / After Hours" })]),
       this.clockEl, h("div.spacer"), h("div.seg", { role: "group", "aria-label": "Simulation speed" }, this.speedEls), this.soundBtn,
@@ -1663,7 +1665,7 @@ export class Game {
   }
 
   reset(seed?: number): void {
-    const sim = new Simulation({ cityMap:'christchurch',trafficCars:650,pathsPerTick:2,seed: seed ?? this.sim.cfg.seed, backgroundCount: Math.min(this.settings.density * 3, 900) }, {}, this.lifeFlags);
+    const sim = new Simulation({ cityMap:'christchurch',trafficCars:750,pathsPerTick:2,seed: seed ?? this.sim.cfg.seed, backgroundCount: Math.min(this.settings.density * 3, 900) }, {}, this.lifeFlags);
     this.swapSim(sim);
     this.toast(seed !== undefined ? `New world · seed ${seed}` : "World restarted");
   }

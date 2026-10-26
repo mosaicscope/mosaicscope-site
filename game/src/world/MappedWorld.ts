@@ -12,7 +12,7 @@ export interface MappedCity {
  roads:MappedRoad[];terrain:MappedTerrain[];venues:MappedVenue[];streetSegments:CitySegment[];
  origin:{lat:number;lon:number};coverage:typeof snapshot.coverage;
  damageFootprints:import('../sim/MappedFacadeDamage').DamageFootprint[];
- visibility:{labels:boolean;traffic:boolean;people:boolean;fixtures:boolean;weather:boolean};
+ visibility:{aerialRoofs?:boolean;labels:boolean;traffic:boolean;people:boolean;fixtures:boolean;weather:boolean};
  liveConditions?:import('../ui/LiveCity').LiveCityData;
  closedRoads?:Set<number>;
  trafficMode?:'cruise'|'city'|'rush';

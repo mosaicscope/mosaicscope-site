@@ -1,3 +1,4 @@
+import {AerialRoofs} from './AerialRoofs';
 import {mappedFacadeStyle} from '../content/mappedFacadeStyle';
 import {MAPPED_HEIGHT_RATIO} from '../world/WorldScale';
 import {architectureRaster} from './ArchitectureRaster';
@@ -6,13 +7,15 @@ import {mappedBuildingStyle} from '../content/mappedBuildingStyle';
 import {paintWindowStories,type Win} from './NightGlow';
 
 type Pt=[number,number];type Project=(x:number,y:number,z?:number)=>Pt;
-interface Mesh{cv:HTMLCanvasElement;life:HTMLCanvasElement|null;at:Pt;ox:number;oy:number;unit:number;windows:Win[];stamp:number;bytes:number;top:number;extent:number;tags:MappedBuilding['tags'];name:string}
+interface Mesh{aerial:string;cv:HTMLCanvasElement;life:HTMLCanvasElement|null;at:Pt;ox:number;oy:number;unit:number;windows:Win[];stamp:number;bytes:number;top:number;extent:number;tags:MappedBuilding['tags'];name:string}
 const shade=(hex:string,n:number)=>{const s=hex.replace('#','');return '#'+[0,2,4].map(i=>Math.max(0,Math.min(255,parseInt(s.slice(i,i+2),16)+n)).toString(16).padStart(2,'0')).join('');};
 /** Exact polygon extrusion. Static architecture is cached; a small room layer updates at 12 Hz. */
 export class MappedArchitecture{
+ readonly aerial=new AerialRoofs();aerialEnabled=false;
+ get aerialStatus(){return{loaded:this.aerial.loaded,failed:this.aerial.failed,surveys:[...this.aerial.surveys],owners:[...this.aerial.owners]};}
  private cache=new Map<number,Mesh>();private bytes=0;private jobs=0;private deadline=0;private quality=1;private windowJobs=0;private zoomMoving=false;
- beginFrame(quality=1,zoomMoving=false):void{this.zoomMoving=zoomMoving;this.jobs=0;this.windowJobs=0;this.quality=quality;this.deadline=performance.now()+1;}
- clear():void{this.cache.clear();this.bytes=0;}
+ beginFrame(quality=1,zoomMoving=false):void{this.aerial.beginFrame();this.zoomMoving=zoomMoving;this.jobs=0;this.windowJobs=0;this.quality=quality;this.deadline=performance.now()+1;}
+ clear():void{this.cache.clear();this.bytes=0;this.aerial.clear();}
  top(b:MappedBuilding):number{return b.height;}
  private create(b:MappedBuilding,scale:number,dpr:number):Mesh{
   const points=b.points.filter((p,i,a)=>i===0||p[0]!==a[i-1][0]||p[1]!==a[i-1][1]);if(points.length>3&&points[0][0]===points[points.length-1][0]&&points[0][1]===points[points.length-1][1])points.pop();
@@ -48,6 +51,7 @@ export class MappedArchitecture{
    if(['dairy','cafe','hotel'].includes(style.kind)&&length>5){const u0=.08,u1=.92,h=Math.min(3,top-.7),out=.65,nx=(dy/length)*winding,ny=(-dx/length)*winding;polygon([at(u0,h),at(u1,h),P(a[0]+dx*u1+nx*out,a[1]+dy*u1+ny*out,h-.3),P(a[0]+dx*u0+nx*out,a[1]+dy*u0+ny*out,h-.3)],'#b3a873');}
    const name=b.name||b.tags.address;if(name&&style.kind!=='house'&&length>7&&i===edges[0].i){const p0=at(.12,Math.min(wallTop-.35,3)),p1=at(.88,Math.min(wallTop-.35,3)),[start,end]=p0[0]<=p1[0]?[p0,p1]:[p1,p0],width=Math.hypot(end[0]-start[0],end[1]-start[1]);g.save();g.translate(...start);g.transform((end[0]-start[0])/width,(end[1]-start[1])/width,0,1,0,0);g.fillStyle='#233b3e';g.fillRect(0,-unit*.65,width,unit*.7);g.font=`600 ${Math.min(10,unit*.45)}px Arial`;g.textAlign='center';g.fillStyle='#dbce9f';g.fillText(name.slice(0,36),width/2,-unit*.16,width-unit*.5);g.restore();}
   }
+  let photo=false;
   if(pitched){
    // Keep the mapped footprint and total height; the pitched roof replaces the upper wall volume.
    const q=(side0>=side1?points:[points[1],points[2],points[3],points[0]]) as Pt[],mid=(a:Pt,b:Pt):Pt=>[(a[0]+b[0])/2,(a[1]+b[1])/2];
@@ -55,17 +59,18 @@ export class MappedArchitecture{
    polygon([e[0],e[3],a],shade(arch.wall,-12));polygon([e[1],e[2],b],arch.wall);
    const faces=[{ps:[e[0],e[1],b,a],depth:q[0][0]+q[0][1]+q[1][0]+q[1][1],color:shade(arch.roof,12)},{ps:[e[3],e[2],b,a],depth:q[3][0]+q[3][1]+q[2][0]+q[2][1],color:shade(arch.roof,-10)}];
    faces.sort((a,b)=>a.depth-b.depth);for(const f of faces)polygon(f.ps,f.color);
-  }else polygon(points.map(p=>P(p[0],p[1],top)),arch.roof,'#343e3c');
+   if(this.aerialEnabled){photo=this.aerial.paint(g,[[...q[0],wallTop],[...q[1],wallTop],[...r1,top],[...r0,top]],P)||photo;photo=this.aerial.paint(g,[[...q[3],wallTop],[...q[2],wallTop],[...r1,top],[...r0,top]],P)||photo;}
+  }else{polygon(points.map(p=>P(p[0],p[1],top)),arch.roof,'#343e3c');if(this.aerialEnabled)photo=this.aerial.paint(g,points.map(p=>[p[0],p[1],top]),P);}
   // Roof seams are clipped to the exact surveyed outline, with restrained service fittings.
-  if(!pitched){g.save();g.beginPath();points.forEach((p,i)=>i?g.lineTo(...P(p[0],p[1],top)):g.moveTo(...P(p[0],p[1],top)));g.closePath();g.clip();const bb={x0:Math.min(...points.map(p=>p[0])),x1:Math.max(...points.map(p=>p[0])),y0:Math.min(...points.map(p=>p[1])),y1:Math.max(...points.map(p=>p[1]))};g.strokeStyle=shade(arch.roof,-16);g.lineWidth=.6;for(let x=bb.x0;x<bb.x1;x+=2.5){g.beginPath();g.moveTo(...P(x,bb.y0,top));g.lineTo(...P(x,bb.y1,top));g.stroke();}g.restore();
+  if(!pitched&&!photo){g.save();g.beginPath();points.forEach((p,i)=>i?g.lineTo(...P(p[0],p[1],top)):g.moveTo(...P(p[0],p[1],top)));g.closePath();g.clip();const bb={x0:Math.min(...points.map(p=>p[0])),x1:Math.max(...points.map(p=>p[0])),y0:Math.min(...points.map(p=>p[1])),y1:Math.max(...points.map(p=>p[1]))};g.strokeStyle=shade(arch.roof,-16);g.lineWidth=.6;for(let x=bb.x0;x<bb.x1;x+=2.5){g.beginPath();g.moveTo(...P(x,bb.y0,top));g.lineTo(...P(x,bb.y1,top));g.stroke();}g.restore();
   // A bounded detail set per roof, positioned within the footprint rather than floating beside it.
   const cx=points.reduce((n,p)=>n+p[0],0)/points.length,cy=points.reduce((n,p)=>n+p[1],0)/points.length,r=P(cx,cy,top);g.fillStyle='#737d75';g.fillRect(r[0]-unit*.65,r[1]-unit*.45,unit*1.3,unit*.8);g.strokeStyle='#a1aaa0';g.strokeRect(r[0]-unit*.65,r[1]-unit*.45,unit*1.3,unit*.8);}
-  return{cv,life:null,at:origin,ox,oy,unit,windows,stamp:-1,bytes:cv.width*cv.height*4,top,extent,tags:b.tags,name:b.name};
+  return{aerial:this.aerialEnabled?this.aerial.prepare(points):'off',cv,life:null,at:origin,ox,oy,unit,windows,stamp:-1,bytes:cv.width*cv.height*4,top,extent,tags:b.tags,name:b.name};
  }
  draw(g:CanvasRenderingContext2D,b:MappedBuilding,P:Project,scale:number,focus:Pt):void{
   const corners=b.points.map(p=>P(p[0],p[1])),xs=corners.map(p=>p[0]),ys=corners.map(p=>p[1]),height=b.height*scale*MAPPED_HEIGHT_RATIO,W=g.canvas.clientWidth||g.canvas.width,H=g.canvas.clientHeight||g.canvas.height;
   if(Math.max(...xs)<-70||Math.min(...xs)>W+70||Math.max(...ys)<-70||Math.min(...ys)-height>H+70)return;
-  let mesh=this.cache.get(b.id);if(mesh&&(mesh.top!==b.height||mesh.tags!==b.tags||mesh.name!==b.name)){this.bytes-=mesh.bytes;this.cache.delete(b.id);mesh=undefined;}if(mesh&&!this.zoomMoving&&mesh.unit<architectureRaster(mesh.extent,scale,g.getTransform().a,this.quality)*.7&&(!this.jobs||performance.now()<this.deadline)){this.bytes-=mesh.bytes;this.cache.delete(b.id);mesh=undefined;}if(!mesh){if(this.jobs&&performance.now()>this.deadline){g.fillStyle='#6f7b72';g.beginPath();b.points.forEach((p,i)=>i?g.lineTo(...P(p[0],p[1],b.height)):g.moveTo(...P(p[0],p[1],b.height)));g.closePath();g.fill();return;}mesh=this.create(b,scale,g.getTransform().a);this.jobs++;this.cache.set(b.id,mesh);this.bytes+=mesh.bytes;while(this.cache.size>96||this.bytes>64*1024*1024){const id=this.cache.keys().next().value!;if(id===b.id)break;const old=this.cache.get(id)!;this.bytes-=old.bytes;this.cache.delete(id);}}
+  const aerial=this.aerialEnabled?this.aerial.prepare(b.points):'off';let mesh=this.cache.get(b.id);if(mesh&&(mesh.aerial!==aerial||mesh.top!==b.height||mesh.tags!==b.tags||mesh.name!==b.name)){this.bytes-=mesh.bytes;this.cache.delete(b.id);mesh=undefined;}if(mesh&&!this.zoomMoving&&mesh.unit<architectureRaster(mesh.extent,scale,g.getTransform().a,this.quality)*.7&&(!this.jobs||performance.now()<this.deadline)){this.bytes-=mesh.bytes;this.cache.delete(b.id);mesh=undefined;}if(!mesh){if(this.jobs&&performance.now()>this.deadline){g.fillStyle='#6f7b72';g.beginPath();b.points.forEach((p,i)=>i?g.lineTo(...P(p[0],p[1],b.height)):g.moveTo(...P(p[0],p[1],b.height)));g.closePath();g.fill();return;}mesh=this.create(b,scale,g.getTransform().a);this.jobs++;this.cache.set(b.id,mesh);this.bytes+=mesh.bytes;while(this.cache.size>96||this.bytes>64*1024*1024){const id=this.cache.keys().next().value!;if(id===b.id)break;const old=this.cache.get(id)!;this.bytes-=old.bytes;this.cache.delete(id);}}
   else{this.cache.delete(b.id);this.cache.set(b.id,mesh);}
   const p=P(...mesh.at),f=scale/mesh.unit,x=p[0]-mesh.ox*f,y=p[1]-mesh.oy*f,ground=pointInside(focus,corners),cover=!ground&&focus[0]>=Math.min(...xs)&&focus[0]<=Math.max(...xs)&&focus[1]<Math.max(...ys)&&focus[1]>Math.min(...ys)-height;
   g.save();if(cover)g.globalAlpha=.25;g.drawImage(mesh.cv,x,y,mesh.cv.width*f,mesh.cv.height*f);
