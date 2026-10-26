@@ -14,7 +14,7 @@ function serve(req: any, res: any, next: any) {
 }
 
 // Local previews use the same public read-only city endpoints as the deployed game.
-const cityProxy=Object.fromEntries(['/api/city-address','/api/destination-map','/api/live-city'].map(path=>[path,{target:'https://mosaicscope.pages.dev',changeOrigin:true}]));
+const cityProxy=Object.fromEntries(['/api/city-aerial','/api/city-address','/api/destination-map','/api/live-city'].map(path=>[path,{target:'https://mosaicscope.pages.dev',changeOrigin:true}]));
 
 // The built game is committed to ../world so the static MosaicScope site serves it at /world/
 // without any build step on Cloudflare. The main site never loads anything from here.

@@ -5,7 +5,7 @@ import type {CitySegment} from '../world/MappedWorld';
 import {vehicleGeometry,chassisContact,sweptChassisContact} from './VehicleGeometry';
 import {utilityDynamics,stepUtility} from './VehicleUtility';
 interface Edge{segment:CitySegment;sign:number;from:string;to:string;x:number;y:number;dx:number;dy:number;length:number;offset:number;next:number[]}
-interface Route{edge:number;at:number;wait:number}
+interface Route{edge:number;at:number;wait:number;next?:number}
 interface Network{revision:number;edges:Edge[];routes:WeakMap<Vehicle,Route>;buckets:Map<string,Vehicle[]>;tick:number;edgeCells:Map<string,number[]>;junctions:Map<string,{car:Vehicle;until:number;entry:number;exit:number}>}
 const networks=new WeakMap<Simulation,Network>();
 const crossingPeople:number[]=[];
@@ -23,20 +23,27 @@ function localEdges(n:Network,x:number,y:number,r:number):number[]{const out=new
 /** Stagger cheap far-away updates so stopped boundary cars cannot back queues into the active area. */
 export function advanceDistantTraffic(sim:Simulation):void{
  if(!sim.world.mapped)return;const n=network(sim);buckets(sim,n);
- for(const v of sim.vehicles){if(v.id%60!==sim.tick%60||v.state!=='drive'||v.owner>=0||v.rescueTarget!==undefined||Math.hypot(v.x-sim.focus.x,v.y-sim.focus.y)<=sim.trafficRadius)continue;const far=Math.hypot(v.x-sim.focus.x,v.y-sim.focus.y)>sim.trafficRadius+70;if(far&&Math.floor(sim.tick/60)%5!==Math.floor(v.id/60)%5)continue;let r=n.routes.get(v);if(!r){if(!snapMappedVehicle(sim,v))continue;r=n.routes.get(v)!;}let e=n.edges[r.edge];if(!e)continue;let edge=r.edge,at=r.at+Math.min(e.segment.speed,VEHICLES[v.cls].topSpeed*.7)*.85*(far?5:1);
+ for(const v of sim.vehicles){if(v.id%60!==sim.tick%60||v.state!=='drive'||v.owner>=0||v.rescueTarget!==undefined||Math.hypot(v.x-sim.focus.x,v.y-sim.focus.y)<=sim.trafficRadius)continue;const far=Math.hypot(v.x-sim.focus.x,v.y-sim.focus.y)>sim.trafficRadius+70;if(far&&Math.floor(sim.tick/60)%5!==Math.floor(v.id/60)%5)continue;let r=n.routes.get(v);if(!r){if(!snapMappedVehicle(sim,v))continue;r=n.routes.get(v)!;}if(r.wait>=25&&recoverDistant(sim,n,v,r))continue;let e=n.edges[r.edge];if(!e)continue;const seconds=far?5:1;let edge=r.edge,at=r.at+Math.min(e.segment.speed,VEHICLES[v.cls].topSpeed*.7)*.85*(far?5:1);
   for(let i=0;at>e.length&&i<32;i++){const options=e.next.filter(i=>!sim.world.mapped?.closedRoads?.has(n.edges[i].segment.id));if(!options.length){at=e.length;break;}at-=e.length;edge=options.reduce((best,i)=>e.dx*n.edges[i].dx+e.dy*n.edges[i].dy>e.dx*n.edges[best].dx+e.dy*n.edges[best].dy?i:best,options[0]);e=n.edges[edge];}
-  const p=position(e,Math.min(at,e.length));if(!sim.world.drivable(p.x,p.y)||sim.world.mapped.closedRoads?.has(e.segment.id))continue;const g=vehicleGeometry(v),near:Vehicle[]=[];for(let y=Math.floor(p.y/8)-1;y<=Math.floor(p.y/8)+1;y++)for(let x=Math.floor(p.x/8)-1;x<=Math.floor(p.x/8)+1;x++)for(const o of n.buckets.get(x+','+y)??[])if(o!==v)near.push(o);const candidate={...v,x:p.x,y:p.y,heading:Math.atan2(e.dy,e.dx)};if(near.some(o=>{if(chassisContact(candidate,o))return true;const dx=o.x-p.x,dy=o.y-p.y,other=vehicleGeometry(o);return Math.abs(dx*e.dx+dy*e.dy)<(g.length+other.length)/2+1&&Math.abs(-dx*e.dy+dy*e.dx)<(g.width+other.width)/2+.15;})){r.wait++;continue;}
-  const oldKey=Math.floor(v.x/8)+','+Math.floor(v.y/8),old=n.buckets.get(oldKey),idx=old?.indexOf(v)??-1;if(idx>=0)old!.splice(idx,1);v.x=v.px=p.x;v.y=v.py=p.y;v.heading=Math.atan2(e.dy,e.dx);r.edge=edge;r.at=Math.min(at,e.length);r.wait=0;const k=Math.floor(v.x/8)+','+Math.floor(v.y/8),list=n.buckets.get(k)??[];list.push(v);n.buckets.set(k,list);if(v.driver>=0){const c=sim.chars[v.driver];c.x=c.px=v.x;c.y=c.py=v.y;}
+  const p=position(e,Math.min(at,e.length));if(!sim.world.drivable(p.x,p.y)||sim.world.mapped.closedRoads?.has(e.segment.id)){r.wait+=seconds;continue;}const g=vehicleGeometry(v),near:Vehicle[]=[];for(let y=Math.floor(p.y/8)-1;y<=Math.floor(p.y/8)+1;y++)for(let x=Math.floor(p.x/8)-1;x<=Math.floor(p.x/8)+1;x++)for(const o of n.buckets.get(x+','+y)??[])if(o!==v)near.push(o);const candidate={...v,x:p.x,y:p.y,heading:Math.atan2(e.dy,e.dx)};if(near.some(o=>{if(chassisContact(candidate,o))return true;const dx=o.x-p.x,dy=o.y-p.y,other=vehicleGeometry(o);return Math.abs(dx*e.dx+dy*e.dy)<(g.length+other.length)/2+1&&Math.abs(-dx*e.dy+dy*e.dx)<(g.width+other.width)/2+.15;})){r.wait+=seconds;continue;}
+  const oldKey=Math.floor(v.x/8)+','+Math.floor(v.y/8),old=n.buckets.get(oldKey),idx=old?.indexOf(v)??-1;if(idx>=0)old!.splice(idx,1);const progress=Math.hypot(v.x-p.x,v.y-p.y);v.x=v.px=p.x;v.y=v.py=p.y;v.heading=Math.atan2(e.dy,e.dx);r.edge=edge;r.at=Math.min(at,e.length);r.next=undefined;r.wait=progress<.1?r.wait+seconds:0;const k=Math.floor(v.x/8)+','+Math.floor(v.y/8),list=n.buckets.get(k)??[];list.push(v);n.buckets.set(k,list);if(v.driver>=0){const c=sim.chars[v.driver];c.x=c.px=v.x;c.y=c.py=v.y;}
  }
 }
 
+/** Only recycle ordinary background traffic beyond the buffered camera bubble. */
+function recoverDistant(sim:Simulation,n:Network,v:Vehicle,r:Route):boolean{
+ if(v.owner>=0||v.driver===sim.playerId||v.rescueTarget!==undefined||Math.hypot(v.x-sim.focus.x,v.y-sim.focus.y)<=sim.trafficRadius+12)return false;
+ for(let attempt=0;attempt<32;attempt++){const edge=sim.rng.int(0,n.edges.length-1),e=n.edges[edge];if(e.length<12||!e.next.length||sim.world.mapped?.closedRoads?.has(e.segment.id))continue;const at=sim.rng.range(4,e.length-4),p=position(e,at);if(Math.hypot(p.x-sim.focus.x,p.y-sim.focus.y)<=sim.trafficRadius+18||!sim.world.drivable(p.x,p.y)||sim.vehicles.some(o=>o!==v&&Math.hypot(o.x-p.x,o.y-p.y)<7))continue;
+  v.x=v.px=p.x;v.y=v.py=p.y;v.heading=Math.atan2(e.dy,e.dx);v.speed=0;r.edge=edge;r.at=at;r.next=undefined;r.wait=0;n.tick=-1;buckets(sim,n);if(v.driver>=0){const c=sim.chars[v.driver];c.x=c.px=p.x;c.y=c.py=p.y;}return true;
+ }return false;
+}
 function position(e:Edge,at:number){return{x:e.x+e.dx*at+e.dy*e.offset,y:e.y+e.dy*at-e.dx*e.offset};}
 /** Keep the existing pool busy around newly visited streets, without adding entities or teleporting visible cars. */
 export function refreshCityPopulation(sim:Simulation):void{
  const m=sim.world.mapped;if(!m)return;const n=network(sim),p=sim.player;
  const local=localEdges(n,p.x,p.y,70).map(i=>({e:n.edges[i],i})).filter(({e})=>e.length>10&&Math.hypot(e.x+e.dx*Math.max(0,Math.min(e.length,(p.x-e.x)*e.dx+(p.y-e.y)*e.dy))-p.x,e.y+e.dy*Math.max(0,Math.min(e.length,(p.x-e.x)*e.dx+(p.y-e.y)*e.dy))-p.y)<65&&!m.closedRoads?.has(e.segment.id));
  if(!local.length)return;
- const mode=m.trafficMode??'city',target=mode==='rush'?120:mode==='cruise'?55:85,localCount=sim.vehicles.filter(v=>v.state==='drive'&&Math.hypot(v.x-p.x,v.y-p.y)<80).length,budget=Math.min(10,Math.max(0,target-localCount));
+ const mode=m.trafficMode??'city',capacity=Math.max(20,Math.floor(local.reduce((sum,{e})=>sum+e.length,0)/9)),target=Math.min(capacity,mode==='rush'?135:mode==='cruise'?55:95),localCount=sim.vehicles.filter(v=>v.state==='drive'&&Math.hypot(v.x-p.x,v.y-p.y)<80).length,budget=Math.min(10,Math.max(0,target-localCount));
  let moved=0;
  for(const v of sim.vehicles){if(moved>=budget)break;if(v.owner>=0||v.state!=='drive'||v.siren||v.rescueTarget!==undefined||v.cls==='police'||Math.hypot(v.x-p.x,v.y-p.y)<110)continue;
   for(let attempt=0;attempt<6;attempt++){const {e,i}=sim.rng.pick(local),at=sim.rng.range(4,e.length-4),q=position(e,at),distance=Math.hypot(q.x-p.x,q.y-p.y);
@@ -60,7 +67,7 @@ export function spawnMappedVehicles(sim:Simulation,make:Factory):void{
  const firstNew=sim.vehicles.length;
  for(let i=sim.vehicles.filter(v=>v.state==='drive').length,attempt=0;i<moving&&attempt<moving*25;attempt++){const list=i<Math.min(120,moving*.2)&&near.length&&attempt<moving*10?near:candidates;if(!list.length)break;const {e,i:edge}=rng.pick(list),at=rng.range(3,e.length-3),p=position(e,at);if(!sim.world.drivable(p.x,p.y)||sim.vehicles.some(v=>Math.hypot(v.x-p.x,v.y-p.y)<5)||sim.chars.some(c=>c.inCar<0&&c.inside<0&&Math.hypot(c.x-p.x,c.y-p.y)<3))continue;const v=make(sim,model(),p.x,p.y,0,'drive');v.heading=Math.atan2(e.dy,e.dx);v.dir=((Math.round(v.heading/(Math.PI/2))%4)+4)%4;v.speed=Math.min(5,e.segment.speed*.7);n.routes.set(v,{edge,at,wait:0});const c=drivers.pop();if(c){v.driver=c.id;c.inCar=v.id;c.x=c.px=p.x;c.y=c.py=p.y;}i++;}
  // Kerb parking follows the same road geometry. Keep junctions, entrances and river banks clear.
- let parked=sim.vehicles.filter(v=>v.state==='parked').length;for(const {e}of [...candidates].sort((a,b)=>Math.hypot(a.e.x-sim.player.x,a.e.y-sim.player.y)-Math.hypot(b.e.x-sim.player.x,b.e.y-sim.player.y))){if(parked>=210)break;if(e.sign<0||e.length<9||['primary','trunk','motorway','service'].includes(e.segment.kind))continue;for(let at=5;at<e.length-4&&parked<210;at+=5.5){const off=e.segment.half+.75,x=e.x+e.dx*at+e.dy*off,y=e.y+e.dy*at-e.dx*off;if(!sim.world.walkable(x,y)||sim.world.carriageway(x,y)||sim.vehicles.some(v=>Math.hypot(v.x-x,v.y-y)<3.2)||sim.world.pois.some(p=>p.kind==='door'&&Math.hypot(p.x-x,p.y-y)<2.2))continue;make(sim,model(),x,y,0,'parked').heading=Math.atan2(e.dy,e.dx);parked++;}}
+ let parked=sim.vehicles.filter(v=>v.state==='parked').length;for(const {e}of [...candidates].sort((a,b)=>Math.hypot(a.e.x-sim.player.x,a.e.y-sim.player.y)-Math.hypot(b.e.x-sim.player.x,b.e.y-sim.player.y))){if(parked>=240)break;if(e.sign<0||e.length<9||['primary','trunk','motorway','service'].includes(e.segment.kind))continue;for(let at=5;at<e.length-4&&parked<240;at+=5.5){const off=e.segment.half+.75,x=e.x+e.dx*at+e.dy*off,y=e.y+e.dy*at-e.dx*off;if(!sim.world.walkable(x,y)||sim.world.carriageway(x,y)||sim.vehicles.some(v=>Math.hypot(v.x-x,v.y-y)<3.2)||sim.world.pois.some(p=>p.kind==='door'&&Math.hypot(p.x-x,p.y-y)<2.2))continue;make(sim,model(),x,y,0,'parked').heading=Math.atan2(e.dy,e.dx);parked++;}}
  // Police patrols and a nearby unowned car remain available to the full game systems.
  if(!sim.vehicles.slice(0,firstNew).some(v=>v.cls==='police')){const cops=sim.chars.filter(c=>c.role==='cop'&&c.inCar<0);for(let i=0;i<Math.min(2,cops.length);i++){const v=sim.vehicles[firstNew+i];if(!v||v.state!=='drive')continue;v.cls='police';v.siren=false;if(v.driver>=0)sim.chars[v.driver].inCar=-1;v.driver=cops[i].id;cops[i].inCar=v.id;}}
 }
@@ -68,12 +75,6 @@ export function spawnMappedVehicles(sim:Simulation,make:Factory):void{
 function buckets(sim:Simulation,n:Network):void{if(n.tick===sim.tick)return;n.tick=sim.tick;if(n.buckets.size>2048)n.buckets.clear();else for(const a of n.buckets.values())a.length=0;for(const v of sim.vehicles){const k=Math.floor(v.x/8)+','+Math.floor(v.y/8),a=n.buckets.get(k)??[];a.push(v);n.buckets.set(k,a);}}
 export function driveMappedVehicle(sim:Simulation,v:Vehicle,dt:number):void{
  const n=network(sim);let route=n.routes.get(v);if(!route){if(!snapMappedVehicle(sim,v)){v.speed=0;v.state='parked';return;}route=n.routes.get(v)!;}
- if(route.wait>25&&Math.hypot(v.x-sim.focus.x,v.y-sim.focus.y)>150){
-  for(let attempt=0;attempt<24;attempt++){const edge=sim.rng.int(0,n.edges.length-1),q=n.edges[edge];if(q.length<12||sim.world.mapped?.closedRoads?.has(q.segment.id))continue;
-   const at=sim.rng.range(4,q.length-4),p=position(q,at);if(Math.hypot(p.x-sim.focus.x,p.y-sim.focus.y)<150||!sim.world.drivable(p.x,p.y)||sim.vehicles.some(o=>o!==v&&Math.hypot(o.x-p.x,o.y-p.y)<7))continue;
-   v.x=v.px=p.x;v.y=v.py=p.y;v.heading=Math.atan2(q.dy,q.dx);v.speed=0;route.edge=edge;route.at=at;route.wait=0;n.tick=-1;break;
-  }
- }
  buckets(sim,n);let e=n.edges[route.edge];if(!e){v.state='parked';return;}const d=VEHICLES[v.cls],utility=utilityDynamics(v),geometry=vehicleGeometry(v),oldSpeed=v.speed;let target=Math.min(e.segment.speed,d.topSpeed*.7);
  const mode=sim.world.mapped?.trafficMode??'city',headway=mode==='cruise'?1.8:mode==='rush'?1.15:1.45;target*=mode==='cruise'?.65:mode==='rush'?1:.85;
  const cx=Math.floor(v.x/8),cy=Math.floor(v.y/8),obstacles=nearbyObstacles;obstacles.length=0;for(let y=cy-2;y<=cy+2;y++)for(let x=cx-2;x<=cx+2;x++)for(const o of n.buckets.get(x+','+y)??[]){if(o===v)continue;obstacles.push(o);const dx=o.x-v.x,dy=o.y-v.y,along=dx*e.dx+dy*e.dy,cross=Math.abs(-dx*e.dy+dy*e.dx),gap=along-(geometry.length+vehicleGeometry(o).length)/2;if((o.state==='parked'||Math.cos(o.heading)*e.dx+Math.sin(o.heading)*e.dy>.25)&&along>0&&along<15&&cross<(geometry.width+vehicleGeometry(o).width)/2+.25)target=Math.min(target,Math.max(0,(gap-1)/headway));}
@@ -82,23 +83,23 @@ export function driveMappedVehicle(sim:Simulation,v:Vehicle,dt:number):void{
  // Give way to crossing pedestrians and vehicles already entering this actual mapped junction.
  if(e.length-route.at<6&&e.next.length>1){const cycle=(sim.tick/60)%16,ns=Math.abs(e.dy)>Math.abs(e.dx),green=ns?cycle<7:cycle>=8&&cycle<15;if(!green)target=Math.min(target,Math.sqrt(Math.max(0,2*d.brake*(e.length-route.at-geometry.length/2-.6))));}
  const delta=target-v.speed,rate=delta>0?d.accel*.55*utility.acceleration:d.brake*utility.braking;v.speed=Math.max(0,v.speed+Math.sign(delta)*Math.min(Math.abs(delta),rate*dt));
- let nextAt=route.at+v.speed*dt,nextEdge=route.edge;route.wait=v.speed<.15?route.wait+dt:0;
- if(nextAt>=e.length){const options=e.next.filter(i=>!sim.world.mapped?.closedRoads?.has(n.edges[i].segment.id));if(!options.length){v.speed=0;return;}const turn=sim.rng.weighted(options.map(i=>{const q=n.edges[i],dot=e.dx*q.dx+e.dy*q.dy;return dot>.9?6:dot>-.1?2:.15;}));const old=e,reservation=n.junctions.get(e.to);
+ let nextAt=route.at+v.speed*dt,nextEdge=route.edge;let lease:{key:string;entry:number;exit:number}|null=null;route.wait=v.speed<.15?route.wait+dt:0;
+ if(nextAt>=e.length){const options=e.next.filter(i=>!sim.world.mapped?.closedRoads?.has(n.edges[i].segment.id));if(!options.length){v.speed=0;return;}if(route.next===undefined||!options.includes(route.next))route.next=options[sim.rng.weighted(options.map(i=>{const q=n.edges[i],dot=e.dx*q.dx+e.dy*q.dy;return dot>.9?6:dot>-.1?2:.15;}))];const turn=options.indexOf(route.next);const old=e,reservation=n.junctions.get(e.to);
   const straight=(a:Edge,b:Edge)=>a.dx*b.dx+a.dy*b.dy>.9,previous=reservation?n.edges[reservation.entry]:null,previousExit=reservation?n.edges[reservation.exit]:null,compatible=previous&&previousExit&&straight(old,n.edges[options[turn]])&&straight(previous,previousExit)&&Math.abs(old.dx*previous.dy-old.dy*previous.dx)<.1;
   if(reservation&&!compatible&&reservation.car!==v&&reservation.until>sim.tick&&Math.hypot(reservation.car.x-(e.x+e.dx*e.length),reservation.car.y-(e.y+e.dy*e.length))<7){v.speed=0;return;}
   nextEdge=options[turn];e=n.edges[nextEdge];nextAt=Math.min(e.length,nextAt-old.length);
   // Never enter a junction without enough receiving-lane space for the full chassis.
   const exit=position(e,Math.min(e.length,geometry.length+1));
-  if(obstacles.some(o=>{const dx=o.x-exit.x,dy=o.y-exit.y,g=vehicleGeometry(o);return Math.abs(dx*e.dx+dy*e.dy)<(geometry.length+g.length)/2+.8&&Math.abs(-dx*e.dy+dy*e.dx)<(geometry.width+g.width)/2+.15&&(o.state==='parked'||Math.cos(o.heading)*e.dx+Math.sin(o.heading)*e.dy>.25);})){v.speed=0;return;}
-  n.junctions.set(old.to,{car:v,until:sim.tick+Math.max(90,Math.min(240,(geometry.length+3)/Math.max(2,v.speed)*60)),entry:route.edge,exit:nextEdge});
+  if(obstacles.some(o=>{const dx=o.x-exit.x,dy=o.y-exit.y,g=vehicleGeometry(o);return Math.abs(dx*e.dx+dy*e.dy)<(geometry.length+g.length)/2+.8&&Math.abs(-dx*e.dy+dy*e.dx)<(geometry.width+g.width)/2+.15&&(o.state==='parked'||Math.cos(o.heading)*e.dx+Math.sin(o.heading)*e.dy>.25);})){v.speed=0;if(route.wait>6){const alternative=options.find(i=>i!==nextEdge&&!obstacles.some(o=>{const q=n.edges[i],exit=position(q,Math.min(q.length,geometry.length+1));return Math.hypot(o.x-exit.x,o.y-exit.y)<geometry.length+2;}));if(alternative!==undefined){route.next=alternative;route.wait=0;}}return;}
+  lease={key:old.to,entry:route.edge,exit:nextEdge};
  }
  const heading=Math.atan2(e.dy,e.dx),angle=Math.atan2(Math.sin(heading-v.heading),Math.cos(heading-v.heading)),nextHeading=v.heading+angle*Math.min(1,dt*5*utility.turnResponse);
  const p=position(e,nextAt);let candidate=probes.get(v);if(!candidate){candidate={...v};probes.set(v,candidate);}candidate.cls=v.cls;candidate.plate=v.plate;candidate.lifeMods=v.lifeMods;candidate.x=p.x;candidate.y=p.y;candidate.px=v.x;candidate.py=v.y;candidate.heading=nextHeading;
  // Reject an occupied or swept chassis position before committing the route, including opposite lanes and turns.
  const occupied=obstacles.some(o=>chassisContact(candidate!,o)||sweptChassisContact(candidate!,o,true))||crossingPeople.some(id=>{const c=sim.chars[id];if(c.inCar>=0||c.inside>=0||!sim.world.drivable(c.x,c.y))return false;const dx=c.x-p.x,dy=c.y-p.y,cos=Math.cos(nextHeading),sin=Math.sin(nextHeading);return Math.abs(dx*cos+dy*sin)<geometry.length/2+c.radius+.4&&Math.abs(-dx*sin+dy*cos)<geometry.width/2+c.radius+.4;});
- if(!occupied&&sim.world.walkable(p.x,p.y)){v.x=p.x;v.y=p.y;route.at=nextAt;route.edge=nextEdge;v.heading=nextHeading;
+ if(!occupied&&sim.world.walkable(p.x,p.y)){if(lease){n.junctions.set(lease.key,{car:v,until:sim.tick+Math.max(90,Math.min(240,(geometry.length+3)/Math.max(2,v.speed)*60)),entry:lease.entry,exit:lease.exit});route.next=undefined;}v.x=p.x;v.y=p.y;route.at=nextAt;route.edge=nextEdge;v.heading=nextHeading;
   const cell=Math.floor(v.x/8)+','+Math.floor(v.y/8),before=cx+','+cy;if(cell!==before){const list=n.buckets.get(before),i=list?.indexOf(v)??-1;if(i>=0)list!.splice(i,1);const next=n.buckets.get(cell)??[];next.push(v);n.buckets.set(cell,next);}
- }else{v.speed=0;route.wait+=dt;}
+ }else{v.speed=0;route.wait+=dt;if(lease&&route.wait>8){const alternative=n.edges[route.edge].next.find(i=>i!==nextEdge&&!sim.world.mapped?.closedRoads?.has(n.edges[i].segment.id));if(alternative!==undefined){route.next=alternative;route.wait=0;}}}
  v.dir=((Math.round(v.heading/(Math.PI/2))%4)+4)%4;v.yaw=v.speed>0?angle*Math.min(5,1/Math.max(.001,dt)):0;v.wheelTravel=(v.wheelTravel??0)+v.speed*dt;
  stepUtility(v,(v.speed-oldSpeed)/dt,v.yaw*v.speed,v.speed,delta<-.3,dt);
 }

@@ -29,13 +29,15 @@ jobs:
         run: npm run typecheck --prefix game
       - name: City interaction and traffic regressions
         working-directory: game
-        run: npx vitest run tests/street-repairs.test.ts tests/address-city-life.test.ts tests/traffic-flow-release.test.ts tests/mapped-city.test.ts --maxWorkers=1 --testTimeout=40000
+        run: npx vitest run tests/aerial-roofs.test.ts tests/camera-map-scale.test.ts tests/street-repairs.test.ts tests/address-city-life.test.ts tests/traffic-flow-release.test.ts tests/mapped-city.test.ts tests/mapped-flow.test.ts --maxWorkers=1 --testTimeout=40000
       - name: Engine tests
         run: node --test evolve/test/engine.test.mjs
       - name: Instagram publishing authorization tests
         run: node --test evolve/test/mosaic-instagram.test.mjs
       - name: Worldwide destination geometry tests
         run: node --test evolve/test/destination-map.test.mjs
+      - name: Licensed aerial imagery tests
+        run: node --test evolve/test/city-aerial.test.mjs
       - name: Christchurch address lookup tests
         run: node --test evolve/test/city-address.test.mjs
       - name: Security gate (no new high or critical findings)

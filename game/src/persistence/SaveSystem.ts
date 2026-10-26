@@ -107,7 +107,7 @@ export function serialize(sim: Simulation, label = "Save"): SaveData {
   return {
     citySurvey:sim.world.mapped?{buildings:[...(sim.world.mapped.streamedBuildingIds??[])].map(id=>sim.world.mapped!.byBuilding.get(id)!),districts:sim.world.mapped.streamedData??[]}:undefined,
     mappedDamage:sim.mappedDamage.snapshot(),
-    ambientFleetVersion:3,
+    ambientFleetVersion:4,
     trafficMode:sim.world.mapped?.trafficMode,
     saltStory: { ...sim.saltStory },
     cityPlay:structuredClone(sim.cityPlay),streetLife: structuredClone(sim.streetLife),worldFun:structuredClone(sim.worldFun),
@@ -157,7 +157,7 @@ export function parseSave(json: string): SaveData {
 /** Build a fresh simulation from a save. */
 export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemFlags(),mapped=false): Simulation {
   const migrate=mapped&&!d.cfg.cityMap;
-  const sim = new Simulation({...d.cfg,...(mapped?{cityMap:'christchurch' as const,trafficCars:650,pathsPerTick:2,backgroundCount:(d.ambientFleetVersion??0)<3?Math.min((d.cfg.backgroundCount??150)*3,900):d.cfg.backgroundCount}:{})}, {}, lifeFlags);
+  const sim = new Simulation({...d.cfg,...(mapped?{cityMap:'christchurch' as const,trafficCars:750,pathsPerTick:2,backgroundCount:(d.ambientFleetVersion??0)<3?Math.min((d.cfg.backgroundCount??150)*3,900):d.cfg.backgroundCount}:{})}, {}, lifeFlags);
   if(sim.world.mapped&&d.citySurvey){const survey=d.citySurvey;
     if(Array.isArray(survey.buildings)&&survey.buildings.length<50000&&Array.isArray(survey.districts)&&survey.districts.length<=32){
       for(const b of survey.buildings)if(validDistrict({code:'CHC',cx:0,cy:0,centre:{name:''},buildings:[b],roads:[],venues:[]}))registerCityBuilding(sim.world,b);
@@ -213,7 +213,7 @@ export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemF
     const c=structuredClone(fresh),spot=sim.world.nearestFoot(sim.player.x+sim.chars.length%12-6,sim.player.y+8,16);
     c.id=sim.chars.length;c.x=c.px=spot.x;c.y=c.py=spot.y;c.rel=new Map();c.memories=[];c.hand=-1;c.bag=[];c.inCar=-1;sim.chars.push(c);
   }
-  if(sim.world.mapped&&(d.ambientFleetVersion??0)<3)spawnVehicles(sim);
+  if(sim.world.mapped&&(d.ambientFleetVersion??0)<4)spawnVehicles(sim);
   sim.rebuildHash();
   sim.lod.update(sim);
   return sim;
