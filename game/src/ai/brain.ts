@@ -159,6 +159,7 @@ function finish(c: Character, sim: Simulation, ok: boolean): void {
  */
 export function thinkBackground(c: Character, sim: Simulation, dt: number): void {
   sim.metrics.bgThinks++;
+  if(c.goal&&(c.goal.id==='nearby_scene'||c.goal.id==='street_life')&&c.phys===Phys.OK&&c.talkWith<0&&c.emo.fear<.6){execute(c,sim,dt);return;}
   if (c.phys !== Phys.OK) { stop(c); return; }
   if (sim.env.party && Math.hypot(c.x - sim.stagePoint.x, c.y - sim.stagePoint.y) < 12 && !sim.world.carriageway(c.x, c.y)) { stop(c); c.anim.pose = "dance"; return; }
   if (c.emo.fear > 0.5) { c.anim.pose = "panic"; } else if (c.anim.pose === "panic" || c.anim.pose === "dance") c.anim.pose = "auto";

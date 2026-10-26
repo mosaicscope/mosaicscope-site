@@ -1,3 +1,4 @@
+import {mappedMoverDepth} from './MappedDepth';
 import {trafficRadiusForView} from '../sim/TrafficBudget';
 import {MAPPED_FIGURE_SCALE} from '../world/WorldScale';
 import {drawStreetProp} from './StreetProps';
@@ -337,7 +338,7 @@ export class Renderer {
     for (const it of view) {
       if (it.kind === 0) {
         const c = sim.chars[it.ref];
-        const bg = !detail.has(c.id);
+        const bg = !detail.has(c.id)&&c.goal?.id!=='nearby_scene'&&c.goal?.id!=='street_life';
         const k = (mapped?MAPPED_FIGURE_SCALE:.44) * z * c.look.scale;
         const wx=c.px+(c.x-c.px)*alpha,wy=c.py+(c.y-c.py)*alpha;
         const previous=this.motion.get(c.id),distance=previous?Math.hypot(wx-previous.x,wy-previous.y):0;
@@ -980,6 +981,7 @@ export class Renderer {
    */
   private behind(x: number, y: number, d: number): number {
     const w = this.sim.world;
+    if(w.mapped)return mappedMoverDepth(w.mapped,[...this.viewB].map(id=>w.mapped!.byBuilding.get(id)!).filter(Boolean),x,y,d);
     let out = d;
     for (const id of this.viewB) {
       const b = w.buildings[id];

@@ -1388,6 +1388,7 @@ export class Game {
   private cityLifePanel=new CityLifePanel({sim:()=>this.sim,modal:this.modal,sources:()=>this.openLiveCity(),walk:p=>{this.moveTarget={x:p.x,y:p.y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);this.toast("Walking to "+p.name);},toast:t=>this.toast(t)});
   private addressPanel=new AddressPanel({sim:()=>this.sim,modal:this.modal,camera:()=>this.renderer.cam,arrive:(x,y)=>{this.moveTarget=null;this.pendingTalk=-1;this.pendingEnter=null;this.keys.clear();this.touchMove={x:0,y:0};this.renderer.cam.lookAt(x,y,true);this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);},walk:(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);},toast:t=>this.toast(t)});
   private cityPanel=new WorldCityPanel({sim:()=>this.sim,camera:()=>this.renderer.cam,close:()=>this.modal.close(),walk:(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);},talk:id=>this.talkTo(id),vehicle:()=>this.interact(),stop:()=>{this.moveTarget=null;this.pendingTalk=-1;},toast:t=>this.toast(t)});
+  private openStreetLife():void{void import('../ui/StreetLifePanel').then(m=>m.showStreetLife(this.modal,this.sim,(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);}));}
   private openLiveCity():void{this.modal.show('Christchurch · live city',[this.cityPanel.render()]);}
   private notifiedEncounter: string | null = null;
 
@@ -1397,15 +1398,16 @@ export class Game {
     this.soundBtn = h("button.btn.iconbtn", { "aria-label": "Sound on/off", onclick: () => { this.settings.sound = !this.settings.sound; this.applySettings(); this.persistSettings(); } }) as HTMLButtonElement;
     const command = (label: string, icon: string, fn: () => void, cls = "") => h("button.dock-command" + cls, { onclick: fn }, [h("span", { text: icon, "aria-hidden": "true" }), h("b", { text: label })]);
     const dock = h("nav.game-dock", { "aria-label": "Game actions" }, [
+      command("Address / teleport", "⌖",()=>this.addressPanel.show(), ".travel-launch"),
+      command("Nearby", "◉",()=>this.openStreetLife()),
       command("Life & upgrades", "◆", () => this.lifePhone.show()),
       command("City map", "▦", () => this.minimap.toggle()),
-      command('Live city','◉',()=>this.openLiveCity()),
-      command("Casino", "♠", () => { this.pausedBefore = this.clock.paused; this.casino.show(); }, ".casino-launch"),
+      command('Live city','◉',()=>this.openLiveCity(), '.dock-secondary'),
+      command("Casino", "♠", () => { this.pausedBefore = this.clock.paused; this.casino.show(); }, ".casino-launch.dock-secondary"),
       command("Daily life", "☀", () => this.cityLifePanel.show()),
-      command("Address", "⌖",()=>this.addressPanel.show()),
-      command("Explore", "◎", () => this.activities.show("Explore")),
-      command("Photo", "▣", () => this.photos.open()),
-      command("Save", "↓", () => this.openSaves()),
+      command("Explore", "◎", () => this.activities.show("Explore"), ".dock-secondary"),
+      command("Photo", "▣", () => this.photos.open(), ".dock-secondary"),
+      command("Save", "↓", () => this.openSaves(), ".dock-secondary"),
     ]);
     this.rootEl.append(dock);
     return h("header.bar", null, [
@@ -1414,6 +1416,12 @@ export class Game {
       h("button.btn.menu-toggle", { text: "☰ Menu", "aria-label": "Menu", "aria-expanded": "false", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar")!; const open = bar.classList.toggle("open"); if (open) this.dev.toggle(false); (e.currentTarget as HTMLElement).setAttribute("aria-expanded", String(open)); } }),
       h("nav.game-menu", { "aria-label": "More game options", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar"); bar?.classList.remove("open"); bar?.querySelector(".menu-toggle")?.setAttribute("aria-expanded", "false"); } }, [
         h('button.btn.acid',{text:'Resume game',onclick:()=>this.resumeGame()}),
+        h('button.btn.acid',{text:'Address search & teleport',onclick:()=>this.addressPanel.show()}),
+        h('button.btn',{text:'Nearby street activity',onclick:()=>this.openStreetLife()}),
+        h('button.btn',{text:'Casino',onclick:()=>this.casino.show()}),
+        h('button.btn',{text:'Explore',onclick:()=>this.activities.show('Explore')}),
+        h('button.btn',{text:'Photo',onclick:()=>this.photos.open()}),
+        h('button.btn',{text:'Save game',onclick:()=>this.openSaves()}),
         h('button.btn',{text:'Mobile phone',onclick:()=>this.phone.home()}),
         h('button.btn',{text:'Live mapped city',onclick:()=>this.openLiveCity()}),
         h('button.btn',{text:'Street play · games, walks & discoveries',onclick:()=>{void import('../ui/WorldPlay').then(m=>m.showWorldPlay(this.modal,this.sim,text=>this.toast(text),(x,y)=>{this.modal.close();this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);}));}}),

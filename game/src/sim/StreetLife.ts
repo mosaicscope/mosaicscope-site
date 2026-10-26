@@ -13,7 +13,7 @@ export const STREET_CREWS = [
   {id:'stormtroopers',name:'Stormtroopers',color:'#a59d86'},
   {id:'beez',name:'Killer Beez',color:'#c7a942'},
 ] as const;
-export const STREET_KINDS = ['meetup','dispute','protection','nightlife','intoxication','police','truce','turf'] as const;
+export const STREET_KINDS = ['meetup','dispute','protection','nightlife','intoxication','police','truce','turf','busking','cafe_queue','neighbours','cleanup','nightout'] as const;
 export type StreetKind = typeof STREET_KINDS[number];
 export interface StreetIncident { id:number; kind:StreetKind; crew:string; x:number; y:number; area:string; actors:number[]; started:number; until:number; title:string; line:string; resolved:boolean }
 export interface StreetLifeState { serial:number; nextAt:number; heat:Record<string,number>; history:StreetIncident[];driveBy?:{driver:number;vehicle:number;target:number;until:number;nextShot:number;shots:number} }
@@ -60,6 +60,7 @@ function plan(sim:Simulation,c:Character,x:number,y:number,steps:Step[]):void{
 }
 /** Each scene has a real location and a small cast; nobody is teleported into it. */
 export function triggerStreetIncident(sim:Simulation,kind:StreetKind,crewId?:string):StreetIncident|null {
+  if(['busking','cafe_queue','neighbours','cleanup','nightout'].includes(kind))return null;
   ensureStreetCrews(sim);
   const state=sim.streetLife;
   if(state.history.filter(e=>!e.resolved&&e.until>sim.tick).length>=3)return null;
@@ -72,7 +73,7 @@ export function triggerStreetIncident(sim:Simulation,kind:StreetKind,crewId?:str
   const actors=members.filter(c=>Math.hypot(c.x-lead.x,c.y-lead.y)<20).slice(0,3);
   if(!actors.length)return null;
   const group=CREWS[crew]?.name??crew, heat=state.heat[crew]??.3;
-  const lines:Record<StreetKind,string>={
+  const lines:Partial<Record<StreetKind,string>>={
     meetup:`${group} are meeting on the corner. ${STAGES[storyPhase(sim)]}`,
     dispute:`A street argument is drawing a crowd. ${STAGES[storyPhase(sim)]}`,
     protection:`A shopkeeper is pushing back against a protection demand. Ruth's stand at the dairy is being talked about.`,
@@ -82,8 +83,8 @@ export function triggerStreetIncident(sim:Simulation,kind:StreetKind,crewId?:str
     truce:`The crews are trying to keep the peace. ${STAGES[storyPhase(sim)]}`,
     turf:`Tensions are high around ${area?.name??'the street'}. Bystanders are moving clear.`,
   };
-  const titles:Record<StreetKind,string>={meetup:`${group} · corner meeting`,dispute:'Street dispute',protection:'Shopfront pressure',nightlife:'After-hours crowd',intoxication:'An unsteady night',police:'Patrol follow-up',truce:'Keeping the truce',turf:'Turf tension'};
-  const e:StreetIncident={id:++state.serial,kind,crew,x:point.x,y:point.y,area:area?.name??sim.world.streetName(point.x,point.y),actors:actors.map(c=>c.id),started:sim.tick,until:sim.tick+60*90,title:titles[kind],line:lines[kind],resolved:false};
+  const titles:Partial<Record<StreetKind,string>>={meetup:`${group} · corner meeting`,dispute:'Street dispute',protection:'Shopfront pressure',nightlife:'After-hours crowd',intoxication:'An unsteady night',police:'Patrol follow-up',truce:'Keeping the truce',turf:'Turf tension'};
+  const e:StreetIncident={id:++state.serial,kind,crew,x:point.x,y:point.y,area:area?.name??sim.world.streetName(point.x,point.y),actors:actors.map(c=>c.id),started:sim.tick,until:sim.tick+60*90,title:titles[kind]!,line:lines[kind]!,resolved:false};
   state.history.push(e);if(state.history.length>24)state.history.splice(0,state.history.length-24);
   state.heat[crew]=Math.max(0,Math.min(1,heat+(kind==='truce'?-.16:kind==='dispute'||kind==='protection'?.16:.03)));
   actors.forEach((c,i)=>{
