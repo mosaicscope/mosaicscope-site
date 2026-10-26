@@ -1,3 +1,4 @@
+import {activeNearbyScenes,joinNearbyScene,isNearbyScene} from '../sim/NearbyScenes';
 import {propDef} from '../content/streetProps';
 import {prepareStreetProps,useStreetProp} from '../sim/StreetProps';
 import type { Simulation } from '../sim/Simulation';
@@ -9,8 +10,12 @@ import { SALT_MILESTONES } from '../content/salt-story/milestones';
 
 export function showStreetLife(modal:ModalHost,sim:Simulation,walk:(x:number,y:number)=>void):void{
   prepareStreetProps(sim);
-  const events=[...sim.streetLife.history].reverse().slice(0,8);
-  modal.show('Street life · crews & neighbourhoods',[
+  const events=[...sim.streetLife.history].reverse().filter(e=>!isNearbyScene(e)).slice(0,8);
+  const nearby=activeNearbyScenes(sim).sort((a,b)=>Math.hypot(a.x-sim.player.x,a.y-sim.player.y)-Math.hypot(b.x-sim.player.x,b.y-sim.player.y));
+  modal.show('Nearby street activity',[
+    h('p',{text:'Real people in this game, doing things nearby. Walk to a scene, then join in. New scenes depend on people, places, weather and game time.'}),
+    ...(!nearby.length?[h('p',{text:'No gathering right beside you yet. Walk towards a busier footpath and let the city run for a few seconds.'})]:[]),
+    ...nearby.map(e=>{const feedback=h('p',{role:'status'});return h('article.street-card',null,[h('h3',{text:e.title}),h('p',{text:e.area+' · '+Math.round(Math.hypot(e.x-sim.player.x,e.y-sim.player.y)*2)+' metres'}),h('p',{text:e.line}),h('div.opts',null,[h('button.btn',{text:'Walk to scene',onclick:()=>{modal.close();walk(e.x,e.y);}}),h('button.btn.acid',{text:e.kind==='busking'?'Tip performer · $2':e.kind==='cleanup'?'Help tidy up':'Join the conversation',onclick:()=>{feedback.textContent=joinNearbyScene(sim,e.id);}})]),feedback]);}),
     h('p',{text:`Story context: ${SALT_MILESTONES[storyPhase(sim)].title}. Existing street encounters and authored dialogue remain available.`}),
     h('details',null,[h('summary',{text:'Street furniture · '+sim.cityPlay.props.length+' usable objects'}),...sim.cityPlay.props.slice().sort((a,b)=>Math.hypot(a.x-sim.player.x,a.y-sim.player.y)-Math.hypot(b.x-sim.player.x,b.y-sim.player.y)).map(p=>{const d=propDef(p.kind),near=Math.hypot(p.x-sim.player.x,p.y-sim.player.y)<1.35;return h('div.opts',null,[h('span',{text:d.name}),h('button',{text:near?d.action:'Walk here',onclick:()=>{modal.close();if(near)useStreetProp(sim,sim.player,p);else walk(p.x,p.y);}})]);})]),
     h('div.street-heat' ,null,Object.entries(sim.streetLife.heat).map(([id,heat])=>h('label',null,[CREWS[id]?.name??id,h('meter',{min:0,max:1,value:heat,'aria-label':`${CREWS[id]?.name??id} tension`}),`${Math.round(heat*100)}%`]))),

@@ -5,7 +5,7 @@
 name: evolve-ci
 on:
   pull_request:
-    paths: ["evolve/**", "functions/**", ".github/workflows/**", "index.html", "404.html", "main.js", "styles.css", "house/**", "stats/**", "sitemap.xml"]
+    paths: ["game/**", "world/**", "evolve/**", "functions/**", ".github/workflows/**", "index.html", "404.html", "main.js", "styles.css", "house/**", "stats/**", "sitemap.xml"]
 permissions:
   contents: write
   pull-requests: write
@@ -23,6 +23,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Install game dependencies
+        run: npm ci --prefix game
+      - name: Game typecheck
+        run: npm run typecheck --prefix game
+      - name: City interaction and traffic regressions
+        working-directory: game
+        run: npx vitest run tests/street-repairs.test.ts tests/address-city-life.test.ts tests/traffic-flow-release.test.ts tests/mapped-city.test.ts --maxWorkers=1 --testTimeout=40000
       - name: Engine tests
         run: node --test evolve/test/engine.test.mjs
       - name: Instagram publishing authorization tests
