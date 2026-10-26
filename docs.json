@@ -1,6 +1,6 @@
 {
- "at": 1793020864327,
- "key": "mv4n5h",
+ "at": 1793029896132,
+ "key": "17q3q0p",
  "findings": [
   {
    "kind": "doc-dead-path",
@@ -36,6 +36,13 @@
    "where": "functions/api/city-address.js",
    "detail": "/api/city-address isn't mentioned in any README",
    "fp": "doc-missing-api|xcy5jm"
+  },
+  {
+   "kind": "doc-missing-api",
+   "severity": "low",
+   "where": "functions/api/city-aerial.js",
+   "detail": "/api/city-aerial isn't mentioned in any README",
+   "fp": "doc-missing-api|htw5k0"
   },
   {
    "kind": "doc-missing-api",
