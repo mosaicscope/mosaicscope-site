@@ -1,0 +1,16 @@
+import {describe,it,expect,vi,afterEach} from 'vitest';
+import {Simulation} from '../src/sim/Simulation';
+import {localAddresses,geoToWorld,teleportFare,prepareAddress,finishTeleport,markAddress,type AddressHit} from '../src/sim/AddressTravel';
+import {mappedFacadeStyle} from '../src/content/mappedFacadeStyle';
+let sim:Simulation;const world=()=>sim??=new Simulation({cityMap:'christchurch',trafficCars:0,midCount:0,backgroundCount:0});
+afterEach(()=>vi.unstubAllGlobals());
+describe('address travel',()=>{
+ it('finds a real saved address and marks it without charging',()=>{const s=world(),p=s.player,cash=p.cash,hit=localAddresses(s,'311 Montreal Street')[0];expect(hit).toBeTruthy();expect(hit.label).toContain('311 Montreal');const point=geoToWorld(s,hit.lat,hit.lon);expect(point.x).toBeCloseTo(hit.x);expect(point.y).toBeCloseTo(hit.y);markAddress(s,hit);markAddress(s,hit);expect(s.life.markers.filter(p=>p.icon==='⌖'&&p.name===hit.label)).toHaveLength(1);expect(p.cash).toBe(cash);});
+ it('charges the quoted fare once and arrives at a safe entrance',async()=>{const s=world(),hit=localAddresses(s,'311 Montreal')[0],point=await prepareAddress(s,hit);const p=s.player;p.inCar=p.inside=p.arrestedBy=-1;p.phys=0;p.jailUntil=0;p.cash=200;const fare=teleportFare(s,hit);finishTeleport(s,hit,point,fare);expect(p.cash).toBe(200-fare);expect(p.x).toBe(point.x);expect(p.y).toBe(point.y);expect(s.world.walkable(p.x,p.y)).toBe(true);expect(s.world.carriageway(p.x,p.y)).toBe(false);expect(Math.hypot(p.x-hit.x,p.y-hit.y)).toBeLessThan(60);});
+ it('does not charge when cash, player state or destination is invalid',()=>{const s=world(),hit=localAddresses(s,'311 Montreal')[0],p=s.player;p.cash=0;const original={x:p.x,y:p.y};expect(()=>finishTeleport(s,hit,{x:p.x,y:p.y},20)).toThrow();expect(p.cash).toBe(0);expect({x:p.x,y:p.y}).toEqual(original);p.cash=200;p.inCar=0;expect(()=>finishTeleport(s,hit,{x:p.x,y:p.y},20)).toThrow();expect(p.cash).toBe(200);p.inCar=-1;});
+ it('does not charge when an uncharted destination fails to load',async()=>{const s=world(),p=s.player,cash=p.cash;vi.stubGlobal('fetch',async()=>new Response('{}',{status:503}));const point=geoToWorld(s,-43.49,172.7),hit:AddressHit={id:'remote',label:'Fixture address',...point,lat:-43.49,lon:172.7,precision:'address',source:'fixture'};await expect(prepareAddress(s,hit)).rejects.toThrow('No money was charged');expect(p.cash).toBe(cash);});
+});
+describe('building character',()=>{
+ it('uses verified stone heritage details and deterministic varied fallback facades',()=>{const s=world(),m=s.world.mapped!,boys=m.buildings.find(b=>b.id===32050462)!;expect(mappedFacadeStyle(boys)).toMatchObject({heritage:true,material:'stone',window:'arch'});const sample=m.buildings.slice(0,100).map(mappedFacadeStyle);expect(new Set(sample.map(x=>x.wall)).size).toBeGreaterThan(8);expect(new Set(sample.map(x=>x.window)).size).toBeGreaterThan(2);expect(mappedFacadeStyle(boys)).toEqual(mappedFacadeStyle(boys));});
+ it('preserves explicit survey colours and material',()=>{const b=world().world.mapped!.buildings[0],style=mappedFacadeStyle({...b,tags:{building:'office','building:colour':'#123456','roof:colour':'#abcdef','building:material':'brick','roof:shape':'flat'}});expect(style).toMatchObject({wall:'#123456',roof:'#abcdef',material:'brick',shape:'flat'});});
+});

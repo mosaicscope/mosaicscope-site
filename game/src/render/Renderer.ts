@@ -1,3 +1,4 @@
+import {trafficRadiusForView} from '../sim/TrafficBudget';
 import {MAPPED_FIGURE_SCALE} from '../world/WorldScale';
 import {drawStreetProp} from './StreetProps';
 import {worldIndex} from '../world/WorldIndex';
@@ -176,7 +177,7 @@ export class Renderer {
     if (want2D) { cam.update(dt, o.reduceMotion); this.render2D(alpha, dt, o); if (o.quality === 3) this.cinematic(sim); this.stats.frameMs = performance.now() - t0; return; }
     cam.update(dt, o.reduceMotion);
     const z=cam.zoom;
-    sim.focus.x = cam.x; sim.focus.y = cam.y;
+    sim.focus.x = cam.x; sim.focus.y = cam.y;sim.trafficRadius=trafficRadiusForView(cam.viewW,cam.viewH,cam.zoom);
     for(const id of new Set([sim.playerId,cam.follow])){const c=sim.chars[id];if(!c||c.inside>=0)continue;const at=cam.toScreen(c.x,c.y,0,{x:0,y:0}),left=Math.max(2,at.x-20*z),top=Math.max(2,at.y-80*z),right=Math.min(cam.viewW-2,at.x+20*z),bottom=Math.min(cam.viewH-2,at.y+12*z);if(right>left&&bottom>top)reserveSign('body:'+id,{x:left,y:top,w:right-left,h:bottom-top});}
 
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
@@ -460,6 +461,7 @@ export class Renderer {
       }
     }
     flush();
+    for(const pin of sim.life.markers){if(pin.icon!=='⌖')continue;const p=cam.toScreen(pin.x,pin.y,.12,{x:0,y:0});if(p.x<0||p.y<0||p.x>cam.viewW||p.y>cam.viewH)continue;g.strokeStyle='#8df0ce';g.lineWidth=2;g.beginPath();g.moveTo(p.x,p.y);g.lineTo(p.x,p.y-38);g.stroke();g.fillStyle='#8df0ce';g.beginPath();g.arc(p.x,p.y-42,7,0,Math.PI*2);g.fill();g.fillStyle='#102d2a';g.fillRect(p.x-3,p.y-45,6,6);const label=pin.name.slice(0,35),box={x:p.x-120,y:p.y-72,w:240,h:22};if(reserveSign('address:'+pin.name,box)){g.fillStyle='#132e2dea';g.fillRect(box.x,box.y,box.w,box.h);g.fillStyle='#c0f0dc';g.font='600 12px system-ui';g.textAlign='center';g.fillText(label,p.x,p.y-56);g.textAlign='start';}}
     this.stats.figures = figs; this.stats.silhouettes = sils; this.stats.batches = batches;
 
     this.particles.update(dt);

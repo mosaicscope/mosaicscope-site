@@ -35,7 +35,7 @@ export class Minimap {
   target: { x: number; y: number } | null = null;
   /** story contacts with a job for you (purple blips) */
   contacts: { x: number; y: number }[] = [];
-  constructor(private sim: () => Simulation) {
+  constructor(private sim: () => Simulation,private findAddress?:()=>void) {
     this.el = h("canvas.minimap", { width: 168, height: 168, "aria-label": "Minimap" }) as HTMLCanvasElement;
     this.el.addEventListener("click", () => this.toggle());
     this.big = h("div.bigmap.hidden", { role: "dialog", "aria-label": "Map of central Christchurch" });
@@ -113,6 +113,7 @@ export class Minimap {
     if (!cv) {
       cv = h("canvas", { width: 900, height: 900 }) as HTMLCanvasElement;
       this.big.append(h("div.bigmap-head", null, [h("b", { text: "Central Christchurch" }),
+        h("button.btn",{text:"Find address",onclick:()=>this.findAddress?.()}),
         h("button.btn", { text: "Pin my location", onclick: () => { if (sim.life.markers.filter(m => m.icon === "●").length >= 20) return; sim.life.markers.push({ x: p.x, y: p.y, name: sim.world.streetName(p.x, p.y) || "My pin", icon: "●" }); this.drawBig(); } }),
         h("button.btn", { text: "Clear my pins", onclick: () => { sim.life.markers = sim.life.markers.filter(m => m.icon !== "●"); this.drawBig(); } }), h("button.x", { "aria-label": "Close map", onclick: () => this.toggle(false), text: "×" })]), cv, h("p.bigmap-foot"));
     }

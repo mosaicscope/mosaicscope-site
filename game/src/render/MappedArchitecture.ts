@@ -1,7 +1,8 @@
+import {mappedFacadeStyle} from '../content/mappedFacadeStyle';
 import {MAPPED_HEIGHT_RATIO} from '../world/WorldScale';
 import {architectureRaster} from './ArchitectureRaster';
 import type {MappedBuilding} from '../ui/DestinationDistrict';
-import {mappedBuildingStyle,regionalArchitecture} from '../content/mappedBuildingStyle';
+import {mappedBuildingStyle} from '../content/mappedBuildingStyle';
 import {paintWindowStories,type Win} from './NightGlow';
 
 type Pt=[number,number];type Project=(x:number,y:number,z?:number)=>Pt;
@@ -15,7 +16,7 @@ export class MappedArchitecture{
  top(b:MappedBuilding):number{return b.height;}
  private create(b:MappedBuilding,scale:number,dpr:number):Mesh{
   const points=b.points.filter((p,i,a)=>i===0||p[0]!==a[i-1][0]||p[1]!==a[i-1][1]);if(points.length>3&&points[0][0]===points[points.length-1][0]&&points[0][1]===points[points.length-1][1])points.pop();
-  const arch=regionalArchitecture(b.tags),style=mappedBuildingStyle(b),top=b.height,origin=points[0] as Pt,raw=(x:number,y:number,z=0):Pt=>[x-origin[0]-y+origin[1],(x-origin[0]+y-origin[1])*.5-z*MAPPED_HEIGHT_RATIO],all=points.flatMap(p=>[raw(p[0],p[1]),raw(p[0],p[1],top)]),minX=Math.min(...all.map(p=>p[0])),maxX=Math.max(...all.map(p=>p[0])),minY=Math.min(...all.map(p=>p[1])),maxY=Math.max(...all.map(p=>p[1])),extent=Math.max(maxX-minX,maxY-minY),unit=architectureRaster(extent,scale,dpr,this.quality),pad=16,cv=document.createElement('canvas');
+  const arch=mappedFacadeStyle(b),style=mappedBuildingStyle(b),top=b.height,origin=points[0] as Pt,raw=(x:number,y:number,z=0):Pt=>[x-origin[0]-y+origin[1],(x-origin[0]+y-origin[1])*.5-z*MAPPED_HEIGHT_RATIO],all=points.flatMap(p=>[raw(p[0],p[1]),raw(p[0],p[1],top)]),minX=Math.min(...all.map(p=>p[0])),maxX=Math.max(...all.map(p=>p[0])),minY=Math.min(...all.map(p=>p[1])),maxY=Math.max(...all.map(p=>p[1])),extent=Math.max(maxX-minX,maxY-minY),unit=architectureRaster(extent,scale,dpr,this.quality),pad=16,cv=document.createElement('canvas');
   cv.width=Math.ceil((maxX-minX)*unit+pad*2);cv.height=Math.ceil((maxY-minY)*unit+pad*2);const g=cv.getContext('2d')!,ox=pad-minX*unit,oy=pad-minY*unit,P:Project=(x,y,z=0)=>{const p=raw(x,y,z);return[p[0]*unit+ox,p[1]*unit+oy];},windows:Win[]=[];
   const pitched=points.length===4&&['gabled','gable'].includes(arch.shape)&&top<20;
   const side0=Math.hypot(points[1][0]-points[0][0],points[1][1]-points[0][1]),side1=Math.hypot(points[2][0]-points[1][0],points[2][1]-points[1][1]);
@@ -31,15 +32,17 @@ export class MappedArchitecture{
     g.strokeStyle=shade(wall,-10);g.lineWidth=Math.max(.7,unit*.025);
     for(let h=spacing;h<wallTop;h+=spacing){g.beginPath();g.moveTo(...at(0,h));g.lineTo(...at(1,h));g.stroke();}
    }
-   const rows=Math.max(1,Math.min(18,style.floors)),floor=wallTop/rows,columns=Math.max(1,Math.min(30,Math.floor(length/3.4))),bay=1/columns;
+   const rows=Math.max(1,Math.min(18,style.floors)),floor=wallTop/rows,columns=Math.max(1,Math.min(30,Math.floor(length/arch.bayWidth))),bay=1/columns;
    // Continuous cornice/plinth and real edge-aligned floor bands anchor every facade part.
    for(const h of[.22,wallTop-.22,...Array.from({length:rows-1},(_,i)=>(i+1)*floor)]){g.strokeStyle=shade(wall,-22);g.lineWidth=Math.max(.6,unit*.09);g.beginPath();g.moveTo(...at(0,h));g.lineTo(...at(1,h));g.stroke();}
    for(let row=0;row<rows;row++)for(let col=0;col<columns;col++){
-    const u=(col+.19)*bay,v=(col+.81)*bay,z0=row*floor+Math.min(.85,floor*.25),z1=(row+1)*floor-.5;if(z1<=z0)continue;const seed=(b.id*131+i*233+row*31+col*17)>>>0,lit=seed%7<3,win:Win={A:at(u,z0),B:at(v,z0),C:at(v,z1),D:at(u,z1),seed,col:lit?'#e3cd91':'#667c7e'};
-    polygon([win.A,win.B,win.C,win.D],lit?'#b6af84':'#526771',shade(wall,-30));g.strokeStyle='#afb6a077';g.lineWidth=.65;g.beginPath();g.moveTo(...at((u+v)/2,z0));g.lineTo(...at((u+v)/2,z1));g.moveTo(...at(u,z1-.12));g.lineTo(...at(v,z1-.12));g.stroke();windows.push(win);
+    const inset=arch.window==='ribbon'?.08:arch.heritage?.3:.19,u=(col+inset)*bay,v=(col+1-inset)*bay,z0=row*floor+Math.min(.85,floor*.25),z1=(row+1)*floor-.5;if(z1<=z0)continue;const seed=(b.id*131+i*233+row*31+col*17)>>>0,lit=seed%7<3,win:Win={A:at(u,z0),B:at(v,z0),C:at(v,z1),D:at(u,z1),seed,col:lit?'#e3cd91':'#667c7e'};
+    if(arch.heritage){const shoulder=z1-Math.min(.7,(z1-z0)*.3);g.beginPath();g.moveTo(...at(u,z0));g.lineTo(...at(v,z0));g.lineTo(...at(v,shoulder));g.quadraticCurveTo(...at(v,z1-.2),...at((u+v)/2,z1));g.quadraticCurveTo(...at(u,z1-.2),...at(u,shoulder));g.closePath();g.fillStyle=lit?'#829599':'#415a67';g.fill();g.strokeStyle=arch.trim;g.lineWidth=Math.max(1,unit*.12);g.stroke();}
+    else polygon([win.A,win.B,win.C,win.D],lit?'#839b9e':'#486673',shade(wall,-30));g.strokeStyle='#afb6a077';g.lineWidth=.65;g.beginPath();g.moveTo(...at((u+v)/2,z0));g.lineTo(...at((u+v)/2,z1));g.moveTo(...at(u,z1-.12));g.lineTo(...at(v,z1-.12));g.stroke();if(!arch.heritage)windows.push(win);
     if(row===0&&style.kind!=='house'&&col%4===0)polygon([at(u-.03,.05),at(v+.03,.05),at(v+.03,z1),at(u-.03,z1)],'#354b4e','#a7aa91');
    }
    if(style.kind==='house'&&i===edges[0].i){const h=Math.min(2.2,wallTop*.7);polygon([at(.4,.06),at(.6,.06),at(.6,h),at(.4,h)],'#35474b',shade(wall,-28));const knob=at(.56,h*.45);g.fillStyle='#cfb986';g.beginPath();g.arc(knob[0],knob[1],Math.max(1,unit*.035),0,Math.PI*2);g.fill();}
+   if(arch.heritage){for(let col=0;col<=columns;col++){const u=col/columns,w=.065;polygon([at(u-w,0),at(u+w,0),at(u+w,wallTop),at(u-w,wallTop)],shade(arch.wall,-9),arch.trim);}}
    // Rainwater pipes follow wall ends; shop awnings share the same polygon coordinates.
    g.strokeStyle=shade(wall,-35);g.lineWidth=Math.max(1,unit*.08);for(const u of[.025,.975]){g.beginPath();g.moveTo(...at(u,.15));g.lineTo(...at(u,wallTop-.1));g.stroke();}
    if(['dairy','cafe','hotel'].includes(style.kind)&&length>5){const u0=.08,u1=.92,h=Math.min(3,top-.7),out=.65,nx=(dy/length)*winding,ny=(-dx/length)*winding;polygon([at(u0,h),at(u1,h),P(a[0]+dx*u1+nx*out,a[1]+dy*u1+ny*out,h-.3),P(a[0]+dx*u0+nx*out,a[1]+dy*u0+ny*out,h-.3)],'#b3a873');}

@@ -29,6 +29,8 @@ jobs:
         run: node --test evolve/test/mosaic-instagram.test.mjs
       - name: Worldwide destination geometry tests
         run: node --test evolve/test/destination-map.test.mjs
+      - name: Christchurch address lookup tests
+        run: node --test evolve/test/city-address.test.mjs
       - name: Security gate (no new high or critical findings)
         run: node evolve/security.mjs gate "origin/${{ github.base_ref }}"
       - name: Verify the proposed change is exactly one engine remedy

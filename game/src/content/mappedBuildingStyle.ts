@@ -10,10 +10,11 @@ export function regionalArchitecture(tags:Record<string,string>):RegionalArchite
  const palettes:Record<string,[string,string,string,string]>={japan:['#c7bfa9','#4d5c5c','timber','gabled'],gulf:['#d1bf9d','#b3a381','concrete','flat'],india:['#c9b18f','#99765e','concrete','flat'],british:['#9c7662','#5d6567','brick','gabled'],tropical:['#c9c7ae','#9b7759','timber','hipped'],pacific:['#b9bca8','#7b7564','timber','gabled'],modern:['#9aa99f','#626e69','concrete','flat']};const [wall,roof,mat,shape]=palettes[region];
  return{wall:colour(tags['building:colour'],wall),roof:colour(tags['roof:colour'],roof),material:tags['building:material']||mat,shape:tags['roof:shape']||shape,architecture:style||region,estimated:!tags['building:colour']&&!tags['building:material']&&!tags['roof:shape']};
 }
-export function mappedBuildingStyle(mapped:{kind:string;height:number;heightEstimated:boolean;tags:Record<string,string>}):{kind:BuildingKind;floors:number}{
+export function mappedBuildingStyle(mapped:{kind:string;height:number;heightEstimated:boolean;tags:Record<string,string>;points?:number[][]}):{kind:BuildingKind;floors:number}{
  const tag=mapped.tags.building||mapped.kind;
+ const ps=mapped.points??[],area=Math.abs(ps.reduce((n,p,i)=>{const q=ps[(i+1)%ps.length];return n+p[0]*q[1]-q[0]*p[1];},0)/2);
  const kind:BuildingKind=mapped.tags.amenity==='cafe'?'cafe':mapped.tags.tourism==='hotel'?'hotel':mapped.tags.shop?'dairy':
-  ['house','detached','semidetached_house','terrace','bungalow','yes','residential'].includes(tag)&&mapped.height<=12?'house':
+  (['house','detached','semidetached_house','terrace','bungalow','residential'].includes(tag)||tag==='yes'&&area<250)&&mapped.height<=12?'house':
   ['apartments','residential','dormitory'].includes(tag)?'apartments':['retail','commercial','supermarket'].includes(tag)?'dairy':'office';
  const surveyed=Number.parseFloat(mapped.tags['building:levels']??'');
  return {kind,floors:Number.isFinite(surveyed)&&surveyed>0?Math.max(1,Math.min(40,Math.round(surveyed))):kind==='house'?(mapped.heightEstimated?2:Math.max(1,Math.min(2,Math.round(mapped.height/3.2)))):Math.max(2,Math.min(11,Math.round(mapped.height/3.2)))};
