@@ -1,31 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { ENCOUNTERS } from "../src/content/encounters";
 import { newExpansion, encounterAt, farmDay, DAY, HOUR, cropYield, passCourse, QUESTIONS, DEGREES, wageBoost, baccarat } from "../src/sim/Expansion";
 import { damageTick, damageParts, repairVehicle } from "../src/sim/VehicleDamage";
 import type { Vehicle } from "../src/entities/types";
 import { serialize, restore } from "../src/persistence/SaveSystem";
 import { small } from "./helpers";
 
-describe("exploration encounters", () => {
-  it("offers all forty unique scenes once, with movement and a cooldown", () => {
-    expect(ENCOUNTERS).toHaveLength(40);
-    expect(new Set(ENCOUNTERS.map(e=>e.id)).size).toBe(40);
-    expect(new Set(ENCOUNTERS.map(e=>e.scene)).size).toBe(40);
-    const s=newExpansion();
-    expect(encounterAt(s,HOUR,0,0)).toBeNull();
-    for(let i=0;i<40;i++) {
-      const tick=(i+1)*HOUR;
-      const id=encounterAt(s,tick,25,0)!;
-      expect(id).toBeTruthy(); expect(s.seen).not.toContain(id);
-      expect(encounterAt(s,tick,25,0)).toBeNull(); // pending cannot be replaced
-      const e=ENCOUNTERS.find(e=>e.id===id)!;
-      expect(e.choices.length).toBeGreaterThanOrEqual(2);
-      s.seen.push(id); s.pending=null;
-      expect(encounterAt(s,tick+1,25,0)).toBeNull();
-    }
-    expect(encounterAt(s,50*HOUR,25,0)).toBeNull();
-  });
-});
+describe('retired random encounters',()=>{it('never offers random choice cards even after movement and clears legacy pending events',()=>{const s=newExpansion();s.pending='wallet';for(let i=0;i<50;i++)expect(encounterAt(s,(i+1)*HOUR,25,.5)).toBeNull();expect(s.pending).toBeNull();});});
 describe("farming transactions", () => {
   it("requires production equipment and feed, charges upkeep and settles only once", () => {
     const s=newExpansion(); s.farm=1; s.animals={Chickens:10};s.feed=50;s.farmCare=0;

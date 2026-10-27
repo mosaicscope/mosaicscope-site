@@ -20,7 +20,7 @@ import { unarmedMove } from "../content/combat";
 import { hasUpgrade } from "../content/upgrades";
 import { hasBody } from "./life/body";
 import { newLife, tickLife } from "./Chronicles";
-import { newExpansion, wageBoost, farmDay, encounterAt } from "./Expansion";
+import { newExpansion, wageBoost, farmDay } from "./Expansion";
 import { DEFAULT_CONFIG, DEFAULT_FLAGS, FeatureFlags, SimConfig } from "../core/config";
 import { Rng } from "../core/rng";
 import { EventBus } from "../core/eventBus";
@@ -126,7 +126,6 @@ export class Simulation {
   commerce = newCommerce();
   saltStory:import('../content/salt-story/progress').SaltProgress = { position: 0, furthest: 0 };
   life = newLife();
-  private exploredFrom: { x: number; y: number } | null = null;
   tick = 0;
   env: EnvState = newEnv();
   focus = { x: 32, y: 32 };
@@ -223,9 +222,6 @@ export class Simulation {
         }
       }
       const p = this.player;
-      const from = this.exploredFrom;
-      this.exploredFrom = { x: p.x, y: p.y };
-      if (from && p.inCar < 0 && p.inside < 0) encounterAt(this.expansion, this.tick, Math.min(8, Math.hypot(p.x - from.x, p.y - from.y)), this.rng.next());
       const settlement = farmDay(this.expansion, this.tick, this.env.raining);
       if (settlement) { p.cash = Math.max(0, p.cash + settlement.net); this.toasts.push({ text: `Farm day: sales $${settlement.gross}, costs $${settlement.costs}, net $${settlement.net}`, tick: this.tick, kind: "" }); }
     }

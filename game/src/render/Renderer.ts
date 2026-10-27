@@ -1,3 +1,4 @@
+import {missionTarget} from '../sim/CityMissions';
 import {injuryResponse} from '../sim/InjuryResponse';
 import {mappedMoverDepth} from './MappedDepth';
 import {trafficRadiusForView} from '../sim/TrafficBudget';
@@ -467,7 +468,10 @@ export class Renderer {
       }
     }
     flush();
-    for(const pin of sim.life.markers){if(pin.icon!=='⌖')continue;const p=cam.toScreen(pin.x,pin.y,.12,{x:0,y:0});if(p.x<0||p.y<0||p.x>cam.viewW||p.y>cam.viewH)continue;g.strokeStyle='#8df0ce';g.lineWidth=2;g.beginPath();g.moveTo(p.x,p.y);g.lineTo(p.x,p.y-38);g.stroke();g.fillStyle='#8df0ce';g.beginPath();g.arc(p.x,p.y-42,7,0,Math.PI*2);g.fill();g.fillStyle='#102d2a';g.fillRect(p.x-3,p.y-45,6,6);const label=pin.name.slice(0,35),box={x:p.x-120,y:p.y-72,w:240,h:22};if(reserveSign('address:'+pin.name,box)){g.fillStyle='#132e2dea';g.fillRect(box.x,box.y,box.w,box.h);g.fillStyle='#c0f0dc';g.font='600 12px system-ui';g.textAlign='center';g.fillText(label,p.x,p.y-56);g.textAlign='start';}}
+    const activeMission=sim.worldFun.missions?.active,mission=missionTarget(sim);
+    if(activeMission&&activeMission.id!=='city-drive'&&mission){const carrying=activeMission.stage>0,at=carrying?sim.player:mission;if(!carrying||sim.player.inCar<0){const q=cam.toScreen(at.x,at.y,.22,{x:0,y:0}),size=Math.max(5,Math.min(18,cam.zoom*7));g.fillStyle='#b58b55';g.fillRect(q.x+7,q.y-size,size,size*.7);g.strokeStyle='#6d4c2a';g.lineWidth=1;g.strokeRect(q.x+7,q.y-size,size,size*.7);g.fillStyle='#f1d89d';g.fillRect(q.x+7+size*.4,q.y-size,size*.2,size*.7);}}
+
+    for(const pin of [...sim.life.markers,...(mission?[{...mission,name:'Mission · '+mission.name,icon:'⌖'}]:[])]){if(pin.icon!=='⌖')continue;const p=cam.toScreen(pin.x,pin.y,.12,{x:0,y:0});if(p.x<0||p.y<0||p.x>cam.viewW||p.y>cam.viewH)continue;g.strokeStyle='#8df0ce';g.lineWidth=2;g.beginPath();g.moveTo(p.x,p.y);g.lineTo(p.x,p.y-38);g.stroke();g.fillStyle='#8df0ce';g.beginPath();g.arc(p.x,p.y-42,7,0,Math.PI*2);g.fill();g.fillStyle='#102d2a';g.fillRect(p.x-3,p.y-45,6,6);const label=pin.name.slice(0,35),box={x:p.x-120,y:p.y-72,w:240,h:22};if(reserveSign('address:'+pin.name,box)){g.fillStyle='#132e2dea';g.fillRect(box.x,box.y,box.w,box.h);g.fillStyle='#c0f0dc';g.font='600 12px system-ui';g.textAlign='center';g.fillText(label,p.x,p.y-56);g.textAlign='start';}}
     this.stats.figures = figs; this.stats.silhouettes = sils; this.stats.batches = batches;
 
     this.particles.update(dt);

@@ -3,14 +3,12 @@ import {SCRATCHCARDS} from '../content/scratchcards';
 import {AIRCRAFT} from '../content/aircraft';
 import { newHorseRace } from "../sim/HorseRace";
 import { raceRoster, raceOrder, raceReturn } from "../sim/RaceBook";
-import { raceScene, encounterScene } from "./VenueArt";
+import { raceScene } from "./VenueArt";
 import { countryside, casinoArt, scratchArt } from "./ActivityArt";
 import { makeScratch, revealScratch, dealBaccarat } from "../sim/Arcade";
-import { resolveScene } from "../sim/Chronicles";
 import { h } from "./dom";
 import type { Simulation } from "../sim/Simulation";
 import { ANIMALS, MACHINES, DEGREES, QUESTIONS, HOUR, DAY, farmCapacity, cropYield, passCourse, titleOf, settleRace } from "../sim/Expansion";
-import { ENCOUNTERS } from "../content/encounters";
 import type { ModalHost } from "./Modals";
 import "./activities.css";
 
@@ -19,6 +17,7 @@ const pick = (n: number) => Math.floor(Math.random() * n);
 type Tab = "Farm" | "UC" | "Racing" | "Betting" | "Explore";
 /** All transactions use the current simulation, including after loading another slot. */
 export class Activities {
+  onMissions?:()=>void;
   onCityLife?:()=>void;
   onFun?: (kind:"roast"|"burger")=>void;
   private page=0; private design=0; private aircraft=0;
@@ -70,19 +69,7 @@ export class Activities {
   }
   encounter(): void { this.show("Explore"); }
   private explore(): HTMLElement[] {
-    const e = ENCOUNTERS.find(e => e.id === this.s.pending);
-    const last=this.s.seen[this.s.seen.length-1];
-    const illustrated=e??ENCOUNTERS.find(scene=>scene.id===last);
-    return [this.card("Daily life & Manchester nights","Work a shift, do the groceries, meet the neighbours or explore fictional adult nightlife.",[h("button.btn",{text:"Open daily life",onclick:()=>this.onCityLife?.()})]),encounterScene(this.sim(),illustrated,!e&&!!illustrated),this.card("Street discoveries", `${this.s.seen.length}/40 stories completed. Walk around town: new scenes appear after travelling, with a cooldown between encounters.`),
-      ...(e ? [this.card(e.title, `${this.sim().world.streetName(this.sim().player.x, this.sim().player.y) || "Nearby"}: ${e.scene}`, e.choices.map(([label, money, rep, result],choice) => this.btn(label + (money < 0 ? ` · ${cash(-money)}` : ""), () => {
-        if (this.s.pending !== e.id || this.s.seen.includes(e.id) || money < 0 && !this.pay(-money)) return;
-        if (money > 0) this.credit(money);
-        (this.s.outcomes??={})[e.id]=choice; resolveScene(this.sim(), e.id, rep); this.sim().player.reputation += rep; this.s.seen.push(e.id); this.s.pending = null; this.message = result; this.toast(result);
-      }, money < 0 && this.sim().player.cash < -money)))] : [this.card("The street is quiet", "Keep exploring on foot. A nearby scene will appear here when you find one.")]),
-      this.card("Roast night", "Trade comebacks with Roastie Malone in a three-round crowd challenge.",[h("button.btn",{text:"Play roast battle",onclick:()=>{this.modal.close();this.onFun?.("roast");}})]),
-      this.card("Diner rush", "Take orders, build burgers and earn your pay in a hands-on kitchen shift.",[h("button.btn",{text:"Play diner shift",onclick:()=>{this.modal.close();this.onFun?.("burger");}})]),
-      ...this.s.seen.slice(-5).reverse().map(id => this.card("Completed", ENCOUNTERS.find(e => e.id === id)?.title ?? id)),
-    ];
+    return [this.card('City missions','Take a real route through the city: collect parcels, make deliveries and drive marked streets.',[h('button.btn.acid',{text:'Open city missions',onclick:()=>this.onMissions?.()})]),this.card('Daily life','Meet the neighbourhood and choose everyday activities.',[h('button.btn',{text:'Open daily life',onclick:()=>this.onCityLife?.()})])];
   }
   private farm(): HTMLElement[] {
     const s = this.s, sim = this.sim(), day = Math.floor(sim.tick / DAY), count = Object.values(s.animals).reduce((a, b) => a + b, 0);

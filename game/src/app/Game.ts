@@ -1,3 +1,5 @@
+import {showMissions} from '../ui/MissionBoard';
+import {missionStatus} from '../sim/CityMissions';
 import {AddressPanel} from '../ui/AddressPanel';
 import {Running} from '../sim/Running';
 import {CityLifePanel} from '../ui/CityLifePanel';
@@ -187,6 +189,7 @@ export class Game {
       patrons: () => this.sim.chars.filter((c) => c.inside >= 0 && this.sim.world.buildings[c.inside]?.kind === "casino").length + 3,
     }, () => { this.clock.paused = this.pausedBefore; });
     this.activities.onVisitFarm=()=>{const plot=farmPlot(this.sim.world);if(!plot){this.toast('No clear farm plot on this map');return;}this.returnToPlayer(false);this.moveTarget={...plot.gate};this.renderer.cam.lookAt(plot.gate.x,plot.gate.y,true);this.toast('Your farm gate · walk or tap to explore');};
+    this.activities.onMissions=()=>this.openMissions();
     this.activities.onCityLife=()=>this.cityLifePanel.show();
     this.dialogue.onCityLife=id=>this.cityLifePanel.showForResident(id);
     this.rootEl.append(this.cityLifePanel.route);
@@ -393,7 +396,7 @@ export class Game {
     if (p.bleed > 0) kids.push(h("div.car", { text: "You're bleeding. B to bandage." }));
     if(p.hand>=0){const d=sim.toys[p.hand].def,w=TOYS[d].weapon;if(w?.gun){const base=d==='golden_pistol'?'pistol':d,load=p.combat?.load??'standard',key=load==='standard'?base:base+':'+load;kids.push(h('div.combat-status',{text:`${TOYS[d].name} · ${p.combat?.ammo[key]??'∞'} rounds · ${w.mode??'semi'}`}));}}
     this.combatHelpButton??=h("button.btn.combat-help",{text:"Fight / gun controls",onclick:()=>this.openCombatControls()}) as HTMLButtonElement;kids.push(this.combatHelpButton);
-    const challenge=challengeStatus(sim);if(challenge)kids.push(h("div.car.obj",{text:challenge}));const obj = this.objective(); if (obj) kids.push(h("div.car.obj", { text: obj }));
+    const mission=missionStatus(sim);if(mission)kids.push(h("div.car.obj",{text:mission}));const challenge=challengeStatus(sim);if(challenge)kids.push(h("div.car.obj",{text:challenge}));const obj = this.objective(); if (obj) kids.push(h("div.car.obj", { text: obj }));
     this.hudEl.replaceChildren(...kids);
     this.hudEl.classList.toggle("beside-log", !this.log.el.classList.contains("hidden"));
     if (sim.bustedAt !== this.lastBusted && sim.bustedAt >= 0) {
@@ -414,7 +417,6 @@ export class Game {
     const aerial=this.renderer.aerialStatus;this.aerialCredit.hidden=!aerial.loaded||this.sim.world.mapped?.visibility.aerialRoofs===false;this.aerialCredit.textContent='Aerial: '+(aerial.owners.join(', ')||'Canterbury Maps')+' · CC BY 4.0';this.aerialCredit.title=aerial.surveys.join('; ')+' · Reprojected and clipped to mapped roofs. Facades estimated.';
     this.tickFocus(now);
     this.rootEl.classList.toggle("panel-open", this.modal.open || this.casino.open || this.club.open || this.luxury.open);
-    if (this.sim.expansion.pending && this.notifiedEncounter !== this.sim.expansion.pending && !this.modal.open && !this.casino.open && !this.interior.open && !this.dialogue.open && !this.phone.open) { this.notifiedEncounter = this.sim.expansion.pending; this.toast("A nearby street story: open Explore to choose what happens.", "acid"); this.activities.encounter(); }
     this.touch.update();this.cityLifePanel.update();
     if (now - this.clubTickAt > 1000) { const earned = this.club.tick(Math.min(5, (now - (this.clubTickAt || now)) / 1000)); this.clubTickAt = now; if (earned > 0) this.sim.player.cash += earned; }
     this.renderer.zooAnimals = this.luxury.empire.animals; zooState.animals = this.luxury.empire.animals.length;
@@ -1393,7 +1395,7 @@ export class Game {
   private openStreetLife():void{void import('../ui/StreetLifePanel').then(m=>m.showStreetLife(this.modal,this.sim,(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);}));}
   private openLiveCity():void{this.modal.show('Christchurch · live city',[this.cityPanel.render()]);}
   private aerialCredit=h('a.aerial-credit',{href:'https://gisimagery.ecan.govt.nz/arcgis/rest/services/Imagery/Latest_Imagery/ImageServer',target:'_blank',rel:'noopener',text:'Aerial: Canterbury Maps · CC BY 4.0'});
-  private notifiedEncounter: string | null = null;
+  private openMissions():void{showMissions(this.sim,this.modal,()=>this.resumeGame(),text=>this.toast(text));}
 
   private buildBar(): HTMLElement {
     this.clockEl = h("div.clock");
@@ -1408,7 +1410,7 @@ export class Game {
       command('Live city','◉',()=>this.openLiveCity(), '.dock-secondary'),
       command("Casino", "♠", () => { this.pausedBefore = this.clock.paused; this.casino.show(); }, ".casino-launch.dock-secondary"),
       command("Daily life", "☀", () => this.cityLifePanel.show()),
-      command("Explore", "◎", () => this.activities.show("Explore"), ".dock-secondary"),
+      command("Missions", "◎", () => this.openMissions()),
       command("Photo", "▣", () => this.photos.open(), ".dock-secondary"),
       command("Save", "↓", () => this.openSaves(), ".dock-secondary"),
     ]);
@@ -1422,7 +1424,7 @@ export class Game {
         h('button.btn.acid',{text:'Address search & teleport',onclick:()=>this.addressPanel.show()}),
         h('button.btn',{text:'Nearby street activity',onclick:()=>this.openStreetLife()}),
         h('button.btn',{text:'Casino',onclick:()=>this.casino.show()}),
-        h('button.btn',{text:'Explore',onclick:()=>this.activities.show('Explore')}),
+        h('button.btn',{text:'City missions',onclick:()=>this.openMissions()}),
         h('button.btn',{text:'Photo',onclick:()=>this.photos.open()}),
         h('button.btn',{text:'Save game',onclick:()=>this.openSaves()}),
         h('button.btn',{text:'Mobile phone',onclick:()=>this.phone.home()}),
