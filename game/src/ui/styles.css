@@ -216,6 +216,7 @@ button { cursor: pointer; }
 .hud .bars { display: grid; grid-template-columns: auto 90px; gap: 3px 8px; align-items: center; font-size: calc(10px * var(--ts)); color: var(--dim); }
 .hud .gauge { height: 5px; background: var(--ink3); border-radius: 3px; overflow: hidden; } .hud .gauge i { display: block; height: 100%; }
 .hud .car { font: 600 calc(12px * var(--ts)) / 1.2 var(--mono); color: var(--paper); text-align: right; }
+.hud button { pointer-events: auto; touch-action: manipulation; }
 .hud .car b { font: 900 calc(26px * var(--ts)) / 1 var(--display); color: var(--paper); }
 @media (prefers-reduced-motion: reduce) { .hud .stars.flash b { animation: none; } }
 .radio { position: absolute; left: 14px; bottom: calc(max(14px, env(safe-area-inset-bottom)) + 22px); display: flex; align-items: center; gap: 6px; background: rgba(20,17,15,.9); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px 4px 4px; max-width: min(320px, 60vw); }

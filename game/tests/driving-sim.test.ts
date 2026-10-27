@@ -132,9 +132,9 @@ describe("driving experience",()=>{
     expect(drift.shiftAt).toBeGreaterThan(road.shiftAt);expect(drift.steer).toBeGreaterThan(road.steer);
     expect(drift.tractionControl).toBe(false);expect(road.tractionControl).toBe(true);
   });
-  it("cuts torque during an upshift and uses hysteresis to prevent hunting",()=>{
+  it("blends torque during an upshift and uses hysteresis to prevent hunting",()=>{
     const {v}=fixture();const torque=stepPowertrain(v,5,17,1,1/60);
-    expect(v.powertrain!.gear).toBe(2);expect(torque).toBeLessThan(.7);
+    expect(v.powertrain!.gear).toBe(2);expect(v.powertrain!.shift).toBeGreaterThan(0);expect(torque).toBeLessThan(stepPowertrain(v,5,17,1,.2));
     for(let i=0;i<120;i++)stepPowertrain(v,5,17,1,1/60);
     expect(v.powertrain!.gear).toBe(2);expect(v.powertrain!.shift).toBe(0);expect(v.powertrain!.rpm).toBeGreaterThan(2000);
   });

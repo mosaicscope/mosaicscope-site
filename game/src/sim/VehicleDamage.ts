@@ -35,7 +35,7 @@ export function impactComponents(v:Vehicle,nx:number,ny:number,speed:number,mass
 }
 export function damageParts(v: Vehicle): void {
   const f=v.dmgF??0, r=v.dmgR??0, l=v.dmgL??0, s=v.dmgS??0;
-  if(!v.engineRepaired)v.engineDamage=Math.max(v.engineDamage??0, f*0.9);
+  if(!v.engineRepaired)v.engineDamage=Math.max(v.engineDamage??0, Math.max(0,(f-.3)/.7)*0.9);
   v.glassDamage=v.components?Math.max(...v.components.glass):Math.max(v.glassDamage??0, Math.max(f,r)*.95);
   if(v.components){const p=v.components;v.flatLeft=p.wheels[0].puncture||p.wheels[2].puncture;v.flatRight=p.wheels[1].puncture||p.wheels[3].puncture;v.bumperLost=p.bumper<=0;v.mirrorLost=p.mirrors?.some(n=>n>.85)??!!v.mirrorLost;}else{if(l>.6)v.flatLeft=true;if(s>.6)v.flatRight=true;v.bumperLost=!!v.bumperLost||Math.max(f,r)>.82;v.mirrorLost=!!v.mirrorLost||Math.max(l,s)>.7;}
   if(!v.engineRepaired)v.leak=Math.max(v.leak??0,Math.max(0,f-0.5));
