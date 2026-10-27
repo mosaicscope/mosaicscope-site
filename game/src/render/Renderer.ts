@@ -1,3 +1,4 @@
+import {injuryResponse} from '../sim/InjuryResponse';
 import {mappedMoverDepth} from './MappedDepth';
 import {trafficRadiusForView} from '../sim/TrafficBudget';
 import {MAPPED_FIGURE_SCALE} from '../world/WorldScale';
@@ -9,7 +10,7 @@ import {farmObjects,drawFarmObject} from './Farm';
 import {drawCommerceArt,drawCommerceObject} from './CommerceArt';
 import {applySubstanceMotion,drawSubstanceProps} from './SubstanceMotion';
 import {gunGrips} from './GunRig';
-import {detailedCrowd} from './CrowdDetail';
+import {detailedCrowd,CrowdArtworkBudget} from './CrowdDetail';
 import {visibleWeaponMotion} from './WeaponMotion';
 import {drawDetachedLimb} from './DamageArt';
 import {applyNegativeReaction} from './NegativeReactions';
@@ -64,6 +65,7 @@ export interface RenderOptions { selected: number; hovered: number; debug: Debug
  * particles -> lighting -> rain -> bubbles/labels -> debug.
  */
 export class Renderer {
+  private artworkBudget=new CrowdArtworkBudget();
   readonly cam = new Camera();
   readonly g: CanvasRenderingContext2D;
   terrain: Terrain;
@@ -328,7 +330,8 @@ export class Renderer {
     // depth sort
     const items = this.items, n = this.nItems;
     const view = items.slice(0, n).sort((a, b) => a.d - b.d);
-    const detail=detailedCrowd(view.filter(i=>i.kind===0).map(i=>sim.chars[i.ref]),cam.x,cam.y,[8,16,24,40][o.quality],o.selected,o.hovered,cam.follow);
+    const artworkBudget=this.artworkBudget.choose(o.quality,this.stats.frameMs);
+    const detail=detailedCrowd(view.filter(i=>i.kind===0).map(i=>sim.chars[i.ref]),cam.x,cam.y,artworkBudget,o.selected,o.hovered,cam.follow);
     const workingCrews=new Set(Object.values(sim.world.civicDamage).map(d=>d.crew));
     this.stats.items = n;
 
@@ -339,7 +342,7 @@ export class Renderer {
     for (const it of view) {
       if (it.kind === 0) {
         const c = sim.chars[it.ref];
-        const bg = !detail.has(c.id)&&c.goal?.id!=='nearby_scene'&&c.goal?.id!=='street_life';
+        const bg = !detail.has(c.id)&&(artworkBudget<8||c.goal?.id!=='nearby_scene'&&c.goal?.id!=='street_life');
         const k = (mapped?MAPPED_FIGURE_SCALE:.44) * z * c.look.scale;
         const wx=c.px+(c.x-c.px)*alpha,wy=c.py+(c.y-c.py)*alpha;
         const previous=this.motion.get(c.id),distance=previous?Math.hypot(wx-previous.x,wy-previous.y):0;
@@ -372,7 +375,8 @@ export class Renderer {
         applyGait(a, G);
         if (c.wounds.length && !a.lying) {
           // a bad leg barely swings and the body drops onto the good one; a hurt torso hunches; a head knock lolls
-          const h = hurtOf(c);
+          const h = hurtOf(c),response=injuryResponse(c);
+          a.bob+=response.buckle*9;a.lean+=response.guard*.3;a.tilt+=Math.sin(time*17+c.id)*response.tremor;a.foreR+=Math.sin(time*21+c.id)*response.tremor*2;a.bob+=Math.sin(time*5)*response.breathe*3;
           if (h.leg > 0 && moving) { const k = Math.min(0.7, h.leg * 0.25); a.thighR *= 1 - k; a.bendR *= 1 - k; a.bob += Math.max(0, Math.sin(c.anim.phase)) * 3 * k; }
           if (h.torso > 0) { a.lean += Math.min(0.35, h.torso * 0.1); a.armL = Math.max(a.armL, 0.6); a.foreL = Math.max(a.foreL, 1.6); }
           if (h.head >= 2) a.tilt += Math.sin(time * 1.3 + c.id) * Math.min(0.3, h.head * 0.08);

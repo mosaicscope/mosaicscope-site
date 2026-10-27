@@ -1,3 +1,4 @@
+import {exposeTissue,advanceInjury} from './InjuryResponse';
 import {hitAccessories} from '../content/accessories';
 import {buildingExit} from '../world/BuildingExit';
 import {applyTrauma} from './Trauma';
@@ -51,7 +52,7 @@ export function wound(sim: Simulation, c: Character, part: WoundPart, severity: 
   const marks=w.marks??(prior===undefined?[]:[prior]);
   if(!marks.includes(w.art))marks.push(w.art);
   w.marks=marks.slice(-8);
-  if(weapon)applyTrauma(sim,c,w,weapon,fromX,fromY,load);
+  if(weapon)applyTrauma(sim,c,w,weapon,fromX,fromY,load);exposeTissue(w,weapon,load);
   recomputeBleed(c);
   if(needsMedicalResponse(c))sim.callAmbulance(c);
   if (sim.fakeBlood && w.kind!=="bruise") {
@@ -72,7 +73,7 @@ export function wound(sim: Simulation, c: Character, part: WoundPart, severity: 
 
 export function recomputeBleed(c: Character): void {
   let b = 0;
-  for (const w of c.wounds) if (!w.bandaged && w.kind!=="bruise" && w.kind!=="graze" && (w.kind!=="fracture"||w.compound)) b += (w.compound?.45:BLEED[w.severity]) * (w.part === "head" ? 1.4 : 1);
+  for (const w of c.wounds) if (!w.bandaged && w.kind!=="bruise" && w.kind!=="graze" && (w.kind!=="fracture"||w.compound)) b += ((w.compound?.45:BLEED[w.severity])+(w.tissue?.exposed??0)*.12) * (w.part === "head" ? 1.4 : 1);
   c.bleed = Math.min(1, b);
 }
 
@@ -104,6 +105,7 @@ export function hurtOf(c: Character): { head: number; torso: number; arm: number
 }
 
 export function updateHealth(sim: Simulation, c: Character, dt: number): void {
+  for(const w of c.wounds)advanceInjury(c,w,dt);
   if(c.wounds.some(w=>w.detached)){c.phys=Phys.DOWN;c.physTimer=9999;}
   if(needsMedicalResponse(c))sim.callAmbulance(c);
   if (!c.wounds.length && c.blood >= 1) return;

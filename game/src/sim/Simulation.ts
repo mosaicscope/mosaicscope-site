@@ -1,3 +1,4 @@
+import {injuryResponse} from './InjuryResponse';
 import {transferBlood} from './VehicleBlood';
 import {updateCityLife} from './CityLife';
 import {updateWorkshopMotion} from './VehicleWorkshop';
@@ -318,7 +319,7 @@ export class Simulation {
     if (c.phys === Phys.STUMBLE) { vx *= 0.2; vy *= 0.2; }
     // a hurt body moves like one: a bad leg limps and slows, a hurt torso hunches and slows, a knock to the head weaves
     if (c.wounds.length && (vx !== 0 || vy !== 0)) {
-      const h = hurtOf(c), slow = Math.max(0.4, 1 - h.leg * 0.14 - h.torso * 0.06);
+      const h = hurtOf(c), slow = injuryResponse(c).pace;
       vx *= slow; vy *= slow;
       if (h.head >= 2) { const w = Math.sin(this.tick * 0.06 + c.id) * 0.35 * Math.min(1, h.head / 4), sp = Math.hypot(vx, vy) || 1; const ox = -vy / sp, oy = vx / sp; vx += ox * w * sp; vy += oy * w * sp; }
     }

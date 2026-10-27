@@ -352,7 +352,7 @@ export class Game {
     const ad = this.hovered < 0 && !this.mouse.dragging ? this.renderer.pickAd(this.mouse.x, this.mouse.y) : null;
     this.canvas.style.cursor = ad || this.hovered >= 0 ? "pointer" : "";
     this.canvas.title = ad ? `${ad.label} (opens in a new tab)` : "";
-    if (!this.interior.open&&!this.travel.open&&!this.club.open&&!this.casino.open&&!this.modal.open) this.guard("render", () => this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames,quietInterface:this.dialogue.open||this.modal.open||this.casino.open||this.dev.visible }));
+    if (!this.interior.open&&!this.travel.open&&!this.club.open&&!this.casino.open&&(!this.modal.open||this.modal.el.classList.contains("touch-tut"))) this.guard("render", () => this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames,quietInterface:this.dialogue.open||this.modal.open||this.casino.open||this.dev.visible }));
     this.updateAimUI();
     this.guard("audio", () => {
       const f = this.interior.footing;
@@ -420,7 +420,7 @@ export class Game {
     this.rootEl.classList.toggle('conversation-open',this.dialogue.open);
     this.rootEl.classList.toggle('activity-open',this.modal.open||this.casino.open);
     if(this.keys.has("escape"))this.remoteLauncher=null;
-    this.touch.el.classList.toggle("hidden", this.casino.open || this.interior.open || (this.modal.open && !this.modal.el.classList.contains("touch-tut")) || this.dialogue.open || this.terrance.open || this.travel.open || this.marina.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
+    this.touch.el.classList.toggle("hidden", this.phone.open || this.casino.open || this.interior.open || (this.modal.open && !this.modal.el.classList.contains("touch-tut")) || this.dialogue.open || this.terrance.open || this.travel.open || this.marina.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
     this.tickStory(now);
     this.minimap.update(now);
     if (now - this.lastUi < 250) return;
@@ -468,7 +468,7 @@ export class Game {
   private running=new Running();
   private controlPlayer(): void {
     const sim = this.sim, p = sim.player, k = this.settings.keys;
-    if (this.phone.open || this.travel.open || this.interior.open || this.modal.open || this.dev.visible || this.casino.open || this.club.open || this.luxury.open) { this.running.reset();p.vx = p.vy = 0; playerInput.throttle = 0; playerInput.steer = 0; playerInput.brake = true; playerInput.serviceBrake=0; return; } // you're indoors; the street body waits at the door
+    if (this.phone.open || this.travel.open || this.interior.open || (this.modal.open&&!this.modal.el.classList.contains("touch-tut")) || this.dev.visible || this.casino.open || this.club.open || this.luxury.open) { this.running.reset();p.vx = p.vy = 0; playerInput.throttle = 0; playerInput.steer = 0; playerInput.brake = true; playerInput.serviceBrake=0; return; } // you're indoors; the street body waits at the door
     if (p.inCar >= 0) {
       this.running.reset();
       const up = this.keys.has(k.up) || this.keys.has("arrowup"), down = this.keys.has(k.down) || this.keys.has("arrowdown");
@@ -1240,7 +1240,7 @@ export class Game {
     attackLabel:()=>{const p=this.sim.player,d=p.hand>=0?TOYS[this.sim.toys[p.hand].def]:undefined;return d?.weapon?.gun?'Fire':d&&p.hand>=0&&isMelee(this.sim.toys[p.hand].def)?'Strike':unarmedMove(p.combat?.style,p.combat?.xp).name;},
     fire: held=>{this.touchFire=held;},
     armedVehicle:()=>this.sim.player.inCar>=0&&this.sim.vehicles[this.sim.player.inCar].cls==='tank',
-    move: (x, y) => { this.touchMove.x = x; this.touchMove.y = y; },
+    move: (x, y) => { this.touchMove.x=x;this.touchMove.y=y;if((x||y)&&this.clock?.paused&&(!this.modal.open||this.modal.el.classList.contains("touch-tut"))&&!this.phone.open&&!this.casino.open&&!this.interior.open)this.setSpeed(1); },
     brake: (held: boolean) => { this.touchBrake = held; },
     handbrake: (held:boolean)=>{this.touchHandbrake=held;},
     zoom: (dir: number) => { const c = this.renderer.cam; this.setStreetZoom(c.targetZoom * (dir > 0 ? 1.4 : 1 / 1.4)); },

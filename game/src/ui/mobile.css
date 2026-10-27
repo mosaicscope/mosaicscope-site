@@ -127,3 +127,7 @@
 /* zoom buttons, left side, so zoom never depends on a pinch working */
 .tc-zoom { position: absolute; left: max(14px, env(safe-area-inset-left)); bottom: 42%; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
 .tc-zbtn { pointer-events: auto; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--line, rgba(238,228,211,.25)); background: rgba(14,11,10,.72); color: var(--paper, #eee4d3); font: 700 26px/1 var(--mono, monospace); display: grid; place-items: center; touch-action: none; }
+
+/* The tutorial must pass touches through its backdrop; #ui > * otherwise captures them. */
+#ui > .modal-wrap.touch-tut{pointer-events:none;background:none;backdrop-filter:none;place-items:start center;padding-top:74px}
+#ui > .modal-wrap.touch-tut .modal{pointer-events:auto;max-height:46dvh!important}

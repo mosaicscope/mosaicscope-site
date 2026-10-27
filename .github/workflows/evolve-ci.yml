@@ -29,7 +29,7 @@ jobs:
         run: npm run typecheck --prefix game
       - name: City interaction and traffic regressions
         working-directory: game
-        run: npx vitest run tests/reactive-driving.test.ts tests/driving-upgrade.test.ts tests/driving-refinement.test.ts tests/driving-sim.test.ts tests/damage-response.test.ts tests/workshop.test.ts tests/gritty-motion.test.ts tests/weapon-anatomy.test.ts tests/aerial-roofs.test.ts tests/camera-map-scale.test.ts tests/street-repairs.test.ts tests/address-city-life.test.ts tests/traffic-flow-release.test.ts tests/mapped-city.test.ts tests/mapped-flow.test.ts --maxWorkers=1 --testTimeout=40000
+        run: npx vitest run tests/progressive-damage.test.ts tests/running.test.ts tests/reactive-driving.test.ts tests/driving-upgrade.test.ts tests/driving-refinement.test.ts tests/driving-sim.test.ts tests/damage-response.test.ts tests/workshop.test.ts tests/gritty-motion.test.ts tests/weapon-anatomy.test.ts tests/aerial-roofs.test.ts tests/camera-map-scale.test.ts tests/street-repairs.test.ts tests/address-city-life.test.ts tests/traffic-flow-release.test.ts tests/mapped-city.test.ts tests/mapped-flow.test.ts --maxWorkers=1 --testTimeout=40000
       - name: Engine tests
         run: node --test evolve/test/engine.test.mjs
       - name: Instagram publishing authorization tests
