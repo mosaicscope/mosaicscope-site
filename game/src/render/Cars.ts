@@ -1,5 +1,4 @@
 import {damageStage} from '../sim/ProgressiveDamage';
-import {deformStructure} from '../sim/VehicleStructure';
 import {damageBloodEnabled} from './DamageArt';
 import {lampFixture,surfacePoint,surfacePatch} from './SurfaceFixtures';
 import {vehicleGeometry} from '../sim/VehicleGeometry';
@@ -16,7 +15,7 @@ import { GLOW } from "./Buildings";
 import { patinaOf, weather } from "./CarPatina";
 import { carMutationOf } from "./CarMutation";
 import {fleetBody} from '../content/vehicleBodies';
-import {vehicleDents,deformVehiclePoint} from './VehicleMesh';
+import {vehicleDents,vehicleDeformer} from './VehicleMesh';
 
 /**
  * Cars are little lofted 3D models projected into the iso view: a rocker skirt, a body whose top
@@ -193,11 +192,13 @@ const shadeFor = (n: V3) => 0.5 + 0.62 * Math.max(0, dot(norm(n), LIGHT));
 function meshTriangle(k:Ctx,a:V3,b:V3,c:V3,col:string,normal:V3,level:number):void{
  if(level>0){const mid=(p:V3,q:V3):V3=>[(p[0]+q[0])/2,(p[1]+q[1])/2,(p[2]+q[2])/2],ab=mid(a,b),bc=mid(b,c),ca=mid(c,a);for(const tri of [[a,ab,ca],[ab,b,bc],[ca,bc,c],[ab,bc,ca]])meshTriangle(k,tri[0],tri[1],tri[2],col,normal,level-1);return;}
  const A=k.deform!(a),B=k.deform!(b),C=k.deform!(c);let n=cross([B[0]-A[0],B[1]-A[1],B[2]-A[2]],[C[0]-A[0],C[1]-A[1],C[2]-A[2]]);if(dot(n,normal)<0)n=n.map(v=>-v) as V3;
- const base=col.startsWith('#')?rgb(col):col.match(/[\d.]+/g)?.slice(0,3).map(Number) as [number,number,number]|undefined,ratio=Math.max(.55,Math.min(1.3,shadeFor(WN(k,n))/shadeFor(WN(k,normal)))),shade=base?lit(base,ratio):col;fillPoly(k,[a,b,c],shade);const g=k.g;g.strokeStyle=shade;g.lineWidth=.4;g.stroke();
+ const base=col.startsWith('#')?rgb(col):col.match(/[\d.]+/g)?.slice(0,3).map(Number) as [number,number,number]|undefined,ratio=Math.max(.55,Math.min(1.3,shadeFor(WN(k,n))/shadeFor(WN(k,normal)))),shade=base?lit(base,ratio):col;const g=k.g,points=[a,b,c].map(p=>W3(k,p)),cx=points.reduce((n,p)=>n+p[0]/3,0),cy=points.reduce((n,p)=>n+p[1]/3,0);g.fillStyle=shade;g.beginPath();points.forEach((p,i)=>{const dx=p[0]-cx,dy=p[1]-cy,length=Math.hypot(dx,dy)||1,x=p[0]+dx/length*.25,y=p[1]+dy/length*.25;if(i)g.lineTo(x,y);else g.moveTo(x,y);});g.closePath();g.fill();
 }
 function meshFace(k:Ctx,points:V3[],col:string,normal:V3):void{
  if(!k.deform||k.cam.zoom<.45){fillPoly(k,points,col);return;}
  const centre=points.reduce((a,p)=>[a[0]+p[0]/points.length,a[1]+p[1]/points.length,a[2]+p[2]/points.length] as V3,[0,0,0] as V3),level=k.cam.zoom>3.5?2:1;
+ const warp=Math.max(...[centre,...points].map(p=>{const q=k.deform!(p);return Math.hypot(q[0]-p[0],q[1]-p[1],q[2]-p[2]);}));if(warp<.008){fillPoly(k,points,col);return;}
+ fillPoly(k,points,col);
  for(let i=0;i<points.length;i++)meshTriangle(k,centre,points[i],points[(i+1)%points.length],col,normal,level);
 }
 
@@ -277,7 +278,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   // crumple zones: a hit end is pushed in (Traffic.bump records where the car was hit)
   const panels=v.components?.panels??[];
   const dF=Math.max(v.dmgF??0,(panels[0]??0)*.65),dR=Math.max(v.dmgR??0,(panels[1]??0)*.65),dL=Math.max(v.dmgL??0,(panels[2]??0)*.65),dS=Math.max(v.dmgS??0,(panels[3]??0)*.65);
-  const dents=vehicleDents(v),structure=v.components?.structure;if(dents.length||structure&&(structure.front||structure.rear||structure.bend||structure.twist||structure.roof||structure.intrusion.some(n=>n>0)))k.deform=p=>{const q=deformVehiclePoint(dents,p,L,hw*2,H);return structure?deformStructure(structure,q,L,hw*2,H):q;};
+  const dents=vehicleDents(v),structure=v.components?.structure;k.deform=vehicleDeformer(v,L,hw*2,H,dents);
 
   const x0 = -L / 2, x1 = L / 2;
 
@@ -633,7 +634,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     strokePoly(k,[[a,hw*.65,h+.03],[middle,hw*.54,h+.06],[b-.06,hw*.65,h+.03]],'#b39164',1.5*z,false);
     strokePoly(k,[[b-.08,-hw*.65,h+.02],[b-.08,hw*.65,h+.02]],'#7d8983',2*z,false);
    }
-   if(p.hoodLoose&&!p.hoodGone){const a=Math.max(S.cab[1]*L,L*.12),b=x1-.03,h=bodyTop(b)+.02,lift=.025+(1-p.hood)*.13+Math.sin(time*11)*Math.min(.05,Math.abs(v.speed)*.003);fillPoly(k,[[a,-hw*.82,bodyTop(a)+.02],[b,-hw*.82,h+lift],[b,hw*.82,h+lift],[a,hw*.82,bodyTop(a)+.02]],v.color);}
+   if(p.hoodLoose&&!p.hoodGone){const a=Math.max(S.cab[1]*L,L*.12),b=x1-.03,h=bodyTop(b)+.02,lift=.025+(1-p.hood)*.13+Math.sin(time*11)*Math.min(.05,Math.abs(v.speed)*.003);meshFace(k,[[a,-hw*.82,bodyTop(a)+.02],[b,-hw*.82,h+lift],[b,hw*.82,h+lift],[a,hw*.82,bodyTop(a)+.02]],v.color,[0,0,1]);}
 
 
   }
@@ -650,7 +651,12 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   }
   drawWorkingDetails(k,v,L,hw,H,time,S.tray===true);
   // Separate outer skins buckle, hang on a hinge and eventually expose the inner frame.
-  for(const f of sides){const zone=Math.abs(f.a0[0]-f.b0[0])<Math.abs(f.a0[1]-f.b0[1])?((f.a0[0]+f.b0[0])>0?0:1):((f.a0[1]+f.b0[1])>0?3:2),skin=v.components?.progressive?.skins[zone];if(!skin||damageStage(v.components!.panels[zone])<2)continue;const patch=surfacePatch(f,.2,.8,.2,.85);if(skin.gone){fillPoly(k,patch,'#192725');strokePoly(k,[onFace(f,.25,.25),onFace(f,.7,.7)],'#7f8a79',z,false);}else{const curled=patch.map(([x,y,h],i)=>[x,y,h+(i<2?0:skin.curl*.07+skin.flutter)] as V3);fillPoly(k,curled,v.color);strokePoly(k,curled,'#a8ad97',.6*z,true);}}
+  for(const f of sides){const zone=Math.abs(f.a0[0]-f.b0[0])<Math.abs(f.a0[1]-f.b0[1])?((f.a0[0]+f.b0[0])>0?0:1):((f.a0[1]+f.b0[1])>0?3:2),skin=v.components?.progressive?.skins[zone];if(!skin||damageStage(v.components!.panels[zone])<2)continue;const patch=surfacePatch(f,.2,.8,.2,.85);if(skin.gone){fillPoly(k,patch,'#192725');strokePoly(k,[onFace(f,.25,.25),onFace(f,.7,.7)],'#7f8a79',z,false);}else{const curled=patch.map(([x,y,h],i)=>[x,y,h+(i<2?0:skin.curl*.07+skin.flutter)] as V3);meshFace(k,curled,v.color,f.n);strokePoly(k,curled,'#a8ad97',.6*z,true);}}
+  // Impact-local folded seams and exposed primer remain attached to the crushed material.
+  if(z>=.65)for(const dent of dents.slice(-6)){if(dent.energy<.045)continue;const side=dent.zone>=2,normal:V3=side?[0,dent.zone===3?1:-1,0]:[dent.zone===0?1:-1,0,0];if(dot(WN(k,normal),VIEW)<=0)continue;const span=.035+Math.min(.12,dent.depth*.55),cx=Math.max(-.43,Math.min(.43,dent.x)),cy=Math.max(-.42,Math.min(.42,dent.y));const point=(u:number,h:number):V3=>side?[(cx+u)*L,normal[1]*hw*.965,h*H]:[normal[0]*L*.487,(cy+u)*hw*2,h*H];
+   for(let strip=0;strip<3;strip++){const h=.35+strip*.07,off=(strip-1)*span*.25;const scar=[point(off-span,h),point(off-span*.35,h+.025),point(off+span,h-.015),point(off+span*.45,h-.035)];fillPoly(k,scar,strip===1?'#b5b9a9':'#414b49');strokePoly(k,[point(off-span*.8,h+.018),point(off,h-.01),point(off+span*.8,h+.015)],'#d0c9b6',Math.max(.45,z*.45),false);}
+   if(!side&&dent.energy>.12){const along=normal[0],fold=(u:number,y:number):V3=>{const x=along*(.42-u)*L;return[x,Math.max(-.8,Math.min(.8,cy*2+y))*hw,bodyTop(x)+.012];};strokePoly(k,[fold(0,-.35),fold(.035,-.1),fold(.01,.14),fold(.055,.35)],'#3e4b46',Math.max(.6,z*.65),false);strokePoly(k,[fold(.015,-.35),fold(.05,-.1),fold(.025,.14),fold(.07,.35)],'#c5c4ae',Math.max(.4,z*.4),false);}
+  }
   // Contact stains travel with the deformed panel and darken as they dry. Bounded at 12.
   if(damageBloodEnabled())for(const stain of v.components?.blood??[]){if(Math.abs(stain.x)>.36?(stain.x>0)!==frontVisible:dot(WN(k,[0,Math.sign(stain.y),0]),VIEW)<=0)continue;const p=W3(k,[stain.x*L,stain.y*hw*2,stain.z*H]);g.fillStyle=stain.age>60?'#55262b':'#a52b36';g.beginPath();g.ellipse(p[0],p[1],Math.max(.7,stain.size*z*12),Math.max(.5,stain.size*z*5),-.35,0,Math.PI*2);g.fill();g.strokeStyle='#72232d';g.lineWidth=Math.max(.5,z*.5);g.beginPath();g.moveTo(p[0],p[1]);g.lineTo(p[0]+z,p[1]+stain.size*z*13);g.stroke();}
   if(structure)for(const side of [-1,1])if(structure.doors[side<0?0:1]>.5)strokePoly(k,[[-L*.16,side*hw*.98,H*.3],[L*.15,side*hw*.98,H*.56]],'#302c28',Math.max(.7,z),false);
