@@ -4,7 +4,7 @@ The earlier driving, city streaming, road geometry, aerial roofs, fleet, address
 
 ## Movement and city life
 
-Fixed both tutorial input blockers: generic UI pointer events intercepted touches, and player control treated the touch tutorial as a blocking modal. Direct presses around the joystick centre now create immediate analog input. Pointer capture survives leaving its hit area; cancellation and focus loss clear input. Touch movement resumes a paused world. The phone hides street controls while it is open.
+Fixed tutorial input and visual blockers: generic UI pointer events intercepted touches, and player control treated the touch tutorial as a blocking modal, and rendering froze beneath it. Direct presses around the joystick centre now create immediate analog input. Pointer capture survives leaving its hit area; cancellation and focus loss clear input. Touch movement resumes a paused world. The phone hides street controls while it is open.
 
 Walking increases from 1.1 to 1.25 times base pace. Sprint builds from 1.75 to 2.4 times pace over 1.4 seconds, with bounded acceleration, stamina use and wall collision. Nearby scenes start up to every fifteen seconds using existing eligible people on safe pavement. Six life-themed verses, call-and-response lines and busking actions vary performances. Existing two-scene and twenty-four-history limits remain.
 

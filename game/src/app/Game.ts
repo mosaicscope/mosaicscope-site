@@ -352,7 +352,7 @@ export class Game {
     const ad = this.hovered < 0 && !this.mouse.dragging ? this.renderer.pickAd(this.mouse.x, this.mouse.y) : null;
     this.canvas.style.cursor = ad || this.hovered >= 0 ? "pointer" : "";
     this.canvas.title = ad ? `${ad.label} (opens in a new tab)` : "";
-    if (!this.interior.open&&!this.travel.open&&!this.club.open&&!this.casino.open&&!this.modal.open) this.guard("render", () => this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames,quietInterface:this.dialogue.open||this.modal.open||this.casino.open||this.dev.visible }));
+    if (!this.interior.open&&!this.travel.open&&!this.club.open&&!this.casino.open&&(!this.modal.open||this.modal.el.classList.contains("touch-tut"))) this.guard("render", () => this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames,quietInterface:this.dialogue.open||this.modal.open||this.casino.open||this.dev.visible }));
     this.updateAimUI();
     this.guard("audio", () => {
       const f = this.interior.footing;
