@@ -1,4 +1,6 @@
 import { VEHICLES, type VehicleClass } from "../content/vehicles";
+import { worldIndex } from "../world/WorldIndex";
+import type { World } from "../world/World";
 import { T } from "../world/World";
 import { clamp } from "../core/math";
 
@@ -47,4 +49,16 @@ export function followingSpeed(gap: number, leaderSpeed: number, brake: number, 
 export function temperatureGrip(heat: number): number {
   const h = clamp(heat, 0, 1);
   return 1 + Math.min(h, 0.45) * 0.12 - Math.max(0, h - 0.65) * 0.38;
+}
+
+/** Resolve wheel contact against surveyed carriageways before coarse land-cover tiles. */
+export function roadSurfaceAt(world:World,x:number,y:number,rain:number,offroad:boolean){
+ const tile=world.tile(Math.floor(x),Math.floor(y));
+ if(world.mapped&&[T.GRASS,T.SAND,T.PATH,T.SIDEWALK].includes(tile)){
+  for(const i of worldIndex(world).roads.query(x-12,y-12,x+12,y+12)){
+   const r=world.mapped.streetSegments[i],at=(x-r.x)*r.dx+(y-r.y)*r.dy;
+   if(at>=0&&at<=r.length&&Math.abs(-(x-r.x)*r.dy+(y-r.y)*r.dx)<=r.half)return roadSurface(T.ROAD,rain,offroad);
+  }
+ }
+ return roadSurface(tile,rain,offroad);
 }
