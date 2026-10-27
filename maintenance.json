@@ -1,12 +1,20 @@
 {
- "at": 1793078342041,
+ "at": 1793079986818,
  "totals": {
-  "duplicate-code": 2,
+  "duplicate-code": 3,
   "long-function": 17,
   "oversized-module": 10,
   "unused-css": 1
  },
  "findings": [
+  {
+   "kind": "duplicate-code",
+   "severity": "low",
+   "where": "game/e2e/frame-budget.mjs:10 = game/e2e/progressive-budget.mjs:11",
+   "detail": "8+ identical lines in 2 places",
+   "fix": "extract a shared helper",
+   "fp": "duplicate-code|12k6f0p"
+  },
   {
    "kind": "duplicate-code",
    "severity": "low",
@@ -98,10 +106,10 @@
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/render/Cars.ts:259",
-   "detail": "406 lines",
+   "where": "game/src/render/Cars.ts:260",
+   "detail": "409 lines",
    "fix": "split into named steps",
-   "fp": "long-function|3naczl"
+   "fp": "long-function|1qv2h78"
   },
   {
    "kind": "long-function",
@@ -115,9 +123,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/render/Renderer.ts",
-   "detail": "1095 lines",
+   "detail": "1099 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|1nccn2e"
+   "fp": "oversized-module|1iu176a"
   },
   {
    "kind": "oversized-module",
@@ -155,9 +163,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Simulation.ts",
-   "detail": "990 lines",
+   "detail": "991 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|158lg3c"
+   "fp": "oversized-module|179mq4j"
   },
   {
    "kind": "long-function",
