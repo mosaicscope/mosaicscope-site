@@ -3,7 +3,7 @@ import {structuralDynamics,brakeThermals} from './VehicleStructure';
 import {worldIndex} from '../world/WorldIndex';
 import {hitFacade} from "./CivicDamage";
 import {mappedDrivingLimit,advanceDistantTraffic,spawnMappedVehicles,driveMappedVehicle,snapMappedVehicle} from './MappedTraffic';
-import { handlingProfile, roadSurface, slipGrip, corneringBudget, followingSpeed, temperatureGrip } from "./VehicleHandling";
+import { handlingProfile, roadSurfaceAt, slipGrip, corneringBudget, followingSpeed, temperatureGrip } from "./VehicleHandling";
 import { vehicleIndex } from "./VehicleIndex";
 import { vehicleGeometry, chassisContact, sweptChassisContact } from "./VehicleGeometry";
 import { drivingSetup, stepPowertrain, stepDrift } from "./DrivingExperience";
@@ -257,7 +257,7 @@ function tyreGrip(sim: Simulation, v: Vehicle): number {
     const x = (i < 2 ? 1 : -1) * geometry.wheelbase / 2, y = profile.twoWheeler ? 0 : (i % 2 ? 1 : -1) * (geometry.width/2-0.02);
     const wheel = v.components?.wheels[i];
     const condition = wheel ? wheel.missing ? 0 : (wheel.puncture ? 0.55 : 1)*(1-wheel.suspension*0.25-wheel.rim*0.1) : (i%2 === 0 ? v.flatLeft : v.flatRight) ? 0.55 : 1;
-    surfaceGrip += roadSurface(sim.world.tile(Math.floor(v.x+x*c-y*s), Math.floor(v.y+x*s+y*c)), sim.env.rain, profile.offroad).grip * condition / (profile.twoWheeler?2:4);
+    surfaceGrip += roadSurfaceAt(sim.world,v.x+x*c-y*s,v.y+x*s+y*c,sim.env.rain,profile.offroad).grip * condition / (profile.twoWheeler?2:4);
   }
   return d.grip * 2.5 * surfaceGrip * utilityDynamics(v).grip * temperatureGrip(v.tyreHeat ?? 0) * (v.lifeMods?.includes("Racing tyres") ? 1.3 : 1) / (v.lifeMods?.includes("Double deck") ? 1.2 : 1) * (1 - Math.max(0,v.damage-.35) * 0.16);
 }
@@ -285,7 +285,7 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const grip = tyreGrip(sim, v)*structural.grip;
   const profile = handlingProfile(v.cls);
   const geometry = vehicleGeometry(v);
-  const surface = roadSurface(sim.world.tile(Math.floor(v.x), Math.floor(v.y)), sim.env.rain, profile.offroad);
+  const surface = roadSurfaceAt(sim.world,v.x,v.y,sim.env.rain,profile.offroad);
   // Pedal response builds torque smoothly; braking always responds immediately.
   const pedal = clamp(inp.throttle, -1, 1);
   const serviceBrake=clamp(inp.serviceBrake??0,0,1);
@@ -468,7 +468,7 @@ function skidMarks(sim: Simulation, v: Vehicle, lat: number, lock: number): void
     if (v.components?.wheels[i]?.missing) continue;
     const lx = (i < 2 ? 1 : -1)*geometry.wheelbase/2, ly = profile.twoWheeler ? 0 : (i%2 ? 1 : -1)*(geometry.width/2-0.02);
     const x=v.x+lx*c-ly*s, y=v.y+lx*s+ly*c;
-    const surface = roadSurface(sim.world.tile(Math.floor(x),Math.floor(y)),sim.env.rain,profile.offroad);
+    const surface = roadSurfaceAt(sim.world,x,y,sim.env.rain,profile.offroad);
     const powered = profile.drive === "awd" || (profile.drive === "fwd" ? i<2 : i>=2);
     const scrub = Math.max(Math.abs(lat)-0.65, i>=2 && lock>0 ? 0.6 : 0, powered ? (v.wheelspin ?? 0)*0.5 : 0);
     if (surface.loose && Math.abs(v.speed)>1.5) {
