@@ -1,3 +1,4 @@
+import {transferBlood} from './VehicleBlood';
 import {updateCityLife} from './CityLife';
 import {updateWorkshopMotion} from './VehicleWorkshop';
 import {updateCityRoutine} from './CityRoutine';
@@ -525,7 +526,7 @@ export class Simulation {
     v.damage = Math.min(1, v.damage + 0.03);
     bump(v, Math.cos(v.heading), Math.sin(v.heading), Math.min(0.08, speed * 0.008));
     this.bus.emit("sound", { kind: "carhit", x: c.x, y: c.y, vol: Math.min(1, speed / 8) });
-    if (speed > 3.5) { const part = speed > 7 && this.rng.chance(0.4) ? "head" : this.rng.chance(0.5) ? "leg" : "torso"; wound(this, c, part, speed > 7 ? 3 : 2, part === "head" ? "gash" : "cut", v.driver, v.x, v.y); }
+    if (speed > 3.5) { if(this.fakeBlood)transferBlood(v,c.x,c.y,speed);const part = speed > 7 && this.rng.chance(0.4) ? "head" : this.rng.chance(0.5) ? "leg" : "torso"; wound(this, c, part, speed > 7 ? 3 : 2, part === "head" ? "gash" : "cut", v.driver, v.x, v.y); }
     const driver = v.driver >= 0 ? this.chars[v.driver] : null;
     remember(c, { t: this.tick, kind: "car_hit", subj: driver?.id ?? -1, obj: c.id, toy: null, area: this.world.areaAt(c.x, c.y)?.id ?? 0, val: -0.8, ev: -1, src: "did" });
     const e = this.emit({ type: "car_hit", x: c.x, y: c.y, actors: driver ? [driver.id, c.id] : [c.id], severity: res.down ? 4 : 3, summary: `${driver ? driver.name : "A car"} hit ${c.name} with a ${d.name.toLowerCase()}${res.down ? " and knocked them flat" : ""}` });

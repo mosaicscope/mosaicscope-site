@@ -384,7 +384,7 @@ export class Game {
         h("button.btn.drive-mode",{type:"button",text:DRIVE_MODE_LABELS[v.driveMode??"road"]+" mode ↻","aria-label":"Change driving mode",onclick:()=>{cycleDriveMode(v);this.updateHud();}}),
         h("div",{text:`Tyres ${Math.round((v.tyreHeat??0)*100)}% warm${(v.wheelspin??0)>.3?' · WHEELSPIN':''}${(v.slip??0)>1|| (v.slip??0)<-1?' · SLIDING':''}`}),
         ...(drift&&drift.points>1?[h("div",{text:`DRIFT ${Math.round(drift.points)} · ×${1+Math.min(3,Math.floor(drift.chain/2))} · ${Math.round(drift.angle)}°`})]:drift&&drift.best>0?[h("div",{text:`Best drift ${drift.best}`})]:[]),
-        (v.flatLeft||v.flatRight?" · FLAT TYRE":"")+((v.heat??0)>.5?" · ENGINE HOT: pull over":"")
+        (v.components?.structure?.temperature??0)>.6?"ENGINE OVERHEATING · pull over":(v.components?.structure?.brakeHeat??0)>.8?"BRAKES HOT · allow cooling":(v.components?.structure?.oil??1)<.25?"LOW OIL · service needed":(v.components?.structure?.coolant??1)<.25?"LOW COOLANT · service needed":(v.flatLeft||v.flatRight?" · FLAT TYRE":"")+((v.heat??0)>.5?" · ENGINE HOT: pull over":"")
       ]));
     }
     if(sim.pendingAmbulance.has(p.id))kids.push(h('div.car.medical-status',{text:p.phys===Phys.DOWN?'Ambulance on the way · stay still for treatment':'Ambulance on the way · move clear of traffic'}));

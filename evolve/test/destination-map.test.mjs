@@ -27,3 +27,5 @@ test('map venue opening hours and contact provenance survive without invented op
  const d=convertDestination({elements:[{id:10,tags:{building:'yes',amenity:'cafe',name:'Mapped cafe',opening_hours:'Mo-Fr 07:00-16:00',website:'https://example.org/'},geometry},{id:11,tags:{name:'Mapped venue',amenity:'restaurant',opening_hours:'24/7'},lat:c.lat,lon:c.lon}]},'CHC');
  assert.equal(d.buildings[0].tags.opening_hours,'Mo-Fr 07:00-16:00');assert.equal(d.buildings[0].tags.website,'https://example.org/');assert.equal(d.venues[0].tags.opening_hours,'24/7');assert.equal(d.venues[0].open,undefined);
 });
+
+test('directional lanes, explicit width and speed units survive the public map API',()=>{const c=districtCentre('CHC'),tags={highway:'primary',width:'12',lanes:'4','lanes:forward':'3','lanes:backward':'1',maxspeed:'60 mph',surface:'asphalt'},geometry=[{lat:c.lat,lon:c.lon},{lat:c.lat+.001,lon:c.lon+.001}],d=convertDestination({elements:[{id:1,tags,geometry}]},'CHC');for(const key of ['width','lanes','lanes:forward','lanes:backward','maxspeed','surface'])assert.equal(d.roads[0].tags[key],tags[key]);});

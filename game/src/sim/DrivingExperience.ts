@@ -43,8 +43,8 @@ export function stepPowertrain(v:Vehicle,speed:number,top:number,pedal:number,dt
   const s=Math.abs(speed)/Math.max(0.1,top),gear=clamp(p.gear,1,5);
   let rev=s/(p.gear<0?.35:single?1.1:GEAR_LIMITS[gear-1]);
   if(!single&&p.gear>0&&p.shift===0) {
-    if(rev>setup.shiftAt&&p.gear<5) {p.gear++;p.shift=.14;}
-    else if(p.gear>1&&(rev<.3||pedal>.75&&rev<.52&&s/GEAR_LIMITS[p.gear-2]<setup.shiftAt*.95)) {p.gear--;p.shift=.11;}
+    if(rev>setup.shiftAt&&p.gear<5) {p.gear++;p.shift=.14+(v.components?.structure?.gearbox??0)*.3;}
+    else if(p.gear>1&&(rev<.3||pedal>.75&&rev<.52&&s/GEAR_LIMITS[p.gear-2]<setup.shiftAt*.95)) {p.gear--;p.shift=.11+(v.components?.structure?.gearbox??0)*.3;}
     rev=s/GEAR_LIMITS[p.gear-1];
   }
   const target=idle+clamp(rev+Math.min(.18,(v.wheelspin??0)*.035)+Math.abs(pedal)*.06,0,1)*(redline-idle);
