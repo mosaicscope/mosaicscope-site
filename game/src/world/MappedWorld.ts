@@ -1,3 +1,4 @@
+import {mappedLanes,mappedSpeed,roadOneWay} from '../content/roadLayout';
 import snapshot from './christchurch.json';
 import {World,T,type Building,type Area} from './World';
 import {BUILDINGS,GROUND_H,FLOOR_H,type BuildingKind} from '../content/buildings';
@@ -5,7 +6,7 @@ import {mappedBuildingStyle,regionalArchitecture} from '../content/mappedBuildin
 import {roadHalfWidth,type MappedRoad,type MappedTerrain} from '../content/destinationTerrain';
 import type {DistrictData,MappedBuilding,MappedVenue} from '../ui/DestinationDistrict';
 
-export interface CitySegment {id:number;name:string;kind:string;x:number;y:number;dx:number;dy:number;length:number;half:number;oneway:number;speed:number}
+export interface CitySegment {id:number;name:string;kind:string;x:number;y:number;dx:number;dy:number;length:number;half:number;oneway:number;speed:number;lanes?:{sign:number;offset:number}[]}
 export interface MappedCity {
  version:number;metresPerTile:number;offsetX:number;offsetY:number;data:DistrictData[];
  buildings:MappedBuilding[];byBuilding:Map<number,MappedBuilding>;buildingIds:Map<number,number>;
@@ -46,7 +47,7 @@ export function mappedChristchurch(legacy:World):World{
  const roadStroke=(r:MappedRoad,extra:number,pavement:boolean)=>{const walk=['path','footway','pedestrian','steps','cycleway','corridor'].includes(r.kind),half=roadHalfWidth(r)/2+extra;
   for(let i=1;i<r.points.length;i++){const a=mappedPoint(m,...r.points[i-1] as [number,number]),b=mappedPoint(m,...r.points[i] as [number,number]),dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);if(!len)continue;
    for(let y=Math.max(pad,Math.floor(Math.min(a.y,b.y)-half));y<=Math.min(size-pad-1,Math.ceil(Math.max(a.y,b.y)+half));y++)for(let x=Math.max(pad,Math.floor(Math.min(a.x,b.x)-half));x<=Math.min(size-pad-1,Math.ceil(Math.max(a.x,b.x)+half));x++){const u=Math.max(0,Math.min(1,((x+.5-a.x)*dx+(y+.5-a.y)*dy)/(len*len)));if(Math.hypot(x+.5-a.x-dx*u,y+.5-a.y-dy*u)>half)continue;const old=w.tile(x,y);if(old===T.WATER&&r.tags?.bridge!=='yes')continue;if(pavement){if(old!==T.ROAD)put(x,y,walk?T.PATH:T.SIDEWALK);}else put(x,y,walk?T.PATH:T.ROAD);}
-   if(!pavement&&!walk&&r.tags?.access!=='no')m.streetSegments.push({id:r.id,name:r.name,kind:r.kind,x:a.x,y:a.y,dx:dx/len,dy:dy/len,length:len,half:roadHalfWidth(r)/2,oneway:r.tags?.oneway==='-1'?-1:['yes','true','1'].includes(r.tags?.oneway??'')?1:0,speed:Math.min(8.3,Math.max(2.5,(Number.parseFloat(r.tags?.maxspeed??'50')||50)/7.2))});
+   if(!pavement&&!walk&&r.tags?.access!=='no')m.streetSegments.push({id:r.id,name:r.name,kind:r.kind,x:a.x,y:a.y,dx:dx/len,dy:dy/len,length:len,half:roadHalfWidth(r)/2,oneway:roadOneWay(r),lanes:mappedLanes(r,roadHalfWidth(r)),speed:mappedSpeed(r)});
   }
  };
  for(const r of m.roads)roadStroke(r,1.3,true);for(const r of m.roads)roadStroke(r,0,false);

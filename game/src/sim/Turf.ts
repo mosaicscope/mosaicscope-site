@@ -269,7 +269,8 @@ export function bulletHit(sim: Simulation, t: Toy, c: Character, nx: number, ny:
     const part = pickPart(sim, hz);
     const heavy = ws.damage >= 2.8;
     const sev = (part === "head" ? 3 : part === "torso" ? (heavy || sim.rng.chance(0.35) ? 3 : 2) : sim.rng.chance(heavy ? 0.8 : 0.55) ? 2 : 1) as 1 | 2 | 3;
-    wound(sim, c, part, t.load==='rubber'?1:sev, t.load==='rubber'?"bruise":part === "head" ? "gash" : sev >= 2 ? "cut" : "graze", shooter?.id ?? -1, shooter?.x ?? hx, shooter?.y ?? hy,gun,t.load);
+    const injury=wound(sim, c, part, t.load==='rubber'?1:sev, t.load==='rubber'?"bruise":part === "head" ? "gash" : sev >= 2 ? "cut" : "graze", shooter?.id ?? -1, shooter?.x ?? hx, shooter?.y ?? hy,gun,t.load);
+    if(t.load!=='rubber'&&injury.kind!=='bruise'){const holes=injury.ballistics??=[];if(holes.length>=8)holes.shift();holes.push({angle:Math.atan2(ny,nx),exit:t.load==='heavy'&&part!=='head',age:sim.tick});}
     // a bad hit puts them on the floor for a while (paramedics do the rest)
     if (sev >= 3 && c.tier !== "player" && c.phys !== Phys.DOWN) { c.phys = Phys.DOWN; c.physTimer = 5 + sim.rng.range(0, 4); c.vz = 2; c.stats.falls++; }
   }

@@ -14,6 +14,7 @@ export const WORKSHOP_ACTIONS=[
  {id:'bonnet',label:'Secure or replace the bonnet',group:'Repairs',cost:55,detail:'Restore its hinge, latch and attachment to this car.'},
  {id:'bumper',label:'Replace the bumper',group:'Repairs',cost:50,detail:'Refit the detached or hanging bumper.'},
  {id:'panels',label:'Straighten body panels',group:'Repairs',cost:120,detail:'Repair crumpled sheet metal, keeping mechanical damage separate.'},
+ {id:'mechanical',label:'Rebuild crash-damaged mechanical systems',group:'Repairs',cost:180,detail:'Repair transmission, cooling, lubrication, brakes, fuel lines, battery, steering and axles.'},
  {id:'engine',label:'Service the damaged engine',group:'Repairs',cost:100,detail:'Repair heat damage, stop the leak and extinguish an engine fire.'},
  {id:'wash',label:'Wash the vehicle',group:'Repairs',cost:8,detail:'Clean road grime while leaving dents and rust visible.'},
  {id:'repaint',label:'Respray the vehicle',group:'Repairs',cost:80,detail:'Apply the selected paint; mechanical and crash damage remain.'},
@@ -49,6 +50,10 @@ export const WORKSHOP_ACTIONS=[
 export type WorkshopAction=typeof WORKSHOP_ACTIONS[number]['id'];
 const paint=(s:string)=>/^#[0-9a-f]{6}$/i.test(s)?s:'#688d87';
 export function inspectVehicle(v:Vehicle):string[]{const p=components(v);return[
+ ...(p.structure?[
+ 'Structure: front rail '+Math.round(p.structure.front*100)+'% · rear rail '+Math.round(p.structure.rear*100)+'% · chassis bend '+Math.round(Math.abs(p.structure.bend)*100)+'% · roof '+Math.round(p.structure.roof*100)+'%',
+ 'Fluids: coolant '+Math.round(p.structure.coolant*100)+'% · oil '+Math.round(p.structure.oil*100)+'% · fuel '+Math.round(p.structure.fuel*100)+'% · temperature '+Math.round(p.structure.temperature*100)+'%',
+ 'Mechanical: gearbox '+Math.round(p.structure.gearbox*100)+'% damaged · brake heat '+Math.round(p.structure.brakeHeat*100)+'% · brake wear '+Math.round(p.structure.brakeWear*100)+'% · doors '+p.structure.doors.map(n=>n>.6?'jammed':'openable').join(' / ')]:[]),
  ...(p.impacts??[]).slice(-4).reverse().map(hit=>'Impact: '+['front','rear','left','right'][hit.zone]+' · '+hit.severity+' · change in speed '+(hit.deltaV*7.2).toFixed(0)+' km/h'),
  'Crush: '+(p.dents?.length??0)+' local dents · suspension '+p.wheels.map((w,i)=>['FL','FR','RL','RR'][i]+' '+Math.round(w.suspension*100)+'%').join(' · '),
  'Body: '+p.panels.map((n,i)=>['front','rear','left','right'][i]+' '+Math.round(n*100)+'% damaged').join(' · '),
@@ -89,9 +94,10 @@ export function workshopAction(sim:Simulation,id:WorkshopAction,vehicleId=-1,pro
  case 'glass':if(!p!.glass.slice(1).some(n=>n>0))return unchanged();p!.glass.fill(0,1);v!.glassDamage=p!.glass[0];break;
  case 'bonnet':if(!p!.hoodLoose&&!p!.hoodGone&&p!.hood===1)return unchanged();p!.hood=1;p!.hoodLoose=false;p!.hoodGone=false;break;
  case 'bumper':if(!v!.bumperLost&&!p!.bumperLoose&&p!.bumper===1)return unchanged();v!.bumperLost=false;p!.bumper=1;p!.bumpers!.fill(1);p!.bumperLoose=false;break;
- case 'panels':if(!p!.panels.some(n=>n>0)&&!v!.damage)return unchanged();p!.panels.fill(0);p!.dents=[];p!.mirrors!.fill(0);v!.mirrorLost=false;v!.dmgF=v!.dmgR=v!.dmgL=v!.dmgS=0;v!.damage=Math.max(v!.engineDamage??0,...p!.wheels.map(w=>w.missing?.4:w.puncture?.12:0))*.5;break;
+ case 'panels':if(!p!.panels.some(n=>n>0)&&!v!.damage)return unchanged();p!.panels.fill(0);p!.dents=[];if(p!.structure)Object.assign(p!.structure,{front:0,rear:0,bend:0,twist:0,intrusion:[0,0],roof:0,doors:[0,0],aero:0});p!.mirrors!.fill(0);v!.mirrorLost=false;v!.dmgF=v!.dmgR=v!.dmgL=v!.dmgS=0;v!.damage=Math.max(v!.engineDamage??0,...p!.wheels.map(w=>w.missing?.4:w.puncture?.12:0))*.5;break;
+ case 'mechanical':{const s=p!.structure;if(!s||![s.radiator,s.sump,s.exhaust,s.gearbox,s.rack,...s.axles,...s.hydraulics,s.battery,s.tank,1-s.coolant,1-s.oil,1-s.fuel,s.temperature,s.brakeHeat,s.brakeWear].some(n=>n>0))return unchanged();Object.assign(s,{radiator:0,sump:0,exhaust:0,gearbox:0,rack:0,axles:[0,0],hydraulics:[0,0],battery:0,tank:0,coolant:1,oil:1,fuel:1,temperature:0,brakeHeat:0,brakeWear:0,hop:0,hopVelocity:0});break;}
  case 'engine':if(!v!.engineDamage&&!v!.burning&&!v!.burnt&&!v!.leak)return unchanged();v!.engineDamage=0;v!.engineRepaired=true;v!.burning=false;v!.burnt=false;v!.burnTime=0;v!.heat=0;v!.leak=0;break;
- case 'wash':if(v!.cleaned)return unchanged();v!.cleaned=true;pose='clean';text='Road grime washed off. Physical damage still needs repairs.';break;
+ case 'wash':if(v!.cleaned&&!p!.blood?.length)return unchanged();p!.blood=[];v!.cleaned=true;pose='clean';text='Road grime washed off. Physical damage still needs repairs.';break;
  case 'repaint':v!.color=paint(colour);v!.resprayed=true;pose='clean';break;
  case 'headlights':v!.lights=!(v!.lights??sim.isDark);pose='press';text='Headlights '+(v!.lights?'on.':'off.');break;
  case 'hazards':v!.hazards=!v!.hazards;pose='press';text='Hazard lights '+(v!.hazards?'on.':'off.');break;

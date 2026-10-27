@@ -1,3 +1,5 @@
+import {deformStructure} from '../sim/VehicleStructure';
+import {damageBloodEnabled} from './DamageArt';
 import {lampFixture,surfacePoint,surfacePatch} from './SurfaceFixtures';
 import {vehicleGeometry} from '../sim/VehicleGeometry';
 import {handlingProfile} from '../sim/VehicleHandling';
@@ -194,7 +196,7 @@ function meshTriangle(k:Ctx,a:V3,b:V3,c:V3,col:string,normal:V3,level:number):vo
 }
 function meshFace(k:Ctx,points:V3[],col:string,normal:V3):void{
  if(!k.deform||k.cam.zoom<.45){fillPoly(k,points,col);return;}
- const centre=points.reduce((a,p)=>[a[0]+p[0]/points.length,a[1]+p[1]/points.length,a[2]+p[2]/points.length] as V3,[0,0,0] as V3),level=k.cam.zoom>1.6?2:1;
+ const centre=points.reduce((a,p)=>[a[0]+p[0]/points.length,a[1]+p[1]/points.length,a[2]+p[2]/points.length] as V3,[0,0,0] as V3),level=k.cam.zoom>3.5?2:1;
  for(let i=0;i<points.length;i++)meshTriangle(k,centre,points[i],points[(i+1)%points.length],col,normal,level);
 }
 
@@ -274,7 +276,8 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   // crumple zones: a hit end is pushed in (Traffic.bump records where the car was hit)
   const panels=v.components?.panels??[];
   const dF=Math.max(v.dmgF??0,(panels[0]??0)*.65),dR=Math.max(v.dmgR??0,(panels[1]??0)*.65),dL=Math.max(v.dmgL??0,(panels[2]??0)*.65),dS=Math.max(v.dmgS??0,(panels[3]??0)*.65);
-  const dents=vehicleDents(v);if(dents.length)k.deform=p=>deformVehiclePoint(dents,p,L,hw*2,H);
+  const dents=vehicleDents(v),structure=v.components?.structure;if(dents.length||structure&&(structure.front||structure.rear||structure.bend||structure.twist||structure.roof||structure.intrusion.some(n=>n>0)))k.deform=p=>{const q=deformVehiclePoint(dents,p,L,hw*2,H);return structure?deformStructure(structure,q,L,hw*2,H):q;};
+
   const x0 = -L / 2, x1 = L / 2;
 
   const night = dark > 0.35;
@@ -316,7 +319,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
 
   // The chassis settles toward a failed corner; grounded wheels keep their own contact plane.
   if(v.components){const drop=(i:number)=>{const w=v.components!.wheels[i];return w.missing?.2:(w.puncture?.06:0)+w.suspension*.045;};k.roll=((drop(0)+drop(2))-(drop(1)+drop(3)))/Math.max(.2,hw*4);k.pitch=((drop(2)+drop(3))-(drop(0)+drop(1)))/Math.max(.4,L*2);}
-  k.roll=(k.roll??0)+(v.bodyRoll??0);k.pitch=(k.pitch??0)+(v.bodyPitch??0);
+  k.roll=(k.roll??0)+(v.bodyRoll??0)+(structure?.hop??0);k.pitch=(k.pitch??0)+(v.bodyPitch??0);
   if(v.utility){k.roll+=(v.utility.sway??0)*.35;k.pitch+=(v.utility.loadShift??0)*.25;}
   // ---- lower skirt ----
   const hs = H * 0.3, ground = 0.08;
@@ -584,7 +587,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const hl = night || v.siren ? (PT.yellowLamps ? "#f2d27a" : "#fff8d8") : PT.yellowLamps ? "#cdb878" : "#e8e2c8";
   const brake = v.speed < 0.5 && v.state === "drive" || v.speed < 0 || v.state === "crashed";
   const rearFace={a0:rSk1[4],b0:rSk1[5],a1:rTop[4],b1:rTop[5]},end=frontVisible?frontFace:rearFace,mounts:[number,number,number][]=[];
-  if(end){const frontEnd=frontVisible,kind=d.design?.lamp??(S.boxy?'square':'slit');for(const side of[-1,1] as const){const fixture=lampFixture(end,side,frontEnd,kind),index=(frontEnd?0:2)+(side>0?1:0),hurt=lampDamage(v,index),signal=(v.hazards||v.indicator===(side<0?'left':'right'))&&Math.floor(time*1.6)%2===0,lights=v.lights??night,colour=hurt>.94?'#25342e':signal?'#e7ac50':frontEnd?(lights?hl:'#b9c5bc'):brake?'#ed6b54':lights?'#b84f41':'#763f38';
+  if(end){const frontEnd=frontVisible,kind=d.design?.lamp??(S.boxy?'square':'slit');for(const side of[-1,1] as const){const fixture=lampFixture(end,side,frontEnd,kind),index=(frontEnd?0:2)+(side>0?1:0),hurt=lampDamage(v,index),signal=(v.hazards||v.indicator===(side<0?'left':'right'))&&Math.floor(time*1.6)%2===0,lights=(v.lights??night)&&(v.components?.structure?.battery??0)<.8,colour=hurt>.94?'#25342e':signal?'#e7ac50':frontEnd?(lights?hl:'#b9c5bc'):brake?'#ed6b54':lights?'#b84f41':'#763f38';
    fillPoly(k,fixture.housing,'#293731');strokePoly(k,fixture.housing,'#89958a',.55*z,true);
    if(hurt<=.72||hurt>=.94){if(kind==='round'||kind==='quad'){const count=kind==='quad'?2:1;for(let j=0;j<count;j++){const u=fixture.u+(count===2?(j-.5)*.12:0),pts=Array.from({length:20},(_,i)=>surfacePoint(end,u+Math.cos(i/20*6.283)*(count===2?.055:.105),fixture.v+Math.sin(i/20*6.283)*.15));fillPoly(k,pts,colour);strokePoly(k,pts,'#b9c2b3',.45*z,true);}}
    else fillPoly(k,fixture.lens,colour);}
@@ -598,7 +601,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   fillPoly(k,surfacePatch(end,.37,.63,.12,.45),frontVisible?'#24322c':'#d4d5c4');
   if(frontVisible)for(let j=0;j<5;j++)strokePoly(k,[surfacePoint(end,.4+j*.05,.15),surfacePoint(end,.4+j*.05,.43)],'#879286',.45*z,false);
   }
-  if(((v.lights??night)||brake)&&!(v.state==='parked'&&v.driver<0&&v.lights!==true))for(const [sx,sy,index]of mounts){if(lampDamage(v,index)>.94||index<2&&!(v.lights??night))continue;const color=index<2?'235,230,197':'200,74,54',r=(index<2?6:brake?7:4)*M.scale*z;GLOW.push(layer=>{const grd=layer.createRadialGradient(sx,sy,0,sx,sy,r);grd.addColorStop(0,`rgba(${color},.4)`);grd.addColorStop(1,`rgba(${color},0)`);layer.fillStyle=grd;layer.beginPath();layer.arc(sx,sy,r,0,6.283);layer.fill();});}
+  if(((v.lights??night)||brake)&&!(v.state==='parked'&&v.driver<0&&v.lights!==true))for(const [sx,sy,index]of mounts){if((v.components?.structure?.battery??0)>=.8||lampDamage(v,index)>.94||index<2&&!(v.lights??night))continue;const color=index<2?'235,230,197':'200,74,54',r=(index<2?6:brake?7:4)*M.scale*z;GLOW.push(layer=>{const grd=layer.createRadialGradient(sx,sy,0,sx,sy,r);grd.addColorStop(0,`rgba(${color},.4)`);grd.addColorStop(1,`rgba(${color},0)`);layer.fillStyle=grd;layer.beginPath();layer.arc(sx,sy,r,0,6.283);layer.fill();});}
 
   // Metal creases and primer scuffs are clipped to the actual visible sheet-metal faces.
   for(const f of sides){const dx=Math.abs(f.b0[0]-f.a0[0]),dy=Math.abs(f.b0[1]-f.a0[1]),cx=(f.a0[0]+f.b0[0])/2,cy=(f.a0[1]+f.b0[1])/2,zone=dx<dy?(cx>0?0:1):(cy>0?3:2),amount=[dF,dR,dL,dS][zone];if(amount<.15)continue;g.save();g.beginPath();[f.a0,f.b0,f.b1,f.a1].forEach((p,i)=>{const q=W3(k,p);if(i)g.lineTo(q[0],q[1]);else g.moveTo(q[0],q[1]);});g.closePath();g.clip();
@@ -644,6 +647,9 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     g.fillStyle = "#0e0b0a"; g.fillText(label, pt.x, pt.y + 1); g.textAlign = "start"; g.textBaseline = "alphabetic";
   }
   drawWorkingDetails(k,v,L,hw,H,time,S.tray===true);
+  // Contact stains travel with the deformed panel and darken as they dry. Bounded at 12.
+  if(damageBloodEnabled())for(const stain of v.components?.blood??[]){if(Math.abs(stain.x)>.36?(stain.x>0)!==frontVisible:dot(WN(k,[0,Math.sign(stain.y),0]),VIEW)<=0)continue;const p=W3(k,[stain.x*L,stain.y*hw*2,stain.z*H]);g.fillStyle=stain.age>60?'#55262b':'#a52b36';g.beginPath();g.ellipse(p[0],p[1],Math.max(.7,stain.size*z*12),Math.max(.5,stain.size*z*5),-.35,0,Math.PI*2);g.fill();g.strokeStyle='#72232d';g.lineWidth=Math.max(.5,z*.5);g.beginPath();g.moveTo(p[0],p[1]);g.lineTo(p[0]+z,p[1]+stain.size*z*13);g.stroke();}
+  if(structure)for(const side of [-1,1])if(structure.doors[side<0?0:1]>.5)strokePoly(k,[[-L*.16,side*hw*.98,H*.3],[L*.15,side*hw*.98,H*.56]],'#302c28',Math.max(.7,z),false);
   // Electric vehicles have no tailpipe. Working diesels darken gently under engine load.
   const working=utilitySpec(v),electric=working?!working.diesel:['ev','compact_ev','estate_ev','deliveryev'].includes(d.design?.base??v.cls);
   if (!electric&&z>=.8&&(Math.abs(v.speed) > 0.3 || v.state === "drive")) {
@@ -693,7 +699,7 @@ function drawWorkingDetails(k:Ctx,v:Vehicle,L:number,hw:number,H:number,time:num
 
 /** Headlight beams (drawn in the lighting pass, additive): a beam from each lamp fanning onto a lit pool of road ahead. */
 export function headlights(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, strength: number,world?:World,traffic:readonly Vehicle[]=[]): void {
- if(v.lights===false||lampDamage(v,0)>.94&&lampDamage(v,1)>.94)return;
+ if((v.components?.structure?.battery??0)>=.8||v.lights===false||lampDamage(v,0)>.94&&lampDamage(v,1)>.94)return;
   if (strength < 0.1 || v.state === "parked" && v.driver < 0 && v.lights!==true) return;
   const d = VEHICLES[v.cls], M = carMutationOf(v.plate, v.cls);
   const ca = Math.cos(v.heading), sa = Math.sin(v.heading);
