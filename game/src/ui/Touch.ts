@@ -58,7 +58,7 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: s
   return e;
 }
 
-const DEADZONE = 0.14, SPRINT_ON = 0.94, SPRINT_OFF = 0.8;
+const DEADZONE = 0.14, SPRINT_ON = 0.86, SPRINT_OFF = 0.7;
 
 export class TouchControls {
   el: HTMLElement;
@@ -102,9 +102,10 @@ export class TouchControls {
     this.base = el("div", "tc-base"); this.knob = el("div", "tc-knob");
     this.base.append(this.knob);
     this.zone.append(this.base);
+    this.zone.setAttribute("role","group");this.zone.setAttribute("aria-label","Movement joystick");this.zone.addEventListener("lostpointercapture",e=>{if(e.pointerId===this.stickId)this.stickUp();});
     // the stick starts from a touch anywhere on the left half that isn't a button, so it works wherever the thumb lands
     window.addEventListener("pointerdown", (e) => {
-      if (!STICK_ON || e.pointerType !== "touch" || this.stickId >= 0 || e.clientX > innerWidth * 0.5) return;
+      if (!STICK_ON || !this.el.classList.contains("on") || this.stickId >= 0 || e.clientX > innerWidth * 0.5) return;
       const t = e.target;
       if (!(t instanceof Element) || !this.zone.contains(t) || t.closest("button, .tc-btn, .tc-sheet, .tc-cluster, .tc-sheet *")) return;
       if (this.el.classList.contains("hidden") || !this.el.classList.contains("on")) return;
@@ -290,11 +291,11 @@ export class TouchControls {
     if (this.stickId >= 0) return;
     e.preventDefault(); e.stopPropagation();
     this.stickId = e.pointerId;
-    try { (e.target as Element).setPointerCapture?.(e.pointerId); } catch { /* fine */ }
+    try { this.zone.setPointerCapture?.(e.pointerId); } catch { /* fine */ }
     const r = this.radius();
     // keep the whole base on screen
-    this.ox = Math.max(r + 8, Math.min(innerWidth - r - 8, e.clientX));
-    this.oy = Math.max(r + 8, Math.min(innerHeight - r - 8, e.clientY));
+    const rest=this.base.getBoundingClientRect(),cx=rest.left+rest.width/2,cy=rest.top+rest.height/2,near=Math.hypot(e.clientX-cx,e.clientY-cy)<=r*1.25;
+    this.ox=near?cx:e.clientX;this.oy=near?cy:e.clientY;
     const zr = this.zone.getBoundingClientRect();
     this.base.style.left = `${this.ox - zr.left}px`;
     this.base.style.top = `${this.oy - zr.top}px`;

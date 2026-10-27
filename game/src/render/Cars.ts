@@ -1,3 +1,4 @@
+import {damageStage} from '../sim/ProgressiveDamage';
 import {deformStructure} from '../sim/VehicleStructure';
 import {damageBloodEnabled} from './DamageArt';
 import {lampFixture,surfacePoint,surfacePatch} from './SurfaceFixtures';
@@ -499,7 +500,8 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
    g.strokeStyle='#d0e0d49c';g.lineWidth=Math.max(.3,.38*z);const ends:[number,number][]=[];
    for(let j=0;j<rays;j++){const a=j/rays*6.283+(seed%7)*.2,r=reach*(.74+(j*7%13)/40),u=ou+Math.cos(a)*r,w=ov+Math.sin(a)*r;ends.push([u,w]);const A=uv(ou,ov),B=uv(ou+(u-ou)*.43,ov+(w-ov)*.43),C=uv(u,w);g.beginPath();g.moveTo(A[0],A[1]);g.lineTo(B[0],B[1]);g.lineTo(C[0],C[1]);g.stroke();if(damage>.45){const D=uv(ou+(u-ou)*.72,ov+(w-ov)*.72),E=uv(u+(j%2?.035:-.04),w+.06);g.beginPath();g.moveTo(D[0],D[1]);g.lineTo(E[0],E[1]);g.stroke();}}
    for(const radius of[.3,.61,.84]){g.beginPath();ends.forEach(([u,w],i)=>{const q=uv(ou+(u-ou)*radius,ov+(w-ov)*radius);if(i)g.lineTo(q[0],q[1]);else g.moveTo(q[0],q[1]);});g.closePath();g.stroke();}
-   if(damage>.75&&zone!==0){const hole=ends.filter((_,i)=>i%2===0).map(([u,w])=>onFace(f,ou+(u-ou)*.65,ov+(w-ov)*.65));fillPoly(k,hole,'#182529');strokePoly(k,hole,'#9cb6aa',.35*z,true);}
+   const pane=v.components?.progressive?.panes[zone],lost=1-(pane?.retained??1);if(pane&&pane.retained<1){for(let shard=0;shard<Math.ceil(pane.retained*5);shard++){const u=.15+shard*.14,h=(pane.flutter??0)*(shard%2?1:-1),chip=[onFace(f,u,.1),onFace(f,u+.1,.2),onFace(f,u+.12,.38)].map(([x,y,z])=>[x,y,z+h] as V3);fillPoly(k,chip,'#bbd9d28a');strokePoly(k,chip,'#dce9db',.4*z,true);}}
+   if(damage>.75&&zone!==0||lost>.05){const hole=ends.filter((_,i)=>i%2===0).map(([u,w])=>onFace(f,ou+(u-ou)*Math.max(.3,lost),ov+(w-ov)*Math.max(.3,lost)));fillPoly(k,hole,'#182529');strokePoly(k,hole,'#9cb6aa',.35*z,true);}
    g.restore();
   }
   cap(k, rCab1, (S.open ? seat : roofPaint).map((c) => c * dmg) as [number, number, number], S.open ? 4 : 8);
@@ -647,6 +649,8 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     g.fillStyle = "#0e0b0a"; g.fillText(label, pt.x, pt.y + 1); g.textAlign = "start"; g.textBaseline = "alphabetic";
   }
   drawWorkingDetails(k,v,L,hw,H,time,S.tray===true);
+  // Separate outer skins buckle, hang on a hinge and eventually expose the inner frame.
+  for(const f of sides){const zone=Math.abs(f.a0[0]-f.b0[0])<Math.abs(f.a0[1]-f.b0[1])?((f.a0[0]+f.b0[0])>0?0:1):((f.a0[1]+f.b0[1])>0?3:2),skin=v.components?.progressive?.skins[zone];if(!skin||damageStage(v.components!.panels[zone])<2)continue;const patch=surfacePatch(f,.2,.8,.2,.85);if(skin.gone){fillPoly(k,patch,'#192725');strokePoly(k,[onFace(f,.25,.25),onFace(f,.7,.7)],'#7f8a79',z,false);}else{const curled=patch.map(([x,y,h],i)=>[x,y,h+(i<2?0:skin.curl*.07+skin.flutter)] as V3);fillPoly(k,curled,v.color);strokePoly(k,curled,'#a8ad97',.6*z,true);}}
   // Contact stains travel with the deformed panel and darken as they dry. Bounded at 12.
   if(damageBloodEnabled())for(const stain of v.components?.blood??[]){if(Math.abs(stain.x)>.36?(stain.x>0)!==frontVisible:dot(WN(k,[0,Math.sign(stain.y),0]),VIEW)<=0)continue;const p=W3(k,[stain.x*L,stain.y*hw*2,stain.z*H]);g.fillStyle=stain.age>60?'#55262b':'#a52b36';g.beginPath();g.ellipse(p[0],p[1],Math.max(.7,stain.size*z*12),Math.max(.5,stain.size*z*5),-.35,0,Math.PI*2);g.fill();g.strokeStyle='#72232d';g.lineWidth=Math.max(.5,z*.5);g.beginPath();g.moveTo(p[0],p[1]);g.lineTo(p[0]+z,p[1]+stain.size*z*13);g.stroke();}
   if(structure)for(const side of [-1,1])if(structure.doors[side<0?0:1]>.5)strokePoly(k,[[-L*.16,side*hw*.98,H*.3],[L*.15,side*hw*.98,H*.56]],'#302c28',Math.max(.7,z),false);
@@ -740,7 +744,7 @@ function roadWheel(k:Ctx,v:Vehicle,x:number,y:number,r:number,near:boolean,spin:
  if(w&&w.rim>.3){const q=W3(ctx,[0,0,r]);k.g.strokeStyle='#a9b3a2';k.g.lineWidth=k.cam.zoom;k.g.beginPath();k.g.moveTo(q[0]-3*k.cam.zoom,q[1]-r*12*k.cam.zoom);k.g.lineTo(q[0]+3*k.cam.zoom,q[1]+r*10*k.cam.zoom);k.g.stroke();}
 }
 export function drawVehicleFragment(g:CanvasRenderingContext2D,cam:Camera,v:Vehicle,index:number):void{
- for(const d of (v.components?.debris[index]?[v.components.debris[index]]:[])){const q=cam.toScreen(d.x,d.y,d.z,{x:0,y:0}),z=cam.zoom;g.save();g.translate(q.x,q.y);g.rotate(d.spin);if(d.kind==='wheel'){g.fillStyle='#26302e';g.beginPath();g.ellipse(0,0,5*z,7*z,0,0,6.3);g.fill();g.strokeStyle='#9ca89c';g.lineWidth=z;g.stroke();}else{g.fillStyle=d.colour??(d.kind==='glass'?'#b7d5d2b0':v.color);g.strokeStyle=d.kind==='glass'?'#d9ece0':'#4a5952';g.lineWidth=.5*z;g.beginPath();g.moveTo(-3*z,-z);g.lineTo(2*z,-4*z);g.lineTo(4*z,2*z);g.lineTo(-z,3*z);g.closePath();g.fill();g.stroke();}g.restore();}
+ for(const d of (v.components?.debris[index]?[v.components.debris[index]]:[])){if(d.size&&d.kind!=='wheel'){const size=d.size,roll=d.roll??0,pitch=d.pitch??0,co=Math.cos(d.spin),si=Math.sin(d.spin),cp=Math.cos(pitch),sp=Math.sin(pitch),cr=Math.cos(roll),sr=Math.sin(roll),raw=d.kind==='glass'?[[-1,-.6,0],[.8,-.8,0],[.3,.85,0]]:[[-1,-.6,0],[.8,-.8,0],[1,.65,(d.curl??0)*.8],[-.7,.8,0]],points=raw.map(([x,y,z])=>{x*=size;y*=size;z*=size;const yy=y*cr-z*sr,zz=y*sr+z*cr,xx=x*cp+zz*sp,h=-x*sp+zz*cp;const p=cam.toScreen(d.x+xx*co-yy*si,d.y+xx*si+yy*co,Math.max(.02,d.z+h),{x:0,y:0});return[p.x,p.y];});g.fillStyle=d.kind==='glass'?'#b7d5d29c':v.color;g.strokeStyle=d.kind==='glass'?'#dce8de':'#798573';g.lineWidth=Math.max(.5,cam.zoom*.3);g.beginPath();points.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();g.fill();g.stroke();continue;}const q=cam.toScreen(d.x,d.y,d.z,{x:0,y:0}),z=cam.zoom;g.save();g.translate(q.x,q.y);g.rotate(d.spin);if(d.size)g.scale(d.size/(d.kind==='glass'?.045:.16),d.size/(d.kind==='glass'?.045:.16));if(d.kind==='wheel'){g.fillStyle='#26302e';g.beginPath();g.ellipse(0,0,5*z,7*z,0,0,6.3);g.fill();g.strokeStyle='#9ca89c';g.lineWidth=z;g.stroke();}else{g.fillStyle=d.colour??(d.kind==='glass'?'#b7d5d2b0':v.color);g.strokeStyle=d.kind==='glass'?'#d9ece0':'#4a5952';g.lineWidth=.5*z;g.beginPath();g.moveTo(-3*z,-z);g.lineTo(2*z,-4*z);g.lineTo((4-(d.curl??0)*3)*z,(2+(d.curl??0)*4)*z);g.lineTo(-z,3*z);g.closePath();g.fill();g.stroke();}g.restore();}
 }
 
 function strokePoly(k:Ctx,points:V3[],color:string,width:number,closed=false):void{k.g.strokeStyle=color;k.g.lineWidth=width;k.g.beginPath();points.forEach((p,i)=>{const q=W3(k,p);if(i)k.g.lineTo(q[0],q[1]);else k.g.moveTo(q[0],q[1]);});if(closed)k.g.closePath();k.g.stroke();}
