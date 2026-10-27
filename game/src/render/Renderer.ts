@@ -173,7 +173,7 @@ export class Renderer {
     this.time += o.reduceMotion ? dt * 0.4 : dt;
     const time = this.time;
     // camera follow
-    if (cam.follow >= 0 && sim.chars[cam.follow]) { const f = sim.chars[cam.follow]; cam.lookAt(f.x, f.y); }
+    if (cam.follow >= 0 && sim.chars[cam.follow]) { const f = sim.chars[cam.follow],car=f.inCar>=0?sim.vehicles[f.inCar]:undefined;const vx=car?.vx??0,vy=car?.vy??0,speed=Math.hypot(vx,vy),ahead=car?Math.min(.32,4/Math.max(1,speed)):0;cam.lookAt(f.x+vx*ahead,f.y+vy*ahead); }
     // zoomed right in: the camera drops to street level for a flat 2D side view; zoom out to go back to 3D
     // (hysteresis stops it flickering at the boundary mid-pinch; a quick crossfade hides the switch)
     const want2D = STREET_2D && (this.in2D ? cam.zoom > 2.8 : cam.zoom > 3.4);

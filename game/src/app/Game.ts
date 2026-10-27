@@ -381,6 +381,7 @@ export class Game {
       const v=sim.vehicles[p.inCar],speed=Math.hypot(v.vx??Math.cos(v.heading)*v.speed,v.vy??Math.sin(v.heading)*v.speed),pt=v.powertrain,drift=v.drift;
       kids.push(h("div.car",null,[h("b",{text:String(Math.round(speed*7.2))})," km/h · "+VEHICLES[v.cls].name,
         h("div",{text:`${handlingProfile(v.cls).drive.toUpperCase()} · ${pt?(pt.gear<0?'R':'D'+pt.gear)+' · '+Math.round(pt.rpm)+' rpm':'Automatic'}`}),
+        ...(v.parkingBrake?[h("button.btn",{type:"button",text:"Parking brake ON · release","aria-label":"Release parking brake",onclick:()=>{v.parkingBrake=false;this.updateHud();}})]:[]),
         h("button.btn.drive-mode",{type:"button",text:DRIVE_MODE_LABELS[v.driveMode??"road"]+" mode ↻","aria-label":"Change driving mode",onclick:()=>{cycleDriveMode(v);this.updateHud();}}),
         h("div",{text:`Tyres ${Math.round((v.tyreHeat??0)*100)}% warm${(v.wheelspin??0)>.3?' · WHEELSPIN':''}${(v.slip??0)>1|| (v.slip??0)<-1?' · SLIDING':''}`}),
         ...(drift&&drift.points>1?[h("div",{text:`DRIFT ${Math.round(drift.points)} · ×${1+Math.min(3,Math.floor(drift.chain/2))} · ${Math.round(drift.angle)}°`})]:drift&&drift.best>0?[h("div",{text:`Best drift ${drift.best}`})]:[]),
@@ -982,7 +983,7 @@ export class Game {
     const sim = this.sim, p = sim.player, k = this.settings.keys;
     const parts: (HTMLElement | string)[] = [];
     const kb = (s: string) => h("kbd", { text: s === " " ? "Space" : s.toUpperCase() });
-    if (p.inCar >= 0) { this.hintEl.replaceChildren(kb("W"), "/", kb("S"), " drive · ", kb("A"), "/", kb("D"), " steer · ", kb(" "), " brake · ", kb("H"), " horn · ", kb(k.pickup), " get out"); return; }
+    if (p.inCar >= 0) { this.hintEl.replaceChildren(kb("W"), "/", kb("S"), " accelerate / brake / reverse · ", kb("A"), "/", kb("D"), " steer · ", kb(" "), " handbrake · ", kb("H"), " horn · ", kb(k.pickup), " get out"); return; }
     if(p.hand<0)parts.push(kb(k.swing),` ${unarmedMove(p.combat?.style,p.combat?.xp).name.toLowerCase()} nearby person · `);
     const door = this.nearDoor();
     if (door) parts.push(kb(k.pickup), " go into ", h("b", { text: door.studio ? "MosaicScope Studio" : sim.world.buildings[door.building].name }), " · ");

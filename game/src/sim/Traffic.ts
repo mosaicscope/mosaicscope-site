@@ -1,3 +1,4 @@
+import {arcadeDriving,powerEnvelope,damagePull} from './ArcadeDriving';
 import {structuralDynamics,brakeThermals} from './VehicleStructure';
 import {worldIndex} from '../world/WorldIndex';
 import {hitFacade} from "./CivicDamage";
@@ -258,7 +259,7 @@ function tyreGrip(sim: Simulation, v: Vehicle): number {
     const condition = wheel ? wheel.missing ? 0 : (wheel.puncture ? 0.55 : 1)*(1-wheel.suspension*0.25-wheel.rim*0.1) : (i%2 === 0 ? v.flatLeft : v.flatRight) ? 0.55 : 1;
     surfaceGrip += roadSurface(sim.world.tile(Math.floor(v.x+x*c-y*s), Math.floor(v.y+x*s+y*c)), sim.env.rain, profile.offroad).grip * condition / (profile.twoWheeler?2:4);
   }
-  return d.grip * 2.5 * surfaceGrip * utilityDynamics(v).grip * temperatureGrip(v.tyreHeat ?? 0) * (v.lifeMods?.includes("Racing tyres") ? 1.3 : 1) / (v.lifeMods?.includes("Double deck") ? 1.2 : 1) * (1 - v.damage * 0.3);
+  return d.grip * 2.5 * surfaceGrip * utilityDynamics(v).grip * temperatureGrip(v.tyreHeat ?? 0) * (v.lifeMods?.includes("Racing tyres") ? 1.3 : 1) / (v.lifeMods?.includes("Double deck") ? 1.2 : 1) * (1 - Math.max(0,v.damage-.35) * 0.16);
 }
 
 /**
@@ -275,7 +276,8 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const setup=drivingSetup(v);
   const working=utilityDynamics(v),structural=structuralDynamics(v);
   const roadLimit=mappedDrivingLimit(sim,v);
-  const top = Math.max(0.1, Math.min(d.topSpeed*(Number.isFinite(roadLimit)&&roadLimit>10?1.25:1),roadLimit) * setup.range * (mods.includes("Tractor engine") ? 1.2 : 1) / (1 + mods.length * 0.06) * (1 - v.damage * 0.5) * (1 - (v.engineDamage ?? 0) * 0.45) * (v.flatLeft || v.flatRight ? 0.65 : 1)*Math.max(.22,1-(v.components?.wheels.filter(w=>w.missing).length??0)*.35));
+  const arcade=arcadeDriving(v,roadLimit),heavyMods=mods.filter(m=>["Limousine chassis","Double deck","Hearse body"].includes(m)).length;
+  const top=Math.max(.1,arcade.top*setup.range*(mods.includes("Tractor engine")?1.2:1)/(1+heavyMods*.035));
   const vel = carVel(sim, v);
   const fx = Math.cos(v.heading), fy = Math.sin(v.heading);
   let lon = vel.x * fx + vel.y * fy, lat = -vel.x * fy + vel.y * fx;
@@ -300,15 +302,15 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   // Space is the handbrake: it locks the rear wheels, so it slows you less than full brakes but lets the tail go
   if (inp.brake) a = -Math.sign(lon) * d.brake * (s > 2 ? 0.5 : 1);
   else if(serviceBrake>0)a=-Math.sign(lon)*d.brake*serviceBrake;
-  else if (throttle > 0) a = lon < -0.05 ? d.brake * throttle : d.accel * throttle * Math.max(0, 1 - (lon / top) ** 2);
-  else if (throttle < 0) a = lon > 0.05 ? -d.brake * -throttle : -d.accel * 0.6 * -throttle * Math.max(0, 1 - (lon / (top * 0.35)) ** 2);
+  else if (throttle > 0) a = lon < -0.05 ? d.brake * throttle : d.accel * arcade.launch * throttle * powerEnvelope(lon,top);
+  else if (throttle < 0) a = lon > 0.05 ? -d.brake * -throttle : -d.accel * .75 * -throttle * powerEnvelope(lon,Math.min(4.2,top*.35));
   if(braking&&s>2&&!v.components)components(v);
   brakeThermals(v,s,braking?Math.max(serviceBrake,Math.abs(pedal),inp.brake?.5:0):0,dt);
   if(braking) a*=working.braking*structural.braking;
-  const engineForce = a * (1 - (v.engineDamage ?? 0) * 0.55) * transmission * setup.torque * working.acceleration * structural.power;
+  const engineForce = a * Math.max(.18,1-Math.max(0,(v.engineDamage??0)-.15)*1.05) * transmission * setup.torque * working.acceleration * structural.power;
   // Acceleration shifts load rearward; AWD can use both axles, FWD unloads its driven tyres.
   const transfer = clamp(engineForce * geometry.height * 0.45 / (4.905 * geometry.wheelbase), -0.22, 0.22);
-  const drivenLoad = profile.drive === "awd" ? 1 : profile.drive === "rwd" ? 0.64 + transfer : 0.7 - transfer;
+  const drivenLoad = profile.drive === "awd" ? 1 : profile.drive === "rwd" ? 0.64 + transfer : Math.max(arcade.frontLoad,0.7 - transfer);
   const traction = grip * Math.max(0.25, drivenLoad);
   const spin = (!braking ? Math.max(0, Math.abs(engineForce) - traction) : 0)*(setup.tractionControl?0.08:1);
   v.wheelspin = spin;
@@ -319,7 +321,7 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
     a=clamp(a,-brakeGrip,brakeGrip);
   }
   const wheelDrag = (v.components?.wheels.reduce((n,w)=>n+(w.missing?0.9:w.puncture?0.3:0)+w.rim*0.12,0) ?? (v.flatLeft?0.3:0)+(v.flatRight?0.3:0));
-  const resist = 0.35 + surface.drag + wheelDrag + structural.drag + (pedal===0?working.engineDrag:0) + 1.4 * (lon / top) ** 2;
+  const resist = 0.25 + surface.drag + wheelDrag + structural.drag + (pedal===0?working.engineDrag:0) + 1.4 * (lon / top) ** 2;
   if (braking || a === 0) {
     // brakes and drag can stop the car but never push it backwards
     const dec = Math.abs(a) + resist;
@@ -336,16 +338,16 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const wheelDamage=v.components?.wheels??[],loss=wheelDamage.reduce((n,w)=>n+(w.missing?.35:w.puncture?.1:0)+w.suspension*.05,0);
   const steering=clamp(inp.steer,-1,1);
   const countersteering = steering * (v.steerAngle ?? 0) < 0;
-  const steerResponse = (countersteering ? 13 : steering === 0 ? 10 : 8) * working.turnResponse / (1 + s / top * 0.35);
+  const steerResponse = (countersteering ? 16 : steering === 0 ? 13 : 11) * arcade.steerResponse * working.turnResponse / (1 + s / top * 0.35);
   v.steerAngle=(v.steerAngle??0)+(steering*.55-(v.steerAngle??0))*(1-Math.exp(-dt*steerResponse));
   const wheelbase = geometry.wheelbase;
-  let lock = 0.6 * setup.steer * working.steering * structural.steer * (1 - 0.55 * Math.min(1, s / top));
+  let lock = 0.68 * setup.steer * working.steering * structural.steer * (1 - 0.55 * Math.min(1, s / top));
   // Road/Trail assist scales steering lock to the available tyre force at speed.
   if(setup.tractionControl&&!inp.brake)lock=Math.min(lock,Math.atan(grip*wheelbase*.85/Math.max(1,s*s)));
   // a bent side (wheel knocked out of line) drags the car toward it
-  const bent = structural.pull + (braking?structural.brakePull:0) + ((v.dmgS ?? 0) - (v.dmgL ?? 0)) * 0.12;
+  const bent=damagePull(v,s,structural.pull)+(braking?structural.brakePull:0);
   v.wheelSteer = (v.steerAngle??0)/.55 * lock;
-  const want = lon * Math.tan(v.wheelSteer + bent+(wheelDamage[0]?.alignment??0)*.3+(wheelDamage[1]?.alignment??0)*.3) / wheelbase;
+  const want = lon * Math.tan(v.wheelSteer + bent) / wheelbase;
   const cap = (grip * (1 + 1.2 * rearLoose)) / Math.max(s, 1);   // a loose rear lets the nose swing past the grip line
   const frontPush = profile.drive === "fwd" ? 1 / (1 + spin * 0.15) : 1;
   // Road mode catches a developing spin; Drift mode retains the full rear-slip envelope.
