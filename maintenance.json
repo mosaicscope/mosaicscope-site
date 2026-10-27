@@ -1,5 +1,5 @@
 {
- "at": 1793140017559,
+ "at": 1793142129866,
  "totals": {
   "duplicate-code": 3,
   "long-function": 17,
@@ -106,10 +106,10 @@
   {
    "kind": "long-function",
    "severity": "low",
-   "where": "game/src/render/Cars.ts:260",
-   "detail": "409 lines",
+   "where": "game/src/render/Cars.ts:261",
+   "detail": "414 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1qv2h78"
+   "fp": "long-function|v1airf"
   },
   {
    "kind": "long-function",
@@ -163,9 +163,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Simulation.ts",
-   "detail": "987 lines",
+   "detail": "986 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|cklio0"
+   "fp": "oversized-module|11hna0b"
   },
   {
    "kind": "long-function",
@@ -179,9 +179,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Traffic.ts",
-   "detail": "937 lines",
+   "detail": "952 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|kn5753"
+   "fp": "oversized-module|qrbgsi"
   },
   {
    "kind": "long-function",
