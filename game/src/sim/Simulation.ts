@@ -536,7 +536,6 @@ export class Simulation {
   }
 
   onCarCrash(a: Vehicle, b: Vehicle, rel: number,contact?:{x:number;y:number}): void {
-    if (a.state === "crashed" && b.state === "crashed") return;
     for (const v of [a, b]) { const hits=v.components?.impacts,last=hits?.[hits.length-1],damageSpeed=last?.tick===this.tick?Math.min(rel,last.deltaV):rel;v.damage = Math.min(1, v.damage + damageSpeed * 0.03); if (v.state !== "parked") { v.state = "crashed"; v.crashedUntil = this.tick + 60 * (v.driver === this.playerId ? Math.min(.55,.08+damageSpeed*.023) : Math.min(6,1+rel*.3)); } }
     this.bus.emit("sound", { kind: "crash", x: a.x, y: a.y, vol: Math.min(1, rel / 8) });
     this.bus.emit("fx", { kind: "break", x: contact?.x??(a.x + b.x) / 2, y: contact?.y??(a.y + b.y) / 2, z: 0.5, n: Math.min(28,6+Math.floor(rel*1.5)), color: "#9a8d80" });

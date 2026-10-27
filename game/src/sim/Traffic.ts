@@ -823,6 +823,7 @@ function collisions(sim: Simulation,fleet=sim.vehicles): void {
       sim.onCarHit(v, c, sp);
     }
   }
+  const crashContacts=new Set<Vehicle>();
   const vs = fleet;
   for (let i = 0; i < vs.length; i++) {
     if(vs[i].state==="parked")continue;
@@ -865,6 +866,9 @@ function collisions(sim: Simulation,fleet=sim.vehicles): void {
       continue;
     }
     const va = carVel(sim, a), vb = carVel(sim, b);
+    crashContacts.add(a);crashContacts.add(b);
+    // A handbrake supplies tyre friction, not infinite mass. Hard impacts release parked bodies into the crash solver.
+    if((va.x-vb.x)*contact.nx+(va.y-vb.y)*contact.ny>2.5)for(const v of [a,b])if(v.state==='parked'){v.state='crashed';v.crashedUntil=sim.tick+180;v.vx=0;v.vy=0;v.dynT=sim.tick;}
     const invA=a.state==='parked'?0:1/VEHICLES[a.cls].mass,invB=b.state==='parked'?0:1/VEHICLES[b.cls].mass;
     const push=contact.depth/(invA+invB);
     if (invA) { a.x -= contact.nx * push*invA; a.y -= contact.ny * push*invA; }
@@ -878,6 +882,17 @@ function collisions(sim: Simulation,fleet=sim.vehicles): void {
     if (closing > 2.5) sim.onCarCrash(a, b, closing,{x:contact.x,y:contact.y});
   }
   }
+  settleCrashIsland(sim,crashContacts);
+}
+
+/** Bounded position iterations prevent a resolved pair being pushed into another wreck. No extra impact damage. */
+export function settleCrashIsland(sim:Simulation,seeds:ReadonlySet<Vehicle>):void{
+ if(!seeds.size)return;const island:Vehicle[]=[];const seen=new Set<Vehicle>();for(const seed of seeds){if(!seen.has(seed)){seen.add(seed);island.push(seed);}for(const v of vehicleIndex(sim).query(seed.x,seed.y,vehicleGeometry(seed).radius+4,recoveryCandidates)){if(!seen.has(v)&&island.length<32){seen.add(v);island.push(v);}}if(island.length>=32)break;}
+ for(let pass=0;pass<8;pass++){let moved=false;for(let i=0;i<island.length;i++)for(let j=i+1;j<island.length;j++){const a=island[i],b=island[j],oldWrecks=a.state==='parked'&&b.state==='parked'&&(a.damage>0||b.damage>0||!!a.components?.dents?.length||!!b.components?.dents?.length);if(!oldWrecks&&!['free','crashed'].includes(a.state)&&!['free','crashed'].includes(b.state))continue;const contact=chassisContact(a,b);if(!contact||contact.depth<.001)continue;const ia=a.state==='parked'&&!oldWrecks?0:1/utilityDynamics(a).mass,ib=b.state==='parked'&&!oldWrecks?0:1/utilityDynamics(b).mass,total=ia+ib;if(!total)continue;const shift=(contact.depth+.001)/total*.9;a.x-=contact.nx*shift*ia;a.y-=contact.ny*shift*ia;b.x+=contact.nx*shift*ib;b.y+=contact.ny*shift*ib;moved=true;
+ const va=carVel(sim,a),vb=carVel(sim,b),closing=(va.x-vb.x)*contact.nx+(va.y-vb.y)*contact.ny;if(closing>0){const impulse=closing/total;for(const [v,vel,inv,sign] of [[a,va,ia,-1],[b,vb,ib,1]] as const){if(!inv)continue;v.vx=vel.x+sign*contact.nx*impulse*inv;v.vy=vel.y+sign*contact.ny*impulse*inv;v.speed=v.vx*Math.cos(v.heading)+v.vy*Math.sin(v.heading);v.dynT=sim.tick;}}
+ }if(!moved)break;}
+ // Keep seated drivers at the corrected chassis position during this substep.
+ for(const v of island){const c=sim.chars[v.driver];if(c){c.x=v.x;c.y=v.y;}}
 }
 
 /**
