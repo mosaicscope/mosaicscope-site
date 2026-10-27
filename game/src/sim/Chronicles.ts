@@ -399,24 +399,8 @@ export function tickLife(sim: Simulation): void {
       sim.chars[1];
     if (rival) s.nemesis.id = rival.id;
   }
-  if (sim.expansion.pending && (!s.scene||s.scene.id!==sim.expansion.pending)) {
-    const wantBench=["memorial","wallet","skater"].includes(sim.expansion.pending);
-    const poi=sim.world.pois.filter(p=>wantBench?p.kind==="bench":p.kind==="bench"||p.kind==="busstop").sort((a,b)=>Math.hypot(a.x-sim.player.x,a.y-sim.player.y)-Math.hypot(b.x-sim.player.x,b.y-sim.player.y))[0];
-    const spot=poi??sim.world.nearestWalkable(sim.player.x,sim.player.y);
-    s.scene = {
-      id: sim.expansion.pending,
-      x: spot.x,
-      y: spot.y,
-      resolved: false,
-    };
-  }
-  if (
-    s.scene &&
-    s.scene.id !== sim.expansion.pending &&
-    !sim.expansion.pending &&
-    s.scene.resolved
-  )
-    s.scene = null;
+  sim.expansion.pending=null;
+  s.scene=null;
   if (s.lastHour === hour) return;
   s.lastHour = hour;
   tickUpgrades(sim);

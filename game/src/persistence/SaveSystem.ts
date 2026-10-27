@@ -173,9 +173,9 @@ export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemF
   const street=d.streetLife;
   sim.streetLife=street&&Number.isSafeInteger(street.serial)&&Number.isFinite(street.nextAt)&&Array.isArray(street.history)?structuredClone(street):newStreetLife();
   sim.streetLife.history=sim.streetLife.history.filter(e=>Number.isFinite(e.x+e.y)&&Array.isArray(e.actors)&&typeof e.line==='string'&&typeof e.title==='string').slice(-24);
-  sim.expansion = { ...newExpansion(), ...structuredClone(d.expansion ?? {}) };
+  sim.expansion = { ...newExpansion(), ...structuredClone(d.expansion ?? {}), pending:null };
   sim.expansion.casino = { ...newCasino(), ...sim.expansion.casino };
-  sim.life = { ...newLife(), ...structuredClone(d.life ?? {}) };
+  sim.life = { ...newLife(), ...structuredClone(d.life ?? {}),scene:null };
   sim.life.upgrades = { ...newLife().upgrades, ...sim.life.upgrades };
   sim.life.body = { ...newLife().body, ...sim.life.body };
   sim.life.systems = { ...newLife().systems, ...sim.life.systems };

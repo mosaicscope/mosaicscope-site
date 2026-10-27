@@ -1,12 +1,13 @@
+import {updateMissions,restoreMissions,type MissionState} from './CityMissions';
 import {challengeAction,updateChallenges,restoreChallenges,type ChallengeState} from './CityChallenges';
 import {isRecyclable} from '../content/litter';
 import {STREET_NEIGHBOURS,MOSAIC_BARS} from '../content/streetVoices';
 import {VEHICLES} from '../content/vehicles';
 import type {Simulation} from './Simulation';
 import {STREET_EFFECTS,SKILL_GAMES,type SkillGame} from '../content/worldFun';
-export interface WorldFunState{challenges?:ChallengeState;poseUntil?:number;played:Record<string,number>;scores:Record<string,number>;used:Record<string,number>}
+export interface WorldFunState{missions?:MissionState;challenges?:ChallengeState;poseUntil?:number;played:Record<string,number>;scores:Record<string,number>;used:Record<string,number>}
 export const newWorldFun=():WorldFunState=>({played:{},scores:{},used:{}});
-export function restoreWorldFun(raw:unknown):WorldFunState{const out=newWorldFun();if(!raw||typeof raw!=='object')return out;out.challenges=restoreChallenges((raw as WorldFunState).challenges);const pose=(raw as WorldFunState).poseUntil;if(typeof pose==='number'&&Number.isFinite(pose)&&pose>=0)out.poseUntil=Math.min(1e9,pose);for(const key of ['played','scores','used'] as const){const values=(raw as WorldFunState)[key];if(!values||typeof values!=='object')continue;for(const [id,n]of Object.entries(values).slice(0,100))if(typeof n==='number'&&Number.isFinite(n)&&n>=0&&[...SKILL_GAMES.map(g=>g[0]),...STREET_EFFECTS.map(e=>e[0])].includes(id as SkillGame))out[key][id]=Math.min(1e9,n);}return out;}
+export function restoreWorldFun(raw:unknown):WorldFunState{const out=newWorldFun();if(!raw||typeof raw!=='object')return out;out.missions=restoreMissions((raw as WorldFunState).missions);out.challenges=restoreChallenges((raw as WorldFunState).challenges);const pose=(raw as WorldFunState).poseUntil;if(typeof pose==='number'&&Number.isFinite(pose)&&pose>=0)out.poseUntil=Math.min(1e9,pose);for(const key of ['played','scores','used'] as const){const values=(raw as WorldFunState)[key];if(!values||typeof values!=='object')continue;for(const [id,n]of Object.entries(values).slice(0,100))if(typeof n==='number'&&Number.isFinite(n)&&n>=0&&[...SKILL_GAMES.map(g=>g[0]),...STREET_EFFECTS.map(e=>e[0])].includes(id as SkillGame))out[key][id]=Math.min(1e9,n);}return out;}
 export function finishSkill(sim:Simulation,id:SkillGame,score:number):string{const state=sim.worldFun,p=sim.player;if(!SKILL_GAMES.some(g=>g[0]===id)||!Number.isFinite(score))return 'Invalid score.';if(sim.tick-(state.used[id]??-1e8)<1200)return 'You have already earned the reward for this game recently. Try another activity.';const value=Math.max(0,Math.min(100,Math.round(score)));state.used[id]=sim.tick;state.played[id]=(state.played[id]??0)+1;state.scores[id]=Math.max(state.scores[id]??0,value);const reward=Math.floor(value/10);p.cash+=reward;p.needs.fun=Math.min(1,p.needs.fun+.12);p.emo.mood=Math.min(1,p.emo.mood+.04);return `Score ${value}/100 · $${reward} game cash · fun restored. Personal best ${state.scores[id]}.`;}
 export function streetEffect(sim:Simulation,id:string):string{
  let identity="";const effect=STREET_EFFECTS.find(e=>e[0]===id);if(!effect)return 'Unknown activity.';const [key,label,kind,cost]=effect,p=sim.player,state=sim.worldFun;
@@ -40,4 +41,4 @@ export function streetEffect(sim:Simulation,id:string):string{
  const fx=kind==='music'?'music':kind==='water'?'water':kind==='paint'?'paint':kind==='confetti'?'confetti':kind==='dust'||kind==='training'?'dust':kind==='spark'?'spark':kind==='social'||kind==='neighbour'?'heart':'star';sim.bus.emit('fx',{kind:fx,x:p.x,y:p.y,z:1,n:12,color:kind==='water'?'#8ebcca':'#dbc68a'});sim.bus.emit('say',{id:p.id,text:label});return label+'.';
 }
 
-export function updateWorldFun(sim:Simulation):void{updateChallenges(sim);if(sim.worldFun.poseUntil&&sim.tick>=sim.worldFun.poseUntil){sim.player.anim.pose='auto';sim.worldFun.poseUntil=0;}}
+export function updateWorldFun(sim:Simulation):void{updateMissions(sim);updateChallenges(sim);if(sim.worldFun.poseUntil&&sim.tick>=sim.worldFun.poseUntil){sim.player.anim.pose='auto';sim.worldFun.poseUntil=0;}}
