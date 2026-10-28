@@ -1,5 +1,5 @@
 {
- "at": 1793196013364,
+ "at": 1793216659075,
  "counts": {
   "critical": 0,
   "high": 0,
@@ -228,7 +228,7 @@
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "game/src/app/Game.ts",
-   "line": 1755,
+   "line": 1773,
    "fp": "dom:inner-html|game/src/app/Game.ts|1t7ww1h"
   },
   {
@@ -242,35 +242,35 @@
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "game/src/ui/Touch.ts",
-   "line": 133,
+   "line": 132,
    "fp": "dom:inner-html|game/src/ui/Touch.ts|wezgjd"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "game/src/ui/Touch.ts",
-   "line": 146,
+   "line": 145,
    "fp": "dom:inner-html|game/src/ui/Touch.ts|1dl2a01"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "game/src/ui/Touch.ts",
-   "line": 156,
+   "line": 155,
    "fp": "dom:inner-html|game/src/ui/Touch.ts|13v3cy5"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "game/src/ui/Touch.ts",
-   "line": 178,
+   "line": 173,
    "fp": "dom:inner-html|game/src/ui/Touch.ts|1dl2a01"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "game/src/ui/Touch.ts",
-   "line": 258,
+   "line": 247,
    "fp": "dom:inner-html|game/src/ui/Touch.ts|tbnlyq"
   },
   {
