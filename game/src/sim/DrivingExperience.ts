@@ -70,3 +70,14 @@ export function stepDrift(v:Vehicle,distance:number,dt:number):void {
     if(!d.grace){d.best=Math.max(d.best,Math.round(d.points));d.points=0;d.chain=0;}
   }
 }
+
+/** Mild, gear-dependent lift-off drag; electric vehicles use speed-dependent regeneration. */
+export function coastResistance(v:Vehicle,speed:number,pedal:number,braking:boolean):number {
+ if(braking||Math.abs(pedal)>.02||Math.abs(speed)<.3)return 0;
+ const base=VEHICLES[v.cls].design?.base??v.cls,utility=utilitySpec(v);
+ if(['bicycle','ebike','escooter'].includes(base))return 0;
+ if(['ev','compact_ev','estate_ev','deliveryev'].includes(base)||utility?.kind==='electriccargo'||utility?.kind==='electricbus')
+  return .18*clamp(Math.abs(speed)/4,0,1);
+ const gear=Math.max(1,v.powertrain?.gear??1),rpm=engineRevFraction(v),mode=v.driveMode??'road';
+ return clamp((.055+.07*rpm)*(1.2-.1*Math.min(gear,5))*(mode==='sport'?1.2:1)*clamp(Math.abs(speed)/2,0,1),0,.18);
+}

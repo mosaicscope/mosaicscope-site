@@ -316,6 +316,7 @@ export interface Vehicle {
   wheelSpinTravel?: number;
   braking?: boolean;
   dynamics?: import("../sim/VehicleDynamics").DrivingDynamics;
+  contactControl?: import("../sim/WheelContact").ContactControl;
   driveMode?: import("../sim/DrivingExperience").DriveMode;
   powertrain?: import("../sim/DrivingExperience").PowertrainState;
   drift?: import("../sim/DrivingExperience").DriftState;

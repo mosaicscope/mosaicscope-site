@@ -1,3 +1,4 @@
+import {ackermannAngle} from '../sim/WheelContact';
 import {damageStage} from '../sim/ProgressiveDamage';
 import {damageBloodEnabled} from './DamageArt';
 import {lampFixture,surfacePoint,surfacePatch} from './SurfaceFixtures';
@@ -744,7 +745,7 @@ export function headlights(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle,
 function roadWheel(k:Ctx,v:Vehicle,x:number,y:number,r:number,near:boolean,spin:number,color:string):void{
  const i=(x>0?0:2)+(y>0?1:0),w=v.components?.wheels[i];if(w?.missing)return;
  const drive=handlingProfile(v.cls).drive;if(v.dynamics?.wheels[i])spin=v.dynamics.wheels[i].rotation/Math.max(.05,r);else if(drive==='awd'||(drive==='fwd'?x>0:x<0))spin+=(v.wheelSpinTravel??0)/Math.max(.05,r);
- const cx=k.x+x*k.c-y*k.s,cy=k.y+x*k.s+y*k.c,ang=v.heading+(x>0?(v.wheelSteer??v.steerAngle??0):0)+(w?.alignment??0),ctx={...k,x:cx,y:cy,c:Math.cos(ang),s:Math.sin(ang),roll:0,pitch:0,deform:undefined};
+ const cx=k.x+x*k.c-y*k.s,cy=k.y+x*k.s+y*k.c,ang=v.heading+(x>0?ackermannAngle(v.wheelSteer??v.steerAngle??0,vehicleGeometry(v).wheelbase,vehicleGeometry(v).width,y>0?1:-1):0)+(w?.alignment??0),ctx={...k,x:cx,y:cy,c:Math.cos(ang),s:Math.sin(ang),roll:0,pitch:0,deform:undefined};
  wheel(ctx,0,0,r*(1-(w?.rim??0)*.08),near,spin,color,w?w.puncture:(y<0?v.flatLeft:v.flatRight));
  const wheelHeat=Math.max(v.utility?.brakeHeat??0,v.dynamics?.wheels[i]?.brakeHeat??0);if(near&&wheelHeat>.55&&k.cam.zoom>1.2){const heat=(wheelHeat-.55)/.45,q=W3(ctx,[0,0,r]);k.g.strokeStyle=`rgba(205,111,53,${heat*.65})`;k.g.lineWidth=Math.max(.7,k.cam.zoom);k.g.beginPath();k.g.ellipse(q[0],q[1],r*11*k.cam.zoom,r*15*k.cam.zoom,-.4,0,Math.PI*2);k.g.stroke();}
  if(w&&w.rim>.3){const q=W3(ctx,[0,0,r]);k.g.strokeStyle='#a9b3a2';k.g.lineWidth=k.cam.zoom;k.g.beginPath();k.g.moveTo(q[0]-3*k.cam.zoom,q[1]-r*12*k.cam.zoom);k.g.lineTo(q[0]+3*k.cam.zoom,q[1]+r*10*k.cam.zoom);k.g.stroke();}
