@@ -1,5 +1,5 @@
 {
- "at": 1793218790289,
+ "at": 1793219959998,
  "totals": {
   "duplicate-code": 3,
   "long-function": 17,
@@ -59,9 +59,9 @@
    "kind": "oversized-module",
    "severity": "medium",
    "where": "game/src/app/Game.ts",
-   "detail": "1803 lines",
+   "detail": "1804 lines",
    "fix": "split by feature into modules",
-   "fp": "oversized-module|3cl3sb"
+   "fp": "oversized-module|rm1gi2"
   },
   {
    "kind": "oversized-module",
@@ -107,9 +107,9 @@
    "kind": "long-function",
    "severity": "low",
    "where": "game/src/render/Cars.ts:262",
-   "detail": "426 lines",
+   "detail": "429 lines",
    "fix": "split into named steps",
-   "fp": "long-function|122qomh"
+   "fp": "long-function|a99m0c"
   },
   {
    "kind": "long-function",
