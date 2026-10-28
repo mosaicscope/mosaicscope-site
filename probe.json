@@ -1,15 +1,13 @@
 {
- "at": 1793193353820,
+ "at": 1793193575426,
  "target": "https://mosaicscope.pages.dev",
- "sha": "0a2abc835581a04bdda0d9e1492ffac6d3775b44",
+ "sha": "b2b337bba6ba7995742b7ca725e407ee9114d465",
  "results": [
   {
    "page": "/",
    "url": "https://mosaicscope.pages.dev/",
    "width": 390,
-   "errors": [
-    "signal is aborted without reason"
-   ],
+   "errors": [],
    "consoleErrors": [
     {
      "text": "Failed to load resource: the server responded with a status of 402 ()",
@@ -50,24 +48,19 @@
      "url": "https://www.youtube-nocookie.com/embed/cZFXA3scOC4",
      "own": false,
      "why": "net::ERR_ABORTED"
-    },
-    {
-     "url": "https://playback.media-streaming.soundcloud.cloud/9Oig5SUnHCUE/aac_160k/ad3f1f5c-d895-4046-8a18-ab76c3e81f1a/data003.m4s",
-     "own": false,
-     "why": "net::ERR_ABORTED"
     }
    ],
    "requests": 66,
-   "bytes": 3735,
-   "ownBytes": 80,
+   "bytes": 3734,
+   "ownBytes": 79,
    "thirdParty": 60,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 203,
-    "loadMs": 1167,
-    "lcpMs": 608,
+    "domContentLoadedMs": 284,
+    "loadMs": 1255,
+    "lcpMs": 652,
     "cls": 0.125,
-    "tbtMs": 330,
+    "tbtMs": 261,
     "longTasks": 3,
     "heapMB": 33.5,
     "domNodes": 1241,
@@ -138,20 +131,17 @@
    },
    "interactions": {
     "clicked": 10,
-    "broken": [
-     {
-      "button": "Tiles, pause music",
-      "error": "signal is aborted without reason"
-     }
-    ],
-    "newErrors": 1
+    "broken": [],
+    "newErrors": 0
    }
   },
   {
    "page": "/",
    "url": "https://mosaicscope.pages.dev/",
    "width": 1280,
-   "errors": [],
+   "errors": [
+    "signal is aborted without reason"
+   ],
    "consoleErrors": [
     {
      "text": "Failed to load resource: the server responded with a status of 402 ()",
@@ -189,29 +179,29 @@
      "why": "HTTP 402"
     },
     {
-     "url": "https://www.youtube-nocookie.com/s/player/950316ef/player_embed.vflset/en_US/base.js",
+     "url": "https://www.youtube-nocookie.com/embed/cZFXA3scOC4",
      "own": false,
      "why": "net::ERR_ABORTED"
     },
     {
-     "url": "https://www.youtube-nocookie.com/s/_/ytembeds/_/js/k=ytembeds.base.en_US.6pNp6a3usfE.es5.O/am=AAAAQAAwBg/d=1/excm=base,r",
+     "url": "https://playback.media-streaming.soundcloud.cloud/9Oig5SUnHCUE/aac_160k/ad3f1f5c-d895-4046-8a18-ab76c3e81f1a/data009.m4s",
      "own": false,
      "why": "net::ERR_ABORTED"
     }
    ],
-   "requests": 71,
-   "bytes": 3934,
+   "requests": 68,
+   "bytes": 3568,
    "ownBytes": 80,
-   "thirdParty": 65,
+   "thirdParty": 62,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 187,
-    "loadMs": 220,
-    "lcpMs": 204,
+    "domContentLoadedMs": 177,
+    "loadMs": 932,
+    "lcpMs": 200,
     "cls": 0.094,
-    "tbtMs": 367,
+    "tbtMs": 288,
     "longTasks": 3,
-    "heapMB": 9.5,
+    "heapMB": 33.5,
     "domNodes": 1517,
     "renderBlocking": 3,
     "resourceEntries": 12,
@@ -288,8 +278,13 @@
    },
    "interactions": {
     "clicked": 11,
-    "broken": [],
-    "newErrors": 0
+    "broken": [
+     {
+      "button": "Tiles, pause music",
+      "error": "signal is aborted without reason"
+     }
+    ],
+    "newErrors": 1
    }
   },
   {
@@ -311,9 +306,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 203,
-    "loadMs": 203,
-    "lcpMs": 204,
+    "domContentLoadedMs": 151,
+    "loadMs": 152,
+    "lcpMs": 152,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -358,9 +353,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 115,
-    "loadMs": 115,
-    "lcpMs": 84,
+    "domContentLoadedMs": 162,
+    "loadMs": 162,
+    "lcpMs": 80,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -399,9 +394,9 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 159,
-    "loadMs": 200,
-    "lcpMs": 168,
+    "domContentLoadedMs": 216,
+    "loadMs": 324,
+    "lcpMs": 228,
     "cls": 0.007,
     "tbtMs": 0,
     "longTasks": 0,
@@ -440,10 +435,10 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 118,
-    "loadMs": 159,
-    "lcpMs": 132,
-    "cls": 0.15,
+    "domContentLoadedMs": 278,
+    "loadMs": 373,
+    "lcpMs": 284,
+    "cls": 0.147,
     "tbtMs": 0,
     "longTasks": 0,
     "heapMB": 9.5,
@@ -522,86 +517,84 @@
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 390,
-   "ms": 1908,
+   "ms": 2650,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 390,
-   "ms": 1295,
+   "ms": 1882,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 390,
-   "ms": 1471,
-   "status": "fail",
-   "why": "no validation shown"
+   "ms": 2170,
+   "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 390,
-   "ms": 1217,
+   "ms": 1851,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 390,
-   "ms": 2372,
+   "ms": 2390,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 390,
-   "ms": 955,
+   "ms": 1070,
    "status": "pass"
   },
   {
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 1280,
-   "ms": 2635,
+   "ms": 2065,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 1280,
-   "ms": 1978,
+   "ms": 2022,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 1280,
-   "ms": 1672,
-   "status": "fail",
-   "why": "no validation shown"
+   "ms": 2093,
+   "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 1280,
-   "ms": 1904,
+   "ms": 1867,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 1280,
-   "ms": 1755,
+   "ms": 2392,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 1280,
-   "ms": 1010,
+   "ms": 1218,
    "status": "pass"
   }
  ]
