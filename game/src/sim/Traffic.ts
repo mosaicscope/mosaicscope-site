@@ -1,3 +1,5 @@
+import {drivingDynamics,wheelGrip,dynamicsEffects,stepDrivingDynamics} from './VehicleDynamics';
+import {partsEffects} from './VehicleParts';
 import {arcadeDriving,powerEnvelope,damagePull} from './ArcadeDriving';
 import {structuralDynamics,brakeThermals} from './VehicleStructure';
 import {worldIndex} from '../world/WorldIndex';
@@ -109,9 +111,10 @@ export function unseat(sim: Simulation, v: Vehicle): Character | null {
   v.driver = -1;
   if (!c) return null;
   c.inCar = -1;
-  const doors=v.components?.structure?.doors;
+  const doors=v.components?.structure?.doors,partDoors=partsEffects(v).door;
   // A jammed door sends the driver out the other side; both jammed uses a rear escape.
-  const side = v.heading + (doors?.[1]&&doors[1]>.6?(doors[0]>.6?Math.PI:-Math.PI/2):Math.PI/2);
+  const right=Math.max(doors?.[1]??0,partDoors[1]),left=Math.max(doors?.[0]??0,partDoors[0]);
+  const side = v.heading + (right>.6?(left>.6?Math.PI:-Math.PI/2):Math.PI/2);
   const p = sim.world.nearestWalkable(v.x + Math.cos(side) * 1.1, v.y + Math.sin(side) * 1.1);
   c.x = c.px = p.x; c.y = c.py = p.y; c.vx = c.vy = c.vz = c.kx = c.ky = c.z = 0; c.facing = v.heading;
   c.nextThink = sim.tick + 1;
@@ -220,13 +223,13 @@ function stepVehicles(sim: Simulation, dt: number,fleet=sim.vehicles): void {
       if (sim.tick >= v.towAt && v.owner !== sim.playerId) { const park = sim.world.buildings.find(b => b.kind === "garage"); if (park) { v.x = park.door.x + 1; v.y = park.door.y + 1; } repairVehicle(v); v.towAt = undefined; }
       continue;
     }
-    if (v.state === "parked") continue;
+    if (v.state === "parked") {v.braking=false;continue;}
     if (v.state === "crashed") {
       slide(sim, v, dt);
       if (sim.tick > v.crashedUntil) v.state = v.driver === sim.playerId ? "free" : v.driver >= 0 ? (snapToLane(sim, v) ? "drive" : "free") : "parked";
       continue;
     }
-    if (v.state === "drive") {if(sim.world.mapped)driveMappedVehicle(sim,v,dt);else laneDrive(sim, v, dt);}
+    if (v.state === "drive") {const before=v.speed;if(sim.world.mapped)driveMappedVehicle(sim,v,dt);else laneDrive(sim, v, dt);v.braking=v.speed<before-.01;}
     else freeDrive(sim, v, dt);
     if(v.state==='drive'){v.vx=(v.x-v.px)/dt;v.vy=(v.y-v.py)/dt;v.dynT=sim.tick;}
     // keep the driver with the car
@@ -257,7 +260,7 @@ function tyreGrip(sim: Simulation, v: Vehicle): number {
     const x = (i < 2 ? 1 : -1) * geometry.wheelbase / 2, y = profile.twoWheeler ? 0 : (i % 2 ? 1 : -1) * (geometry.width/2-0.02);
     const wheel = v.components?.wheels[i];
     const condition = wheel ? wheel.missing ? 0 : (wheel.puncture ? 0.55 : 1)*(1-wheel.suspension*0.25-wheel.rim*0.1) : (i%2 === 0 ? v.flatLeft : v.flatRight) ? 0.55 : 1;
-    surfaceGrip += roadSurfaceAt(sim.world,v.x+x*c-y*s,v.y+x*s+y*c,sim.env.rain,profile.offroad).grip * condition / (profile.twoWheeler?2:4);
+    surfaceGrip += roadSurfaceAt(sim.world,v.x+x*c-y*s,v.y+x*s+y*c,sim.env.rain,profile.offroad).grip * condition * wheelGrip(v,i) * (v.dynamics?.wheels[i]?.load??.25) * (profile.twoWheeler?2:1);
   }
   return d.grip * 2.5 * surfaceGrip * utilityDynamics(v).grip * temperatureGrip(v.tyreHeat ?? 0) * (v.lifeMods?.includes("Racing tyres") ? 1.3 : 1) / (v.lifeMods?.includes("Double deck") ? 1.2 : 1) * (1 - Math.max(0,v.damage-.35) * 0.16);
 }
@@ -274,7 +277,8 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const inp = v.parkingBrake?{throttle:0,steer:0,brake:true}:v.driver === sim.playerId ? playerInput : { throttle: 0, steer: 0, brake: true };
   const mods = v.lifeMods ?? [];
   const setup=drivingSetup(v);
-  const working=utilityDynamics(v),structural=structuralDynamics(v);
+  drivingDynamics(v);
+  const working=utilityDynamics(v),structural=structuralDynamics(v),parts=partsEffects(v),dynamic=dynamicsEffects(v);
   const roadLimit=mappedDrivingLimit(sim,v);
   const arcade=arcadeDriving(v,roadLimit),heavyMods=mods.filter(m=>["Limousine chassis","Double deck","Hearse body"].includes(m)).length;
   const top=Math.max(.1,arcade.top*setup.range*(mods.includes("Tractor engine")?1.2:1)/(1+heavyMods*.035));
@@ -282,7 +286,7 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const fx = Math.cos(v.heading), fy = Math.sin(v.heading);
   let lon = vel.x * fx + vel.y * fy, lat = -vel.x * fy + vel.y * fx;
   const s = Math.abs(lon);
-  const grip = tyreGrip(sim, v)*structural.grip;
+  const grip = tyreGrip(sim, v)*structural.grip*parts.grip;
   const profile = handlingProfile(v.cls);
   const geometry = vehicleGeometry(v);
   const surface = roadSurfaceAt(sim.world,v.x,v.y,sim.env.rain,profile.offroad);
@@ -290,6 +294,7 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const pedal = clamp(inp.throttle, -1, 1);
   const serviceBrake=clamp(inp.serviceBrake??0,0,1);
   const braking = inp.brake || serviceBrake>0 || pedal < 0 && lon > 0.05 || pedal > 0 && lon < -0.05;
+  v.braking=braking;
   const previousThrottle = v.dynT !== undefined && sim.tick - v.dynT <= 1 && (v.driveThrottle ?? 0) * pedal >= 0 ? v.driveThrottle ?? 0 : 0;
   const targetThrottle = braking ? 0 : pedal;
   v.driveThrottle = previousThrottle + (targetThrottle - previousThrottle) * (1 - Math.exp(-dt * (targetThrottle === 0 ? 16 : setup.response)));
@@ -306,12 +311,12 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   else if (throttle < 0) a = lon > 0.05 ? -d.brake * -throttle : -d.accel * .75 * -throttle * powerEnvelope(lon,Math.min(4.2,top*.35));
   if(braking&&s>2&&!v.components)components(v);
   brakeThermals(v,s,braking?Math.max(serviceBrake,Math.abs(pedal),inp.brake?.5:0):0,dt);
-  if(braking) a*=working.braking*structural.braking;
-  const engineForce = a * Math.max(.18,1-Math.max(0,(v.engineDamage??0)-.15)*1.05) * transmission * setup.torque * working.acceleration * structural.power;
+  if(braking) a*=working.braking*structural.braking*parts.braking*dynamic.braking;
+  const engineForce = a * Math.max(.18,1-Math.max(0,(v.engineDamage??0)-.15)*1.05) * transmission * setup.torque * working.acceleration * structural.power * parts.power;
   // Acceleration shifts load rearward; AWD can use both axles, FWD unloads its driven tyres.
   const transfer = clamp(engineForce * geometry.height * 0.45 / (4.905 * geometry.wheelbase), -0.22, 0.22);
   const drivenLoad = profile.drive === "awd" ? 1 : profile.drive === "rwd" ? 0.64 + transfer : Math.max(arcade.frontLoad,0.7 - transfer);
-  const traction = grip * Math.max(0.25, drivenLoad);
+  const traction = grip * Math.max(0.25, drivenLoad) * dynamic.differential;
   const spin = (!braking ? Math.max(0, Math.abs(engineForce) - traction) : 0)*(setup.tractionControl?0.08:1);
   v.wheelspin = spin;
   if (!braking) a = clamp(engineForce, -traction, traction);
@@ -321,7 +326,8 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
     a=clamp(a,-brakeGrip,brakeGrip);
   }
   const wheelDrag = (v.components?.wheels.reduce((n,w)=>n+(w.missing?0.9:w.puncture?0.3:0)+w.rim*0.12,0) ?? (v.flatLeft?0.3:0)+(v.flatRight?0.3:0));
-  const resist = 0.25 + surface.drag + wheelDrag + structural.drag + (pedal===0?working.engineDrag:0) + 1.4 * (lon / top) ** 2;
+  const base=d.design?.base??v.cls,regen=['ev','compact_ev','estate_ev','deliveryev'].includes(base)&&pedal===0&&s>.5?.18:0;
+  const resist = 0.25 + regen + surface.drag + wheelDrag + structural.drag + parts.drag + dynamic.drag + (pedal===0?working.engineDrag:0) + 1.4 * (lon / top) ** 2;
   if (braking || a === 0) {
     // brakes and drag can stop the car but never push it backwards
     const dec = Math.abs(a) + resist;
@@ -338,14 +344,14 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const wheelDamage=v.components?.wheels??[],loss=wheelDamage.reduce((n,w)=>n+(w.missing?.35:w.puncture?.1:0)+w.suspension*.05,0);
   const steering=clamp(inp.steer,-1,1);
   const countersteering = steering * (v.steerAngle ?? 0) < 0;
-  const steerResponse = (countersteering ? 16 : steering === 0 ? 13 : 11) * arcade.steerResponse * working.turnResponse / (1 + s / top * 0.35);
+  const steerResponse = (countersteering ? 16 : steering === 0 ? 13 : 11) * arcade.steerResponse * working.turnResponse * parts.steering * dynamic.steering / (1 + s / top * 0.35);
   v.steerAngle=(v.steerAngle??0)+(steering*.55-(v.steerAngle??0))*(1-Math.exp(-dt*steerResponse));
   const wheelbase = geometry.wheelbase;
   let lock = 0.68 * setup.steer * working.steering * structural.steer * (1 - 0.55 * Math.min(1, s / top));
   // Road/Trail assist scales steering lock to the available tyre force at speed.
   if(setup.tractionControl&&!inp.brake)lock=Math.min(lock,Math.atan(grip*wheelbase*.85/Math.max(1,s*s)));
   // a bent side (wheel knocked out of line) drags the car toward it
-  const bent=damagePull(v,s,structural.pull)+(braking?structural.brakePull:0);
+  const bent=damagePull(v,s,structural.pull)+dynamic.pull+parts.steeringPull+(braking?structural.brakePull+dynamic.brakePull+parts.brakePull:0);
   v.wheelSteer = (v.steerAngle??0)/.55 * lock;
   const want = lon * Math.tan(v.wheelSteer + bent) / wheelbase;
   const cap = (grip * (1 + 1.2 * rearLoose)) / Math.max(s, 1);   // a loose rear lets the nose swing past the grip line
@@ -375,10 +381,11 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   v.wheelTravel = (v.wheelTravel ?? 0) + lon * dt;
   v.wheelSpinTravel = (v.wheelSpinTravel ?? 0) + Math.sign(throttle)*spin*0.35*dt;
   const settle = 1-Math.exp(-dt*7);
-  v.bodyRoll = (v.bodyRoll ?? 0) + (clamp(v.yaw*lon*geometry.height*0.018*working.roll/geometry.width,-0.12,0.12)-(v.bodyRoll ?? 0))*settle;
-  v.bodyPitch = (v.bodyPitch ?? 0) + (clamp(a*geometry.height*0.025/geometry.wheelbase,-0.08,0.08)-(v.bodyPitch ?? 0))*settle;
+  v.bodyRoll = (v.bodyRoll ?? 0) + (clamp(v.yaw*lon*geometry.height*0.018*working.roll/geometry.width+dynamic.roll,-0.12,0.12)-(v.bodyRoll ?? 0))*settle;
+  v.bodyPitch = (v.bodyPitch ?? 0) + (clamp(a*geometry.height*0.025/geometry.wheelbase+dynamic.pitch,-0.08,0.08)-(v.bodyPitch ?? 0))*settle;
   const scrub = Math.abs(lat) * Math.min(1, s / 3) + spin * 0.5 + (inp.brake && s > 2 ? s * 0.25 : 0);
   v.tyreHeat = clamp((v.tyreHeat ?? 0) + (scrub * 0.16 - 0.22) * dt, 0, 1);
+  stepDrivingDynamics(v,lon,lat,a,sim.env.rain,braking?Math.max(serviceBrake,Math.abs(pedal)):0,!!inp.brake,dt);
   if(working.active)stepUtility(v,a,(v.yaw??0)*lon,lon,braking,dt);
   skidMarks(sim, v, lat, inp.brake && s > 2 ? s : 0);
   const oldX=v.x,oldY=v.y;
