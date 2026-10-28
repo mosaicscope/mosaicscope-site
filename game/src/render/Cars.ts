@@ -588,7 +588,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
 
   // ---- lights (only on the ends that face the camera) ----
   const hl = night || v.siren ? (PT.yellowLamps ? "#f2d27a" : "#fff8d8") : PT.yellowLamps ? "#cdb878" : "#e8e2c8";
-  const brake = v.speed < 0.5 && v.state === "drive" || v.speed < 0 || v.state === "crashed";
+  const brake = v.state === "crashed" || (v.braking ?? (v.state === "drive" && v.speed < 0.5));
   const rearFace={a0:rSk1[4],b0:rSk1[5],a1:rTop[4],b1:rTop[5]},end=frontVisible?frontFace:rearFace,mounts:[number,number,number][]=[];
   if(end){const frontEnd=frontVisible,kind=d.design?.lamp??(S.boxy?'square':'slit');for(const side of[-1,1] as const){const fixture=lampFixture(end,side,frontEnd,kind),index=(frontEnd?0:2)+(side>0?1:0),hurt=lampDamage(v,index),signal=(v.hazards||v.indicator===(side<0?'left':'right'))&&Math.floor(time*1.6)%2===0,lights=(v.lights??night)&&(v.components?.structure?.battery??0)<.8,colour=hurt>.94?'#25342e':signal?'#e7ac50':frontEnd?(lights?hl:'#b9c5bc'):brake?'#ed6b54':lights?'#b84f41':'#763f38';
    fillPoly(k,fixture.housing,'#293731');strokePoly(k,fixture.housing,'#89958a',.55*z,true);
@@ -743,10 +743,10 @@ export function headlights(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle,
 
 function roadWheel(k:Ctx,v:Vehicle,x:number,y:number,r:number,near:boolean,spin:number,color:string):void{
  const i=(x>0?0:2)+(y>0?1:0),w=v.components?.wheels[i];if(w?.missing)return;
- const drive=handlingProfile(v.cls).drive;if(drive==='awd'||(drive==='fwd'?x>0:x<0))spin+=(v.wheelSpinTravel??0)/Math.max(.05,r);
+ const drive=handlingProfile(v.cls).drive;if(v.dynamics?.wheels[i])spin=v.dynamics.wheels[i].rotation/Math.max(.05,r);else if(drive==='awd'||(drive==='fwd'?x>0:x<0))spin+=(v.wheelSpinTravel??0)/Math.max(.05,r);
  const cx=k.x+x*k.c-y*k.s,cy=k.y+x*k.s+y*k.c,ang=v.heading+(x>0?(v.wheelSteer??v.steerAngle??0):0)+(w?.alignment??0),ctx={...k,x:cx,y:cy,c:Math.cos(ang),s:Math.sin(ang),roll:0,pitch:0,deform:undefined};
  wheel(ctx,0,0,r*(1-(w?.rim??0)*.08),near,spin,color,w?w.puncture:(y<0?v.flatLeft:v.flatRight));
- if(near&&(v.utility?.brakeHeat??0)>.55&&k.cam.zoom>1.2){const heat=(v.utility!.brakeHeat-.55)/.45,q=W3(ctx,[0,0,r]);k.g.strokeStyle=`rgba(205,111,53,${heat*.65})`;k.g.lineWidth=Math.max(.7,k.cam.zoom);k.g.beginPath();k.g.ellipse(q[0],q[1],r*11*k.cam.zoom,r*15*k.cam.zoom,-.4,0,Math.PI*2);k.g.stroke();}
+ const wheelHeat=Math.max(v.utility?.brakeHeat??0,v.dynamics?.wheels[i]?.brakeHeat??0);if(near&&wheelHeat>.55&&k.cam.zoom>1.2){const heat=(wheelHeat-.55)/.45,q=W3(ctx,[0,0,r]);k.g.strokeStyle=`rgba(205,111,53,${heat*.65})`;k.g.lineWidth=Math.max(.7,k.cam.zoom);k.g.beginPath();k.g.ellipse(q[0],q[1],r*11*k.cam.zoom,r*15*k.cam.zoom,-.4,0,Math.PI*2);k.g.stroke();}
  if(w&&w.rim>.3){const q=W3(ctx,[0,0,r]);k.g.strokeStyle='#a9b3a2';k.g.lineWidth=k.cam.zoom;k.g.beginPath();k.g.moveTo(q[0]-3*k.cam.zoom,q[1]-r*12*k.cam.zoom);k.g.lineTo(q[0]+3*k.cam.zoom,q[1]+r*10*k.cam.zoom);k.g.stroke();}
 }
 export function drawVehicleFragment(g:CanvasRenderingContext2D,cam:Camera,v:Vehicle,index:number):void{

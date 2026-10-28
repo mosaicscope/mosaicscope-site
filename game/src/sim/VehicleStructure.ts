@@ -1,3 +1,4 @@
+import {partsEffects} from './VehicleParts';
 import type {Vehicle} from '../entities/types';
 import type {MeshPoint} from '../render/VehicleMesh';
 /** Allocated only after impact or active braking. All quantities are normalized and persist in saves. */
@@ -31,7 +32,7 @@ export function tickStructure(v:Vehicle,dt:number):void{
  p.coolant=sat(p.coolant-dt*Math.max(0,p.radiator-.2)*.012);
  p.oil=sat(p.oil-dt*Math.max(0,p.sump-.25)*.008);
  p.fuel=sat(p.fuel-dt*Math.max(0,p.tank-.35)*.006);
- const heat=running?(1-p.coolant)*(.025+load*.025)+p.radiator*.008:.0;
+ const heat=running?(1-p.coolant)*(.025+load*.025)+p.radiator*.008+partsEffects(v).cooling*.012:.0;
  p.temperature=sat(p.temperature+dt*(heat-.008*(p.coolant+.2)));
  if(running&&p.oil<.3)v.engineDamage=sat((v.engineDamage??0)+dt*(.3-p.oil)*.025);
  const decay=Math.exp(-dt*2),w=Math.sqrt(31),a=p.hop,b=(p.hopVelocity+2*a)/w,co=Math.cos(w*dt),si=Math.sin(w*dt);p.hop=decay*(a*co+b*si);p.hopVelocity=decay*((b*w-2*a)*co-(a*w+2*b)*si);
