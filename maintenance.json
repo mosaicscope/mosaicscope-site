@@ -1,5 +1,5 @@
 {
- "at": 1793216659992,
+ "at": 1793217929971,
  "totals": {
   "duplicate-code": 3,
   "long-function": 17,
@@ -59,17 +59,17 @@
    "kind": "oversized-module",
    "severity": "medium",
    "where": "game/src/app/Game.ts",
-   "detail": "1786 lines",
+   "detail": "1799 lines",
    "fix": "split by feature into modules",
-   "fp": "oversized-module|1qt4oxd"
+   "fp": "oversized-module|11u7fl9"
   },
   {
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/audio/Diegetic.ts",
-   "detail": "1181 lines",
+   "detail": "1182 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|1mnxhr3"
+   "fp": "oversized-module|1ss6aga"
   },
   {
    "kind": "long-function",
