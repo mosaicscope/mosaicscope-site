@@ -318,6 +318,10 @@ export interface Vehicle {
   dynamics?: import("../sim/VehicleDynamics").DrivingDynamics;
   contactControl?: import("../sim/WheelContact").ContactControl;
   driveMode?: import("../sim/DrivingExperience").DriveMode;
+  manualTransmission?: boolean;
+  assistMode?: import("../sim/DrivingExperience").AssistMode;
+  stabilityActive?: boolean;
+  telemetry?: import("../sim/DrivingTelemetry").DrivingTelemetry;
   powertrain?: import("../sim/DrivingExperience").PowertrainState;
   drift?: import("../sim/DrivingExperience").DriftState;
   /** Working load and mechanical feedback, persisted with this individual vehicle. */

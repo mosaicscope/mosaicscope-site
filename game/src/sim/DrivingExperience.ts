@@ -5,6 +5,20 @@ import { handlingProfile } from "./VehicleHandling";
 import {utilityRevRange,utilitySpec} from './VehicleUtility';
 
 export type DriveMode="road"|"sport"|"drift"|"trail";
+export type AssistMode='auto'|'on'|'sport'|'off';
+export const ASSIST_LABELS:Record<AssistMode,string>={auto:'Auto',on:'On',sport:'Sport',off:'Off'};
+export function cycleDriverAssists(v:Vehicle):AssistMode {
+ const modes:AssistMode[]=['auto','on','sport','off'],index=modes.indexOf(v.assistMode??'auto');
+ return v.assistMode=modes[(index+1)%modes.length];
+}
+/** Auto follows the selected drive mode; explicit choices persist per vehicle. */
+export function driverAssists(v:Vehicle):{abs:boolean;traction:boolean;stability:boolean} {
+ const mode=v.assistMode??'auto',automatic=drivingSetup(v).tractionControl;
+ if(mode==='on')return {abs:true,traction:true,stability:true};
+ if(mode==='sport')return {abs:true,traction:false,stability:true};
+ if(mode==='off')return {abs:false,traction:false,stability:false};
+ return {abs:automatic,traction:automatic,stability:automatic};
+}
 export interface PowertrainState { gear:number; rpm:number; shift:number }
 export interface DriftState { points:number; best:number; chain:number; grace:number; angle:number }
 const MODES:DriveMode[]=["road","sport","drift","trail"];
@@ -31,6 +45,29 @@ export function drivingSetup(v:Vehicle) {
 }
 
 /** Automatic transmission with shift hysteresis and an actual torque interruption. */
+export function supportsManual(v:Vehicle):boolean {
+  const base=VEHICLES[v.cls].design?.base??v.cls,utility=utilitySpec(v);
+  return !['ev','compact_ev','estate_ev','deliveryev','bicycle','ebike','escooter'].includes(base)&&utility?.kind!=='electriccargo'&&utility?.kind!=='electricbus';
+}
+/** Manual mode keeps the selected gear; reverse is still selected by the reverse pedal at rest. */
+export function setManualTransmission(v:Vehicle,manual:boolean):boolean {
+  if(manual&&!supportsManual(v))return false;
+  v.manualTransmission=manual;return true;
+}
+export function manualGearLimit(v:Vehicle,top:number):number {
+  if(!v.manualTransmission||!supportsManual(v)||(v.powertrain?.gear??1)<1)return top;
+  const gear=clamp(v.powertrain?.gear??1,1,5);return Math.max(.1,top*GEAR_LIMITS[gear-1]);
+}
+/** Refuse shifts while the clutch is engaged and unsafe downshifts above redline. */
+export function shiftManual(v:Vehicle,direction:1|-1,speed:number,top:number):boolean {
+  if(!v.manualTransmission||!supportsManual(v))return false;
+  const p=v.powertrain??={gear:1,rpm:900,shift:0};
+  if(p.shift>0||!Number.isFinite(speed)||speed<-.08||!Number.isFinite(top)||top<=0)return false;
+  const current=clamp(p.gear,1,5),next=clamp(current+direction,1,5);
+  if(next===current||(direction<0&&Math.abs(speed)>top*GEAR_LIMITS[next-1]*.98))return false;
+  p.gear=next;p.shift=.09+(v.components?.structure?.gearbox??0)*.3;return true;
+}
+
 export function stepPowertrain(v:Vehicle,speed:number,top:number,pedal:number,dt:number):number {
   const base=VEHICLES[v.cls].design?.base??v.cls;
   const utility=utilitySpec(v),range=utilityRevRange(v),idle=range?.idle??900,redline=range?.redline??7000;
@@ -42,7 +79,7 @@ export function stepPowertrain(v:Vehicle,speed:number,top:number,pedal:number,dt
   if(single)p.gear=speed<-.08?-1:1;
   const s=Math.abs(speed)/Math.max(0.1,top),gear=clamp(p.gear,1,5);
   let rev=s/(p.gear<0?.35:single?1.1:GEAR_LIMITS[gear-1]);
-  if(!single&&p.gear>0&&p.shift===0) {
+  if(!single&&!v.manualTransmission&&p.gear>0&&p.shift===0) {
     if(rev>setup.shiftAt&&p.gear<5) {p.gear++;p.shift=.09+(v.components?.structure?.gearbox??0)*.3;}
     else if(p.gear>1&&(rev<.3||pedal>.75&&rev<.52&&s/GEAR_LIMITS[p.gear-2]<setup.shiftAt*.95)) {p.gear--;p.shift=.08+(v.components?.structure?.gearbox??0)*.3;}
     rev=s/GEAR_LIMITS[p.gear-1];
