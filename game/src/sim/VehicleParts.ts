@@ -7,6 +7,16 @@ const component=(id:string,label:string,x:number,y:number,effect:PartEffect,repa
 /** Individual location-sensitive parts. Coordinates are normalised by chassis length and width. */
 export const VEHICLE_PARTS:readonly PartSpec[]=[
  component('cooling_fan','Cooling fan',.4,0,'cooling','mechanical'),
+ component('radiator_core','Radiator core',.46,0,'cooling','mechanical',.1),
+ component('thermostat','Thermostat housing',.31,.08,'cooling','mechanical'),
+ component('oil_filter','Oil filter',.24,-.2,'power','mechanical'),
+ component('oil_pump','Oil pump',.19,-.1,'power','mechanical'),
+ component('engine_block','Engine block',.24,0,'power','mechanical',.22,.55,.27),
+ component('cylinder_head','Cylinder head',.28,0,'power','mechanical',.2,.6,.28),
+ component('exhaust_manifold','Exhaust manifold',.22,-.25,'power','mechanical'),
+ component('throttle_body','Throttle body',.33,.19,'power','mechanical'),
+ component('transmission_mount','Transmission mount',.02,0,'frame','mechanical'),
+ component('battery_cable','Battery cable',.38,.3,'power','mechanical'),
  component('water_pump','Water pump',.28,-.15,'cooling','mechanical'),
  component('coolant_hose','Coolant hose',.35,.18,'cooling','mechanical',.08),
  component('ignition','Ignition system',.25,-.2,'power','mechanical'),

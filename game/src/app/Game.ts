@@ -1,4 +1,4 @@
-import {vehicleCondition} from '../sim/VehicleCondition';
+import {vehicleCondition,vehicleInspection} from '../sim/VehicleCondition';
 import {resetDrivingTelemetry} from '../sim/DrivingTelemetry';
 import {mappedDrivingLimit} from '../sim/MappedTraffic';
 import {arcadeDriving,drivingTopSpeed} from '../sim/ArcadeDriving';
@@ -866,10 +866,14 @@ export class Game {
     return h('button.btn.drive-settings',{type:'button','aria-label':'Drive settings',onclick:()=>this.openDriveSettings(v)},[this.conditionDiagram(v),h('span.condition-caption',{text:status+' · Car & drive'})]);
   }
   private openDriveSettings(v:import('../entities/types').Vehicle):void {
-    const render=()=>this.modal.show('Drive settings',[
+    const render=()=>{const report=vehicleInspection(v);const section=(title:string,lines:string[])=>h('details.condition-section',null,[h('summary',{text:title}),...lines.map(text=>h('p',{text}))]);this.modal.show('Drive settings',[
       h('div.condition-detail',null,[this.conditionDiagram(v),h('div',null,[h('strong',{text:'Vehicle condition'}),h('p',{text:vehicleCondition(v).forecast})])]),
       h('p',{text:`Engine ${Math.round(vehicleCondition(v).engine*100)}% damaged · gearbox ${Math.round(vehicleCondition(v).gearbox*100)}% · oil ${Math.round(vehicleCondition(v).oil*100)}% · coolant ${Math.round(vehicleCondition(v).coolant*100)}%`}),
-      h('p',{text:vehicleCondition(v).issues.length?'Damaged parts: '+vehicleCondition(v).issues.slice(0,8).map(p=>p.name+' '+Math.round(p.damage*100)+'%').join(' · '):'No individual parts are damaged.'}),
+      ...report.effects.map(text=>h('p',{text})),
+      section('Damage report · '+report.condition.issues.length+' parts',report.condition.issues.length?report.condition.issues.map(p=>p.name+': '+Math.round(p.damage*100)+'% damaged'):['No individual parts are damaged.']),
+      section('Body and glass',report.body),section('Wheels and brakes',report.wheels),
+      section('Mechanical systems',report.mechanical.length?report.mechanical:['No structural mechanical damage recorded.']),
+      section('Recent impacts',report.impacts.length?report.impacts:['No impacts recorded.']),
       h('p',{text:'Choose your transmission and driver aids. Gear buttons stay available while driving.'}),
       h('p',{text:`${handlingProfile(v.cls).drive.toUpperCase()} · tyres ${Math.round((v.tyreHeat??0)*100)}% warm${v.dynamics?.wheels.some(w=>w.pressure<.65)?' · LOW TYRE':''}${(v.dynamics?.brakeFade??0)>.1?' · BRAKE FADE':''}${(v.dynamics?.aquaplaning??0)>.2?' · WET GRIP':''}`}),
       ...(supportsManual(v)?[h('button.btn',{type:'button',text:v.manualTransmission?'Manual gears · switch to auto':'Automatic · switch to manual','aria-label':'Toggle manual transmission',onclick:()=>{setManualTransmission(v,!v.manualTransmission);this.updateHud();render();}})]:[]),
@@ -878,7 +882,7 @@ export class Game {
       h('button.btn',{type:'button',text:this.showDriveData?'Hide drive data':'Show drive data','aria-label':'Toggle driving data',onclick:()=>{this.showDriveData=!this.showDriveData;render();}}),
       ...(this.showDriveData&&v.telemetry?[h('p',{text:`Trip ${(v.telemetry.distance/1000).toFixed(2)} km · peak ${Math.round(v.telemetry.topKmh)} km/h`}),h('p',{text:`0–100 ${v.telemetry.best0100?.toFixed(1)??'—'} s · 80–0 ${v.telemetry.lastBrakeDistance?.toFixed(0)??'—'} m`}),h('button.btn',{text:'Reset trip',onclick:()=>{resetDrivingTelemetry(v);render();}})]:[]),
       h('button.btn',{text:'Done',onclick:()=>this.modal.close()})
-    ],'drive-settings-panel');render();
+    ],'drive-settings-panel');};render();
   }
   private shiftDriver(v:import('../entities/types').Vehicle,direction:1|-1):void {
     const limit=mappedDrivingLimit(this.sim,v),top=drivingTopSpeed(v,arcadeDriving(v,limit).top,drivingSetup(v).range);

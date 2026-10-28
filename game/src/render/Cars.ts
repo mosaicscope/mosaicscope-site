@@ -628,12 +628,24 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   if (v.flatLeft || v.flatRight || v.burnt) { const P=W3(k,[0,0,H+.2]);g.font=`${Math.max(9,10*z)}px monospace`;g.fillStyle="#f6b62c";g.fillText(v.burnt?"BURNT OUT":v.flatLeft&&v.flatRight?"FLAT TYRES":"FLAT TYRE",P[0]-25*z,P[1]); }
 
   if(v.components){const p=v.components;
-   if(p.hoodGone){const a=Math.max(S.cab[1]*L,L*.12),b=x1-.04,h=bodyTop(b)+.016;
-    fillPoly(k,[[a,-hw*.8,h],[b,-hw*.8,h],[b,hw*.8,h],[a,hw*.8,h]],'#202b2c');
-    const middle=(a+b)/2;fillPoly(k,[[a+.06,-hw*.35,h+.01],[b-.1,-hw*.35,h+.01],[b-.1,hw*.35,h+.1],[a+.06,hw*.35,h+.1]],'#64716a');
-    for(let j=0;j<4;j++){const y=-hw*.3+j*hw*.2;strokePoly(k,[[a+.1,y,h+.12],[b-.13,y,h+.12]],'#a6afa2',z,false);}
-    strokePoly(k,[[a,hw*.65,h+.03],[middle,hw*.54,h+.06],[b-.06,hw*.65,h+.03]],'#b39164',1.5*z,false);
-    strokePoly(k,[[b-.08,-hw*.65,h+.02],[b-.08,hw*.65,h+.02]],'#7d8983',2*z,false);
+   if(p.hoodGone){const a=Math.max(S.cab[1]*L,L*.12),b=x1-.04,h=bodyTop(b)+.016,span=b-a;
+    const electric=['ev','compact_ev','estate_ev','deliveryev'].includes(d.design?.base??v.cls),running=v.driver>=0&&!v.burnt,rpm=v.powertrain?.rpm??900,phase=running?time*Math.min(100,rpm/18):0;
+    fillPoly(k,[[a,-hw*.8,h],[b,-hw*.8,h],[b,hw*.8,h],[a,hw*.8,h]],'#1d2928');
+    // Engine block, mounted transversely; the bay follows the same collision deformation as the body.
+    const block=[a+span*.22,b-span*.25],left=-hw*.37,right=hw*.37;
+    fillPoly(k,[[block[0],left,h+.025],[block[1],left,h+.025],[block[1],right,h+.08],[block[0],right,h+.08]],electric?'#515f61':'#68736d');
+    fillPoly(k,[[block[0]+span*.04,left*.82,h+.09],[block[1]-span*.04,left*.82,h+.09],[block[1]-span*.04,right*.82,h+.12],[block[0]+span*.04,right*.82,h+.12]],electric?'#829692':'#3f4b48');
+    for(let j=0;j<4;j++){const y=-hw*.25+j*hw*.16;strokePoly(k,[[block[0]+span*.06,y,h+.13],[block[1]-span*.06,y,h+.13]],electric?'#a9bfba':'#9ca99f',Math.max(.5,z*.65),false);}
+    // Radiator, battery and plumbing are separately coloured to remain readable at game scale.
+    fillPoly(k,[[b-span*.12,-hw*.7,h+.02],[b-span*.06,-hw*.7,h+.02],[b-span*.06,hw*.7,h+.02],[b-span*.12,hw*.7,h+.02]],'#84918a');
+    fillPoly(k,[[a+span*.08,hw*.47,h+.04],[a+span*.25,hw*.47,h+.04],[a+span*.25,hw*.69,h+.04],[a+span*.08,hw*.69,h+.04]],'#b0aa91');
+    strokePoly(k,[[a+span*.22,-hw*.52,h+.06],[a+span*.55,-hw*.58,h+.09],[b-span*.08,-hw*.5,h+.04]],electric?'#eaa655':'#b39a73',Math.max(.7,z),false);
+    if(!electric&&z>=.65){const x=b-span*.19,y=0,r=Math.min(span*.1,hw*.2),fan=(v.components?.parts?.cooling_fan??0)<.9;
+     strokePoly(k,[[x,-r,h+.07],[x,r,h+.07]],'#263734',Math.max(1,z*2),false);
+     for(let j=0;j<3;j++){const angle=(fan?phase:0)+j*Math.PI*2/3;strokePoly(k,[[x,y,h+.09],[x+Math.cos(angle)*r,y+Math.sin(angle)*r,h+.09]],fan?'#c1c6ad':'#665d4d',Math.max(.6,z*.8),false);}
+     const bx=a+span*.13,by=-hw*.42,br=hw*.1;strokePoly(k,[[bx-br,by,h+.08],[bx+br,by,h+.08],[x,by,h+.08]],'#2e3632',Math.max(.8,z),false);
+     const angle=(v.components?.parts?.drive_belt??0)>.9?0:phase;strokePoly(k,[[bx,by,h+.1],[bx+Math.cos(angle)*br,by+Math.sin(angle)*br,h+.1]],'#c2bba6',Math.max(.6,z*.7),false);
+    }
    }
    if(p.hoodLoose&&!p.hoodGone){const a=Math.max(S.cab[1]*L,L*.12),b=x1-.03,h=bodyTop(b)+.02,lift=.025+(1-p.hood)*.13+Math.sin(time*11)*Math.min(.05,Math.abs(v.speed)*.003);meshFace(k,[[a,-hw*.82,bodyTop(a)+.02],[b,-hw*.82,h+lift],[b,hw*.82,h+lift],[a,hw*.82,bodyTop(a)+.02]],v.color,[0,0,1]);}
 
