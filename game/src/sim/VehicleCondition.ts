@@ -1,10 +1,11 @@
 import type {Vehicle} from '../entities/types';
-import {damagedParts} from './VehicleParts';
+import {damagedParts,partsEffects} from './VehicleParts';
+import {structuralDynamics} from './VehicleStructure';
 const bounded=(n:number|undefined)=>Number.isFinite(n)?Math.max(0,Math.min(1,n!)):0;
 /** Read existing state without allocating simulation components. */
 export function vehicleCondition(v:Vehicle){
  const c=v.components,s=c?.structure;
- const wheel=(i:number)=>{const w=c?.wheels[i],d=v.dynamics?.wheels[i];return Math.max(w?.missing||w?.puncture?1:0,bounded(w?.rim),bounded(w?.suspension),d?1-bounded(d.pressure):0)};
+ const wheel=(i:number)=>{const w=c?.wheels[i],d=v.dynamics?.wheels[i];return Math.max(w?.missing||w?.puncture||(!w&&(i%2===0?v.flatLeft:v.flatRight))?1:0,bounded(w?.rim),bounded(w?.suspension),d?1-bounded(d.pressure):0)};
  const zones=[Math.max(bounded(c?.panels[0]),bounded(v.dmgF),bounded(v.engineDamage)),Math.max(bounded(c?.panels[2]),bounded(v.dmgL)),Math.max(bounded(c?.panels[3]),bounded(v.dmgS)),Math.max(bounded(c?.panels[1]),bounded(v.dmgR))];
  const wheels=[wheel(0),wheel(1),wheel(2),wheel(3)],issues=damagedParts(v),engine=bounded(v.engineDamage),heat=bounded(v.heat);
  let forecast='No timed breakdown is currently predicted.';
@@ -14,4 +15,20 @@ export function vehicleCondition(v:Vehicle){
  else if(engine>.65)forecast='Engine badly damaged: moving will build heat. Stop and repair.';
  const worst=Math.max(...zones,...wheels,engine,bounded(s?.gearbox),bounded(s?.temperature));
  return {zones,wheels,engine,issues,forecast,worst,oil:s?.oil??1,coolant:s?.coolant??1,temperature:s?.temperature??0,gearbox:s?.gearbox??0};
+}
+
+/** Inspection details describe tracked simulation state rather than inferred component failures. */
+export function vehicleInspection(v:Vehicle){
+ const c=v.components,s=c?.structure,condition=vehicleCondition(v),effects=partsEffects(v),structure=structuralDynamics(v);
+ const pct=(n:number)=>Math.round(bounded(n)*100)+'%';
+ const wheels=['Front left','Front right','Rear left','Rear right'].map((name,i)=>{const w=c?.wheels[i],d=v.dynamics?.wheels[i],faults:string[]=[];
+  if(w?.missing)faults.push('missing');else if(w?.puncture||(!w&&(i%2===0?v.flatLeft:v.flatRight)))faults.push('punctured');
+  if(w&&w.rim>.02)faults.push('rim '+pct(w.rim));if(w&&w.suspension>.02)faults.push('suspension '+pct(w.suspension));
+  if(w&&Math.abs(w.alignment)>.01)faults.push('alignment '+Math.round(w.alignment*100)+'%');
+  if(d)faults.push('pressure '+pct(d.pressure),'wear '+pct(d.wear),'brake heat '+pct(d.brakeHeat));
+  return name+': '+(faults.length?faults.join(' · '):'no faults recorded');});
+ const body=['Front','Rear','Left','Right'].map((name,i)=>name+': '+pct(Math.max(bounded(c?.panels[i]),bounded([v.dmgF,v.dmgR,v.dmgL,v.dmgS][i])))+' damage · glass '+pct(c?.glass[i]??0)+' damaged');
+ const mechanical=s?['Radiator '+pct(s.radiator)+' damaged','oil sump '+pct(s.sump)+' damaged','gearbox '+pct(s.gearbox)+' damaged','steering rack '+pct(s.rack)+' damaged','front axle '+pct(s.axles[0])+' damaged','rear axle '+pct(s.axles[1])+' damaged','battery '+pct(s.battery)+' damaged','fuel tank '+pct(s.tank)+' damaged','exhaust '+pct(s.exhaust)+' damaged']:[];
+ const impacts=(c?.impacts??[]).slice().reverse().map(i=>['Front','Rear','Left','Right'][i.zone]+' '+i.severity+' impact · severity '+pct(i.energy));
+ return {condition,wheels,body,mechanical,impacts,effects:[`Power ${Math.round(effects.power*structure.power*100)}% · braking ${Math.round(effects.braking*structure.braking*100)}% · steering ${Math.round(effects.steering*structure.steer*100)}%`,`Oil ${pct(s?.oil??1)} · coolant ${pct(s?.coolant??1)} · fuel ${pct(s?.fuel??1)} · engine temperature ${pct(s?.temperature??0)}`]};
 }

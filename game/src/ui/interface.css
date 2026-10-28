@@ -138,3 +138,5 @@
 #ui .condition-detail{display:flex;align-items:center;gap:14px}#ui .condition-detail .condition-map{transform:scale(1.25);transform-origin:left center;margin-right:14px}#ui .condition-detail p{margin:4px 0}
 @media (pointer:coarse),(max-width:650px){#ui .hud .drive-settings{gap:5px;align-items:center;padding:4px;line-height:1.1}#ui .condition-caption{font-size:10px;text-align:left}}
 @media (pointer:coarse) and (max-height:500px),(max-width:650px) and (max-height:500px){#ui .hud .drive-settings{min-height:42px;margin-top:2px}}
+
+#ui .condition-section{border:1px solid #c8b18a44;border-radius:7px;padding:8px 10px}#ui .condition-section summary{cursor:pointer;font-weight:700;min-height:32px}#ui .condition-section p{margin:5px 0;line-height:1.4}
