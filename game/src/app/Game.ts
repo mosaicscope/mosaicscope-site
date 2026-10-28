@@ -1,3 +1,4 @@
+import {vehicleCondition} from '../sim/VehicleCondition';
 import {resetDrivingTelemetry} from '../sim/DrivingTelemetry';
 import {mappedDrivingLimit} from '../sim/MappedTraffic';
 import {arcadeDriving,drivingTopSpeed} from '../sim/ArcadeDriving';
@@ -398,7 +399,7 @@ export class Game {
           h("div.drive-detail",{text:`G-force ${v.telemetry.longG.toFixed(2)} forward · ${v.telemetry.latG.toFixed(2)} lateral`}),
           h("div.drive-detail",{text:`0–100 ${v.telemetry.best0100?.toFixed(1)??'—'} s · 80–0 ${v.telemetry.lastBrakeDistance?.toFixed(0)??'—'} m`}),
           h("button.btn.drive-detail",{type:"button",text:"Reset trip",onclick:()=>{resetDrivingTelemetry(v);this.updateHud();}})]:[]),
-        h("button.btn.drive-settings",{type:"button",text:"Drive settings","aria-label":"Drive settings",onclick:()=>this.openDriveSettings(v)}),
+        this.conditionButton(v),
         h("div.drive-detail",{text:`Tyres ${Math.round((v.tyreHeat??0)*100)}% warm${(v.wheelspin??0)>.3?' · WHEELSPIN':''}${(v.contactControl?.abs??0)>.15?' · ABS':''}${(v.contactControl?.traction??0)>.15?' · TRACTION CONTROL':''}${v.stabilityActive?' · STABILITY CONTROL':''}${v.dynamics?.wheels.some(w=>w.pressure<.65)?' · LOW TYRE':''}${(v.dynamics?.brakeFade??0)>.1?' · BRAKE FADE':''}${(v.dynamics?.aquaplaning??0)>.2?' · WET GRIP':''}${(v.slip??0)>1|| (v.slip??0)<-1?' · SLIDING':''}`}),
         ...(drift&&drift.points>1?[h("div",{text:`DRIFT ${Math.round(drift.points)} · ×${1+Math.min(3,Math.floor(drift.chain/2))} · ${Math.round(drift.angle)}°`})]:drift&&drift.best>0?[h("div",{text:`Best drift ${drift.best}`})]:[]),
         h("div.drive-alert",{text:(v.components?.structure?.temperature??0)>.6?"ENGINE OVERHEATING · pull over":(v.components?.structure?.brakeHeat??0)>.8?"BRAKES HOT · allow cooling":(v.components?.structure?.oil??1)<.25?"LOW OIL · service needed":(v.components?.structure?.coolant??1)<.25?"LOW COOLANT · service needed":(v.flatLeft||v.flatRight?"FLAT TYRE":"")+((v.heat??0)>.5?" · ENGINE HOT: pull over":"")})
@@ -855,8 +856,20 @@ export class Game {
     }
   }
 
+  private conditionDiagram(v:import('../entities/types').Vehicle):HTMLElement {
+    const c=vehicleCondition(v),colour=(n:number)=>n>=.7?'#df7065':n>=.25?'#d7ad5c':'#7db995';
+    const block=(name:string,n:number)=>h('span.condition-'+name,{style:{background:colour(n)},title:`${name} ${Math.round(n*100)}% damaged`});
+    return h('span.condition-map',{'aria-hidden':'true'},[block('front',c.zones[0]),block('left',c.zones[1]),block('right',c.zones[2]),block('rear',c.zones[3]),...c.wheels.map((n,i)=>block('wheel'+i,n))]);
+  }
+  private conditionButton(v:import('../entities/types').Vehicle):HTMLElement {
+    const c=vehicleCondition(v),status=c.worst>=.7?'Critical':c.worst>=.25?'Damaged':'Healthy';
+    return h('button.btn.drive-settings',{type:'button','aria-label':'Drive settings',onclick:()=>this.openDriveSettings(v)},[this.conditionDiagram(v),h('span.condition-caption',{text:status+' · Car & drive'})]);
+  }
   private openDriveSettings(v:import('../entities/types').Vehicle):void {
     const render=()=>this.modal.show('Drive settings',[
+      h('div.condition-detail',null,[this.conditionDiagram(v),h('div',null,[h('strong',{text:'Vehicle condition'}),h('p',{text:vehicleCondition(v).forecast})])]),
+      h('p',{text:`Engine ${Math.round(vehicleCondition(v).engine*100)}% damaged · gearbox ${Math.round(vehicleCondition(v).gearbox*100)}% · oil ${Math.round(vehicleCondition(v).oil*100)}% · coolant ${Math.round(vehicleCondition(v).coolant*100)}%`}),
+      h('p',{text:vehicleCondition(v).issues.length?'Damaged parts: '+vehicleCondition(v).issues.slice(0,8).map(p=>p.name+' '+Math.round(p.damage*100)+'%').join(' · '):'No individual parts are damaged.'}),
       h('p',{text:'Choose your transmission and driver aids. Gear buttons stay available while driving.'}),
       h('p',{text:`${handlingProfile(v.cls).drive.toUpperCase()} · tyres ${Math.round((v.tyreHeat??0)*100)}% warm${v.dynamics?.wheels.some(w=>w.pressure<.65)?' · LOW TYRE':''}${(v.dynamics?.brakeFade??0)>.1?' · BRAKE FADE':''}${(v.dynamics?.aquaplaning??0)>.2?' · WET GRIP':''}`}),
       ...(supportsManual(v)?[h('button.btn',{type:'button',text:v.manualTransmission?'Manual gears · switch to auto':'Automatic · switch to manual','aria-label':'Toggle manual transmission',onclick:()=>{setManualTransmission(v,!v.manualTransmission);this.updateHud();render();}})]:[]),

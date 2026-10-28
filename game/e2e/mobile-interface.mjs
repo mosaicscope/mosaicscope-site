@@ -10,6 +10,10 @@ try{for(const size of sizes){const ctx=await browser.newContext({viewport:size,i
  const rect=(a,b)=>Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x)>.5&&Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y)>.5;
  for(let i=0;i<layout.length;i++)for(let j=i+1;j<layout.length;j++)if(rect(layout[i],layout[j]))throw Error('Overlapping controls '+JSON.stringify({size,a:layout[i],b:layout[j],layout}));};
  const layout=await measure();verify(layout);
+ await page.evaluate(()=>{const v=window.__mosaics.sim.vehicles[0];v.dmgF=.55;v.engineDamage=.7;});await page.waitForTimeout(300);
+ const status=page.getByRole('button',{name:'Drive settings',exact:true});if(!await status.locator('.condition-front').count()||!(await status.textContent()).includes('Critical'))throw Error('Damage map did not update');
+ await status.click();await page.getByText('Vehicle condition',{exact:true}).waitFor({state:'visible'});if(!(await page.locator('.drive-settings-panel').innerText()).includes('Engine 70% damaged'))throw Error('Condition details do not reflect damage');await page.getByRole('button',{name:'Done',exact:true}).click();
+ await page.evaluate(()=>{const v=window.__mosaics.sim.vehicles[0];v.dmgF=0;v.engineDamage=0;});
  await page.screenshot({path:`e2e/screenshots/mobile-ui-${size.width}x${size.height}.png`});
  await page.getByRole('button',{name:'Drive settings',exact:true}).click();await page.getByRole('button',{name:'Toggle manual transmission'}).click();await page.getByRole('button',{name:'Change driver aids'}).click();await page.getByRole('button',{name:'Done',exact:true}).click();await page.getByRole('button',{name:'Shift up'}).click();
  const car=await page.evaluate(()=>{const v=window.__mosaics.sim.vehicles[0];return{manual:v.manualTransmission,gear:v.powertrain?.gear,aids:v.assistMode}});if(!car.manual||car.gear!==2||car.aids!=='on')throw Error('Driving options failed '+JSON.stringify(car));verify(await measure());
