@@ -387,20 +387,21 @@ export class Game {
     if (titleOf(sim.expansion)) kids.push(h("div.car", { text: titleOf(sim.expansion) + " · " + (sim.expansion.graduated[sim.expansion.graduated.length - 1] ?? "") }));
     if (p.inCar >= 0) {
       const v=sim.vehicles[p.inCar],speed=Math.hypot(v.vx??Math.cos(v.heading)*v.speed,v.vy??Math.sin(v.heading)*v.speed),pt=v.powertrain,drift=v.drift;
-      kids.push(h("div.car",null,[h("b",{text:String(Math.round(speed*7.2))})," km/h · "+VEHICLES[v.cls].name,
-        h("div",{text:`${handlingProfile(v.cls).drive.toUpperCase()} · ${pt?(pt.gear<0?'R':(v.manualTransmission?'M':'D')+pt.gear)+' · '+Math.round(pt.rpm)+' rpm':'Automatic'}`}),
-        ...(supportsManual(v)?[h("button.btn",{type:"button",text:v.manualTransmission?"Manual gears · switch to auto":"Automatic · switch to manual","aria-label":"Toggle manual transmission",onclick:()=>{setManualTransmission(v,!v.manualTransmission);this.updateHud();}}),...(v.manualTransmission?[h("button.btn",{type:"button",text:"− Gear","aria-label":"Shift down",onclick:()=>{this.shiftDriver(v,-1);}}),h("button.btn",{type:"button",text:"+ Gear","aria-label":"Shift up",onclick:()=>{this.shiftDriver(v,1);}})]:[])]:[]),
+      kids.push(h("div.car",null,[h("div.drive-speed",null,[h("b",{text:String(Math.round(speed*7.2))})," km/h"]),h("div.drive-name",{text:VEHICLES[v.cls].name}),
+        h("div.drive-meta",{text:`${handlingProfile(v.cls).drive.toUpperCase()} · ${pt?(pt.gear<0?'R':(v.manualTransmission?'M':'D')+pt.gear)+' · '+Math.round(pt.rpm)+' rpm':'Automatic'}`}),
+        ...(supportsManual(v)?[h("button.btn.drive-detail",{type:"button",text:v.manualTransmission?"Manual gears · switch to auto":"Automatic · switch to manual","aria-label":"Toggle manual transmission",onclick:()=>{setManualTransmission(v,!v.manualTransmission);this.updateHud();}}),...(v.manualTransmission?[h("button.btn.drive-gear",{type:"button",text:"− Gear","aria-label":"Shift down",onclick:()=>{this.shiftDriver(v,-1);}}),h("button.btn.drive-gear",{type:"button",text:"+ Gear","aria-label":"Shift up",onclick:()=>{this.shiftDriver(v,1);}})]:[])]:[]),
         ...(v.parkingBrake?[h("button.btn",{type:"button",text:"Parking brake ON · release","aria-label":"Release parking brake",onclick:()=>{v.parkingBrake=false;this.updateHud();}})]:[]),
-        h("button.btn.drive-mode",{type:"button",text:DRIVE_MODE_LABELS[v.driveMode??"road"]+" mode ↻","aria-label":"Change driving mode",onclick:()=>{cycleDriveMode(v);this.updateHud();}}),
-        h("button.btn",{type:"button",text:"Driver aids: "+ASSIST_LABELS[v.assistMode??"auto"]+" ↻","aria-label":"Change driver aids",onclick:()=>{cycleDriverAssists(v);this.updateHud();}}),
-        h("button.btn",{type:"button",text:this.showDriveData?"Hide drive data":"Show drive data","aria-label":"Toggle driving data",onclick:()=>{this.showDriveData=!this.showDriveData;this.updateHud();}}),
-        ...(this.showDriveData&&v.telemetry?[h("div",{text:`Trip ${(v.telemetry.distance/1000).toFixed(2)} km · peak ${Math.round(v.telemetry.topKmh)} km/h`}),
-          h("div",{text:`G-force ${v.telemetry.longG.toFixed(2)} forward · ${v.telemetry.latG.toFixed(2)} lateral`}),
-          h("div",{text:`0–100 ${v.telemetry.best0100?.toFixed(1)??'—'} s · 80–0 ${v.telemetry.lastBrakeDistance?.toFixed(0)??'—'} m`}),
-          h("button.btn",{type:"button",text:"Reset trip",onclick:()=>{resetDrivingTelemetry(v);this.updateHud();}})]:[]),
-        h("div",{text:`Tyres ${Math.round((v.tyreHeat??0)*100)}% warm${(v.wheelspin??0)>.3?' · WHEELSPIN':''}${(v.contactControl?.abs??0)>.15?' · ABS':''}${(v.contactControl?.traction??0)>.15?' · TRACTION CONTROL':''}${v.stabilityActive?' · STABILITY CONTROL':''}${v.dynamics?.wheels.some(w=>w.pressure<.65)?' · LOW TYRE':''}${(v.dynamics?.brakeFade??0)>.1?' · BRAKE FADE':''}${(v.dynamics?.aquaplaning??0)>.2?' · WET GRIP':''}${(v.slip??0)>1|| (v.slip??0)<-1?' · SLIDING':''}`}),
+        h("button.btn.drive-mode.drive-detail",{type:"button",text:DRIVE_MODE_LABELS[v.driveMode??"road"]+" mode ↻","aria-label":"Change driving mode",onclick:()=>{cycleDriveMode(v);this.updateHud();}}),
+        h("button.btn.drive-detail",{type:"button",text:"Driver aids: "+ASSIST_LABELS[v.assistMode??"auto"]+" ↻","aria-label":"Change driver aids",onclick:()=>{cycleDriverAssists(v);this.updateHud();}}),
+        h("button.btn.drive-detail",{type:"button",text:this.showDriveData?"Hide drive data":"Show drive data","aria-label":"Toggle driving data",onclick:()=>{this.showDriveData=!this.showDriveData;this.updateHud();}}),
+        ...(this.showDriveData&&v.telemetry?[h("div.drive-detail",{text:`Trip ${(v.telemetry.distance/1000).toFixed(2)} km · peak ${Math.round(v.telemetry.topKmh)} km/h`}),
+          h("div.drive-detail",{text:`G-force ${v.telemetry.longG.toFixed(2)} forward · ${v.telemetry.latG.toFixed(2)} lateral`}),
+          h("div.drive-detail",{text:`0–100 ${v.telemetry.best0100?.toFixed(1)??'—'} s · 80–0 ${v.telemetry.lastBrakeDistance?.toFixed(0)??'—'} m`}),
+          h("button.btn.drive-detail",{type:"button",text:"Reset trip",onclick:()=>{resetDrivingTelemetry(v);this.updateHud();}})]:[]),
+        h("button.btn.drive-settings",{type:"button",text:"Drive settings","aria-label":"Drive settings",onclick:()=>this.openDriveSettings(v)}),
+        h("div.drive-detail",{text:`Tyres ${Math.round((v.tyreHeat??0)*100)}% warm${(v.wheelspin??0)>.3?' · WHEELSPIN':''}${(v.contactControl?.abs??0)>.15?' · ABS':''}${(v.contactControl?.traction??0)>.15?' · TRACTION CONTROL':''}${v.stabilityActive?' · STABILITY CONTROL':''}${v.dynamics?.wheels.some(w=>w.pressure<.65)?' · LOW TYRE':''}${(v.dynamics?.brakeFade??0)>.1?' · BRAKE FADE':''}${(v.dynamics?.aquaplaning??0)>.2?' · WET GRIP':''}${(v.slip??0)>1|| (v.slip??0)<-1?' · SLIDING':''}`}),
         ...(drift&&drift.points>1?[h("div",{text:`DRIFT ${Math.round(drift.points)} · ×${1+Math.min(3,Math.floor(drift.chain/2))} · ${Math.round(drift.angle)}°`})]:drift&&drift.best>0?[h("div",{text:`Best drift ${drift.best}`})]:[]),
-        (v.components?.structure?.temperature??0)>.6?"ENGINE OVERHEATING · pull over":(v.components?.structure?.brakeHeat??0)>.8?"BRAKES HOT · allow cooling":(v.components?.structure?.oil??1)<.25?"LOW OIL · service needed":(v.components?.structure?.coolant??1)<.25?"LOW COOLANT · service needed":(v.flatLeft||v.flatRight?" · FLAT TYRE":"")+((v.heat??0)>.5?" · ENGINE HOT: pull over":"")
+        h("div.drive-alert",{text:(v.components?.structure?.temperature??0)>.6?"ENGINE OVERHEATING · pull over":(v.components?.structure?.brakeHeat??0)>.8?"BRAKES HOT · allow cooling":(v.components?.structure?.oil??1)<.25?"LOW OIL · service needed":(v.components?.structure?.coolant??1)<.25?"LOW COOLANT · service needed":(v.flatLeft||v.flatRight?"FLAT TYRE":"")+((v.heat??0)>.5?" · ENGINE HOT: pull over":"")})
       ]));
     }
     if(sim.pendingAmbulance.has(p.id))kids.push(h('div.car.medical-status',{text:p.phys===Phys.DOWN?'Ambulance on the way · stay still for treatment':'Ambulance on the way · move clear of traffic'}));
@@ -409,7 +410,7 @@ export class Game {
     if(p.hand>=0){const d=sim.toys[p.hand].def,w=TOYS[d].weapon;if(w?.gun){const base=d==='golden_pistol'?'pistol':d,load=p.combat?.load??'standard',key=load==='standard'?base:base+':'+load;kids.push(h('div.combat-status',{text:`${TOYS[d].name} · ${p.combat?.ammo[key]??'∞'} rounds · ${w.mode??'semi'}`}));}}
     this.combatHelpButton??=h("button.btn.combat-help",{text:"Fight / gun controls",onclick:()=>this.openCombatControls()}) as HTMLButtonElement;kids.push(this.combatHelpButton);
     const mission=missionStatus(sim);if(mission)kids.push(h("div.car.obj",{text:mission}));const challenge=challengeStatus(sim);if(challenge)kids.push(h("div.car.obj",{text:challenge}));const obj = this.objective(); if (obj) kids.push(h("div.car.obj", { text: obj }));
-    this.hudEl.replaceChildren(...kids);
+    const hudScroll=this.hudEl.scrollTop;this.hudEl.replaceChildren(...kids);this.hudEl.scrollTop=hudScroll;
     this.hudEl.classList.toggle("beside-log", !this.log.el.classList.contains("hidden"));
     if (sim.bustedAt !== this.lastBusted && sim.bustedAt >= 0) {
       this.lastBusted = sim.bustedAt;
@@ -435,7 +436,7 @@ export class Game {
     this.rootEl.classList.toggle('conversation-open',this.dialogue.open);
     this.rootEl.classList.toggle('activity-open',this.modal.open||this.casino.open);
     if(this.keys.has("escape"))this.remoteLauncher=null;
-    this.touch.el.classList.toggle("hidden", this.phone.open || this.casino.open || this.interior.open || (this.modal.open && !this.modal.el.classList.contains("touch-tut")) || this.dialogue.open || this.terrance.open || this.travel.open || this.marina.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
+    this.touch.el.classList.toggle("hidden", !!this.rootEl.querySelector(".bar.open") || this.phone.open || this.casino.open || this.interior.open || (this.modal.open && !this.modal.el.classList.contains("touch-tut")) || this.dialogue.open || this.terrance.open || this.travel.open || this.marina.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
     this.tickStory(now);
     this.minimap.update(now);
     if (now - this.lastUi < 250) return;
@@ -854,6 +855,18 @@ export class Game {
     }
   }
 
+  private openDriveSettings(v:import('../entities/types').Vehicle):void {
+    const render=()=>this.modal.show('Drive settings',[
+      h('p',{text:'Choose your transmission and driver aids. Gear buttons stay available while driving.'}),
+      h('p',{text:`${handlingProfile(v.cls).drive.toUpperCase()} · tyres ${Math.round((v.tyreHeat??0)*100)}% warm${v.dynamics?.wheels.some(w=>w.pressure<.65)?' · LOW TYRE':''}${(v.dynamics?.brakeFade??0)>.1?' · BRAKE FADE':''}${(v.dynamics?.aquaplaning??0)>.2?' · WET GRIP':''}`}),
+      ...(supportsManual(v)?[h('button.btn',{type:'button',text:v.manualTransmission?'Manual gears · switch to auto':'Automatic · switch to manual','aria-label':'Toggle manual transmission',onclick:()=>{setManualTransmission(v,!v.manualTransmission);this.updateHud();render();}})]:[]),
+      h('button.btn',{type:'button',text:DRIVE_MODE_LABELS[v.driveMode??'road']+' mode ↻','aria-label':'Change driving mode',onclick:()=>{cycleDriveMode(v);this.updateHud();render();}}),
+      h('button.btn',{type:'button',text:'Driver aids: '+ASSIST_LABELS[v.assistMode??'auto']+' ↻','aria-label':'Change driver aids',onclick:()=>{cycleDriverAssists(v);this.updateHud();render();}}),
+      h('button.btn',{type:'button',text:this.showDriveData?'Hide drive data':'Show drive data','aria-label':'Toggle driving data',onclick:()=>{this.showDriveData=!this.showDriveData;render();}}),
+      ...(this.showDriveData&&v.telemetry?[h('p',{text:`Trip ${(v.telemetry.distance/1000).toFixed(2)} km · peak ${Math.round(v.telemetry.topKmh)} km/h`}),h('p',{text:`0–100 ${v.telemetry.best0100?.toFixed(1)??'—'} s · 80–0 ${v.telemetry.lastBrakeDistance?.toFixed(0)??'—'} m`}),h('button.btn',{text:'Reset trip',onclick:()=>{resetDrivingTelemetry(v);render();}})]:[]),
+      h('button.btn',{text:'Done',onclick:()=>this.modal.close()})
+    ],'drive-settings-panel');render();
+  }
   private shiftDriver(v:import('../entities/types').Vehicle,direction:1|-1):void {
     const limit=mappedDrivingLimit(this.sim,v),top=drivingTopSpeed(v,arcadeDriving(v,limit).top,drivingSetup(v).range);
     if(!shiftManual(v,direction,v.speed,top))this.toast('Shift unavailable at this speed', '');
@@ -1276,6 +1289,8 @@ export class Game {
       else if (n === "bandage") this.bandage();
       else if (n === "horn") sim.bus.emit("sound", { kind: "horn", x: p.x, y: p.y, vol: 0.8 });
       else if (n === "map") this.minimap.toggle();
+      else if(n === "zoomIn"||n === "zoomOut")this.setStreetZoom(this.renderer.cam.targetZoom*(n === "zoomIn"?1.4:1/1.4));
+      else if(n === "combatHelp")this.openCombatControls();
       else if (n === "pickup") this.act("pickup");
       else if (n === "drop") this.act("drop");
       // Sprint comes from analog stick pressure in controlPlayer; never mutate base speed.
@@ -1441,6 +1456,9 @@ export class Game {
         h('button.btn.acid',{text:'Resume game',onclick:()=>this.resumeGame()}),
         h('button.btn.acid',{text:'Address search & teleport',onclick:()=>this.addressPanel.show()}),
         h('button.btn',{text:'Nearby street activity',onclick:()=>this.openStreetLife()}),
+        h('button.btn',{text:'Life & upgrades',onclick:()=>this.lifePhone.show()}),
+        h('button.btn',{text:'City map',onclick:()=>this.minimap.toggle()}),
+        h('button.btn',{text:'Daily life',onclick:()=>this.cityLifePanel.show()}),
         h('button.btn',{text:'Casino',onclick:()=>this.casino.show()}),
         h('button.btn',{text:'City missions',onclick:()=>this.openMissions()}),
         h('button.btn',{text:'Photo',onclick:()=>this.photos.open()}),
