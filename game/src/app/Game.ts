@@ -402,7 +402,7 @@ export class Game {
         this.conditionButton(v),
         h("div.drive-detail",{text:`Tyres ${Math.round((v.tyreHeat??0)*100)}% warm${(v.wheelspin??0)>.3?' · WHEELSPIN':''}${(v.contactControl?.abs??0)>.15?' · ABS':''}${(v.contactControl?.traction??0)>.15?' · TRACTION CONTROL':''}${v.stabilityActive?' · STABILITY CONTROL':''}${v.dynamics?.wheels.some(w=>w.pressure<.65)?' · LOW TYRE':''}${(v.dynamics?.brakeFade??0)>.1?' · BRAKE FADE':''}${(v.dynamics?.aquaplaning??0)>.2?' · WET GRIP':''}${(v.slip??0)>1|| (v.slip??0)<-1?' · SLIDING':''}`}),
         ...(drift&&drift.points>1?[h("div",{text:`DRIFT ${Math.round(drift.points)} · ×${1+Math.min(3,Math.floor(drift.chain/2))} · ${Math.round(drift.angle)}°`})]:drift&&drift.best>0?[h("div",{text:`Best drift ${drift.best}`})]:[]),
-        h("div.drive-alert",{text:(v.components?.structure?.temperature??0)>.6?"ENGINE OVERHEATING · pull over":(v.components?.structure?.brakeHeat??0)>.8?"BRAKES HOT · allow cooling":(v.components?.structure?.oil??1)<.25?"LOW OIL · service needed":(v.components?.structure?.coolant??1)<.25?"LOW COOLANT · service needed":(v.flatLeft||v.flatRight?"FLAT TYRE":"")+((v.heat??0)>.5?" · ENGINE HOT: pull over":"")})
+        h("div.drive-alert",{text:v.components?.wheels.some(w=>!w.missing&&(w.attachment??1)<.65)?"WHEEL HANGING · stop and repair":v.components?.wheels.some(w=>w.missing)?"WHEEL MISSING · stop and repair":(v.components?.structure?.temperature??0)>.6?"ENGINE OVERHEATING · pull over":(v.components?.structure?.brakeHeat??0)>.8?"BRAKES HOT · allow cooling":(v.components?.structure?.oil??1)<.25?"LOW OIL · service needed":(v.components?.structure?.coolant??1)<.25?"LOW COOLANT · service needed":(v.flatLeft||v.flatRight?"FLAT TYRE":"")+((v.heat??0)>.5?" · ENGINE HOT: pull over":"")})
       ]));
     }
     if(sim.pendingAmbulance.has(p.id))kids.push(h('div.car.medical-status',{text:p.phys===Phys.DOWN?'Ambulance on the way · stay still for treatment':'Ambulance on the way · move clear of traffic'}));
@@ -869,6 +869,7 @@ export class Game {
     const render=()=>{const report=vehicleInspection(v);const section=(title:string,lines:string[])=>h('details.condition-section',null,[h('summary',{text:title}),...lines.map(text=>h('p',{text}))]);this.modal.show('Drive settings',[
       h('div.condition-detail',null,[this.conditionDiagram(v),h('div',null,[h('strong',{text:'Vehicle condition'}),h('p',{text:vehicleCondition(v).forecast})])]),
       h('p',{text:`Engine ${Math.round(vehicleCondition(v).engine*100)}% damaged · gearbox ${Math.round(vehicleCondition(v).gearbox*100)}% · oil ${Math.round(vehicleCondition(v).oil*100)}% · coolant ${Math.round(vehicleCondition(v).coolant*100)}%`}),
+      ...report.warnings.map(text=>h('p.condition-warning',{text})),
       ...report.effects.map(text=>h('p',{text})),
       section('Damage report · '+report.condition.issues.length+' parts',report.condition.issues.length?report.condition.issues.map(p=>p.name+': '+Math.round(p.damage*100)+'% damaged'):['No individual parts are damaged.']),
       section('Body and glass',report.body),section('Wheels and brakes',report.wheels),

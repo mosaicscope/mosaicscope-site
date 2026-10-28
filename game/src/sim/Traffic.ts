@@ -262,7 +262,7 @@ function tyreGrip(sim: Simulation, v: Vehicle, surfaces?:number[], roughness?:nu
     if(profile.twoWheeler && i%2) continue;
     const x = (i < 2 ? 1 : -1) * geometry.wheelbase / 2, y = profile.twoWheeler ? 0 : (i % 2 ? 1 : -1) * (geometry.width/2-0.02);
     const wheel = v.components?.wheels[i];
-    const condition = wheel ? wheel.missing ? 0 : (wheel.puncture ? 0.55 : 1)*(1-wheel.suspension*0.25-wheel.rim*0.1) : (i%2 === 0 ? v.flatLeft : v.flatRight) ? 0.55 : 1;
+    const condition = wheel ? wheel.missing ? 0 : (wheel.puncture ? 0.55 : 1)*(1-wheel.suspension*0.25-wheel.rim*0.1)*(0.45+0.55*(wheel.attachment??1)) : (i%2 === 0 ? v.flatLeft : v.flatRight) ? 0.55 : 1;
     const contactSurface=roadSurfaceAt(sim.world,v.x+x*c-y*s,v.y+x*s+y*c,sim.env.rain,profile.offroad),surface=contactSurface.grip;
     if(surfaces)surfaces[i]=surface;if(roughness)roughness[i]=contactSurface.loose?1:0;
     const footprint=contactSurface.loose?1+.45*(1-(v.dynamics?.wheels[i]?.pressure??1)):1;
@@ -336,7 +336,7 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
     const brakeGrip=grip*(1-locked*.18)*clamp(contacts.brakeGrip/surfaceMean,.7,1.05)*(aids.abs&&!inp.brake?1-.18*Math.min(1,Math.abs(inp.steer)):1);
     a=clamp(a*contacts.brakeEffect,-brakeGrip,brakeGrip);
   }
-  const wheelDrag = (v.components?.wheels.reduce((n,w)=>n+(w.missing?0.9:w.puncture?0.3:0)+w.rim*0.12,0) ?? (v.flatLeft?0.3:0)+(v.flatRight?0.3:0));
+  const wheelDrag = (v.components?.wheels.reduce((n,w)=>n+(w.missing?0.9:w.puncture?0.3:0)+w.rim*0.12+Math.max(0,.65-(w.attachment??1))*.6,0) ?? (v.flatLeft?0.3:0)+(v.flatRight?0.3:0));
   const regen=coastResistance(v,lon,pedal,braking);
   const resist = 0.25 + regen + surface.drag + wheelDrag + structural.drag + parts.drag + dynamic.drag + (pedal===0?working.engineDrag:0) + aero.drag;
   if (braking || a === 0) {
@@ -353,7 +353,7 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const powerOver = profile.drive !== "fwd" && throttle > 0 && lon > 1 ? throttle * Math.min(1, s / 5) * Math.min(1, Math.abs(v.steerAngle ?? 0) / 0.3) * setup.rearSlip * (profile.drive==='awd'?0.4:1) : 0;
   const rearSurfaceLoss=Math.max(0,contacts.frontGrip/1.08-contacts.rearGrip/.92);
   const rearLoose = clamp((inp.brake ? clamp((s - 1) / 2, 0, 1) : powerOver)+rearSurfaceLoss*.3,0,1.3);
-  const wheelDamage=v.components?.wheels??[],loss=wheelDamage.reduce((n,w)=>n+(w.missing?.35:w.puncture?.1:0)+w.suspension*.05,0);
+  const wheelDamage=v.components?.wheels??[],loss=wheelDamage.reduce((n,w)=>n+(w.missing?.35:w.puncture?.1:0)+w.suspension*.05+Math.max(0,.65-(w.attachment??1))*.12,0);
   const steering=clamp(inp.steer,-1,1);
   const countersteering = steering * (v.steerAngle ?? 0) < 0;
   const steerResponse = (countersteering ? 16 : steering === 0 ? 13 : 11) * arcade.steerResponse * working.turnResponse * parts.steering * dynamic.steering / (1 + s / top * 0.35);

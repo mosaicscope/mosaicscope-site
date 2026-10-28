@@ -321,7 +321,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   for (const lx of axles) roadWheel(k,v,lx,-nearSign*wy,wr,false,spin,rimCol);
 
   // The chassis settles toward a failed corner; grounded wheels keep their own contact plane.
-  if(v.components){const drop=(i:number)=>{const w=v.components!.wheels[i];return w.missing?.2:(w.puncture?.06:0)+w.suspension*.045;};k.roll=((drop(0)+drop(2))-(drop(1)+drop(3)))/Math.max(.2,hw*4);k.pitch=((drop(2)+drop(3))-(drop(0)+drop(1)))/Math.max(.4,L*2);}
+  if(v.components){const drop=(i:number)=>{const w=v.components!.wheels[i];return w.missing?.2:(w.puncture?.06:0)+w.suspension*.045+Math.max(0,.65-(w.attachment??1))*.13;};k.roll=((drop(0)+drop(2))-(drop(1)+drop(3)))/Math.max(.2,hw*4);k.pitch=((drop(2)+drop(3))-(drop(0)+drop(1)))/Math.max(.4,L*2);}
   k.roll=(k.roll??0)+(v.bodyRoll??0)+(structure?.hop??0);k.pitch=(k.pitch??0)+(v.bodyPitch??0);
   if(v.utility){k.roll+=(v.utility.sway??0)*.35;k.pitch+=(v.utility.loadShift??0)*.25;}
   // ---- lower skirt ----
@@ -647,6 +647,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
      const angle=(v.components?.parts?.drive_belt??0)>.9?0:phase;strokePoly(k,[[bx,by,h+.1],[bx+Math.cos(angle)*br,by+Math.sin(angle)*br,h+.1]],'#c2bba6',Math.max(.6,z*.7),false);
     }
    }
+   if(p.boot!==undefined&&p.boot<.55){const a=x0+.04,b=Math.min(S.cab[0]*L-.03,-L*.12),h=bodyTop(a)+.025;fillPoly(k,[[a,-hw*.75,h],[b,-hw*.75,h],[b,hw*.75,h],[a,hw*.75,h]],'#202b29');if(!p.bootGone){const lift=(.55-p.boot)*.12+Math.sin(time*9)*Math.min(.04,Math.abs(v.speed)*.002);meshFace(k,[[a,-hw*.75,h+lift],[b,-hw*.75,bodyTop(b)+.03],[b,hw*.75,bodyTop(b)+.03],[a,hw*.75,h+lift]],v.color,[0,0,1]);}}
    if(p.hoodLoose&&!p.hoodGone){const a=Math.max(S.cab[1]*L,L*.12),b=x1-.03,h=bodyTop(b)+.02,lift=.025+(1-p.hood)*.13+Math.sin(time*11)*Math.min(.05,Math.abs(v.speed)*.003);meshFace(k,[[a,-hw*.82,bodyTop(a)+.02],[b,-hw*.82,h+lift],[b,hw*.82,h+lift],[a,hw*.82,bodyTop(a)+.02]],v.color,[0,0,1]);}
 
 
@@ -672,6 +673,8 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   }
   // Contact stains travel with the deformed panel and darken as they dry. Bounded at 12.
   if(damageBloodEnabled())for(const stain of v.components?.blood??[]){if(Math.abs(stain.x)>.36?(stain.x>0)!==frontVisible:dot(WN(k,[0,Math.sign(stain.y),0]),VIEW)<=0)continue;const p=W3(k,[stain.x*L,stain.y*hw*2,stain.z*H]);g.fillStyle=stain.age>60?'#55262b':'#a52b36';g.beginPath();g.ellipse(p[0],p[1],Math.max(.7,stain.size*z*12),Math.max(.5,stain.size*z*5),-.35,0,Math.PI*2);g.fill();g.strokeStyle='#72232d';g.lineWidth=Math.max(.5,z*.5);g.beginPath();g.moveTo(p[0],p[1]);g.lineTo(p[0]+z,p[1]+stain.size*z*13);g.stroke();}
+  // Damaged door skins remain hinged, flutter in the airflow, and expose the cabin after detachment.
+  if(v.components?.doorHinges)for(const side of [-1,1]){const i=side<0?0:1,hinge=v.components.doorHinges[i],gone=v.components.doorGone?.[i];if(hinge>=.55&&!gone||dot(WN(k,[0,side,0]),VIEW)<=0)continue;const y=side*hw*.99,lo=H*.32,hi=H*.58;fillPoly(k,[[-L*.2,y,lo],[L*.14,y,lo],[L*.14,y,hi],[-L*.2,y,hi]],'#26302c');if(!gone){const open=(.55-hinge)*(.12+Math.min(.14,Math.abs(v.speed)*.008)*(1+Math.sin(time*8)*.25)),outer=y+side*open;fillPoly(k,[[-L*.2,y,lo],[L*.14,outer,lo-.02],[L*.14,outer,hi],[-L*.2,y,hi]],v.color);strokePoly(k,[[-L*.2,y,hi],[L*.14,outer,hi],[L*.14,outer,lo-.02]],'#a6aa98',Math.max(.6,z*.7),false);}}
   if(structure)for(const side of [-1,1])if(structure.doors[side<0?0:1]>.5)strokePoly(k,[[-L*.16,side*hw*.98,H*.3],[L*.15,side*hw*.98,H*.56]],'#302c28',Math.max(.7,z),false);
   // Electric vehicles have no tailpipe. Working diesels darken gently under engine load.
   const working=utilitySpec(v),electric=working?!working.diesel:['ev','compact_ev','estate_ev','deliveryev'].includes(d.design?.base??v.cls);
@@ -757,7 +760,8 @@ export function headlights(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle,
 function roadWheel(k:Ctx,v:Vehicle,x:number,y:number,r:number,near:boolean,spin:number,color:string):void{
  const i=(x>0?0:2)+(y>0?1:0),w=v.components?.wheels[i];if(w?.missing)return;
  const drive=handlingProfile(v.cls).drive;if(v.dynamics?.wheels[i])spin=v.dynamics.wheels[i].rotation/Math.max(.05,r);else if(drive==='awd'||(drive==='fwd'?x>0:x<0))spin+=(v.wheelSpinTravel??0)/Math.max(.05,r);
- const cx=k.x+x*k.c-y*k.s,cy=k.y+x*k.s+y*k.c,ang=v.heading+(x>0?ackermannAngle(v.wheelSteer??v.steerAngle??0,vehicleGeometry(v).wheelbase,vehicleGeometry(v).width,y>0?1:-1):0)+(w?.alignment??0),ctx={...k,x:cx,y:cy,c:Math.cos(ang),s:Math.sin(ang),roll:0,pitch:0,deform:undefined};
+ const looseness=Math.max(0,.65-(w?.attachment??1)),wobble=looseness*(.28+Math.sin(spin*2)*.12),offset=(y>0?1:-1)*looseness*.18;
+ const cx=k.x+x*k.c-(y+offset)*k.s,cy=k.y+x*k.s+(y+offset)*k.c,ang=v.heading+(y>0?1:-1)*wobble+(x>0?ackermannAngle(v.wheelSteer??v.steerAngle??0,vehicleGeometry(v).wheelbase,vehicleGeometry(v).width,y>0?1:-1):0)+(w?.alignment??0),ctx={...k,x:cx,y:cy,c:Math.cos(ang),s:Math.sin(ang),roll:0,pitch:0,deform:undefined};
  wheel(ctx,0,0,r*(1-(w?.rim??0)*.08),near,spin,color,w?w.puncture:(y<0?v.flatLeft:v.flatRight));
  const wheelHeat=Math.max(v.utility?.brakeHeat??0,v.dynamics?.wheels[i]?.brakeHeat??0);if(near&&wheelHeat>.55&&k.cam.zoom>1.2){const heat=(wheelHeat-.55)/.45,q=W3(ctx,[0,0,r]);k.g.strokeStyle=`rgba(205,111,53,${heat*.65})`;k.g.lineWidth=Math.max(.7,k.cam.zoom);k.g.beginPath();k.g.ellipse(q[0],q[1],r*11*k.cam.zoom,r*15*k.cam.zoom,-.4,0,Math.PI*2);k.g.stroke();}
  if(w&&w.rim>.3){const q=W3(ctx,[0,0,r]);k.g.strokeStyle='#a9b3a2';k.g.lineWidth=k.cam.zoom;k.g.beginPath();k.g.moveTo(q[0]-3*k.cam.zoom,q[1]-r*12*k.cam.zoom);k.g.lineTo(q[0]+3*k.cam.zoom,q[1]+r*10*k.cam.zoom);k.g.stroke();}
