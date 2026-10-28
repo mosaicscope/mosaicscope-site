@@ -140,3 +140,5 @@
 @media (pointer:coarse) and (max-height:500px),(max-width:650px) and (max-height:500px){#ui .hud .drive-settings{min-height:42px;margin-top:2px}}
 
 #ui .condition-section{border:1px solid #c8b18a44;border-radius:7px;padding:8px 10px}#ui .condition-section summary{cursor:pointer;font-weight:700;min-height:32px}#ui .condition-section p{margin:5px 0;line-height:1.4}
+
+#ui .condition-warning{color:#ffc080;font-weight:700}
