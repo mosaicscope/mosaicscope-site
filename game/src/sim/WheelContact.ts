@@ -7,7 +7,7 @@ const CALIPERS=['fl_caliper','fr_caliper','rl_caliper','rr_caliper'] as const,AR
 /** A lightweight contact-patch controller, expressed in the game's acceleration units. */
 export interface WheelControl {surface:number; roughness:number; groundSpeed:number; drive:number; brake:number; lock:number; abs:number; traction:number}
 export interface ContactControl {wheels:WheelControl[]; driveGrip:number; brakeGrip:number; frontGrip:number; rearGrip:number; splitPull:number; brakeEffect:number; abs:number; traction:number}
-export function wheelContactControl(v:Vehicle,surface:number[],speed:number,yaw:number,engineForce:number,brakeDemand:number,handbrake:boolean,assists:boolean,width:number,dt:number,roughness:number[]=[]):ContactControl {
+export function wheelContactControl(v:Vehicle,surface:number[],speed:number,yaw:number,engineForce:number,brakeDemand:number,handbrake:boolean,assists:boolean,width:number,dt:number,roughness:number[]=[],tractionAssist=assists):ContactControl {
  const d=drivingDynamics(v),profile=handlingProfile(v.cls),previous=v.contactControl?.wheels, wheels:WheelControl[]=[];
  let driveGrip=0,brakeGrip=0,frontGrip=0,rearGrip=0,leftBrake=0,rightBrake=0,abs=0,traction=0;const capacities:number[]=[];
  const frontBias=clamp(.6-d.longitudinalLoad*.5,.52,.68);
@@ -17,12 +17,15 @@ export function wheelContactControl(v:Vehicle,surface:number[],speed:number,yaw:
   const active=!profile.twoWheeler||i%2===0,groundSpeed=speed-yaw*side*width*(profile.twoWheeler?0:.5);
   const arm=clamp(v.components?.parts?.[ARMS[i]]??0,0,1),spring=clamp(v.components?.parts?.[SPRINGS[i]]??0,0,1);
   const wheelCondition=condition?.missing?0:(condition?.puncture?.72:1)*(1-(condition?.rim??0)*.12-(condition?.suspension??0)*.15);
-  const contact=clamp(raw,0,1.5)*wheelGrip(v,i)*wheelCondition*(1-arm*.12)*(1-spring*.1);
-  const capacity=contact*Math.pow(clamp(w.load*4,.1,1.8),.9);capacities.push(capacity);
+  const softSurface=clamp(roughness[i]??0,0,1),footprint=1+softSurface*.45*(1-clamp(w.pressure,0,1));
+  const contact=clamp(raw,0,1.5)*wheelGrip(v,i)*footprint*wheelCondition*(1-arm*.12)*(1-spring*.1);
+  const suspensionVelocity=Number.isFinite(w.suspensionVelocity)?Math.abs(w.suspensionVelocity!):0;
+  const contactStability=1-clamp(suspensionVelocity*.06,0,.12);
+  const capacity=contact*contactStability*Math.pow(clamp(w.load*4,.1,1.8),.9);capacities.push(capacity);
   const drive=driveWeights[i]*Math.abs(engineForce),brake=active?(clamp(brakeDemand,0,1)*(front?frontBias:1-frontBias)*(profile.twoWheeler?1:.5)+(handbrake&&!front?(profile.twoWheeler?.7:.35):0)):0;
   const available=Math.max(.04,capacity),over=clamp((drive-available*.45)/Math.max(.2,available),0,1);
   const lockTarget=handbrake&&!front&&active?1:clamp((brake-available*.24)/Math.max(.15,available*.45),0,1);
-  const absTarget=assists&&!handbrake&&Math.abs(speed)>1?lockTarget:0,tcTarget=assists&&Math.abs(speed)>0.4?over:0;
+  const absTarget=assists&&!handbrake&&Math.abs(speed)>1?lockTarget:0,tcTarget=tractionAssist&&Math.abs(speed)>0.4?over:0;
   const saved=previous?.[i],old=saved&&[saved.abs,saved.traction,saved.lock].every(Number.isFinite)?saved:undefined,blend=1-Math.exp(-Math.max(0,Math.min(.25,dt))*12);
   const absWheel=(old?.abs??0)+(absTarget-(old?.abs??0))*blend;
   const tcWheel=(old?.traction??0)+(tcTarget-(old?.traction??0))*blend;

@@ -11,3 +11,9 @@ export function arcadeDriving(v:Vehicle,posted:number){const d=VEHICLES[v.cls],b
 export function powerEnvelope(speed:number,top:number):number{return clamp((top-Math.abs(speed))/Math.max(.1,top*.18),0,1);}
 /** Worn bodywork pulls less than a damaged steering rack; assistance fades with actual speed. */
 export function damagePull(v:Vehicle,speed:number,structuralPull:number):number{const w=v.components?.wheels;return clamp(structuralPull+((v.dmgS??0)-(v.dmgL??0))*.045+(w?.[0].alignment??0)*.2+(w?.[1].alignment??0)*.2,-.22,.22)/(1+Math.abs(speed)*.09);}
+
+/** Shared speed envelope for physics and shift safety, including heavy modifications. */
+export function drivingTopSpeed(v:Vehicle,baseTop:number,range:number):number {
+ const mods=v.lifeMods??[],heavy=mods.filter(m=>['Limousine chassis','Double deck','Hearse body'].includes(m)).length;
+ return Math.max(.1,baseTop*range*(mods.includes('Tractor engine')?1.2:1)/(1+heavy*.035));
+}

@@ -1,3 +1,7 @@
+import {resetDrivingTelemetry} from '../sim/DrivingTelemetry';
+import {mappedDrivingLimit} from '../sim/MappedTraffic';
+import {arcadeDriving,drivingTopSpeed} from '../sim/ArcadeDriving';
+import {drivingSetup} from '../sim/DrivingExperience';
 import {showMissions} from '../ui/MissionBoard';
 import {missionStatus} from '../sim/CityMissions';
 import {AddressPanel} from '../ui/AddressPanel';
@@ -80,7 +84,7 @@ import { Casino } from "../ui/Casino";
 import { Places, Radio } from "../ui/Places";
 import { InteriorOverlay } from "../ui/InteriorOverlay";
 import { nearestCar, playerInput, seat, unseat } from "../sim/Traffic";
-import { cycleDriveMode, DRIVE_MODE_LABELS } from "../sim/DrivingExperience";
+import { cycleDriveMode, DRIVE_MODE_LABELS, supportsManual, setManualTransmission, shiftManual, cycleDriverAssists, ASSIST_LABELS } from "../sim/DrivingExperience";
 import { handlingProfile } from "../sim/VehicleHandling";
 import { wound,useBandage } from "../sim/Life";
 import { commitCrime, fmtCash, exitBuilding, consume } from "../sim/Society";
@@ -373,6 +377,7 @@ export class Game {
   private lastUi = 0;
   private pausedBefore = false;
 
+  private showDriveData=false;
   private updateHud(): void {
     const sim = this.sim, p = sim.player;
     const stars = "★".repeat(p.wanted) + "☆".repeat(5 - p.wanted);
@@ -383,10 +388,17 @@ export class Game {
     if (p.inCar >= 0) {
       const v=sim.vehicles[p.inCar],speed=Math.hypot(v.vx??Math.cos(v.heading)*v.speed,v.vy??Math.sin(v.heading)*v.speed),pt=v.powertrain,drift=v.drift;
       kids.push(h("div.car",null,[h("b",{text:String(Math.round(speed*7.2))})," km/h · "+VEHICLES[v.cls].name,
-        h("div",{text:`${handlingProfile(v.cls).drive.toUpperCase()} · ${pt?(pt.gear<0?'R':'D'+pt.gear)+' · '+Math.round(pt.rpm)+' rpm':'Automatic'}`}),
+        h("div",{text:`${handlingProfile(v.cls).drive.toUpperCase()} · ${pt?(pt.gear<0?'R':(v.manualTransmission?'M':'D')+pt.gear)+' · '+Math.round(pt.rpm)+' rpm':'Automatic'}`}),
+        ...(supportsManual(v)?[h("button.btn",{type:"button",text:v.manualTransmission?"Manual gears · switch to auto":"Automatic · switch to manual","aria-label":"Toggle manual transmission",onclick:()=>{setManualTransmission(v,!v.manualTransmission);this.updateHud();}}),...(v.manualTransmission?[h("button.btn",{type:"button",text:"− Gear","aria-label":"Shift down",onclick:()=>{this.shiftDriver(v,-1);}}),h("button.btn",{type:"button",text:"+ Gear","aria-label":"Shift up",onclick:()=>{this.shiftDriver(v,1);}})]:[])]:[]),
         ...(v.parkingBrake?[h("button.btn",{type:"button",text:"Parking brake ON · release","aria-label":"Release parking brake",onclick:()=>{v.parkingBrake=false;this.updateHud();}})]:[]),
         h("button.btn.drive-mode",{type:"button",text:DRIVE_MODE_LABELS[v.driveMode??"road"]+" mode ↻","aria-label":"Change driving mode",onclick:()=>{cycleDriveMode(v);this.updateHud();}}),
-        h("div",{text:`Tyres ${Math.round((v.tyreHeat??0)*100)}% warm${(v.wheelspin??0)>.3?' · WHEELSPIN':''}${(v.contactControl?.abs??0)>.15?' · ABS':''}${(v.contactControl?.traction??0)>.15?' · TRACTION CONTROL':''}${v.dynamics?.wheels.some(w=>w.pressure<.65)?' · LOW TYRE':''}${(v.dynamics?.brakeFade??0)>.1?' · BRAKE FADE':''}${(v.dynamics?.aquaplaning??0)>.2?' · WET GRIP':''}${(v.slip??0)>1|| (v.slip??0)<-1?' · SLIDING':''}`}),
+        h("button.btn",{type:"button",text:"Driver aids: "+ASSIST_LABELS[v.assistMode??"auto"]+" ↻","aria-label":"Change driver aids",onclick:()=>{cycleDriverAssists(v);this.updateHud();}}),
+        h("button.btn",{type:"button",text:this.showDriveData?"Hide drive data":"Show drive data","aria-label":"Toggle driving data",onclick:()=>{this.showDriveData=!this.showDriveData;this.updateHud();}}),
+        ...(this.showDriveData&&v.telemetry?[h("div",{text:`Trip ${(v.telemetry.distance/1000).toFixed(2)} km · peak ${Math.round(v.telemetry.topKmh)} km/h`}),
+          h("div",{text:`G-force ${v.telemetry.longG.toFixed(2)} forward · ${v.telemetry.latG.toFixed(2)} lateral`}),
+          h("div",{text:`0–100 ${v.telemetry.best0100?.toFixed(1)??'—'} s · 80–0 ${v.telemetry.lastBrakeDistance?.toFixed(0)??'—'} m`}),
+          h("button.btn",{type:"button",text:"Reset trip",onclick:()=>{resetDrivingTelemetry(v);this.updateHud();}})]:[]),
+        h("div",{text:`Tyres ${Math.round((v.tyreHeat??0)*100)}% warm${(v.wheelspin??0)>.3?' · WHEELSPIN':''}${(v.contactControl?.abs??0)>.15?' · ABS':''}${(v.contactControl?.traction??0)>.15?' · TRACTION CONTROL':''}${v.stabilityActive?' · STABILITY CONTROL':''}${v.dynamics?.wheels.some(w=>w.pressure<.65)?' · LOW TYRE':''}${(v.dynamics?.brakeFade??0)>.1?' · BRAKE FADE':''}${(v.dynamics?.aquaplaning??0)>.2?' · WET GRIP':''}${(v.slip??0)>1|| (v.slip??0)<-1?' · SLIDING':''}`}),
         ...(drift&&drift.points>1?[h("div",{text:`DRIFT ${Math.round(drift.points)} · ×${1+Math.min(3,Math.floor(drift.chain/2))} · ${Math.round(drift.angle)}°`})]:drift&&drift.best>0?[h("div",{text:`Best drift ${drift.best}`})]:[]),
         (v.components?.structure?.temperature??0)>.6?"ENGINE OVERHEATING · pull over":(v.components?.structure?.brakeHeat??0)>.8?"BRAKES HOT · allow cooling":(v.components?.structure?.oil??1)<.25?"LOW OIL · service needed":(v.components?.structure?.coolant??1)<.25?"LOW COOLANT · service needed":(v.flatLeft||v.flatRight?" · FLAT TYRE":"")+((v.heat??0)>.5?" · ENGINE HOT: pull over":"")
       ]));
@@ -842,6 +854,11 @@ export class Game {
     }
   }
 
+  private shiftDriver(v:import('../entities/types').Vehicle,direction:1|-1):void {
+    const limit=mappedDrivingLimit(this.sim,v),top=drivingTopSpeed(v,arcadeDriving(v,limit).top,drivingSetup(v).range);
+    if(!shiftManual(v,direction,v.speed,top))this.toast('Shift unavailable at this speed', '');
+    this.updateHud();
+  }
   private bindInput(): void {
     const cv = this.canvas;
     window.addEventListener("keydown", (e) => {
@@ -870,6 +887,7 @@ export class Game {
       if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(key)) e.preventDefault();
       if (e.repeat) return;
       if (this.casino.open) return;
+      if (this.sim.player.inCar >= 0 && (key === '[' || key === ']')) { e.preventDefault(); this.shiftDriver(this.sim.vehicles[this.sim.player.inCar],key===']'?1:-1); return; }
       if (this.sim.player.inCar >= 0 && key === k.horn) { const v = this.sim.vehicles[this.sim.player.inCar]; this.sim.bus.emit("sound", { kind: "horn", x: v.x, y: v.y, vol: 0.8 }); return; }
       if (key === k.pickup) this.interact();
       else if (key === k.rob) this.rob();

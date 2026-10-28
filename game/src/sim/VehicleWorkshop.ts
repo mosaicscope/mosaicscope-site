@@ -1,5 +1,6 @@
+import {handlingProfile} from './VehicleHandling';
 import {damagedParts,hasPartDamage,repairParts,repairBodyZone} from './VehicleParts';
-import {resetWheelDynamics} from './VehicleDynamics';
+import {drivingDynamics,resetWheelDynamics} from './VehicleDynamics';
 import type {Simulation} from './Simulation';
 import type {Vehicle} from '../entities/types';
 import {components} from './VehicleDamage';
@@ -10,6 +11,8 @@ export const WORKSHOP_ACTIONS=[
  {id:'inspect',label:'Inspect vehicle condition',group:'Inspection',cost:0,detail:'Read actual panel, glazing, wheel and lamp condition.'},
  {id:'lamps',label:'Replace broken lamps',group:'Repairs',cost:35,detail:'Replace damaged headlamp and tail-lamp assemblies.'},
  {id:'tyre',label:'Fit a spare or replacement tyre',group:'Repairs',cost:45,detail:'Fit the selected wheel; recovered spares are used first.'},
+ {id:'inflateTyre',label:'Inflate selected tyre',group:'Precision repairs',cost:5,detail:'Restore pressure in a sound tyre without replacing it.'},
+ {id:'airDown',label:'Lower selected tyre pressure',group:'Precision repairs',cost:0,detail:'Lower tyre pressure one step for soft terrain; low pressure changes grip and drag.'},
  {id:'alignment',label:'Align wheels and suspension',group:'Repairs',cost:70,detail:'Correct steering pull, bent rims and suspension alignment.'},
  {id:'windscreen',label:'Replace the windscreen',group:'Repairs',cost:90,detail:'Replace front glazing while keeping the other damage.'},
  {id:'glass',label:'Replace side and rear glass',group:'Repairs',cost:65,detail:'Re-glaze the remaining panes and clear their fracture marks.'},
@@ -79,6 +82,7 @@ export function workshopAction(sim:Simulation,id:WorkshopAction,vehicleId=-1,pro
  const unchanged=()=>({ok:false,text:'That part is already in good condition. No charge.'});
  switch(id){
  case 'mirrors':if(!p!.mirrors!.some(n=>n>0)&&!v!.mirrorLost)return unchanged();p!.mirrors!.fill(0);v!.mirrorLost=false;break;
+ case 'inflateTyre':case 'airDown':{const n=Math.floor(wheel);if(!Number.isFinite(n)||n<0||n>3||handlingProfile(v!.cls).twoWheeler&&n%2===1)return{ok:false,text:'Choose an existing wheel.'};const w=p!.wheels[n];if(w.missing||w.puncture)return{ok:false,text:'Repair or replace that tyre first.'};const pressure=v!.dynamics?.wheels[n]?.pressure??1;if(id==='inflateTyre'&&pressure>=.99||id==='airDown'&&pressure<=.6)return unchanged();const d=drivingDynamics(v!);d.wheels[n].pressure=id==='inflateTyre'?1:Math.max(.6,Math.round((pressure-.1)*10)/10);text='Selected tyre pressure is '+Math.round(d.wheels[n].pressure*100)+'%.';break;}
  case 'punctures':if(!p!.wheels.some(w=>w.puncture&&!w.missing))return unchanged();for(let i=0;i<p!.wheels.length;i++){const w=p!.wheels[i];if(!w.missing&&w.puncture){w.puncture=false;resetWheelDynamics(v!,i,false);}};v!.flatLeft=p!.wheels[0].puncture||p!.wheels[2].puncture;v!.flatRight=p!.wheels[1].puncture||p!.wheels[3].puncture;break;
  case 'panelFront':case 'panelRear':case 'panelLeft':case 'panelRight':{const n=['panelFront','panelRear','panelLeft','panelRight'].indexOf(id),key=(['dmgF','dmgR','dmgL','dmgS'] as const)[n];if(!p!.panels[n]&&!v![key])return unchanged();p!.panels[n]=0;repairBodyZone(v!,n);p!.dents=p!.dents?.filter(d=>d.zone!==n);v![key]=0;v!.damage=Math.min(v!.damage,Math.max(...p!.panels,v!.engineDamage??0));break;}
  case 'bumperFront':case 'bumperRear':{const n=id==='bumperFront'?0:1;if(p!.bumpers![n]>=1)return unchanged();p!.bumpers![n]=1;p!.bumper=Math.min(...p!.bumpers!);p!.bumperLoose=p!.bumper<.6;v!.bumperLost=p!.bumper===0;break;}
