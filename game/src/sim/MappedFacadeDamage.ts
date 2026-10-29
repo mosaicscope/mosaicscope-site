@@ -53,7 +53,8 @@ export function sweptMappedFacade(building:DamageFootprint,v:Vehicle,units=2,ign
       if(Math.abs(d)<1e-9){if(Math.abs(p)>half)valid=false;continue;}
       const t0=(-half-p)/d,t1=(half-p)/d;enter=Math.max(enter,Math.min(t0,t1));leave=Math.min(leave,Math.max(t0,t1));
     }
-    if(valid&&enter<=leave&&enter>=0&&enter<=1)accept(edge,0,enter,nx,ny);
+    // A corner already inside the chassis is not a new entering collision.
+    if(valid&&(Math.abs(rx)>length+1e-7||Math.abs(ry)>width+1e-7)&&enter<=leave&&enter>=0&&enter<=1)accept(edge,0,enter,nx,ny);
   }
   return best;
 }
