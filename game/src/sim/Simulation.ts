@@ -1,3 +1,5 @@
+import {stepImpactRagdoll,clearImpactRagdoll} from '../physics/ImpactRagdoll';
+import {vehicleIndex} from './VehicleIndex';
 import {injuryResponse} from './InjuryResponse';
 import {transferBlood} from './VehicleBlood';
 import {updateCityLife} from './CityLife';
@@ -284,6 +286,12 @@ export class Simulation {
     this.metrics.cityMs=performance.now()-tc;
     const tp = performance.now();
     this.physics.step(dt, this.toys, this.chars, this.charHash, this.tick, this.hooks);
+    // Update active ragdolls on the simulation clock, independent of camera and motion settings.
+    const nearbyRagdollVehicles:Vehicle[]=[];
+    for(const c of this.chars){
+      if(c.phys===Phys.DOWN&&c.inCar<0&&c.inside<0&&c.lod!==Lod.SLEEP)stepImpactRagdoll(c,this.world,dt,vehicleIndex(this).query(c.x,c.y,3,nearbyRagdollVehicles));
+      else clearImpactRagdoll(c);
+    }
     for (const t of this.toys) if (t.state === "held") this.attachHeld(t);
     this.metrics.physicsMs = performance.now() - tp;
 
