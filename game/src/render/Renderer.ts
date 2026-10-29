@@ -224,7 +224,7 @@ export class Renderer {
 
     this.nItems = 0;
     this.viewB.clear();
-    const openingByBuilding=new Map<number|string,import('../sim/MappedFacadeDamage').MappedFacadeRecord[]>();for(const record of sim.mappedDamage.values())if(record.opening){const group=openingByBuilding.get(record.buildingId)??[];group.push(record);openingByBuilding.set(record.buildingId,group);}
+    const openingByBuilding=new Map<number|string,import('../sim/MappedFacadeDamage').MappedFacadeRecord[]>();for(const record of sim.mappedDamage.values())if(record.opening||record.collapsed){const group=openingByBuilding.get(record.buildingId)??[];group.push(record);openingByBuilding.set(record.buildingId,group);}
     resetHdBudget(Math.abs(cam.targetZoom-z)>.025?12:o.quality === 3 ? 400 : o.quality === 2 ? 40 : o.quality === 1 ? 20 : 0);
     const pt = this.pt;
     for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
@@ -364,7 +364,7 @@ export class Renderer {
         if (bg) {
           // background: cheap animation (sine idle, simple walk), batched strokes
           const a = pose(c.phys===Phys.DOWN ? name : moving ? "walk" : c.anim.pose === "dance" ? "dance" : c.anim.pose === "panic" ? "panic" : "idle", "loose", time + c.seedPhase, c.anim.phase, spd, 0);
-          if(c.phys===Phys.DOWN&&!o.reduceMotion){const limbs=impactRagdollPose(c);a.armL+=limbs[0];a.armR+=limbs[1];a.thighL+=limbs[2];a.thighR+=limbs[3];a.foreL+=limbs[4]*.5;a.foreR+=limbs[5]*.5;a.bendL+=limbs[6]*.5;a.bendR+=limbs[7]*.5;}
+          if(c.phys===Phys.DOWN&&!o.reduceMotion){const limbs=impactRagdollPose(c);a.armL+=limbs[0];a.armR+=limbs[1];a.thighL+=limbs[2];a.thighR+=limbs[3];a.foreL+=limbs[4]*.5;a.foreR+=limbs[5]*.5;a.bendL+=limbs[6]*.5;a.bendR+=limbs[7]*.5;a.tilt+=limbs[8]*.35;}
           applyGait(a, G);
           if (moving) this.foreshorten(a, c);
           solve(a, it.sx, it.sy - zOff, k, dir);
@@ -387,7 +387,7 @@ export class Renderer {
           if (h.head >= 2) a.tilt += Math.sin(time * 1.3 + c.id) * Math.min(0.3, h.head * 0.08);
           if (h.arm > 0 && name !== "throw" && name !== "swing") { a.armR *= 0.3; a.foreR = Math.max(a.foreR, 1.4); }
         }
-        if(c.phys===Phys.DOWN&&!o.reduceMotion){const limbs=impactRagdollPose(c);a.armL+=limbs[0];a.armR+=limbs[1];a.thighL+=limbs[2];a.thighR+=limbs[3];a.foreL+=limbs[4]*.5;a.foreR+=limbs[5]*.5;a.bendL+=limbs[6]*.5;a.bendR+=limbs[7]*.5;a.tilt+=(limbs[0]-limbs[1])*.1;}
+        if(c.phys===Phys.DOWN&&!o.reduceMotion){const limbs=impactRagdollPose(c);a.armL+=limbs[0];a.armR+=limbs[1];a.thighL+=limbs[2];a.thighR+=limbs[3];a.foreL+=limbs[4]*.5;a.foreR+=limbs[5]*.5;a.bendL+=limbs[6]*.5;a.bendR+=limbs[7]*.5;a.tilt+=limbs[8]*.35;a.tilt+=(limbs[0]-limbs[1])*.1;}
         applyNegativeReaction(a,c,time,spd,name,o.reduceMotion);
         if (moving && (name === "walk" || name === "run" || name === "panic")) this.foreshorten(a, c);
         else if(["talk","give","wave","inspect","press"].includes(name)){const f=.5+.5*Math.abs(Math.cos(c.facing)-Math.sin(c.facing))/Math.SQRT2;a.armL*=f;a.armR*=f;a.foreL*=.85;a.foreR*=.85;}
@@ -440,8 +440,8 @@ export class Renderer {
         const damageP=(x:number,y:number,height=0):[number,number]=>{const p=cam.toScreen(x,y,height,{x:0,y:0});return[p.x,p.y];};
         const openings=openingByBuilding.get(source.id)??[];
         this.mappedArt.draw(g,source,P,16*z,[focusSX,focusSY],openings,damageP);
-        drawMappedFacadeDamage(g,sim.mappedDamage,damageP,32*z,sim.tick/60,source.id);
-        if(o.quality>=2&&1-sim.daylight>.3)GLOW.push(layer=>{this.mappedArt.glow(layer,source,P,16*z,1-sim.daylight);drawMappedFacadeDamage(layer,sim.mappedDamage,damageP,32*z,sim.tick/60,source.id,true);});
+        if(!openings.some(d=>d.collapsed))drawMappedFacadeDamage(g,sim.mappedDamage,damageP,32*z,sim.tick/60,source.id);
+        if(!openings.some(d=>d.collapsed)&&o.quality>=2&&1-sim.daylight>.3)GLOW.push(layer=>{this.mappedArt.glow(layer,source,P,16*z,1-sim.daylight);drawMappedFacadeDamage(layer,sim.mappedDamage,damageP,32*z,sim.tick/60,source.id,true);});
       } else if (it.kind === 4) {
         flush();
         // Share painter order with the car. Nearer building silhouettes erase these lights too.
