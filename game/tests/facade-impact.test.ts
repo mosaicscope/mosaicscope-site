@@ -57,12 +57,22 @@ describe('mapped native building contact',()=>{
   it.each([1,2])('sweeps actual car movement into a solid footprint at %i coordinate units per vehicle tile',units=>{
     const {car}=rig(),damage=new MappedFacadeDamage();car.px=57;car.py=42.5;car.x=49;car.y=42.5;car.vx=-12;car.vy=0;car.speed=12;
     const hit=damage.contact([footprint('glass',units)],car,10,units);
-    expect(hit?.edge).toBe(1);expect(hit?.nx).toBe(-1);expect(hit?.damage?.material).toBe('glass');expect(car.x-vehicleGeometry(car).length/2).toBeGreaterThanOrEqual(53);
-    expect(car.vx).toBeGreaterThan(0);expect(car.components?.dents?.length).toBeGreaterThan(0);
+    expect(hit?.edge).toBe(1);expect(hit?.nx).toBe(-1);expect(hit?.damage?.material).toBe('glass');expect(hit?.damage?.opening).toBe(true);expect(car.x-vehicleGeometry(car).length/2).toBeGreaterThan(52.9);
+    expect(car.vx).toBeLessThan(0);expect(car.components?.dents?.length).toBeGreaterThan(0);
     const data=damage.snapshot(),restored=new MappedFacadeDamage();restored.restore(data);expect(restored.snapshot()).toEqual(data);
     damage.update(19);expect([...damage.values()][0].phase).toBe('travelling');
-    damage.update(33);expect([...damage.values()][0].phase).toBe('working');expect([...damage.values()][0].repairProgress).toBeGreaterThan(0);
+    damage.update(140);expect([...damage.values()][0].phase).toBe('working');expect([...damage.values()][0].repairProgress).toBeGreaterThan(0);
     damage.update(data[0].repairBy);expect([...damage.values()]).toHaveLength(0);
+  });
+  it('allows the striking car through its opening while still detecting the far wall',()=>{
+    const {car}=rig(),damage=new MappedFacadeDamage(),b=footprint('glass');car.px=57;car.py=42.5;car.x=52;car.y=42.5;car.vx=-12;car.vy=0;car.speed=12;
+    const first=damage.contact([b],car,10,1);expect(first?.damage?.opening).toBe(true);
+    car.px=car.x;car.py=car.y;car.x=52;expect(damage.contact([b],car,10.1,1)).toBeNull();
+    car.px=car.x;car.py=car.y;car.x=48;const far=damage.contact([b],car,11,1);expect(far?.edge).toBe(3);
+  });
+  it('retains an opening and its shape through save data',()=>{
+    const {car}=rig(),damage=new MappedFacadeDamage();car.px=57;car.py=42.5;car.x=52;car.y=42.5;car.vx=-12;car.vy=0;car.speed=12;damage.contact([footprint('glass')],car,10,1);
+    const snapshot=damage.snapshot(),restored=new MappedFacadeDamage();restored.restore(snapshot);expect(restored.snapshot()[0].openingContour).toEqual(snapshot[0].openingContour);
   });
   it('handles reversed polygon winding, lateral drift and the earliest of multiple facades',()=>{
     const {car}=rig();car.heading=0;car.px=51.5;car.py=49;car.x=51.5;car.y=38;car.speed=0;car.vx=0;car.vy=-10;
