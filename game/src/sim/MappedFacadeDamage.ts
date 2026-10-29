@@ -9,7 +9,7 @@ import type {CivicDamage} from './CivicDamage';
 export interface DamageFootprint {id:number|string;points:readonly (readonly number[])[];height?:number;kind?:string;tags?:Record<string,string>}
 export interface MappedFacadeContact {x:number;y:number;edge:number;u:number;nx:number;ny:number;speed:number;t?:number}
 export interface MappedFacadeRecord extends CivicDamage {
-  buildingId:number|string;edge:number;a:[number,number];b:[number,number];normal:[number,number];units:number;opening?:boolean;openingHeight?:number;
+  buildingId:number|string;edge:number;a:[number,number];b:[number,number];normal:[number,number];units:number;opening?:boolean;openingHeight?:number;openingContour?:number[][];
 }
 export interface MappedFacadeImpact extends MappedFacadeContact {building:DamageFootprint;damage?:MappedFacadeRecord}
 const cross=(ax:number,ay:number,bx:number,by:number)=>ax*by-ay*bx;
@@ -54,7 +54,7 @@ export function sweptMappedFacade(building:DamageFootprint,v:Vehicle,units=2):Ma
   return best;
 }
 
-/** City-owned, serializable surface damage. The reinforced building volume always stays solid. */
+/** City-owned, serializable facade damage, including bounded vehicle-sized openings. */
 export class MappedFacadeDamage {
   private records=new Map<string,MappedFacadeRecord>();
   snapshot():MappedFacadeRecord[]{return structuredClone([...this.records.values()]);}
@@ -77,11 +77,13 @@ export class MappedFacadeDamage {
     const g=vehicleGeometry(v),tx=(b[0]-a[0])/len,ty=(b[1]-a[1])/len,forwardX=Math.cos(v.heading),forwardY=Math.sin(v.heading);
     const projected=(Math.abs(tx*forwardX+ty*forwardY)*g.length+Math.abs(-tx*forwardY+ty*forwardX)*g.width)*units;
     const hitTime=contact.t??1,cx=(v.px+(v.x-v.px)*hitTime)*units,cy=(v.py+(v.y-v.py)*hitTime)*units,carCentre=(cx-a[0])*tx+(cy-a[1])*ty;
-    const opening=response.energy>=FACADE_RESPONSE[material].resistance*1.8&&contact.speed>=8&&carCentre>=projected*.55&&len-carCentre>=projected*.55;
+    const opening=response.energy>=FACADE_RESPONSE[material].resistance*.13&&contact.speed>=5.5&&carCentre>=projected*.55&&len-carCentre>=projected*.55;
     const centre=opening?carCentre:along,half=Math.max(units*1.05,projected*.58),start=Math.max(0,centre-half),end=Math.min(len,centre+half),point=(distance:number):[number,number]=>[a[0]+(b[0]-a[0])*distance/len,a[1]+(b[1]-a[1])*distance/len];
+    const base=VEHICLES[v.cls].design?.base??v.cls,boxy=['van','panelvan','stepvan','microvan','suv','box_suv','lift_suv','bus','fire','ambulance','tank'].includes(base),sideOn=Math.abs(tx*forwardX+ty*forwardY)>.55;
+    const roofInset=boxy?.06:sideOn?.18:.13,openingContour=[[.04,0],[.04,.65],[roofInset,.94],[.5,1],[1-roofInset,.94],[.96,.65],[.96,0]];
     const d:MappedFacadeRecord={key,kind:'building',buildingId:building.id,building:typeof building.id==='number'?building.id:undefined,edge:contact.edge,a:point(start),b:point(end),normal:[contact.nx,contact.ny],units,
       x:contact.x-contact.nx*units*.7,y:contact.y-contact.ny*units*.7,tx:Math.floor(contact.x),ty:Math.floor(contact.y),impactU:(along-start)/(end-start),severity:response.severity,material,energy:response.energy,variant:Math.abs(Math.floor(contact.x*17+contact.y*31))%12,
-      opening:opening||old?.opening,openingHeight:opening?g.height/1.625:old?.openingHeight,at:seconds,phase:'reported',repairProgress:0,repairBy:seconds+22+FACADE_RESPONSE[material].repair*(.5+response.severity*.5)};
+      opening:opening||old?.opening,openingHeight:opening?g.height/1.625:old?.openingHeight,openingContour:opening?openingContour:old?.openingContour,at:seconds,phase:'reported',repairProgress:0,repairBy:seconds+(opening?120:22)+FACADE_RESPONSE[material].repair*(.5+response.severity*.5)};
     this.records.set(key,d);if(this.records.size>256)this.records.delete(this.records.keys().next().value!);
     const targetMass=VEHICLES[v.cls].mass*(.25+FACADE_RESPONSE[material].hardness*1.75);
     impactComponents(v,contact.nx,contact.ny,contact.speed,targetMass,Math.round(seconds*60),{x:contact.x/units,y:contact.y/units});
@@ -116,7 +118,7 @@ export class MappedFacadeDamage {
     for(const [key,d]of this.records){
       if(seconds>=d.repairBy){this.records.delete(key);continue;}
       const age=seconds-d.at;
-      if(age>=22){d.phase='working';d.workStarted=d.at+22;d.workUntil=d.repairBy;d.repairProgress=Math.max(0,Math.min(1,(seconds-d.workStarted)/(d.repairBy-d.workStarted)));}
+      if(age>=(d.opening?120:22)){d.phase='working';d.workStarted=d.at+(d.opening?120:22);d.workUntil=d.repairBy;d.repairProgress=Math.max(0,Math.min(1,(seconds-d.workStarted)/(d.repairBy-d.workStarted)));}
       else if(age>=8)d.phase='travelling';
     }
   }

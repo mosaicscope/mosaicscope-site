@@ -2,12 +2,15 @@ import type {CivicDamage} from '../sim/CivicDamage';
 import {facadeBreached} from '../sim/FacadeImpact';
 
 type Point=[number,number];
+/** Shared outline for both the visible breach and the clipped facade. */
+export function openingOutline(d:CivicDamage):Point[]{const o=d as CivicDamage&{openingHeight?:number;openingContour?:number[][]},height=Math.max(.3,Math.min(2,o.openingHeight??1)),shape=o.openingContour?.length===7?o.openingContour:[[.04,0],[.04,.78],[.12,1],[.5,1],[.88,1],[.96,.78],[.96,0]];return shape.map(([x,y])=>[Math.max(0,Math.min(1,x)),Math.max(0,Math.min(1,y))*height]);}
+
 export type DamageProjection=(u:number,h:number,out?:number)=>Point;
 const outline=[[.21,.1],[.16,.51],[.28,.89],[.49,1.01],[.78,.83],[.84,.45],[.74,.11]];
 /** The exact same opening clips the facade paint and its emissive light. */
 export function facadeDamagePath(g:CanvasRenderingContext2D,d:CivicDamage,P:DamageProjection):void {
   const opening=d as CivicDamage&{opening?:boolean;openingHeight?:number};
-  if(opening.opening){const height=Math.max(.3,Math.min(2,opening.openingHeight??1));g.beginPath();[[.04,0],[.04,height*.78],[.12,height],[.88,height],[.96,height*.78],[.96,0]].forEach(([u,h],i)=>{const p=P(u,h);if(i)g.lineTo(...p);else g.moveTo(...p)});g.closePath();return;}
+  if(opening.opening){g.beginPath();openingOutline(d).forEach(([u,h],i)=>{const p=P(u,h);if(i)g.lineTo(...p);else g.moveTo(...p)});g.closePath();return;}
   const size=.45+d.severity*.55,centre=d.impactU??.5;
   g.beginPath();outline.forEach(([u,h],i)=>{const p=P(Math.max(.025,Math.min(.975,centre+(u-.5)*size)),.06+h*size);if(i)g.lineTo(...p);else g.moveTo(...p);});g.closePath();
 }
@@ -24,7 +27,7 @@ export function paintFacadeDamage(g:CanvasRenderingContext2D,d:CivicDamage,P:Dam
   const line=(points:Point[],color:string,width=1)=>{g.beginPath();points.forEach((p,i)=>i?g.lineTo(...p):g.moveTo(...p));g.strokeStyle=color;g.lineWidth=Math.max(.45,width*z);g.stroke();};
   const box=(u:number,h:number,w:number,height:number,col:string,out=0)=>{g.beginPath();for(const [i,p]of [P(u,h,out),P(u+w,h,out),P(u+w,h+height,out),P(u,h+height,out)].entries())i?g.lineTo(...p):g.moveTo(...p);g.closePath();g.fillStyle=col;g.fill();};
   g.save();g.lineCap='round';
-  facadeDamagePath(g,d,P);g.fillStyle=working?'#a98b60':breached?'#171f22':material==='concrete'||material==='stone'?'#a6a59a':'#6e7068';g.fill();
+  facadeDamagePath(g,d,P);g.fillStyle=working?'#a98b60':breached?'#171f22':material==='concrete'||material==='stone'?'#a6a59a':'#6e7068';if(!(d as CivicDamage&{opening?:boolean}).opening)g.fill();
   g.strokeStyle=working?'#6b573f':material==='glass'?'#c2e1e3':'#5a5d54';g.lineWidth=Math.max(.6,z*.8);g.stroke();
   if(working){
     // Replacement panels cover only the struck bay, with studs and attached scaffold frames.
