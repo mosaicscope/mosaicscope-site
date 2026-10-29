@@ -1,3 +1,4 @@
+import {ENGINE_COMPONENTS} from './EngineComponents';
 import type {Vehicle} from '../entities/types';
 import {damagedParts,partsEffects} from './VehicleParts';
 import {structuralDynamics} from './VehicleStructure';
@@ -32,6 +33,7 @@ export function vehicleInspection(v:Vehicle){
  if(c?.bootGone)body.push('Boot lid: detached');else if((c?.boot??1)<.55)body.push('Boot lid: loose · hinge '+pct(c!.boot!)+' intact');
  const mechanical=s?['Radiator '+pct(s.radiator)+' damaged','oil sump '+pct(s.sump)+' damaged','gearbox '+pct(s.gearbox)+' damaged','steering rack '+pct(s.rack)+' damaged','front axle '+pct(s.axles[0])+' damaged','rear axle '+pct(s.axles[1])+' damaged','battery '+pct(s.battery)+' damaged','fuel tank '+pct(s.tank)+' damaged','exhaust '+pct(s.exhaust)+' damaged']:[];
  if(c?.lattice?.version===2&&c.lattice.linkDamage?.length){const links=c.lattice.linkDamage,damaged=links.filter(n=>n>.05).length,severe=links.filter(n=>n>.75).length;body.push('Chassis: '+damaged+'/'+links.length+' links weakened · '+severe+' severely damaged');}
+ for(const spec of ENGINE_COMPONENTS){const mount=c?.engineMounts?.[spec.id];if(!mount)continue;const name=spec.id.replace(/_/g,' ');if(mount.detached)mechanical.push(name+': detached');else if(mount.mount<.65)mechanical.push(name+': loose · mount '+pct(mount.mount)+' intact');}
  const impacts=(c?.impacts??[]).slice().reverse().map(i=>['Front','Rear','Left','Right'][i.zone]+' '+i.severity+' impact · severity '+pct(i.energy)+' · speed change '+Math.round(i.deltaV*7.2)+' km/h');
  const warnings:string[]=[];if(c?.wheels.some(w=>!w.missing&&(w.attachment??1)<.65))warnings.push('A wheel is hanging and can detach while driving. Stop and repair the mount.');if(c?.wheels.some(w=>w.missing))warnings.push('A wheel is missing: grip and ground clearance are reduced.');if((s?.oil??1)<.3)warnings.push('Low oil is damaging the engine while it runs.');if((s?.coolant??1)<.25)warnings.push('Low coolant increases overheating risk.');
  return {condition,wheels,body,mechanical,impacts,warnings,effects:[`Mechanical power ${Math.round(effects.power*structure.power*100)}% · braking ${Math.round(effects.braking*structure.braking*100)}% · steering ${Math.round(effects.steering*structure.steer*100)}%`,`Oil ${pct(s?.oil??1)} · coolant ${pct(s?.coolant??1)} · fuel ${pct(s?.fuel??1)} · engine temperature ${pct(s?.temperature??0)}`]};
