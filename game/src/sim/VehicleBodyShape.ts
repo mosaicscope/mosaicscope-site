@@ -99,3 +99,6 @@ export function vehicleBodyShape(v:Vehicle):Shape{
  const mods=v.lifeMods??[],shapeClass=mods.includes('Hearse body')?'hearse':mods.includes('Limousine chassis')?'limo':v.cls,d=VEHICLES[v.cls],base=SHAPES[d.design?.base??shapeClass as BaseVehicleClass],authored=mods.includes('Hearse body')||mods.includes('Limousine chassis')?undefined:fleetBody(v.cls)?.shape;
  return d.design?{...base,...authored,wb:d.design.wb,wing:d.design.trim==='wing'||base.wing}:base;
 }
+
+/** Front bay remains positive even on forward-cab bodies. */
+export function bonnetSection(shape:Shape,length:number):[number,number]{const front=length*.5;return[Math.min(Math.max(shape.cab[1]*length,length*.12),front-Math.max(.12,length*.28)),front-.04];}
