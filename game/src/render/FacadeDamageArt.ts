@@ -6,6 +6,8 @@ export type DamageProjection=(u:number,h:number,out?:number)=>Point;
 const outline=[[.21,.1],[.16,.51],[.28,.89],[.49,1.01],[.78,.83],[.84,.45],[.74,.11]];
 /** The exact same opening clips the facade paint and its emissive light. */
 export function facadeDamagePath(g:CanvasRenderingContext2D,d:CivicDamage,P:DamageProjection):void {
+  const opening=d as CivicDamage&{opening?:boolean;openingHeight?:number};
+  if(opening.opening){const height=Math.max(.3,Math.min(2,opening.openingHeight??1));g.beginPath();[[.04,0],[.04,height*.78],[.12,height],[.88,height],[.96,height*.78],[.96,0]].forEach(([u,h],i)=>{const p=P(u,h);if(i)g.lineTo(...p);else g.moveTo(...p)});g.closePath();return;}
   const size=.45+d.severity*.55,centre=d.impactU??.5;
   g.beginPath();outline.forEach(([u,h],i)=>{const p=P(Math.max(.025,Math.min(.975,centre+(u-.5)*size)),.06+h*size);if(i)g.lineTo(...p);else g.moveTo(...p);});g.closePath();
 }
@@ -18,7 +20,7 @@ export function eraseFacadeGlow(g:CanvasRenderingContext2D,d:CivicDamage,P:Damag
  * Even severe concrete damage stays at bumper height; the structural volume never disappears. */
 export function paintFacadeDamage(g:CanvasRenderingContext2D,d:CivicDamage,P:DamageProjection,z:number,time=0):void {
   if(d.severity<.004)return;
-  const material=d.material??'brick',breached=facadeBreached(material,d.severity),working=d.phase==='working',progress=d.repairProgress??0,centre=d.impactU??.5;
+  const material=d.material??'brick',breached=(d as CivicDamage&{opening?:boolean}).opening||facadeBreached(material,d.severity),working=d.phase==='working',progress=d.repairProgress??0,centre=d.impactU??.5;
   const line=(points:Point[],color:string,width=1)=>{g.beginPath();points.forEach((p,i)=>i?g.lineTo(...p):g.moveTo(...p));g.strokeStyle=color;g.lineWidth=Math.max(.45,width*z);g.stroke();};
   const box=(u:number,h:number,w:number,height:number,col:string,out=0)=>{g.beginPath();for(const [i,p]of [P(u,h,out),P(u+w,h,out),P(u+w,h+height,out),P(u,h+height,out)].entries())i?g.lineTo(...p):g.moveTo(...p);g.closePath();g.fillStyle=col;g.fill();};
   g.save();g.lineCap='round';
