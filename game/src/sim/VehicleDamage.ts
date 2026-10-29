@@ -26,7 +26,7 @@ export function impactComponents(v:Vehicle,nx:number,ny:number,speed:number,mass
  crushStructure(v,zone,energy,p.contacts[zone].x,p.contacts[zone].y);
  if(zone===0&&energy>.2)v.engineRepaired=false;
  const oldGlass=p.glass[zone];
- p.panels[zone]=Math.min(1,p.panels[zone]+energy);p.glass[zone]=Math.min(1,p.glass[zone]+energy*.95);p.lastImpact=tick;stressAttachments(p,zone,energy);
+ p.panels[zone]=Math.min(1,p.panels[zone]+energy);p.glass[zone]=Math.min(1,p.glass[zone]+Math.max(0,energy-.12)*.7);p.lastImpact=tick;stressAttachments(p,zone,energy);
  const lamp=(along>=0?0:2)+(side>=0?1:0),oldLamp=p.lamps![lamp];p.lamps![lamp]=Math.min(1,p.lamps![lamp]+energy*1.05);if(Math.abs(side)>.35)p.mirrors![side>0?1:0]=Math.min(1,p.mirrors![side>0?1:0]+energy);
  const wheel=(along>=0?0:2)+(side>=0?1:0),geometry=vehicleGeometry(v),at=p.contacts[zone];
  const wheelEnergy=p.wheels.map((_,i)=>{if(!contact)return i===wheel?energy:0;const x=(i<2?1:-1)*geometry.wheelbase/(2*geometry.length),y=(i%2===0?-1:1)*.44;return energy*Math.exp(-1.5*(((at.x-x)/.34)**2+((at.y-y)/.36)**2));});
