@@ -36,5 +36,5 @@ export function joinNearbyScene(s:Simulation,id:number):string{
 export function updateNearbyScenes(s:Simulation):void{
  if(!s.world.mapped||s.tick%300!==0)return;
  for(const e of s.streetLife.history.filter(isNearbyScene))if(e.until<=s.tick)for(const id of e.actors){const c=s.chars[id];if(c?.goal?.id==='nearby_scene'&&c.goal.started===e.started){c.goal=null;c.path=null;c.vx=c.vy=0;c.anim.pose='auto';}}
- if(s.streetLife.history.some(e=>isNearbyScene(e)&&s.tick-e.started<900))return;startNearbyScene(s);
+ if(s.streetLife.history.some(e=>isNearbyScene(e)&&s.tick-e.started<600))return;startNearbyScene(s);
 }

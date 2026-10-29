@@ -142,7 +142,7 @@ export class Game {
     canvas.tabIndex=0;
     this.rootEl = root;
     this.settings = loadSettings(this.store);
-    this.sim = new Simulation({ cityMap:'christchurch',trafficCars:750,pathsPerTick:2,backgroundCount: Math.min(this.settings.density * 3, 900) }, {}, this.lifeFlags);
+    this.sim = new Simulation({ cityMap:'christchurch',trafficCars:750,pathsPerTick:2,backgroundCount: Math.min(this.settings.density * 4, 900) }, {}, this.lifeFlags);
     this.renderer = new Renderer(canvas, this.sim);
     if(this.settings.streetZoom!==undefined){this.renderer.cam.setZoom(this.settings.streetZoom);this.renderer.cam.zoom=this.settings.streetZoom;}
     void this.cityPanel.refresh(true);
@@ -286,7 +286,7 @@ export class Game {
       player:()=>this.sim.player,
       latest:()=>this.latestSave(),
       continue:slot=>{try{this.swapSim(this.saves.load(slot,this.lifeFlags));this.starting=false;this.clock.paused=false;this.lastAutoSave=performance.now();return null;}catch{return "That save could not be loaded. Your other slots are still available.";}},
-      create:(name,look)=>{this.reset(Math.floor(Math.random()*1e9));this.sim.player.name=name;this.sim.player.look=look;this.starting=false;this.clock.paused=false;this.autoSave();if(!this.settings.tutorialDone)this.tutorial(0);return null;},
+      create:(name,look)=>{this.reset(Math.floor(Math.random()*1e9));this.sim.player.name=name;this.sim.player.look=look;this.starting=false;this.clock.paused=false;this.autoSave();return null;},
     });
     this.rootEl.append(this.welcome.el);this.clock.paused=true;this.welcome.show();
     window.addEventListener("pagehide",()=>this.autoSave());
@@ -1722,7 +1722,7 @@ export class Game {
   }
 
   reset(seed?: number): void {
-    const sim = new Simulation({ cityMap:'christchurch',trafficCars:750,pathsPerTick:2,seed: seed ?? this.sim.cfg.seed, backgroundCount: Math.min(this.settings.density * 3, 900) }, {}, this.lifeFlags);
+    const sim = new Simulation({ cityMap:'christchurch',trafficCars:750,pathsPerTick:2,seed: seed ?? this.sim.cfg.seed, backgroundCount: Math.min(this.settings.density * 4, 900) }, {}, this.lifeFlags);
     this.swapSim(sim);
     this.toast(seed !== undefined ? `New world · seed ${seed}` : "World restarted");
   }

@@ -5,9 +5,9 @@ import {nearbyVehiclePairs} from '../src/sim/MappedTraffic';
 import {chassisContact} from '../src/sim/VehicleGeometry';
 import {sendAmbulance} from '../src/sim/MedicalResponse';
 it('keeps a 750-car mapped fleet moving without ambient pile-ups or car damage',()=>{
- const s=new Simulation({cityMap:'christchurch',trafficCars:750,backgroundCount:450,midCount:0});
+ const s=new Simulation({cityMap:'christchurch',trafficCars:750,backgroundCount:600,midCount:0});
  expect(s.vehicles.filter(v=>v.state==='drive')).toHaveLength(750);
- expect(s.chars.filter(c=>c.inCar<0).length).toBeGreaterThan(300);
+ expect(s.chars.filter(c=>c.inCar<0).length).toBeGreaterThan(400);
  for(const c of s.chars.slice(1,5))sendAmbulance(s,c);
  expect(s.vehicles.filter(v=>v.rescueTarget!==undefined)).toHaveLength(4);
  const overlaps:unknown[]=[];

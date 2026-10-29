@@ -1,11 +1,28 @@
 import type {Vehicle} from '../entities/types';
 import {clamp} from '../core/math';
+import {VEHICLES} from '../content/vehicles';
+import {utilitySpec} from './VehicleUtility';
 
 export type PartEffect='power'|'braking'|'steering'|'grip'|'drag'|'frame'|'cooling'|'door';
 export interface PartSpec { id:string; label:string; x:number; y:number; radius:number; threshold:number; rate:number; effect:PartEffect; repair:'mechanical'|'body'|'wheel'; wheel?:number }
 const component=(id:string,label:string,x:number,y:number,effect:PartEffect,repair:PartSpec['repair'],threshold=.12,rate=.7,radius=.38):PartSpec=>({id,label,x,y,effect,repair,threshold,rate,radius});
+/** Additional collision-local components; each has a distinct repairable identity and location. */
+const DETAIL_GROUPS:readonly [string,number,number,PartEffect,PartSpec['repair'],readonly string[]][]=[
+ ['cooling',.38,.02,'cooling','mechanical',['Radiator inlet','Radiator outlet','Coolant reservoir','Upper coolant pipe','Lower coolant pipe','Fan shroud','Cooling sensor']],
+ ['engine',.23,.03,'power','mechanical',['Crankcase','Oil pickup','Oil pressure sensor','Engine wiring','Ignition harness','Engine control unit','Throttle linkage']],
+ ['intake',.31,.21,'power','mechanical',['Air filter housing','Intake duct','Intake seal','Intake bracket','Air flow sensor','Vacuum line','Airbox mount']],
+ ['frontleft',.31,-.42,'grip','wheel',['Front left knuckle','Front left strut mount','Front left ball joint','Front left tie rod','Front left axle joint','Front left brake line','Front left wheel stud']],
+ ['frontright',.31,.42,'grip','wheel',['Front right knuckle','Front right strut mount','Front right ball joint','Front right tie rod','Front right axle joint','Front right brake line','Front right wheel stud']],
+ ['rearleft',-.31,-.42,'grip','wheel',['Rear left knuckle','Rear left strut mount','Rear left ball joint','Rear left link','Rear left axle joint','Rear left brake line','Rear left wheel stud']],
+ ['rearright',-.31,.42,'grip','wheel',['Rear right knuckle','Rear right strut mount','Rear right ball joint','Rear right link','Rear right axle joint','Rear right brake line','Rear right wheel stud']],
+ ['drivetrain',-.08,0,'power','mechanical',['Gearbox casing','Gearbox mount','Shift linkage','Clutch housing','Drive coupling','Centre bearing','Differential mount']],
+ ['rear',-.4,0,'drag','mechanical',['Fuel tank strap','Fuel filler pipe','Rear fuel hose','Rear exhaust pipe','Exhaust hanger','Rear heat shield','Rear battery cable']],
+ ['cabin',0,0,'frame','body',['Front cross brace','Rear cross brace','Left floor rail','Right floor rail','Centre tunnel','Firewall brace','Roof support']]
+];
+const DETAIL_PARTS=DETAIL_GROUPS.flatMap(([group,x,y,effect,repair,names],g)=>names.map((label,i)=>({...component(group+'_detail_'+i,label,clamp(x+(i%3-1)*.025,-.48,.48),clamp(y+(Math.floor(i/3)-1)*.025,-.48,.48),effect,repair,.16,.22,.28),...(g>=3&&g<=6?{wheel:g-3}:{})})));
 /** Individual location-sensitive parts. Coordinates are normalised by chassis length and width. */
 export const VEHICLE_PARTS:readonly PartSpec[]=[
+ ...DETAIL_PARTS,
  component('cooling_fan','Cooling fan',.4,0,'cooling','mechanical'),
  component('radiator_core','Radiator core',.46,0,'cooling','mechanical',.1),
  component('thermostat','Thermostat housing',.31,.08,'cooling','mechanical'),
@@ -53,11 +70,17 @@ export const VEHICLE_PARTS:readonly PartSpec[]=[
 ];
 export type PartDamage=Record<string,number>;
 const BY_ID=new Map(VEHICLE_PARTS.map(p=>[p.id,p]));
+const ELECTRIC_LABELS=['Traction motor housing','Motor rotor bearing','Motor temperature sensor','Motor wiring','High-voltage harness','Motor controller','Power inverter'];
+const combustionOnly=new Set(['ignition','intake','drive_belt','alternator','fuel_pump','fuel_line','exhaust_mount','muffler','exhaust_manifold','throttle_body']);
+function electricVehicle(v:Vehicle):boolean{const base=VEHICLES[v.cls].design?.base??v.cls,utility=utilitySpec(v);return ['ev','compact_ev','estate_ev','deliveryev','ebike','escooter'].includes(base)||utility?.kind==='electriccargo'||utility?.kind==='electricbus';}
+function applies(electric:boolean,p:PartSpec):boolean{return !electric||!combustionOnly.has(p.id)&&!p.id.startsWith('intake_detail_')&&!(p.id.startsWith('rear_detail_')&&Number(p.id.slice(-1))<6);}
+function partLabel(v:Vehicle,p:PartSpec):string{return electricVehicle(v)&&p.id.startsWith('engine_detail_')?ELECTRIC_LABELS[Number(p.id.slice(-1))]??p.label:p.label;}
+
 /** Near contacts harm nearby parts more; light scrapes do not destroy deep systems. */
 export function damageVehicleParts(v:Vehicle,x:number,y:number,energy:number):void{
  if(!v.components||!Number.isFinite(energy)||energy<=.03)return;
- const existing=v.components.parts??{}, e=clamp(energy,0,1);let changed=false;
- for(const p of VEHICLE_PARTS){const d2=((x-p.x)**2+(y-p.y)**2)/(p.radius*p.radius),local=e*Math.exp(-d2*1.5),hit=Math.max(0,local-p.threshold)*p.rate;if(hit<=.002)continue;existing[p.id]=clamp((existing[p.id]??0)+hit,0,1);changed=true;}
+ const existing=v.components.parts??{}, e=clamp(energy,0,1),electric=electricVehicle(v);let changed=false;
+ for(const p of VEHICLE_PARTS){if(!applies(electric,p))continue;const d2=((x-p.x)**2+(y-p.y)**2)/(p.radius*p.radius),local=e*Math.exp(-d2*1.5),hit=Math.max(0,local-p.threshold)*p.rate;if(hit<=.002)continue;existing[p.id]=clamp((existing[p.id]??0)+hit,0,1);changed=true;}
  if(changed)v.components.parts=existing;
 }
 export function partsEffects(v:Vehicle){const parts=v.components?.parts;if(!parts)return{power:1,braking:1,steering:1,grip:1,drag:0,cooling:0,door:[0,0],steeringPull:0,brakePull:0};const total:Record<PartEffect,number>={power:0,braking:0,steering:0,grip:0,drag:0,frame:0,cooling:0,door:0};const door=[0,0],caliper=[0,0],arm=[0,0];
@@ -65,7 +88,7 @@ export function partsEffects(v:Vehicle){const parts=v.components?.parts;if(!part
  return{power:Math.max(.55,1-total.power*.045),braking:Math.max(.55,1-total.braking*.055),steering:Math.max(.6,1-total.steering*.05),grip:Math.max(.7,1-total.grip*.035-total.frame*.02),drag:Math.min(.45,total.drag*.05+total.frame*.025),cooling:Math.min(1,total.cooling*.2),door,steeringPull:clamp((arm[1]-arm[0])*.025,-.05,.05),brakePull:clamp((caliper[1]-caliper[0])*.035,-.07,.07)};
 }
 export function repairParts(v:Vehicle,group:'mechanical'|'body'|'wheel',wheel?:number):number{const p=v.components?.parts;if(!p)return 0;let count=0;for(const id of Object.keys(p)){const spec=BY_ID.get(id);if(spec&&spec.repair===group&&(wheel===undefined||spec.wheel===wheel)){delete p[id];count++;}}if(!Object.keys(p).length)v.components!.parts=undefined;return count;}
-export function damagedParts(v:Vehicle):{name:string;damage:number}[]{return Object.entries(v.components?.parts??{}).flatMap(([id,damage])=>{const p=BY_ID.get(id);return p&&Number.isFinite(damage)&&damage>.02?[{name:p.label,damage:clamp(damage,0,1)}]:[];}).sort((a,b)=>b.damage-a.damage);}
+export function damagedParts(v:Vehicle):{name:string;damage:number}[]{return Object.entries(v.components?.parts??{}).flatMap(([id,damage])=>{const p=BY_ID.get(id);return p&&Number.isFinite(damage)&&damage>.02?[{name:partLabel(v,p),damage:clamp(damage,0,1)}]:[];}).sort((a,b)=>b.damage-a.damage);}
 
 export function hasPartDamage(v:Vehicle,groups:readonly PartSpec['repair'][]):boolean{return Object.entries(v.components?.parts??{}).some(([id,n])=>!!BY_ID.get(id)&&groups.includes(BY_ID.get(id)!.repair)&&Number.isFinite(n)&&n>0);}
 export function repairBodyZone(v:Vehicle,zone:number):number{const parts=v.components?.parts;if(!parts)return 0;let removed=0;for(const id of Object.keys(parts)){const p=BY_ID.get(id);if(!p||p.repair!=='body')continue;const partZone=p.x<-.25?1:p.x>.25?0:p.y<0?2:3;if(partZone===zone){delete parts[id];removed++;}}if(!Object.keys(parts).length)v.components!.parts=undefined;return removed;}
