@@ -142,3 +142,27 @@
 #ui .condition-section{border:1px solid #c8b18a44;border-radius:7px;padding:8px 10px}#ui .condition-section summary{cursor:pointer;font-weight:700;min-height:32px}#ui .condition-section p{margin:5px 0;line-height:1.4}
 
 #ui .condition-warning{color:#ffc080;font-weight:700}
+
+/* Combat help is a scrollable reference, not an activity-stage layout. */
+#ui .panel.activities.combat-controls{height:min(820px,94dvh);overflow:hidden}
+#ui .panel.activities.combat-controls>.modal-header{flex:none}
+#ui .panel.activities.combat-controls>.modal-body{display:block;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
+#ui .panel.activities.combat-controls .ax-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));grid-template-rows:none;gap:10px;min-height:0}
+#ui .combat-controls .combat-actions{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+#ui .combat-controls .combat-actions .btn{min-height:44px;flex:1 1 190px;white-space:normal}
+#ui .combat-controls .combat-styles{margin:8px 0 16px}
+#ui .combat-controls .combat-styles .btn{min-height:44px}
+#ui .combat-controls .combat-extra{margin:16px 0;padding:12px;border:1px solid var(--ui-border);border-radius:8px}
+#ui .combat-controls .combat-extra summary{cursor:pointer;min-height:44px;display:flex;align-items:center;color:var(--ui-gold)}
+#ui .combat-controls .weapon-study .play-stage{max-height:none;height:auto}
+#ui .combat-controls .weapon-study .play-scene{height:auto;max-height:none}
+@media(max-width:680px){#ui .panel.activities.combat-controls{height:min(820px,96dvh)}#ui .panel.activities.combat-controls .ax-grid{grid-template-columns:1fr;grid-template-rows:none}#ui .combat-controls .combat-actions .btn{flex-basis:100%}}
+
+/* The armory catalogue scrolls independently of the header. */
+#ui .panel.activities.armory-controls{height:min(820px,94dvh);overflow:hidden}
+#ui .panel.activities.armory-controls>.modal-header{flex:none}
+#ui .panel.activities.armory-controls>.modal-body{display:block;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
+#ui .panel.activities.armory-controls .ax-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));grid-template-rows:none;gap:10px}
+#ui .armory-controls .ax-card .btn{min-height:44px;margin:4px 4px 0 0;white-space:normal}
+#ui .panel.activities.armory-controls .play-stage{grid-column:1/-1;height:auto;max-height:none}
+@media(max-width:680px){#ui .panel.activities.armory-controls{height:min(820px,96dvh)}#ui .panel.activities.armory-controls .ax-grid{grid-template-columns:1fr;grid-template-rows:none}}

@@ -121,6 +121,9 @@ export class MappedFacadeDamage {
     if(!closest)return null;
     closest.damage=this.hit(closest.building,closest,v,seconds,metresPerVehicleUnit);
     if(closest.damage?.opening&&this.openingFits(closest.building,closest,v,metresPerVehicleUnit)){
+      // Stop at the impact instant; remaining travel is integrated on following
+      // ticks so a large sweep cannot skip an opposite wall in the same step.
+      const advance=Math.min(1,(closest.t??0)+.002);v.x=v.px+(v.x-v.px)*advance;v.y=v.py+(v.y-v.py)*advance;
       const vx=v.vx??Math.cos(v.heading)*v.speed,vy=v.vy??Math.sin(v.heading)*v.speed,loss=Math.min(.7,.22+FACADE_RESPONSE[closest.damage.material??'concrete'].hardness*.32);
       v.vx=vx*(1-loss);v.vy=vy*(1-loss);v.speed=v.vx*Math.cos(v.heading)+v.vy*Math.sin(v.heading);v.slip=-v.vx*Math.sin(v.heading)+v.vy*Math.cos(v.heading);return closest;
     }

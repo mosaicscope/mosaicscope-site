@@ -1755,18 +1755,17 @@ export class Game {
     const row=(title:string,text:string)=>h('article.ax-card',null,[h('h3',{text:title}),h('p',{text})]);
     this.modal.show('Fight / gun controls',[
       h('p.ax-status',{text:'Tap or click to place the crosshair, then fire. Get close for melee. Close this panel to resume play.'}),
+      h('div.combat-actions',null,[h('button.btn.acid',{text:'Open armory / equip weapons',onclick:()=>this.armory.show()}),h('button.btn',{text:'Inspect equipped gun',onclick:()=>this.openEquippedWeapon()})]),
+      h('h3',{text:'Choose your unarmed style'}),styles,
       h('div.ax-grid',null,[
         row('Fighting',`${key(k.swing)} attacks with your selected style or held melee weapon. On mobile, tap the named attack button (Jab, Slap, Shove or Strike). Empty your hands to use unarmed moves.`),
         row('Guns',`${key(k.throw)} or right-click fires your equipped gun. Space also fires a held gun. Hold it for automatic fire with an SMG; tap for semi-auto guns. On mobile, tap Fire; hold Fire with an SMG. Tap or left-click a person or position to place the crosshair, then fire. Right-click aims and fires immediately; hold and move it to track. WASD moves; C returns the camera to you.`),
         row('Tank cannon',`While driving a tank, ${key(k.throw)} fires the cannon. On mobile, tap Cannon. The cannon needs shells and has a cooldown between shots.`),
         row('Equipment and ammunition',`${key(k.pickup)} picks up nearby equipment. ${key(k.drop)} drops the held item. Use Armory & gun store to buy or equip a weapon, choose an ammunition load and refill its reserve. Magazines reload automatically; an empty reserve needs ammunition.`),
         row('Injuries and protection',`${key('b')} bandages bleeding. Armour protects covered areas and wears down. Moving, repeated shots and arm injuries reduce aim. Heavy gear slows walking. Attacks can cause injuries, witnesses and police pursuit.`),
-      ]),h('h3',{text:'Choose your unarmed style'}),styles,
-      h('button.btn',{text:'Browse 500 reaction animations',onclick:()=>this.modal.show('Reaction catalogue',[reactionCatalogue(this.sim.player)],'activities reaction-modal')}),
-      accessoryControls(p),
-      h('button.btn',{text:'Inspect equipped gun · live firing',onclick:()=>this.openEquippedWeapon()}),
-      weaponMechanism(p.hand>=0?this.sim.toys[p.hand]?.def:'pistol'),
-      h('button.btn',{text:'Open armory / equip weapons',onclick:()=>this.armory.show()}),
+      ]),
+      h('details.combat-extra',null,[h('summary',{text:'Weapon mechanism and accessories'}),weaponMechanism(p.hand>=0?this.sim.toys[p.hand]?.def:'pistol'),accessoryControls(p)]),
+      h('button.btn',{text:'Browse reaction animations',onclick:()=>this.modal.show('Reaction catalogue',[reactionCatalogue(this.sim.player)],'activities reaction-modal')}),
     ],'activities combat-controls');
   }
 
