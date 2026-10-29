@@ -1,1 +1,0 @@
-export{p as DestinationBuildings}from"./index-BvIS_3uA.js";
