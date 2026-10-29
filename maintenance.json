@@ -1,5 +1,5 @@
 {
- "at": 1793285887670,
+ "at": 1793286285566,
  "totals": {
   "duplicate-code": 3,
   "long-function": 17,
@@ -163,9 +163,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Simulation.ts",
-   "detail": "994 lines",
+   "detail": "995 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|d9zj5o"
+   "fp": "oversized-module|v4gz6f"
   },
   {
    "kind": "long-function",
