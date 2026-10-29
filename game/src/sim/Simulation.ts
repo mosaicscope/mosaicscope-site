@@ -48,6 +48,7 @@ import { LodManager } from "../crowd/LodManager";
 import { EnvState, newEnv, updateEnvironment, TICKS_PER_HOUR, daylight } from "./Environment";
 import { spawnAll, streetSpot, spawnBackground } from "./Spawner";
 import { installRules } from "./Rules";
+import { registerTurfEvents } from "./Turf";
 import { pickUp, drop, transfer, craftable, detach, PickupResult, carried } from "../inventory/Inventory";
 import { Vehicle } from "../entities/types";
 import { spawnVehicles, updateVehicles, unseat, laneCoord, clearLaneState, walkSignal, carVel, bump } from "./Traffic";
@@ -155,6 +156,8 @@ export class Simulation {
     this.rng = new Rng(this.cfg.seed);
     this.events = new WorldEventSystem(this.cfg.eventsPerTick, this.cfg.eventQueueCap, this.cfg.maxCausalDepth);
     for (const d of EVENT_DEFS) this.events.register(d);
+    // Vehicle spawning can emit substance events before the rule handlers are installed.
+    registerTurfEvents(this);
     this.dialogue = new DialogueEngine(this);
     this.build();
     installRules(this);
