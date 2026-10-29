@@ -15,7 +15,7 @@ import type { Camera } from "./Camera";
 import { GLOW } from "./Buildings";
 import { patinaOf, weather } from "./CarPatina";
 import { carMutationOf } from "./CarMutation";
-import {vehicleBodyShape} from '../sim/VehicleBodyShape';
+import {vehicleBodyShape,bonnetSection} from '../sim/VehicleBodyShape';
 import {vehicleDents,vehicleDeformer} from './VehicleMesh';
 
 /**
@@ -535,7 +535,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
 
 
   if(v.components){const p=v.components;
-   if(p.hoodGone||p.hoodLoose&&p.hood<.25){const a=Math.max(S.cab[1]*L,L*.12),b=x1-.04,h=bodyTop(b)+.016,span=b-a;
+   if(p.hoodGone||p.hoodLoose){const [a,b]=bonnetSection(S,L),h=bodyTop(b)+.016,span=b-a;
     const electric=['ev','compact_ev','estate_ev','deliveryev'].includes(d.design?.base??v.cls),running=v.driver>=0&&!v.burnt,rpm=v.powertrain?.rpm??900,phase=running?time*Math.min(100,rpm/18):0;
     fillPoly(k,[[a,-hw*.8,h],[b,-hw*.8,h],[b,hw*.8,h],[a,hw*.8,h]],'#1d2928');
     // Engine block, mounted transversely; the bay follows the same collision deformation as the body.
@@ -557,7 +557,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     }
    }
    if(p.boot!==undefined&&p.boot<.55){const a=x0+.04,b=Math.min(S.cab[0]*L-.03,-L*.12),h=bodyTop(a)+.025;fillPoly(k,[[a,-hw*.75,h],[b,-hw*.75,h],[b,hw*.75,h],[a,hw*.75,h]],'#202b29');if(!p.bootGone){const lift=(.55-p.boot)*.12+(p.progressive?.hinges?.[1]?.angle??0)*L*.16;meshFace(k,[[a,-hw*.75,h+lift],[b,-hw*.75,bodyTop(b)+.03],[b,hw*.75,bodyTop(b)+.03],[a,hw*.75,h+lift]],v.color,[0,0,1]);}}
-   if(p.hoodLoose&&!p.hoodGone){const a=Math.max(S.cab[1]*L,L*.12),b=x1-.03,h=bodyTop(b)+.02,lift=.025+(1-p.hood)*.13+(p.progressive?.hinges?.[0]?.angle??0)*L*.18;meshFace(k,[[a,-hw*.82,bodyTop(a)+.02],[b,-hw*.82,h+lift],[b,hw*.82,h+lift],[a,hw*.82,bodyTop(a)+.02]],v.color,[0,0,1]);}
+   if(p.hoodLoose&&!p.hoodGone){const [a,b]=bonnetSection(S,L),span=Math.max(.02,b-a),angle=Math.min(1.1,.2+(1-p.hood)*.45+(p.progressive?.hinges?.[0]?.angle??0)*.65),front=a+span*Math.cos(angle),base=bodyTop(a)+.025,tip=bodyTop(b)+.025+span*Math.sin(angle);meshFace(k,[[a,-hw*.82,base],[front,-hw*.82,tip],[front,hw*.82,tip],[a,hw*.82,base]],v.color,[0,0,1]);}
 
 
   }

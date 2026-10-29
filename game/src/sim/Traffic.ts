@@ -892,7 +892,7 @@ function collisions(sim: Simulation,fleet=sim.vehicles): void {
     crashContacts.add(a);crashContacts.add(b);
     // A handbrake supplies tyre friction, not infinite mass. Hard impacts release parked bodies into the crash solver.
     if((va.x-vb.x)*contact.nx+(va.y-vb.y)*contact.ny>2.5)for(const v of [a,b])if(v.state==='parked'){v.state='crashed';v.crashedUntil=sim.tick+180;v.vx=0;v.vy=0;v.dynT=sim.tick;}
-    const invA=a.state==='parked'?0:1/VEHICLES[a.cls].mass,invB=b.state==='parked'?0:1/VEHICLES[b.cls].mass;
+    const invA=a.state==='parked'?0:1/crashMass(a),invB=b.state==='parked'?0:1/crashMass(b);
     const push=contact.depth/(invA+invB);
     if (invA) { a.x -= contact.nx * push*invA; a.y -= contact.ny * push*invA; }
     if (invB) { b.x += contact.nx * push*invB; b.y += contact.ny * push*invB; }
@@ -911,7 +911,7 @@ function collisions(sim: Simulation,fleet=sim.vehicles): void {
 /** Bounded position iterations prevent a resolved pair being pushed into another wreck. No extra impact damage. */
 export function settleCrashIsland(sim:Simulation,seeds:ReadonlySet<Vehicle>):void{
  if(!seeds.size)return;const island:Vehicle[]=[];const seen=new Set<Vehicle>();for(const seed of seeds){if(!seen.has(seed)){seen.add(seed);island.push(seed);}for(const v of vehicleIndex(sim).query(seed.x,seed.y,vehicleGeometry(seed).radius+4,recoveryCandidates)){if(!seen.has(v)&&island.length<32){seen.add(v);island.push(v);}}if(island.length>=32)break;}
- for(let pass=0;pass<8;pass++){let moved=false;for(let i=0;i<island.length;i++)for(let j=i+1;j<island.length;j++){const a=island[i],b=island[j],oldWrecks=a.state==='parked'&&b.state==='parked'&&(a.damage>0||b.damage>0||!!a.components?.dents?.length||!!b.components?.dents?.length);if(!oldWrecks&&!['free','crashed'].includes(a.state)&&!['free','crashed'].includes(b.state))continue;const contact=chassisContact(a,b);if(!contact||contact.depth<.001)continue;const ia=a.state==='parked'&&!oldWrecks?0:1/utilityDynamics(a).mass,ib=b.state==='parked'&&!oldWrecks?0:1/utilityDynamics(b).mass,total=ia+ib;if(!total)continue;const shift=(contact.depth+.001)/total*.9;a.x-=contact.nx*shift*ia;a.y-=contact.ny*shift*ia;b.x+=contact.nx*shift*ib;b.y+=contact.ny*shift*ib;moved=true;
+ for(let pass=0;pass<8;pass++){let moved=false;for(let i=0;i<island.length;i++)for(let j=i+1;j<island.length;j++){const a=island[i],b=island[j],oldWrecks=a.state==='parked'&&b.state==='parked'&&(a.damage>0||b.damage>0||!!a.components?.dents?.length||!!b.components?.dents?.length);if(!oldWrecks&&!['free','crashed'].includes(a.state)&&!['free','crashed'].includes(b.state))continue;const contact=chassisContact(a,b);if(!contact||contact.depth<.001)continue;const ia=a.state==='parked'&&!oldWrecks?0:1/crashMass(a),ib=b.state==='parked'&&!oldWrecks?0:1/crashMass(b),total=ia+ib;if(!total)continue;const shift=(contact.depth+.001)/total*.9;a.x-=contact.nx*shift*ia;a.y-=contact.ny*shift*ia;b.x+=contact.nx*shift*ib;b.y+=contact.ny*shift*ib;moved=true;
  const va=carVel(sim,a),vb=carVel(sim,b),closing=(va.x-vb.x)*contact.nx+(va.y-vb.y)*contact.ny;if(closing>0){const impulse=closing/total;for(const [v,vel,inv,sign] of [[a,va,ia,-1],[b,vb,ib,1]] as const){if(!inv)continue;v.vx=vel.x+sign*contact.nx*impulse*inv;v.vy=vel.y+sign*contact.ny*impulse*inv;v.speed=v.vx*Math.cos(v.heading)+v.vy*Math.sin(v.heading);v.dynT=sim.tick;}}
  }if(!moved)break;}
  // Keep seated drivers at the corrected chassis position during this substep.
@@ -922,8 +922,9 @@ export function settleCrashIsland(sim:Simulation,seeds:ReadonlySet<Vehicle>):voi
  * Momentum exchange in a crash: an impulse along the line between the cars, shared by mass (a parked car has its
  * handbrake on, so it counts as much heavier), and an off-centre hit spins the car round.
  */
+function crashMass(v:Vehicle):number{return utilityDynamics(v).mass*(1+(v.lifeMods?.length??0)*.08);}
 function crashImpulse(sim: Simulation, a: Vehicle, b: Vehicle, va: { x: number; y: number }, vb: { x: number; y: number }, nx: number, ny: number, cx: number, cy: number): void {
-  const ma = utilityDynamics(a).mass * (1+(a.lifeMods?.length??0)*0.08) * (a.state === "parked" ? 3 : 1), mb = utilityDynamics(b).mass * (1+(b.lifeMods?.length??0)*0.08) * (b.state === "parked" ? 3 : 1);
+  const ma = crashMass(a) * (a.state === "parked" ? 3 : 1), mb = crashMass(b) * (b.state === "parked" ? 3 : 1);
   const ga=vehicleGeometry(a),gb=vehicleGeometry(b);
   const avx=va.x-(a.yaw??0)*(cy-a.y),avy=va.y+(a.yaw??0)*(cx-a.x);
   const bvx=vb.x-(b.yaw??0)*(cy-b.y),bvy=vb.y+(b.yaw??0)*(cx-b.x);
@@ -943,7 +944,7 @@ function crashImpulse(sim: Simulation, a: Vehicle, b: Vehicle, va: { x: number; 
   for (const [v, vel, m, sgn] of [[a, va, ma, -1], [b, vb, mb, 1]] as [Vehicle, { x: number; y: number }, number, number][]) {
     // The handbrake resists motion, not deformation: parked targets take component damage too.
     bump(v,-sgn*nx,-sgn*ny,Math.min(.4,j*.03/m));
-    impactComponents(v,-sgn*nx,-sgn*ny,Math.min(Math.abs(vn),j/VEHICLES[v.cls].mass),VEHICLES[v.cls].mass,sim.tick,{x:cx,y:cy});
+    impactComponents(v,-sgn*nx,-sgn*ny,Math.min(Math.abs(vn),j/m),m,sim.tick,{x:cx,y:cy});
     if(v.state==='parked')continue;
     v.vx=vel.x+sgn*impulseX/m;v.vy=vel.y+sgn*impulseY/m;v.dynT=sim.tick;
     // the hit lands off the car's centre line: that lever arm turns into spin
