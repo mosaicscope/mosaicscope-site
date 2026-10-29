@@ -33,9 +33,10 @@ export function advanceDistantTraffic(sim:Simulation):void{
 }
 
 /** Only recycle ordinary background traffic beyond the buffered camera bubble. */
-function recoverDistant(sim:Simulation,n:Network,v:Vehicle,r:Route):boolean{
- if(v.owner>=0||v.driver===sim.playerId||v.rescueTarget!==undefined||Math.hypot(v.x-sim.focus.x,v.y-sim.focus.y)<=sim.trafficRadius+12)return false;
- for(let attempt=0;attempt<32;attempt++){const edge=sim.rng.int(0,n.edges.length-1),e=n.edges[edge];if(e.length<12||!e.next.length||sim.world.mapped?.closedRoads?.has(e.segment.id))continue;const at=sim.rng.range(4,e.length-4),p=position(e,at);if(Math.hypot(p.x-sim.focus.x,p.y-sim.focus.y)<=sim.trafficRadius+18||!sim.world.drivable(p.x,p.y)||sim.vehicles.some(o=>o!==v&&Math.hypot(o.x-p.x,o.y-p.y)<7))continue;
+function recoverDistant(sim:Simulation,n:Network,v:Vehicle,r:Route,nearby=false):boolean{
+ if(v.owner>=0||v.driver===sim.playerId||v.siren||v.rescueTarget!==undefined||!nearby&&Math.hypot(v.x-sim.focus.x,v.y-sim.focus.y)<=sim.trafficRadius+12)return false;
+ const local=nearby?localEdges(n,sim.focus.x,sim.focus.y,75):[];
+ for(let attempt=0;attempt<64;attempt++){const edge=local.length?local[sim.rng.int(0,local.length-1)]:sim.rng.int(0,n.edges.length-1),e=n.edges[edge];if(e.length<12||!e.next.length||sim.world.mapped?.closedRoads?.has(e.segment.id))continue;const at=sim.rng.range(4,e.length-4),p=position(e,at);if((nearby?(Math.hypot(p.x-sim.focus.x,p.y-sim.focus.y)<45||Math.hypot(p.x-sim.focus.x,p.y-sim.focus.y)>75):Math.hypot(p.x-sim.focus.x,p.y-sim.focus.y)<=sim.trafficRadius+18)||!sim.world.drivable(p.x,p.y)||sim.vehicles.some(o=>o!==v&&Math.hypot(o.x-p.x,o.y-p.y)<7))continue;
   const oldKey=Math.floor(v.x/8)+','+Math.floor(v.y/8),old=n.buckets.get(oldKey),index=old?.indexOf(v)??-1;if(index>=0)old!.splice(index,1);v.x=v.px=p.x;v.y=v.py=p.y;v.heading=Math.atan2(e.dy,e.dx);v.speed=0;r.edge=edge;r.at=at;r.next=undefined;r.wait=0;const newKey=Math.floor(v.x/8)+','+Math.floor(v.y/8),list=n.buckets.get(newKey)??[];list.push(v);n.buckets.set(newKey,list);if(v.driver>=0){const c=sim.chars[v.driver];c.x=c.px=p.x;c.y=c.py=p.y;}return true;
  }return false;
 }
@@ -90,7 +91,7 @@ function chooseNext(sim:Simulation,n:Network,e:Edge,options:number[],v:Vehicle):
 }
 export function driveMappedVehicle(sim:Simulation,v:Vehicle,dt:number):void{
  const n=network(sim);let route=n.routes.get(v);if(!route){if(!snapMappedVehicle(sim,v)){v.speed=0;v.state='parked';return;}route=n.routes.get(v)!;}
- buckets(sim,n);let e=n.edges[route.edge];if(!e){v.state='parked';return;}const d=VEHICLES[v.cls],utility=utilityDynamics(v),geometry=vehicleGeometry(v),oldSpeed=v.speed;let target=mappedCruiseSpeed(v.cls,e.segment.speed,sim.world.mapped?.trafficMode);
+ buckets(sim,n);if((route.wait>30||route.wait>18&&Math.hypot(v.x-sim.focus.x,v.y-sim.focus.y)>35)&&recoverDistant(sim,n,v,route,true))return;let e=n.edges[route.edge];if(!e){v.state='parked';return;}const d=VEHICLES[v.cls],utility=utilityDynamics(v),geometry=vehicleGeometry(v),oldSpeed=v.speed;let target=mappedCruiseSpeed(v.cls,e.segment.speed,sim.world.mapped?.trafficMode);
  const driver=v.driver>=0?sim.chars[v.driver]:undefined,impaired=driver?impairment(driver):0;if(v.siren&&driver?.pursuing!==undefined&&driver.pursuing>=0){target=Math.min(d.topSpeed,e.segment.speed*1.25);if(e.length-route.at>8)route.next=undefined;}else if(impaired>.1)target=Math.min(d.topSpeed,target*(1+impaired*.35));
  const mode=sim.world.mapped?.trafficMode??'city',headway=(mode==='cruise'?1.8:mode==='rush'?1.15:1.45)*(1-impaired*.4);
  const cx=Math.floor(v.x/8),cy=Math.floor(v.y/8),obstacles=nearbyObstacles;obstacles.length=0;for(let y=cy-2;y<=cy+2;y++)for(let x=cx-2;x<=cx+2;x++)for(const o of n.buckets.get(x+','+y)??[]){if(o===v)continue;obstacles.push(o);const dx=o.x-v.x,dy=o.y-v.y,along=dx*e.dx+dy*e.dy,cross=Math.abs(-dx*e.dy+dy*e.dx),gap=along-(geometry.length+vehicleGeometry(o).length)/2;if((o.state==='parked'||Math.cos(o.heading)*e.dx+Math.sin(o.heading)*e.dy>.25)&&along>0&&along<15&&cross<(geometry.width+vehicleGeometry(o).width)/2+.25)target=Math.min(target,followingSpeed(Math.max(0,gap-1),Math.max(0,o.speed),d.brake,headway));}

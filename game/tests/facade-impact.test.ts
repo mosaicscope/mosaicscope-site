@@ -86,6 +86,11 @@ describe('mapped native building contact',()=>{
     const tiny={...footprint(),points:[[53,42.63],[53.08,42.63],[53.08,42.7],[53,42.7]]};
     expect(sweptMappedFacade(tiny,car,1)).not.toBeNull();car.py=car.y=44;expect(sweptMappedFacade(tiny,car,1)).toBeNull();
   });
+  it('lets a chassis move away from a tiny corner already inside it',()=>{
+    const {car}=rig();car.heading=0;car.px=54;car.py=42.5;car.x=54.2;car.y=42.5;car.vx=4;car.vy=0;
+    const tiny={...footprint(),points:[[53.7,42.4],[53.8,42.4],[53.8,42.6],[53.7,42.6]]};
+    expect(sweptMappedFacade(tiny,car,1)).toBeNull();
+  });
   it('does not repeatedly destroy a wall while a stopped car remains against it',()=>{
     const {car}=rig(),damage=new MappedFacadeDamage(),b=footprint();
     const contact={x:53,y:42.5,edge:1,u:.5,nx:-1,ny:0,speed:8};
