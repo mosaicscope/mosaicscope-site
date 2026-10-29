@@ -35,7 +35,7 @@ export function advanceDistantTraffic(sim:Simulation):void{
 function recoverDistant(sim:Simulation,n:Network,v:Vehicle,r:Route):boolean{
  if(v.owner>=0||v.driver===sim.playerId||v.rescueTarget!==undefined||Math.hypot(v.x-sim.focus.x,v.y-sim.focus.y)<=sim.trafficRadius+12)return false;
  for(let attempt=0;attempt<32;attempt++){const edge=sim.rng.int(0,n.edges.length-1),e=n.edges[edge];if(e.length<12||!e.next.length||sim.world.mapped?.closedRoads?.has(e.segment.id))continue;const at=sim.rng.range(4,e.length-4),p=position(e,at);if(Math.hypot(p.x-sim.focus.x,p.y-sim.focus.y)<=sim.trafficRadius+18||!sim.world.drivable(p.x,p.y)||sim.vehicles.some(o=>o!==v&&Math.hypot(o.x-p.x,o.y-p.y)<7))continue;
-  v.x=v.px=p.x;v.y=v.py=p.y;v.heading=Math.atan2(e.dy,e.dx);v.speed=0;r.edge=edge;r.at=at;r.next=undefined;r.wait=0;n.tick=-1;buckets(sim,n);if(v.driver>=0){const c=sim.chars[v.driver];c.x=c.px=p.x;c.y=c.py=p.y;}return true;
+  const oldKey=Math.floor(v.x/8)+','+Math.floor(v.y/8),old=n.buckets.get(oldKey),index=old?.indexOf(v)??-1;if(index>=0)old!.splice(index,1);v.x=v.px=p.x;v.y=v.py=p.y;v.heading=Math.atan2(e.dy,e.dx);v.speed=0;r.edge=edge;r.at=at;r.next=undefined;r.wait=0;const newKey=Math.floor(v.x/8)+','+Math.floor(v.y/8),list=n.buckets.get(newKey)??[];list.push(v);n.buckets.set(newKey,list);if(v.driver>=0){const c=sim.chars[v.driver];c.x=c.px=p.x;c.y=c.py=p.y;}return true;
  }return false;
 }
 function position(e:Edge,at:number){return{x:e.x+e.dx*at+e.dy*e.offset,y:e.y+e.dy*at-e.dx*e.offset};}
