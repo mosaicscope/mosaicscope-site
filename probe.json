@@ -1,5 +1,5 @@
 {
- "at": 1793272503935,
+ "at": 1793280171941,
  "target": "https://mosaicscope.pages.dev",
  "sha": "1a92f49808e18aeac69b8ba5037aaf70cb44166e",
  "results": [
@@ -51,18 +51,18 @@
     }
    ],
    "requests": 66,
-   "bytes": 3734,
+   "bytes": 3735,
    "ownBytes": 80,
    "thirdParty": 60,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 353,
-    "loadMs": 1176,
-    "lcpMs": 688,
-    "cls": 0.125,
-    "tbtMs": 273,
+    "domContentLoadedMs": 354,
+    "loadMs": 380,
+    "lcpMs": 776,
+    "cls": 0.122,
+    "tbtMs": 320,
     "longTasks": 3,
-    "heapMB": 33.5,
+    "heapMB": 9.5,
     "domNodes": 1241,
     "renderBlocking": 3,
     "resourceEntries": 12,
@@ -177,24 +177,24 @@
      "why": "HTTP 402"
     },
     {
-     "url": "https://www.youtube-nocookie.com/embed/cZFXA3scOC4",
+     "url": "https://www.youtube-nocookie.com/s/player/096efeec/player_embed.vflset/en_US/base.js",
      "own": false,
      "why": "net::ERR_ABORTED"
     }
    ],
-   "requests": 67,
-   "bytes": 3767,
-   "ownBytes": 80,
-   "thirdParty": 61,
+   "requests": 72,
+   "bytes": 4107,
+   "ownBytes": 79,
+   "thirdParty": 66,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 196,
-    "loadMs": 844,
-    "lcpMs": 216,
+    "domContentLoadedMs": 191,
+    "loadMs": 206,
+    "lcpMs": 208,
     "cls": 0.095,
-    "tbtMs": 305,
+    "tbtMs": 366,
     "longTasks": 3,
-    "heapMB": 33.5,
+    "heapMB": 9.5,
     "domNodes": 1517,
     "renderBlocking": 3,
     "resourceEntries": 12,
@@ -294,9 +294,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 107,
-    "loadMs": 107,
-    "lcpMs": 112,
+    "domContentLoadedMs": 184,
+    "loadMs": 184,
+    "lcpMs": 184,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -341,9 +341,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 125,
-    "loadMs": 125,
-    "lcpMs": 80,
+    "domContentLoadedMs": 204,
+    "loadMs": 204,
+    "lcpMs": 148,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -382,10 +382,10 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 196,
-    "loadMs": 289,
-    "lcpMs": 216,
-    "cls": 0.007,
+    "domContentLoadedMs": 154,
+    "loadMs": 154,
+    "lcpMs": 136,
+    "cls": 0.014,
     "tbtMs": 0,
     "longTasks": 0,
     "heapMB": 9.5,
@@ -423,12 +423,12 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 300,
-    "loadMs": 397,
-    "lcpMs": 316,
+    "domContentLoadedMs": 346,
+    "loadMs": 346,
+    "lcpMs": 332,
     "cls": 0.147,
-    "tbtMs": 66,
-    "longTasks": 1,
+    "tbtMs": 0,
+    "longTasks": 0,
     "heapMB": 9.5,
     "domNodes": 16,
     "renderBlocking": 1,
@@ -505,84 +505,86 @@
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 390,
-   "ms": 2494,
+   "ms": 1951,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 390,
-   "ms": 1885,
+   "ms": 1847,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 390,
-   "ms": 2000,
-   "status": "pass"
+   "ms": 1483,
+   "status": "fail",
+   "why": "no validation shown"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 390,
-   "ms": 1732,
+   "ms": 1230,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 390,
-   "ms": 2354,
+   "ms": 1946,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 390,
-   "ms": 1071,
+   "ms": 1006,
    "status": "pass"
   },
   {
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 1280,
-   "ms": 2506,
+   "ms": 1979,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 1280,
-   "ms": 1867,
+   "ms": 1259,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 1280,
-   "ms": 2059,
-   "status": "pass"
+   "ms": 1445,
+   "status": "fail",
+   "why": "no validation shown"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 1280,
-   "ms": 1878,
+   "ms": 1293,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 1280,
-   "ms": 2495,
+   "ms": 1820,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 1280,
-   "ms": 1081,
+   "ms": 1032,
    "status": "pass"
   }
  ]
