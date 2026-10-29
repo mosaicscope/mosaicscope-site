@@ -1,5 +1,6 @@
 import type {Vehicle} from '../entities/types';
 import {VEHICLES} from '../content/vehicles';
+import {fleetBody} from '../content/vehicleBodies';
 import {utilityDynamics} from './VehicleUtility';
 import {vehicleGeometry} from './VehicleGeometry';
 import {impactComponents} from './VehicleDamage';
@@ -22,7 +23,7 @@ function intersect(ax:number,ay:number,dx:number,dy:number,a:readonly number[],b
 
 /** Sweep all chassis corners plus edge centres. A vertex/box sweep also catches narrow posts
  * and small footprint corners between those probes. Polygons may have either winding. */
-export function sweptMappedFacade(building:DamageFootprint,v:Vehicle,units=2):MappedFacadeContact|null{
+export function sweptMappedFacade(building:DamageFootprint,v:Vehicle,units=2,ignore?:(hit:MappedFacadeContact)=>boolean):MappedFacadeContact|null{
   if(!Number.isFinite(units)||units<=0||building.points.length<3)return null;
   const geometry=vehicleGeometry(v),c=Math.cos(v.heading),s=Math.sin(v.heading),length=geometry.length*units/2,width=geometry.width*units/2;
   const ox=v.px*units,oy=v.py*units,dx=(v.x-v.px)*units,dy=(v.y-v.py)*units;
@@ -35,7 +36,8 @@ export function sweptMappedFacade(building:DamageFootprint,v:Vehicle,units=2):Ma
   const accept=(edge:number,u:number,t:number,nx:number,ny:number)=>{
     const speed=vx*nx+vy*ny;if(speed<0||dx*nx+dy*ny<=0||best&&t>=best.t!-1e-8)return;
     const a=building.points[edge],b=building.points[(edge+1)%building.points.length];
-    best={edge,u,t,nx,ny,speed,x:a[0]+(b[0]-a[0])*u,y:a[1]+(b[1]-a[1])*u};
+    const candidate={edge,u,t,nx,ny,speed,x:a[0]+(b[0]-a[0])*u,y:a[1]+(b[1]-a[1])*u};
+    if(!ignore?.(candidate))best=candidate;
   };
   const probes=[[-length,-width],[-length,width],[length,-width],[length,width],[length,0],[-length,0],[0,width],[0,-width]];
   for(let edge=0;edge<building.points.length;edge++){
@@ -81,11 +83,20 @@ export class MappedFacadeDamage {
     const hitTime=contact.t??1,cx=(v.px+(v.x-v.px)*hitTime)*units,cy=(v.py+(v.y-v.py)*hitTime)*units,carCentre=(cx-a[0])*tx+(cy-a[1])*ty;
     const opening=response.energy>=FACADE_RESPONSE[material].resistance*.13&&contact.speed>=5.5&&carCentre>=projected*.55&&len-carCentre>=projected*.55;
     const centre=opening?carCentre:along,half=Math.max(units*1.05,projected*.58),start=Math.max(0,centre-half),end=Math.min(len,centre+half),point=(distance:number):[number,number]=>[a[0]+(b[0]-a[0])*distance/len,a[1]+(b[1]-a[1])*distance/len];
-    const base=VEHICLES[v.cls].design?.base??v.cls,boxy=['van','panelvan','stepvan','microvan','suv','box_suv','lift_suv','bus','fire','ambulance','tank'].includes(base),sideOn=Math.abs(tx*forwardX+ty*forwardY)>.55;
-    const roofInset=boxy?.06:sideOn?.18:.13,openingContour=[[.04,0],[.04,.65],[roofInset,.94],[.5,1],[1-roofInset,.94],[.96,.65],[.96,0]];
+    const base=VEHICLES[v.cls].design?.base??v.cls,boxy=['van','panelvan','stepvan','microvan','suv','box_suv','lift_suv','bus','fire','ambulance','tank'].includes(base);
+    // Use the authored roof and body proportions of this vehicle family,
+    // projected onto the struck wall. Dimensions already include its plate
+    // variation and chassis modifications.
+    const authored=v.lifeMods?.includes('Limousine chassis')?undefined:fleetBody(v.cls)?.shape;
+    const roof=authored?.roof??(boxy?[-.42,.25]:[-.18,.08]),roofWidth=authored?.rw??(boxy?.9:.74),roofHeight=authored?.rh??1;
+    const forwardAlong=tx*forwardX+ty*forwardY,sideAlong=-tx*forwardY+ty*forwardX,roofCentre=(roof[0]+roof[1])*.5*g.length*forwardAlong*units;
+    const roofHalf=(Math.abs(roof[1]-roof[0])*g.length*Math.abs(forwardAlong)+roofWidth*g.width*Math.abs(sideAlong))*units*.5;
+    const aperture=Math.max(.001,end-start),toU=(x:number)=>Math.max(.07,Math.min(.93,(centre+x-start)/aperture)),roofLeft=toU(roofCentre-roofHalf),roofRight=toU(roofCentre+roofHalf),shoulder=Math.min(.8,Math.max(.45,Math.max(authored?.hood??.5,authored?.deck??.56)/roofHeight));
+    const openingContour=[[.04,0],[.04,shoulder],[roofLeft,.96],[(roofLeft+roofRight)*.5,1],[roofRight,.96],[.96,shoulder],[.96,0]];
     const d:MappedFacadeRecord={key,kind:'building',buildingId:building.id,building:typeof building.id==='number'?building.id:undefined,edge:contact.edge,a:point(start),b:point(end),normal:[-ty*(polygonArea(building.points)>=0?1:-1),tx*(polygonArea(building.points)>=0?1:-1)],units,
       x:contact.x-contact.nx*units*.7,y:contact.y-contact.ny*units*.7,tx:Math.floor(contact.x),ty:Math.floor(contact.y),impactU:(along-start)/(end-start),severity:response.severity,material,energy:response.energy,variant:Math.abs(Math.floor(contact.x*17+contact.y*31))%12,
-      opening:opening||old?.opening,openingHeight:opening?g.height/1.625:old?.openingHeight,openingContour:opening?openingContour:old?.openingContour,at:seconds,phase:'reported',repairProgress:0,repairBy:seconds+(opening?120:22)+FACADE_RESPONSE[material].repair*(.5+response.severity*.5)};
+      opening:opening||old?.opening,openingHeight:opening?g.height*Math.max(1,roofHeight)/1.625:old?.openingHeight,openingContour:opening?openingContour:old?.openingContour,at:seconds,phase:'reported',repairProgress:0,repairBy:seconds+(opening?120:22)+FACADE_RESPONSE[material].repair*(.5+response.severity*.5)};
+    if(old?.opening&&!opening){d.a=old.a;d.b=old.b;d.openingHeight=old.openingHeight;d.openingContour=old.openingContour;d.repairBy=Math.max(old.repairBy,d.repairBy);}
     this.records.set(key,d);if(this.records.size>256)this.records.delete(this.records.keys().next().value!);
     const targetMass=VEHICLES[v.cls].mass*(.25+FACADE_RESPONSE[material].hardness*1.75);
     impactComponents(v,contact.nx,contact.ny,contact.speed,targetMass,Math.round(seconds*60),{x:contact.x/units,y:contact.y/units});
@@ -106,7 +117,7 @@ export class MappedFacadeDamage {
   contact(buildings:readonly DamageFootprint[],v:Vehicle,seconds:number,metresPerVehicleUnit=2):MappedFacadeImpact|null{
     if(v.burnt||v.state==='parked')return null;
     let closest:MappedFacadeImpact|null=null;
-    for(const building of buildings){const hit=sweptMappedFacade(building,v,metresPerVehicleUnit);if(hit&&!this.openingFits(building,hit,v,metresPerVehicleUnit)&&(!closest||hit.t!<closest.t!))closest={...hit,building};}
+    for(const building of buildings){const hit=sweptMappedFacade(building,v,metresPerVehicleUnit,h=>this.openingFits(building,h,v,metresPerVehicleUnit));if(hit&&(!closest||hit.t!<closest.t!))closest={...hit,building};}
     if(!closest)return null;
     closest.damage=this.hit(closest.building,closest,v,seconds,metresPerVehicleUnit);
     if(closest.damage?.opening&&this.openingFits(closest.building,closest,v,metresPerVehicleUnit)){
