@@ -29,6 +29,17 @@ export function paintFacadeDamage(g:CanvasRenderingContext2D,d:CivicDamage,P:Dam
   g.save();g.lineCap='round';
   facadeDamagePath(g,d,P);g.fillStyle=working?'#a98b60':breached?'#171f22':material==='concrete'||material==='stone'?'#a6a59a':'#6e7068';if(!(d as CivicDamage&{opening?:boolean}).opening)g.fill();
   g.strokeStyle=working?'#6b573f':material==='glass'?'#c2e1e3':'#5a5d54';g.lineWidth=Math.max(.6,z*.8);g.stroke();
+  if((d as CivicDamage&{opening?:boolean}).opening){
+    // Keep the aperture transparent: broken edges, exposed rods and rubble sit
+    // outside it so a car behind the wall remains visible.
+    const shape=openingOutline(d),edge=material==='glass'?'#b9dce0':material==='brick'?'#d0a18a':'#d4d1c3';
+    for(let i=1;i<shape.length-1;i++){const [u,h]=shape[i],direction=u<.5?-1:1;
+      line([P(u,h),P(u+direction*(.035+(i%2)*.015),h+.04),P(u+direction*.07,h+.09)],edge,1.1);
+      if(material==='concrete'||material==='brick'||material==='stone')line([P(u,h),P(u+direction*.035,h-.06)],'#67544a',.7);
+    }
+    for(let i=0;i<12;i++){const u=.03+((i*37+(d.variant??0)*11)%94)/100,out=.12+(i%4)*.15,a=P(u,.015,out),b=P(u+.035,.015,out+.05),c=P(u+.018,.06+(i%3)*.025,out+.04);g.fillStyle=material==='glass'?'#b4d9dcad':material==='brick'?'#a87962':'#aaa99b';g.beginPath();g.moveTo(...a);g.lineTo(...b);g.lineTo(...c);g.closePath();g.fill();}
+    g.restore();return;
+  }
   if(working){
     // Replacement panels cover only the struck bay, with studs and attached scaffold frames.
     const masonry=material==='concrete'||material==='stone',metal=material==='metal';

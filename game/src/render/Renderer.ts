@@ -1,5 +1,4 @@
-import {impactRagdoll,clearImpactRagdoll} from './ImpactRagdoll';
-import {vehicleIndex} from '../sim/VehicleIndex';
+import {impactRagdollPose} from '../physics/ImpactRagdoll';
 import {missionTarget} from '../sim/CityMissions';
 import {injuryResponse} from '../sim/InjuryResponse';
 import {mappedMoverDepth} from './MappedDepth';
@@ -364,7 +363,8 @@ export class Renderer {
         const zOff = c.z * 26 * z;
         if (bg) {
           // background: cheap animation (sine idle, simple walk), batched strokes
-          const a = pose(moving ? "walk" : c.anim.pose === "dance" ? "dance" : c.anim.pose === "panic" ? "panic" : "idle", "loose", time + c.seedPhase, c.anim.phase, spd, 0);
+          const a = pose(c.phys===Phys.DOWN ? name : moving ? "walk" : c.anim.pose === "dance" ? "dance" : c.anim.pose === "panic" ? "panic" : "idle", "loose", time + c.seedPhase, c.anim.phase, spd, 0);
+          if(c.phys===Phys.DOWN&&!o.reduceMotion){const limbs=impactRagdollPose(c);a.armL+=limbs[0];a.armR+=limbs[1];a.thighL+=limbs[2];a.thighR+=limbs[3];}
           applyGait(a, G);
           if (moving) this.foreshorten(a, c);
           solve(a, it.sx, it.sy - zOff, k, dir);
@@ -387,7 +387,7 @@ export class Renderer {
           if (h.head >= 2) a.tilt += Math.sin(time * 1.3 + c.id) * Math.min(0.3, h.head * 0.08);
           if (h.arm > 0 && name !== "throw" && name !== "swing") { a.armR *= 0.3; a.foreR = Math.max(a.foreR, 1.4); }
         }
-        if(c.phys===Phys.DOWN&&!o.reduceMotion){const limbs=impactRagdoll(c,sim.world,dt,vehicleIndex(sim).query(c.x,c.y,3,[]));a.armL+=limbs[0];a.armR+=limbs[1];a.thighL+=limbs[2];a.thighR+=limbs[3];a.tilt+=(limbs[0]-limbs[1])*.1;}else clearImpactRagdoll(c);
+        if(c.phys===Phys.DOWN&&!o.reduceMotion){const limbs=impactRagdollPose(c);a.armL+=limbs[0];a.armR+=limbs[1];a.thighL+=limbs[2];a.thighR+=limbs[3];a.tilt+=(limbs[0]-limbs[1])*.1;}
         applyNegativeReaction(a,c,time,spd,name,o.reduceMotion);
         if (moving && (name === "walk" || name === "run" || name === "panic")) this.foreshorten(a, c);
         else if(["talk","give","wave","inspect","press"].includes(name)){const f=.5+.5*Math.abs(Math.cos(c.facing)-Math.sin(c.facing))/Math.SQRT2;a.armL*=f;a.armR*=f;a.foreL*=.85;a.foreR*=.85;}
