@@ -3,7 +3,7 @@ import {facadeBreached} from '../sim/FacadeImpact';
 
 type Point=[number,number];
 /** Shared outline for both the visible breach and the clipped facade. */
-export function openingOutline(d:CivicDamage):Point[]{const o=d as CivicDamage&{openingHeight?:number;openingContour?:number[][]},height=Math.max(.3,Math.min(2,o.openingHeight??1)),shape=o.openingContour?.length===7?o.openingContour:[[.04,0],[.04,.78],[.12,1],[.5,1],[.88,1],[.96,.78],[.96,0]];return shape.map(([x,y])=>[Math.max(0,Math.min(1,x)),Math.max(0,Math.min(1,y))*height]);}
+export function openingOutline(d:CivicDamage):Point[]{const o=d as CivicDamage&{openingHeight?:number;openingContour?:number[][]},height=Math.max(.3,Math.min(10,o.openingHeight??1)),shape=o.openingContour&&o.openingContour.length>=3&&o.openingContour.length<=64&&o.openingContour.every(p=>Array.isArray(p)&&p.length>=2&&Number.isFinite(p[0])&&Number.isFinite(p[1]))?o.openingContour:[[.04,0],[.04,.78],[.12,1],[.5,1],[.88,1],[.96,.78],[.96,0]];return shape.map(([x,y])=>[Math.max(0,Math.min(1,x)),Math.max(0,Math.min(1,y))*height]);}
 
 export type DamageProjection=(u:number,h:number,out?:number)=>Point;
 const outline=[[.21,.1],[.16,.51],[.28,.89],[.49,1.01],[.78,.83],[.84,.45],[.74,.11]];
