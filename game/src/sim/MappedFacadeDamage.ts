@@ -40,7 +40,9 @@ export function sweptMappedFacade(building:DamageFootprint,v:Vehicle,units=2):Ma
   const probes=[[-length,-width],[-length,width],[length,-width],[length,width],[length,0],[-length,0],[0,width],[0,-width]];
   for(let edge=0;edge<building.points.length;edge++){
     const a=building.points[edge],b=building.points[(edge+1)%building.points.length],ex=b[0]-a[0],ey=b[1]-a[1],len=Math.hypot(ex,ey);if(len<1e-8)continue;
-    const nx=-ey/len*winding,ny=ex/len*winding;
+    let nx=-ey/len*winding,ny=ex/len*winding;
+    // Use a contact normal along travel for both entries and exits.
+    if(dx*nx+dy*ny<0){nx=-nx;ny=-ny;}
     for(const [fx,fy]of probes){const hit=intersect(ox+fx*c-fy*s,oy+fx*s+fy*c,dx,dy,a,b);if(hit)accept(edge,hit.u,hit.t,nx,ny);}
     // The building vertex entering the swept oriented chassis catches corner-only contacts.
     const rx=(a[0]-ox)*c+(a[1]-oy)*s,ry=-(a[0]-ox)*s+(a[1]-oy)*c,ddx=-(dx*c+dy*s),ddy=-(-dx*s+dy*c);
@@ -81,7 +83,7 @@ export class MappedFacadeDamage {
     const centre=opening?carCentre:along,half=Math.max(units*1.05,projected*.58),start=Math.max(0,centre-half),end=Math.min(len,centre+half),point=(distance:number):[number,number]=>[a[0]+(b[0]-a[0])*distance/len,a[1]+(b[1]-a[1])*distance/len];
     const base=VEHICLES[v.cls].design?.base??v.cls,boxy=['van','panelvan','stepvan','microvan','suv','box_suv','lift_suv','bus','fire','ambulance','tank'].includes(base),sideOn=Math.abs(tx*forwardX+ty*forwardY)>.55;
     const roofInset=boxy?.06:sideOn?.18:.13,openingContour=[[.04,0],[.04,.65],[roofInset,.94],[.5,1],[1-roofInset,.94],[.96,.65],[.96,0]];
-    const d:MappedFacadeRecord={key,kind:'building',buildingId:building.id,building:typeof building.id==='number'?building.id:undefined,edge:contact.edge,a:point(start),b:point(end),normal:[contact.nx,contact.ny],units,
+    const d:MappedFacadeRecord={key,kind:'building',buildingId:building.id,building:typeof building.id==='number'?building.id:undefined,edge:contact.edge,a:point(start),b:point(end),normal:[-ty*(polygonArea(building.points)>=0?1:-1),tx*(polygonArea(building.points)>=0?1:-1)],units,
       x:contact.x-contact.nx*units*.7,y:contact.y-contact.ny*units*.7,tx:Math.floor(contact.x),ty:Math.floor(contact.y),impactU:(along-start)/(end-start),severity:response.severity,material,energy:response.energy,variant:Math.abs(Math.floor(contact.x*17+contact.y*31))%12,
       opening:opening||old?.opening,openingHeight:opening?g.height/1.625:old?.openingHeight,openingContour:opening?openingContour:old?.openingContour,at:seconds,phase:'reported',repairProgress:0,repairBy:seconds+(opening?120:22)+FACADE_RESPONSE[material].repair*(.5+response.severity*.5)};
     this.records.set(key,d);if(this.records.size>256)this.records.delete(this.records.keys().next().value!);
@@ -114,9 +116,15 @@ export class MappedFacadeDamage {
     v.yaw=(v.yaw??0)*.4;v.stuck=(v.stuck??0)+1/60;
     return closest;
   }
-  update(seconds:number):void{
+  update(seconds:number,vehicles:readonly Vehicle[]=[]):void{
     for(const [key,d]of this.records){
-      if(seconds>=d.repairBy){this.records.delete(key);continue;}
+      if(seconds>=d.repairBy){
+        // Do not rebuild a wall around a car occupying its opening.
+        const dx=d.b[0]-d.a[0],dy=d.b[1]-d.a[1],length2=dx*dx+dy*dy;
+        const occupied=d.opening&&vehicles.some(v=>{const x=v.x*d.units,y=v.y*d.units,t=length2?Math.max(0,Math.min(1,((x-d.a[0])*dx+(y-d.a[1])*dy)/length2)):0;return Math.hypot(x-d.a[0]-t*dx,y-d.a[1]-t*dy)<vehicleGeometry(v).radius*d.units+.5;});
+        if(occupied){d.repairBy=seconds+2;continue;}
+        this.records.delete(key);continue;
+      }
       const age=seconds-d.at;
       if(age>=(d.opening?120:22)){d.phase='working';d.workStarted=d.at+(d.opening?120:22);d.workUntil=d.repairBy;d.repairProgress=Math.max(0,Math.min(1,(seconds-d.workStarted)/(d.repairBy-d.workStarted)));}
       else if(age>=8)d.phase='travelling';
