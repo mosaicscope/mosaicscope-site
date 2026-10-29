@@ -1,7 +1,7 @@
 {
- "at": 1793291123432,
+ "at": 1793291490226,
  "target": "https://mosaicscope.pages.dev",
- "sha": "6b629620acb97227c5517331cfddc444eaf50e07",
+ "sha": "83c0dceb223e552478d3f0c3c162c2a30bf3b42b",
  "results": [
   {
    "page": "/",
@@ -56,14 +56,14 @@
    "thirdParty": 60,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 307,
-    "loadMs": 966,
-    "lcpMs": 700,
-    "cls": 0.125,
-    "tbtMs": 247,
+    "domContentLoadedMs": 337,
+    "loadMs": 374,
+    "lcpMs": 844,
+    "cls": 0.122,
+    "tbtMs": 429,
     "longTasks": 3,
-    "heapMB": 31.6,
-    "domNodes": 1241,
+    "heapMB": 9.5,
+    "domNodes": 1176,
     "renderBlocking": 3,
     "resourceEntries": 12,
     "screens": 10.1
@@ -188,13 +188,13 @@
    "thirdParty": 62,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 264,
-    "loadMs": 888,
-    "lcpMs": 244,
+    "domContentLoadedMs": 592,
+    "loadMs": 625,
+    "lcpMs": 608,
     "cls": 0.095,
-    "tbtMs": 292,
+    "tbtMs": 467,
     "longTasks": 3,
-    "heapMB": 33.5,
+    "heapMB": 9.5,
     "domNodes": 1517,
     "renderBlocking": 3,
     "resourceEntries": 12,
@@ -294,9 +294,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 265,
-    "loadMs": 265,
-    "lcpMs": 268,
+    "domContentLoadedMs": 199,
+    "loadMs": 199,
+    "lcpMs": 208,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -341,9 +341,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 241,
-    "loadMs": 241,
-    "lcpMs": 180,
+    "domContentLoadedMs": 177,
+    "loadMs": 177,
+    "lcpMs": 108,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -382,9 +382,9 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 354,
-    "loadMs": 460,
-    "lcpMs": 368,
+    "domContentLoadedMs": 260,
+    "loadMs": 295,
+    "lcpMs": 280,
     "cls": 0.007,
     "tbtMs": 0,
     "longTasks": 0,
@@ -423,10 +423,10 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 221,
-    "loadMs": 339,
-    "lcpMs": 236,
-    "cls": 0.146,
+    "domContentLoadedMs": 202,
+    "loadMs": 234,
+    "lcpMs": 224,
+    "cls": 0.15,
     "tbtMs": 0,
     "longTasks": 0,
     "heapMB": 9.5,
@@ -505,84 +505,85 @@
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 390,
-   "ms": 2579,
+   "ms": 1985,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 390,
-   "ms": 1955,
+   "ms": 1377,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 390,
-   "ms": 1610,
-   "status": "pass"
+   "ms": 1513,
+   "status": "fail",
+   "why": "no validation shown"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 390,
-   "ms": 1915,
+   "ms": 1280,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 390,
-   "ms": 1905,
+   "ms": 2534,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 390,
-   "ms": 1142,
+   "ms": 1033,
    "status": "pass"
   },
   {
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 1280,
-   "ms": 2604,
+   "ms": 4146,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 1280,
-   "ms": 2174,
+   "ms": 2081,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 1280,
-   "ms": 2294,
+   "ms": 2355,
    "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 1280,
-   "ms": 1353,
+   "ms": 1344,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 1280,
-   "ms": 2520,
+   "ms": 2494,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 1280,
-   "ms": 1171,
+   "ms": 1144,
    "status": "pass"
   }
  ]
