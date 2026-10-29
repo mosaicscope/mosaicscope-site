@@ -72,6 +72,13 @@ export class MappedArchitecture{
  draw(g:CanvasRenderingContext2D,b:MappedBuilding,P:Project,scale:number,focus:Pt,openings:readonly MappedFacadeRecord[]=[],damageProject?:Project):void{
   const corners=b.points.map(p=>P(p[0],p[1])),xs=corners.map(p=>p[0]),ys=corners.map(p=>p[1]),height=b.height*scale*MAPPED_HEIGHT_RATIO,W=g.canvas.clientWidth||g.canvas.width,H=g.canvas.clientHeight||g.canvas.height;
   if(Math.max(...xs)<-70||Math.min(...xs)>W+70||Math.max(...ys)<-70||Math.min(...ys)-height>H+70)return;
+  if(openings.some(d=>d.collapsed)){
+   // Keep the rubble within the surveyed polygon and out of the car's path.
+   g.save();g.beginPath();corners.forEach((point,i)=>i?g.lineTo(...point):g.moveTo(...point));g.closePath();g.clip();g.fillStyle='#706f67';g.fill();
+   const cx=corners.reduce((n,p)=>n+p[0],0)/corners.length,cy=corners.reduce((n,p)=>n+p[1],0)/corners.length;
+   for(let i=0;i<Math.min(24,corners.length*5);i++){const edge=corners[i%corners.length],f=.2+((i*37)%65)/100,x=cx+(edge[0]-cx)*f,y=cy+(edge[1]-cy)*f,size=Math.max(2,Math.min(12,scale*(.18+(i%4)*.09)));g.fillStyle=i%3===0?'#a5a398':i%3===1?'#565851':'#89877c';g.beginPath();g.moveTo(x-size,y);g.lineTo(x-size*.2,y-size*.55);g.lineTo(x+size,y-size*.15);g.lineTo(x+size*.5,y+size*.35);g.closePath();g.fill();}
+   g.restore();return;
+  }
   const aerial=this.aerialEnabled?this.aerial.prepare(b.points):'off';let mesh=this.cache.get(b.id);if(mesh&&(mesh.aerial!==aerial||mesh.top!==b.height||mesh.tags!==b.tags||mesh.name!==b.name)){this.bytes-=mesh.bytes;this.cache.delete(b.id);mesh=undefined;}if(mesh&&!this.zoomMoving&&mesh.unit<architectureRaster(mesh.extent,scale,g.getTransform().a,this.quality)*.7&&(!this.jobs||performance.now()<this.deadline)){this.bytes-=mesh.bytes;this.cache.delete(b.id);mesh=undefined;}if(!mesh){if(this.jobs&&performance.now()>this.deadline){g.fillStyle='#6f7b72';g.beginPath();b.points.forEach((p,i)=>i?g.lineTo(...P(p[0],p[1],b.height)):g.moveTo(...P(p[0],p[1],b.height)));g.closePath();g.fill();return;}mesh=this.create(b,scale,g.getTransform().a);this.jobs++;this.cache.set(b.id,mesh);this.bytes+=mesh.bytes;while(this.cache.size>96||this.bytes>64*1024*1024){const id=this.cache.keys().next().value!;if(id===b.id)break;const old=this.cache.get(id)!;this.bytes-=old.bytes;this.cache.delete(id);}}
   else{this.cache.delete(b.id);this.cache.set(b.id,mesh);}
   const p=P(...mesh.at),f=scale/mesh.unit,x=p[0]-mesh.ox*f,y=p[1]-mesh.oy*f,ground=pointInside(focus,corners),cover=ground||focus[0]>=Math.min(...xs)&&focus[0]<=Math.max(...xs)&&focus[1]<Math.max(...ys)&&focus[1]>Math.min(...ys)-height;
