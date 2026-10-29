@@ -278,7 +278,7 @@ export class Simulation {
 
     updateSubstances(this);
     const tv=performance.now();updateVehicles(this, dt);this.metrics.vehicleMs=performance.now()-tv;const tc=performance.now();
-    if(this.world.mapped)this.mappedDamage.update(this.tick/60);
+    if(this.world.mapped)this.mappedDamage.update(this.tick/60,this.vehicles);
     updateRockets(this);
     updateCivicDamage(this);updateStreetProps(this,dt);updateCityDrama(this);updateCityRoutine(this);updateWorkshopMotion(this);updateCityLife(this);
     this.metrics.cityMs=performance.now()-tc;
