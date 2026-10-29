@@ -90,6 +90,12 @@ export class MappedFacadeDamage {
     const targetMass=VEHICLES[v.cls].mass*(.25+FACADE_RESPONSE[material].hardness*1.75);
     impactComponents(v,contact.nx,contact.ny,contact.speed,targetMass,Math.round(seconds*60),{x:contact.x/units,y:contact.y/units});
     v.damage=Math.min(1,v.damage+response.carDamage);
+    if(opening&&!old?.opening&&v.components){
+      // Use the existing bounded, simulated vehicle debris pool: fragments are
+      // launched from the actual contact and continue to bounce after the car passes.
+      const debris=v.components.debris,colour=material==='glass'?'#b7d5d2':material==='brick'?'#a87962':material==='timber'?'#ad8d67':material==='metal'?'#9faeaa':'#aaa99b';
+      for(let i=0;i<10&&debris.length<24;i++){const angle=i*2.399963+(building.points.length%5),spread=.5+(i%4)*.35;debris.push({kind:material==='glass'?'glass':'masonry',x:contact.x/units,y:contact.y/units,z:.25+(i%3)*.3,vx:(v.vx??0)*.28+contact.nx*spread+Math.cos(angle),vy:(v.vy??0)*.28+contact.ny*spread+Math.sin(angle),vz:1.2+(i%5)*.45,age:0,spin:angle,size:.07+(i%4)*.035,colour,roll:angle,pitch:i*.6,spinRate:2+i%4});}
+    }
     return d;
   }
   private openingFits(building:DamageFootprint,hit:MappedFacadeContact,v:Vehicle,units:number):boolean{
