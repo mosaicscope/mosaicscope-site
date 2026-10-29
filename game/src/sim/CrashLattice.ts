@@ -34,8 +34,22 @@ export function strikeLattice(lattice:CrashLattice|undefined,x:number,y:number,n
 export function stepLattice(state:CrashLattice,dt:number):void{
  if(!Number.isFinite(dt)||dt<=0||state.active<=0||state.version!==2||state.nodes.length!==crashPositions.length)return;
  const elapsed=Math.min(.05,dt),count=Math.max(1,Math.ceil(elapsed*120)),h=elapsed/count;
+ state.linkDamage??=links.map(()=>0);
  for(let step=0;step<count;step++){
-  for(let i=0;i<links.length;i++){const [ia,ib]=links[i],a=state.nodes[ia],b=state.nodes[ib],dx=b.x-a.x,dy=b.y-a.y,dz=b.z!-a.z!,len=Math.hypot(dx,dy,dz)||.001,rest=Math.hypot(b.restX-a.restX,b.restY-a.restY,b.restZ!-a.restZ!),strength=1-(state.linkDamage?.[i]??0)*.9,force=clamp((len-rest)*18*strength,-2,2)*h,fx=dx/len*force,fy=dy/len*force,fz=dz/len*force;a.vx+=fx;a.vy+=fy;a.vz!+=fz;b.vx-=fx;b.vy-=fy;b.vz!-=fz;}
+  for(let i=0;i<links.length;i++){
+   const [ia,ib]=links[i],a=state.nodes[ia],b=state.nodes[ib],dx=b.x-a.x,dy=b.y-a.y,dz=b.z!-a.z!,len=Math.hypot(dx,dy,dz)||.001;
+   const rest=Math.hypot(b.restX-a.restX,b.restY-a.restY,b.restZ!-a.restZ!)||.001,strain=Math.abs(len-rest)/rest;
+   // Above yield, load permanently shifts the connected nodes and weakens the link.
+   // Fully failed links no longer transmit spring force; the remaining links still connect the chassis.
+   const excess=Math.max(0,strain-.12),damage=state.linkDamage[i]??0;
+   if(excess>0&&damage<1){
+    state.linkDamage[i]=clamp(damage+excess*h*.85,0,1);
+    const plastic=Math.min(.08,excess*h*.32);
+    for(const [node,index] of [[a,ia],[b,ib]] as const){const base=crashPositions[index];node.restX=clamp(node.restX+(node.x-node.restX)*plastic,base[0]-.2,base[0]+.2);node.restY=clamp(node.restY+(node.y-node.restY)*plastic,base[1]-.2,base[1]+.2);node.restZ=clamp(node.restZ!+(node.z!-node.restZ!)*plastic,base[2]-.12,base[2]+.08);}
+   }
+   const strength=state.linkDamage[i]>=.98?0:1-state.linkDamage[i]*.9,force=clamp((len-rest)*18*strength,-2,2)*h,fx=dx/len*force,fy=dy/len*force,fz=dz/len*force;
+   a.vx+=fx;a.vy+=fy;a.vz!+=fz;b.vx-=fx;b.vy-=fy;b.vz!-=fz;
+  }
   for(const n of state.nodes){n.vx+=(n.restX-n.x)*8*h;n.vy+=(n.restY-n.y)*8*h;n.vz!+=(n.restZ!-n.z!)*8*h;const damping=Math.exp(-5*h);n.vx*=damping;n.vy*=damping;n.vz!*=damping;n.x=clamp(n.x+n.vx*h,n.restX-.18,n.restX+.18);n.y=clamp(n.y+n.vy*h,n.restY-.18,n.restY+.18);n.z=clamp(n.z!+n.vz!*h,n.restZ!-.12,n.restZ!+.12);}
  }
  state.active=Math.max(0,state.active-dt);if(state.active===0)for(const n of state.nodes){n.x=n.restX;n.y=n.restY;n.z=n.restZ;n.vx=n.vy=n.vz=0;}

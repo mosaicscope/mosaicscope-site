@@ -168,3 +168,10 @@
 #ui .armory-controls .ax-card .btn{min-height:44px;margin:4px 4px 0 0;white-space:normal}
 #ui .panel.activities.armory-controls .play-stage{grid-column:1/-1;height:auto;max-height:none}
 @media(max-width:680px){#ui .panel.activities.armory-controls{height:min(820px,96dvh)}#ui .panel.activities.armory-controls .ax-grid{grid-template-columns:1fr;grid-template-rows:none}}
+
+/* Compact damage summary: bounded lists keep other controls within reach. */
+#ui .damage-overview{display:grid;gap:7px;border:1px solid #c8b18a44;border-radius:8px;padding:10px}
+#ui .damage-heading{display:flex;justify-content:space-between;gap:12px;align-items:baseline}#ui .damage-heading span{color:#aaa99d;font-size:12px}
+#ui .damage-part{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;align-items:center;font-size:12px;line-height:1.25}#ui .damage-part>span:first-child{overflow-wrap:anywhere}#ui .damage-value{font-variant-numeric:tabular-nums;color:#e7c48a}
+#ui .damage-meter{grid-column:1/-1;height:4px;background:#ffffff16;border-radius:4px;overflow:hidden}#ui .damage-meter i{display:block;height:100%;background:#d79767;border-radius:4px}
+#ui .damage-all{margin-top:3px}#ui .damage-group{border-top:1px solid #ffffff1a;padding:5px 0}#ui .damage-group summary{cursor:pointer;min-height:32px;font-size:13px}#ui .damage-list{display:grid;gap:8px;max-height:180px;overflow-y:auto;overscroll-behavior:contain;padding:6px 2px}

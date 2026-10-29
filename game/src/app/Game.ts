@@ -857,12 +857,20 @@ export class Game {
     return h('button.btn.drive-settings',{type:'button','aria-label':'Drive settings',onclick:()=>this.openDriveSettings(v)},[this.conditionDiagram(v),h('span.condition-caption',{text:status+' · Damage & drive'})]);
   }
   private openDriveSettings(v:import('../entities/types').Vehicle):void {
+    const partGroup=(name:string)=>/wheel|tyre|suspension|knuckle|strut|ball joint|tie rod|axle|caliper|bearing|damper|control arm|brake/i.test(name)?'Wheels & brakes':/radiator|coolant|water pump|fan|thermostat/i.test(name)?'Cooling':/door|sill|pillar|body|rail|brace|crash|bonnet|boot|roof|bulkhead|apron|quarter|frame/i.test(name)?'Body & frame':/gear|clutch|transmission|differential|drive shaft|driveshaft|coupling/i.test(name)?'Drivetrain':/steering|rack|pinion/i.test(name)?'Steering':'Engine & electrical';
+    const partRow=(part:{name:string;damage:number})=>h('div.damage-part',null,[h('span',{text:part.name}),h('span.damage-value',{text:Math.round(part.damage*100)+'%'}),h('span.damage-meter',null,[h('i',{style:{width:Math.round(part.damage*100)+'%'}})])]);
+    const partSummary=(parts:{name:string;damage:number}[])=>{
+      if(!parts.length)return h('div.damage-overview',null,[h('strong',{text:'No damaged parts'})]);
+      const groups=new Map<string,typeof parts>();for(const part of parts){const key=partGroup(part.name),list=groups.get(key)??[];list.push(part);groups.set(key,list);}
+      return h('div.damage-overview',null,[h('div.damage-heading',null,[h('strong',{text:'Most damaged'}),h('span',{text:parts.length+' affected'})]),...parts.slice(0,4).map(partRow),
+        h('details.condition-section.damage-all',null,[h('summary',{text:'All damaged parts by system'}),...Array.from(groups,([name,items])=>h('details.damage-group',null,[h('summary',{text:name+' · '+items.length}),h('div.damage-list',null,items.map(partRow))]))])]);
+    };
     const render=()=>{const report=vehicleInspection(v);const section=(title:string,lines:string[])=>h('details.condition-section',null,[h('summary',{text:title}),...lines.map(text=>h('p',{text}))]);this.modal.show('Car damage & drive',[
       h('div.condition-detail',null,[this.conditionDiagram(v),h('div',null,[h('strong',{text:'Vehicle condition'}),h('p',{text:vehicleCondition(v).forecast})])]),
       h('p',{text:`Engine ${Math.round(vehicleCondition(v).engine*100)}% damaged · gearbox ${Math.round(vehicleCondition(v).gearbox*100)}% · oil ${Math.round(vehicleCondition(v).oil*100)}% · coolant ${Math.round(vehicleCondition(v).coolant*100)}%`}),
       ...report.warnings.map(text=>h('p.condition-warning',{text})),
       ...report.effects.map(text=>h('p',{text})),
-      section('Damaged parts · '+report.condition.issues.length,report.condition.issues.length?report.condition.issues.map(p=>p.name+': '+Math.round(p.damage*100)+'% damaged'):['No individual parts are damaged.']),
+      partSummary(report.condition.issues),
       section('Body and glass',report.body),section('Wheels and brakes',report.wheels),
       section('Mechanical systems',report.mechanical.length?report.mechanical:['No structural mechanical damage recorded.']),
       section('Recent impacts',report.impacts.length?report.impacts:['No impacts recorded.']),
