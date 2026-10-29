@@ -387,21 +387,12 @@ export class Game {
       h("div.bars", null, [...bar("health", p.blood * p.emo.composure ** 0.3, p.bleed > 0 ? "#c56d64" : "#b2b49a"), ...bar("hunger", p.hunger, "#bea56e"), ...bar("energy", p.needs.energy, "#8b9fa7"), ...bar("mood", (p.emo.mood + 1) / 2, "#a29aac")])];
     if (titleOf(sim.expansion)) kids.push(h("div.car", { text: titleOf(sim.expansion) + " · " + (sim.expansion.graduated[sim.expansion.graduated.length - 1] ?? "") }));
     if (p.inCar >= 0) {
-      const v=sim.vehicles[p.inCar],speed=Math.hypot(v.vx??Math.cos(v.heading)*v.speed,v.vy??Math.sin(v.heading)*v.speed),pt=v.powertrain,drift=v.drift;
+      const v=sim.vehicles[p.inCar],speed=Math.hypot(v.vx??Math.cos(v.heading)*v.speed,v.vy??Math.sin(v.heading)*v.speed),pt=v.powertrain;
       kids.push(h("div.car",null,[h("div.drive-speed",null,[h("b",{text:String(Math.round(speed*7.2))})," km/h"]),h("div.drive-name",{text:VEHICLES[v.cls].name}),
         h("div.drive-meta",{text:`${handlingProfile(v.cls).drive.toUpperCase()} · ${pt?(pt.gear<0?'R':(v.manualTransmission?'M':'D')+pt.gear)+' · '+Math.round(pt.rpm)+' rpm':'Automatic'}`}),
-        ...(supportsManual(v)?[h("button.btn.drive-detail",{type:"button",text:v.manualTransmission?"Manual gears · switch to auto":"Automatic · switch to manual","aria-label":"Toggle manual transmission",onclick:()=>{setManualTransmission(v,!v.manualTransmission);this.updateHud();}}),...(v.manualTransmission?[h("button.btn.drive-gear",{type:"button",text:"− Gear","aria-label":"Shift down",onclick:()=>{this.shiftDriver(v,-1);}}),h("button.btn.drive-gear",{type:"button",text:"+ Gear","aria-label":"Shift up",onclick:()=>{this.shiftDriver(v,1);}})]:[])]:[]),
+        ...(v.manualTransmission?[h("button.btn.drive-gear",{type:"button",text:"− Gear","aria-label":"Shift down",onclick:()=>{this.shiftDriver(v,-1);}}),h("button.btn.drive-gear",{type:"button",text:"+ Gear","aria-label":"Shift up",onclick:()=>{this.shiftDriver(v,1);}})]:[]),
         ...(v.parkingBrake?[h("button.btn",{type:"button",text:"Parking brake ON · release","aria-label":"Release parking brake",onclick:()=>{v.parkingBrake=false;this.updateHud();}})]:[]),
-        h("button.btn.drive-mode.drive-detail",{type:"button",text:DRIVE_MODE_LABELS[v.driveMode??"road"]+" mode ↻","aria-label":"Change driving mode",onclick:()=>{cycleDriveMode(v);this.updateHud();}}),
-        h("button.btn.drive-detail",{type:"button",text:"Driver aids: "+ASSIST_LABELS[v.assistMode??"auto"]+" ↻","aria-label":"Change driver aids",onclick:()=>{cycleDriverAssists(v);this.updateHud();}}),
-        h("button.btn.drive-detail",{type:"button",text:this.showDriveData?"Hide drive data":"Show drive data","aria-label":"Toggle driving data",onclick:()=>{this.showDriveData=!this.showDriveData;this.updateHud();}}),
-        ...(this.showDriveData&&v.telemetry?[h("div.drive-detail",{text:`Trip ${(v.telemetry.distance/1000).toFixed(2)} km · peak ${Math.round(v.telemetry.topKmh)} km/h`}),
-          h("div.drive-detail",{text:`G-force ${v.telemetry.longG.toFixed(2)} forward · ${v.telemetry.latG.toFixed(2)} lateral`}),
-          h("div.drive-detail",{text:`0–100 ${v.telemetry.best0100?.toFixed(1)??'—'} s · 80–0 ${v.telemetry.lastBrakeDistance?.toFixed(0)??'—'} m`}),
-          h("button.btn.drive-detail",{type:"button",text:"Reset trip",onclick:()=>{resetDrivingTelemetry(v);this.updateHud();}})]:[]),
         this.conditionButton(v),
-        h("div.drive-detail",{text:`Tyres ${Math.round((v.tyreHeat??0)*100)}% warm${(v.wheelspin??0)>.3?' · WHEELSPIN':''}${(v.contactControl?.abs??0)>.15?' · ABS':''}${(v.contactControl?.traction??0)>.15?' · TRACTION CONTROL':''}${v.stabilityActive?' · STABILITY CONTROL':''}${v.dynamics?.wheels.some(w=>w.pressure<.65)?' · LOW TYRE':''}${(v.dynamics?.brakeFade??0)>.1?' · BRAKE FADE':''}${(v.dynamics?.aquaplaning??0)>.2?' · WET GRIP':''}${(v.slip??0)>1|| (v.slip??0)<-1?' · SLIDING':''}`}),
-        ...(drift&&drift.points>1?[h("div",{text:`DRIFT ${Math.round(drift.points)} · ×${1+Math.min(3,Math.floor(drift.chain/2))} · ${Math.round(drift.angle)}°`})]:drift&&drift.best>0?[h("div",{text:`Best drift ${drift.best}`})]:[]),
         h("div.drive-alert",{text:v.components?.wheels.some(w=>!w.missing&&(w.attachment??1)<.65)?"WHEEL HANGING · stop and repair":v.components?.wheels.some(w=>w.missing)?"WHEEL MISSING · stop and repair":(v.components?.structure?.temperature??0)>.6?"ENGINE OVERHEATING · pull over":(v.components?.structure?.brakeHeat??0)>.8?"BRAKES HOT · allow cooling":(v.components?.structure?.oil??1)<.25?"LOW OIL · service needed":(v.components?.structure?.coolant??1)<.25?"LOW COOLANT · service needed":(v.flatLeft||v.flatRight?"FLAT TYRE":"")+((v.heat??0)>.5?" · ENGINE HOT: pull over":"")})
       ]));
     }
@@ -863,15 +854,15 @@ export class Game {
   }
   private conditionButton(v:import('../entities/types').Vehicle):HTMLElement {
     const c=vehicleCondition(v),status=c.worst>=.7?'Critical':c.worst>=.25?'Damaged':'Healthy';
-    return h('button.btn.drive-settings',{type:'button','aria-label':'Drive settings',onclick:()=>this.openDriveSettings(v)},[this.conditionDiagram(v),h('span.condition-caption',{text:status+' · Car & drive'})]);
+    return h('button.btn.drive-settings',{type:'button','aria-label':'Drive settings',onclick:()=>this.openDriveSettings(v)},[this.conditionDiagram(v),h('span.condition-caption',{text:status+' · Damage & drive'})]);
   }
   private openDriveSettings(v:import('../entities/types').Vehicle):void {
-    const render=()=>{const report=vehicleInspection(v);const section=(title:string,lines:string[])=>h('details.condition-section',null,[h('summary',{text:title}),...lines.map(text=>h('p',{text}))]);this.modal.show('Drive settings',[
+    const render=()=>{const report=vehicleInspection(v);const section=(title:string,lines:string[])=>h('details.condition-section',null,[h('summary',{text:title}),...lines.map(text=>h('p',{text}))]);this.modal.show('Car damage & drive',[
       h('div.condition-detail',null,[this.conditionDiagram(v),h('div',null,[h('strong',{text:'Vehicle condition'}),h('p',{text:vehicleCondition(v).forecast})])]),
       h('p',{text:`Engine ${Math.round(vehicleCondition(v).engine*100)}% damaged · gearbox ${Math.round(vehicleCondition(v).gearbox*100)}% · oil ${Math.round(vehicleCondition(v).oil*100)}% · coolant ${Math.round(vehicleCondition(v).coolant*100)}%`}),
       ...report.warnings.map(text=>h('p.condition-warning',{text})),
       ...report.effects.map(text=>h('p',{text})),
-      section('Damage report · '+report.condition.issues.length+' parts',report.condition.issues.length?report.condition.issues.map(p=>p.name+': '+Math.round(p.damage*100)+'% damaged'):['No individual parts are damaged.']),
+      section('Damaged parts · '+report.condition.issues.length,report.condition.issues.length?report.condition.issues.map(p=>p.name+': '+Math.round(p.damage*100)+'% damaged'):['No individual parts are damaged.']),
       section('Body and glass',report.body),section('Wheels and brakes',report.wheels),
       section('Mechanical systems',report.mechanical.length?report.mechanical:['No structural mechanical damage recorded.']),
       section('Recent impacts',report.impacts.length?report.impacts:['No impacts recorded.']),

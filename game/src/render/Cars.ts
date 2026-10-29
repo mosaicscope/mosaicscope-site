@@ -106,7 +106,8 @@ function meshTriangle(k:Ctx,a:V3,b:V3,c:V3,col:string,normal:V3,level:number):vo
 function meshFace(k:Ctx,points:V3[],col:string,normal:V3):void{
  if(!k.deform||k.cam.zoom<.45){fillPoly(k,points,col);return;}
  const centre=points.reduce((a,p)=>[a[0]+p[0]/points.length,a[1]+p[1]/points.length,a[2]+p[2]/points.length] as V3,[0,0,0] as V3),level=k.cam.zoom>3.5?2:1;
- const warp=Math.max(...[centre,...points].map(p=>{const q=k.deform!(p);return Math.hypot(q[0]-p[0],q[1]-p[1],q[2]-p[2]);}));if(warp<.008){fillPoly(k,points,col);return;}
+ const samples=[centre,...points,...points.map((p,i)=>{const q=points[(i+1)%points.length];return [(p[0]+q[0])/2,(p[1]+q[1])/2,(p[2]+q[2])/2] as V3;})];
+ const warp=Math.max(...samples.map(p=>{const q=k.deform!(p);return Math.hypot(q[0]-p[0],q[1]-p[1],q[2]-p[2]);}));if(warp<.008){fillPoly(k,points,col);return;}
  fillPoly(k,points,col);
  for(let i=0;i<points.length;i++)meshTriangle(k,centre,points[i],points[(i+1)%points.length],col,normal,level);
 }
