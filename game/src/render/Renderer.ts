@@ -1,3 +1,5 @@
+import {VehicleIndex} from '../sim/VehicleIndex';
+import type {MappedBuilding} from '../ui/DestinationDistrict';
 import {impactRagdollPose} from '../physics/ImpactRagdoll';
 import {missionTarget} from '../sim/CityMissions';
 import {injuryResponse} from '../sim/InjuryResponse';
@@ -223,7 +225,9 @@ export class Renderer {
     const inView = (sx: number, sy: number, m: number) => sx > -m && sy > -m && sx < cam.viewW + m && sy < cam.viewH + m * 0.3;
 
     this.nItems = 0;
-    this.viewB.clear();
+    this.viewB.clear();this.viewMapped.length=0;
+    if(1-sim.daylight>.3)this.lightIndex.rebuild(sim.vehicles);
+    const lightCandidates:import('../entities/types').Vehicle[]=[];
     const openingByBuilding=new Map<number|string,import('../sim/MappedFacadeDamage').MappedFacadeRecord[]>();for(const record of sim.mappedDamage.values())if(record.opening||record.collapsed){const group=openingByBuilding.get(record.buildingId)??[];group.push(record);openingByBuilding.set(record.buildingId,group);}
     resetHdBudget(Math.abs(cam.targetZoom-z)>.025?12:o.quality === 3 ? 400 : o.quality === 2 ? 40 : o.quality === 1 ? 20 : 0);
     const pt = this.pt;
@@ -238,7 +242,7 @@ export class Renderer {
       this.push(tx + ty + 1, 2, ty * S + tx, pt.x, pt.y);
       if (t === T.BUILDING) this.viewB.add(sim.world.buildingOf[ty * S + tx]);
     }
-    if(mapped){this.mappedArt.aerialEnabled=mapped.visibility.aerialRoofs!==false;this.mappedArt.beginFrame(o.quality,Math.abs(cam.zoom-cam.targetZoom)>.015);for(const id of worldIndex(sim.world).buildings.query(minX-20,minY-20,maxX+20,maxY+20)){const b=sim.world.buildings[id];if(b.x1<minX-20||b.y1<minY-20||b.x0>maxX+20||b.y0>maxY+20)continue;cam.toScreen(b.x0,b.y0,0,pt);const footprint=mapped.byBuilding.get(b.id);if(!footprint)continue;const depth=Math.max(...footprint.points.map(p=>(p[0]+p[1])/2+mapped.offsetX+mapped.offsetY));this.push(depth,14,b.id,pt.x,pt.y);this.viewB.add(b.id);}}
+    if(mapped){this.mappedArt.aerialEnabled=mapped.visibility.aerialRoofs!==false;this.mappedArt.beginFrame(o.quality,Math.abs(cam.zoom-cam.targetZoom)>.015);for(const id of worldIndex(sim.world).buildings.query(minX-20,minY-20,maxX+20,maxY+20)){const b=sim.world.buildings[id];if(b.x1<minX-20||b.y1<minY-20||b.x0>maxX+20||b.y0>maxY+20)continue;cam.toScreen(b.x0,b.y0,0,pt);const footprint=mapped.byBuilding.get(b.id);if(!footprint)continue;const depth=Math.max(...footprint.points.map(p=>(p[0]+p[1])/2+mapped.offsetX+mapped.offsetY));this.push(depth,14,b.id,pt.x,pt.y);this.viewB.add(b.id);this.viewMapped.push(footprint);}}
     for (const p of mapped?[...worldIndex(sim.world).pois.query(minX-4,minY-4,maxX+4,maxY+4)].map(id=>sim.world.pois[id]):sim.world.pois) {
       if(mapped&&!mapped.visibility.fixtures&&p.kind!=='door')continue;
       cam.toScreen(p.x, p.y, 0, pt);
@@ -447,7 +451,7 @@ export class Renderer {
         // Share painter order with the car. Nearer building silhouettes erase these lights too.
         if (1 - sim.daylight > 0.3) {
           const vehicle = sim.vehicles[it.ref], strength = Math.min(1 - sim.daylight, sim.env.power ? 0.65 : 0.35);
-          GLOW.push(layer => headlights(layer, cam, vehicle, strength, sim.world, sim.vehicles));
+          GLOW.push(layer => headlights(layer, cam, vehicle, strength, sim.world, this.lightIndex.query(vehicle.x,vehicle.y,12,lightCandidates)));
         }
         drawCar(g, cam, sim.vehicles[it.ref], alpha, time, 1 - sim.daylight, it.ref === this.selectedCar,sim.chars[sim.vehicles[it.ref].driver]);
       } else if (it.kind === 5) {
@@ -980,6 +984,8 @@ export class Renderer {
 
   /** Buildings on screen this frame, and how much each is cut away (0..1, eased). */
   private viewB = new Set<number>();
+  private viewMapped:MappedBuilding[]=[];
+  private lightIndex=new VehicleIndex();
   /** story contacts with a job: a bobbing marker and name above their head */
   markers = new Set<number>();
   private cut = new Map<number, number>();
@@ -996,7 +1002,7 @@ export class Renderer {
    */
   private behind(x: number, y: number, d: number): number {
     const w = this.sim.world;
-    if(w.mapped)return mappedMoverDepth(w.mapped,[...this.viewB].map(id=>w.mapped!.byBuilding.get(id)!).filter(Boolean),x,y,d);
+    if(w.mapped)return mappedMoverDepth(w.mapped,this.viewMapped,x,y,d);
     let out = d;
     for (const id of this.viewB) {
       const b = w.buildings[id];
