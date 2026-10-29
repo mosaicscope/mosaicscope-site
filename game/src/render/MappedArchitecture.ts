@@ -1,3 +1,5 @@
+import type {MappedFacadeRecord} from '../sim/MappedFacadeDamage';
+import {openingOutline} from './FacadeDamageArt';
 import {AerialRoofs} from './AerialRoofs';
 import {mappedFacadeStyle} from '../content/mappedFacadeStyle';
 import {MAPPED_HEIGHT_RATIO} from '../world/WorldScale';
@@ -67,13 +69,15 @@ export class MappedArchitecture{
   const cx=points.reduce((n,p)=>n+p[0],0)/points.length,cy=points.reduce((n,p)=>n+p[1],0)/points.length,r=P(cx,cy,top);g.fillStyle='#737d75';g.fillRect(r[0]-unit*.65,r[1]-unit*.45,unit*1.3,unit*.8);g.strokeStyle='#a1aaa0';g.strokeRect(r[0]-unit*.65,r[1]-unit*.45,unit*1.3,unit*.8);}
   return{aerial:this.aerialEnabled?this.aerial.prepare(points):'off',cv,life:null,at:origin,ox,oy,unit,windows,stamp:-1,bytes:cv.width*cv.height*4,top,extent,tags:b.tags,name:b.name};
  }
- draw(g:CanvasRenderingContext2D,b:MappedBuilding,P:Project,scale:number,focus:Pt):void{
+ draw(g:CanvasRenderingContext2D,b:MappedBuilding,P:Project,scale:number,focus:Pt,openings:readonly MappedFacadeRecord[]=[],damageProject?:Project):void{
   const corners=b.points.map(p=>P(p[0],p[1])),xs=corners.map(p=>p[0]),ys=corners.map(p=>p[1]),height=b.height*scale*MAPPED_HEIGHT_RATIO,W=g.canvas.clientWidth||g.canvas.width,H=g.canvas.clientHeight||g.canvas.height;
   if(Math.max(...xs)<-70||Math.min(...xs)>W+70||Math.max(...ys)<-70||Math.min(...ys)-height>H+70)return;
   const aerial=this.aerialEnabled?this.aerial.prepare(b.points):'off';let mesh=this.cache.get(b.id);if(mesh&&(mesh.aerial!==aerial||mesh.top!==b.height||mesh.tags!==b.tags||mesh.name!==b.name)){this.bytes-=mesh.bytes;this.cache.delete(b.id);mesh=undefined;}if(mesh&&!this.zoomMoving&&mesh.unit<architectureRaster(mesh.extent,scale,g.getTransform().a,this.quality)*.7&&(!this.jobs||performance.now()<this.deadline)){this.bytes-=mesh.bytes;this.cache.delete(b.id);mesh=undefined;}if(!mesh){if(this.jobs&&performance.now()>this.deadline){g.fillStyle='#6f7b72';g.beginPath();b.points.forEach((p,i)=>i?g.lineTo(...P(p[0],p[1],b.height)):g.moveTo(...P(p[0],p[1],b.height)));g.closePath();g.fill();return;}mesh=this.create(b,scale,g.getTransform().a);this.jobs++;this.cache.set(b.id,mesh);this.bytes+=mesh.bytes;while(this.cache.size>96||this.bytes>64*1024*1024){const id=this.cache.keys().next().value!;if(id===b.id)break;const old=this.cache.get(id)!;this.bytes-=old.bytes;this.cache.delete(id);}}
   else{this.cache.delete(b.id);this.cache.set(b.id,mesh);}
   const p=P(...mesh.at),f=scale/mesh.unit,x=p[0]-mesh.ox*f,y=p[1]-mesh.oy*f,ground=pointInside(focus,corners),cover=ground||focus[0]>=Math.min(...xs)&&focus[0]<=Math.max(...xs)&&focus[1]<Math.max(...ys)&&focus[1]>Math.min(...ys)-height;
-  g.save();if(cover)g.globalAlpha=.25;g.drawImage(mesh.cv,x,y,mesh.cv.width*f,mesh.cv.height*f);
+  g.save();if(cover)g.globalAlpha=.25;
+  if(damageProject&&openings.length){g.beginPath();g.rect(-W*2,-H*2,W*5,H*5);for(const d of openings){if(!d.opening||d.normal[0]+d.normal[1]>.001)continue;openingOutline(d).forEach(([u,h],i)=>{const q=damageProject(d.a[0]+(d.b[0]-d.a[0])*u,d.a[1]+(d.b[1]-d.a[1])*u,h*1.625*d.units);if(i)g.lineTo(...q);else g.moveTo(...q)});g.closePath();}g.clip('evenodd');}
+  g.drawImage(mesh.cv,x,y,mesh.cv.width*f,mesh.cv.height*f);
   if(scale>=3&&this.quality>=2&&this.windowJobs++<6){const stamp=Math.floor(performance.now()/83),visible=mesh.windows.filter(w=>{const sx=x+w.A[0]*f,sy=y+w.A[1]*f;return sx>-20&&sx<W+20&&sy>-20&&sy<H+20&&Math.hypot(w.A[0]-w.B[0],w.A[1]-w.B[1])*f>=5;}).slice(0,36);if(stamp!==mesh.stamp){mesh.stamp=stamp;if(!mesh.life){mesh.life=document.createElement('canvas');mesh.life.width=mesh.cv.width;mesh.life.height=mesh.cv.height;const extra=mesh.cv.width*mesh.cv.height*4;mesh.bytes+=extra;this.bytes+=extra;}const lg=mesh.life.getContext('2d')!;lg.clearRect(0,0,mesh.life.width,mesh.life.height);paintWindowStories(lg,visible,stamp/12);}if(mesh.life)g.drawImage(mesh.life,x,y,mesh.life.width*f,mesh.life.height*f);}
   g.restore();
  }

@@ -509,7 +509,7 @@ export class Simulation {
     if (c.lastHitTick > this.tick - 30 && c.lastHitBy === -100 - v.id) return;
     c.lastHitTick = this.tick; c.lastHitBy = -100 - v.id;
     const d = VEHICLES[v.cls];
-    const nx = Math.cos(v.heading), ny = Math.sin(v.heading);
+    const velocity=carVel(this,v),magnitude=Math.hypot(velocity.x,velocity.y),nx=magnitude>.05?velocity.x/magnitude:Math.cos(v.heading),ny=magnitude>.05?velocity.y/magnitude:Math.sin(v.heading);
     const res = applyImpact(c, Math.min(this.cfg.maxImpulse * 1.5, speed * d.mass * 1.1), nx, ny, false, this.cfg.maxImpulse * 1.5);
     // a real pedestrian strike: past a jog the person is carried off at most of the car's speed and thrown up in an
     // arc (they fly, land and slide; PhysicsWorld.stepCharacter does the rest). The car barely notices the mass.

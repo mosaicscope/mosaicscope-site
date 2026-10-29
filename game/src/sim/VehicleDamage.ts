@@ -1,3 +1,4 @@
+import {strikeLattice,stepLattice,type CrashLattice} from './CrashLattice';
 import {damageVehicleParts,type PartDamage} from './VehicleParts';
 import {stressAttachments,advanceAttachments,type ProgressiveDamage} from './ProgressiveDamage';
 import {crushStructure,tickStructure,type VehicleStructure} from './VehicleStructure';
@@ -7,7 +8,7 @@ import type {CrushDent} from '../render/VehicleMesh';
 export interface WheelDamage { puncture:boolean; rim:number; alignment:number; suspension:number; missing:boolean; attachment?:number }
 export interface VehicleDebris {kind:'glass'|'wheel'|'metal'|'lamp';x:number;y:number;z:number;vx:number;vy:number;vz:number;age:number;spin:number;colour?:string;size?:number;curl?:number;zone?:number;roll?:number;pitch?:number;spinRate?:number}
 export interface VehicleImpact {tick:number;zone:number;deltaV:number;energy:number;x:number;y:number;severity:string}
-export interface VehicleComponents {parts?:PartDamage;progressive?:ProgressiveDamage;structure?:VehicleStructure;doorHinges?:number[];doorGone?:boolean[];boot?:number;bootGone?:boolean;blood?:{x:number;y:number;z:number;size:number;age:number}[];impacts?:VehicleImpact[];dents?:CrushDent[];wheels:WheelDamage[];panels:number[];glass:number[];contacts?:{x:number;y:number}[];lamps?:number[];mirrors?:number[];bumpers?:number[];bumperZone?:number;hood:number;bumper:number;hoodLoose:boolean;hoodGone:boolean;bumperLoose:boolean;debris:VehicleDebris[];lastImpact:number}
+export interface VehicleComponents {parts?:PartDamage;progressive?:ProgressiveDamage;structure?:VehicleStructure;lattice?:CrashLattice;doorHinges?:number[];doorGone?:boolean[];boot?:number;bootGone?:boolean;blood?:{x:number;y:number;z:number;size:number;age:number}[];impacts?:VehicleImpact[];dents?:CrushDent[];wheels:WheelDamage[];panels:number[];glass:number[];contacts?:{x:number;y:number}[];lamps?:number[];mirrors?:number[];bumpers?:number[];bumperZone?:number;hood:number;bumper:number;hoodLoose:boolean;hoodGone:boolean;bumperLoose:boolean;debris:VehicleDebris[];lastImpact:number}
 export function components(v:Vehicle):VehicleComponents{const p:VehicleComponents=v.components??={wheels:Array.from({length:4},(_,i)=>({puncture:(i%2===0?v.flatLeft:v.flatRight)??false,rim:0,alignment:0,suspension:0,missing:false})),panels:[v.dmgF??0,v.dmgR??0,v.dmgL??0,v.dmgS??0],glass:Array(4).fill(v.glassDamage??0),hood:1,bumper:1,hoodLoose:false,hoodGone:false,bumperLoose:false,debris:[],lastImpact:0};p.lamps??=[v.dmgF??0,v.dmgF??0,v.dmgR??0,v.dmgR??0];p.mirrors??=[0,0];p.bumpers??=[p.bumper,p.bumper];return p;}
 export function lampDamage(v:Vehicle,index:number):number{return v.components?.lamps?.[index]??(index<2?v.dmgF??0:v.dmgR??0);}
 /** Energy and direction choose actual components; a slow scrape never removes a wheel. */
@@ -18,6 +19,7 @@ export function impactComponents(v:Vehicle,nx:number,ny:number,speed:number,mass
  p.contacts??=[{x:.5,y:0},{x:-.5,y:0},{x:0,y:-.5},{x:0,y:.5}];if(contact){const dx=contact.x-v.x,dy=contact.y-v.y,d=vehicleGeometry(v);p.contacts[zone]={x:Math.max(-.5,Math.min(.5,(dx*c+dy*s)/d.length)),y:Math.max(-.5,Math.min(.5,(-dx*s+dy*c)/d.width))};}
  if(energy>.005){const at=p.contacts[zone];p.impacts??=[];const previous=p.impacts[p.impacts.length-1],impact={tick,zone,deltaV:speed,energy,x:at.x,y:at.y,severity:energy>.65?'severe':energy>.25?'heavy':energy>.07?'moderate':'light'};if(previous&&tick-previous.tick<=6&&previous.zone===zone&&Math.hypot(previous.x-at.x,previous.y-at.y)<.15){if(energy>previous.energy)p.impacts[p.impacts.length-1]=impact;}else{if(p.impacts.length>=8)p.impacts.shift();p.impacts.push(impact);}}
  if(energy>.005){const at=p.contacts[zone],len=Math.hypot(along,side)||1,dent={zone,x:at.x,y:at.y,z:.44,nx:along/len,ny:side/len,energy,depth:energy*(zone<2?.2:.3),radius:.24+energy*.15};p.dents??=[];const old=p.dents.find(d=>d.zone===zone&&Math.hypot(d.x-at.x,d.y-at.y)<.18);if(old){old.depth=Math.min(.34,old.depth+dent.depth*.7);old.energy=Math.min(1,old.energy+energy);old.radius=Math.max(old.radius,dent.radius);}else{if(p.dents.length>=12)p.dents.shift();p.dents.push(dent);}}
+ if(energy>.08){const at=p.contacts[zone],len=Math.hypot(along,side)||1;p.lattice=strikeLattice(p.lattice,at.x,at.y,along/len,side/len,energy);}
  if(zone>=2&&energy>.25){const sideIndex=zone-2;p.doorHinges??=[1,1];p.doorGone??=[false,false];if(!p.doorGone[sideIndex])p.doorHinges[sideIndex]=Math.max(0,p.doorHinges[sideIndex]-(energy-.25)*.8);}
  damageVehicleParts(v,p.contacts[zone].x,p.contacts[zone].y,energy);
  crushStructure(v,zone,energy,p.contacts[zone].x,p.contacts[zone].y);
@@ -46,7 +48,7 @@ export function damageParts(v: Vehicle): void {
 }
 /** Heat rises only while badly damaged engines run; stopping prevents escalation. */
 export function damageTick(v: Vehicle, dt: number): void {
-  damageParts(v);tickStructure(v,dt);advanceAttachments(v,dt);
+  damageParts(v);tickStructure(v,dt);advanceAttachments(v,dt);if(v.components?.lattice)stepLattice(v.components.lattice,dt);
   // A damaged wheel mount carries load until motion tears the remaining attachment.
   if(v.components&&Number.isFinite(dt)&&dt>0){const p=v.components,speed=Math.abs(v.speed),step=Math.min(.25,dt);
    for(let i=0;i<p.wheels.length;i++){const w=p.wheels[i],mount=w.attachment??1;if(w.missing||mount>=.65||speed<.5)continue;
