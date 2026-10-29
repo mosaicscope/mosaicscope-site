@@ -1,3 +1,4 @@
+import {latticeFailure} from './CrashLattice';
 import {partsEffects} from './VehicleParts';
 import type {Vehicle} from '../entities/types';
 import type {MeshPoint} from '../render/VehicleMesh';
@@ -45,12 +46,12 @@ export function brakeThermals(v:Vehicle,speed:number,braking:number,dt:number):v
  p.brakeWear=sat(p.brakeWear+dt*work*.000015);
 }
 const HEALTHY={power:1,braking:1,steer:1,pull:0,brakePull:0,drag:0,grip:1,shift:0,lights:true};
-export function structuralDynamics(v:Vehicle){const p=v.components?.structure;if(!p)return HEALTHY;
+export function structuralDynamics(v:Vehicle){const p=v.components?.structure;if(!p)return HEALTHY;const frame=latticeFailure(v.components?.lattice);
  return{power:Math.max(.08,(1-p.exhaust*.18)*(1-p.gearbox*.35)*(1-p.temperature*.65)*(p.oil<.15?.3:1)*(p.fuel<.02?.1:1)),
  braking:Math.max(.2,(1-(p.hydraulics[0]+p.hydraulics[1])*.32)*(1-Math.max(0,p.brakeHeat-.6)*.85)*(1-p.brakeWear*.3)),
- steer:1-p.rack*.45,pull:p.bend*.06,brakePull:(p.hydraulics[1]-p.hydraulics[0])*.06,
+ steer:(1-p.rack*.45)*(1-frame*.12),pull:p.bend*.06,brakePull:(p.hydraulics[1]-p.hydraulics[0])*.06,
  drag:p.aero*.6+(p.front+p.rear)*.18+(p.axles[0]+p.axles[1])*.3,
- grip:Math.max(.45,1-(p.axles[0]+p.axles[1])*.13-Math.abs(p.twist)*.12-Math.abs(p.hop)*2),shift:p.gearbox*.3,lights:p.battery<.8};}
+ grip:Math.max(.45,1-(p.axles[0]+p.axles[1])*.13-Math.abs(p.twist)*.12-Math.abs(p.hop)*2-frame*.1),shift:p.gearbox*.3,lights:p.battery<.8};}
 /** Permanent rail shortening, lateral bend, torsion, cabin intrusion and roof buckling. */
 export function deformStructure(p:VehicleStructure,q:MeshPoint,L:number,W:number,H:number):MeshPoint{
  const [x,y,z]=q,u=x/L,t=y/W,roof=Math.max(0,(z/H-.5)*2),end=Math.max(0,(Math.abs(u)-.15)/.35);
