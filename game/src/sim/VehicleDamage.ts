@@ -49,7 +49,7 @@ export function damageParts(v: Vehicle): void {
 }
 /** Heat rises only while badly damaged engines run; stopping prevents escalation. */
 export function damageTick(v: Vehicle, dt: number): void {
-  damageParts(v);tickStructure(v,dt);advanceAttachments(v,dt);tickEngineComponents(v,dt);if(v.components?.lattice){if(v.components.lattice.version!==3)v.components.lattice=upgradeLattice(v.components.lattice);stepLattice(v.components.lattice,dt);}
+  damageParts(v);tickStructure(v,dt);advanceAttachments(v,dt);tickEngineComponents(v,dt);if(v.components?.lattice){if(v.components.lattice.version!==4)v.components.lattice=upgradeLattice(v.components.lattice);stepLattice(v.components.lattice,dt);}
   // A damaged wheel mount carries load until motion tears the remaining attachment.
   if(v.components&&Number.isFinite(dt)&&dt>0){const p=v.components,speed=Math.abs(v.speed),step=Math.min(.25,dt);
    for(let i=0;i<p.wheels.length;i++){const w=p.wheels[i],mount=w.attachment??1;if(w.missing||mount>=.65||speed<.5)continue;

@@ -2,12 +2,13 @@
  * Allocated only on impact; healthy vehicles incur no lattice cost. */
 export interface CrashNode {x:number;y:number;restX:number;restY:number;vx:number;vy:number;z?:number;restZ?:number;vz?:number}
 export interface CrashLattice {nodes:CrashNode[];active:number;linkDamage?:number[];version?:number}
-export const crashPositions:readonly (readonly [number,number,number])[]=Array.from({length:50},(_,i)=>{
- const layer=Math.floor(i/25),row=Math.floor((i%25)/5),col=i%5;return [-.45+row*.225,-.4+col*.2,layer?.9:.16] as const;
+export const crashPositions:readonly (readonly [number,number,number])[]=Array.from({length:200},(_,i)=>{
+ const layer=Math.floor(i/100),row=Math.floor((i%100)/10),col=i%10;return [-.45+row*.1,-.4+col*(.8/9),layer?.9:.16] as const;
 });
 const oldPositions:readonly (readonly [number,number,number])[]=Array.from({length:24},(_,i)=>{
  const layer=Math.floor(i/12),row=Math.floor((i%12)/3),col=i%3;return [-.45+row*.3,(col-1)*.4,layer?.9:.16] as const;
 });
+const priorPositions:readonly (readonly [number,number,number])[]=Array.from({length:50},(_,i)=>{const layer=Math.floor(i/25),row=Math.floor((i%25)/5),col=i%5;return [-.45+row*.225,-.4+col*.2,layer?.9:.16] as const;});
 /** Generate rail, crossmember, vertical and diagonal links for each lattice density. */
 function makeLinks(positions:typeof crashPositions,stepX:number,stepY:number):[number,number][]{
  const out:[number,number][]=[];for(let i=0;i<positions.length;i++)for(let j=i+1;j<positions.length;j++){
@@ -17,21 +18,25 @@ function makeLinks(positions:typeof crashPositions,stepX:number,stepY:number):[n
   if(axes===1||axes===2&&z<.01||axes===2&&y<.01)out.push([i,j]);
  }return out;
 }
-const links=makeLinks(crashPositions,.225,.2),oldLinks=makeLinks(oldPositions,.3,.4);
+const links=makeLinks(crashPositions,.1,.8/9),oldLinks=makeLinks(oldPositions,.3,.4),priorLinks=makeLinks(priorPositions,.225,.2);
+const linkMaps=new Map<number,number[]>();
 const clamp=(v:number,lo:number,hi:number)=>Math.max(lo,Math.min(hi,v));
-function fresh():CrashLattice{return {version:3,nodes:crashPositions.map(([x,y,z])=>({x,y,z,restX:x,restY:y,restZ:z,vx:0,vy:0,vz:0})),active:0,linkDamage:links.map(()=>0)};}
-/** Migrate the six- and 24-node saves, preserving deformation and interpolating old link damage. */
+function fresh():CrashLattice{return {version:4,nodes:crashPositions.map(([x,y,z])=>({x,y,z,restX:x,restY:y,restZ:z,vx:0,vy:0,vz:0})),active:0,linkDamage:links.map(()=>0)};}
+/** Migrate the six-, 24- and 50-node saves, preserving deformation and interpolating old link damage. */
 export function upgradeLattice(old:CrashLattice|undefined):CrashLattice{
- if(old?.version===3&&old.nodes.length===crashPositions.length&&old.nodes.every(n=>[n.x,n.y,n.z,n.restX,n.restY,n.restZ,n.vx,n.vy,n.vz].every(Number.isFinite)))return old;
+ if(old?.version===4&&old.nodes.length===crashPositions.length&&old.nodes.every(n=>[n.x,n.y,n.z,n.restX,n.restY,n.restZ,n.vx,n.vy,n.vz].every(Number.isFinite)))return old;
  const out=fresh();
- if(old?.version===2&&old.nodes?.length===24&&old.nodes.every(n=>[n.x,n.y,n.z,n.restX,n.restY,n.restZ,n.vx,n.vy,n.vz].every(Number.isFinite))){
+ if(old&&((old.version===2&&old.nodes?.length===24)||(old.version===3&&old.nodes?.length===50))&&old.nodes.every(n=>[n.x,n.y,n.z,n.restX,n.restY,n.restZ,n.vx,n.vy,n.vz].every(Number.isFinite))){
+  const prior=old.version===3,positions=prior?priorPositions:oldPositions,sourceLinks=prior?priorLinks:oldLinks,rows=prior?5:4,cols=prior?5:3,stepX=prior?.225:.3,stepY=prior?.2:.4;
   for(let index=0;index<out.nodes.length;index++){
-   const n=out.nodes[index],base=crashPositions[index],ux=clamp((base[0]+.45)/.3,0,3),uy=clamp((base[1]+.4)/.4,0,2),ix=Math.min(2,Math.floor(ux)),iy=Math.min(1,Math.floor(uy)),fx=ux-ix,fy=uy-iy,layer=Math.floor(index/25);
+   const n=out.nodes[index],base=crashPositions[index],ux=clamp((base[0]+.45)/stepX,0,rows-1),uy=clamp((base[1]+.4)/stepY,0,cols-1),ix=Math.min(rows-2,Math.floor(ux)),iy=Math.min(cols-2,Math.floor(uy)),fx=ux-ix,fy=uy-iy,layer=Math.floor(index/100);
    let x=0,y=0,z=0,rx=0,ry=0,rz=0,vx=0,vy=0,vz=0;
-   for(let a=0;a<2;a++)for(let b=0;b<2;b++){const j=layer*12+(ix+a)*3+iy+b,src=old.nodes[j],pos=oldPositions[j],w=(a?fx:1-fx)*(b?fy:1-fy);x+=(src.x-pos[0])*w;y+=(src.y-pos[1])*w;z+=(src.z!-pos[2])*w;rx+=(src.restX-pos[0])*w;ry+=(src.restY-pos[1])*w;rz+=(src.restZ!-pos[2])*w;vx+=src.vx*w;vy+=src.vy*w;vz+=src.vz!*w;}
+   for(let a=0;a<2;a++)for(let b=0;b<2;b++){const j=layer*rows*cols+(ix+a)*cols+iy+b,src=old.nodes[j],pos=positions[j],w=(a?fx:1-fx)*(b?fy:1-fy);x+=(src.x-pos[0])*w;y+=(src.y-pos[1])*w;z+=(src.z!-pos[2])*w;rx+=(src.restX-pos[0])*w;ry+=(src.restY-pos[1])*w;rz+=(src.restZ!-pos[2])*w;vx+=src.vx*w;vy+=src.vy*w;vz+=src.vz!*w;}
    Object.assign(n,{x:base[0]+x,y:base[1]+y,z:base[2]+z,restX:base[0]+rx,restY:base[1]+ry,restZ:base[2]+rz,vx,vy,vz});
   }
-  const oldDamage=old.linkDamage??[];out.linkDamage=links.map(([a,b])=>{const pa=crashPositions[a],pb=crashPositions[b],mx=(pa[0]+pb[0])/2,my=(pa[1]+pb[1])/2,mz=(pa[2]+pb[2])/2;let best=Infinity,value=0;for(let i=0;i<oldLinks.length;i++){const [u,v]=oldLinks[i],q=oldPositions[u],r=oldPositions[v],d=((q[0]+r[0])/2-mx)**2+((q[1]+r[1])/2-my)**2+((q[2]+r[2])/2-mz)**2;if(d<best){best=d;value=Number.isFinite(oldDamage[i])?clamp(oldDamage[i],0,1):0;}}return value;});
+  const oldDamage=old.linkDamage??[];let mapping=linkMaps.get(old.version!);
+  if(!mapping){mapping=links.map(([a,b])=>{const pa=crashPositions[a],pb=crashPositions[b],mx=(pa[0]+pb[0])/2,my=(pa[1]+pb[1])/2,mz=(pa[2]+pb[2])/2;let best=Infinity,nearest=0;for(let i=0;i<sourceLinks.length;i++){const [u,v]=sourceLinks[i],q=positions[u],r=positions[v],d=((q[0]+r[0])/2-mx)**2+((q[1]+r[1])/2-my)**2+((q[2]+r[2])/2-mz)**2;if(d<best){best=d;nearest=i;}}return nearest;});linkMaps.set(old.version!,mapping);}
+  out.linkDamage=mapping.map(i=>Number.isFinite(oldDamage[i])?clamp(oldDamage[i],0,1):0);
   out.active=Number.isFinite(old.active)?clamp(old.active,0,2):0;
  }else if(old?.nodes?.length===6){for(const n of out.nodes){let dx=0,dy=0,total=0;for(let i=0;i<6;i++){const previous=old.nodes[i],bx=[-.42,-.42,0,0,.42,.42][i],by=i%2?.4:-.4;if(!previous||![previous.restX,previous.restY].every(Number.isFinite))continue;const weight=Math.exp(-((n.restX-bx)**2+(n.restY-by)**2)*8);dx+=(previous.restX-bx)*weight;dy+=(previous.restY-by)*weight;total+=weight;}if(total){n.x=n.restX+=dx/total;n.y=n.restY+=dy/total;}}}
  return out;
@@ -48,7 +53,7 @@ export function strikeLattice(lattice:CrashLattice|undefined,x:number,y:number,n
 }
 /** A damaged link loses stiffness; normalized permanent rest positions remain in saved data. */
 export function stepLattice(state:CrashLattice,dt:number):void{
- if(!Number.isFinite(dt)||dt<=0||state.active<=0||state.version!==3||state.nodes.length!==crashPositions.length)return;
+ if(!Number.isFinite(dt)||dt<=0||state.active<=0||state.version!==4||state.nodes.length!==crashPositions.length)return;
  const elapsed=Math.min(.05,dt),count=Math.max(1,Math.ceil(elapsed*120)),h=elapsed/count;
  state.linkDamage??=links.map(()=>0);
  for(let step=0;step<count;step++){
