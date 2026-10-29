@@ -435,6 +435,7 @@ export class Simulation {
   }
 
   private moveSimple(c: Character, dt: number): void {
+    if(c.phys===Phys.DOWN){this.physics.stepCharacter(c,Math.min(dt,.1),this.hooks);return;}
     let vx = c.vx, vy = c.vy;
     if (this.kerbStep(c)) { vx = this.kerb.x; vy = this.kerb.y; }
     if (vx === 0 && vy === 0) return;

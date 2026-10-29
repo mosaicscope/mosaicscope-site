@@ -53,6 +53,9 @@ export function updatePhysState(c: Character, dt: number): void {
   }
   c.physTimer -= dt;
   if (c.physTimer > 0) return;
+  // Keep an impacted body down while it is still airborne or sliding quickly.
+  // The normal recovery timer resumes as soon as the motion settles.
+  if(c.phys===Phys.DOWN&&(Math.abs(c.vz)>1||Math.hypot(c.kx,c.ky)>2.5)){c.physTimer=.1;return;}
   if (c.phys === Phys.STUMBLE) c.phys = Phys.OK;
   else if (c.phys === Phys.DOWN) { c.phys = Phys.RECOVER; c.physTimer = 0.8; c.emo.composure = Math.max(c.emo.composure, 0.45); }
   else if (c.phys === Phys.RECOVER) c.phys = Phys.OK;
