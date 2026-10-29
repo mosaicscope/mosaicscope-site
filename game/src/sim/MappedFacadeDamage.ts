@@ -1,6 +1,6 @@
 import type {Vehicle} from '../entities/types';
 import {VEHICLES} from '../content/vehicles';
-import {fleetBody} from '../content/vehicleBodies';
+import {vehicleWallProfile} from './VehicleWallProfile';
 import {utilityDynamics} from './VehicleUtility';
 import {vehicleGeometry} from './VehicleGeometry';
 import {impactComponents} from './VehicleDamage';
@@ -84,19 +84,10 @@ export class MappedFacadeDamage {
     const hitTime=contact.t??1,cx=(v.px+(v.x-v.px)*hitTime)*units,cy=(v.py+(v.y-v.py)*hitTime)*units,carCentre=(cx-a[0])*tx+(cy-a[1])*ty;
     const opening=response.energy>=FACADE_RESPONSE[material].resistance*.13&&contact.speed>=5.5&&carCentre>=projected*.55&&len-carCentre>=projected*.55;
     const centre=opening?carCentre:along,half=Math.max(units*1.05,projected*.58),start=Math.max(0,centre-half),end=Math.min(len,centre+half),point=(distance:number):[number,number]=>[a[0]+(b[0]-a[0])*distance/len,a[1]+(b[1]-a[1])*distance/len];
-    const base=VEHICLES[v.cls].design?.base??v.cls,boxy=['van','panelvan','stepvan','microvan','suv','box_suv','lift_suv','bus','fire','ambulance','tank'].includes(base);
-    // Use the authored roof and body proportions of this vehicle family,
-    // projected onto the struck wall. Dimensions already include its plate
-    // variation and chassis modifications.
-    const authored=v.lifeMods?.includes('Limousine chassis')?undefined:fleetBody(v.cls)?.shape;
-    const roof=authored?.roof??(boxy?[-.42,.25]:[-.18,.08]),roofWidth=authored?.rw??(boxy?.9:.74),roofHeight=authored?.rh??1;
-    const forwardAlong=tx*forwardX+ty*forwardY,sideAlong=-tx*forwardY+ty*forwardX,roofCentre=(roof[0]+roof[1])*.5*g.length*forwardAlong*units;
-    const roofHalf=(Math.abs(roof[1]-roof[0])*g.length*Math.abs(forwardAlong)+roofWidth*g.width*Math.abs(sideAlong))*units*.5;
-    const aperture=Math.max(.001,end-start),toU=(x:number)=>Math.max(.07,Math.min(.93,(centre+x-start)/aperture)),roofLeft=toU(roofCentre-roofHalf),roofRight=toU(roofCentre+roofHalf),shoulder=Math.min(.8,Math.max(.45,Math.max(authored?.hood??.5,authored?.deck??.56)/roofHeight));
-    const openingContour=[[.04,0],[.04,shoulder],[roofLeft,.96],[(roofLeft+roofRight)*.5,1],[roofRight,.96],[.96,shoulder],[.96,0]];
+    const profile=opening?vehicleWallProfile(v,tx,ty,units,centre,start,end):undefined;
     const d:MappedFacadeRecord={key,kind:'building',buildingId:building.id,building:typeof building.id==='number'?building.id:undefined,edge:contact.edge,a:point(start),b:point(end),normal:[-ty*(polygonArea(building.points)>=0?1:-1),tx*(polygonArea(building.points)>=0?1:-1)],units,
       x:contact.x-contact.nx*units*.7,y:contact.y-contact.ny*units*.7,tx:Math.floor(contact.x),ty:Math.floor(contact.y),impactU:(along-start)/(end-start),severity:response.severity,material,energy:response.energy,variant:Math.abs(Math.floor(contact.x*17+contact.y*31))%12,
-      opening:opening||old?.opening,openingHeight:opening?g.height*Math.max(1,roofHeight)/1.625:old?.openingHeight,openingContour:opening?openingContour:old?.openingContour,at:seconds,phase:'reported',repairProgress:0,repairBy:seconds+(opening?120:22)+FACADE_RESPONSE[material].repair*(.5+response.severity*.5)};
+      opening:opening||old?.opening,openingHeight:profile?.height??old?.openingHeight,openingContour:profile?.contour??old?.openingContour,at:seconds,phase:'reported',repairProgress:0,repairBy:seconds+(opening?120:22)+FACADE_RESPONSE[material].repair*(.5+response.severity*.5)};
     d.structuralEnergy=Math.min(10000000,(old?.structuralEnergy??0)+response.energy);
     const area=Math.abs(polygonArea(building.points))/(units*units),impactSum=d.structuralEnergy+[...this.records.values()].filter(r=>r.buildingId===building.id&&r.key!==key).reduce((sum,r)=>sum+(r.structuralEnergy??0),0);
     const collapseThreshold=FACADE_RESPONSE[material].resistance*(12+Math.min(120,area*.3))*Math.max(1,Math.min(4,(building.height??3.2)/12));
