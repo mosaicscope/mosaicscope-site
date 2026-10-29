@@ -1,3 +1,4 @@
+import {tickEngineComponents,type EngineMounts,type EngineComponentId} from './EngineComponents';
 import {strikeLattice,stepLattice,upgradeLattice,type CrashLattice} from './CrashLattice';
 import {damageVehicleParts,type PartDamage} from './VehicleParts';
 import {stressAttachments,advanceAttachments,type ProgressiveDamage} from './ProgressiveDamage';
@@ -6,9 +7,9 @@ import type { Vehicle } from "../entities/types";
 import {vehicleGeometry} from './VehicleGeometry';
 import type {CrushDent} from '../render/VehicleMesh';
 export interface WheelDamage { puncture:boolean; rim:number; alignment:number; suspension:number; missing:boolean; attachment?:number }
-export interface VehicleDebris {kind:'glass'|'wheel'|'metal'|'lamp'|'masonry';x:number;y:number;z:number;vx:number;vy:number;vz:number;age:number;spin:number;colour?:string;size?:number;curl?:number;zone?:number;roll?:number;pitch?:number;spinRate?:number}
+export interface VehicleDebris {kind:'glass'|'wheel'|'metal'|'lamp'|'masonry'|'engine';part?:EngineComponentId;x:number;y:number;z:number;vx:number;vy:number;vz:number;age:number;spin:number;colour?:string;size?:number;curl?:number;zone?:number;roll?:number;pitch?:number;spinRate?:number}
 export interface VehicleImpact {tick:number;zone:number;deltaV:number;energy:number;x:number;y:number;severity:string}
-export interface VehicleComponents {parts?:PartDamage;progressive?:ProgressiveDamage;structure?:VehicleStructure;lattice?:CrashLattice;doorHinges?:number[];doorGone?:boolean[];boot?:number;bootGone?:boolean;blood?:{x:number;y:number;z:number;size:number;age:number}[];impacts?:VehicleImpact[];dents?:CrushDent[];wheels:WheelDamage[];panels:number[];glass:number[];contacts?:{x:number;y:number}[];lamps?:number[];mirrors?:number[];bumpers?:number[];bumperZone?:number;hood:number;bumper:number;hoodLoose:boolean;hoodGone:boolean;bumperLoose:boolean;debris:VehicleDebris[];lastImpact:number}
+export interface VehicleComponents {engineMounts?:EngineMounts;parts?:PartDamage;progressive?:ProgressiveDamage;structure?:VehicleStructure;lattice?:CrashLattice;doorHinges?:number[];doorGone?:boolean[];boot?:number;bootGone?:boolean;blood?:{x:number;y:number;z:number;size:number;age:number}[];impacts?:VehicleImpact[];dents?:CrushDent[];wheels:WheelDamage[];panels:number[];glass:number[];contacts?:{x:number;y:number}[];lamps?:number[];mirrors?:number[];bumpers?:number[];bumperZone?:number;hood:number;bumper:number;hoodLoose:boolean;hoodGone:boolean;bumperLoose:boolean;debris:VehicleDebris[];lastImpact:number}
 export function components(v:Vehicle):VehicleComponents{const p:VehicleComponents=v.components??={wheels:Array.from({length:4},(_,i)=>({puncture:(i%2===0?v.flatLeft:v.flatRight)??false,rim:0,alignment:0,suspension:0,missing:false})),panels:[v.dmgF??0,v.dmgR??0,v.dmgL??0,v.dmgS??0],glass:Array(4).fill(v.glassDamage??0),hood:1,bumper:1,hoodLoose:false,hoodGone:false,bumperLoose:false,debris:[],lastImpact:0};p.lamps??=[v.dmgF??0,v.dmgF??0,v.dmgR??0,v.dmgR??0];p.mirrors??=[0,0];p.bumpers??=[p.bumper,p.bumper];return p;}
 export function lampDamage(v:Vehicle,index:number):number{return v.components?.lamps?.[index]??(index<2?v.dmgF??0:v.dmgR??0);}
 /** Energy and direction choose actual components; a slow scrape never removes a wheel. */
@@ -48,7 +49,7 @@ export function damageParts(v: Vehicle): void {
 }
 /** Heat rises only while badly damaged engines run; stopping prevents escalation. */
 export function damageTick(v: Vehicle, dt: number): void {
-  damageParts(v);tickStructure(v,dt);advanceAttachments(v,dt);if(v.components?.lattice){if(v.components.lattice.version!==2)v.components.lattice=upgradeLattice(v.components.lattice);stepLattice(v.components.lattice,dt);}
+  damageParts(v);tickStructure(v,dt);advanceAttachments(v,dt);tickEngineComponents(v,dt);if(v.components?.lattice){if(v.components.lattice.version!==2)v.components.lattice=upgradeLattice(v.components.lattice);stepLattice(v.components.lattice,dt);}
   // A damaged wheel mount carries load until motion tears the remaining attachment.
   if(v.components&&Number.isFinite(dt)&&dt>0){const p=v.components,speed=Math.abs(v.speed),step=Math.min(.25,dt);
    for(let i=0;i<p.wheels.length;i++){const w=p.wheels[i],mount=w.attachment??1;if(w.missing||mount>=.65||speed<.5)continue;
