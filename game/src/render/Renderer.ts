@@ -87,6 +87,7 @@ export class Renderer {
   private motion = new Map<number,{x:number;y:number;speed:number}>();
   private lastPose = new Map<number, string>();
   private gaits=new WeakMap<Character,ReturnType<typeof gaitOf>>();
+  private impactLimbs=new WeakMap<Character,{angles:number[];velocity:number[]}>();
   /** screen boxes of drawn figures for picking: id, x0, y0, x1, y1 */
   private pickBoxes: number[] = [];
   stats = { items: 0, figures: 0, silhouettes: 0, batches: 0, frameMs: 0 };
@@ -383,6 +384,7 @@ export class Renderer {
           if (h.head >= 2) a.tilt += Math.sin(time * 1.3 + c.id) * Math.min(0.3, h.head * 0.08);
           if (h.arm > 0 && name !== "throw" && name !== "swing") { a.armR *= 0.3; a.foreR = Math.max(a.foreR, 1.4); }
         }
+        if(c.phys===Phys.DOWN&&!o.reduceMotion){let r=this.impactLimbs.get(c);if(!r){r={angles:[0,0,0,0],velocity:[0,0,0,0]};this.impactLimbs.set(c,r);}const h=Math.min(.04,Math.max(0,dt)),force=Math.min(1.2,Math.hypot(c.kx,c.ky)*.08+Math.abs(c.vz)*.07),direction=(c.kx-c.ky)>=0?1:-1;for(let i=0;i<4;i++){const target=force*direction*(i%2?-.6:.6)*(i<2?1:.7);r.velocity[i]+=(target-r.angles[i])*24*h-r.velocity[i]*7*h;r.angles[i]=Math.max(-1,Math.min(1,r.angles[i]+r.velocity[i]*h));}a.armL+=r.angles[0];a.armR+=r.angles[1];a.thighL+=r.angles[2];a.thighR+=r.angles[3];a.tilt+=r.angles[0]*.2;}else this.impactLimbs.delete(c);
         applyNegativeReaction(a,c,time,spd,name,o.reduceMotion);
         if (moving && (name === "walk" || name === "run" || name === "panic")) this.foreshorten(a, c);
         else if(["talk","give","wave","inspect","press"].includes(name)){const f=.5+.5*Math.abs(Math.cos(c.facing)-Math.sin(c.facing))/Math.SQRT2;a.armL*=f;a.armR*=f;a.foreL*=.85;a.foreR*=.85;}
