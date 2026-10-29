@@ -20,9 +20,24 @@ const DETAIL_GROUPS:readonly [string,number,number,PartEffect,PartSpec['repair']
  ['cabin',0,0,'frame','body',['Front cross brace','Rear cross brace','Left floor rail','Right floor rail','Centre tunnel','Firewall brace','Roof support']]
 ];
 const DETAIL_PARTS=DETAIL_GROUPS.flatMap(([group,x,y,effect,repair,names],g)=>names.map((label,i)=>({...component(group+'_detail_'+i,label,clamp(x+(i%3-1)*.025,-.48,.48),clamp(y+(Math.floor(i/3)-1)*.025,-.48,.48),effect,repair,.16,.22,.28),...(g>=3&&g<=6?{wheel:g-3}:{})})));
+/** Additional independently repairable collision-local fittings. */
+const EXTRA_GROUPS:readonly [string,number,number,PartEffect,PartSpec['repair'],readonly string[]][]=[
+ ['coolant',.38,0,'cooling','mechanical',['Radiator tank','Coolant cap','Fan motor','Fan relay','Coolant valve','Expansion hose','Coolant return','Water outlet','Coolant clamp','Radiator mount']],
+ ['enginebay',.24,0,'power','mechanical',['Engine head cover','Camshaft carrier','Timing cover','Crank seal','Oil gallery','Sump baffle','Piston cooling jet','Engine loom plug','Engine earth strap','Engine support bracket']],
+ ['injection',.27,.19,'power','mechanical',['Injector rail','Injector connector','Fuel regulator','Intake plenum','Throttle sensor','Inlet gasket','Air duct clip','Fuel pressure sensor','Vacuum reservoir','Fuel rail mount']],
+ ['transmission',-.04,0,'power','mechanical',['Gear selector','Output shaft','Input bearing','Transmission cooler','Shift cable','Clutch release','Bell housing','Transmission seal','Gear sensor','Clutch line']],
+ ['frontstructure',.43,0,'frame','body',['Front crash beam','Front crossmember','Left front rail','Right front rail','Bonnet catch','Bonnet hinge','Front apron','Front bulkhead','Left crash box','Right crash box']],
+ ['rearstructure',-.42,0,'frame','body',['Rear crash beam','Rear crossmember brace','Left rear rail','Right rear rail','Boot latch','Boot hinge','Rear apron','Rear bulkhead','Left rear crash box','Right rear crash box']],
+ ['leftbody',0,-.45,'frame','body',['Left A pillar','Left B pillar','Left C pillar','Left floor brace','Left rocker panel','Left wing mount','Left roof rail','Left door beam','Left quarter brace','Left window frame']],
+ ['rightbody',0,.45,'frame','body',['Right A pillar','Right B pillar','Right C pillar','Right floor brace','Right rocker panel','Right wing mount','Right roof rail','Right door beam','Right quarter brace','Right window frame']],
+ ['steeringrack',.19,0,'steering','mechanical',['Steering rack housing','Steering pinion','Steering rack mount','Steering column joint','Steering column mount','Power steering hose','Steering fluid reservoir','Rack boot','Intermediate shaft','Steering coupler']],
+ ['brakes',.08,0,'braking','mechanical',['Brake master cylinder','Brake reservoir','Brake proportioning valve','Brake controller','Brake pedal linkage','Front brake pipe','Rear brake pipe','Brake pressure sensor','Brake vacuum hose','Brake distribution block']],
+];
+const EXTRA_PARTS=EXTRA_GROUPS.flatMap(([group,x,y,effect,repair,names])=>names.flatMap((name,i)=>['upper','lower'].map((level,j)=>component('extra_'+group+'_'+i+'_'+j,name+' '+level+' fitting',clamp(x+(i%5-2)*.035,-.48,.48),clamp(y+(Math.floor(i/5)*2-1)*.05+(j?.018:-.018),-.48,.48),effect,repair,.17,.16,.23))));
 /** Individual location-sensitive parts. Coordinates are normalised by chassis length and width. */
 export const VEHICLE_PARTS:readonly PartSpec[]=[
  ...DETAIL_PARTS,
+ ...EXTRA_PARTS,
  component('cooling_fan','Cooling fan',.4,0,'cooling','mechanical'),
  component('radiator_core','Radiator core',.46,0,'cooling','mechanical',.1),
  component('thermostat','Thermostat housing',.31,.08,'cooling','mechanical'),
@@ -73,7 +88,7 @@ const BY_ID=new Map(VEHICLE_PARTS.map(p=>[p.id,p]));
 const ELECTRIC_LABELS=['Traction motor housing','Motor rotor bearing','Motor temperature sensor','Motor wiring','High-voltage harness','Motor controller','Power inverter'];
 const combustionOnly=new Set(['ignition','intake','drive_belt','alternator','fuel_pump','fuel_line','exhaust_mount','muffler','exhaust_manifold','throttle_body']);
 function electricVehicle(v:Vehicle):boolean{const base=VEHICLES[v.cls].design?.base??v.cls,utility=utilitySpec(v);return ['ev','compact_ev','estate_ev','deliveryev','ebike','escooter'].includes(base)||utility?.kind==='electriccargo'||utility?.kind==='electricbus';}
-function applies(electric:boolean,p:PartSpec):boolean{return !electric||!combustionOnly.has(p.id)&&!p.id.startsWith('intake_detail_')&&!(p.id.startsWith('rear_detail_')&&Number(p.id.slice(-1))<6);}
+function applies(electric:boolean,p:PartSpec):boolean{return !electric||!p.id.startsWith('extra_injection_')&&!combustionOnly.has(p.id)&&!p.id.startsWith('intake_detail_')&&!(p.id.startsWith('rear_detail_')&&Number(p.id.slice(-1))<6);}
 function partLabel(v:Vehicle,p:PartSpec):string{return electricVehicle(v)&&p.id.startsWith('engine_detail_')?ELECTRIC_LABELS[Number(p.id.slice(-1))]??p.label:p.label;}
 
 /** Near contacts harm nearby parts more; light scrapes do not destroy deep systems. */
@@ -84,7 +99,7 @@ export function damageVehicleParts(v:Vehicle,x:number,y:number,energy:number):vo
  if(changed)v.components.parts=existing;
 }
 export function partsEffects(v:Vehicle){const parts=v.components?.parts;if(!parts)return{power:1,braking:1,steering:1,grip:1,drag:0,cooling:0,door:[0,0],steeringPull:0,brakePull:0};const total:Record<PartEffect,number>={power:0,braking:0,steering:0,grip:0,drag:0,frame:0,cooling:0,door:0};const door=[0,0],caliper=[0,0],arm=[0,0];
- for(const [id,value] of Object.entries(parts)){const p=BY_ID.get(id);if(!p||!Number.isFinite(value))continue;const n=clamp(value,0,1);total[p.effect]+=n;if(p.effect==='door')door[p.y<0?0:1]=Math.max(door[p.y<0?0:1],n);if(p.wheel!==undefined&&id.endsWith('_caliper'))caliper[p.wheel%2]+=n;if(p.wheel!==undefined&&id.endsWith('_arm'))arm[p.wheel%2]+=n;}
+ for(const [id,value] of Object.entries(parts)){const p=BY_ID.get(id);if(!p||!Number.isFinite(value))continue;const n=clamp(value,0,1);total[p.effect]+=n*(id.startsWith('extra_')?.12:1);if(p.effect==='door')door[p.y<0?0:1]=Math.max(door[p.y<0?0:1],n);if(p.wheel!==undefined&&id.endsWith('_caliper'))caliper[p.wheel%2]+=n;if(p.wheel!==undefined&&id.endsWith('_arm'))arm[p.wheel%2]+=n;}
  return{power:Math.max(.55,1-total.power*.045),braking:Math.max(.55,1-total.braking*.055),steering:Math.max(.6,1-total.steering*.05),grip:Math.max(.7,1-total.grip*.035-total.frame*.02),drag:Math.min(.45,total.drag*.05+total.frame*.025),cooling:Math.min(1,total.cooling*.2),door,steeringPull:clamp((arm[1]-arm[0])*.025,-.05,.05),brakePull:clamp((caliper[1]-caliper[0])*.035,-.07,.07)};
 }
 export function repairParts(v:Vehicle,group:'mechanical'|'body'|'wheel',wheel?:number):number{if(group==='mechanical'&&v.components)v.components.engineMounts=undefined;const p=v.components?.parts;if(!p)return 0;let count=0;for(const id of Object.keys(p)){const spec=BY_ID.get(id);if(spec&&spec.repair===group&&(wheel===undefined||spec.wheel===wheel)){delete p[id];count++;}}if(!Object.keys(p).length)v.components!.parts=undefined;return count;}
