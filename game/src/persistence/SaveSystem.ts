@@ -1,3 +1,4 @@
+import {upgradeLattice} from '../sim/CrashLattice';
 import {bakeCityDistrict,registerCityBuilding,validDistrict} from '../world/CitySurvey';
 import type {DistrictData,MappedBuilding} from '../ui/DestinationDistrict';
 import {restoreCityPlay} from '../sim/CityPlay';
@@ -197,7 +198,7 @@ export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemF
   sim.groups.restore(d.groups);
   sim.routines = new Map(d.routines);
   d.lamps.forEach((on, i) => { if (sim.world.pois[i]) sim.world.pois[i].on = on; });
-  if (d.vehicles) {sim.vehicles = d.vehicles.map((v) => structuredClone(v));if((d.ambientFleetVersion??0)<2)refreshAmbientFleet(sim);}
+  if (d.vehicles) {sim.vehicles = d.vehicles.map((v) => {const copy=structuredClone(v);if(copy.components?.lattice)copy.components.lattice=upgradeLattice(copy.components.lattice);return copy;});if((d.ambientFleetVersion??0)<2)refreshAmbientFleet(sim);}
   else for (const v of sim.vehicles) if (v.driver >= 0 && sim.chars[v.driver]?.inCar !== v.id) { v.driver = -1; v.state = "parked"; v.speed = 0; } // old save: fresh traffic, nobody behind the wheel
   sim.world.graffiti = d.graffiti.map((g) => ({ ...g }));
   sim.tills = { ...d.tills };
