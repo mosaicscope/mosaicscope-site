@@ -392,6 +392,7 @@ export class Game {
         h("div.drive-meta",{text:`${handlingProfile(v.cls).drive.toUpperCase()} · ${pt?(pt.gear<0?'R':(v.manualTransmission?'M':'D')+pt.gear)+' · '+Math.round(pt.rpm)+' rpm':'Automatic'}`}),
         ...(v.manualTransmission?[h("button.btn.drive-gear",{type:"button",text:"− Gear","aria-label":"Shift down",onclick:()=>{this.shiftDriver(v,-1);}}),h("button.btn.drive-gear",{type:"button",text:"+ Gear","aria-label":"Shift up",onclick:()=>{this.shiftDriver(v,1);}})]:[]),
         ...(v.parkingBrake?[h("button.btn",{type:"button",text:"Parking brake ON · release","aria-label":"Release parking brake",onclick:()=>{v.parkingBrake=false;this.updateHud();}})]:[]),
+        h('button.btn',{type:'button',text:this.renderer.drivingViewEnabled?'Camera: driving view':'Camera: city view','aria-label':'Toggle driving camera',onclick:()=>{this.renderer.drivingViewEnabled=!this.renderer.drivingViewEnabled;this.updateHud();}}),
         this.conditionButton(v),
         h("div.drive-alert",{text:v.water?.locked?"ENGINE HYDROLOCKED · exit and recover":v.components?.wheels.some(w=>!w.missing&&(w.attachment??1)<.65)?"WHEEL HANGING · stop and repair":v.components?.wheels.some(w=>w.missing)?"WHEEL MISSING · stop and repair":(v.components?.structure?.temperature??0)>.6?"ENGINE OVERHEATING · pull over":(v.components?.structure?.brakeHeat??0)>.8?"BRAKES HOT · allow cooling":(v.components?.structure?.oil??1)<.25?"LOW OIL · service needed":(v.components?.structure?.coolant??1)<.25?"LOW COOLANT · service needed":(v.flatLeft||v.flatRight?"FLAT TYRE":"")+((v.heat??0)>.5?" · ENGINE HOT: pull over":"")})
       ]));
@@ -920,6 +921,7 @@ export class Game {
       if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(key)) e.preventDefault();
       if (e.repeat) return;
       if (this.casino.open) return;
+      if (this.sim.player.inCar >= 0 && key === 'v') { e.preventDefault(); this.renderer.drivingViewEnabled=!this.renderer.drivingViewEnabled; this.updateHud(); return; }
       if (this.sim.player.inCar >= 0 && (key === '[' || key === ']')) { e.preventDefault(); this.shiftDriver(this.sim.vehicles[this.sim.player.inCar],key===']'?1:-1); return; }
       if (this.sim.player.inCar >= 0 && key === k.horn) { const v = this.sim.vehicles[this.sim.player.inCar]; this.sim.bus.emit("sound", { kind: "horn", x: v.x, y: v.y, vol: 0.8 }); return; }
       if (key === k.pickup) this.interact();

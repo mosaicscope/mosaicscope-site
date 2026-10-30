@@ -5,6 +5,8 @@ import { clamp } from "../core/math";
 export class Camera {
   x = 32; y = 32; zoom = 1.1;
   targetX = 32; targetY = 32; targetZoom = 1.1;
+  /** Optional direction from scene toward the viewer for perspective model faces. */
+  viewVector?: [number,number,number];
   follow = -1;           // character id to follow (-1 = free)
   viewW = 800; viewH = 600;
   minZoom = 0.55; maxZoom = 7;

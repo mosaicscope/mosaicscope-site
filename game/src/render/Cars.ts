@@ -126,7 +126,7 @@ function loft(k: Ctx, r0: V3[], r1: V3[], colorOf: (n: V3, i: number) => string,
     const mx = (a0[0] + b0[0]) / 2 - cx, my = (a0[1] + b0[1]) / 2 - cy;
     if (n[0] * mx + n[1] * my < 0) n = [-n[0], -n[1], -n[2]];
     const wn = WN(k, n);
-    if (dot(wn, VIEW) <= 0) continue;
+    if (dot(wn, k.cam.viewVector??VIEW) <= 0) continue;
     meshFace(k, [a0, b0, b1, a1], colorOf(wn, i),n);
     if (edge) { const g = k.g, A = W3(k, a1), B = W3(k, b1); g.strokeStyle = edge; g.lineWidth = Math.max(1, k.cam.zoom); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke(); }
     out.push({ a0, b0, a1, b1, n: wn });
@@ -214,7 +214,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
 
   if(d.design?.trim==='rocket'&&Math.abs(v.speed)>2&&(v.driveThrottle??0)>.1){const tail=W3(k,[-L*.5,0,H*.34]),len=(10+Math.min(25,Math.abs(v.speed)*.5))*z,back=cam.toScreen(x-k.c,y-k.s,0,{x:0,y:0}),base=cam.toScreen(x,y,0,{x:0,y:0}),dx=back.x-base.x,dy=back.y-base.y,mag=Math.hypot(dx,dy)||1,nx=dx/mag,ny=dy/mag;g.save();g.fillStyle='rgba(255,133,32,.72)';g.beginPath();g.moveTo(tail[0]-ny*4*z,tail[1]+nx*4*z);g.lineTo(tail[0]+nx*len,tail[1]+ny*len);g.lineTo(tail[0]+ny*4*z,tail[1]-nx*4*z);g.closePath();g.fill();g.restore();}
   // which side faces the camera
-  const nearSign = dot(WN(k, [0, 1, 0]), VIEW) > 0 ? 1 : -1;
+  const nearSign = dot(WN(k, [0, 1, 0]), k.cam.viewVector??VIEW) > 0 ? 1 : -1;
   const wr = S.wheel * H, wx = geometry.wheelbase/2, wy = hw - 0.02;
   const rimCol = d.design?.rim ?? ST.rim ?? (v.cls === "police" || v.cls === "ambulance" || v.cls === "van" ? "#8a8580" : v.cls === "super" || v.cls === "sports" ? "#2a2a2a" : "#cfc8c0");
   const axles = M.axles === 1 ? [0] : M.axles === 2 ? [wx, -wx] : [wx, 0, -wx];
@@ -304,7 +304,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   }
   // patina on the near long side only (the far one shows when the car turns)
   {
-    const nearIdx = longSides.findIndex((f) => dot(WN(k, f.n), VIEW) > 0);
+    const nearIdx = longSides.findIndex((f) => dot(WN(k, f.n), k.cam.viewVector??VIEW) > 0);
     const f = nearIdx >= 0 ? longSides[nearIdx] : undefined;
     if (f) for (const m of PT.marks) {
       const t0 = m.t, t1 = m.t + m.w, u0 = m.u, u1 = m.u + m.h, F = (t: number, u: number) => onFace(f, t, u);
@@ -359,7 +359,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const rCab1 = dent(ring(rf0, rf1, hw * S.rw, 0.1, 0.08, () => roofZ));
   const seat = rgb("#2a1c16");
   const pillar = lit(paint, 0.75 * dmg);
-  const fwdW = WN(k, [1, 0, 0]), frontVisible = dot(fwdW, VIEW) > 0;
+  const fwdW = WN(k, [1, 0, 0]), frontVisible = dot(fwdW, k.cam.viewVector??VIEW) > 0;
   const drawBox = () => {
     const B = S.box!, bx0 = B.a * L, bx1 = B.b * L, base = bodyTop(bx0) - 0.02, col = rgb(B.col);
     const rb0 = ring(bx0, bx1, hw * 0.97, 0.03, 0.03, () => base), rb1 = ring(bx0 + 0.02, bx1 - 0.02, hw * 0.95, 0.03, 0.03, () => H * B.h);
@@ -579,14 +579,14 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   // Separate outer skins buckle, hang on a hinge and eventually expose the inner frame.
   for(const f of sides){const zone=Math.abs(f.a0[0]-f.b0[0])<Math.abs(f.a0[1]-f.b0[1])?((f.a0[0]+f.b0[0])>0?0:1):((f.a0[1]+f.b0[1])>0?3:2),skin=v.components?.progressive?.skins[zone];if(!skin||damageStage(v.components!.panels[zone])<2)continue;const patch=surfacePatch(f,.2,.8,.2,.85);if(skin.gone){fillPoly(k,patch,'#192725');strokePoly(k,[onFace(f,.25,.25),onFace(f,.7,.7)],'#7f8a79',z,false);}else{const curled=patch.map(([x,y,h],i)=>[x,y,h+(i<2?0:skin.curl*.07+skin.flutter)] as V3);meshFace(k,curled,v.color,f.n);strokePoly(k,curled,'#a8ad97',.6*z,true);}}
   // Impact-local folded seams and exposed primer remain attached to the crushed material.
-  if(z>=.65)for(const dent of dents.slice(-6)){if(dent.energy<.045)continue;const side=dent.zone>=2,normal:V3=side?[0,dent.zone===3?1:-1,0]:[dent.zone===0?1:-1,0,0];if(dot(WN(k,normal),VIEW)<=0)continue;const span=.035+Math.min(.12,dent.depth*.55),cx=Math.max(-.43,Math.min(.43,dent.x)),cy=Math.max(-.42,Math.min(.42,dent.y));const point=(u:number,h:number):V3=>side?[(cx+u)*L,normal[1]*hw*.965,h*H]:[normal[0]*L*.487,(cy+u)*hw*2,h*H];
+  if(z>=.65)for(const dent of dents.slice(-6)){if(dent.energy<.045)continue;const side=dent.zone>=2,normal:V3=side?[0,dent.zone===3?1:-1,0]:[dent.zone===0?1:-1,0,0];if(dot(WN(k,normal),k.cam.viewVector??VIEW)<=0)continue;const span=.035+Math.min(.12,dent.depth*.55),cx=Math.max(-.43,Math.min(.43,dent.x)),cy=Math.max(-.42,Math.min(.42,dent.y));const point=(u:number,h:number):V3=>side?[(cx+u)*L,normal[1]*hw*.965,h*H]:[normal[0]*L*.487,(cy+u)*hw*2,h*H];
    for(let strip=0;strip<3;strip++){const h=.35+strip*.07,off=(strip-1)*span*.25;const scar=[point(off-span,h),point(off-span*.35,h+.025),point(off+span,h-.015),point(off+span*.45,h-.035)];fillPoly(k,scar,strip===1?'#b5b9a9':'#414b49');strokePoly(k,[point(off-span*.8,h+.018),point(off,h-.01),point(off+span*.8,h+.015)],'#d0c9b6',Math.max(.45,z*.45),false);}
    if(!side&&dent.energy>.12){const along=normal[0],fold=(u:number,y:number):V3=>{const x=along*(.42-u)*L;return[x,Math.max(-.8,Math.min(.8,cy*2+y))*hw,bodyTop(x)+.012];};strokePoly(k,[fold(0,-.35),fold(.035,-.1),fold(.01,.14),fold(.055,.35)],'#3e4b46',Math.max(.6,z*.65),false);strokePoly(k,[fold(.015,-.35),fold(.05,-.1),fold(.025,.14),fold(.07,.35)],'#c5c4ae',Math.max(.4,z*.4),false);}
   }
   // Contact stains travel with the deformed panel and darken as they dry. Bounded at 12.
-  if(damageBloodEnabled())for(const stain of v.components?.blood??[]){if(Math.abs(stain.x)>.36?(stain.x>0)!==frontVisible:dot(WN(k,[0,Math.sign(stain.y),0]),VIEW)<=0)continue;const p=W3(k,[stain.x*L,stain.y*hw*2,stain.z*H]);g.fillStyle=stain.age>60?'#55262b':'#a52b36';g.beginPath();g.ellipse(p[0],p[1],Math.max(.7,stain.size*z*12),Math.max(.5,stain.size*z*5),-.35,0,Math.PI*2);g.fill();g.strokeStyle='#72232d';g.lineWidth=Math.max(.5,z*.5);g.beginPath();g.moveTo(p[0],p[1]);g.lineTo(p[0]+z,p[1]+stain.size*z*13);g.stroke();}
+  if(damageBloodEnabled())for(const stain of v.components?.blood??[]){if(Math.abs(stain.x)>.36?(stain.x>0)!==frontVisible:dot(WN(k,[0,Math.sign(stain.y),0]),k.cam.viewVector??VIEW)<=0)continue;const p=W3(k,[stain.x*L,stain.y*hw*2,stain.z*H]);g.fillStyle=stain.age>60?'#55262b':'#a52b36';g.beginPath();g.ellipse(p[0],p[1],Math.max(.7,stain.size*z*12),Math.max(.5,stain.size*z*5),-.35,0,Math.PI*2);g.fill();g.strokeStyle='#72232d';g.lineWidth=Math.max(.5,z*.5);g.beginPath();g.moveTo(p[0],p[1]);g.lineTo(p[0]+z,p[1]+stain.size*z*13);g.stroke();}
   // Damaged door skins remain hinged, flutter in the airflow, and expose the cabin after detachment.
-  if(v.components?.doorHinges)for(const side of [-1,1]){const i=side<0?0:1,hinge=v.components.doorHinges[i],gone=v.components.doorGone?.[i];if(hinge>=.55&&!gone||dot(WN(k,[0,side,0]),VIEW)<=0)continue;const y=side*hw*.99,lo=H*.32,hi=H*.58;fillPoly(k,[[-L*.2,y,lo],[L*.14,y,lo],[L*.14,y,hi],[-L*.2,y,hi]],'#26302c');if(!gone){const open=(.55-hinge)*.12+(v.components.progressive?.hinges?.[i+2]?.angle??0)*L*.16,outer=y+side*open;fillPoly(k,[[-L*.2,y,lo],[L*.14,outer,lo-.02],[L*.14,outer,hi],[-L*.2,y,hi]],v.color);strokePoly(k,[[-L*.2,y,hi],[L*.14,outer,hi],[L*.14,outer,lo-.02]],'#a6aa98',Math.max(.6,z*.7),false);}}
+  if(v.components?.doorHinges)for(const side of [-1,1]){const i=side<0?0:1,hinge=v.components.doorHinges[i],gone=v.components.doorGone?.[i];if(hinge>=.55&&!gone||dot(WN(k,[0,side,0]),k.cam.viewVector??VIEW)<=0)continue;const y=side*hw*.99,lo=H*.32,hi=H*.58;fillPoly(k,[[-L*.2,y,lo],[L*.14,y,lo],[L*.14,y,hi],[-L*.2,y,hi]],'#26302c');if(!gone){const open=(.55-hinge)*.12+(v.components.progressive?.hinges?.[i+2]?.angle??0)*L*.16,outer=y+side*open;fillPoly(k,[[-L*.2,y,lo],[L*.14,outer,lo-.02],[L*.14,outer,hi],[-L*.2,y,hi]],v.color);strokePoly(k,[[-L*.2,y,hi],[L*.14,outer,hi],[L*.14,outer,lo-.02]],'#a6aa98',Math.max(.6,z*.7),false);}}
   if(structure)for(const side of [-1,1])if(structure.doors[side<0?0:1]>.5)strokePoly(k,[[-L*.16,side*hw*.98,H*.3],[L*.15,side*hw*.98,H*.56]],'#302c28',Math.max(.7,z),false);
   // Electric vehicles have no tailpipe. Working diesels darken gently under engine load.
   const working=utilitySpec(v),electric=working?!working.diesel:['ev','compact_ev','estate_ev','deliveryev'].includes(d.design?.base??v.cls);

@@ -76,10 +76,11 @@ export class Particles {
     this.active = n;
   }
 
-  draw(g: CanvasRenderingContext2D, cam: Camera): void {
-    const pt = this.pt, z = cam.zoom;
+  draw(g: CanvasRenderingContext2D, cam: Camera, perspectiveScale?: (x:number,y:number)=>number): void {
+    const pt = this.pt;
     for (const p of this.pool) {
       if (!p.on) continue;
+      const z=perspectiveScale ? perspectiveScale(p.x,p.y) : cam.zoom; if(z<=0)continue;
       cam.toScreen(p.x, p.y, p.z, pt);
       if (pt.x < -20 || pt.y < -20 || pt.x > cam.viewW + 20 || pt.y > cam.viewH + 20) continue;
       const t = p.life / p.max;
