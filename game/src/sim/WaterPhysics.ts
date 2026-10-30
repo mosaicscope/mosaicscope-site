@@ -18,7 +18,7 @@ function roadDeck(world:World,x:number,y:number):boolean{
 /** Local depth is inferred from distance to the mapped bank, not a live depth survey. */
 export function waterDepth(world:World,x:number,y:number):number{
  if(world.tile(Math.floor(x),Math.floor(y))!==T.WATER||roadDeck(world,x,y))return 0;
- const tx=Math.floor(x),ty=Math.floor(y);for(let r=1;r<=4;r++)for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++)if(Math.max(Math.abs(dx),Math.abs(dy))===r&&world.tile(tx+dx,ty+dy)!==T.WATER)return .12+r*.22;
+ const tx=Math.floor(x),ty=Math.floor(y);let bank=1;for(const [dx,dy,distance] of [[-1,0,x-tx],[1,0,tx+1-x],[0,-1,y-ty],[0,1,ty+1-y]])if(world.tile(tx+dx,ty+dy)!==T.WATER)bank=Math.min(bank,Math.max(0,distance));for(let r=1;r<=4;r++)for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++)if(Math.max(Math.abs(dx),Math.abs(dy))===r&&world.tile(tx+dx,ty+dy)!==T.WATER)return (.12+r*.22)*Math.min(1,.15+bank*1.7);
  return 1.18;
 }
 const channelCache=new WeakMap<World,{revision:number;directions:Map<string,[number,number]>}>();
@@ -46,6 +46,6 @@ export function stepWaterVehicle(sim:Simulation,v:Vehicle,dt:number):void{
  const targetBob=sim.liquids.surfaceAt(v.x,v.y)*floating;
  state.bobVelocity=((state.bobVelocity??0)+(targetBob-(state.bob??0))*14*dt)*Math.exp(-4*dt);
  state.bob=Math.max(-.18,Math.min(.18,(state.bob??0)+state.bobVelocity*dt));
- const current=waterCurrent(sim,v.x,v.y),drag=Math.exp(-dt*(2.2+depth));v.vx=(v.vx??Math.cos(v.heading)*v.speed)*drag+current.x*(1-drag);v.vy=(v.vy??Math.sin(v.heading)*v.speed)*drag+current.y*(1-drag);v.speed=v.vx*Math.cos(v.heading)+v.vy*Math.sin(v.heading);v.dynT=sim.tick;
+ const current=waterCurrent(sim,v.x,v.y),drag=Math.exp(-dt*(2.2+depth)*Math.min(1,depth/.34));v.vx=(v.vx??Math.cos(v.heading)*v.speed)*drag+current.x*(1-drag);v.vy=(v.vy??Math.sin(v.heading)*v.speed)*drag+current.y*(1-drag);v.speed=v.vx*Math.cos(v.heading)+v.vy*Math.sin(v.heading);v.dynT=sim.tick;
  if((sim.tick+v.id)%45===0&&Math.hypot(v.vx,v.vy)>.08)sim.liquids.disturb(v.x,v.y,Math.max(1,Math.hypot(v.vx,v.vy)),v.vx,v.vy);
 }
