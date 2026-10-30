@@ -26,7 +26,6 @@ import {impactRagdollPose} from '../physics/ImpactRagdoll';
 /** Third-person projection of the same simulation. Geometry is clipped at the near plane. */
 export class DrivingView {
  private cam=new Camera();private chase=new DrivingCamera();
- private distantFacades=new Map<string,HTMLCanvasElement>();
  private projection?:{ex:number;ey:number;fx:number;fy:number;rx:number;ry:number;eye:number;focal:number;horizon:number;width:number;heading:number;terrain:(x:number,y:number)=>number};
  private picks:{id:number;x:number;y:number;size:number;depth:number}[]=[];
  get heading():number{return this.projection?.heading??0;}
@@ -112,11 +111,10 @@ export class DrivingView {
       const corners:[[number,number,number],[number,number,number],[number,number,number],[number,number,number]]=[[a[0],a[1],0],[z[0],z[1],0],[z[0],z[1],height],[a[0],a[1],height]],projected=corners.map(q=>local(...q));
       if(projected.some(q=>q.z<=near)){quad(corners,wall);continue;}
       const [pa,pb,pc,pd]=projected.map(screen),xs=[pa.x,pb.x,pc.x,pd.x],ys=[pa.y,pb.y,pc.y,pd.y],left=Math.min(...xs),right=Math.max(...xs),top=Math.min(...ys),bottom=Math.max(...ys);if(right<0||left>w||bottom<0||top>h)continue;
-      // Windows smaller than a few screen pixels cannot be resolved; keep the correct facade colour.
-      if(right-left<8||bottom-top<7){quad(corners,wall);continue;}
-      const rows=Math.min(12,Math.max(1,b.floors)),cols=Math.min(12,Math.max(1,Math.floor(Math.hypot(z[0]-a[0],z[1]-a[1])/(arch?.bayWidth?arch.bayWidth/2:1.4)))),trim=arch?.trim??'#a9b4ad',style=arch?.window??'bay',key=[wall,trim,style,rows,cols,daylight<.35?1:0].join('|');
-      let image=this.distantFacades.get(key);if(!image){image=document.createElement('canvas');image.width=image.height=64;const face=image.getContext('2d')!;face.fillStyle=wall;face.fillRect(0,0,64,64);const cw=64/cols,ch=64/rows;face.fillStyle=trim;for(let f=0;f<rows;f++)face.fillRect(0,f*ch,64,Math.max(.5,ch*.045));for(let f=0;f<rows;f++)for(let c=0;c<cols;c++){face.fillStyle=daylight<.35&&(b.id+f*7+c*3)%7===0?'#d8c996':'#4e6a76';const inset=style==='ribbon'?.08:.2;face.fillRect((c+inset)*cw,(f+.23)*ch,(1-2*inset)*cw,.52*ch);face.fillStyle='#a3aca488';face.fillRect((c+.5)*cw,(f+.23)*ch,Math.max(.5,cw*.015),.52*ch);}this.distantFacades.set(key,image);if(this.distantFacades.size>512)this.distantFacades.delete(this.distantFacades.keys().next().value!);}
-      g.save();g.beginPath();g.moveTo(pa.x,pa.y);g.lineTo(pb.x,pb.y);g.lineTo(pc.x,pc.y);g.lineTo(pd.x,pd.y);g.closePath();g.clip();g.transform((pb.x-pa.x)/64,(pb.y-pa.y)/64,(pd.x-pa.x)/64,(pd.y-pa.y)/64,pa.x,pa.y);g.drawImage(image,0,0);g.restore();
+      g.fillStyle=wall;g.beginPath();g.moveTo(pa.x,pa.y);g.lineTo(pb.x,pb.y);g.lineTo(pc.x,pc.y);g.lineTo(pd.x,pd.y);g.closePath();g.fill();
+      // A single path carries all visible windows on this facade, with no offscreen texture allocation.
+      if(right-left>=8&&bottom-top>=7){const rows=Math.min(12,Math.max(1,b.floors)),cols=Math.min(12,Math.max(1,Math.floor(Math.hypot(z[0]-a[0],z[1]-a[1])/(arch?.bayWidth?arch.bayWidth/2:1.4)))),inset=arch?.window==='ribbon'?.08:.2;
+       const point=(u:number,v:number)=>({x:pa.x+(pb.x-pa.x)*u+(pd.x-pa.x)*v,y:pa.y+(pb.y-pa.y)*u+(pd.y-pa.y)*v});g.fillStyle='#4e6a76';g.beginPath();for(let f=0;f<rows;f++)for(let c=0;c<cols;c++){const u=(c+inset)/cols,v=(c+1-inset)/cols,lo=(f+.23)/rows,hi=(f+.75)/rows,q0=point(u,lo),q1=point(v,lo),q2=point(v,hi),q3=point(u,hi);g.moveTo(q0.x,q0.y);g.lineTo(q1.x,q1.y);g.lineTo(q2.x,q2.y);g.lineTo(q3.x,q3.y);g.closePath();}g.fill();}
 
      }polygon(pts.map(p=>local(p[0],p[1],height)),roof);
     }});continue;
