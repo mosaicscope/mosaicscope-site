@@ -159,7 +159,7 @@ export class Game {
       selected:()=>this.selected,setSpeed:n=>this.setSpeed(n),step:()=>{this.setSpeed(0);this.sim.step();this.clock.tick=this.sim.tick;},setQuality:q=>{if(['auto','low','medium','high','ultra'].includes(q)){this.settings.quality=q as typeof this.settings.quality;this.applySettings();this.persistSettings();}},
       quality: () => (this.settings.quality === "auto" ? "auto→" : "") + ["low", "medium", "high", "ultra"][this.quality], speed: () => (this.clock.paused ? 0 : this.clock.speed),
       fps: () => this.fpsAvg, tickRate: () => this.tickRate, reset: (seed) => this.reset(seed), toast: (t) => this.toast(t),
-      teleport: () => { const p = this.renderer.cam.toWorld(this.mouse.x, this.mouse.y); const w = this.sim.world.nearestWalkable(p.x, p.y); this.sim.player.x = w.x; this.sim.player.y = w.y; },
+      teleport: () => { const p = this.renderer.screenToWorld(this.mouse.x, this.mouse.y); const w = this.sim.world.nearestWalkable(p.x, p.y); this.sim.player.x = w.x; this.sim.player.y = w.y; },
     });
     // debug console: type mosaics.help() in the browser console
     (window as unknown as { mosaics: object }).mosaics = {
@@ -217,7 +217,7 @@ export class Game {
         const seen: { c: Character; d: number }[] = [];
         for (const c of this.sim.chars) {
           if (c.tier !== "principal" || c === this.sim.player) continue;
-          this.renderer.cam.toScreen(c.x, c.y, c.z, pt);
+          Object.assign(pt,this.renderer.worldToScreen(c.x,c.y,c.z));
           if (pt.x < 0 || pt.y < 0 || pt.x > w || pt.y > hh) continue;
           seen.push({ c, d: Math.hypot(pt.x - w / 2, pt.y - hh / 2) });
         }
@@ -392,11 +392,11 @@ export class Game {
         h("div.drive-meta",{text:`${handlingProfile(v.cls).drive.toUpperCase()} · ${pt?(pt.gear<0?'R':(v.manualTransmission?'M':'D')+pt.gear)+' · '+Math.round(pt.rpm)+' rpm':'Automatic'}`}),
         ...(v.manualTransmission?[h("button.btn.drive-gear",{type:"button",text:"− Gear","aria-label":"Shift down",onclick:()=>{this.shiftDriver(v,-1);}}),h("button.btn.drive-gear",{type:"button",text:"+ Gear","aria-label":"Shift up",onclick:()=>{this.shiftDriver(v,1);}})]:[]),
         ...(v.parkingBrake?[h("button.btn",{type:"button",text:"Parking brake ON · release","aria-label":"Release parking brake",onclick:()=>{v.parkingBrake=false;this.updateHud();}})]:[]),
-        h('button.btn',{type:'button',text:this.renderer.drivingViewEnabled?'Camera: driving view':'Camera: city view','aria-label':'Toggle driving camera',onclick:()=>{this.renderer.drivingViewEnabled=!this.renderer.drivingViewEnabled;this.updateHud();}}),
         this.conditionButton(v),
         h("div.drive-alert",{text:v.water?.locked?"ENGINE HYDROLOCKED · exit and recover":v.components?.wheels.some(w=>!w.missing&&(w.attachment??1)<.65)?"WHEEL HANGING · stop and repair":v.components?.wheels.some(w=>w.missing)?"WHEEL MISSING · stop and repair":(v.components?.structure?.temperature??0)>.6?"ENGINE OVERHEATING · pull over":(v.components?.structure?.brakeHeat??0)>.8?"BRAKES HOT · allow cooling":(v.components?.structure?.oil??1)<.25?"LOW OIL · service needed":(v.components?.structure?.coolant??1)<.25?"LOW COOLANT · service needed":(v.flatLeft||v.flatRight?"FLAT TYRE":"")+((v.heat??0)>.5?" · ENGINE HOT: pull over":"")})
       ]));
     }
+    kids.push(h('button.btn.camera-toggle',{type:'button',text:this.renderer.drivingViewEnabled?'Camera: third person':'Camera: city view','aria-label':'Toggle driving camera',onclick:()=>{this.renderer.drivingViewEnabled=!this.renderer.drivingViewEnabled;this.updateHud();}}));
     if(sim.pendingAmbulance.has(p.id))kids.push(h('div.car.medical-status',{text:p.phys===Phys.DOWN?'Ambulance on the way · stay still for treatment':'Ambulance on the way · move clear of traffic'}));
     if(p.substances)kids.push(h('div.car',{text:substancePhase(p,sim.tick)}));
     if (p.bleed > 0) kids.push(h("div.car", { text: "You're bleeding. B to bandage." }));
@@ -420,6 +420,7 @@ export class Game {
     if(now-this.lastAutoSave>30000)this.autoSave();void this.cityPanel.refresh();
     const miniGameOpen=!this.roast.el.classList.contains("hidden")||!this.burger.el.classList.contains("hidden");
     if(miniGameOpen)return;
+    this.elevationCredit.hidden=!(this.sim.world.mapped?.elevation?.size);
     const aerial=this.renderer.aerialStatus;this.aerialCredit.hidden=!aerial.loaded||this.sim.world.mapped?.visibility.aerialRoofs===false;this.aerialCredit.textContent='Aerial: '+(aerial.owners.join(', ')||'Canterbury Maps')+' · CC BY 4.0';this.aerialCredit.title=aerial.surveys.join('; ')+' · Reprojected and clipped to mapped roofs. Facades estimated.';
     this.tickFocus(now);
     this.rootEl.classList.toggle("panel-open", this.modal.open || this.casino.open || this.club.open || this.luxury.open);
@@ -506,7 +507,7 @@ export class Game {
       // moving yourself brings the camera back to you (tapping someone to inspect had left it on them)
       if (this.renderer.cam.follow !== p.id) this.renderer.cam.follow = p.id;
       // screen directions -> world: screen up = (-1,-1), screen right = (1,-1)
-      const wx = ix + iy, wy = iy - ix, l = Math.hypot(wx, wy);
+      const a=this.renderer.perspectiveHeading,wx=this.renderer.perspectiveActive?ix*-Math.sin(a)-iy*Math.cos(a):ix+iy,wy=this.renderer.perspectiveActive?ix*Math.cos(a)-iy*Math.sin(a):iy-ix,l=Math.hypot(wx,wy);
       const sprint = (this.keys.has("shift") || this.touch.sprintHeld || Math.hypot(this.padMove.x,this.padMove.y) > .94) && p.needs.energy > 0.1;
       const bike = sim.life.upgrades.bike && hasUpgrade(sim.life.upgrades, "ruby");
       const pace=p.speed*equipmentPace(p,sim.toys)*bodyPace(sim.life.body,sim.env.raining,sim.daylight),effort=Math.min(1,Math.hypot(ix,iy));
@@ -696,7 +697,7 @@ export class Game {
       if(sim.tick<this.cannonAt)return;const v=sim.vehicles[p.inCar];if((v.cannonRounds??12)<=0){this.toast('Out of shells · restock at the armory');return;}v.cannonRounds=(v.cannonRounds??12)-1;this.cannonAt=sim.tick+120;const dx=Math.cos(v.heading),dy=Math.sin(v.heading),shell=sim.spawnToy('cannonball',v.x+dx*2.9,v.y+dy*2.9);if(shell){shell.state='flying';shell.z=1.1;shell.vx=dx*24;shell.vy=dy*24;shell.vz=1;shell.thrower=p.id;shell.throwTick=sim.tick;sim.bus.emit('fx',{kind:'spark',x:shell.x,y:shell.y,z:1.1,n:18});sim.bus.emit('sound',{kind:'bang_shotgun',x:v.x,y:v.y,vol:1});commitCrime(sim,p,'assault',null);}return;
     }
     if (p.phys !== Phys.OK || p.inCar >= 0) {if((kind==='throw'||kind==='swing')&&performance.now()>this.ammoAlertAt){this.ammoAlertAt=performance.now()+2500;this.toast('Recover your footing before attacking');}return;}
-    const cursor = this.renderer.cam.toWorld(this.mouse.x, this.mouse.y);
+    const cursor = this.renderer.screenToWorld(this.mouse.x, this.mouse.y);
     switch (kind) {
       case "pickup": {
         const t = this.nearestToy();
@@ -767,7 +768,7 @@ export class Game {
 
   private aimAt(x: number, y: number): { x: number; y: number; id: number } {
     const id = this.renderer.pickCharacter(x, y), target = id >= 0 && id !== this.sim.playerId ? this.sim.chars[id] : null;
-    const point = target ? { x: target.x, y: target.y } : this.renderer.cam.toWorldAtHeight(x, y, 1.05);
+    const point = target ? { x: target.x, y: target.y } : this.renderer.screenToWorld(x, y, 1.05);
     return { ...point, id: target?.id ?? -1 };
   }
 
@@ -779,7 +780,7 @@ export class Game {
     this.returnButton.classList.toggle('hidden', blocked || this.renderer.cam.follow === this.sim.playerId);
     if (armed && this.aimPoint) {
       const target=this.aimPoint.id>=0?this.sim.chars[this.aimPoint.id]:undefined;if(target&&target.inCar<0&&target.inside<0){this.aimPoint.x=target.x;this.aimPoint.y=target.y;}
-      const pt = this.renderer.cam.toScreen(this.aimPoint.x, this.aimPoint.y, 1.05, { x: 0, y: 0 });
+      const pt = this.renderer.worldToScreen(this.aimPoint.x, this.aimPoint.y, 1.05);
       this.crosshair.style.transform = `translate(${pt.x}px,${pt.y}px)`;
     }
   }
@@ -921,7 +922,7 @@ export class Game {
       if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(key)) e.preventDefault();
       if (e.repeat) return;
       if (this.casino.open) return;
-      if (this.sim.player.inCar >= 0 && key === 'v') { e.preventDefault(); this.renderer.drivingViewEnabled=!this.renderer.drivingViewEnabled; this.updateHud(); return; }
+      if (key === 'v') { e.preventDefault(); this.renderer.drivingViewEnabled=!this.renderer.drivingViewEnabled; this.updateHud(); return; }
       if (this.sim.player.inCar >= 0 && (key === '[' || key === ']')) { e.preventDefault(); this.shiftDriver(this.sim.vehicles[this.sim.player.inCar],key===']'?1:-1); return; }
       if (this.sim.player.inCar >= 0 && key === k.horn) { const v = this.sim.vehicles[this.sim.player.inCar]; this.sim.bus.emit("sound", { kind: "horn", x: v.x, y: v.y, vol: 0.8 }); return; }
       if (key === k.pickup) this.interact();
@@ -966,7 +967,7 @@ export class Game {
       }
       if (this.mouse.down && this.mouse.button!==2 && (this.mouse.dragging || Math.hypot(e.clientX - this.mouse.sx, e.clientY - this.mouse.sy) > 8)) {
         this.mouse.dragging = true;
-        this.renderer.cam.panBy(e.clientX - this.mouse.x, e.clientY - this.mouse.y);
+        if(!this.renderer.perspectiveActive)this.renderer.cam.panBy(e.clientX - this.mouse.x, e.clientY - this.mouse.y);
       }
       this.mouse.x = e.clientX; this.mouse.y = e.clientY;
       if (this.mouse.down && this.mouse.button === 2 && this.hasGun()) this.aimPoint = this.aimAt(e.clientX, e.clientY);
@@ -987,7 +988,7 @@ export class Game {
 
   private click(x: number, y: number, button: number): void {
     const sim = this.sim, p = sim.player;
-    if(this.remoteLauncher!==null){const id=this.remoteLauncher;this.remoteLauncher=null;const point=this.renderer.cam.toWorld(x,y);this.toast(launchRocket(sim,id,point.x,point.y));return;}
+    if(this.remoteLauncher!==null){const id=this.remoteLauncher;this.remoteLauncher=null;const point=this.renderer.screenToWorld(x,y);this.toast(launchRocket(sim,id,point.x,point.y));return;}
     if (button === 2) { this.mouse.x = x; this.mouse.y = y; this.act("throw"); return; }
     if (this.hasGun()) {
       this.aimPoint = this.aimAt(x, y); this.moveTarget = null; this.pendingTalk = -1; this.pendingEnter = null;
@@ -1004,7 +1005,7 @@ export class Game {
       if (Math.hypot(t.x - p.x, t.y - p.y) < 1.4 && TOYS[t.def].portable) { sim.pickupToy(p, t); return; }
       this.moveTarget = { x: t.x, y: t.y }; this.renderer.cam.follow = p.id; return;
     }
-    const w = this.renderer.cam.toWorld(x, y);
+    const w = this.renderer.screenToWorld(x, y);
     // clicked a building you can go into: walk to its door and step inside
     const b = this.buildingAtScreen(w.x, w.y);
     if (b) {
@@ -1449,6 +1450,7 @@ export class Game {
   private cityPanel=new WorldCityPanel({sim:()=>this.sim,camera:()=>this.renderer.cam,close:()=>this.modal.close(),walk:(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);},talk:id=>this.talkTo(id),vehicle:()=>this.interact(),stop:()=>{this.moveTarget=null;this.pendingTalk=-1;},toast:t=>this.toast(t)});
   private openStreetLife():void{void import('../ui/StreetLifePanel').then(m=>m.showStreetLife(this.modal,this.sim,(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);}));}
   private openLiveCity():void{this.modal.show('Christchurch · live city',[this.cityPanel.render()]);}
+  private elevationCredit=h('a.aerial-credit.elevation-credit',{href:'https://open-meteo.com/en/docs/elevation-api',target:'_blank',rel:'noopener',text:'Elevation: Copernicus DEM · Open-Meteo'});
   private aerialCredit=h('a.aerial-credit',{href:'https://gisimagery.ecan.govt.nz/arcgis/rest/services/Imagery/Latest_Imagery/ImageServer',target:'_blank',rel:'noopener',text:'Aerial: Canterbury Maps · CC BY 4.0'});
   private openMissions():void{showMissions(this.sim,this.modal,()=>this.resumeGame(),text=>this.toast(text));}
 
@@ -1469,7 +1471,7 @@ export class Game {
       command("Photo", "▣", () => this.photos.open(), ".dock-secondary"),
       command("Save", "↓", () => this.openSaves(), ".dock-secondary"),
     ]);
-    this.rootEl.append(dock,this.aerialCredit);
+    this.rootEl.append(dock,this.aerialCredit,this.elevationCredit);
     return h("header.bar", null, [
       h("a.brand", { href: "/", title: "Back to MosaicScope" }, [h("span.brand-gem", { text: "◆" }), h("b", { text: "The Mosaics" }), h("i", { text: "Ōtautahi / After Hours" })]),
       this.clockEl, h("div.spacer"), h("div.seg", { role: "group", "aria-label": "Simulation speed" }, this.speedEls), this.soundBtn,
@@ -1517,8 +1519,8 @@ export class Game {
   private throwAtSelected(): void {
     const sim = this.sim, p = sim.player;
     const t = this.selected >= 0 && this.selected !== p.id ? sim.chars[this.selected] : null;
-    if (t) { const s = this.renderer.cam; const pt = { x: 0, y: 0 }; s.toScreen(t.x, t.y, 0, pt); this.mouse.x = pt.x; this.mouse.y = pt.y; this.hovered = t.id; }
-    else { const a = p.facing; const pt = { x: 0, y: 0 }; this.renderer.cam.toScreen(p.x + Math.cos(a) * 4, p.y + Math.sin(a) * 4, 0, pt); this.mouse.x = pt.x; this.mouse.y = pt.y; }
+    if (t) { const pt = this.renderer.worldToScreen(t.x,t.y,0); this.mouse.x = pt.x; this.mouse.y = pt.y; this.hovered = t.id; }
+    else { const a = p.facing; const pt = this.renderer.worldToScreen(p.x+Math.cos(a)*4,p.y+Math.sin(a)*4,0); this.mouse.x = pt.x; this.mouse.y = pt.y; }
     this.act("throw");
   }
 
@@ -1747,7 +1749,7 @@ export class Game {
   private openEquippedWeapon():void{
     this.modal.show('Equipped gun · live action',[liveWeaponMechanism({
       state:()=>{const p=this.sim.player,def=p.hand>=0?this.sim.toys[p.hand]?.def??'':'',base=def==='golden_pistol'?'pistol':def,load=p.combat?.load??'standard',key=load==='standard'?base:base+':'+load;return{def,action:p.weaponAction,tick:this.sim.tick,rounds:p.combat?.ammo[key]??0,status:(p.combat?.reloadUntil??0)>this.sim.tick?'Reloading':p.phys!==Phys.OK?'Recovering':'Ready'};},
-      fire:()=>{const p=this.sim.player,old=this.mouse;const aim=this.renderer.cam.toScreen(p.x+Math.cos(p.facing)*8,p.y+Math.sin(p.facing)*8,0,{x:0,y:0});this.mouse={...old,x:aim.x,y:aim.y};this.act('throw');this.mouse=old;},
+      fire:()=>{const p=this.sim.player,old=this.mouse;const aim=this.renderer.worldToScreen(p.x+Math.cos(p.facing)*8,p.y+Math.sin(p.facing)*8,0);this.mouse={...old,x:aim.x,y:aim.y};this.act('throw');this.mouse=old;},
       focus:()=>{this.modal.close();this.renderer.cam.follow=this.sim.playerId;this.renderer.cam.frameStreet();},
     })],'activities');
   }

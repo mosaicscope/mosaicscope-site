@@ -19,7 +19,8 @@ import {VEHICLES} from '../content/vehicles';
 import {impactComponents,damageTick} from '../sim/VehicleDamage';
 export interface MappedBuilding{id:number;name:string;kind:string;points:number[][];height:number;heightEstimated:boolean;tags:Record<string,string>}
 export interface MappedVenue{id:number;name:string;kind:string;point:number[];tags:Record<string,string>}
-export interface DistrictData{code:string;cx:number;cy:number;centre:{name:string;lat?:number;lon?:number};origin?:{lat:number;lon:number};buildings:MappedBuilding[];roads:MappedRoad[];venues:MappedVenue[];terrain?:MappedTerrain[];fetchedAt?:string}
+export interface MappedBarrier{id:number;kind:string;points:number[][];tags:Record<string,string>}
+export interface DistrictData{code:string;cx:number;cy:number;centre:{name:string;lat?:number;lon?:number};origin?:{lat:number;lon:number};buildings:MappedBuilding[];roads:MappedRoad[];venues:MappedVenue[];terrain?:MappedTerrain[];barriers?:MappedBarrier[];fetchedAt?:string}
 export interface DistrictVisit{x:number;y:number;data:DistrictData[];driving?:Vehicle;parked?:Vehicle[];usedCars?:number[];traffic?:Vehicle[];damage?:MappedFacadeRecord[]}
 export function insidePolygon(x:number,y:number,pts:number[][]):boolean{let inside=false;for(let i=0,j=pts.length-1;i<pts.length;j=i++){const a=pts[i],b=pts[j];if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])inside=!inside;}return inside;}
 /** Distance to a facade, not just its corners (large buildings remain enterable). */

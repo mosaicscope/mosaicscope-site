@@ -2,4 +2,34 @@ import {chromium} from 'playwright-core';
 import {createServer} from 'vite';
 const server=await createServer({server:{host:'127.0.0.1',port:5183,strictPort:true,hmr:false}});await server.listen();
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
-try{const page=await browser.newPage({viewport:{width:1280,height:800}}),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.route('**/api/**',r=>r.fulfill({json:{weather:'clear',isDay:true,temp:14,wind:10,hour:12,posts:[]}}));await page.goto('http://127.0.0.1:5183/world/');await page.getByRole('button',{name:'Start new game',exact:true}).click();await page.getByRole('button',{name:'Start my story',exact:true}).click();if(await page.getByRole('button',{name:'Skip',exact:true}).isVisible())await page.getByRole('button',{name:'Skip',exact:true}).click();await page.waitForFunction(()=>window.__mosaics?.sim?.tick>2);await page.evaluate(async()=>{const {makeVehicle,seat}=await import('/world/src/sim/Traffic.ts');const game=window.__mosaics,sim=game.sim,p=sim.player;const roads=sim.world.mapped?.streetSegments??[];const road=roads.filter(r=>r.length>12).sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0];const v=makeVehicle(sim,'sedan',road?road.x+road.dx*6:p.x,road?road.y+road.dy*6:p.y,road?Math.atan2(road.dy,road.dx):0,'parked');seat(sim,p,v);v.state='free';});await page.waitForTimeout(600);await page.getByRole('button',{name:'Toggle driving camera'}).click();await page.waitForTimeout(800);await page.keyboard.down('w');await page.waitForTimeout(350);await page.keyboard.up('w');const frame=await page.evaluate(()=>window.__mosaics.renderer.stats.frameMs);console.log('Perspective frame time sample:',frame.toFixed(1),'ms');if(!(await page.evaluate(()=>window.__mosaics.renderer.drivingViewEnabled)))throw Error('Camera did not switch');await page.screenshot({path:'bench-results/driving-perspective.png'});await page.getByRole('button',{name:'Toggle driving camera'}).click();if(await page.evaluate(()=>window.__mosaics.renderer.drivingViewEnabled))throw Error('Camera did not switch back');if(errors.length)throw Error(errors.join('\n'));console.log('Perspective camera toggle browser smoke passed');}finally{await browser.close();await server.close();}
+try{
+ const mobile=process.env.MOBILE==='1';const page=await browser.newPage({viewport:mobile?{width:390,height:844}:{width:1280,height:800},hasTouch:mobile,isMobile:mobile}),errors=[];
+ page.on('pageerror',e=>errors.push(e.message));
+ await page.route('**/api/**',r=>{const u=new URL(r.request().url());if(u.pathname==='/api/city-elevation'){const cx=Number(u.searchParams.get('x')),cy=Number(u.searchParams.get('y'));return r.fulfill({json:{code:'CHC',cx,cy,spacing:100,reference:10,heights:Array.from({length:25},(_,i)=>10+cx*4+(i%5)*.2+cy*.1),source:'fixture',sourceUrl:'https://open-meteo.com/'}});}return r.fulfill({json:{weather:'clear',isDay:true,temp:14,wind:10,hour:12,posts:[]}});});
+ await page.goto('http://127.0.0.1:5183/world/');
+ await page.getByRole('button',{name:'Start new game',exact:true}).click();
+ await page.getByRole('button',{name:'Start my story',exact:true}).click();
+ if(await page.getByRole('button',{name:'Skip',exact:true}).isVisible())await page.getByRole('button',{name:'Skip',exact:true}).click();
+ await page.waitForFunction(()=>window.__mosaics?.sim?.tick>2);await page.waitForFunction(()=>window.__mosaics?.sim?.world?.mapped?.elevation?.size>0,{},{timeout:20000});
+ await page.getByRole('button',{name:'Toggle driving camera'}).click();
+ await page.waitForTimeout(500);
+ const before=await page.evaluate(()=>{const g=window.__mosaics,p=g.sim.player,cam=g.renderer,heading=cam.perspectiveHeading,point={x:p.x+Math.cos(heading)*3,y:p.y+Math.sin(heading)*3},screen=cam.worldToScreen(point.x,point.y,0),round=cam.screenToWorld(screen.x,screen.y);return {x:p.x,y:p.y,heading,error:Math.hypot(round.x-point.x,round.y-point.y),active:cam.perspectiveActive};});
+ if(!before.active||before.error>1e-6)throw Error('Foot camera projection failed: '+JSON.stringify(before));
+ await page.screenshot({path:mobile?'bench-results/walking-perspective-mobile.png':'bench-results/walking-perspective.png'});
+ await page.keyboard.down('w');await page.waitForTimeout(300);await page.keyboard.up('w');
+ const after=await page.evaluate(()=>{const p=window.__mosaics.sim.player;return{x:p.x,y:p.y};});
+ if((after.x-before.x)*Math.cos(before.heading)+(after.y-before.y)*Math.sin(before.heading)<.01)throw Error('Forward walk did not follow the camera');
+ await page.evaluate(async()=>{const {makeVehicle,seat}=await import('/world/src/sim/Traffic.ts');const game=window.__mosaics,sim=game.sim,p=sim.player;const v=makeVehicle(sim,'sedan',p.x,p.y,p.facing,'parked');seat(sim,p,v);v.state='free';});
+ await page.waitForTimeout(500);
+ if(!(await page.evaluate(()=>window.__mosaics.renderer.perspectiveActive&&window.__mosaics.sim.player.inCar>=0)))throw Error('View failed when entering car');
+ await page.keyboard.down('w');await page.waitForTimeout(300);await page.keyboard.up('w');
+ console.log('Perspective frame sample:',(await page.evaluate(()=>window.__mosaics.renderer.stats.frameMs)).toFixed(1),'ms');
+ await page.screenshot({path:mobile?'bench-results/driving-perspective-mobile.png':'bench-results/driving-perspective.png'});
+ await page.evaluate(async()=>{const {unseat}=await import('/world/src/sim/Traffic.ts');const g=window.__mosaics;unseat(g.sim,g.sim.vehicles[g.sim.player.inCar]);});
+ await page.waitForTimeout(350);
+ if(!(await page.evaluate(()=>window.__mosaics.renderer.perspectiveActive&&window.__mosaics.sim.player.inCar<0)))throw Error('View failed when leaving car');
+ await page.getByRole('button',{name:'Toggle driving camera'}).click();
+ if(await page.evaluate(()=>window.__mosaics.renderer.perspectiveActive))throw Error('Camera did not switch back');
+ if(errors.length)throw Error(errors.join('\n'));
+ console.log('Walking, driving, enter/exit and camera projection browser check passed');
+}finally{await browser.close();await server.close();}

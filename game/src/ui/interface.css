@@ -175,3 +175,5 @@
 #ui .damage-part{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;align-items:center;font-size:12px;line-height:1.25}#ui .damage-part>span:first-child{overflow-wrap:anywhere}#ui .damage-value{font-variant-numeric:tabular-nums;color:#e7c48a}
 #ui .damage-meter{grid-column:1/-1;height:4px;background:#ffffff16;border-radius:4px;overflow:hidden}#ui .damage-meter i{display:block;height:100%;background:#d79767;border-radius:4px}
 #ui .damage-all{margin-top:3px}#ui .damage-group{border-top:1px solid #ffffff1a;padding:5px 0}#ui .damage-group summary{cursor:pointer;min-height:32px;font-size:13px}#ui .damage-list{display:grid;gap:8px;max-height:180px;overflow-y:auto;overscroll-behavior:contain;padding:6px 2px}
+
+#ui .elevation-credit{top:110px} @media(pointer:coarse),(max-width:650px){#ui .elevation-credit{top:212px}}

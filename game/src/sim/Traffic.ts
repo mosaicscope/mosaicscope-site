@@ -1,3 +1,5 @@
+import {elevationAt} from '../world/Elevation';
+import {sweptRailContact} from './RailCollision';
 import {fireVisualProfile} from '../render/FireVisuals';
 import {stepWaterVehicle,waterDepth} from './WaterPhysics';
 import {releaseBusPassengers} from './BusService';
@@ -361,6 +363,9 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
     lon = Math.sign(lon) * Math.max(0, Math.abs(lon) - resist * dt);
   }
 
+  // Coarse mapped grade contributes gravity while driving; no grid means flat fallback.
+  if(sim.world.mapped&&!braking&&!v.parkingBrake&&Math.abs(lon)>.05){const ahead=elevationAt(sim.world.mapped,v.x+fx,v.y+fy),behind=elevationAt(sim.world.mapped,v.x-fx,v.y-fy);if(ahead!==null&&behind!==null){const grade=clamp((ahead-behind)/2,-.18,.18);lon-=grade*4.905*dt;}}
+
   // ---- turning: yaw toward what the steering asks, capped by what the tyres can hold ----
   // how loose the rear is: a locked handbrake, or (tail-happy cars) too much throttle while turning
   const powerOver = profile.drive !== "fwd" && throttle > 0 && lon > 1 ? throttle * Math.min(1, s / 5) * Math.min(1, Math.abs(v.steerAngle ?? 0) / 0.3) * setup.rearSlip * (profile.drive==='awd'?0.4:1) : 0;
@@ -524,6 +529,10 @@ function moveBlocked(sim: Simulation, v: Vehicle, dt: number): void {
   const vel = carVel(sim, v);
   const nx = v.x + vel.x * dt, ny = v.y + vel.y * dt;
   if(sim.world.mapped){const ox=v.x,oy=v.y,px=v.px,py=v.py;v.px=ox;v.py=oy;v.x=nx;v.y=ny;const hit=sim.mappedDamage.contact([...worldIndex(sim.world).buildings.query(Math.min(ox,nx)-d.length-2,Math.min(oy,ny)-d.length-2,Math.max(ox,nx)+d.length+2,Math.max(oy,ny)+d.length+2)].flatMap(id=>{const b=worldIndex(sim.world).damage.get(id);return b?[b]:[];}),v,sim.tick/60,1);v.px=px;v.py=py;if(hit){if(hit.speed>1){sim.bus.emit('sound',{kind:'crash',x:v.x,y:v.y,vol:Math.min(1,hit.speed/10)});sim.bus.emit('fx',{kind:'dust',x:hit.x,y:hit.y,z:.3,n:Math.min(16,Math.ceil(hit.speed*2))});if(hit.damage?.opening&&hit.damage.at===sim.tick/60)sim.bus.emit('fx',{kind:'break',x:hit.x,y:hit.y,z:.7,n:Math.min(20,Math.ceil(hit.speed*1.5)),color:hit.damage.material==='brick'?'#a87962':hit.damage.material==='glass'?'#b7d5d2':'#aaa99b'});}return;}v.x=ox;v.y=oy;}
+  if(sim.world.mapped){const rail=sweptRailContact(sim.world.mapped,v,nx,ny);if(rail){const hit=Math.max(0,vel.x*rail.nx+vel.y*rail.ny),t=Math.max(0,rail.t-.001);v.x+=vel.x*dt*t;v.y+=vel.y*dt*t;
+   if(hit>1.2){impactComponents(v,rail.nx,rail.ny,hit,d.mass,sim.tick,{x:rail.x,y:rail.y});v.damage=Math.min(1,v.damage+hit*.012);bump(v,rail.nx,rail.ny,hit*.012);sim.bus.emit('sound',{kind:'crash',x:rail.x,y:rail.y,vol:Math.min(1,hit/10)});sim.bus.emit('fx',{kind:'spark',x:rail.x,y:rail.y,z:.35,n:Math.min(12,Math.ceil(hit)),color:'#e2c578'});}
+   if(v.vx!==undefined&&v.vy!==undefined){v.vx-=rail.nx*hit*1.1;v.vy-=rail.ny*hit*1.1;v.speed=v.vx*Math.cos(v.heading)+v.vy*Math.sin(v.heading);}else v.speed=-v.speed*.1;v.stuck+=dt;return;
+  }}
   const nowWater=waterDepth(sim.world,nx,ny)>0,wasWater=waterDepth(sim.world,v.x,v.y)>0;
   if(nowWater){const speed=Math.hypot(vel.x,vel.y);if(!wasWater||(sim.tick+v.id)%30===0&&speed>1)sim.liquids.disturb(nx,ny,speed,vel.x,vel.y);}
   const fx = nx + Math.cos(v.heading) * (d.length / 2) * Math.sign(v.speed || 1), fy = ny + Math.sin(v.heading) * (d.length / 2) * Math.sign(v.speed || 1);

@@ -17,6 +17,7 @@ export interface MappedCity {
  liveConditions?:import('../ui/LiveCity').LiveCityData;
  closedRoads?:Set<number>;
  trafficMode?:'cruise'|'city'|'rush';
+ elevation?:Map<string,import('./Elevation').ElevationTile>;
  revision?:number;
  streaming?:{loading:number;error:string|null;loaded:string[]};
  streamedData?:DistrictData[];streamedKeys?:Set<string>;streamedBuildingIds?:Set<number>;

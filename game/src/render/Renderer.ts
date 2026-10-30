@@ -74,6 +74,10 @@ export class Renderer {
   private artworkBudget=new CrowdArtworkBudget();
   readonly cam = new Camera();
   drivingViewEnabled = false;
+  get perspectiveActive():boolean{return this.drivingViewEnabled&&this.sim.player.inside<0;}
+  get perspectiveHeading():number{return this.drivingView.heading;}
+  screenToWorld(x:number,y:number,height=0):{x:number;y:number}{return this.perspectiveActive?this.drivingView.unproject(x,y,height):this.cam.toWorldAtHeight(x,y,height);}
+  worldToScreen(x:number,y:number,height=0):{x:number;y:number}{return this.perspectiveActive?this.drivingView.project(x,y,height):this.cam.toScreen(x,y,height,{x:0,y:0});}
   private drivingView = new DrivingView();
   readonly g: CanvasRenderingContext2D;
   terrain: Terrain;
@@ -183,7 +187,7 @@ export class Renderer {
     const time = this.time;
     // camera follow
     if (cam.follow >= 0 && sim.chars[cam.follow]) { const f = sim.chars[cam.follow],car=f.inCar>=0?sim.vehicles[f.inCar]:undefined;const vx=car?.vx??0,vy=car?.vy??0,speed=Math.hypot(vx,vy),ahead=car?Math.min(.32,4/Math.max(1,speed)):0;cam.lookAt(f.x+vx*ahead,f.y+vy*ahead); }
-    if(this.drivingViewEnabled && sim.player.inCar>=0 && sim.vehicles[sim.player.inCar]) { cam.update(dt,o.reduceMotion); sim.focus.x=sim.player.x; sim.focus.y=sim.player.y; sim.trafficRadius=64; this.drivingView.draw(g,sim,cam.viewW,cam.viewH,this.dpr,time,alpha,dt,this.particles,this.rain,o.quality,o.reduceMotion); this.stats.frameMs=performance.now()-t0; return; }
+    if(this.perspectiveActive) { cam.update(dt,o.reduceMotion); sim.focus.x=sim.player.x; sim.focus.y=sim.player.y; sim.trafficRadius=64; this.drivingView.draw(g,sim,cam.viewW,cam.viewH,this.dpr,time,alpha,dt,this.particles,this.rain,o.quality,o.reduceMotion); this.stats.frameMs=performance.now()-t0; return; }
     // zoomed right in: the camera drops to street level for a flat 2D side view; zoom out to go back to 3D
     // (hysteresis stops it flickering at the boundary mid-pinch; a quick crossfade hides the switch)
     const want2D = STREET_2D && (this.in2D ? cam.zoom > 2.8 : cam.zoom > 3.4);
@@ -1122,6 +1126,7 @@ export class Renderer {
   }
 
   pickCharacter(sx: number, sy: number): number {
+    if(this.perspectiveActive)return this.drivingView.pickCharacter(sx,sy);
     const b = this.pickBoxes;
     let best = -1, bd = Infinity;
     for (let i = 0; i < b.length; i += 5) {
@@ -1137,8 +1142,8 @@ export class Renderer {
     let best = -1, bd = 22 * Math.max(0.6, this.cam.zoom);
     for (const t of this.sim.toys) {
       if (t.state === "broken" || t.state === "held") continue;
-      this.cam.toScreen(t.x, t.y, t.z, this.pt);
-      const d = Math.hypot(this.pt.x - sx, this.pt.y - 4 - sy);
+      const q=this.worldToScreen(t.x,t.y,t.z);
+      const d = Math.hypot(q.x - sx, q.y - 4 - sy);
       if (d < bd) { bd = d; best = t.id; }
     }
     return best;
