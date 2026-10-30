@@ -59,6 +59,7 @@ export function wound(sim: Simulation, c: Character, part: WoundPart, severity: 
     const a = Math.atan2(c.y - fromY, c.x - fromX);
     // headshots and stabs spray hard; every hit draws some (cartoon) blood
     const n = (part === "head" ? 40 : kind === "stab" ? 30 : 14) * w.severity;
+    sim.liquids.spray('blood',c.x,c.y,part==='head'?1.6:1,Math.cos(a)*2,Math.sin(a)*2,Math.min(12,n));
     sim.bus.emit("fx", { kind: "blood", x: c.x + Math.cos(a) * 0.2, y: c.y + Math.sin(a) * 0.2, z: part === "head" ? 1.6 : 1.0, n:Math.min(48,n), color: "#b3121b" });
     if (w.severity >= 3 || part === "head" && w.severity >= 2) sim.bus.emit("fx", { kind: "gib", x: c.x, y: c.y, z: 1.2, n: (part === "head" ? 5 : 3) + w.severity * 2 });
   }

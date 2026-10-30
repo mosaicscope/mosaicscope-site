@@ -264,6 +264,9 @@ export class Renderer {
     }
     // water: drifting ripple crests (continuous across tiles, driven by world position) and sun glints
     this.drawWater(g, sim, o, minX, maxX, minY, maxY, time);
+    // Physics-owned liquid droplets and local 70-point water displacement.
+    g.save();for(const wave of sim.liquids.water){if(Math.hypot(wave.x-cam.x,wave.y-cam.y)>45/Math.max(.5,z))continue;g.strokeStyle='rgba(183,220,224,.55)';g.lineWidth=Math.max(.5,z*.6);for(let row=0;row<7;row++){g.beginPath();for(let col=0;col<10;col++){const i=row*10+col,q=cam.toScreen(wave.x+(col-4.5)*.35,wave.y+(row-3)*.35,Math.max(0,wave.height[i]),{x:0,y:0});if(col)g.lineTo(q.x,q.y);else g.moveTo(q.x,q.y);}g.stroke();}}
+    for(const drop of sim.liquids.drops){if(drop.kind==='blood'&&!this.fakeBlood)continue;if(Math.hypot(drop.x-cam.x,drop.y-cam.y)>45/Math.max(.5,z))continue;const q=cam.toScreen(drop.x,drop.y,drop.z,{x:0,y:0});g.fillStyle=drop.kind==='blood'?'#8c2229':drop.kind==='vomit'?'#b0a849':'rgba(152,207,221,.7)';g.beginPath();g.ellipse(q.x,q.y,Math.max(1,drop.size*18*z),Math.max(.7,drop.size*(drop.ground?8:14)*z),0,0,Math.PI*2);g.fill();}g.restore();
 
     // real street names painted on the road between intersections
     if(!mapped)this.streetLabels(g, sim, z, inView);
