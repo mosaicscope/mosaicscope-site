@@ -263,6 +263,14 @@ export class Renderer {
         if (inView(pt.x, pt.y, 70 * z)) this.push(tx + ty + 1, 7, ty * S + tx, pt.x, pt.y);
       }
     }
+    // Water effects must never paint over a mapped road deck, even where the
+    // underlying terrain tile is water. Clip all surface effects together.
+    g.save();g.beginPath();
+    for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){
+      if(sim.world.tile(x,y)!==T.WATER||waterDepth(sim.world,x+.5,y+.5)<=0)continue;
+      const a=cam.toScreen(x,y,0,{x:0,y:0}),b=cam.toScreen(x+1,y,0,{x:0,y:0}),c=cam.toScreen(x+1,y+1,0,{x:0,y:0}),d=cam.toScreen(x,y+1,0,{x:0,y:0});
+      g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.lineTo(c.x,c.y);g.lineTo(d.x,d.y);g.closePath();
+    }g.clip();
     // water: drifting ripple crests (continuous across tiles, driven by world position) and sun glints
     this.drawWater(g, sim, o, minX, maxX, minY, maxY, time);
     // Live wave fronts and foam share the same physical surface state.
@@ -274,6 +282,7 @@ export class Renderer {
       }g.stroke();
       for(let i=0;i<70;i++){const f=wave.foam[i];if(f<.12)continue;const wx=wave.x+(i%10-4.5)*.35,wy=wave.y+(Math.floor(i/10)-3)*.35;if(sim.world.tile(Math.floor(wx),Math.floor(wy))!==T.WATER)continue;const q=cam.toScreen(wx,wy,wave.height[i],{x:0,y:0});g.fillStyle='rgba(212,232,221,'+Math.min(.45,f*.42).toFixed(3)+')';g.beginPath();g.ellipse(q.x,q.y,Math.max(.7,z*(1+f*2)),Math.max(.4,z*(.4+f)),0,0,Math.PI*2);g.fill();}
     }
+    g.restore();g.restore();g.save();
     for(const drop of sim.liquids.drops){if(drop.kind==='blood'&&!this.fakeBlood)continue;if(Math.hypot(drop.x-cam.x,drop.y-cam.y)>45/Math.max(.5,z))continue;const q=cam.toScreen(drop.x,drop.y,drop.z,{x:0,y:0});g.fillStyle=drop.kind==='blood'?'#8c2229':drop.kind==='vomit'?'#b0a849':'rgba(152,207,221,.7)';g.beginPath();g.ellipse(q.x,q.y,Math.max(1,drop.size*18*z),Math.max(.7,drop.size*(drop.ground?8:14)*z),0,0,Math.PI*2);g.fill();}g.restore();
 
     // real street names painted on the road between intersections
