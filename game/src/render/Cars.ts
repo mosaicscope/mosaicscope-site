@@ -199,26 +199,16 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const dmg = 1 - v.damage * 0.35;
   const spin = (v.wheelTravel ?? time*v.speed) / (S.wheel * H);
 
-  // contact shadow (soft, two layers)
-  cam.toScreen(x, y, 0, pt);
-  g.fillStyle = "rgba(0,0,0,.22)"; g.beginPath(); g.ellipse(pt.x, pt.y + 2 * z, L * 24 * z, L * 12.5 * z, 0, 0, 6.283); g.fill();
-  g.fillStyle = "rgba(0,0,0,.3)"; g.beginPath(); g.ellipse(pt.x, pt.y + 1 * z, L * 18 * z, L * 9 * z, 0, 0, 6.283); g.fill();
+  // A compact shadow follows the actual vehicle footprint and heading.
+  g.save();g.fillStyle='rgba(0,0,0,.25)';g.beginPath();
+  for(const [i,[lx,ly]] of [[-L*.47,-hw*.88],[L*.47,-hw*.88],[L*.47,hw*.88],[-L*.47,hw*.88]].entries()){
+    const p=cam.toScreen(x+lx*k.c-ly*k.s,y+lx*k.s+ly*k.c,.005,{x:0,y:0});if(i)g.lineTo(p.x,p.y);else g.moveTo(p.x,p.y);
+  }g.closePath();g.fill();g.restore();
 
-  // neon underglow on tuned cars at night (replayed over the darkness); off on a parked car nobody is in
-  if (night && !(v.state === "parked" && v.driver < 0) && (v.cls === "jdm" || v.cls === "sports" || v.cls === "super" || v.cls === "muscle" || ST.neon)) {
-    const hue = ["255,122,217", "61,214,255", "198,255,61", "180,140,255"][v.plate.charCodeAt(0) % 4];
-    // a ring of light on the tarmac around the car: the glow layer sits on top of the body, so the middle stays clear
-    // (no coloured wash over the paint) and the gradient is squashed into the ground ellipse so it fades with no hard rim
-    const sx = pt.x, sy = pt.y + 2 * z, rx = L * 22 * z, sq = 0.5;
-    GLOW.push((g) => {
-      g.save(); g.globalCompositeOperation = "lighter";
-      g.translate(sx, sy); g.scale(1, sq);
-      const grd = g.createRadialGradient(0, 0, 0, 0, 0, rx);
-      grd.addColorStop(0, `rgba(${hue},0)`); grd.addColorStop(0.62, `rgba(${hue},0)`);
-      grd.addColorStop(0.8, `rgba(${hue},.2)`); grd.addColorStop(1, `rgba(${hue},0)`);
-      g.fillStyle = grd; g.beginPath(); g.arc(0, 0, rx, 0, 6.283); g.fill();
-      g.restore();
-    });
+  // Neon is an explicit player upgrade, rather than a ring on every sports car.
+  if(night&&ST.neon&&!(v.state==='parked'&&v.driver<0)){
+    cam.toScreen(x,y,0,pt);const sx=pt.x,sy=pt.y+2*z,rx=L*15*z;
+    GLOW.push(layer=>{layer.save();layer.globalCompositeOperation='lighter';layer.translate(sx,sy);layer.scale(1,.5);const grad=layer.createRadialGradient(0,0,0,0,0,rx);grad.addColorStop(0,'rgba(61,214,255,0)');grad.addColorStop(.7,'rgba(61,214,255,.09)');grad.addColorStop(1,'rgba(61,214,255,0)');layer.fillStyle=grad;layer.beginPath();layer.arc(0,0,rx,0,6.283);layer.fill();layer.restore();});
   }
 
   // which side faces the camera
