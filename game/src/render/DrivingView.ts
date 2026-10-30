@@ -13,6 +13,7 @@ import type {Particles} from './Particles';
 import type {Rain} from './Lighting';
 import {drawToy} from './ToyArt';
 import {textureCanvas,type Material} from './Textures';
+import {GROUND} from './palette';
 import {TOYS} from '../content/toys';
 import {drawPoi} from './Terrain';
 import {mappedFacadeStyle} from '../content/mappedFacadeStyle';
@@ -52,9 +53,9 @@ export class DrivingView {
   const farRadius=500,farStep=quality===0?40:32,far:{x:number;y:number;d:number;t:number}[]=[];
   const centreX=Math.floor(focus.x/farStep)*farStep,centreY=Math.floor(focus.y/farStep)*farStep;
   for(let y=centreY-farRadius;y<=centreY+farRadius;y+=farStep)for(let x=centreX-farRadius;x<=centreX+farRadius;x+=farStep){const mx=x+farStep*.5,my=y+farStep*.5,d=(mx-ex)*fx+(my-ey)*fy,side=Math.abs((mx-ex)*rx+(my-ey)*ry);if(d<33||d>farRadius||side>d*.9+farStep)continue;far.push({x,y,d,t:sim.world.tile(Math.floor(mx),Math.floor(my))});}
-  far.sort((a,b)=>b.d-a.d);for(const q of far){const color=q.t===T.WATER?'#395b63':q.t===T.GRASS?'#4a6049':q.t===T.ROAD||q.t===T.CROSSWALK?'#434748':q.t===T.SAND?'#807964':'#66685e';quad([[q.x,q.y,0],[q.x+farStep,q.y,0],[q.x+farStep,q.y+farStep,0],[q.x,q.y+farStep,0]],color);}
+  far.sort((a,b)=>b.d-a.d);for(const q of far){const color=(GROUND[q.t===T.TREE?T.GRASS:q.t]??GROUND[T.PAVE])[0];quad([[q.x,q.y,0],[q.x+farStep,q.y,0],[q.x+farStep,q.y+farStep,0],[q.x,q.y+farStep,0]],color);}
   // Distant surveyed streets remain visible even where a coarse ground sample misses a narrow road.
-  const distantMap=sim.world.mapped;if(distantMap)for(const id of worldIndex(sim.world).roads.query(focus.x-farRadius,focus.y-farRadius,focus.x+farRadius,focus.y+farRadius)){const r=distantMap.streetSegments[id];if(!r)continue;const nearest=(focus.x-r.x)*r.dx+(focus.y-r.y)*r.dy,start=Math.max(0,nearest-farRadius),end=Math.min(r.length,nearest+farRadius);for(let at=start;at<end;at+=12){const to=Math.min(end,at+12),x=r.x+r.dx*at,y=r.y+r.dy*at,u=r.x+r.dx*to,v=r.y+r.dy*to,p=local((x+u)/2,(y+v)/2,0);if(p.z<38||p.z>farRadius||Math.abs(p.x)>p.z+10)continue;if(sim.world.tile(Math.floor((x+u)/2),Math.floor((y+v)/2))===T.WATER)continue;quad([[x-r.dy*r.half,y+r.dx*r.half,.01],[u-r.dy*r.half,v+r.dx*r.half,.01],[u+r.dy*r.half,v-r.dx*r.half,.01],[x+r.dy*r.half,y-r.dx*r.half,.01]],'#3b4141');}}
+  const distantMap=sim.world.mapped;if(distantMap)for(const id of worldIndex(sim.world).roads.query(focus.x-farRadius,focus.y-farRadius,focus.x+farRadius,focus.y+farRadius)){const r=distantMap.streetSegments[id];if(!r)continue;const nearest=(focus.x-r.x)*r.dx+(focus.y-r.y)*r.dy,start=Math.max(0,nearest-farRadius),end=Math.min(r.length,nearest+farRadius);for(let at=start;at<end;at+=12){const to=Math.min(end,at+12),x=r.x+r.dx*at,y=r.y+r.dy*at,u=r.x+r.dx*to,v=r.y+r.dy*to,p=local((x+u)/2,(y+v)/2,0);if(p.z<38||p.z>farRadius||Math.abs(p.x)>p.z+10)continue;if(sim.world.tile(Math.floor((x+u)/2),Math.floor((y+v)/2))===T.WATER)continue;quad([[x-r.dy*r.half,y+r.dx*r.half,.01],[u-r.dy*r.half,v+r.dx*r.half,.01],[u+r.dy*r.half,v-r.dx*r.half,.01],[x+r.dy*r.half,y-r.dx*r.half,.01]],GROUND[T.ROAD][0]);}}
   // Ground remains tied to the world's collision tiles, including bridge and water tiles.
   const ground:{x:number;y:number;d:number;t:number;z:number}[]=[];const cx=Math.floor(focus.x),cy=Math.floor(focus.y),radius=36;
   for(let y=cy-radius;y<=cy+radius;y++)for(let x=cx-radius;x<=cx+radius;x++){const d=(x+.5-ex)*fx+(y+.5-ey)*fy,side=Math.abs((x+.5-ex)*rx+(y+.5-ey)*ry);if(d<near||d>38||side>d*.9+3)continue;ground.push({x,y,d,t:sim.world.tile(x,y),z:sim.world.groundZ(x+.5,y+.5)});}
@@ -62,14 +63,14 @@ export class DrivingView {
   ground.sort((a,b)=>b.d-a.d);
   let textureBudget=quality===0?0:120;
   for(const q of ground){
-   const hash=Math.abs(Math.imul(q.x,73856093)^Math.imul(q.y,19349663)),variation=hash%5,color=q.t===T.WATER?(variation<2?'#315b65':'#365f68'):q.t===T.GRASS?(variation<2?'#405c3d':'#496543'):q.t===T.ROAD?(variation<2?'#323537':'#383a3a'):q.t===T.CROSSWALK?'#777875':q.t===T.SAND?'#837a62':q.t===T.SIDEWALK||q.t===T.PATH?'#6a6860':'#58574f';
+   const hash=Math.abs(Math.imul(q.x,73856093)^Math.imul(q.y,19349663)),variation=hash%5,colors=GROUND[q.t===T.TREE?T.GRASS:q.t]??GROUND[T.PAVE],color=colors[variation<2?0:1];
    quad([[q.x,q.y,q.z],[q.x+1,q.y,q.z],[q.x+1,q.y+1,q.z],[q.x,q.y+1,q.z]],color);
    // Show actual simulated height steps, rather than inventing terrain elevation data.
    if(q.z>0&&q.d<28){const sides:[[number,number],[number,number],number,number][]=[[[q.x,q.y],[q.x+1,q.y],q.x,q.y-1],[[q.x+1,q.y],[q.x+1,q.y+1],q.x+1,q.y],[[q.x+1,q.y+1],[q.x,q.y+1],q.x,q.y+1],[[q.x,q.y+1],[q.x,q.y],q.x-1,q.y]];for(const [a,b,nx,ny] of sides){const low=sim.world.groundZ(nx+.5,ny+.5);if(low<q.z)quad([[a[0],a[1],low],[b[0],b[1],low],[b[0],b[1],q.z],[a[0],a[1],q.z]],'#686860');}}
    // A small kerb lip delineates pavement from traffic lanes; it is visual, not a new road obstacle.
    if(q.t===T.SIDEWALK&&q.d<22){const sides:[[number,number],[number,number],number,number][]=[[[q.x,q.y],[q.x+1,q.y],q.x,q.y-1],[[q.x+1,q.y],[q.x+1,q.y+1],q.x+1,q.y],[[q.x+1,q.y+1],[q.x,q.y+1],q.x,q.y+1],[[q.x,q.y+1],[q.x,q.y],q.x-1,q.y]];for(const [a,b,nx,ny] of sides){const t=sim.world.tile(nx,ny);if(t===T.ROAD||t===T.CROSSWALK)quad([[a[0],a[1],q.z],[b[0],b[1],q.z],[b[0],b[1],q.z+.045],[a[0],a[1],q.z+.045]],'#a6a49a');}}
    if(q.t===T.SIDEWALK&&q.d<15){quad([[q.x,q.y+.49,q.z+.012],[q.x+1,q.y+.49,q.z+.012],[q.x+1,q.y+.505,q.z+.012],[q.x,q.y+.505,q.z+.012]],'#514f4c80');}
-   if(q.d<15&&textureBudget>0&&(q.t===T.GRASS||q.t===T.ROAD||q.t===T.SIDEWALK||q.t===T.PAVE)){textureBudget--;texture([[q.x,q.y,q.z+.008],[q.x+1,q.y,q.z+.008],[q.x+1,q.y+1,q.z+.008],[q.x,q.y+1,q.z+.008]],q.t===T.GRASS?'grass':q.t===T.ROAD?'asphalt':'concrete',.18);}
+   if(q.d<15&&textureBudget>0&&(q.t===T.GRASS||q.t===T.ROAD||q.t===T.SIDEWALK||q.t===T.PAVE)){textureBudget--;texture([[q.x,q.y,q.z+.008],[q.x+1,q.y,q.z+.008],[q.x+1,q.y+1,q.z+.008],[q.x,q.y+1,q.z+.008]],q.t===T.GRASS?'grass':q.t===T.ROAD?'asphalt':q.t===T.SIDEWALK||q.t===T.PAVE?'pavers':'concrete',.7);}
    if(q.d<24){const x=q.x+.15+(hash%37)/70,y=q.y+.15+(hash%29)/60;
     if(q.t===T.WATER){const wave=.06*Math.sin(time*2+q.x*.9+q.y);quad([[x,y,.025],[x+.24,y+.06,.025],[x+.29,y+.09,.025],[x+.04,y+.03,.025]],wave>0?'#7499a080':'#254c5780');}
     else if(q.t===T.GRASS)quad([[x,y,.015],[x+.035,y,.015],[x+.035,y+.14,.015],[x,y+.14,.015]],'#76907088');

@@ -74,6 +74,7 @@ export class Renderer {
   private artworkBudget=new CrowdArtworkBudget();
   readonly cam = new Camera();
   drivingViewEnabled = false;
+  private lastPerspective?:boolean;
   get perspectiveActive():boolean{return this.drivingViewEnabled&&this.sim.player.inside<0;}
   get perspectiveHeading():number{return this.drivingView.heading;}
   screenToWorld(x:number,y:number,height=0):{x:number;y:number}{return this.perspectiveActive?this.drivingView.unproject(x,y,height):this.cam.toWorldAtHeight(x,y,height);}
@@ -187,7 +188,8 @@ export class Renderer {
     const time = this.time;
     // camera follow
     if (cam.follow >= 0 && sim.chars[cam.follow]) { const f = sim.chars[cam.follow],car=f.inCar>=0?sim.vehicles[f.inCar]:undefined;const vx=car?.vx??0,vy=car?.vy??0,speed=Math.hypot(vx,vy),ahead=car?Math.min(.32,4/Math.max(1,speed)):0;cam.lookAt(f.x+vx*ahead,f.y+vy*ahead); }
-    if(this.perspectiveActive) { cam.update(dt,o.reduceMotion); sim.focus.x=sim.player.x; sim.focus.y=sim.player.y; sim.trafficRadius=64; this.drivingView.draw(g,sim,cam.viewW,cam.viewH,this.dpr,time,alpha,dt,this.particles,this.rain,o.quality,o.reduceMotion); this.stats.frameMs=performance.now()-t0; return; }
+    const perspective=this.perspectiveActive;if(this.lastPerspective!==undefined&&this.lastPerspective!==perspective&&!o.reduceMotion)this.crossfade();this.lastPerspective=perspective;
+    if(perspective) { cam.update(dt,o.reduceMotion); sim.focus.x=sim.player.x; sim.focus.y=sim.player.y; sim.trafficRadius=64; this.drivingView.draw(g,sim,cam.viewW,cam.viewH,this.dpr,time,alpha,dt,this.particles,this.rain,o.quality,o.reduceMotion); this.stats.frameMs=performance.now()-t0; return; }
     // zoomed right in: the camera drops to street level for a flat 2D side view; zoom out to go back to 3D
     // (hysteresis stops it flickering at the boundary mid-pinch; a quick crossfade hides the switch)
     const want2D = STREET_2D && (this.in2D ? cam.zoom > 2.8 : cam.zoom > 3.4);
