@@ -1,3 +1,4 @@
+import {equip as equipInventory} from '../inventory/Inventory';
 import {VEHICLES,type VehicleClass} from '../content/vehicles';
 import {makeVehicle} from '../sim/Traffic';
 import {vehicleGeometry} from '../sim/VehicleGeometry';
@@ -16,10 +17,16 @@ export function devControls(sim:()=>Simulation,renderer:Renderer,ctl:DevControlH
  const button=(text:string,fn:()=>void)=>h('button.btn',{type:'button',text,onclick:fn});
  const group=(title:string,kids:HTMLElement[],open=false)=>h('details.dev-section',{open},[h('summary',{text:title}),h('div.dev-controls',null,kids)]);
  const range=(label:string,min:number,max:number,step:number,read:()=>number,change:(n:number)=>void)=>{const input=h('input',{type:'range',min,max,step,value:read(),'aria-label':label,oninput:(e:Event)=>change(+(e.target as HTMLInputElement).value)}) as HTMLInputElement;updates.push(()=>{if(document.activeElement!==input)input.value=String(read());});return h('label',null,[label,input]);};
- const equip=(id:string)=>{const s=sim(),c=target();if(!TOYS[id])return;if(c.hand>=0)s.dropHeld(c);const t=s.spawnToy(id,c.x,c.y);if(!t)return;s.pickupToy(c,t);const combat=c.combat??={style:'jab',xp:0,ammo:{},vest:0,helmet:0};combat.ammo[id==='golden_pistol'?'pistol':id]=250;combat.load='standard';combat.reloadUntil=0;combat.magUsed={};c.weaponAction=undefined;ctl.toast(`${c.name}: ${TOYS[id].name} equipped`);};
+ const equip=(id:string)=>{const s=sim(),c=target(),def=TOYS[id];if(!def?.portable||!def.weapon){ctl.toast('Choose a portable weapon');return;}
+  const t=s.spawnToy(id,c.x,c.y);if(!t){ctl.toast('Cannot equip: item limit reached');return;}
+  if(c.hand>=0)s.dropHeld(c);
+  const result=s.pickupToy(c,t);if(result!=='hand'&&result!=='bag'){ctl.toast('Cannot equip: '+result);return;}
+  if(!equipInventory(c,t.id)){ctl.toast('Cannot equip weapon');return;}
+  const combat=c.combat??={style:'jab',xp:0,ammo:{},vest:0,helmet:0};combat.ammo[id==='golden_pistol'?'pistol':id]=250;combat.load='standard';combat.reloadUntil=0;combat.magUsed={};c.weaponAction=undefined;ctl.toast(`${c.name}: ${def.name} equipped`);
+ };
  const heal=()=>{const s=sim(),c=target();c.substances=undefined;c.wounds=[];c.blood=1;c.bleed=0;c.phys=0;c.stunUntil=0;c.emo.composure=1;c.emo.fear=0;c.emo.frustration=0;c.needs.energy=1;s.pendingAmbulance.delete(c.id);ctl.toast(`${c.name}: restored`);};
  const hour=(v:number)=>{const s=sim();s.env.startHour=((Math.max(0,Math.min(23.99,v))-s.tick/TICKS_PER_HOUR)%24+24)%24;};
- const weapon=h('select',{'aria-label':'Developer equipment'},Object.entries(TOYS).filter(([id,d])=>id!=='fists'&&!!d.weapon).map(([id,d])=>h('option',{value:id,text:d.name}))) as HTMLSelectElement;
+ const weapon=h('select',{'aria-label':'Developer equipment'},Object.entries(TOYS).filter(([id,d])=>id!=='fists'&&d.portable&&!!d.weapon).map(([id,d])=>h('option',{value:id,text:d.name}))) as HTMLSelectElement;
  const count=h('input',{type:'number',min:1,max:1000,value:50,'aria-label':'NPC spawn count'}) as HTMLInputElement;
  const output=h('output.dev-output',{'aria-live':'polite',text:'Commands: help · pause · resume · speed 2 · spawn 50 · give pistol · heal · cash 1000 · time 18'});
  const command=h('input',{type:'text','aria-label':'Developer command',placeholder:'Enter a command…',autocomplete:'off',spellcheck:'false'}) as HTMLInputElement;
