@@ -214,7 +214,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   // which side faces the camera
   const nearSign = dot(WN(k, [0, 1, 0]), VIEW) > 0 ? 1 : -1;
   const wr = S.wheel * H, wx = geometry.wheelbase/2, wy = hw - 0.02;
-  const rimCol = ST.rim ?? (v.cls === "police" || v.cls === "ambulance" || v.cls === "van" ? "#8a8580" : v.cls === "super" || v.cls === "sports" ? "#2a2a2a" : "#cfc8c0");
+  const rimCol = d.design?.rim ?? ST.rim ?? (v.cls === "police" || v.cls === "ambulance" || v.cls === "van" ? "#8a8580" : v.cls === "super" || v.cls === "sports" ? "#2a2a2a" : "#cfc8c0");
   const axles = M.axles === 1 ? [0] : M.axles === 2 ? [wx, -wx] : [wx, 0, -wx];
   for (const lx of axles) roadWheel(k,v,lx,-nearSign*wy,wr,false,spin,rimCol);
 
