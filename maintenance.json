@@ -1,5 +1,5 @@
 {
- "at": 1793366047976,
+ "at": 1793366353832,
  "totals": {
   "duplicate-code": 3,
   "long-function": 17,
@@ -59,9 +59,9 @@
    "kind": "oversized-module",
    "severity": "medium",
    "where": "game/src/app/Game.ts",
-   "detail": "1805 lines",
+   "detail": "1807 lines",
    "fix": "split by feature into modules",
-   "fp": "oversized-module|1xyzx7h"
+   "fp": "oversized-module|eh32bj"
   },
   {
    "kind": "oversized-module",
@@ -123,9 +123,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/render/Renderer.ts",
-   "detail": "1159 lines",
+   "detail": "1163 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|2brav9"
+   "fp": "oversized-module|2kl254"
   },
   {
    "kind": "oversized-module",
