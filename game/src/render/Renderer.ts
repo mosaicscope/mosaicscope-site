@@ -531,31 +531,23 @@ export class Renderer {
   /** Animated water. Low: the old soft shimmer. Higher tiers: two ripple layers, travelling glints, more on Ultra. */
   private drawWater(g: CanvasRenderingContext2D, sim: Simulation, o: RenderOptions, minX: number, maxX: number, minY: number, maxY: number, time: number): void {
     const cam = this.cam, z = cam.zoom, pt = this.pt, q = o.quality, t = o.reduceMotion ? 0 : time,roughness=waterCurrent(sim).roughness;
-    // Shaded 2.5D facets stay inside mapped tiles and respond to local impacts.
-    const waterTiles:{x:number;y:number;shade:number}[]=[];
-    const wave=(x:number,y:number)=>Math.sin(x*.72+y*.34-t*(.7+roughness*.35))*.035+Math.sin(x*.28-y*.91+t*.53)*(.018+roughness*.018)+sim.liquids.surfaceAt(x,y)*.45;
+    // Clip flowing highlights to the water footprint, keeping the surface off bridges and land.
+    g.save();g.beginPath();let count=0;
     for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){
-      if(sim.world.tile(x,y)!==T.WATER)continue;
-      const dx=wave(x+.75,y+.5)-wave(x+.25,y+.5),dy=wave(x+.5,y+.75)-wave(x+.5,y+.25);
-      const shade=Math.max(0,Math.min(4,Math.floor(2+(dx-dy)*18)));
-      waterTiles.push({x,y,shade});
+      if(sim.world.tile(x,y)!==T.WATER)continue;count++;
+      const a=cam.toScreen(x,y,.01,{x:0,y:0}),b=cam.toScreen(x+1,y,.01,{x:0,y:0}),c=cam.toScreen(x+1,y+1,.01,{x:0,y:0}),d=cam.toScreen(x,y+1,.01,{x:0,y:0});
+      g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.lineTo(c.x,c.y);g.lineTo(d.x,d.y);g.closePath();
     }
-    const shades=['rgba(2,14,27,.18)','rgba(5,22,33,.09)','rgba(83,144,158,.025)','rgba(118,182,190,.09)','rgba(185,219,219,.15)'];
-    g.save();
-    for(let shade=0;shade<shades.length;shade++){
-      g.fillStyle=shades[shade];g.beginPath();
-      for(const tile of waterTiles){if(tile.shade!==shade)continue;const {x,y}=tile;
-        const a=cam.toScreen(x,y,.006,{x:0,y:0}),b=cam.toScreen(x+1,y,.006,{x:0,y:0}),c=cam.toScreen(x+1,y+1,.006,{x:0,y:0}),d=cam.toScreen(x,y+1,.006,{x:0,y:0});
-        g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.lineTo(c.x,c.y);g.lineTo(d.x,d.y);g.closePath();
-      }g.fill();
+    if(count){g.clip();const stride=q>=2?2:3;g.lineCap='round';
+      for(let layer=0;layer<2;layer++){g.beginPath();g.strokeStyle=layer?'rgba(174,220,218,.09)':'rgba(75,153,166,.13)';g.lineWidth=Math.max(.7,z*(layer?1.1:3));
+        for(let y=minY-2;y<=maxY+2;y+=stride)for(let x=minX-3;x<=maxX+2;x+=5){
+          const phase=t*(.45+roughness*.3)+x*.33+y*.46+layer*1.7,dy=Math.sin(phase)*(.16+roughness*.1);
+          const a=cam.toScreen(x,y+dy,.015,{x:0,y:0}),b=cam.toScreen(x+2.5,y+dy+Math.sin(phase+1)*.25,.015,{x:0,y:0}),c=cam.toScreen(x+5,y+dy,.015,{x:0,y:0});
+          g.moveTo(a.x,a.y);g.quadraticCurveTo(b.x,b.y,c.x,c.y);
+        }g.stroke();
+      }
     }g.restore();
-    // Subtle shallow margins and bank lines, clipped to surveyed water tiles.
-    if(q>0){g.save();g.fillStyle='rgba(117,155,127,.10)';
-      for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){if(sim.world.tile(x,y)!==T.WATER||[[-1,0],[1,0],[0,-1],[0,1]].every(([dx,dy])=>sim.world.tile(x+dx,y+dy)===T.WATER))continue;const corners=[[x,y],[x+1,y],[x+1,y+1],[x,y+1]];g.beginPath();corners.forEach(([wx,wy],i)=>{const q=cam.toScreen(wx,wy,.005,{x:0,y:0});if(i)g.lineTo(q.x,q.y);else g.moveTo(q.x,q.y);});g.closePath();g.fill();}
-      g.strokeStyle='rgba(176,205,183,'+(.07+roughness*.08).toFixed(3)+')';g.lineWidth=Math.max(.5,z*.5);g.beginPath();
-      for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){if(sim.world.tile(x,y)!==T.WATER)continue;const edges=[[x,y,x+1,y,0,-1],[x+1,y,x+1,y+1,1,0],[x+1,y+1,x,y+1,0,1],[x,y+1,x,y,-1,0]];for(const [ax,ay,bx,by,dx,dy]of edges){if(sim.world.tile(x+dx,y+dy)===T.WATER)continue;const p=cam.toScreen(ax,ay,.015,{x:0,y:0}),r=cam.toScreen(bx,by,.015,{x:0,y:0});g.moveTo(p.x,p.y);g.lineTo(r.x,r.y);}}g.stroke();g.restore();
-      if(sim.env.rain>.1&&!o.reduceMotion){g.save();g.strokeStyle='rgba(194,221,217,'+Math.min(.4,sim.env.rain*.35).toFixed(3)+')';g.lineWidth=Math.max(.5,z*.45);g.beginPath();for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){if(sim.world.tile(x,y)!==T.WATER)continue;const seed=((x*37+y*71+Math.floor(t*3)*13)%23+23)%23;if(seed>1)continue;const phase=(t*2+(x*7+y*11)*.13)%1,q=cam.toScreen(x+.35,y+.55,.02,{x:0,y:0}),r=(1+phase*3)*z;g.moveTo(q.x+r,q.y);g.ellipse(q.x,q.y,r,r*.45,0,0,Math.PI*2);}g.stroke();g.restore();}
-    }
+    if(sim.env.rain>.1&&!o.reduceMotion){g.save();g.strokeStyle='rgba(194,221,217,'+Math.min(.3,sim.env.rain*.25).toFixed(3)+')';g.lineWidth=Math.max(.5,z*.45);g.beginPath();for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){if(sim.world.tile(x,y)!==T.WATER)continue;const seed=((x*37+y*71+Math.floor(t*3)*13)%23+23)%23;if(seed>1)continue;const phase=(t*2+(x*7+y*11)*.13)%1,p=cam.toScreen(x+.35,y+.55,.02,{x:0,y:0}),r=(1+phase*3)*z;g.moveTo(p.x+r,p.y);g.ellipse(p.x,p.y,r,r*.45,0,0,Math.PI*2);}g.stroke();g.restore();}
     if (q === 0) {
       g.strokeStyle='rgba(190,218,210,.12)';g.lineWidth=Math.max(.5,z*.45);g.beginPath();
       for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){if(sim.world.tile(x,y)!==T.WATER||((x*7+y*3)%5+5)%5!==0)continue;const drift=Math.sin(t*.8+x*1.3+y*.7)*.08,a=cam.toScreen(x+.15,y+.45+drift,.01,{x:0,y:0}),b=cam.toScreen(x+.65,y+.45+drift,.01,{x:0,y:0});g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);}g.stroke();return;
