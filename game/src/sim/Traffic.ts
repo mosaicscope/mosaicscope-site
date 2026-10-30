@@ -220,7 +220,16 @@ function stepVehicles(sim: Simulation, dt: number,fleet=sim.vehicles): void {
       v.bodyRoll=(v.bodyRoll??0)*Math.exp(-dt*7);v.bodyPitch=(v.bodyPitch??0)*Math.exp(-dt*7);
       v.tyreHeat=Math.max(0,(v.tyreHeat??0)-dt*.22);
     }
-    damageTick(v, dt);stepWaterVehicle(sim,v,dt);
+    const priorBurn=v.burnTime??0;damageTick(v, dt);stepWaterVehicle(sim,v,dt);
+    if(v.burning&&v.damage>=.9&&priorBurn<5&&(v.burnTime??0)>=5){
+      sim.bus.emit('fx',{kind:'flash',x:v.x,y:v.y,z:1,n:12});sim.bus.emit('fx',{kind:'spark',x:v.x,y:v.y,z:1,n:18,color:'#ff9a3d'});sim.bus.emit('fx',{kind:'dust',x:v.x,y:v.y,z:.5,n:20});sim.bus.emit('sound',{kind:'crash',x:v.x,y:v.y,vol:1});
+      for(const other of sim.vehicles){if(other===v||other.burnt)continue;const dx=other.x-v.x,dy=other.y-v.y,distance=Math.hypot(dx,dy);if(distance>=3.5||distance<.01)continue;const impulse=(1-distance/3.5)*3;other.vx=(other.vx??0)+dx/distance*impulse;other.vy=(other.vy??0)+dy/distance*impulse;other.heat=Math.min(1,(other.heat??0)+impulse*.08);}
+    }
+    if(v.burning&&(sim.tick+v.id)%8===0)sim.bus.emit('fx',{kind:'tyre_smoke',x:v.x,y:v.y,z:.8,n:3,color:'rgba(55,56,53,.55)'});
+    // Burning vehicles can heat nearby vehicles, biased downwind; work is staggered and bounded.
+    if(v.burning&&(sim.tick+v.id)%60===0){const live=sim.world.mapped?.liveConditions,weather=live?.weather&&Date.now()-Date.parse(live.fetchedAt)<1800000?live.weather:null,dir=weather?.windDirection,wind=Math.min(1,(weather?.wind??0)/12),angle=dir==null?0:dir*Math.PI/180,wx=dir==null?0:-Math.sin(angle),wy=dir==null?0:Math.cos(angle);let checked=0;
+      for(const other of sim.vehicles){if(other===v||other.burning||other.burnt)continue;const dx=other.x-v.x,dy=other.y-v.y,distance=Math.hypot(dx,dy);if(distance>4||distance<.01)continue;if(++checked>8)break;const downwind=dir==null?0:Math.max(0,(dx*wx+dy*wy)/distance)*wind;other.heat=Math.min(1,(other.heat??0)+Math.max(0,1-distance/4)*(.12+downwind*.16)*(1-sim.env.rain*.3));}
+    }
     if (v.burning || v.burnt || ((v.engineDamage ?? 0) > 0.8 || v.flatLeft || v.flatRight) && v.driver !== sim.playerId) {
       releaseBusPassengers(sim,v);if (v.driver >= 0) unseat(sim, v);
       v.state = "parked"; v.speed = 0; v.vx = 0; v.vy = 0;

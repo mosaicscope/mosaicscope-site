@@ -709,6 +709,8 @@ export class Game {
       case "throw": {
         if(p.hand>=0&&TOYS[sim.toys[p.hand].def]?.uses.includes('ranged')){
           const aim = this.aimPoint ?? this.aimAt(this.mouse.x, this.mouse.y);
+          const tracked=aim.id>=0?sim.chars[aim.id]:undefined;
+          if(tracked&&tracked.inCar<0&&tracked.inside<0){aim.x=tracked.x;aim.y=tracked.y;}
           const id = aim.id;
           if(this.clock.paused)this.setSpeed(1);
           const fired=sim.shootAt(p,aim.x,aim.y,id),def=sim.toys[p.hand].def,base=def==='golden_pistol'?'pistol':def,key=(p.combat?.load??'standard')==='standard'?base:base+':'+p.combat?.load;if(!fired&&p.combat&&(p.combat.ammo[key]??0)<=0&&performance.now()>this.ammoAlertAt){this.ammoAlertAt=performance.now()+2500;this.toast('Out of ammunition · visit the armory');}return;
@@ -775,6 +777,7 @@ export class Game {
     this.crosshair.classList.toggle('hidden', !armed || !this.aimPoint);
     this.returnButton.classList.toggle('hidden', blocked || this.renderer.cam.follow === this.sim.playerId);
     if (armed && this.aimPoint) {
+      const target=this.aimPoint.id>=0?this.sim.chars[this.aimPoint.id]:undefined;if(target&&target.inCar<0&&target.inside<0){this.aimPoint.x=target.x;this.aimPoint.y=target.y;}
       const pt = this.renderer.cam.toScreen(this.aimPoint.x, this.aimPoint.y, 1.05, { x: 0, y: 0 });
       this.crosshair.style.transform = `translate(${pt.x}px,${pt.y}px)`;
     }

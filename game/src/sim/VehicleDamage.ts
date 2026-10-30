@@ -1,3 +1,4 @@
+import {VEHICLES} from '../content/vehicles';
 import {strikeUnderbody,stepUnderbody,type UnderbodyState} from './Underbody';
 import {tickEngineComponents,type EngineMounts,type EngineComponentId} from './EngineComponents';
 import {strikeLattice,stepLattice,upgradeLattice,type CrashLattice} from './CrashLattice';
@@ -44,6 +45,7 @@ export function impactComponents(v:Vehicle,nx:number,ny:number,speed:number,mass
  // Severe concentrated impacts tear the struck end or door free at impact,
  // rather than waiting for wind while an already wrecked car is stationary.
  if(energy>.85&&speed>8){
+  if(VEHICLES[v.cls].design?.powerSource==='fusion'&&!v.burnt){v.heat=1;v.burning=true;}
   const detach=(kind:'metal',size:number)=>{const before=p.debris.length;toss(kind,1);if(p.debris.length>before){const fragment=p.debris[p.debris.length-1];fragment.size=size;fragment.colour=v.color;fragment.zone=zone;fragment.curl=.45;fragment.spinRate=3;}};
   if(zone===0&&!p.hoodGone){p.hood=0;p.hoodLoose=false;p.hoodGone=true;detach('metal',.4);}
   if(zone===1&&!p.bootGone){p.boot=0;p.bootGone=true;detach('metal',.32);}

@@ -5,7 +5,7 @@ export interface CitySources{
  airQuality:{pm25:number;pm10:number;aqi:number;at:string;source:string;sourceUrl:string}|null;
  earthquakes:{source:string;sourceUrl:string;items:{id:string;magnitude:number;depth:number;time:string;location:string}[]}|null;
 }
-export interface LiveCityData{sources?:CitySources|null;code:string;centre:{lat:number;lon:number;name:string};fetchedAt:string;weather:{temperature:number;wind:number;cloud:number;rain:number;symbol:string;forecastAt:string;source:string;sourceUrl:string}|null;weatherStatus:string;traffic:{available:boolean;provider:{source:string;url:string;coverage:string}|null;notices:LiveNotice[];status:string;vehicles:string}}
+export interface LiveCityData{sources?:CitySources|null;code:string;centre:{lat:number;lon:number;name:string};fetchedAt:string;weather:{temperature:number;wind:number;windDirection?:number|null;cloud:number;rain:number;symbol:string;forecastAt:string;source:string;sourceUrl:string}|null;weatherStatus:string;traffic:{available:boolean;provider:{source:string;url:string;coverage:string}|null;notices:LiveNotice[];status:string;vehicles:string}}
 export const CITY_TOOLS=[
  ['refreshMap','Refresh this mapped district'],['refreshLive','Refresh live conditions'],['resetZoom','Reset map zoom'],['detail','Close street view'],['overview','Neighbourhood overview'],
  ['labels','Show or hide place labels'],['traffic','Show or hide road traffic'],['people','Show or hide local people'],['fixtures','Show or hide street furniture'],['weather','Show or hide weather effects'],

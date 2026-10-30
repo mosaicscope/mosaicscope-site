@@ -686,7 +686,7 @@ export class Simulation {
       Object.assign(pooled, fresh);
       return pooled;
     }
-    if (this.toys.length >= this.cfg.maxToys) return null;
+    if (this.toys.length >= this.cfg.maxToys + (["bullet", "buckshot"].includes(def) ? 64 : 0)) return null;
     const t = makeToy(this.toys.length, def, x, y, z);
     this.toys.push(t);
     return t;
