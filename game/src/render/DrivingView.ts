@@ -1,4 +1,4 @@
-import {elevationAt} from '../world/Elevation';
+import {sampledElevation,type ElevationTile} from '../world/Elevation';
 import type {Simulation} from '../sim/Simulation';
 import {T} from '../world/World';
 import {worldIndex} from '../world/WorldIndex';
@@ -35,8 +35,9 @@ export class DrivingView {
  draw(g:CanvasRenderingContext2D,sim:Simulation,w:number,h:number,dpr:number,time:number,alpha:number,dt:number,particles:Particles,rain:Rain,quality:number,reduceMotion:boolean):void {
   const player=sim.player,car=sim.vehicles[player.inCar],focus=car??player;
   const chase=car?this.chase.update(car,alpha,dt,reduceMotion):this.chase.updateFoot(player,alpha,dt,reduceMotion),angle=chase.heading,fx=Math.cos(angle),fy=Math.sin(angle),rx=-fy,ry=fx;
-  const heights=new Map<string,number>();
-  const terrain=(x:number,y:number)=>{if(!sim.world.mapped)return 0;const key=x+','+y,cached=heights.get(key);if(cached!==undefined)return cached;const value=elevationAt(sim.world.mapped,x,y)??0;heights.set(key,value);return value;};
+  // Resolve each elevation district once per frame; thousands of vertices share the same grid.
+  const elevationGrids=new Map<string,ElevationTile|null>(),mapForHeight=sim.world.mapped;
+  const terrain=(x:number,y:number)=>{const map=mapForHeight,grids=map?.elevation;if(!map||!grids?.size)return 0;const east=(x-map.offsetX)*map.metresPerTile,north=-(y-map.offsetY)*map.metresPerTile,cx=Math.round(east/400),cy=Math.round(north/400),key=cx+','+cy;let tile=elevationGrids.get(key);if(tile===undefined){tile=grids.get(key)??null;if(!tile){let best=Infinity;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const candidate=grids.get((cx+dx)+','+(cy+dy));if(!candidate)continue;const d=Math.hypot((cx-candidate.cx)*400,(cy-candidate.cy)*400);if(d<best){best=d;tile=candidate;}}if(best>600)tile=null;}elevationGrids.set(key,tile);}return tile?sampledElevation(tile,east,north)/map.metresPerTile:0;};
   const ex=chase.x-fx*chase.distance,ey=chase.y-fy*chase.distance,eye=chase.height+sim.world.groundZ(chase.x,chase.y)+terrain(chase.x,chase.y),near=.6,focal=Math.min(w,h)*chase.focalFactor,horizon=h*.18;
   this.projection={ex,ey,fx,fy,rx,ry,eye,focal,horizon,width:w,heading:angle,terrain};this.picks.length=0;
   type P={x:number;y:number;z:number};
@@ -113,8 +114,8 @@ export class DrivingView {
       // Windows smaller than a few screen pixels cannot be resolved; keep the correct facade colour.
       if(right-left<8||bottom-top<7){quad(corners,wall);continue;}
       const rows=Math.min(12,Math.max(1,b.floors)),cols=Math.min(12,Math.max(1,Math.floor(Math.hypot(z[0]-a[0],z[1]-a[1])/(arch?.bayWidth?arch.bayWidth/2:1.4)))),trim=arch?.trim??'#a9b4ad',style=arch?.window??'bay',key=[wall,trim,style,rows,cols,daylight<.35?1:0].join('|');
-      let image=this.distantFacades.get(key);if(!image){image=document.createElement('canvas');image.width=image.height=128;const face=image.getContext('2d')!;face.fillStyle=wall;face.fillRect(0,0,128,128);const cw=128/cols,ch=128/rows;face.fillStyle=trim;for(let f=0;f<rows;f++)face.fillRect(0,f*ch,128,Math.max(.5,ch*.045));for(let f=0;f<rows;f++)for(let c=0;c<cols;c++){face.fillStyle=daylight<.35&&(b.id+f*7+c*3)%7===0?'#d8c996':'#4e6a76';const inset=style==='ribbon'?.08:.2;face.fillRect((c+inset)*cw,(f+.23)*ch,(1-2*inset)*cw,.52*ch);face.fillStyle='#a3aca488';face.fillRect((c+.5)*cw,(f+.23)*ch,Math.max(.5,cw*.015),.52*ch);}this.distantFacades.set(key,image);if(this.distantFacades.size>128)this.distantFacades.delete(this.distantFacades.keys().next().value!);}
-      g.save();g.beginPath();g.moveTo(pa.x,pa.y);g.lineTo(pb.x,pb.y);g.lineTo(pc.x,pc.y);g.lineTo(pd.x,pd.y);g.closePath();g.clip();g.transform((pb.x-pa.x)/128,(pb.y-pa.y)/128,(pd.x-pa.x)/128,(pd.y-pa.y)/128,pa.x,pa.y);g.drawImage(image,0,0);g.restore();
+      let image=this.distantFacades.get(key);if(!image){image=document.createElement('canvas');image.width=image.height=64;const face=image.getContext('2d')!;face.fillStyle=wall;face.fillRect(0,0,64,64);const cw=64/cols,ch=64/rows;face.fillStyle=trim;for(let f=0;f<rows;f++)face.fillRect(0,f*ch,64,Math.max(.5,ch*.045));for(let f=0;f<rows;f++)for(let c=0;c<cols;c++){face.fillStyle=daylight<.35&&(b.id+f*7+c*3)%7===0?'#d8c996':'#4e6a76';const inset=style==='ribbon'?.08:.2;face.fillRect((c+inset)*cw,(f+.23)*ch,(1-2*inset)*cw,.52*ch);face.fillStyle='#a3aca488';face.fillRect((c+.5)*cw,(f+.23)*ch,Math.max(.5,cw*.015),.52*ch);}this.distantFacades.set(key,image);if(this.distantFacades.size>512)this.distantFacades.delete(this.distantFacades.keys().next().value!);}
+      g.save();g.beginPath();g.moveTo(pa.x,pa.y);g.lineTo(pb.x,pb.y);g.lineTo(pc.x,pc.y);g.lineTo(pd.x,pd.y);g.closePath();g.clip();g.transform((pb.x-pa.x)/64,(pb.y-pa.y)/64,(pd.x-pa.x)/64,(pd.y-pa.y)/64,pa.x,pa.y);g.drawImage(image,0,0);g.restore();
 
      }polygon(pts.map(p=>local(p[0],p[1],height)),roof);
     }});continue;
