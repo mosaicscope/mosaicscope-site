@@ -39,7 +39,7 @@ export function stepWaterVehicle(sim:Simulation,v:Vehicle,dt:number):void{
  if(!depth){if(old){old.elapsed=0;old.submersion=Math.max(0,old.submersion-dt*.35);if(old.submersion===0&&!old.locked)v.water=undefined;}return;}
  const state=v.water??={elapsed:0,submersion:0,locked:false};state.elapsed+=dt;
  const height=vehicleGeometry(v).height,target=Math.min(depth,height*1.3),flood=state.elapsed<2?.04:Math.min(.2,dt*(.09+Math.max(0,depth-.3)*.09));
- state.submersion=Math.min(target,state.submersion+(state.elapsed<2?dt*flood:flood));
+ const rise=state.elapsed<2?dt*flood:flood;state.submersion+=Math.max(-dt*.35,Math.min(rise,target-state.submersion));
  if(depth>.35&&state.elapsed>3&&state.submersion>height*.22){state.locked=true;v.engineDamage=Math.max(v.engineDamage??0,.72);v.driveThrottle=0;}
  // A damped spring follows the surface while the vehicle still floats.
  const floating=Math.max(0,1-state.submersion/Math.max(.01,height));
