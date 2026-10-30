@@ -4,6 +4,7 @@ import {T} from '../world/World';
 import {worldIndex} from '../world/WorldIndex';
 import {Camera} from './Camera';
 import {DrivingCamera} from './DrivingCamera';
+import {PerspectiveGroundGPU} from './PerspectiveGroundGPU';
 import {mappedRails,railSpan} from '../world/MappedRails';
 import {drawCar,drawVehicleFragment} from './Cars';
 import {drawStreetProp} from './StreetProps';
@@ -24,7 +25,7 @@ import {impactRagdollPose} from '../physics/ImpactRagdoll';
 
 /** Third-person projection of the same simulation. Geometry is clipped at the near plane. */
 export class DrivingView {
- private cam=new Camera();private chase=new DrivingCamera();
+ private cam=new Camera();private chase=new DrivingCamera();private gpuGround?:PerspectiveGroundGPU;
  private facadeStyles=new WeakMap<import('../ui/DestinationDistrict').MappedBuilding,ReturnType<typeof mappedFacadeStyle>>();
  private facadeStyle(source:import('../ui/DestinationDistrict').MappedBuilding){let style=this.facadeStyles.get(source);if(!style){style=mappedFacadeStyle(source);this.facadeStyles.set(source,style);}return style;}
  private projection?:{ex:number;ey:number;fx:number;fy:number;rx:number;ry:number;eye:number;focal:number;horizon:number;width:number;heading:number;terrain:(x:number,y:number)=>number};
@@ -44,7 +45,7 @@ export class DrivingView {
   type P={x:number;y:number;z:number};
   const local=(x:number,y:number,z:number):P=>({x:(x-ex)*rx+(y-ey)*ry,y:z+terrain(x,y)-eye,z:(x-ex)*fx+(y-ey)*fy});
   const screen=(p:P)=>({x:w/2+p.x*focal/p.z,y:horizon-p.y*focal/p.z});
-  const polygon=(points:P[],fill:string,stroke?:string)=>{let clipped:P[]=[];for(let i=0;i<points.length;i++){const a=points[i],b=points[(i+1)%points.length],ai=a.z>=near,bi=b.z>=near;if(ai)clipped.push(a);if(ai!==bi){const t=(near-a.z)/(b.z-a.z);clipped.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:near});}}if(clipped.length<3)return;g.beginPath();clipped.forEach((p,i)=>{const q=screen(p);if(i)g.lineTo(q.x,q.y);else g.moveTo(q.x,q.y);});g.closePath();g.fillStyle=fill;g.fill();if(stroke){g.strokeStyle=stroke;g.lineWidth=.6;g.stroke();}};
+  const polygon=(points:P[],fill:string,stroke?:string)=>{let clipped:P[]=[];for(let i=0;i<points.length;i++){const a=points[i],b=points[(i+1)%points.length],ai=a.z>=near,bi=b.z>=near;if(ai)clipped.push(a);if(ai!==bi){const t=(near-a.z)/(b.z-a.z);clipped.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:near});}}if(clipped.length<3)return;const projected=clipped.map(screen);if(projected.every(p=>p.x<0)||projected.every(p=>p.x>w)||projected.every(p=>p.y<0)||projected.every(p=>p.y>h))return;g.beginPath();projected.forEach((q,i)=>{if(i)g.lineTo(q.x,q.y);else g.moveTo(q.x,q.y);});g.closePath();g.fillStyle=fill;g.fill();if(stroke){g.strokeStyle=stroke;g.lineWidth=.6;g.stroke();}};
   const quad=(points:[number,number,number][],fill:string,stroke?:string)=>polygon(points.map(p=>local(...p)),fill,stroke);
   g.setTransform(dpr,0,0,dpr,0,0);const daylight=sim.daylight;const sky=g.createLinearGradient(0,0,0,horizon);sky.addColorStop(0,daylight>.3?'#607f93':'#10192a');sky.addColorStop(1,daylight>.3?'#c3c5b7':'#30394a');g.fillStyle=sky;g.fillRect(0,0,w,h);g.fillStyle=daylight>.3?'#51564b':'#20282d';g.fillRect(0,horizon,w,h-horizon);
   // Coarse distance terrain extends the horizon without drawing thousands of full-detail tiles.
@@ -59,9 +60,11 @@ export class DrivingView {
   for(let y=cy-radius;y<=cy+radius;y++)for(let x=cx-radius;x<=cx+radius;x++){const d=(x+.5-ex)*fx+(y+.5-ey)*fy,side=Math.abs((x+.5-ex)*rx+(y+.5-ey)*ry);if(d<near||d>38||side>d*.9+3)continue;ground.push({x,y,d,t:sim.world.tile(x,y),z:sim.world.groundZ(x+.5,y+.5)});}
   // Elevation can overlap neighbouring tiles in projection; paint distant tiles first.
   ground.sort((a,b)=>b.d-a.d);
+  this.gpuGround??=new PerspectiveGroundGPU();const gpu=this.gpuGround.begin(w*dpr,h*dpr);
+  if(gpu){for(const q of ground){const hash=Math.abs(Math.imul(q.x,73856093)^Math.imul(q.y,19349663)),colors=GROUND[q.t===T.TREE?T.GRASS:q.t]??GROUND[T.PAVE],ps=[[q.x,q.y,q.z],[q.x+1,q.y,q.z],[q.x+1,q.y+1,q.z],[q.x,q.y+1,q.z]].map(p=>local(p[0],p[1],p[2])),clip:P[]=[];for(let i=0;i<ps.length;i++){const a=ps[i],b=ps[(i+1)%ps.length],ai=a.z>=near,bi=b.z>=near;if(ai)clip.push(a);if(ai!==bi){const t=(near-a.z)/(b.z-a.z);clip.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:near});}}if(clip.length>=3)this.gpuGround.polygon(clip.map(screen),colors[hash%5<2?0:1],w,h);}this.gpuGround.finish(g,w,h);}
   for(const q of ground){
    const hash=Math.abs(Math.imul(q.x,73856093)^Math.imul(q.y,19349663)),variation=hash%5,colors=GROUND[q.t===T.TREE?T.GRASS:q.t]??GROUND[T.PAVE],color=colors[variation<2?0:1];
-   quad([[q.x,q.y,q.z],[q.x+1,q.y,q.z],[q.x+1,q.y+1,q.z],[q.x,q.y+1,q.z]],color);
+   if(!gpu)quad([[q.x,q.y,q.z],[q.x+1,q.y,q.z],[q.x+1,q.y+1,q.z],[q.x,q.y+1,q.z]],color);
    // Show actual simulated height steps, rather than inventing terrain elevation data.
    if(q.z>0&&q.d<28){const sides:[[number,number],[number,number],number,number][]=[[[q.x,q.y],[q.x+1,q.y],q.x,q.y-1],[[q.x+1,q.y],[q.x+1,q.y+1],q.x+1,q.y],[[q.x+1,q.y+1],[q.x,q.y+1],q.x,q.y+1],[[q.x,q.y+1],[q.x,q.y],q.x-1,q.y]];for(const [a,b,nx,ny] of sides){const low=sim.world.groundZ(nx+.5,ny+.5);if(low<q.z)quad([[a[0],a[1],low],[b[0],b[1],low],[b[0],b[1],q.z],[a[0],a[1],q.z]],'#686860');}}
    // A small kerb lip delineates pavement from traffic lanes; it is visual, not a new road obstacle.
