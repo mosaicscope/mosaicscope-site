@@ -1,4 +1,4 @@
-import { World, SOLID, TILE_HEIGHT } from "../world/World";
+import { World, SOLID, TILE_HEIGHT, T } from "../world/World";
 import { SpatialHash } from "../world/SpatialHash";
 import { Character, Phys, Toy } from "../entities/types";
 import { TOYS } from "../content/toys";
@@ -250,16 +250,17 @@ export class PhysicsWorld {
    * Move a circle by (dx, dy), sliding along solid tiles. Used for character steering and knockback.
    * Returns true if any axis was blocked.
    */
-  moveCircle(c: { x: number; y: number; radius: number; z: number }, dx: number, dy: number): boolean {
+  moveCircle(c: { x: number; y: number; radius: number; z: number }, dx: number, dy: number, allowWater=false): boolean {
+    const blocks=(x:number,y:number)=>!(allowWater&&this.world.tile(Math.floor(x),Math.floor(y))===T.WATER)&&this.blocked(x,y,c.z);
     let hit = false;
     const r = c.radius;
     if (dx !== 0) {
       const nx = c.x + dx, ex = nx + Math.sign(dx) * r;
-      if (this.blocked(ex, c.y - r * 0.7, c.z) || this.blocked(ex, c.y + r * 0.7, c.z)) hit = true; else c.x = nx;
+      if (blocks(ex, c.y - r * 0.7) || blocks(ex, c.y + r * 0.7)) hit = true; else c.x = nx;
     }
     if (dy !== 0) {
       const ny = c.y + dy, ey = ny + Math.sign(dy) * r;
-      if (this.blocked(c.x - r * 0.7, ey, c.z) || this.blocked(c.x + r * 0.7, ey, c.z)) hit = true; else c.y = ny;
+      if (blocks(c.x - r * 0.7, ey) || blocks(c.x + r * 0.7, ey)) hit = true; else c.y = ny;
     }
     return hit;
   }

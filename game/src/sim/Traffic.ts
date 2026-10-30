@@ -1,3 +1,4 @@
+import {stepWaterVehicle,waterDepth} from './WaterPhysics';
 import {releaseBusPassengers} from './BusService';
 import {stepDrivingTelemetry} from './DrivingTelemetry';
 import {aerodynamicForces} from './VehicleAero';
@@ -119,7 +120,7 @@ export function unseat(sim: Simulation, v: Vehicle): Character | null {
   // A jammed door sends the driver out the other side; both jammed uses a rear escape.
   const right=Math.max(doors?.[1]??0,partDoors[1]),left=Math.max(doors?.[0]??0,partDoors[0]);
   const side = v.heading + (right>.6?(left>.6?Math.PI:-Math.PI/2):Math.PI/2);
-  const p = sim.world.nearestWalkable(v.x + Math.cos(side) * 1.1, v.y + Math.sin(side) * 1.1);
+  const p = waterDepth(sim.world,v.x,v.y)>0?{x:v.x+Math.cos(side)*.6,y:v.y+Math.sin(side)*.6}:sim.world.nearestWalkable(v.x + Math.cos(side) * 1.1, v.y + Math.sin(side) * 1.1);
   c.x = c.px = p.x; c.y = c.py = p.y; c.vx = c.vy = c.vz = c.kx = c.ky = c.z = 0; c.facing = v.heading;
   c.nextThink = sim.tick + 1;
   return c;
@@ -219,7 +220,7 @@ function stepVehicles(sim: Simulation, dt: number,fleet=sim.vehicles): void {
       v.bodyRoll=(v.bodyRoll??0)*Math.exp(-dt*7);v.bodyPitch=(v.bodyPitch??0)*Math.exp(-dt*7);
       v.tyreHeat=Math.max(0,(v.tyreHeat??0)-dt*.22);
     }
-    damageTick(v, dt);
+    damageTick(v, dt);stepWaterVehicle(sim,v,dt);
     if (v.burning || v.burnt || ((v.engineDamage ?? 0) > 0.8 || v.flatLeft || v.flatRight) && v.driver !== sim.playerId) {
       releaseBusPassengers(sim,v);if (v.driver >= 0) unseat(sim, v);
       v.state = "parked"; v.speed = 0; v.vx = 0; v.vy = 0;
@@ -227,7 +228,7 @@ function stepVehicles(sim: Simulation, dt: number,fleet=sim.vehicles): void {
       if (sim.tick >= v.towAt && v.owner !== sim.playerId) { const park = sim.world.buildings.find(b => b.kind === "garage"); if (park) { v.x = park.door.x + 1; v.y = park.door.y + 1; } repairVehicle(v); v.towAt = undefined; }
       continue;
     }
-    if (v.state === "parked") {releaseBusPassengers(sim,v);v.braking=false;continue;}
+    if (v.state === "parked") {releaseBusPassengers(sim,v);v.braking=false;if(waterDepth(sim.world,v.x,v.y)>0){const x=v.x+(v.vx??0)*dt,y=v.y+(v.vy??0)*dt;if(waterDepth(sim.world,x,y)>0){v.x=x;v.y=y;}}continue;}
     if (v.state === "crashed") {
       slide(sim, v, dt);
       if (sim.tick > v.crashedUntil) v.state = v.driver === sim.playerId ? "free" : v.driver >= 0 ? (snapToLane(sim, v) ? "drive" : "free") : "parked";
@@ -298,7 +299,7 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const geometry = vehicleGeometry(v);
   const surface = roadSurfaceAt(sim.world,v.x,v.y,sim.env.rain,profile.offroad);
   // Pedal response builds torque smoothly; braking always responds immediately.
-  const pedal = clamp(inp.throttle, -1, 1);
+  const pedal = v.water?.locked?0:clamp(inp.throttle, -1, 1);
   const serviceBrake=clamp(inp.serviceBrake??0,0,1);
   const braking = inp.brake || serviceBrake>0 || pedal < 0 && lon > 0.05 || pedal > 0 && lon < -0.05;
   v.braking=braking;
@@ -513,7 +514,7 @@ function moveBlocked(sim: Simulation, v: Vehicle, dt: number): void {
   const nx = v.x + vel.x * dt, ny = v.y + vel.y * dt;
   if(sim.world.mapped){const ox=v.x,oy=v.y,px=v.px,py=v.py;v.px=ox;v.py=oy;v.x=nx;v.y=ny;const hit=sim.mappedDamage.contact([...worldIndex(sim.world).buildings.query(Math.min(ox,nx)-d.length-2,Math.min(oy,ny)-d.length-2,Math.max(ox,nx)+d.length+2,Math.max(oy,ny)+d.length+2)].flatMap(id=>{const b=worldIndex(sim.world).damage.get(id);return b?[b]:[];}),v,sim.tick/60,1);v.px=px;v.py=py;if(hit){if(hit.speed>1){sim.bus.emit('sound',{kind:'crash',x:v.x,y:v.y,vol:Math.min(1,hit.speed/10)});sim.bus.emit('fx',{kind:'dust',x:hit.x,y:hit.y,z:.3,n:Math.min(16,Math.ceil(hit.speed*2))});if(hit.damage?.opening&&hit.damage.at===sim.tick/60)sim.bus.emit('fx',{kind:'break',x:hit.x,y:hit.y,z:.7,n:Math.min(20,Math.ceil(hit.speed*1.5)),color:hit.damage.material==='brick'?'#a87962':hit.damage.material==='glass'?'#b7d5d2':'#aaa99b'});}return;}v.x=ox;v.y=oy;}
   const nowWater=sim.world.tile(Math.floor(nx),Math.floor(ny))===T.WATER,wasWater=sim.world.tile(Math.floor(v.x),Math.floor(v.y))===T.WATER;
-  if(nowWater){const speed=Math.hypot(vel.x,vel.y);if(!wasWater||(sim.tick+v.id)%30===0&&speed>1)sim.liquids.disturb(nx,ny,speed);const drag=Math.exp(-dt*1.4);v.vx=vel.x*drag;v.vy=vel.y*drag;v.speed=v.vx*Math.cos(v.heading)+v.vy*Math.sin(v.heading);}
+  if(nowWater){const speed=Math.hypot(vel.x,vel.y);if(!wasWater||(sim.tick+v.id)%30===0&&speed>1)sim.liquids.disturb(nx,ny,speed);}
   const fx = nx + Math.cos(v.heading) * (d.length / 2) * Math.sign(v.speed || 1), fy = ny + Math.sin(v.heading) * (d.length / 2) * Math.sign(v.speed || 1);
   const side = v.heading + Math.PI / 2, hw = d.width / 2 * 0.9;
   const blocked = (x: number, y: number) => !sim.world.walkable(x, y) && sim.world.tile(Math.floor(x), Math.floor(y)) !== T.CRATE && sim.world.tile(Math.floor(x), Math.floor(y)) !== T.WATER && !(sim.world.mapped&&sim.world.tile(Math.floor(x),Math.floor(y))===T.BUILDING) || !sim.world.inBounds(Math.floor(x), Math.floor(y));

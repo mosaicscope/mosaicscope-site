@@ -1,3 +1,4 @@
+import {waterCurrent,waterDepth} from '../sim/WaterPhysics';
 import {VehicleIndex} from '../sim/VehicleIndex';
 import type {MappedBuilding} from '../ui/DestinationDistrict';
 import {impactRagdollPose} from '../physics/ImpactRagdoll';
@@ -265,7 +266,7 @@ export class Renderer {
     // water: drifting ripple crests (continuous across tiles, driven by world position) and sun glints
     this.drawWater(g, sim, o, minX, maxX, minY, maxY, time);
     // Physics-owned liquid droplets and local 70-point water displacement.
-    g.save();for(const wave of sim.liquids.water){if(Math.hypot(wave.x-cam.x,wave.y-cam.y)>45/Math.max(.5,z))continue;g.strokeStyle='rgba(183,220,224,.55)';g.lineWidth=Math.max(.5,z*.6);for(let row=0;row<7;row++){g.beginPath();for(let col=0;col<10;col++){const i=row*10+col,q=cam.toScreen(wave.x+(col-4.5)*.35,wave.y+(row-3)*.35,Math.max(0,wave.height[i]),{x:0,y:0});if(col)g.lineTo(q.x,q.y);else g.moveTo(q.x,q.y);}g.stroke();}}
+    g.save();for(const wave of sim.liquids.water){if(Math.hypot(wave.x-cam.x,wave.y-cam.y)>45/Math.max(.5,z))continue;g.strokeStyle='rgba(183,220,224,.55)';g.lineWidth=Math.max(.5,z*.6);for(let row=0;row<7;row++){g.beginPath();let drawing=false;for(let col=0;col<10;col++){const i=row*10+col,wx=wave.x+(col-4.5)*.35,wy=wave.y+(row-3)*.35;if(sim.world.tile(Math.floor(wx),Math.floor(wy))!==T.WATER||Math.abs(wave.height[i])<.003){drawing=false;continue;}const q=cam.toScreen(wx,wy,wave.height[i],{x:0,y:0});if(drawing)g.lineTo(q.x,q.y);else g.moveTo(q.x,q.y);drawing=true;}g.stroke();}}
     for(const drop of sim.liquids.drops){if(drop.kind==='blood'&&!this.fakeBlood)continue;if(Math.hypot(drop.x-cam.x,drop.y-cam.y)>45/Math.max(.5,z))continue;const q=cam.toScreen(drop.x,drop.y,drop.z,{x:0,y:0});g.fillStyle=drop.kind==='blood'?'#8c2229':drop.kind==='vomit'?'#b0a849':'rgba(152,207,221,.7)';g.beginPath();g.ellipse(q.x,q.y,Math.max(1,drop.size*18*z),Math.max(.7,drop.size*(drop.ground?8:14)*z),0,0,Math.PI*2);g.fill();}g.restore();
 
     // real street names painted on the road between intersections
@@ -367,7 +368,8 @@ export class Renderer {
         if (this.lastPose.get(c.id) !== name) { this.lastPose.set(c.id, name); c.anim.poseT = 0; } else c.anim.poseT += dt;
         if (c.anim.flash > 0) c.anim.flash -= dt;
         const dir = this.screenDir(c);
-        const zOff = c.z * 26 * z;
+        const swimDepth=c.tier==="player"?waterDepth(sim.world,c.x,c.y):0;
+        const zOff = (c.z-Math.min(.55,swimDepth*.55)) * 26 * z;
         if (bg) {
           // background: cheap animation (sine idle, simple walk), batched strokes
           const a = pose(c.phys===Phys.DOWN ? name : moving ? "walk" : c.anim.pose === "dance" ? "dance" : c.anim.pose === "panic" ? "panic" : "idle", "loose", time + c.seedPhase, c.anim.phase, spd, 0);
@@ -411,7 +413,9 @@ export class Renderer {
         }
         solve(a, it.sx, it.sy - zOff, k, dir);
         // held toy behind or in front depending on hand
+        if(swimDepth>.1){g.save();g.beginPath();g.rect(-10000,-10000,20000,10000+it.sy);g.clip();}
         drawFigure(g, c, it.sx, it.sy - zOff, k, dir, time, c.anim.flash, 1, undefined, !!gun || (c.substances?.actionUntil??0)>sim.tick);
+        if(swimDepth>.1)g.restore();
         drawSubstanceProps(g,c,sim.tick,time,J,k);
         if(workingCrews.has(c.id)){g.fillStyle='#d4a04e';g.strokeStyle='#555d4b';g.lineWidth=k;g.beginPath();g.moveTo(J[6]-5*k,J[7]+3*k);g.lineTo(J[6]+5*k,J[7]+3*k);g.lineTo(J[0]+5*k,J[1]);g.lineTo(J[0]-5*k,J[1]);g.closePath();g.fill();g.stroke();g.strokeStyle='#e4ddbb';g.lineWidth=2*k;g.beginPath();g.moveTo(J[6]-4*k,J[7]+12*k);g.lineTo(J[6]+4*k,J[7]+12*k);g.stroke();}
         if (c.bleed > 0 && Math.random() < c.bleed * dt * 5) this.drip(c.x, c.y);
@@ -456,7 +460,9 @@ export class Renderer {
           const vehicle = sim.vehicles[it.ref], strength = Math.min(1 - sim.daylight, sim.env.power ? 0.65 : 0.35);
           GLOW.push(layer => headlights(layer, cam, vehicle, strength, sim.world, this.lightIndex.query(vehicle.x,vehicle.y,12,lightCandidates)));
         }
-        drawCar(g, cam, sim.vehicles[it.ref], alpha, time, 1 - sim.daylight, it.ref === this.selectedCar,sim.chars[sim.vehicles[it.ref].driver]);
+        const vehicle=sim.vehicles[it.ref];if((vehicle.water?.submersion??0)>0){g.save();const surface=cam.toScreen(vehicle.x,vehicle.y,0,{x:0,y:0});g.beginPath();g.rect(-10000,-10000,20000,10000+surface.y);g.clip();}
+        drawCar(g, cam, vehicle, alpha, time, 1 - sim.daylight, it.ref === this.selectedCar,sim.chars[vehicle.driver]);
+        if((vehicle.water?.submersion??0)>0)g.restore();
       } else if (it.kind === 5) {
         flush();
         this.drawLight(it.ref % 64, Math.floor(it.ref / 64), it.sx, it.sy, z);
@@ -517,7 +523,7 @@ export class Renderer {
 
   /** Animated water. Low: the old soft shimmer. Higher tiers: two ripple layers, travelling glints, more on Ultra. */
   private drawWater(g: CanvasRenderingContext2D, sim: Simulation, o: RenderOptions, minX: number, maxX: number, minY: number, maxY: number, time: number): void {
-    const cam = this.cam, z = cam.zoom, pt = this.pt, q = o.quality, t = o.reduceMotion ? 0 : time;
+    const cam = this.cam, z = cam.zoom, pt = this.pt, q = o.quality, t = o.reduceMotion ? 0 : time,roughness=waterCurrent(sim).roughness;
     if (q === 0) {
       g.fillStyle = "rgba(61,214,255,.06)";
       for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
@@ -535,9 +541,9 @@ export class Renderer {
       for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
         if (sim.world.tile(tx,ty) !== T.WATER) continue;
         // each tile carries one wavy crest running along the iso x axis; phase comes from world position so crests line up neighbour to neighbour
-        const v = 0.5 + 0.28 * Math.sin((tx + ty * 0.7) * 1.7 + layer * 2.1 + t * (0.9 + layer * 0.35));
+        const v = 0.5 + (0.18+roughness*.18) * Math.sin((tx + ty * 0.7) * 1.7 + layer * 2.1 + t * (0.9 + layer * 0.35));
         for (let i = 0; i <= seg; i++) {
-          const u = i / seg, wob = Math.sin((tx + u) * 2.3 + t * 1.3 + layer * 1.7 + ty * 0.9) * 0.07;
+          const u = i / seg, wob = Math.sin((tx + u) * 2.3 + t * 1.3 + layer * 1.7 + ty * 0.9) * (0.035+roughness*.09);
           cam.toScreen(tx + u, ty + v + wob + layer * 0.18, 0, pt);
           if (i) g.lineTo(pt.x, pt.y); else g.moveTo(pt.x, pt.y);
         }

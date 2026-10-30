@@ -84,8 +84,8 @@ function ring(x0: number, x1: number, hw: number, cf: number, cr: number, h: (x:
   return P.map(([x, y]) => [x, y, h(x)]);
 }
 
-interface Ctx { g: CanvasRenderingContext2D; cam: Camera; x: number; y: number; c: number; s: number; roll?:number; pitch?:number; deform?:(p:V3)=>V3 }
-const W3 = (k: Ctx, raw: V3) => { const p=k.deform?.(raw)??raw;k.cam.toScreen(k.x + p[0] * k.c - p[1] * k.s, k.y + p[0] * k.s + p[1] * k.c, Math.max(.015,p[2]+(k.roll??0)*p[1]+(k.pitch??0)*p[0]), pt); return [pt.x, pt.y]; };
+interface Ctx { g: CanvasRenderingContext2D; cam: Camera; x: number; y: number; c: number; s: number; roll?:number; pitch?:number; submersion?:number; deform?:(p:V3)=>V3 }
+const W3 = (k: Ctx, raw: V3) => { const p=k.deform?.(raw)??raw;k.cam.toScreen(k.x + p[0] * k.c - p[1] * k.s, k.y + p[0] * k.s + p[1] * k.c, Math.max(-2,p[2]+(k.roll??0)*p[1]+(k.pitch??0)*p[0]-(k.submersion??0)), pt); return [pt.x, pt.y]; };
 /** Local -> world normal. */
 const WN = (k: Ctx, n: V3): V3 => [n[0] * k.c - n[1] * k.s, n[0] * k.s + n[1] * k.c, n[2]];
 const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -172,7 +172,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const mods=v.lifeMods??[],d=VEHICLES[v.cls],S=vehicleBodyShape(v),M=carMutationOf(v.plate,v.cls);
   const x = v.px + (v.x - v.px) * alpha, y = v.py + (v.y - v.py) * alpha;
   const z = cam.zoom, ang = v.heading;
-  const k: Ctx = { g, cam, x, y, c: Math.cos(ang), s: Math.sin(ang) };
+  const k: Ctx = { g, cam, x, y, c: Math.cos(ang), s: Math.sin(ang),submersion:v.water?.submersion??0 };
   if(drawTwoWheeler(g,cam,v,alpha,time,driver,dark))return;
   if(v.cls==='tank'){
     const L=d.length,hw=d.width/2,p=v.components,front=p?.panels[0]??v.dmgF??0,rear=p?.panels[1]??v.dmgR??0;
@@ -513,7 +513,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   fillPoly(k,surfacePatch(end,.37,.63,.12,.45),frontVisible?'#24322c':'#d4d5c4');
   if(frontVisible)for(let j=0;j<5;j++)strokePoly(k,[surfacePoint(end,.4+j*.05,.15),surfacePoint(end,.4+j*.05,.43)],'#879286',.45*z,false);
   }
-  if(((v.lights??night)||brake)&&!(v.state==='parked'&&v.driver<0&&v.lights!==true))for(const [sx,sy,index]of mounts){if((v.components?.structure?.battery??0)>=.8||lampDamage(v,index)>.94||index<2&&!(v.lights??night))continue;const color=index<2?'235,230,197':'200,74,54',r=(index<2?6:brake?7:4)*M.scale*z;GLOW.push(layer=>{const grd=layer.createRadialGradient(sx,sy,0,sx,sy,r);grd.addColorStop(0,`rgba(${color},.4)`);grd.addColorStop(1,`rgba(${color},0)`);layer.fillStyle=grd;layer.beginPath();layer.arc(sx,sy,r,0,6.283);layer.fill();});}
+  if((v.water?.submersion??0)<.2&&((v.lights??night)||brake)&&!(v.state==='parked'&&v.driver<0&&v.lights!==true))for(const [sx,sy,index]of mounts){if((v.components?.structure?.battery??0)>=.8||lampDamage(v,index)>.94||index<2&&!(v.lights??night))continue;const color=index<2?'235,230,197':'200,74,54',r=(index<2?6:brake?7:4)*M.scale*z;GLOW.push(layer=>{const grd=layer.createRadialGradient(sx,sy,0,sx,sy,r);grd.addColorStop(0,`rgba(${color},.4)`);grd.addColorStop(1,`rgba(${color},0)`);layer.fillStyle=grd;layer.beginPath();layer.arc(sx,sy,r,0,6.283);layer.fill();});}
 
   // Metal creases and primer scuffs are clipped to the actual visible sheet-metal faces.
   for(const f of sides){const dx=Math.abs(f.b0[0]-f.a0[0]),dy=Math.abs(f.b0[1]-f.a0[1]),cx=(f.a0[0]+f.b0[0])/2,cy=(f.a0[1]+f.b0[1])/2,zone=dx<dy?(cx>0?0:1):(cy>0?3:2),amount=[dF,dR,dL,dS][zone];if(amount<.15)continue;g.save();g.beginPath();[f.a0,f.b0,f.b1,f.a1].forEach((p,i)=>{const q=W3(k,p);if(i)g.lineTo(q[0],q[1]);else g.moveTo(q[0],q[1]);});g.closePath();g.clip();
@@ -638,7 +638,7 @@ function drawWorkingDetails(k:Ctx,v:Vehicle,L:number,hw:number,H:number,time:num
 
 /** Headlight beams (drawn in the lighting pass, additive): a beam from each lamp fanning onto a lit pool of road ahead. */
 export function headlights(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, strength: number,world?:World,traffic:readonly Vehicle[]=[]): void {
- if((v.components?.structure?.battery??0)>=.8||v.lights===false||lampDamage(v,0)>.94&&lampDamage(v,1)>.94)return;
+ if((v.water?.submersion??0)>.2||(v.components?.structure?.battery??0)>=.8||v.lights===false||lampDamage(v,0)>.94&&lampDamage(v,1)>.94)return;
   if (strength < 0.1 || v.state === "parked" && v.driver < 0 && v.lights!==true) return;
   const d = VEHICLES[v.cls], M = carMutationOf(v.plate, v.cls);
   const ca = Math.cos(v.heading), sa = Math.sin(v.heading);
