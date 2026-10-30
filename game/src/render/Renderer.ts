@@ -552,7 +552,7 @@ export class Renderer {
     // Subtle shallow margins and bank lines, clipped to surveyed water tiles.
     if(q>0){g.save();g.fillStyle='rgba(117,155,127,.10)';
       for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){if(sim.world.tile(x,y)!==T.WATER||[[-1,0],[1,0],[0,-1],[0,1]].every(([dx,dy])=>sim.world.tile(x+dx,y+dy)===T.WATER))continue;const corners=[[x,y],[x+1,y],[x+1,y+1],[x,y+1]];g.beginPath();corners.forEach(([wx,wy],i)=>{const q=cam.toScreen(wx,wy,.005,{x:0,y:0});if(i)g.lineTo(q.x,q.y);else g.moveTo(q.x,q.y);});g.closePath();g.fill();}
-      g.strokeStyle='rgba(176,205,183,'+(.17+roughness*.2).toFixed(3)+')';g.lineWidth=Math.max(.5,z*.5);g.beginPath();
+      g.strokeStyle='rgba(176,205,183,'+(.07+roughness*.08).toFixed(3)+')';g.lineWidth=Math.max(.5,z*.5);g.beginPath();
       for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){if(sim.world.tile(x,y)!==T.WATER)continue;const edges=[[x,y,x+1,y,0,-1],[x+1,y,x+1,y+1,1,0],[x+1,y+1,x,y+1,0,1],[x,y+1,x,y,-1,0]];for(const [ax,ay,bx,by,dx,dy]of edges){if(sim.world.tile(x+dx,y+dy)===T.WATER)continue;const p=cam.toScreen(ax,ay,.015,{x:0,y:0}),r=cam.toScreen(bx,by,.015,{x:0,y:0});g.moveTo(p.x,p.y);g.lineTo(r.x,r.y);}}g.stroke();g.restore();
       if(sim.env.rain>.1&&!o.reduceMotion){g.save();g.strokeStyle='rgba(194,221,217,'+Math.min(.4,sim.env.rain*.35).toFixed(3)+')';g.lineWidth=Math.max(.5,z*.45);g.beginPath();for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){if(sim.world.tile(x,y)!==T.WATER)continue;const seed=((x*37+y*71+Math.floor(t*3)*13)%23+23)%23;if(seed>1)continue;const phase=(t*2+(x*7+y*11)*.13)%1,q=cam.toScreen(x+.35,y+.55,.02,{x:0,y:0}),r=(1+phase*3)*z;g.moveTo(q.x+r,q.y);g.ellipse(q.x,q.y,r,r*.45,0,0,Math.PI*2);}g.stroke();g.restore();}
     }
