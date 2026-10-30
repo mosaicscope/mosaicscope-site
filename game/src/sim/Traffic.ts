@@ -1,3 +1,4 @@
+import {releaseBusPassengers} from './BusService';
 import {stepDrivingTelemetry} from './DrivingTelemetry';
 import {aerodynamicForces} from './VehicleAero';
 import {drivingDynamics,wheelGrip,dynamicsEffects,stepDrivingDynamics} from './VehicleDynamics';
@@ -220,13 +221,13 @@ function stepVehicles(sim: Simulation, dt: number,fleet=sim.vehicles): void {
     }
     damageTick(v, dt);
     if (v.burning || v.burnt || ((v.engineDamage ?? 0) > 0.8 || v.flatLeft || v.flatRight) && v.driver !== sim.playerId) {
-      if (v.driver >= 0) unseat(sim, v);
+      releaseBusPassengers(sim,v);if (v.driver >= 0) unseat(sim, v);
       v.state = "parked"; v.speed = 0; v.vx = 0; v.vy = 0;
       if (!v.towAt) v.towAt = sim.tick + 3600;
       if (sim.tick >= v.towAt && v.owner !== sim.playerId) { const park = sim.world.buildings.find(b => b.kind === "garage"); if (park) { v.x = park.door.x + 1; v.y = park.door.y + 1; } repairVehicle(v); v.towAt = undefined; }
       continue;
     }
-    if (v.state === "parked") {v.braking=false;continue;}
+    if (v.state === "parked") {releaseBusPassengers(sim,v);v.braking=false;continue;}
     if (v.state === "crashed") {
       slide(sim, v, dt);
       if (sim.tick > v.crashedUntil) v.state = v.driver === sim.playerId ? "free" : v.driver >= 0 ? (snapToLane(sim, v) ? "drive" : "free") : "parked";
