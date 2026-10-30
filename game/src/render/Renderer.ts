@@ -468,7 +468,7 @@ export class Renderer {
         const openings=openingByBuilding.get(source.id)??[];
         this.mappedArt.draw(g,source,P,16*z,[focusSX,focusSY],openings,damageP);
         if(!openings.some(d=>d.collapsed))drawMappedFacadeDamage(g,sim.mappedDamage,damageP,32*z,sim.tick/60,source.id);
-        if(!openings.some(d=>d.collapsed)&&o.quality>=2&&1-sim.daylight>.3)GLOW.push(layer=>{this.mappedArt.glow(layer,source,P,16*z,1-sim.daylight);drawMappedFacadeDamage(layer,sim.mappedDamage,damageP,32*z,sim.tick/60,source.id,true);});
+        if(!openings.some(d=>d.collapsed)&&o.quality>=2&&1-sim.daylight>.3)GLOW.push(layer=>{this.mappedArt.glow(layer,source,P,16*z,1-sim.daylight,openings,damageP);drawMappedFacadeDamage(layer,sim.mappedDamage,damageP,32*z,sim.tick/60,source.id,true);});
       } else if (it.kind === 4) {
         flush();
         // Share painter order with the car. Nearer building silhouettes erase these lights too.
