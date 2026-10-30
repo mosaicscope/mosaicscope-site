@@ -19,7 +19,7 @@ export function updateFireResponse(sim:Simulation):void{
  const fires=sim.vehicles.filter(v=>v.burning);if(!fires.length&&!sim.chars.some(c=>(c.fireUntil??0)>sim.tick))return;
  for(const c of sim.chars){if(c.inside>=0||c.inCar>=0)continue;const close=fires.some(v=>Math.hypot(v.x-c.x,v.y-c.y)<1.3);
   if(close&&(c.fireUntil??0)<=sim.tick){c.fireUntil=sim.tick+360;c.emo.fear=1;sim.say(c,'Help! Fire!', 'shout',2);}
-  if((c.fireUntil??0)>sim.tick){if(waterDepth(sim.world,c.x,c.y)>.15){c.fireUntil=sim.tick;continue;}sim.bus.emit('fx',{kind:'spark',x:c.x,y:c.y,z:.7,n:2,color:'#ff9a3d'});c.emo.fear=1;
+  if((c.fireUntil??0)>sim.tick){if(waterDepth(sim.world,c.x,c.y)>.15){c.fireUntil=sim.tick;continue;}c.emo.fear=1;
    if((c.fireWoundAt??0)<=sim.tick){wound(sim,c,'torso',1,'bruise',-1,c.x,c.y);c.fireWoundAt=sim.tick+180;}}
  }
 }

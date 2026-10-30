@@ -35,7 +35,7 @@ import { decorGrid, drawDecor } from "./StreetDecor";
 import { Particles } from "./Particles";
 import { Lighting, Rain } from "./Lighting";
 import { NightFX } from "./NightFX";
-import { pose, solve, drawFigure, pathSilhouette, J, gaitOf, applyGait, reachArm, Angles } from "./StickFigure";
+import { pose, solve, drawFigure, pathSilhouette, J, gaitOf, applyGait, applyLegVariation, reachArm, Angles } from "./StickFigure";
 import { drawToy, drawIsoBox } from "./ToyArt";
 import { INK } from "./palette";
 import { drawBuildingTile, GLOW } from "./Buildings";
@@ -370,7 +370,7 @@ export class Renderer {
     for (const it of view) {
       if (it.kind === 0) {
         const c = sim.chars[it.ref];
-        const bg = !detail.has(c.id)&&(artworkBudget<8||c.goal?.id!=='nearby_scene'&&c.goal?.id!=='street_life');
+        const bg = (c.fireUntil??0)<=sim.tick&&!detail.has(c.id)&&(artworkBudget<8||c.goal?.id!=='nearby_scene'&&c.goal?.id!=='street_life');
         const k = (mapped?MAPPED_FIGURE_SCALE:.44) * z * c.look.scale;
         const wx=c.px+(c.x-c.px)*alpha,wy=c.py+(c.y-c.py)*alpha;
         const previous=this.motion.get(c.id),distance=previous?Math.hypot(wx-previous.x,wy-previous.y):0;
@@ -390,7 +390,7 @@ export class Renderer {
           // background: cheap animation (sine idle, simple walk), batched strokes
           const a = pose(c.phys===Phys.DOWN ? name : moving ? "walk" : c.anim.pose === "dance" ? "dance" : c.anim.pose === "panic" ? "panic" : "idle", "loose", time + c.seedPhase, c.anim.phase, spd, 0);
           if(c.phys===Phys.DOWN&&!o.reduceMotion){const limbs=impactRagdollPose(c);a.armL+=limbs[0];a.armR+=limbs[1];a.thighL+=limbs[2];a.thighR+=limbs[3];a.foreL+=limbs[4]*.5;a.foreR+=limbs[5]*.5;a.bendL+=limbs[6]*.5;a.bendR+=limbs[7]*.5;a.tilt+=limbs[8]*.35;a.lean+=limbs[9]*.25;}
-          applyGait(a, G);
+          applyGait(a, G);applyLegVariation(a,c.id,name,c.anim.phase);
           if (moving) this.foreshorten(a, c);
           solve(a, it.sx, it.sy - zOff, k, dir);
           const col = c.look.color;
@@ -402,7 +402,8 @@ export class Renderer {
         }
         flush();
         const a = pose(name, c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT);
-        applyGait(a, G);
+        applyGait(a, G);applyLegVariation(a,c.id,name,c.anim.phase);
+        if(!a.lying&&!o.reduceMotion){const breath=Math.sin(time*(.8+(c.id%9)*.07)+c.seedPhase);a.bob+=breath*.7;a.lean+=breath*.012;}
         if (c.wounds.length && !a.lying) {
           // a bad leg barely swings and the body drops onto the good one; a hurt torso hunches; a head knock lolls
           const h = hurtOf(c),response=injuryResponse(c);
@@ -432,6 +433,11 @@ export class Renderer {
         if(swimDepth>.1){g.save();g.beginPath();g.rect(-10000,-10000,20000,10000+it.sy);g.clip();}
         drawFigure(g, c, it.sx, it.sy - zOff, k, dir, time, c.anim.flash, 1, undefined, !!gun || (c.substances?.actionUntil??0)>sim.tick);
         if(swimDepth>.1)g.restore();
+        if((c.fireUntil??0)>sim.tick){
+          g.save();for(let i=0;i<7;i++){const joint=[0,6,8,12,16,20,4][i],x=J[joint],y=J[joint+1],f=Math.sin(time*9+i*2+c.id),r=Math.max(1.5,5*k),h=(13+i%3*4+f*2)*k;
+            const grad=g.createLinearGradient(x,y,x,y-h);grad.addColorStop(0,'rgba(255,229,151,.9)');grad.addColorStop(.4,'rgba(255,119,20,.8)');grad.addColorStop(1,'rgba(220,35,7,0)');g.fillStyle=grad;g.beginPath();g.moveTo(x-r,y);g.quadraticCurveTo(x-r,y-h*.55,x+f*2*k,y-h);g.quadraticCurveTo(x+r,y-h*.4,x+r,y);g.closePath();g.fill();
+          }g.restore();
+        }
         drawSubstanceProps(g,c,sim.tick,time,J,k);
         if(workingCrews.has(c.id)){g.fillStyle='#d4a04e';g.strokeStyle='#555d4b';g.lineWidth=k;g.beginPath();g.moveTo(J[6]-5*k,J[7]+3*k);g.lineTo(J[6]+5*k,J[7]+3*k);g.lineTo(J[0]+5*k,J[1]);g.lineTo(J[0]-5*k,J[1]);g.closePath();g.fill();g.stroke();g.strokeStyle='#e4ddbb';g.lineWidth=2*k;g.beginPath();g.moveTo(J[6]-4*k,J[7]+12*k);g.lineTo(J[6]+4*k,J[7]+12*k);g.stroke();}
         if (c.bleed > 0 && Math.random() < c.bleed * dt * 5) this.drip(c.x, c.y);

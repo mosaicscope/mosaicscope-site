@@ -1,10 +1,11 @@
+import {BodyLattice} from './BodyLattice';
 import type {Character,Vehicle} from '../entities/types';
 import {vehicleGeometry} from '../sim/VehicleGeometry';
 import {utilityDynamics} from '../sim/VehicleUtility';
 import type {World} from '../world/World';
 /** Lightweight articulated limbs; joints and endpoints react to ground and impacts. */
 interface Limb {x:number;y:number;z:number;vx:number;vy:number;vz:number}
-interface State {limbs:Limb[];joints:Limb[];head:Limb;torso:Limb;pelvis:Limb;pose:number[]}
+interface State {limbs:Limb[];joints:Limb[];head:Limb;torso:Limb;pelvis:Limb;pose:number[]; lattice?:BodyLattice}
 const states=new WeakMap<Character,State>();
 export function clearImpactRagdoll(c:Character):void{states.delete(c);}
 export function stepImpactRagdoll(c:Character,world:World,dt:number,vehicles:readonly Vehicle[]=[]):void{
@@ -48,11 +49,16 @@ export function stepImpactRagdoll(c:Character,world:World,dt:number,vehicles:rea
  for(let i=0;i<Math.min(4,vehicles.length);i++){const v=vehicles[i],g=vehicleGeometry(v),ca=Math.cos(v.heading),sa=Math.sin(v.heading),dx=head.x-v.x,dy=head.y-v.y,x=dx*ca+dy*sa,y=-dx*sa+dy*ca;if(head.z>g.height||Math.abs(x)>g.length*.5||Math.abs(y)>g.width*.5)continue;const axisX=g.length*.5-Math.abs(x)<g.width*.5-Math.abs(y),localX=axisX?(x<0?-1:1):0,localY=axisX?0:(y<0?-1:1),nx=localX*ca-localY*sa,ny=localX*sa+localY*ca,depth=axisX?g.length*.5-Math.abs(x):g.width*.5-Math.abs(y);head.x+=nx*(depth+.02);head.y+=ny*(depth+.02);const rel=((v.vx??0)-head.vx)*nx+((v.vy??0)-head.vy)*ny;if(rel>0){const impulse=Math.min(3,rel*.5);head.vx+=nx*impulse;head.vy+=ny*impulse;c.kx+=nx*impulse*.06;c.ky+=ny*impulse*.06;}}
  const hx=head.x-state.torso.x,hy=head.y-state.torso.y,hz=head.z-neckZ,dist=Math.hypot(hx,hy,hz)||.001;if(dist>.25){const q=(dist-.25)/dist;head.x-=hx*q;head.y-=hy*q;head.z-=hz*q;const outward=(head.vx-c.kx)*hx/dist+(head.vy-c.ky)*hy/dist+(head.vz-c.vz)*hz/dist;if(outward>0){head.vx-=outward*hx/dist;head.vy-=outward*hy/dist;head.vz-=outward*hz/dist;c.kx+=outward*hx/dist*.02;c.ky+=outward*hy/dist*.02;c.vz+=outward*hz/dist*.02;}}
  const headDamping=Math.exp(-2.2*elapsed);head.vx=c.kx+(head.vx-c.kx)*headDamping;head.vy=c.ky+(head.vy-c.ky)*headDamping;head.vz*=headDamping;
+ const strands=[{a:state.pelvis,b:state.torso},{a:state.torso,b:state.head},...state.joints.map((j,i)=>({a:i<2?state!.torso:state!.pelvis,b:j})),...state.joints.map((j,i)=>({a:j,b:state!.limbs[i]}))];
+ state.lattice??=new BodyLattice(strands);state.lattice.step(c,world,vehicles,strands,elapsed);
  state.pose=state.limbs.map((n,i)=>{const a=anchor(i),forward=(n.x-a.x)*fx+(n.y-a.y)*fy;return Math.max(-.9,Math.min(.9,Math.atan2(forward,Math.max(.08,Math.abs(n.z-a.z)))));});
  for(let i=0;i<4;i++){const n=state.limbs[i],j=state.joints[i],f=(n.x-j.x)*fx+(n.y-j.y)*fy;state.pose.push(Math.max(-.9,Math.min(.9,Math.atan2(f,Math.max(.06,Math.abs(n.z-j.z))))));}
+ // Mid-strand flex follows the joint motion and contributes subtly to the visible limb pose.
+ for(let i=0;i<4;i++){const mid=state.lattice.points[(6+i)*10+4],a=state.joints[i],b=state.limbs[i],dx=mid.x-(a.x+b.x)*.5,dy=mid.y-(a.y+b.y)*.5;state.pose[i]+=Math.max(-.12,Math.min(.12,(dx*fx+dy*fy)*.6));}
  state.pose.push(Math.max(-.8,Math.min(.8,Math.atan2((head.x-state.torso.x)*fx+(head.y-state.torso.y)*fy,Math.max(.08,Math.abs(head.z-neckZ))))));
  state.pose.push(Math.max(-.8,Math.min(.8,Math.atan2(spineX*fx+spineY*fy,Math.max(.08,Math.abs(spineZ))))));
 }
 
 /** Read-only pose: rendering never advances physics. */
+export function impactBodyPointCount(c:Character):number{return states.get(c)?.lattice?.points.length??0;}
 export function impactRagdollPose(c:Character):readonly number[]{return states.get(c)?.pose??[0,0,0,0,0,0,0,0,0,0];}

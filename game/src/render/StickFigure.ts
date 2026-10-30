@@ -131,6 +131,7 @@ export function pose(name: string, style: string, t: number, ph: number, speed: 
     }
     case "kick": A.thighR = 1.2; A.bendR = 0.1; A.lean = -0.15; A.armL = 0.9; A.armR = -0.5; break;
     case "shoot": A.armL = 1.55; A.foreL = 0; A.armR = 1.5; A.foreR = poseT < 0.45 ? -1.6 : -0.4; break;
+    case "sitfloor": A.bob=25;A.thighL=1.4;A.thighR=-1.4;A.bendL=1.8;A.bendR=-1.8;A.lean=.12;A.armL=.25;A.armR=.25;break;
     case "sit": A.bob = 15; A.thighL = 1.45; A.thighR = 1.35; A.bendL = 1.5; A.bendR = 1.4; A.lean = -0.1; A.armL = 0.6; A.foreL = 0.9; A.armR = 0.3; break;
     case "comfort": case "craft": case "search": {
       A.bob = 12; A.thighL = 1.0; A.thighR = 0.5; A.bendL = 1.8; A.bendR = 1.9; A.lean = 0.45;
@@ -224,7 +225,33 @@ export interface Gait { cadence: number; stride: number; swing: number; lean: nu
 export function gaitOf(id: number): Gait {
   let h = Math.imul(id + 1, 0x9e3779b1) ^ 0x5bd1e995;
   const r = () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return (h >>> 0) / 4294967296; };
-  return { cadence: 0.85 + r() * 0.3, stride: 0.8 + r() * 0.4, swing: 0.7 + r() * 0.6, lean: (r() - 0.5) * 0.16, bob: 0.6 + r() * 0.8, tilt: (r() - 0.5) * 0.12 };
+  const profile=((id%1024)+1024)%1024;
+  return { cadence: 0.85 + (profile%8)*.035 + r()*.03, stride: 0.8 + (Math.floor(profile/8)%8)*.045 + r()*.03, swing: 0.7 + (Math.floor(profile/64)%4)*.15 + r()*.03, lean: (Math.floor(profile/256)%4-1.5)*.04, bob: 0.6 + r() * 0.8, tilt: (r() - 0.5) * 0.12 };
+}
+/** Hand-shaped gait accents: torso, knee and hand motion at four points of a stride. */
+export const WALK_ACCENTS:readonly (readonly number[])[]=[
+ [0,.012,0,-.012],[0,.024,-.006,-.018],[.01,.015,-.01,-.015],[-.01,.02,.01,-.02],[0,.032,0,-.01],
+ [.008,.008,-.016,-.008],[-.012,.01,.018,-.01],[.005,.02,-.005,-.025],[.003,.018,-.009,-.012],[.009,.022,-.015,-.016],
+ [-.006,.014,.012,-.022],[.012,.027,-.008,-.019],[-.004,.028,.007,-.014],[.007,.013,-.019,-.011],[.014,.01,-.008,-.021],
+ [-.015,.017,.013,-.008],[.002,.026,-.012,-.016],[.011,.019,-.017,-.009],[-.009,.023,.005,-.019],[.006,.015,-.011,-.022],
+ [.004,.029,-.013,-.014],[-.008,.019,.014,-.016],[.013,.018,-.006,-.024],[-.011,.025,.008,-.012],[.001,.021,-.015,-.007],
+ [.015,.014,-.012,-.018],[-.005,.016,.019,-.023],[.01,.03,-.004,-.017],[-.014,.013,.006,-.024],[.007,.025,-.014,-.006],
+ [.016,.019,-.01,-.013],[-.007,.031,.011,-.018],[.002,.014,-.018,-.026],[.012,.023,-.003,-.008],[-.01,.018,.016,-.014],
+];
+function walkAccent(id:number,phase:number):number{const points=WALK_ACCENTS[((id%WALK_ACCENTS.length)+WALK_ACCENTS.length)%WALK_ACCENTS.length],p=((phase/(Math.PI*2)%1)+1)%1*4,i=Math.floor(p),t=p-i,e=t*t*(3-2*t);return points[i]*(1-e)+points[(i+1)%4]*e;}
+/** Repeatable leg and arm motion blended into animated poses. */
+export function applyLegVariation(a:Angles,id:number,name:string,phase:number):void{
+ const n=((id%400)+400)%400,stride=n%20,posture=Math.floor(n/20),u=(stride-9.5)/9.5,v=(posture-9.5)/9.5;
+ if(name==='walk'||name==='run'||name==='panic'){
+  // Matched opposing steps and arm swings, with small timing, knee and elbow differences.
+  const secondary=Math.sin(phase*2)*.025*v,swing=Math.sin(phase),knee=Math.max(0,Math.cos(phase)),accent=walkAccent(id,phase);
+  a.thighL=a.thighL*(1+u*.15)+secondary;a.thighR=a.thighR*(1+u*.15)-secondary;
+  a.bendL=Math.max(0,a.bendL*(1+v*.18)+knee*.025*u);a.bendR=Math.max(0,a.bendR*(1-v*.18)+Math.max(0,-Math.cos(phase))*.025*u);
+  a.armL=a.armL*(1-v*.15)-swing*u*.025;a.armR=a.armR*(1+v*.15)+swing*u*.025;
+  a.foreL+=.025*(v+1)*Math.max(0,swing)+accent;a.foreR+=.025*(v+1)*Math.max(0,-swing)-accent;a.hipX+=swing*v*.55+accent*4;a.lean+=accent*.35;
+ }
+ else if(name==='sit'||name==='sitdrink'){a.thighL+=u*.18;a.thighR-=u*.18;a.bendL+=v*.18;a.bendR-=v*.18;}
+ else if(name==='sitfloor'){a.thighL+=u*.3;a.thighR-=u*.3;a.bendL+=v*.25;a.bendR-=v*.25;a.lean+=v*.08;}
 }
 /** Apply a personal gait to a pose. Lying poses keep their own geometry. */
 export function applyGait(A: Angles, G: Gait): void {
