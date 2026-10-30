@@ -1,5 +1,5 @@
 {
- "at": 1793349045987,
+ "at": 1793349399004,
  "totals": {
   "duplicate-code": 3,
   "long-function": 17,
@@ -107,9 +107,9 @@
    "kind": "long-function",
    "severity": "low",
    "where": "game/src/render/Cars.ts:171",
-   "detail": "433 lines",
+   "detail": "423 lines",
    "fix": "split into named steps",
-   "fp": "long-function|1ftp0lg"
+   "fp": "long-function|130imsh"
   },
   {
    "kind": "long-function",
