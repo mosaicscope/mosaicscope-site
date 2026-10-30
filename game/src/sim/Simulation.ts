@@ -1,3 +1,4 @@
+import {waterDepth,waterCurrent} from './WaterPhysics';
 import {LiquidSystem} from './Liquid';
 import {updateBusWaiting} from './BusService';
 import {stepImpactRagdoll,clearImpactRagdoll} from '../physics/ImpactRagdoll';
@@ -374,9 +375,10 @@ export class Simulation {
     // nobody stands about in the road: someone stopped in a lane (chatting, waiting, idling, getting up after a fall)
     // steps up onto the footpath. Not people on a job there: cops on a chase, medics, anyone fighting or fleeing.
     if (this.kerbStep(c)) { vx = this.kerb.x; vy = this.kerb.y; }
+    const water=waterDepth(this.world,c.x,c.y);if(c.tier==="player"&&water>0){const flow=waterCurrent(this),pace=water>.35?.52:.75;vx=vx*pace+flow.x;vy=vy*pace+flow.y;if((this.tick+c.id)%60===0)this.liquids.disturb(c.x,c.y,Math.max(1,Math.hypot(vx,vy)));}
     if ((vx !== 0 || vy !== 0) && c.tier !== "player" && this.trafficAhead(c, vx, vy)) { vx = 0; vy = 0; c.vx = 0; c.vy = 0; }
     if (vx !== 0 || vy !== 0) {
-      const blocked = this.physics.moveCircle(c, vx * dt, vy * dt);
+      const blocked = this.physics.moveCircle(c, vx * dt, vy * dt, c.tier==="player");
       if (c.vx !== 0 || c.vy !== 0) c.facing = Math.atan2(c.vy, c.vx);
       if (blocked) c.stuck += dt;
     }

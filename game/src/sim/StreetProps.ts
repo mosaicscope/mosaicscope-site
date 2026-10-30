@@ -1,3 +1,4 @@
+import {waterCurrent,waterDepth} from './WaterPhysics';
 import {vehicleIndex} from './VehicleIndex';
 import type {Vehicle} from '../entities/types';
 const propCars:Vehicle[]=[];
@@ -52,6 +53,7 @@ export function updateStreetProps(sim:Simulation,dt:number):void{
   for(const v of sim.world.mapped?vehicleIndex(sim).query(p.x,p.y,6,propCars):sim.vehicles){const reach=(sim.world.mapped?vehicleGeometry(v).length:VEHICLES[v.cls].length)/2+1;if(Math.abs(v.speed)<1.3||v.state==='parked'||sim.tick-p.lastHit<30||Math.abs(p.x-v.x)>reach+Math.abs(v.x-v.px)||Math.abs(p.y-v.y)>reach+Math.abs(v.y-v.py))continue;const hit=vehicleContact(v,p.x,p.y,physical.radius);if(!hit||hit.speed<.5)continue;p.lastHit=sim.tick;const energy=hit.speed**2*(sim.world.mapped?utilityDynamics(v).mass:VEHICLES[v.cls].mass)*.5,force=Math.min(12,Math.sqrt(energy)*1.3);if(!fixed){p.vx=hit.nx*force/Math.sqrt(def.mass);p.vy=hit.ny*force/Math.sqrt(def.mass);p.vz=force*.16;p.spin=(hit.nx-hit.ny)*force*.5;}p.health=Math.max(0,p.health-energy/physical.strength);if(fixed||def.mass>4){impactComponents(v,hit.nx,hit.ny,hit.speed,Math.min(2,def.mass/10),sim.tick,{x:hit.x,y:hit.y});v.damage=Math.min(1,v.damage+energy*.002);}
    const slow=def.mass<1?.99:fixed?.8:.94;v.speed*=slow;if(sim.world.mapped){if(v.vx!==undefined)v.vx*=slow;if(v.vy!==undefined)v.vy*=slow;}sim.bus.emit('fx',{kind:physical.material==='metal'?'spark':'dust',x:p.x,y:p.y,z:.3,n:Math.min(14,3+Math.ceil(force)),color:physical.material==='timber'?'#bca477':'#b9a886'});}
   if(def.fixed||p.secured)continue;
+  if(waterDepth(sim.world,p.x,p.y)>0){const flow=waterCurrent(sim),blend=1-Math.exp(-dt*1.5);p.vx+=(flow.x-p.vx)*blend;p.vy+=(flow.y-p.vy)*blend;}
   const oldX=p.x,oldY=p.y;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;p.vz-=9.8*dt;p.turn+=p.spin*dt;
   const round=['ball','football','basketball'].includes(p.kind);if(p.z<0){p.z=0;p.vz=Math.abs(p.vz)>.6?-p.vz*(round?.65:.18):0;}
   const drag=Math.max(0,1-dt*(round||p.kind==='barrel'||p.kind==='skateboard'?.7:3));p.vx*=drag;p.vy*=drag;p.spin*=drag;

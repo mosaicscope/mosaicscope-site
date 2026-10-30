@@ -75,7 +75,7 @@ export function damageTick(v: Vehicle, dt: number): void {
 }
 export function repairVehicle(v: Vehicle): void {
   if(v.utility){v.utility.brakeHeat=0;v.utility.sway=0;v.utility.swayVelocity=0;v.utility.loadShift=0;v.utility.engineLoad=0;v.utility.airRelease=0;}
-  v.dynamics=undefined;v.contactControl=undefined;v.stabilityActive=false;v.powertrain=undefined;v.driveThrottle=0;v.wheelspin=0;v.wheelSteer=0;v.tyreHeat=0;
+  v.water=undefined;v.dynamics=undefined;v.contactControl=undefined;v.stabilityActive=false;v.powertrain=undefined;v.driveThrottle=0;v.wheelspin=0;v.wheelSteer=0;v.tyreHeat=0;
   v.components=undefined;v.steerAngle=0;v.engineRepaired=false;
   v.damage=0; v.dmgF=0; v.dmgR=0; v.dmgL=0; v.dmgS=0;
   v.engineDamage=0; v.glassDamage=0; v.flatLeft=false; v.flatRight=false;
