@@ -172,7 +172,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const mods=v.lifeMods??[],d=VEHICLES[v.cls],S=vehicleBodyShape(v),M=carMutationOf(v.plate,v.cls);
   const x = v.px + (v.x - v.px) * alpha, y = v.py + (v.y - v.py) * alpha;
   const z = cam.zoom, ang = v.heading;
-  const k: Ctx = { g, cam, x, y, c: Math.cos(ang), s: Math.sin(ang),submersion:v.water?.submersion??0 };
+  const k: Ctx = { g, cam, x, y, c: Math.cos(ang), s: Math.sin(ang),submersion:Math.max(0,(v.water?.submersion??0)-(v.water?.bob??0)) };
   if(drawTwoWheeler(g,cam,v,alpha,time,driver,dark))return;
   if(v.cls==='tank'){
     const L=d.length,hw=d.width/2,p=v.components,front=p?.panels[0]??v.dmgF??0,rear=p?.panels[1]??v.dmgR??0;

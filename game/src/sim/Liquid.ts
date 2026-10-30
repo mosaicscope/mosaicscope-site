@@ -17,6 +17,16 @@ export class LiquidSystem{
   for(let row=0;row<7;row++)for(let col=0;col<10;col++){const dx=col-cx,dy=row-cy,dist=dx*dx+dy*dy,weight=Math.exp(-dist*.7);if(weight<.01)continue;const i=row*10+col,tail=Math.max(0,-(dx*vx+dy*vy)/len);p.velocity[i]-=mag*weight*(1+Math.min(.45,tail*.12));p.foam[i]=Math.min(1,p.foam[i]+weight*Math.min(1,speed*.09));}
   p.age=0;if(splash&&speed>1)this.spray('water',x,y,.15,vx*.12,vy*.12,Math.min(12,Math.ceil(speed)));
  }
+ /** Bilinear sampling couples the local wave grid to objects and surface lighting. */
+ surfaceAt(x:number,y:number):number{
+  let result=0;
+  for(const p of this.water){const gx=(x-p.x)/.35+4.5,gy=(y-p.y)/.35+3;if(gx<0||gx>9||gy<0||gy>6)continue;
+   const x0=Math.floor(gx),y0=Math.floor(gy),x1=Math.min(9,x0+1),y1=Math.min(6,y0+1),fx=gx-x0,fy=gy-y0;
+   const a=p.height[y0*10+x0]*(1-fx)+p.height[y0*10+x1]*fx,b=p.height[y1*10+x0]*(1-fx)+p.height[y1*10+x1]*fx;
+   result+=(a*(1-fy)+b*fy)*Math.min(1,Math.min(gx,9-gx,gy,6-gy)*2);
+  }
+  return Math.max(-.35,Math.min(.35,result));
+ }
  step(dt:number,world?:World,flow:{x:number;y:number;roughness:number}={x:0,y:0,roughness:0}):void{
   if(!Number.isFinite(dt)||dt<=0)return;dt=Math.min(dt,.05);
   for(const d of this.drops){d.age+=dt;if(d.ground){if(d.kind==='water'&&world?.tile(Math.floor(d.x),Math.floor(d.y))===T.WATER){d.x+=flow.x*dt;d.y+=flow.y*dt;}continue;}d.x+=d.vx*dt;d.y+=d.vy*dt;d.z+=d.vz*dt;d.vz-=9.8*dt;d.vx*=Math.exp(-dt*.8);d.vy*=Math.exp(-dt*.8);if(d.z<=.02){d.z=.02;d.ground=true;}}

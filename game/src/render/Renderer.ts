@@ -531,6 +531,24 @@ export class Renderer {
   /** Animated water. Low: the old soft shimmer. Higher tiers: two ripple layers, travelling glints, more on Ultra. */
   private drawWater(g: CanvasRenderingContext2D, sim: Simulation, o: RenderOptions, minX: number, maxX: number, minY: number, maxY: number, time: number): void {
     const cam = this.cam, z = cam.zoom, pt = this.pt, q = o.quality, t = o.reduceMotion ? 0 : time,roughness=waterCurrent(sim).roughness;
+    // Shaded 2.5D facets stay inside mapped tiles and respond to local impacts.
+    const waterTiles:{x:number;y:number;shade:number}[]=[];
+    const wave=(x:number,y:number)=>Math.sin(x*.72+y*.34-t*(.7+roughness*.35))*.035+Math.sin(x*.28-y*.91+t*.53)*(.018+roughness*.018)+sim.liquids.surfaceAt(x,y)*.45;
+    for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){
+      if(sim.world.tile(x,y)!==T.WATER)continue;
+      const dx=wave(x+.75,y+.5)-wave(x+.25,y+.5),dy=wave(x+.5,y+.75)-wave(x+.5,y+.25);
+      const shade=Math.max(0,Math.min(4,Math.floor(2+(dx-dy)*18)));
+      waterTiles.push({x,y,shade});
+    }
+    const shades=['rgba(2,14,27,.18)','rgba(5,22,33,.09)','rgba(83,144,158,.025)','rgba(118,182,190,.09)','rgba(185,219,219,.15)'];
+    g.save();
+    for(let shade=0;shade<shades.length;shade++){
+      g.fillStyle=shades[shade];g.beginPath();
+      for(const tile of waterTiles){if(tile.shade!==shade)continue;const {x,y}=tile;
+        const a=cam.toScreen(x,y,.006,{x:0,y:0}),b=cam.toScreen(x+1,y,.006,{x:0,y:0}),c=cam.toScreen(x+1,y+1,.006,{x:0,y:0}),d=cam.toScreen(x,y+1,.006,{x:0,y:0});
+        g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.lineTo(c.x,c.y);g.lineTo(d.x,d.y);g.closePath();
+      }g.fill();
+    }g.restore();
     // Subtle shallow margins and bank lines, clipped to surveyed water tiles.
     if(q>0){g.save();g.fillStyle='rgba(117,155,127,.10)';
       for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){if(sim.world.tile(x,y)!==T.WATER||[[-1,0],[1,0],[0,-1],[0,1]].every(([dx,dy])=>sim.world.tile(x+dx,y+dy)===T.WATER))continue;const corners=[[x,y],[x+1,y],[x+1,y+1],[x,y+1]];g.beginPath();corners.forEach(([wx,wy],i)=>{const q=cam.toScreen(wx,wy,.005,{x:0,y:0});if(i)g.lineTo(q.x,q.y);else g.moveTo(q.x,q.y);});g.closePath();g.fill();}
@@ -548,7 +566,7 @@ export class Renderer {
       g.strokeStyle = layer ? "rgba(150,235,255,.2)" : "rgba(255,255,255,.14)"; g.lineWidth = Math.max(1, (layer ? 1 : 1.4) * z);
       g.beginPath();
       for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
-        if (sim.world.tile(tx,ty) !== T.WATER) continue;
+        if (sim.world.tile(tx,ty) !== T.WATER || ((tx * 7 + ty * 3 + layer * 5) % 4 + 4) % 4 !== 0) continue;
         // each tile carries one wavy crest running along the iso x axis; phase comes from world position so crests line up neighbour to neighbour
         const v = 0.5 + (0.18+roughness*.18) * Math.sin((tx + ty * 0.7) * 1.7 + layer * 2.1 + t * (0.9 + layer * 0.35));
         for (let i = 0; i <= seg; i++) {

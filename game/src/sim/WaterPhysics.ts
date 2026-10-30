@@ -20,7 +20,7 @@ export function waterCurrent(sim:Simulation,x=sim.player.x,y=sim.player.y):{x:nu
  const live=sim.world.mapped?.liveConditions,weather=live?.weather&&Date.now()-Date.parse(live.fetchedAt)<1800000?live.weather:null;
  const wind=weather?.wind??0,rain=weather?.rain??sim.env.rain*3,roughness=Math.min(1,Math.max(0,wind/18+rain/10)),dir=channelDirection(sim.world,x,y),speed=.22+roughness*.18;return{x:dir[0]*speed,y:dir[1]*speed,roughness};
 }
-export interface VehicleWaterState{elapsed:number;submersion:number;locked:boolean}
+export interface VehicleWaterState{elapsed:number;submersion:number;locked:boolean;bob?:number;bobVelocity?:number}
 /** Slow flooding, drift and engine lock. State persists until a repair. */
 export function stepWaterVehicle(sim:Simulation,v:Vehicle,dt:number):void{
  const depth=waterDepth(sim.world,v.x,v.y),old=v.water;
@@ -29,6 +29,11 @@ export function stepWaterVehicle(sim:Simulation,v:Vehicle,dt:number):void{
  const height=vehicleGeometry(v).height,target=Math.min(depth,height*1.3),flood=state.elapsed<2?.04:Math.min(.2,dt*(.09+Math.max(0,depth-.3)*.09));
  state.submersion=Math.min(target,state.submersion+(state.elapsed<2?dt*flood:flood));
  if(depth>.35&&state.elapsed>3&&state.submersion>height*.22){state.locked=true;v.engineDamage=Math.max(v.engineDamage??0,.72);v.driveThrottle=0;}
+ // A damped spring follows the surface while the vehicle still floats.
+ const floating=Math.max(0,1-state.submersion/Math.max(.01,height));
+ const targetBob=sim.liquids.surfaceAt(v.x,v.y)*floating;
+ state.bobVelocity=((state.bobVelocity??0)+(targetBob-(state.bob??0))*14*dt)*Math.exp(-4*dt);
+ state.bob=Math.max(-.18,Math.min(.18,(state.bob??0)+state.bobVelocity*dt));
  const current=waterCurrent(sim,v.x,v.y),drag=Math.exp(-dt*(2.2+depth));v.vx=(v.vx??Math.cos(v.heading)*v.speed)*drag+current.x*(1-drag);v.vy=(v.vy??Math.sin(v.heading)*v.speed)*drag+current.y*(1-drag);v.speed=v.vx*Math.cos(v.heading)+v.vy*Math.sin(v.heading);v.dynT=sim.tick;
  if((sim.tick+v.id)%45===0&&Math.hypot(v.vx,v.vy)>.08)sim.liquids.disturb(v.x,v.y,Math.max(1,Math.hypot(v.vx,v.vy)),v.vx,v.vy);
 }
