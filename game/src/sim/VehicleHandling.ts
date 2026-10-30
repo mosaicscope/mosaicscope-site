@@ -20,7 +20,7 @@ export function handlingProfile(cls: VehicleClass) {
 /** Surface coefficients are tuning values in the world's tile/second units. */
 export function roadSurface(tile: number, rain: number, offroad: boolean) {
   const wet = clamp(rain, 0, 1);
-  if (tile === T.GRASS) return { grip: (offroad ? 0.72 : 0.49) * (1 - wet * 0.38), drag: offroad ? 0.65 : 1.3, loose: true };
+  if (tile === T.GRASS) return { grip: (offroad ? 0.69 : 0.46) * (1 - wet * 0.38), drag: offroad ? 0.08 : 0.12, loose: true };
   if (tile === T.SAND) return { grip: offroad ? 0.62 : 0.38, drag: offroad ? 1.1 : 2.2, loose: true };
   if (tile === T.PATH) return { grip: (offroad ? 0.8 : 0.65) * (1 - wet * 0.18), drag: offroad ? 0.35 : 0.6, loose: true };
   if (tile === T.CROSSWALK || tile === T.COURT) return { grip: 0.96 * (1 - wet * 0.48), drag: 0, loose: false };
