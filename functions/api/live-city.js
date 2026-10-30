@@ -5,7 +5,7 @@ const boundedText=(s,n=360)=>String(s??'').replace(/<[^>]*>/g,'').slice(0,n);
 export function weatherFrom(raw,now=Date.now()){
  const series=raw.properties?.timeseries??[],at=series.find(s=>Date.parse(s.time)>=now-3600000&&Date.parse(s.time)<=now+7200000),v=at?.data?.instant?.details;
  if(!v||!Number.isFinite(v.air_temperature))return null;
- return{temperature:v.air_temperature,wind:v.wind_speed??0,cloud:v.cloud_area_fraction??0,rain:at.data.next_1_hours?.details?.precipitation_amount??at.data.next_6_hours?.details?.precipitation_amount??0,symbol:at.data.next_1_hours?.summary?.symbol_code??at.data.next_6_hours?.summary?.symbol_code??'',forecastAt:at.time,updatedAt:raw.properties?.meta?.updated_at,source:'MET Norway',sourceUrl:'https://api.met.no/',licence:'CC BY 4.0'};
+ return{temperature:v.air_temperature,wind:v.wind_speed??0,windDirection:Number.isFinite(v.wind_from_direction)?v.wind_from_direction:null,cloud:v.cloud_area_fraction??0,rain:at.data.next_1_hours?.details?.precipitation_amount??at.data.next_6_hours?.details?.precipitation_amount??0,symbol:at.data.next_1_hours?.summary?.symbol_code??at.data.next_6_hours?.summary?.symbol_code??'',forecastAt:at.time,updatedAt:raw.properties?.meta?.updated_at,source:'MET Norway',sourceUrl:'https://api.met.no/',licence:'CC BY 4.0'};
 }
 export function nzNotices(raw,now=Date.now()){
  if(raw.error||!Array.isArray(raw.features))throw Error('Invalid NZTA response');

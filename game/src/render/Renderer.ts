@@ -477,7 +477,8 @@ export class Renderer {
           GLOW.push(layer => headlights(layer, cam, vehicle, strength, sim.world, this.lightIndex.query(vehicle.x,vehicle.y,12,lightCandidates)));
         }
         const vehicle=sim.vehicles[it.ref];if((vehicle.water?.submersion??0)>0){g.save();const surface=cam.toScreen(vehicle.x,vehicle.y,0,{x:0,y:0});g.beginPath();g.rect(-10000,-10000,20000,10000+surface.y);g.clip();}
-        drawCar(g, cam, vehicle, alpha, time, 1 - sim.daylight, it.ref === this.selectedCar,sim.chars[vehicle.driver]);
+        const weather=sim.world.mapped?.liveConditions,wind=weather?.weather&&Date.now()-Date.parse(weather.fetchedAt)<1800000?weather.weather:null,dir=wind?.windDirection,angle=(dir??0)*Math.PI/180,strength=Math.min(1,(wind?.wind??0)/12);
+        drawCar(g, cam, vehicle, alpha, time, 1 - sim.daylight, it.ref === this.selectedCar,sim.chars[vehicle.driver],dir==null?0:-Math.sin(angle)*strength,dir==null?0:Math.cos(angle)*strength);
         if((vehicle.water?.submersion??0)>0)g.restore();
       } else if (it.kind === 5) {
         flush();
