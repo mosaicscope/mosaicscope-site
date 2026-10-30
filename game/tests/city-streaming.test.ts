@@ -4,6 +4,7 @@ import {Simulation} from '../src/sim/Simulation';
 import {bakeCityDistrict,validDistrict} from '../src/world/CitySurvey';
 import {mappedPoint} from '../src/world/MappedWorld';
 import {CityTiles} from '../src/world/CityTiles';
+import {worldIndex} from '../src/world/WorldIndex';
 import {cityDistrictQueue} from '../src/world/CityStreamer';
 import {SpatialHash} from '../src/world/SpatialHash';
 import {Navigation} from '../src/world/Navigation';
@@ -47,6 +48,7 @@ describe('continuous surveyed city',()=>{
   for(let x=0;x<1000;x++)tiles.set(x*32,0,T.PATH);tiles.trim(0,0,40);expect(tiles.count).toBe(40);expect(tiles.tile(0,0)).toBe(T.PATH);
  });
  it('prioritizes nearby districts and requests coverage out to a kilometre in perspective',()=>{const near=cityDistrictQueue(0,0,false),far=cityDistrictQueue(0,0,true);expect(near).toHaveLength(9);expect(far.length).toBeGreaterThan(near.length);expect(far[0]).toMatchObject({x:0,y:0});expect(far.some(d=>d.x===3&&d.y===0)).toBe(true);expect(far.some(d=>d.x===3&&d.y===3)).toBe(false);});
+ it('indexes streamed buildings and road widths for rendering and collisions',()=>{const w=sim.world,m=w.mapped!,index=worldIndex(w),building=mappedPoint(m,-1600,-20);expect([...index.buildings.query(building.x,building.y,building.x,building.y)].some(id=>w.buildings[id]?.name==='Survey workshop')).toBe(true);const i=m.streetSegments.findIndex(r=>r.id===999999992),road=m.streetSegments[i],x=road.x+road.dx*road.length/2-road.dy*road.half*.95,y=road.y+road.dy*road.length/2+road.dx*road.half*.95;expect(index.roads.query(x,y,x,y).has(i)).toBe(true);});
  it('rejects malformed district geometry before allocating raster/index data',()=>{
   expect(validDistrict(district)).toBe(true);expect(validDistrict({...district,buildings:[{...district.buildings[0],height:Infinity}]})).toBe(false);expect(validDistrict({...district,roads:[{...district.roads[0],points:[[NaN,0],[1,2]]}]})).toBe(false);
  });
