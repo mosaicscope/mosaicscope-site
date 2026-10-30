@@ -51,8 +51,8 @@ export function* bakeCityDistrict(w:World,d:DistrictData):Generator<void>{
  // Fixtures are game dressing on surveyed footpaths; keep entrances and traffic clear.
  for(const road of d.roads){if(['motorway','trunk','steps'].includes(road.kind)||!road.points.length)continue;const tag='survey-fixture:'+road.id;if(w.pois.some(p=>p.name===tag))continue;
   const a=mappedPoint(m,road.points[0][0],road.points[0][1]),b=mappedPoint(m,road.points[1][0],road.points[1][1]),length=Math.hypot(b.x-a.x,b.y-a.y);if(length<8)continue;const dx=(b.x-a.x)/length,dy=(b.y-a.y)/length,off=roadHalfWidth(road)/2+.8;
-  const x=a.x+dx*5-dy*off,y=a.y+dy*5+dx*off;if(surveyed(x,y)||!w.walkable(x,y)||w.carriageway(x,y)||w.pois.some(p=>Math.hypot(p.x-x,p.y-y)<3))continue;
-  w.pois.push({id:w.pois.length,kind:road.kind==='pedestrian'?'bench':'lamp',x,y,area:0,on:true,name:tag});
+  const x=a.x+dx*5-dy*off,y=a.y+dy*5+dx*off;const angle=Math.atan2(dy,dx);if(surveyed(x,y)||!w.fixtureClear(x,y,angle,road.kind==='pedestrian'?.75:.2,road.kind==='pedestrian'?.2:.2)||w.pois.some(p=>Math.hypot(p.x-x,p.y-y)<3))continue;
+  w.pois.push({id:w.pois.length,kind:road.kind==='pedestrian'?'bench':'lamp',x,y,area:0,on:true,name:tag,angle});
  }
  m.revision=(m.revision??0)+1;
 }

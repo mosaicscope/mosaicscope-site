@@ -27,7 +27,7 @@ export type AreaKind = "street" | "plaza" | "park" | "court" | "studio" | "stage
   | "casino" | "police" | "food" | "shops" | "residential" | "office" | "dealership" | "hospital" | "gallery" | "airport" | "nightlife";
 export interface Area { id: number; name: string; kind: AreaKind; x0: number; y0: number; x1: number; y1: number; cx: number; cy: number }
 export type PoiKind = "bench" | "boombox" | "toychest" | "lamp" | "hoop" | "door" | "springpad" | "fountain" | "busstop" | "foodtruck" | "atm" | "mural" | "hydrant" | "billboard" | "light" | "plane" | "bin" | "streetsign" | "roadsign";
-export interface Poi { id: number; kind: PoiKind; x: number; y: number; area: number; on?: boolean; building?: number; menu?: string[]; name?: string; dir?: number }
+export interface Poi { id: number; kind: PoiKind; x: number; y: number; area: number; on?: boolean; building?: number; menu?: string[]; name?: string; dir?: number; angle?: number }
 
 export interface Building {
   id: number;
@@ -144,9 +144,9 @@ export class World {
   randomPointIn(area: Area, rng: Rng): { x: number; y: number } {
     for (let i = 0; i < 40; i++) {
       const x = rng.range(area.x0 + 0.5, area.x1 + 0.5), y = rng.range(area.y0 + 0.5, area.y1 + 0.5);
-      if (this.walkable(x, y)) return { x, y };
+      if (this.walkable(x, y) && (!this.mapped || !this.carriageway(x,y))) return { x, y };
     }
-    return { x: area.cx, y: area.cy };
+    return this.mapped ? this.nearestFoot(area.cx,area.cy,20) : { x: area.cx, y: area.cy };
   }
 
   randomWalkable(rng: Rng): { x: number; y: number } {
@@ -159,7 +159,16 @@ export class World {
 
   /** Nearest walkable tile centre to (x, y), spiralling outward. */
   /** Car space: the road and its crossings. Parking bays are fine to stand in. */
-  carriageway(x: number, y: number): boolean { const t = this.tile(Math.floor(x), Math.floor(y)); return t === T.ROAD || t === T.CROSSWALK; }
+  carriageway(x: number, y: number): boolean {
+    const t=this.tile(Math.floor(x),Math.floor(y));if(t===T.ROAD||t===T.CROSSWALK)return true;
+    if(!this.mapped)return false;
+    for(const id of worldIndex(this).roads.query(x-9,y-9,x+9,y+9)){const r=this.mapped.streetSegments[id];if(!r)continue;const along=Math.max(0,Math.min(r.length,(x-r.x)*r.dx+(y-r.y)*r.dy));if(Math.hypot(x-r.x-r.dx*along,y-r.y-r.dy*along)<r.half)return true;}
+    return false;
+  }
+  /** All corners of a fixture stay outside lanes and solid footprints. */
+  fixtureClear(x:number,y:number,angle:number,halfLength:number,halfWidth:number):boolean {
+    const c=Math.cos(angle),s=Math.sin(angle);for(const [a,b] of [[0,0],[-halfLength,-halfWidth],[-halfLength,halfWidth],[halfLength,-halfWidth],[halfLength,halfWidth]]){const px=x+a*c-b*s,py=y+a*s+b*c;if(!this.walkable(px,py)||this.carriageway(px,py))return false;}return true;
+  }
   /**
    * The nearest place to stand that is out of the traffic: the footpath first, then anything walkable that is not
    * road. People who stop (to wait, chat, watch, dance) do it here, not in a lane.
@@ -177,6 +186,7 @@ export class World {
         const tx = cx + dx, ty = cy + dy;
         if (!this.walkableTile(tx, ty)) continue;
         const t = this.tile(tx,ty);
+        if(this.carriageway(tx+fx,ty+fy))continue;
         if (t === T.SIDEWALK) return { x: tx + fx, y: ty + fy };
         if (!alt && t !== T.ROAD && t !== T.CROSSWALK) alt = { x: tx + fx, y: ty + fy };
       }

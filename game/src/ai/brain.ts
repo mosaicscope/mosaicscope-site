@@ -185,7 +185,7 @@ export function thinkBackground(c: Character, sim: Simulation, dt: number): void
   if (d < 0.6 || c.stuck > 1.5) {
     c.stuck = 0;
     const tileNow = sim.world.tile(Math.floor(c.x), Math.floor(c.y));
-    const onRoad = !sim.world.walkable(c.x, c.y) || tileNow === 16 || tileNow === 18;
+    const onRoad = !sim.world.walkable(c.x, c.y) || tileNow === 16 || tileNow === 18 || sim.world.carriageway(c.x,c.y);
     if (!onRoad && sim.rng.chance(0.35)) { stop(c); c.pathGoalX = c.x; c.pathGoalY = c.y; c.anim.pose = sim.rng.chance(0.3) ? "phone" : "auto"; return; }
     const area = sim.world.areas[c.homeArea] ?? sim.world.areas[0];
     let p = area.kind === "street" ? sim.streetPoint(c) : sim.world.randomPointIn(area, sim.rng);

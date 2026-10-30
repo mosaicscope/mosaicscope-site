@@ -5,7 +5,7 @@ const browser=await chromium.launch({executablePath:process.env.CHROMIUM||'C:/Pr
 try{
  const mobile=process.env.MOBILE==='1';const page=await browser.newPage({viewport:mobile?{width:390,height:844}:{width:1280,height:800},hasTouch:mobile,isMobile:mobile}),errors=[];
  page.on('pageerror',e=>errors.push(e.message));
- await page.route('**/api/**',r=>{const u=new URL(r.request().url());if(u.pathname==='/api/city-elevation'){const cx=Number(u.searchParams.get('x')),cy=Number(u.searchParams.get('y'));return r.fulfill({json:{code:'CHC',cx,cy,spacing:100,reference:10,heights:Array.from({length:25},(_,i)=>10+cx*4+(i%5)*.2+cy*.1),source:'fixture',sourceUrl:'https://open-meteo.com/'}});}return r.fulfill({json:{weather:'clear',isDay:true,temp:14,wind:10,hour:12,posts:[]}});});
+ await page.route('**/api/**',r=>{const u=new URL(r.request().url());if(u.pathname==='/api/destination-map'){const code=u.searchParams.get('code'),cx=Number(u.searchParams.get('x')),cy=Number(u.searchParams.get('y'));return r.fulfill({json:{code,cx,cy,centre:{name:'Madrid'},origin:{lat:40.4,lon:-3.7},buildings:[],roads:[{id:1,name:'Mapped street',kind:'residential',points:[[-100,0],[100,0]],tags:{}}],venues:[],terrain:[]}});}if(u.pathname==='/api/city-elevation'){const cx=Number(u.searchParams.get('x')),cy=Number(u.searchParams.get('y'));return r.fulfill({json:{code:'CHC',cx,cy,spacing:100,reference:10,heights:Array.from({length:25},(_,i)=>10+cx*4+(i%5)*.2+cy*.1),source:'fixture',sourceUrl:'https://open-meteo.com/'}});}return r.fulfill({json:{weather:'clear',isDay:true,temp:14,wind:10,hour:12,posts:[]}});});
  await page.goto('http://127.0.0.1:5183/world/');
  await page.getByRole('button',{name:'Start new game',exact:true}).click();
  await page.getByRole('button',{name:'Start my story',exact:true}).click();
@@ -30,6 +30,10 @@ try{
  if(!(await page.evaluate(()=>window.__mosaics.renderer.perspectiveActive&&window.__mosaics.sim.player.inCar<0)))throw Error('View failed when leaving car');
  await page.getByRole('button',{name:'Toggle driving camera'}).click();
  if(await page.evaluate(()=>window.__mosaics.renderer.perspectiveActive))throw Error('Camera did not switch back');
+ await page.getByRole('button',{name:'Address / teleport'}).click();
+ await page.getByRole('button',{name:'Search worldwide cities'}).click();
+ const citySearch=page.getByRole('searchbox',{name:'Search worldwide cities'});await citySearch.fill('Spain');const choices=page.getByRole('combobox',{name:'Worldwide city results'});await choices.locator('option').filter({hasText:'Madrid · ES'}).waitFor({state:'attached'});await choices.selectOption({label:'Madrid · ES'});await page.getByRole('button',{name:'Open live city · Madrid, ES'}).click();await page.waitForTimeout(300);
+ if(!(await page.getByRole('link',{name:'© OpenStreetMap contributors'}).count()))throw Error('Worldwide city did not open its mapped destination');
  if(errors.length)throw Error(errors.join('\n'));
  console.log('Walking, driving, enter/exit and camera projection browser check passed');
 }finally{await browser.close();await server.close();}

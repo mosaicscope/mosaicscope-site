@@ -215,6 +215,8 @@ export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemF
     c.id=sim.chars.length;c.x=c.px=spot.x;c.y=c.py=spot.y;c.rel=new Map();c.memories=[];c.hand=-1;c.bag=[];c.inCar=-1;sim.chars.push(c);
   }
   if(sim.world.mapped&&(d.ambientFleetVersion??0)<4)spawnVehicles(sim);
+  // Repair idle background pedestrians left in lanes by older patrol initialization.
+  if(sim.world.mapped)for(const c of sim.chars){if(c.tier!=='background'||c.inCar>=0||c.inside>=0||c.phys!==0||Math.hypot(c.vx,c.vy)>.05||!sim.world.carriageway(c.x,c.y))continue;const p=sim.world.nearestFoot(c.x,c.y,20);if(!sim.world.carriageway(p.x,p.y)){c.x=c.px=p.x;c.y=c.py=p.y;c.pathGoalX=p.x;c.pathGoalY=p.y;}}
   sim.rebuildHash();
   sim.lod.update(sim);
   return sim;
