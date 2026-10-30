@@ -1,3 +1,6 @@
+import {VEHICLES,type VehicleClass} from '../content/vehicles';
+import {makeVehicle} from '../sim/Traffic';
+import {vehicleGeometry} from '../sim/VehicleGeometry';
 import {useSubstance,type SubstanceKind} from '../sim/Substances';
 import {triggerStreetIncident,STREET_KINDS,type StreetKind} from '../sim/StreetLife';
 import type {Simulation} from '../sim/Simulation';
@@ -34,9 +37,23 @@ export function devControls(sim:()=>Simulation,renderer:Renderer,ctl:DevControlH
   else result='Unknown command or value. Type help.';
   output.textContent=`> ${command.value}\n${result}`;command.value='';
  };
+ const carSelect=h('select',{'aria-label':'Car model to spawn'}) as HTMLSelectElement;
+ const carSearch=h('input',{type:'search','aria-label':'Search car models',placeholder:'Search cars by name or ID'}) as HTMLInputElement;
+ const options=Object.entries(VEHICLES).sort((a,b)=>a[1].name.localeCompare(b[1].name));
+ const filterCars=()=>{const term=carSearch.value.trim().toLowerCase(),previous=carSelect.value;carSelect.replaceChildren(...options.filter(([id,d])=>(id+' '+d.name).toLowerCase().includes(term)).map(([id,d])=>h('option',{value:id,text:d.name+' · '+id})));if([...carSelect.options].some(o=>o.value===previous))carSelect.value=previous;};
+ carSearch.addEventListener('input',filterCars);filterCars();
+ const spawnCar=()=>{const s=sim(),id=carSelect.value as VehicleClass,def=VEHICLES[id];if(!def){ctl.toast('Choose a car model first');return;}
+  const p=s.player,radius=Math.hypot(def.length,def.width)*.55;
+  for(let distance=3;distance<=20;distance+=1)for(let i=0;i<24;i++){const angle=i*Math.PI/12,x=p.x+Math.cos(angle)*distance,y=p.y+Math.sin(angle)*distance;
+   if(!s.world.drivable(x,y)||!s.world.drivable(x+radius,y)||!s.world.drivable(x-radius,y)||!s.world.drivable(x,y+radius)||!s.world.drivable(x,y-radius))continue;
+   if(s.vehicles.some(v=>Math.hypot(v.x-x,v.y-y)<radius+vehicleGeometry(v).radius+.5)||s.chars.some(c=>c.inCar<0&&c.inside<0&&Math.hypot(c.x-x,c.y-y)<radius+.5))continue;
+   makeVehicle(s,id,x,y,0,'parked');ctl.toast(def.name+' spawned nearby');return;
+  }ctl.toast('No clear road space nearby; move to an open street');
+ };
  const quality=h('select',{'aria-label':'Developer render quality',onchange:(e:Event)=>ctl.setQuality((e.target as HTMLSelectElement).value)},['auto','low','medium','high','ultra'].map(q=>h('option',{value:q,text:q}))) as HTMLSelectElement;
  const panel=h('div.dev-workbench',null,[
   group('Simulation & performance',[h('div.row',null,[button('Pause',()=>ctl.setSpeed(0)),button('1×',()=>ctl.setSpeed(1)),button('2×',()=>ctl.setSpeed(2)),button('4×',()=>ctl.setSpeed(4)),button('Step one tick',()=>ctl.step())]),h('label',null,['Render quality',quality]),range('World zoom',.55,7,.05,()=>renderer.cam.targetZoom,n=>renderer.cam.setZoom(n))],true),
+  group('Car spawner',[h('label',null,['Search models',carSearch]),h('label',null,['Vehicle',carSelect]),button('Spawn car nearby',spawnCar),h('p',{text:'Spawns an unoccupied car in clear road space near the player.'})],true),
   group('Crowd stress tools',[h('label',null,['NPC count',count]),button('Spawn across nearby streets',()=>{const s=sim();s.spawnNpcAt(s.player.x,s.player.y,+count.value);ctl.toast(`${s.chars.length} total characters`);}),h('p',{text:'Bulk spawns use a broad street footprint. The world renderer prioritises nearby, selected and active characters.'})]),
   group('Character & equipment',[h('label',null,[h('input',{type:'checkbox',onchange:(e:Event)=>{selected=(e.target as HTMLInputElement).checked;}}),'Control selected NPC (otherwise player)']),button('Focus target',()=>{renderer.cam.follow=target().id;}),button('Restore target',heal),range('Fear',0,1,.05,()=>target().emo.fear,n=>{target().emo.fear=n;}),range('Frustration',0,1,.05,()=>target().emo.frustration,n=>{target().emo.frustration=n;}),range('Mood',-1,1,.05,()=>target().emo.mood,n=>{target().emo.mood=n;}),range('Energy',0,1,.05,()=>target().needs.energy,n=>{target().needs.energy=n;}),button('Test head impact',()=>{const s=sim(),c=target();wound(s,c,'head',1,'bruise',-1,c.x-1,c.y);}),weapon,button('Equip with ammunition',()=>equip(weapon.value)),button('Add armour',()=>{const c=target();c.combat??={style:'jab',xp:0,ammo:{},vest:0,helmet:0};c.combat.vest=c.combat.helmet=100;})]),
   group('World time',[range('Hour of day',0,23.9,.1,()=>sim().hour,hour)]),
