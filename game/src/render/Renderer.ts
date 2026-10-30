@@ -265,8 +265,15 @@ export class Renderer {
     }
     // water: drifting ripple crests (continuous across tiles, driven by world position) and sun glints
     this.drawWater(g, sim, o, minX, maxX, minY, maxY, time);
-    // Physics-owned liquid droplets and local 70-point water displacement.
-    g.save();for(const wave of sim.liquids.water){if(Math.hypot(wave.x-cam.x,wave.y-cam.y)>45/Math.max(.5,z))continue;g.strokeStyle='rgba(183,220,224,.55)';g.lineWidth=Math.max(.5,z*.6);for(let row=0;row<7;row++){g.beginPath();let drawing=false;for(let col=0;col<10;col++){const i=row*10+col,wx=wave.x+(col-4.5)*.35,wy=wave.y+(row-3)*.35;if(sim.world.tile(Math.floor(wx),Math.floor(wy))!==T.WATER||Math.abs(wave.height[i])<.003){drawing=false;continue;}const q=cam.toScreen(wx,wy,wave.height[i],{x:0,y:0});if(drawing)g.lineTo(q.x,q.y);else g.moveTo(q.x,q.y);drawing=true;}g.stroke();}}
+    // Live wave fronts and foam share the same physical surface state.
+    g.save();for(const wave of sim.liquids.water){if(Math.hypot(wave.x-cam.x,wave.y-cam.y)>45/Math.max(.5,z))continue;
+      g.strokeStyle='rgba(174,220,218,.38)';g.lineWidth=Math.max(.5,z*.65);g.beginPath();
+      for(let row=1;row<6;row++)for(let col=1;col<9;col++){const i=row*10+col,wx=wave.x+(col-4.5)*.35,wy=wave.y+(row-3)*.35;if(sim.world.tile(Math.floor(wx),Math.floor(wy))!==T.WATER)continue;
+        const gx=wave.height[i+1]-wave.height[i-1],gy=wave.height[i+10]-wave.height[i-10],strength=Math.hypot(gx,gy);if(strength<.009)continue;
+        const len=Math.hypot(gx,gy)||1,tx=-gy/len*.13,ty=gx/len*.13,a=cam.toScreen(wx-tx,wy-ty,wave.height[i],{x:0,y:0}),b=cam.toScreen(wx+tx,wy+ty,wave.height[i],{x:0,y:0});g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);
+      }g.stroke();
+      for(let i=0;i<70;i++){const f=wave.foam[i];if(f<.12)continue;const wx=wave.x+(i%10-4.5)*.35,wy=wave.y+(Math.floor(i/10)-3)*.35;if(sim.world.tile(Math.floor(wx),Math.floor(wy))!==T.WATER)continue;const q=cam.toScreen(wx,wy,wave.height[i],{x:0,y:0});g.fillStyle='rgba(212,232,221,'+Math.min(.45,f*.42).toFixed(3)+')';g.beginPath();g.ellipse(q.x,q.y,Math.max(.7,z*(1+f*2)),Math.max(.4,z*(.4+f)),0,0,Math.PI*2);g.fill();}
+    }
     for(const drop of sim.liquids.drops){if(drop.kind==='blood'&&!this.fakeBlood)continue;if(Math.hypot(drop.x-cam.x,drop.y-cam.y)>45/Math.max(.5,z))continue;const q=cam.toScreen(drop.x,drop.y,drop.z,{x:0,y:0});g.fillStyle=drop.kind==='blood'?'#8c2229':drop.kind==='vomit'?'#b0a849':'rgba(152,207,221,.7)';g.beginPath();g.ellipse(q.x,q.y,Math.max(1,drop.size*18*z),Math.max(.7,drop.size*(drop.ground?8:14)*z),0,0,Math.PI*2);g.fill();}g.restore();
 
     // real street names painted on the road between intersections
@@ -524,14 +531,16 @@ export class Renderer {
   /** Animated water. Low: the old soft shimmer. Higher tiers: two ripple layers, travelling glints, more on Ultra. */
   private drawWater(g: CanvasRenderingContext2D, sim: Simulation, o: RenderOptions, minX: number, maxX: number, minY: number, maxY: number, time: number): void {
     const cam = this.cam, z = cam.zoom, pt = this.pt, q = o.quality, t = o.reduceMotion ? 0 : time,roughness=waterCurrent(sim).roughness;
+    // Subtle shallow margins and bank lines, clipped to surveyed water tiles.
+    if(q>0){g.save();g.fillStyle='rgba(117,155,127,.10)';
+      for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){if(sim.world.tile(x,y)!==T.WATER||[[-1,0],[1,0],[0,-1],[0,1]].every(([dx,dy])=>sim.world.tile(x+dx,y+dy)===T.WATER))continue;const corners=[[x,y],[x+1,y],[x+1,y+1],[x,y+1]];g.beginPath();corners.forEach(([wx,wy],i)=>{const q=cam.toScreen(wx,wy,.005,{x:0,y:0});if(i)g.lineTo(q.x,q.y);else g.moveTo(q.x,q.y);});g.closePath();g.fill();}
+      g.strokeStyle='rgba(176,205,183,'+(.17+roughness*.2).toFixed(3)+')';g.lineWidth=Math.max(.5,z*.5);g.beginPath();
+      for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){if(sim.world.tile(x,y)!==T.WATER)continue;const edges=[[x,y,x+1,y,0,-1],[x+1,y,x+1,y+1,1,0],[x+1,y+1,x,y+1,0,1],[x,y+1,x,y,-1,0]];for(const [ax,ay,bx,by,dx,dy]of edges){if(sim.world.tile(x+dx,y+dy)===T.WATER)continue;const p=cam.toScreen(ax,ay,.015,{x:0,y:0}),r=cam.toScreen(bx,by,.015,{x:0,y:0});g.moveTo(p.x,p.y);g.lineTo(r.x,r.y);}}g.stroke();g.restore();
+      if(sim.env.rain>.1&&!o.reduceMotion){g.save();g.strokeStyle='rgba(194,221,217,'+Math.min(.4,sim.env.rain*.35).toFixed(3)+')';g.lineWidth=Math.max(.5,z*.45);g.beginPath();for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){if(sim.world.tile(x,y)!==T.WATER)continue;const seed=((x*37+y*71+Math.floor(t*3)*13)%23+23)%23;if(seed>1)continue;const phase=(t*2+(x*7+y*11)*.13)%1,q=cam.toScreen(x+.35,y+.55,.02,{x:0,y:0}),r=(1+phase*3)*z;g.moveTo(q.x+r,q.y);g.ellipse(q.x,q.y,r,r*.45,0,0,Math.PI*2);}g.stroke();g.restore();}
+    }
     if (q === 0) {
-      g.fillStyle = "rgba(61,214,255,.06)";
-      for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
-        if (sim.world.tile(tx,ty) !== T.WATER || ((tx * 7 + ty * 3 + Math.floor(t * 1.5)) % 5) !== 0) continue;
-        cam.toScreen(tx + 0.5, ty + 0.5, 0, pt);
-        g.beginPath(); g.ellipse(pt.x, pt.y, 14 * z, 4 * z, 0, 0, 6.283); g.fill();
-      }
-      return;
+      g.strokeStyle='rgba(190,218,210,.12)';g.lineWidth=Math.max(.5,z*.45);g.beginPath();
+      for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){if(sim.world.tile(x,y)!==T.WATER||((x*7+y*3)%5+5)%5!==0)continue;const drift=Math.sin(t*.8+x*1.3+y*.7)*.08,a=cam.toScreen(x+.15,y+.45+drift,.01,{x:0,y:0}),b=cam.toScreen(x+.65,y+.45+drift,.01,{x:0,y:0});g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);}g.stroke();return;
     }
     const seg = q >= 3 ? 6 : q === 2 ? 4 : 3;
     g.lineCap = "round";
