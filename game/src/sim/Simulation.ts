@@ -248,6 +248,7 @@ export class Simulation {
     let aiMs = 0;
     const tm = performance.now();
     for (const c of this.chars) {
+      if(c.anim.flash>0)c.anim.flash=Math.max(0,c.anim.flash-dt);
       if(this.world.mapped&&c.lod===Lod.SLEEP&&this.tick<c.nextThink&&this.tick%LOD_INTERVAL[c.lod]!==c.id%LOD_INTERVAL[c.lod])continue;
       advanceDetachedLimbs(this,c,dt);
       if (c.inCar >= 0) continue; // the car carries them (updated in Traffic)

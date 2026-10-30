@@ -396,7 +396,6 @@ export class Renderer {
         c.anim.phase += Math.min(distance,.18)*Math.PI*2/1.65*G.cadence;
         const name = this.poseName(c, moving, spd);
         if (this.lastPose.get(c.id) !== name) { this.lastPose.set(c.id, name); c.anim.poseT = 0; } else c.anim.poseT += dt;
-        if (c.anim.flash > 0) c.anim.flash -= dt;
         const dir = this.screenDir(c);
         const swimDepth=c.tier==="player"?waterDepth(sim.world,c.x,c.y):0;
         const zOff = (c.z-Math.min(.55,swimDepth*.55)) * 26 * z;

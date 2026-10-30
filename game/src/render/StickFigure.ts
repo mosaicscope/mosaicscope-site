@@ -287,12 +287,12 @@ export function solve(a: Angles, sx: number, sy: number, k: number, dir: number)
 export interface ItemDraw { (g: CanvasRenderingContext2D, x: number, y: number, k: number, dir: number, angle: number): void }
 
 /** Full-detail figure (principal, mid, player). */
-export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: number, _sy: number, k: number, dir: number, t: number, flash: number, alpha: number, hdOverride?: boolean, gripped = false): void {
+export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: number, _sy: number, k: number, dir: number, t: number, _flash: number, alpha: number, hdOverride?: boolean, gripped = false): void {
   const L = c.look, girl = L.kind === "girl";
   const lw = Math.max(1.1, 3.2 * k * (L.build ?? 1));
   g.globalAlpha = alpha;
   g.lineCap = "round"; g.lineJoin = "round";
-  const col = flash > 0 ? "#ffffff" : L.color;
+  const col = L.color;
   // HD pass when you're close: soft neon glow, a crisp ink outline under every limb, then the line
   // very close people always get the HD face, whatever the quality budget says
   const hd = hdOverride ?? (k >= 1.05 && (hdBudget-- > 0 || k >= 1.6));
@@ -301,7 +301,7 @@ export function drawFigure(g: CanvasRenderingContext2D, c: Character, _sx: numbe
   const M = personalize(modelOf(c) ?? lookSpec(c), c);
   if (M) {
     // street model drawn after the reference cartoon (see RefFigure.ts); the face follows the person's emotion
-    drawRefFigure(g, J, c, M, k, dir, alpha, hd, flash > 0, gripped);
+    drawRefFigure(g, J, c, M, k, dir, alpha, hd, false, gripped);
     if((c.combat?.vest??0)>0){const cx=(J[0]+J[6])/2,cy=(J[1]+J[7])/2;g.fillStyle='#586750';g.strokeStyle='#263429';g.lineWidth=k;g.beginPath();g.roundRect(cx-7*k,cy-11*k,14*k,23*k,3*k);g.fill();g.stroke();g.strokeStyle='#c4c7a0';g.beginPath();g.moveTo(cx-5*k,cy-3*k);g.lineTo(cx+5*k,cy-3*k);g.stroke();}
 
     if (c.phys === Phys.DOWN) stars(g, J[4], J[5] - 28 * k, k, t);

@@ -379,6 +379,7 @@ export class Game {
   private pausedBefore = false;
 
   private showDriveData=false;
+  private cameraButton?:HTMLButtonElement;
   private updateHud(): void {
     const sim = this.sim, p = sim.player;
     const stars = "★".repeat(p.wanted) + "☆".repeat(5 - p.wanted);
@@ -396,14 +397,14 @@ export class Game {
         h("div.drive-alert",{text:v.water?.locked?"ENGINE HYDROLOCKED · exit and recover":v.components?.wheels.some(w=>!w.missing&&(w.attachment??1)<.65)?"WHEEL HANGING · stop and repair":v.components?.wheels.some(w=>w.missing)?"WHEEL MISSING · stop and repair":(v.components?.structure?.temperature??0)>.6?"ENGINE OVERHEATING · pull over":(v.components?.structure?.brakeHeat??0)>.8?"BRAKES HOT · allow cooling":(v.components?.structure?.oil??1)<.25?"LOW OIL · service needed":(v.components?.structure?.coolant??1)<.25?"LOW COOLANT · service needed":(v.flatLeft||v.flatRight?"FLAT TYRE":"")+((v.heat??0)>.5?" · ENGINE HOT: pull over":"")})
       ]));
     }
-    kids.push(h('button.btn.camera-toggle',{type:'button',text:this.renderer.drivingViewEnabled?'Camera: third person':'Camera: city view','aria-label':'Toggle driving camera',onclick:()=>{this.renderer.drivingViewEnabled=!this.renderer.drivingViewEnabled;this.updateHud();}}));
+    this.cameraButton??=h('button.btn.camera-toggle',{type:'button','aria-label':'Toggle driving camera',onclick:()=>{this.renderer.drivingViewEnabled=!this.renderer.drivingViewEnabled;this.updateHud();}}) as HTMLButtonElement;this.cameraButton.textContent=this.renderer.drivingViewEnabled?'Camera: third person':'Camera: city view';kids.push(this.cameraButton);
     if(sim.pendingAmbulance.has(p.id))kids.push(h('div.car.medical-status',{text:p.phys===Phys.DOWN?'Ambulance on the way · stay still for treatment':'Ambulance on the way · move clear of traffic'}));
     if(p.substances)kids.push(h('div.car',{text:substancePhase(p,sim.tick)}));
     if (p.bleed > 0) kids.push(h("div.car", { text: "You're bleeding. B to bandage." }));
     if(p.hand>=0){const d=sim.toys[p.hand].def,w=TOYS[d].weapon;if(w?.gun){const base=d==='golden_pistol'?'pistol':d,load=p.combat?.load??'standard',key=load==='standard'?base:base+':'+load;kids.push(h('div.combat-status',{text:`${TOYS[d].name} · ${p.combat?.ammo[key]??'∞'} rounds · ${w.mode??'semi'}`}));}}
     this.combatHelpButton??=h("button.btn.combat-help",{text:"Fight / gun controls",onclick:()=>this.openCombatControls()}) as HTMLButtonElement;kids.push(this.combatHelpButton);
     const mission=missionStatus(sim);if(mission)kids.push(h("div.car.obj",{text:mission}));const challenge=challengeStatus(sim);if(challenge)kids.push(h("div.car.obj",{text:challenge}));const obj = this.objective(); if (obj) kids.push(h("div.car.obj", { text: obj }));
-    const hudScroll=this.hudEl.scrollTop;this.hudEl.replaceChildren(...kids);this.hudEl.scrollTop=hudScroll;
+    const hudScroll=this.hudEl.scrollTop,keep=new Set(kids);for(const child of [...this.hudEl.children])if(!keep.has(child as HTMLElement))child.remove();for(let i=0;i<kids.length;i++)if(this.hudEl.children[i]!==kids[i])this.hudEl.insertBefore(kids[i],this.hudEl.children[i]??null);this.hudEl.scrollTop=hudScroll;
     this.hudEl.classList.toggle("beside-log", !this.log.el.classList.contains("hidden"));
     if (sim.bustedAt !== this.lastBusted && sim.bustedAt >= 0) {
       this.lastBusted = sim.bustedAt;
@@ -415,7 +416,7 @@ export class Game {
 
   private cityStreamer=new CityStreamer();
   private uiTick(now: number): void {
-    this.cityStreamer.update(this.sim,now);
+    this.cityStreamer.update(this.sim,now,this.renderer.perspectiveActive);
     if(this.starting)return;
     if(now-this.lastAutoSave>30000)this.autoSave();void this.cityPanel.refresh();
     const miniGameOpen=!this.roast.el.classList.contains("hidden")||!this.burger.el.classList.contains("hidden");

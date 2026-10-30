@@ -34,7 +34,8 @@ export class DrivingView {
  draw(g:CanvasRenderingContext2D,sim:Simulation,w:number,h:number,dpr:number,time:number,alpha:number,dt:number,particles:Particles,rain:Rain,quality:number,reduceMotion:boolean):void {
   const player=sim.player,car=sim.vehicles[player.inCar],focus=car??player;
   const chase=car?this.chase.update(car,alpha,dt,reduceMotion):this.chase.updateFoot(player,alpha,dt,reduceMotion),angle=chase.heading,fx=Math.cos(angle),fy=Math.sin(angle),rx=-fy,ry=fx;
-  const terrain=(x:number,y:number)=>sim.world.mapped?elevationAt(sim.world.mapped,x,y)??0:0;
+  const heights=new Map<string,number>();
+  const terrain=(x:number,y:number)=>{if(!sim.world.mapped)return 0;const key=x+','+y,cached=heights.get(key);if(cached!==undefined)return cached;const value=elevationAt(sim.world.mapped,x,y)??0;heights.set(key,value);return value;};
   const ex=chase.x-fx*chase.distance,ey=chase.y-fy*chase.distance,eye=chase.height+sim.world.groundZ(chase.x,chase.y)+terrain(chase.x,chase.y),near=.6,focal=Math.min(w,h)*chase.focalFactor,horizon=h*.18;
   this.projection={ex,ey,fx,fy,rx,ry,eye,focal,horizon,width:w,heading:angle,terrain};this.picks.length=0;
   type P={x:number;y:number;z:number};
@@ -46,7 +47,7 @@ export class DrivingView {
   const texture=(corners:[number,number,number][],material:Material,opacity:number)=>{const ps=corners.map(v=>local(...v));if(ps.some(p=>p.z<near+1))return;const [a,b,c,d]=ps.map(screen),image=textureCanvas(material);g.save();g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.lineTo(c.x,c.y);g.lineTo(d.x,d.y);g.closePath();g.clip();g.globalAlpha*=opacity;g.transform((b.x-a.x)/image.width,(b.y-a.y)/image.width,(d.x-a.x)/image.height,(d.y-a.y)/image.height,a.x,a.y);g.drawImage(image,0,0);g.restore();};
   g.setTransform(dpr,0,0,dpr,0,0);const daylight=sim.daylight;const sky=g.createLinearGradient(0,0,0,horizon);sky.addColorStop(0,daylight>.3?'#607f93':'#10192a');sky.addColorStop(1,daylight>.3?'#c3c5b7':'#30394a');g.fillStyle=sky;g.fillRect(0,0,w,h);g.fillStyle=daylight>.3?'#51564b':'#20282d';g.fillRect(0,horizon,w,h-horizon);
   // Coarse distance terrain extends the horizon without drawing thousands of full-detail tiles.
-  const farRadius=quality===0?112:quality===1?160:200,farStep=quality>=2?12:16,far:{x:number;y:number;d:number;t:number}[]=[];
+  const farRadius=500,farStep=quality===0?40:32,far:{x:number;y:number;d:number;t:number}[]=[];
   const centreX=Math.floor(focus.x/farStep)*farStep,centreY=Math.floor(focus.y/farStep)*farStep;
   for(let y=centreY-farRadius;y<=centreY+farRadius;y+=farStep)for(let x=centreX-farRadius;x<=centreX+farRadius;x+=farStep){const mx=x+farStep*.5,my=y+farStep*.5,d=(mx-ex)*fx+(my-ey)*fy,side=Math.abs((mx-ex)*rx+(my-ey)*ry);if(d<33||d>farRadius||side>d*.9+farStep)continue;far.push({x,y,d,t:sim.world.tile(Math.floor(mx),Math.floor(my))});}
   far.sort((a,b)=>b.d-a.d);for(const q of far){const color=q.t===T.WATER?'#395b63':q.t===T.GRASS?'#4a6049':q.t===T.ROAD||q.t===T.CROSSWALK?'#434748':q.t===T.SAND?'#807964':'#66685e';quad([[q.x,q.y,0],[q.x+farStep,q.y,0],[q.x+farStep,q.y+farStep,0],[q.x,q.y+farStep,0]],color);}
@@ -78,7 +79,7 @@ export class DrivingView {
   if(map)for(const id of worldIndex(sim.world).roads.query(cx-radius,cy-radius,cx+radius,cy+radius)){const r=map.streetSegments[id];if(!r)continue;const offsetList=[-r.half+.1,r.half-.1,...(r.oneway===0?[0]:[])];for(const offset of offsetList)for(let at=Math.max(0,Math.floor((((focus.x-r.x)*r.dx+(focus.y-r.y)*r.dy)-48)/3.2)*3.2);at<Math.min(r.length,((focus.x-r.x)*r.dx+(focus.y-r.y)*r.dy)+48);at+=3.2){if(offset===0&&Math.floor(at/3.2)%2)continue;const end=Math.min(r.length,at+2.4),a=r.x+r.dx*at-r.dy*offset,b=r.y+r.dy*at+r.dx*offset,c=r.x+r.dx*end-r.dy*offset,d=r.y+r.dy*end+r.dx*offset;if(Math.hypot(a-focus.x,b-focus.y)>48&&Math.hypot(c-focus.x,d-focus.y)>48)continue;const tile=sim.world.tile(Math.floor((a+c)/2),Math.floor((b+d)/2));if(tile!==T.ROAD&&tile!==T.CROSSWALK)continue;const mx=(a+c)/2,my=(b+d)/2;if(at<3||end>r.length-3)continue;
    let junction=false;for(const otherId of worldIndex(sim.world).roads.query(mx-2,my-2,mx+2,my+2)){const other=map.streetSegments[otherId];if(!other||other.id===r.id||Math.abs(r.dx*other.dx+r.dy*other.dy)>.88)continue;const u=Math.max(0,Math.min(other.length,(mx-other.x)*other.dx+(my-other.y)*other.dy));if(Math.hypot(mx-other.x-other.dx*u,my-other.y-other.dy*u)<other.half+1){junction=true;break;}}if(junction)continue;
    const width=.035;quad([[a-r.dy*width,b+r.dx*width,.012],[c-r.dy*width,d+r.dx*width,.012],[c+r.dy*width,d-r.dx*width,.012],[a+r.dy*width,b-r.dx*width,.012]],offset===0?'#c4a466':'#b0b2a4');}}
-  const items:{depth:number;draw:()=>void}[]=[];let windowBudget=quality===0?0:quality===1?18:36,windowGeometryBudget=quality===0?100:quality===1?260:500;
+  const items:{depth:number;draw:()=>void}[]=[];let windowBudget=quality===0?0:quality===1?18:36,windowGeometryBudget=quality===0?100:quality===1?260:500,distantFacadeBudget=quality===0?20:quality===1?40:60;
   // Draw the same street greenery and tree tiles as the overhead view, depth-sorted with traffic.
   const decor=map?null:decorGrid(sim.world);
   for(const tile of ground){
@@ -101,6 +102,15 @@ export class DrivingView {
   for(const id of worldIndex(sim.world).buildings.query(cx-farRadius,cy-farRadius,cx+farRadius,cy+farRadius)){
    const b=sim.world.buildings[id];if(!b)continue;const bx=(b.x0+b.x1+1)/2,by=(b.y0+b.y1+1)/2,extent=Math.hypot(b.x1-b.x0+1,b.y1-b.y0+1)/2,forward=(bx-ex)*fx+(by-ey)*fy,side=(bx-ex)*rx+(by-ey)*ry;if(forward+extent<near||forward-extent>farRadius||Math.abs(side)>Math.max(0,forward)*1.05+extent*2+8)continue;const source=map?.byBuilding.get(id),pts=source&&map?source.points.map(p=>[p[0]/map.metresPerTile+map.offsetX,p[1]/map.metresPerTile+map.offsetY] as [number,number]):[[b.x0,b.y0],[b.x1+1,b.y0],[b.x1+1,b.y1+1],[b.x0,b.y1+1]] as [number,number][];
    if(pts.length>3&&pts[0][0]===pts[pts.length-1][0]&&pts[0][1]===pts[pts.length-1][1])pts.pop();if(pts.length<3)continue;const depths=pts.map(point=>(point[0]-ex)*fx+(point[1]-ey)*fy),depth=Math.max(near,Math.min(...depths));if(Math.max(...depths)<near||depth>farRadius)continue;
+   // Far buildings retain their surveyed footprint and facade rhythm with fewer canvas operations.
+   if(depth>45){const height=Math.max(1,Math.min(120,source&&map?source.height/map.metresPerTile:b.height)),arch=source?mappedFacadeStyle(source):null,wall=arch?.wall??b.color,roof=arch?.roof??b.roof;
+    items.push({depth,draw:()=>{const area=pts.reduce((sum,a,i)=>{const z=pts[(i+1)%pts.length];return sum+a[0]*z[1]-z[0]*a[1];},0),winding=area>=0?1:-1;
+     for(let i=0;i<pts.length;i++){const a=pts[i],z=pts[(i+1)%pts.length];if(((z[0]-a[0])*(ey-a[1])-(z[1]-a[1])*(ex-a[0]))*winding>=0)continue;
+      quad([[a[0],a[1],0],[z[0],z[1],0],[z[0],z[1],height],[a[0],a[1],height]],wall);
+      if(distantFacadeBudget>0){distantFacadeBudget--;const rows=Math.min(2,Math.max(1,b.floors)),cols=Math.min(2,Math.max(1,Math.floor(Math.hypot(z[0]-a[0],z[1]-a[1])/3)));for(let f=0;f<rows;f++)for(let c=0;c<cols;c++){const u=(c+.18)/cols,v=(c+.82)/cols,lo=(f+.28)*height/rows,hi=(f+.7)*height/rows,at=(t:number,h:number):[number,number,number]=>[a[0]+(z[0]-a[0])*t,a[1]+(z[1]-a[1])*t,h];quad([at(u,lo),at(v,lo),at(v,hi),at(u,hi)],'#536d76');}}
+     }polygon(pts.map(p=>local(p[0],p[1],height)),roof);
+    }});continue;
+   }
    items.push({depth,draw:()=>{
     const height=Math.max(1,Math.min(120,source&&map?source.height/map.metresPerTile:b.height)),arch=source?mappedFacadeStyle(source):null,wall=arch?.wall??b.color,roof=arch?.roof??b.roof;
     const pitched=pts.length===4&&(arch?.shape==='gable'||arch?.shape==='gabled'),rise=pitched?Math.min(height*.22,1.2):0,wallTop=height-rise;
@@ -114,6 +124,8 @@ export class DrivingView {
     const faces=pts.map((a,i)=>{const z=pts[(i+1)%pts.length];return {a,z,dist:((a[0]+z[0])/2-ex)*fx+((a[1]+z[1])/2-ey)*fy,visible:inside||((z[0]-a[0])*(ey-a[1])-(z[1]-a[1])*(ex-a[0]))*winding<0};}).filter(f=>f.visible).sort((a,z)=>z.dist-a.dist);
     for(const {a,z,dist} of faces){const length=Math.hypot(z[0]-a[0],z[1]-a[1]);if(length<.01)continue;const at=(u:number,h:number):[number,number,number]=>[a[0]+(z[0]-a[0])*u,a[1]+(z[1]-a[1])*u,h];quad([at(0,0),at(1,0),at(1,wallTop),at(0,wallTop)],wall,'#353b3b');if(dist<22&&quality>0){const parts=Math.max(1,Math.min(12,Math.ceil(length/3)));for(let part=0;part<parts;part++){const u=part/parts,v=(part+1)/parts;texture([at(u,0),at(v,0),at(v,wallTop),at(u,wallTop)],arch?.material==='brick'||arch?.material==='stone'?'brick':'concrete',.38);}}
      const cols=Math.min(20,Math.max(1,Math.floor(length/(arch?.bayWidth?arch.bayWidth/2:1.4)))),floors=Math.min(18,Math.max(1,b.floors)),floor=wallTop/floors;
+     // Preserve a readable window rhythm on distant mapped facades with a bounded amount of geometry.
+     if(dist>=30&&distantFacadeBudget>0){const rows=Math.min(floors,4),groups=Math.min(cols,5);for(let f=0;f<rows&&distantFacadeBudget>0;f++)for(let c=0;c<groups&&distantFacadeBudget>0;c++){distantFacadeBudget--;const lo=(f+.25)*wallTop/rows,hi=(f+.72)*wallTop/rows,u=(c+.18)/groups,v=(c+.82)/groups;quad([at(u,lo),at(v,lo),at(v,hi),at(u,hi)],daylight<.35&&((b.id+f+c)%5===0)?'#c8bc91':'#536d76');}}
      if(dist<30){for(let f=0;f<floors;f++){const level=f*floor;quad([at(0,level+.08),at(1,level+.08),at(1,level+.14),at(0,level+.14)],arch?.trim??'#929a92');
       for(let c=0;c<cols&&windowGeometryBudget>(dist>20?140:0);c++){windowGeometryBudget--;const inset=arch?.window==='ribbon'?.08:arch?.heritage?.3:.2,u=(c+inset)/cols,v=(c+1-inset)/cols,lo=level+floor*.25,hi=level+floor*.76,seed=Math.abs((b.id*31+f*13+c*7)%9),lit=daylight<.45&&seed<4&&sim.env.power;quad([at(u,lo),at(v,lo),at(v,hi),at(u,hi)],lit?'#dacb95':'#4e6a76',arch?.trim??'#a0aea8');const mid=(u+v)/2;quad([at(mid-.008,lo),at(mid+.008,lo),at(mid+.008,hi),at(mid-.008,hi)],'#a3aca4');
        if(dist<18&&windowBudget>0){const corners=[at(u,lo),at(v,lo),at(v,hi),at(u,hi)].map(q=>local(...q));if(corners.every(q=>q.z>near+1)){const pp=corners.map(screen);const win:Win={A:[pp[0].x,pp[0].y],B:[pp[1].x,pp[1].y],C:[pp[2].x,pp[2].y],D:[pp[3].x,pp[3].y],col:lit?'#dacb95':'#4e6a76',seed:b.id*131+f*31+c*17};if(Math.hypot(win.B[0]-win.A[0],win.B[1]-win.A[1])>=7){windowBudget--;paintWindowStories(g,[win],reduceMotion?0:time);}}}

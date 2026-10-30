@@ -5,6 +5,16 @@ import {mapMetres} from './MappedWorld';
 import {bakeCityDistrict,validDistrict} from './CitySurvey';
 import {refreshCityPopulation} from '../sim/MappedTraffic';
 
+/** Prioritize nearby districts, including those intersecting the perspective horizon. */
+export function cityDistrictQueue(east:number,north:number,far:boolean):{x:number;y:number;distance:number}[]{
+ const cx=Math.round(east/400),cy=Math.round(north/400),radius=far?3:1,out:{x:number;y:number;distance:number}[]=[];
+ for(let y=cy-radius;y<=cy+radius;y++)for(let x=cx-radius;x<=cx+radius;x++){
+  const dx=x*400-east,dy=y*400-north;if(far&&Math.hypot(Math.max(0,Math.abs(dx)-260),Math.max(0,Math.abs(dy)-260))>1000)continue;
+  out.push({x,y,distance:Math.hypot(dx,dy)});
+ }
+ return out.sort((a,b)=>a.distance-b.distance);
+}
+
 /** Survey downloads run ahead of the player; rasterization is cooperatively budgeted per frame. */
 export class CityStreamer{
  private current?:Simulation;
@@ -15,31 +25,29 @@ export class CityStreamer{
  private next=0;
  private detailDone=new Set<string>();
  private elevationRequest?:AbortController;private elevationRetry=new Map<string,number>();
- update(sim:Simulation,now:number){
+ update(sim:Simulation,now:number,perspective=false){
   const m=sim.world.mapped;if(!m)return;
   if(this.current!==sim){this.requests.forEach(c=>c.abort());this.requests.clear();this.jobs=[];this.retry.clear();this.ready.clear();this.detailDone.clear();this.elevationRequest?.abort();this.elevationRequest=undefined;this.elevationRetry.clear();this.current=sim;const c=m.coverage;for(let y=Math.ceil((-c.south+260)/400);y<=Math.floor((-c.north-260)/400);y++)for(let x=Math.ceil((c.west+260)/400);x<=Math.floor((c.east-260)/400);x++)this.ready.set(x+','+y,{x,y});for(const d of m.streamedData??[])this.ready.set(d.cx+','+d.cy,{x:d.cx,y:d.cy});this.next=0;}
   const status=m.streaming??={loading:0,error:null,loaded:[]};
   const end=performance.now()+1;
   // A hard iteration cap also works with coarse privacy timers.
   for(let i=0;i<16&&this.jobs.length&&performance.now()<end;i++){
-   const job=this.jobs[0];if(job.work.next().done){this.ready.set(job.key,{x:job.data.cx,y:job.data.cy});this.jobs.shift();sim.world.cityTiles.trim(sim.player.x,sim.player.y);status.error=null;}
+   const job=this.jobs[0];if(job.work.next().done){this.ready.set(job.key,{x:job.data.cx,y:job.data.cy});this.jobs.shift();sim.world.cityTiles.trim(sim.player.x,sim.player.y,perspective?2048:512);status.error=null;}
   }
   status.loading=this.requests.size+this.jobs.length;
   if(now<this.next)return;this.next=now+1000;
   refreshCityPopulation(sim);
   const p=mapMetres(m,sim.player.x,sim.player.y),cx=Math.round(p.x/400),cy=Math.round(-p.y/400);
   // Coarse Copernicus elevation streams independently of street geometry.
-  if(!this.elevationRequest){const grids=m.elevation??=new Map<string,ElevationTile>(),candidates:{x:number;y:number;distance:number}[]=[];for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)candidates.push({x:cx+dx,y:cy+dy,distance:dx*dx+dy*dy});candidates.sort((a,b)=>a.distance-b.distance);
+  if(!this.elevationRequest){const grids=m.elevation??=new Map<string,ElevationTile>(),candidates:{x:number;y:number;distance:number}[]=[];for(let dy=-(perspective?2:1);dy<=(perspective?2:1);dy++)for(let dx=-(perspective?2:1);dx<=(perspective?2:1);dx++)candidates.push({x:cx+dx,y:cy+dy,distance:dx*dx+dy*dy});candidates.sort((a,b)=>a.distance-b.distance);
    const next=candidates.find(q=>{const key=q.x+','+q.y;return Math.abs(q.x)<=128&&Math.abs(q.y)<=128&&!grids.has(key)&&(this.elevationRetry.get(key)??0)<=now;});
    if(next){const key=next.x+','+next.y,controller=new AbortController();this.elevationRequest=controller;const timeout=setTimeout(()=>controller.abort(),18000);
     void fetch('/api/city-elevation?x='+next.x+'&y='+next.y,{signal:controller.signal}).then(async r=>{if(!r.ok)throw Error('Elevation unavailable');const tile=await r.json() as ElevationTile;if(!validElevation(tile,next.x,next.y))throw Error('Invalid elevation');if(this.current!==sim)return;grids.set(key,tile);while(grids.size>36)grids.delete(grids.keys().next().value!);}).catch(()=>{if(this.current===sim)this.elevationRetry.set(key,now+60000);}).finally(()=>{clearTimeout(timeout);if(this.elevationRequest===controller)this.elevationRequest=undefined;});
    }
   }
   // The sparse cache covers a moving ~1.4km radius. Revisit districts after their terrain was evicted.
-  for(const [key,d]of this.ready)if(Math.abs(d.x-cx)>1||Math.abs(d.y-cy)>1){if(m.streamedKeys?.has(key))this.ready.delete(key);}
-  const queue:{x:number;y:number;distance:number}[]=[];
-  for(let y=cy-1;y<=cy+1;y++)for(let x=cx-1;x<=cx+1;x++)queue.push({x,y,distance:Math.hypot(x*400-p.x,-y*400-p.y)});
-  queue.sort((a,b)=>a.distance-b.distance);
+  for(const [key,d]of this.ready)if(Math.abs(d.x-cx)>(perspective?3:1)||Math.abs(d.y-cy)>(perspective?3:1)){if(m.streamedKeys?.has(key))this.ready.delete(key);}
+  const queue=cityDistrictQueue(p.x,-p.y,perspective);
   for(const d of queue){if(this.requests.size+this.jobs.length>=2)break;const key=d.x+','+d.y;if(this.ready.has(key)||this.requests.has(key)||this.jobs.some(j=>j.key===key)||(this.retry.get(key)??0)>now)continue;
    const cached=m.data.find(q=>q.cx===d.x&&q.cy===d.y);if(cached){this.jobs.push({key,data:cached,work:bakeCityDistrict(sim.world,cached)});continue;}
    const controller=new AbortController();this.requests.set(key,controller);const timeout=setTimeout(()=>controller.abort(),30000);
