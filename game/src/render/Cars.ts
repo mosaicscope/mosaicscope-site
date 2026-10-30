@@ -106,7 +106,7 @@ function meshTriangle(k:Ctx,a:V3,b:V3,c:V3,col:string,normal:V3,level:number):vo
 }
 function meshFace(k:Ctx,points:V3[],col:string,normal:V3):void{
  if(!k.deform||k.cam.zoom<.45){fillPoly(k,points,col);return;}
- const centre=points.reduce((a,p)=>[a[0]+p[0]/points.length,a[1]+p[1]/points.length,a[2]+p[2]/points.length] as V3,[0,0,0] as V3),level=k.cam.zoom>3.5?2:1;
+ const centre=points.reduce((a,p)=>[a[0]+p[0]/points.length,a[1]+p[1]/points.length,a[2]+p[2]/points.length] as V3,[0,0,0] as V3),level=k.cam.zoom>1.5?2:1;
  const samples=[centre,...points,...points.map((p,i)=>{const q=points[(i+1)%points.length];return [(p[0]+q[0])/2,(p[1]+q[1])/2,(p[2]+q[2])/2] as V3;})];
  const warp=Math.max(...samples.map(p=>{const q=k.deform!(p);return Math.hypot(q[0]-p[0],q[1]-p[1],q[2]-p[2]);}));if(warp<.008){fillPoly(k,points,col);return;}
  fillPoly(k,points,col);
@@ -556,7 +556,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     }
    }
    if(p.boot!==undefined&&p.boot<.55){const a=x0+.04,b=Math.min(S.cab[0]*L-.03,-L*.12),h=bodyTop(a)+.025;fillPoly(k,[[a,-hw*.75,h],[b,-hw*.75,h],[b,hw*.75,h],[a,hw*.75,h]],'#202b29');if(!p.bootGone){const lift=(.55-p.boot)*.12+(p.progressive?.hinges?.[1]?.angle??0)*L*.16;meshFace(k,[[a,-hw*.75,h+lift],[b,-hw*.75,bodyTop(b)+.03],[b,hw*.75,bodyTop(b)+.03],[a,hw*.75,h+lift]],v.color,[0,0,1]);}}
-   if(p.hoodLoose&&!p.hoodGone){const [a,b]=bonnetSection(S,L),span=Math.max(.02,b-a),angle=Math.min(1.1,.2+(1-p.hood)*.45+(p.progressive?.hinges?.[0]?.angle??0)*.65),front=a+span*Math.cos(angle),base=bodyTop(a)+.025,tip=bodyTop(b)+.025+span*Math.sin(angle);meshFace(k,[[a,-hw*.82,base],[front,-hw*.82,tip],[front,hw*.82,tip],[a,hw*.82,base]],v.color,[0,0,1]);}
+   if(p.hoodLoose&&!p.hoodGone){const [a,b]=bonnetSection(S,L),span=Math.max(.02,b-a),angle=Math.min(.82,.12+(1-p.hood)*.38+(p.progressive?.hinges?.[0]?.angle??0)*.45),front=a+span*Math.cos(angle),base=bodyTop(a)+.025,tip=bodyTop(b)+.025+span*Math.sin(angle);meshFace(k,[[a,-hw*.82,base],[front,-hw*.82,tip],[front,hw*.82,tip],[a,hw*.82,base]],v.color,[0,0,1]);}
 
 
   }
