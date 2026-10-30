@@ -1,3 +1,4 @@
+import {fireVisualProfile} from './FireVisuals';
 import {ackermannAngle} from '../sim/WheelContact';
 import {damageStage} from '../sim/ProgressiveDamage';
 import {damageBloodEnabled} from './DamageArt';
@@ -521,7 +522,14 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
 
   if (v.leak) { const P=W3(k,[-L*.2,0,.01]);g.fillStyle="rgba(12,8,10,.75)";g.beginPath();g.ellipse(P[0],P[1]+8*z,12*z*v.leak,4*z,0,0,Math.PI*2);g.fill(); }
 
-  if (v.burning) { for(let i=0;i<5;i++){const P=W3(k,[x1-L*.2,(i-2)*.06,H*.7]);g.fillStyle=i%2?"#ffb52e":"#ec3b12";g.beginPath();g.moveTo(P[0]-4*z,P[1]);g.lineTo(P[0]+(Math.sin(time*9+i)*3+(windX-windY)*8)*z,P[1]-(10+Math.sin(time*7+i)*5-(windX+windY)*2)*z);g.lineTo(P[0]+4*z,P[1]);g.fill();} }
+  if(v.burning){
+    // Layer translucent tongues and hot cores for depth without a volumetric GPU simulation.
+    g.save();g.globalCompositeOperation='source-over';const battery=d.design?.powerSource==='fusion'||['ev','compact_ev','estate_ev'].includes(d.design?.base??v.cls),profile=fireVisualProfile(v.id,battery),fireScale=Math.min(1.5,.8+d.mass*.16);
+    for(let i=0;i<9;i++){const q=W3(k,[x1-L*(.1+(i%3)*.09),((i%5)-2)*hw*.24,H*(.5+(i%2)*.12)]),flicker=Math.sin(time*profile.flicker+i*2.4),height=(14+(i%4)*5+flicker*4)*z*fireScale*profile.height,width=(4+(i%3)*2)*z*fireScale*profile.width,lean=(windX-windY)*9*z*profile.lean+Math.sin(time*5+i)*3*z;
+      const grad=g.createLinearGradient(q[0],q[1],q[0]+lean,q[1]-height);grad.addColorStop(0,profile.core);grad.addColorStop(.28,profile.body);grad.addColorStop(.65,'rgba(238,55,12,.60)');grad.addColorStop(1,'rgba(120,20,8,0)');
+      g.fillStyle=grad;g.beginPath();g.moveTo(q[0]-width,q[1]);g.quadraticCurveTo(q[0]-width*1.4+lean*.3,q[1]-height*.48,q[0]+lean,q[1]-height);g.quadraticCurveTo(q[0]+width+lean*.6,q[1]-height*.38,q[0]+width,q[1]);g.closePath();g.fill();
+    }g.restore();
+  }
   if (v.burnt && (v.burntAge ?? 0) < 0.8) { const P=W3(k,[0,0,H]); const r=(12+(v.burntAge??0)*40)*z; g.fillStyle="rgba(255,170,30,.6)";g.beginPath();g.arc(P[0],P[1],r,0,Math.PI*2);g.fill(); }
 
 

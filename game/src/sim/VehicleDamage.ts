@@ -29,6 +29,8 @@ export function impactComponents(v:Vehicle,nx:number,ny:number,speed:number,mass
  crushStructure(v,zone,energy,p.contacts[zone].x,p.contacts[zone].y);
  if(zone===0&&energy>.2)v.engineRepaired=false;
  const oldGlass=p.glass[zone];
+ // Major engine or battery impacts can ignite even without a running engine.
+ if(energy>.88&&speed>9&&zone===0&&!v.burnt){v.heat=1;v.burning=true;}
  p.panels[zone]=Math.min(1,p.panels[zone]+energy);p.glass[zone]=Math.min(1,p.glass[zone]+Math.max(0,energy-.12)*.7);p.lastImpact=tick;stressAttachments(p,zone,energy);
  const lamp=(along>=0?0:2)+(side>=0?1:0),oldLamp=p.lamps![lamp];p.lamps![lamp]=Math.min(1,p.lamps![lamp]+energy*1.05);if(Math.abs(side)>.35)p.mirrors![side>0?1:0]=Math.min(1,p.mirrors![side>0?1:0]+energy);
  const wheel=(along>=0?0:2)+(side>=0?1:0),geometry=vehicleGeometry(v),at=p.contacts[zone];
@@ -52,6 +54,13 @@ export function impactComponents(v:Vehicle,nx:number,ny:number,speed:number,mass
   if(zone>=2){const index=zone-2;p.doorGone??=[false,false];p.doorHinges??=[1,1];if(!p.doorGone[index]){p.doorGone[index]=true;p.doorHinges[index]=0;detach('metal',.38);}}
  }
 
+}
+/** Apply a bounded blast to the chassis, panels, glass and existing parts model. */
+export function blastVehicle(v:Vehicle,nx:number,ny:number,strength:number,tick:number):void{
+ if(!Number.isFinite(strength)||strength<=0)return;const len=Math.hypot(nx,ny)||1;nx/=len;ny/=len;
+ const speed=Math.min(15,strength*4),g=vehicleGeometry(v);
+ impactComponents(v,nx,ny,speed,VEHICLES[v.cls].mass,tick,{x:v.x+nx*g.length*.35,y:v.y+ny*g.width*.35});
+ v.damage=Math.min(1,v.damage+Math.min(.6,strength*.16));v.heat=Math.min(1,(v.heat??0)+strength*.12);
 }
 export function damageParts(v: Vehicle): void {
   const f=v.dmgF??0, r=v.dmgR??0, l=v.dmgL??0, s=v.dmgS??0;
@@ -82,7 +91,7 @@ export function damageTick(v: Vehicle, dt: number): void {
   v.heat=Math.max(0,Math.min(1,(v.heat??0)+(running && (v.engineDamage??0)>0.65 ? dt*0.015 : -dt*0.02)));
   if ((v.heat??0)>=1) v.burning=true;
   if (v.burning) { v.damage=Math.min(1,v.damage+dt*0.025); v.burnTime=(v.burnTime??0)+dt; }
-  if ((v.burnTime??0)>12) { v.burnt=true; v.burning=false; v.damage=1; v.speed=0; v.vx=0; v.vy=0; }
+  if ((v.burnTime??0)>(VEHICLES[v.cls].design?.powerSource==='fusion'||['ev','compact_ev','estate_ev'].includes(VEHICLES[v.cls].design?.base??v.cls)?90:75)) { v.burnt=true; v.burning=false; v.damage=1; v.speed=0; v.vx=0; v.vy=0; }
 }
 export function repairVehicle(v: Vehicle): void {
   if(v.utility){v.utility.brakeHeat=0;v.utility.sway=0;v.utility.swayVelocity=0;v.utility.loadShift=0;v.utility.engineLoad=0;v.utility.airRelease=0;}
