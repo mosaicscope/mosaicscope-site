@@ -574,6 +574,9 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     g.fillStyle = "#0e0b0a"; g.fillText(label, pt.x, pt.y + 1); g.textAlign = "start"; g.textBaseline = "alphabetic";
   }
   drawWorkingDetails(k,v,L,hw,H,time,S.tray===true);
+  // A struck underside exposes a displaced exhaust line that moves with the chassis.
+  const under=v.components?.underbody;if(under?.points?.length===70){const hurt=under.points.reduce((sum,p)=>sum+p.damage,0)/70;if(hurt>.015){const sag=Math.min(.16,hurt*.6)+Math.sin(time*8)*Math.min(.025,hurt*.08)*Math.min(1,Math.abs(v.speed)/4);strokePoly(k,[[-L*.36,nearSign*hw*.48,.14],[-L*.1,nearSign*hw*.48,.12-sag],[L*.22,nearSign*hw*.48,.13]],'#a39c88',Math.max(1,z*1.5),false);}}
+
   // Separate outer skins buckle, hang on a hinge and eventually expose the inner frame.
   for(const f of sides){const zone=Math.abs(f.a0[0]-f.b0[0])<Math.abs(f.a0[1]-f.b0[1])?((f.a0[0]+f.b0[0])>0?0:1):((f.a0[1]+f.b0[1])>0?3:2),skin=v.components?.progressive?.skins[zone];if(!skin||damageStage(v.components!.panels[zone])<2)continue;const patch=surfacePatch(f,.2,.8,.2,.85);if(skin.gone){fillPoly(k,patch,'#192725');strokePoly(k,[onFace(f,.25,.25),onFace(f,.7,.7)],'#7f8a79',z,false);}else{const curled=patch.map(([x,y,h],i)=>[x,y,h+(i<2?0:skin.curl*.07+skin.flutter)] as V3);meshFace(k,curled,v.color,f.n);strokePoly(k,curled,'#a8ad97',.6*z,true);}}
   // Impact-local folded seams and exposed primer remain attached to the crushed material.

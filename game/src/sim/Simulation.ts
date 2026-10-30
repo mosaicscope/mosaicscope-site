@@ -1,3 +1,4 @@
+import {LiquidSystem} from './Liquid';
 import {updateBusWaiting} from './BusService';
 import {stepImpactRagdoll,clearImpactRagdoll} from '../physics/ImpactRagdoll';
 import {vehicleIndex} from './VehicleIndex';
@@ -107,6 +108,7 @@ export class Simulation {
   groups = new GroupSystem();
   dialogue: DialogueEngine;
   lod = new LodManager();
+  liquids = new LiquidSystem();
   bus = new EventBus<SimSignals>();
   chars: Character[] = [];
   toys: Toy[] = [];
@@ -205,7 +207,7 @@ export class Simulation {
   step(): void {
     const t0 = performance.now();
     const dt = this.step_dt;
-    this.tick++;updateWorldFun(this);
+    this.tick++;this.liquids.step(this.step_dt);updateWorldFun(this);
     const horseRace=this.expansion.casino.race?.physics;if(horseRace&&!horseRace.finished)advanceHorseRace(horseRace,this.tick);
     if (hasUpgrade(this.life.upgrades, "bando")) {
       const u = this.life.upgrades, p = this.player, home = this.world.buildings[p.home];
