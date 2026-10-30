@@ -20,7 +20,7 @@ export function impactComponents(v:Vehicle,nx:number,ny:number,speed:number,mass
  const energy=Math.min(1,Math.max(0,speed*speed*mass/150)),zone=Math.abs(along)>=Math.abs(side)?along>0?0:1:side>0?3:2;
  p.contacts??=[{x:.5,y:0},{x:-.5,y:0},{x:0,y:-.5},{x:0,y:.5}];if(contact){const dx=contact.x-v.x,dy=contact.y-v.y,d=vehicleGeometry(v);p.contacts[zone]={x:Math.max(-.5,Math.min(.5,(dx*c+dy*s)/d.length)),y:Math.max(-.5,Math.min(.5,(-dx*s+dy*c)/d.width))};}
  if(energy>.005){const at=p.contacts[zone];p.impacts??=[];const previous=p.impacts[p.impacts.length-1],impact={tick,zone,deltaV:speed,energy,x:at.x,y:at.y,severity:energy>.65?'severe':energy>.25?'heavy':energy>.07?'moderate':'light'};if(previous&&tick-previous.tick<=6&&previous.zone===zone&&Math.hypot(previous.x-at.x,previous.y-at.y)<.15){if(energy>previous.energy)p.impacts[p.impacts.length-1]=impact;}else{if(p.impacts.length>=8)p.impacts.shift();p.impacts.push(impact);}}
- if(energy>.005){const at=p.contacts[zone],len=Math.hypot(along,side)||1,dent={zone,x:at.x,y:at.y,z:.44,nx:along/len,ny:side/len,energy,depth:energy*(zone<2?.2:.3),radius:.24+energy*.15};p.dents??=[];const old=p.dents.find(d=>d.zone===zone&&Math.hypot(d.x-at.x,d.y-at.y)<.18);if(old){old.depth=Math.min(.34,old.depth+dent.depth*.7);old.energy=Math.min(1,old.energy+energy);old.radius=Math.max(old.radius,dent.radius);}else{if(p.dents.length>=12)p.dents.shift();p.dents.push(dent);}}
+ if(energy>.005){const at=p.contacts[zone],len=Math.hypot(along,side)||1,dent={zone,x:at.x,y:at.y,z:.44,nx:along/len,ny:side/len,energy,depth:energy*(zone<2?.28:.34),radius:.24+energy*.24};p.dents??=[];const old=p.dents.find(d=>d.zone===zone&&Math.hypot(d.x-at.x,d.y-at.y)<.18);if(old){old.depth=Math.min(.34,old.depth+dent.depth*.7);old.energy=Math.min(1,old.energy+energy);old.radius=Math.max(old.radius,dent.radius);}else{if(p.dents.length>=12)p.dents.shift();p.dents.push(dent);}}
  if(energy>.08){const at=p.contacts[zone],len=Math.hypot(along,side)||1;p.lattice=strikeLattice(p.lattice,at.x,at.y,along/len,side/len,energy);}
  if(zone>=2&&energy>.25){const sideIndex=zone-2;p.doorHinges??=[1,1];p.doorGone??=[false,false];if(!p.doorGone[sideIndex])p.doorHinges[sideIndex]=Math.max(0,p.doorHinges[sideIndex]-(energy-.25)*.8);}
  if(energy>.08)p.underbody=strikeUnderbody(p.underbody,p.contacts[zone].x,p.contacts[zone].y,energy);
@@ -34,13 +34,22 @@ export function impactComponents(v:Vehicle,nx:number,ny:number,speed:number,mass
  const wheelEnergy=p.wheels.map((_,i)=>{if(!contact)return i===wheel?energy:0;const x=(i<2?1:-1)*geometry.wheelbase/(2*geometry.length),y=(i%2===0?-1:1)*.44;return energy*Math.exp(-1.5*(((at.x-x)/.34)**2+((at.y-y)/.36)**2));});
  for(let i=0;i<p.wheels.length;i++){const w=p.wheels[i],e=wheelEnergy[i];if(e>.3&&!w.missing)w.attachment=Math.max(0,(w.attachment??1)-Math.max(0,e-.3)*1.25);w.rim=Math.min(1,w.rim+e*.8);w.suspension=Math.min(1,w.suspension+e*.9);w.alignment=Math.max(-.42,Math.min(.42,w.alignment+(side>=0?1:-1)*e*.2));if(e>.3)w.puncture=true;}
  const toss=(kind:VehicleDebris['kind'],n:number)=>{for(let i=0;i<n&&p.debris.length<24;i++)p.debris.push({kind,x:contact?.x??v.x+nx*.6,y:contact?.y??v.y+ny*.6,z:kind==='glass'?.7:.2,vx:(v.vx??0)*.45+nx*(1+i%3)+Math.cos(i*2.4),vy:(v.vy??0)*.45+ny*(1+i%3)+Math.sin(i*2.4),vz:1.4+i%3*.35,age:0,spin:i*1.7});};
- if(oldLamp<.94&&p.lamps![lamp]>=.94){toss('lamp',1);p.debris[p.debris.length-1].colour=lamp<2?'#c2d0bb':'#b56b5b';}
+ if(oldLamp<.94&&p.lamps![lamp]>=.94){const before=p.debris.length;toss('lamp',1);if(p.debris.length>before)p.debris[p.debris.length-1].colour=lamp<2?'#c2d0bb':'#b56b5b';}
  if(oldGlass<=.45&&p.glass[zone]>.45||oldGlass<=.85&&p.glass[zone]>.85)toss('glass',3+Math.floor(energy*5));
  for(let i=0;i<p.wheels.length;i++){const w=p.wheels[i];if(wheelEnergy[i]>.68&&w.suspension>.82&&!w.missing){w.missing=true;w.attachment=0;toss('wheel',1);}}
  if(zone===0){p.hood=Math.max(0,p.hood-energy*.8);p.hoodLoose=p.hood<.55;}
  if(zone===1)p.boot=Math.max(0,(p.boot??1)-energy*.7);
  if(zone<2){p.bumperZone=zone;p.bumpers![zone]=Math.max(0,p.bumpers![zone]-energy);p.bumper=Math.min(...p.bumpers!);p.bumperLoose=p.bumper<.6;}
  if(p.bumper===0&&!v.bumperLost){v.bumperLost=true;toss('metal',2);}
+ // Severe concentrated impacts tear the struck end or door free at impact,
+ // rather than waiting for wind while an already wrecked car is stationary.
+ if(energy>.85&&speed>8){
+  const detach=(kind:'metal',size:number)=>{const before=p.debris.length;toss(kind,1);if(p.debris.length>before){const fragment=p.debris[p.debris.length-1];fragment.size=size;fragment.colour=v.color;fragment.zone=zone;fragment.curl=.45;fragment.spinRate=3;}};
+  if(zone===0&&!p.hoodGone){p.hood=0;p.hoodLoose=false;p.hoodGone=true;detach('metal',.4);}
+  if(zone===1&&!p.bootGone){p.boot=0;p.bootGone=true;detach('metal',.32);}
+  if(zone>=2){const index=zone-2;p.doorGone??=[false,false];p.doorHinges??=[1,1];if(!p.doorGone[index]){p.doorGone[index]=true;p.doorHinges[index]=0;detach('metal',.38);}}
+ }
+
 }
 export function damageParts(v: Vehicle): void {
   const f=v.dmgF??0, r=v.dmgR??0, l=v.dmgL??0, s=v.dmgS??0;
