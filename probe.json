@@ -1,7 +1,7 @@
 {
- "at": 1793314409040,
+ "at": 1793326351713,
  "target": "https://mosaicscope.pages.dev",
- "sha": "bb3098883babd224d1f5733d33171843b499b440",
+ "sha": "3b3c83c01adf1f720db4f1f53d3dd2bdc25ea60b",
  "results": [
   {
    "page": "/",
@@ -45,25 +45,40 @@
      "why": "HTTP 402"
     },
     {
-     "url": "https://www.youtube-nocookie.com/embed/cZFXA3scOC4",
+     "url": "https://www.youtube-nocookie.com/s/_/ytembeds/_/js/k=ytembeds.base.en_US.hEa0Dn-EZu0.es5.O/am=AAAAQA/d=1/excm=base,root/",
+     "own": false,
+     "why": "net::ERR_ABORTED"
+    },
+    {
+     "url": "https://www.youtube-nocookie.com/s/player/11a45ffb/player_embed.vflset/en_US/base.js",
+     "own": false,
+     "why": "net::ERR_ABORTED"
+    },
+    {
+     "url": "https://fonts.gstatic.com/s/roboto/v48/KFO7CnqEu92Fr1ME7kSn66aGLdTylUAMa3yUBA.woff2",
+     "own": false,
+     "why": "net::ERR_ABORTED"
+    },
+    {
+     "url": "https://www.youtube-nocookie.com/s/_/ytembeds/_/ss/k=ytembeds.base.l4TkcKEzrz0.L.W.O/am=AAAAQA/d=1/br=1/rs=AGKMywFPYyrlU",
      "own": false,
      "why": "net::ERR_ABORTED"
     }
    ],
-   "requests": 66,
-   "bytes": 3735,
+   "requests": 68,
+   "bytes": 3859,
    "ownBytes": 80,
-   "thirdParty": 60,
+   "thirdParty": 62,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 919,
-    "loadMs": 1618,
-    "lcpMs": 936,
-    "cls": 0.125,
-    "tbtMs": 488,
+    "domContentLoadedMs": 332,
+    "loadMs": 369,
+    "lcpMs": 880,
+    "cls": 0.177,
+    "tbtMs": 484,
     "longTasks": 3,
-    "heapMB": 33.5,
-    "domNodes": 1241,
+    "heapMB": 9.5,
+    "domNodes": 1176,
     "renderBlocking": 3,
     "resourceEntries": 12,
     "screens": 10.1
@@ -177,12 +192,17 @@
      "why": "HTTP 402"
     },
     {
-     "url": "https://www.youtube-nocookie.com/s/_/ytembeds/_/js/k=ytembeds.base.en_US.hEa0Dn-EZu0.es5.O/am=AAAAQA/d=1/excm=base,root/",
+     "url": "https://www.youtube-nocookie.com/s/_/ytembeds/_/js/k=ytembeds.base.en_US.hEa0Dn-EZu0.es5.O/am=AAAAQABgDA/d=1/excm=base,r",
      "own": false,
      "why": "net::ERR_ABORTED"
     },
     {
-     "url": "https://www.youtube-nocookie.com/s/player/11a54379/player_embed.vflset/en_US/base.js",
+     "url": "https://www.youtube-nocookie.com/s/player/4efb8b2c/player_embed.vflset/en_US/base.js",
+     "own": false,
+     "why": "net::ERR_ABORTED"
+    },
+    {
+     "url": "https://www.youtube-nocookie.com/s/_/ytembeds/_/ss/k=ytembeds.base.l4TkcKEzrz0.L.W.O/am=AAAAQABgDA/d=1/br=1/rs=AGKMywEQq",
      "own": false,
      "why": "net::ERR_ABORTED"
     },
@@ -190,31 +210,21 @@
      "url": "https://fonts.gstatic.com/s/roboto/v48/KFO7CnqEu92Fr1ME7kSn66aGLdTylUAMa3yUBA.woff2",
      "own": false,
      "why": "net::ERR_ABORTED"
-    },
-    {
-     "url": "https://www.youtube-nocookie.com/s/player/11a54379/www-player.css",
-     "own": false,
-     "why": "net::ERR_ABORTED"
-    },
-    {
-     "url": "https://www.youtube-nocookie.com/s/_/ytembeds/_/ss/k=ytembeds.base.l4TkcKEzrz0.L.W.O/am=AAAAQA/d=1/br=1/rs=AGKMywFPYyrlU",
-     "own": false,
-     "why": "net::ERR_ABORTED"
     }
    ],
-   "requests": 67,
-   "bytes": 3768,
-   "ownBytes": 80,
-   "thirdParty": 61,
+   "requests": 70,
+   "bytes": 3892,
+   "ownBytes": 79,
+   "thirdParty": 64,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 263,
-    "loadMs": 1222,
-    "lcpMs": 276,
-    "cls": 0.096,
-    "tbtMs": 546,
+    "domContentLoadedMs": 224,
+    "loadMs": 1090,
+    "lcpMs": 244,
+    "cls": 0.095,
+    "tbtMs": 563,
     "longTasks": 3,
-    "heapMB": 33.5,
+    "heapMB": 31.6,
     "domNodes": 1517,
     "renderBlocking": 3,
     "resourceEntries": 12,
@@ -314,9 +324,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 185,
-    "loadMs": 185,
-    "lcpMs": 188,
+    "domContentLoadedMs": 163,
+    "loadMs": 163,
+    "lcpMs": 164,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -361,9 +371,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 190,
-    "loadMs": 190,
-    "lcpMs": 108,
+    "domContentLoadedMs": 146,
+    "loadMs": 146,
+    "lcpMs": 104,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -402,9 +412,9 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 231,
-    "loadMs": 301,
-    "lcpMs": 260,
+    "domContentLoadedMs": 145,
+    "loadMs": 188,
+    "lcpMs": 168,
     "cls": 0.007,
     "tbtMs": 0,
     "longTasks": 0,
@@ -443,9 +453,9 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 213,
-    "loadMs": 272,
-    "lcpMs": 224,
+    "domContentLoadedMs": 276,
+    "loadMs": 306,
+    "lcpMs": 296,
     "cls": 0.147,
     "tbtMs": 0,
     "longTasks": 0,
@@ -525,84 +535,85 @@
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 390,
-   "ms": 2842,
+   "ms": 1943,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 390,
-   "ms": 2160,
+   "ms": 1293,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 390,
-   "ms": 2341,
+   "ms": 2186,
    "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 390,
-   "ms": 1373,
+   "ms": 1307,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 390,
-   "ms": 2708,
+   "ms": 1822,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 390,
-   "ms": 1127,
+   "ms": 1002,
    "status": "pass"
   },
   {
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 1280,
-   "ms": 2982,
+   "ms": 2746,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 1280,
-   "ms": 2249,
+   "ms": 1379,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 1280,
-   "ms": 2396,
-   "status": "pass"
+   "ms": 1521,
+   "status": "fail",
+   "why": "an empty form was sent"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 1280,
-   "ms": 2217,
+   "ms": 1402,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 1280,
-   "ms": 2806,
+   "ms": 2634,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 1280,
-   "ms": 1107,
+   "ms": 992,
    "status": "pass"
   }
  ]
