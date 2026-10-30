@@ -4,6 +4,7 @@ import {STREET_FLEET} from './streetFleet';
 import {CITY_FLEET} from './cityFleet';
 import {HYPER_FLEET} from './hyperFleet';
 import {FUSION_FLEET,type FusionClass} from './fusionFleet';
+import {MACHINE_FLEET,type MachineClass} from './machineFleet';
 export interface FleetModel{name:string;base:BaseVehicleClass;length:number;width:number;height:number;speed:number;mass:number;price:number;wb:number;lamp:'round'|'quad'|'slit'|'square'|'bar';trim:string;traffic?:number;colors?:readonly string[];rim?:string;powerSource?:'fusion';body?:{family:string;shape:import('./vehicleBodies').BodyShape};utility?:import('../sim/VehicleUtility').UtilitySpec}
 /** 86 authored, fully damageable additions with physical dimensions, fittings and wheelbases. */
 export const FLEET_MODELS={
@@ -12,6 +13,7 @@ export const FLEET_MODELS={
 ...CITY_FLEET,
 ...HYPER_FLEET,
 ...FUSION_FLEET,
+...MACHINE_FLEET,
 "demi":{"name": "Mazdo Demio", "base": "hatch", "length": 1.84, "width": 0.85, "height": 0.7, "speed": 8.7, "mass": 1.02, "price": 8700, "wb": 0.325, "lamp": "slit", "trim": "plain"},
 "axela":{"name": "Mazdo Axella", "base": "euro_hatch", "length": 2.23, "width": 0.89, "height": 0.71, "speed": 10.7, "mass": 1.28, "price": 16500, "wb": 0.305, "lamp": "slit", "trim": "plain"},
 "atenza":{"name": "Mazdo Atenzaa", "base": "fast_sedan", "length": 2.43, "width": 0.92, "height": 0.72, "speed": 11.3, "mass": 1.49, "price": 22000, "wb": 0.31, "lamp": "slit", "trim": "chrome"},
@@ -99,5 +101,5 @@ export const FLEET_MODELS={
 "mountainbike":{"name": "Port Hills Trail Cycle", "base": "bicycle", "length": 1.02, "width": 0.3, "height": 0.69, "speed": 4.4, "mass": 0.08, "price": 1800, "wb": 0.38, "lamp": "round", "trim": "offroad"},
 "cargocycle":{"name": "Avon Long-Tail Electric", "base": "ebike", "length": 1.22, "width": 0.36, "height": 0.68, "speed": 5.1, "mass": 0.13, "price": 4800, "wb": 0.38, "lamp": "round", "trim": "cargo"}
 } satisfies Record<string,FleetModel>;
-export type FleetClass=keyof typeof FLEET_MODELS|FusionClass;
+export type FleetClass=keyof typeof FLEET_MODELS|FusionClass|MachineClass;
 export const fleetModel=(id:string):FleetModel|undefined=>(FLEET_MODELS as Record<string,FleetModel>)[id];

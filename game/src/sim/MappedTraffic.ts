@@ -102,6 +102,15 @@ export function driveMappedVehicle(sim:Simulation,v:Vehicle,dt:number):void{
  const driver=v.driver>=0?sim.chars[v.driver]:undefined,impaired=driver?impairment(driver):0;if(v.siren&&driver?.pursuing!==undefined&&driver.pursuing>=0){target=Math.min(d.topSpeed,e.segment.speed*1.25);if(e.length-route.at>8)route.next=undefined;}else if(impaired>.1)target=Math.min(d.topSpeed,target*(1+impaired*.35));
  const mode=sim.world.mapped?.trafficMode??'city',headway=(mode==='cruise'?1.8:mode==='rush'?1.15:1.45)*(1-impaired*.4);
  const cx=Math.floor(v.x/8),cy=Math.floor(v.y/8),obstacles=nearbyObstacles;obstacles.length=0;for(let y=cy-2;y<=cy+2;y++)for(let x=cx-2;x<=cx+2;x++)for(const o of n.buckets.get(x+','+y)??[]){if(o===v)continue;obstacles.push(o);const dx=o.x-v.x,dy=o.y-v.y,along=dx*e.dx+dy*e.dy,cross=Math.abs(-dx*e.dy+dy*e.dx),gap=along-(geometry.length+vehicleGeometry(o).length)/2;if((o.state==='parked'||Math.cos(o.heading)*e.dx+Math.sin(o.heading)*e.dy>.25)&&along>0&&along<15&&cross<(geometry.width+vehicleGeometry(o).width)/2+.25)target=Math.min(target,followingSpeed(Math.max(0,gap-1),Math.max(0,o.speed),d.brake,headway));}
+ // Yield to a rapidly approaching player by moving to a clear same-direction lane.
+ const playerCar=sim.player.inCar>=0?sim.vehicles[sim.player.inCar]:undefined;
+ if(playerCar&&playerCar!==v&&route.laneBlend===undefined&&route.at>5&&e.length-route.at>12){
+  const dx=playerCar.x-v.x,dy=playerCar.y-v.y,along=dx*e.dx+dy*e.dy,cross=Math.abs(-dx*e.dy+dy*e.dx),closing=(playerCar.vx??Math.cos(playerCar.heading)*playerCar.speed)*e.dx+(playerCar.vy??Math.sin(playerCar.heading)*playerCar.speed)*e.dy-v.speed;
+  if(along<0&&along> -Math.min(100,Math.max(18,closing*2.5))&&closing>5&&cross<(geometry.width+vehicleGeometry(playerCar).width)/2+.5){
+   const alt=localEdges(n,v.x,v.y,4).find(i=>{const q=n.edges[i];return q.segment===e.segment&&q.sign===e.sign&&q!==e&&Math.abs(q.offset-e.offset)>geometry.width*.8;});
+   if(alt!==undefined){const lane=n.edges[alt],p=position(lane,route.at),safe=obstacles.every(o=>{const ox=o.x-p.x,oy=o.y-p.y,forward=ox*e.dx+oy*e.dy,side=Math.abs(-ox*e.dy+oy*e.dx);return side>(geometry.width+vehicleGeometry(o).width)/2+.6||forward>geometry.length+10||forward< -geometry.length-12;});if(safe){route.laneFrom=e.offset;route.laneBlend=0;route.edge=alt;route.next=undefined;e=lane;}}
+  }
+ }
  // Only pass on a second lane travelling in the same direction, with space ahead and behind.
  if(target<v.speed*.75&&route.laneBlend===undefined&&route.at>5&&e.length-route.at>12){
   const alt=n.edges.findIndex(q=>q.segment===e.segment&&q.sign===e.sign&&q!==e&&Math.abs(q.offset-e.offset)>geometry.width*.8);

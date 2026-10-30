@@ -212,6 +212,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
     GLOW.push(layer=>{layer.save();layer.globalCompositeOperation='lighter';layer.translate(sx,sy);layer.scale(1,.5);const grad=layer.createRadialGradient(0,0,0,0,0,rx);grad.addColorStop(0,'rgba(61,214,255,0)');grad.addColorStop(.7,'rgba(61,214,255,.09)');grad.addColorStop(1,'rgba(61,214,255,0)');layer.fillStyle=grad;layer.beginPath();layer.arc(0,0,rx,0,6.283);layer.fill();layer.restore();});
   }
 
+  if(d.design?.trim==='rocket'&&Math.abs(v.speed)>2&&(v.driveThrottle??0)>.1){const tail=W3(k,[-L*.5,0,H*.34]),len=(10+Math.min(25,Math.abs(v.speed)*.5))*z,back=cam.toScreen(x-k.c,y-k.s,0,{x:0,y:0}),base=cam.toScreen(x,y,0,{x:0,y:0}),dx=back.x-base.x,dy=back.y-base.y,mag=Math.hypot(dx,dy)||1,nx=dx/mag,ny=dy/mag;g.save();g.fillStyle='rgba(255,133,32,.72)';g.beginPath();g.moveTo(tail[0]-ny*4*z,tail[1]+nx*4*z);g.lineTo(tail[0]+nx*len,tail[1]+ny*len);g.lineTo(tail[0]+ny*4*z,tail[1]-nx*4*z);g.closePath();g.fill();g.restore();}
   // which side faces the camera
   const nearSign = dot(WN(k, [0, 1, 0]), VIEW) > 0 ? 1 : -1;
   const wr = S.wheel * H, wx = geometry.wheelbase/2, wy = hw - 0.02;

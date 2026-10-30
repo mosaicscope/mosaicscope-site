@@ -50,7 +50,9 @@ const T = (d: Partial<ToyDef> & Pick<ToyDef, "id" | "name" | "uses">): ToyDef =>
   category: "toy", radius: 0.18, mass: 0.3, restitution: 0.3, friction: 2, durability: 50, color: "#eee4d3", punch: 2, material: "plastic", portable: true, spawn: 0, value: 10, ...d,
 });
 
+const MACHINE_WEAPONS:Record<string,ToyDef>=Object.fromEntries(Array.from({length:20},(_,i)=>{const cannon=i<10,id=`machine_${cannon?'cannon':'mace'}_${i%10}`,name=`${['Titan','Meteor','Raptor','Nova','Iron','Vortex','Ruin','Thunder','Ember','Atlas'][i%10]} ${cannon?'cannon':'mace'}`;return [id,T({id,name,category:'weapon',uses:[cannon?'ranged':'melee'],material:'metal',mass:cannon?2.4:1.8,durability:800,color:i%2?'#b49a5f':'#65737a',value:1200+i*150,weapon:cannon?{damage:2.2+(i%5)*.18,reach:12+(i%4),rate:.5+(i%4)*.13,knockback:5+(i%4),accuracy:.86,blood:.8,ammo:'bullet',gun:true,mode:'semi',mag:6+i%5,reload:2}:{damage:2+(i%5)*.18,reach:1.3+(i%4)*.08,rate:.65+(i%4)*.12,knockback:6+(i%5),accuracy:1,blood:.7}})];}));
 export const TOYS: Record<string, ToyDef> = {
+  ...MACHINE_WEAPONS,
   beer: T({id:'beer',name:'beer',category:'food',uses:['food'],substance:'alcohol',material:'glass',color:'#b88c40',value:9,food:{hunger:0,energy:0,drink:true},blurb:'Alcohol. Affects balance, aim and judgement; repeated use can require medical help.'}),
   stimulant_powder: T({id:'stimulant_powder',name:'stimulant powder',category:'prop',uses:['valuable'],substance:'stimulant',material:'paper',color:'#ded8c8',value:65,blurb:'An illicit substance. Restlessness, tremor and a comedown; repeated use can trigger a medical emergency.'}),
   cannabis: T({id:'cannabis',name:'cannabis',category:'prop',uses:['valuable'],substance:'cannabis',material:'paper',color:'#77815b',value:25,blurb:'Slower reactions, heavy eyelids and impaired coordination.'}),
