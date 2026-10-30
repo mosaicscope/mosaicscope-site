@@ -1,3 +1,4 @@
+import {updateBusWaiting} from './BusService';
 import {stepImpactRagdoll,clearImpactRagdoll} from '../physics/ImpactRagdoll';
 import {vehicleIndex} from './VehicleIndex';
 import {injuryResponse} from './InjuryResponse';
@@ -85,6 +86,8 @@ export interface Metrics {
  * to a spot (goto, wander, dance, pose, watch...) are not here: their spot is moved to the kerb instead, because
  * nudging them while the step walks them back makes them flip back and forth on the spot.
  */
+const crossingCache=new WeakMap<World,{revision:number;tiles:Map<string,boolean>}>();
+function nearCrossing(w:World,x:number,y:number):boolean{const revision=w.mapped?.revision??0;let entry=crossingCache.get(w);if(!entry||entry.revision!==revision){entry={revision,tiles:new Map()};crossingCache.set(w,entry);}const key=x+','+y,known=entry.tiles.get(key);if(known!==undefined)return known;let found=false;for(let yy=y-8;yy<=y+8&&!found;yy++)for(let xx=x-8;xx<=x+8;xx++)if(w.tile(xx,yy)===18){found=true;break;}if(entry.tiles.size>4096)entry.tiles.clear();entry.tiles.set(key,found);return found;}
 const ROAD_LOITER = new Set(["wait", "talk", "sit", "music", "craft", "eat", "book", "trade", "buy", "flirt", "kiss", "date"]);
 
 export class Simulation {
@@ -285,7 +288,7 @@ export class Simulation {
     const tv=performance.now();updateVehicles(this, dt);this.metrics.vehicleMs=performance.now()-tv;const tc=performance.now();
     if(this.world.mapped)this.mappedDamage.update(this.tick/60,this.vehicles);
     updateRockets(this);
-    updateCivicDamage(this);updateStreetProps(this,dt);updateCityDrama(this);updateCityRoutine(this);updateWorkshopMotion(this);updateCityLife(this);
+    updateCivicDamage(this);updateStreetProps(this,dt);updateBusWaiting(this);updateCityDrama(this);updateCityRoutine(this);updateWorkshopMotion(this);updateCityLife(this);
     this.metrics.cityMs=performance.now()-tc;
     const tp = performance.now();
     this.physics.step(dt, this.toys, this.chars, this.charHash, this.tick, this.hooks);
@@ -402,7 +405,7 @@ export class Simulation {
   private kerb = { x: 0, y: 0 };
   /** Someone standing still in a lane who has no business there: the velocity that takes them onto the footpath. */
   private kerbStep(c: Character): boolean {
-    if (c.vx !== 0 || c.vy !== 0 || c.tier === "player" || c.phys !== Phys.OK || c.pursuing >= 0 || c.wanted > 0) return false;
+    if ((!this.world.mapped&&(c.vx !== 0 || c.vy !== 0)) || c.tier === "player" || c.phys !== Phys.OK || c.pursuing >= 0 || c.wanted > 0) return false;
     if (!this.world.carriageway(c.x, c.y) || !this.loiteringInRoad(c)) return false;
     const p = this.world.nearestFoot(c.x, c.y), d = Math.hypot(p.x - c.x, p.y - c.y) || 1, sp = c.speed * 1.15;
     this.kerb.x = ((p.x - c.x) / d) * sp; this.kerb.y = ((p.y - c.y) / d) * sp; c.facing = Math.atan2(this.kerb.y, this.kerb.x);
@@ -424,6 +427,8 @@ export class Simulation {
     if (t !== 16 && t !== 18) return false; // road or crossing
     const onRoad = this.world.tile(Math.floor(c.x), Math.floor(c.y));
     if (onRoad === 16 || onRoad === 18) return false; // already crossing: keep going
+    // Prefer a nearby marked crossing; a small minority still cross informally.
+    if(this.world.mapped&&t===16&&c.id%37!==0&&c.pursuing<0&&!(c.wanted>0)&&nearCrossing(this.world,ntx,nty))return true;
     if (t === 18 && c.pursuing < 0 && !(c.wanted > 0) && walkSignal(this.world, ntx, nty, this.tick) !== "walk") return true;
     // nerves: someone scared, or who was hit by a car not long ago, leaves a much bigger gap before stepping out
     const hitByCar = c.lastHitBy <= -100 && this.tick - c.lastHitTick < 60 * 60 * 3;
