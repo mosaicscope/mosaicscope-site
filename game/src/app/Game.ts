@@ -1091,7 +1091,7 @@ export class Game {
           injury: () => (+e.data.level >= 2 ? ["Hurt", "That's going to need a bandage (B)"] : null),
         };
         const f = F[e.type]?.();
-        if (f) this.focus(f[0], f[1], 3.6);
+        if(f){if(['car_crash','car_hit','injury','collapse'].includes(e.type))this.toast(f[0]+' · '+f[1],'red');else this.focus(f[0],f[1],3.6);}
         if (e.type in MOMENTS && (e.type !== "crime" || e.actors[0] === p.id)) this.photos.moment(e.type, street, on ? on.name.split(" ")[0] : "");
       }
     });
@@ -1582,7 +1582,7 @@ export class Game {
   }
 
   private zoomSaveTimer=0;
-  private setStreetZoom(z:number):void {this.renderer.cam.setZoom(z);this.settings.streetZoom=this.renderer.cam.targetZoom;clearTimeout(this.zoomSaveTimer);this.zoomSaveTimer=window.setTimeout(()=>this.persistSettings(),350);}
+  private setStreetZoom(z:number):void {this.renderer.cam.setZoom(z);if(this.focusEl.classList.contains('on'))this.focusZoom=this.renderer.cam.targetZoom;this.settings.streetZoom=this.renderer.cam.targetZoom;clearTimeout(this.zoomSaveTimer);this.zoomSaveTimer=window.setTimeout(()=>this.persistSettings(),350);}
   private persistSettings(): void { saveSettings(this.store, this.settings); }
 
   // ---- optional model brains (the 🧠 tab) ----

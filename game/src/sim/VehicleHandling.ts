@@ -51,14 +51,20 @@ export function temperatureGrip(heat: number): number {
   return 1 + Math.min(h, 0.45) * 0.12 - Math.max(0, h - 0.65) * 0.38;
 }
 
-/** Resolve wheel contact against surveyed carriageways before coarse land-cover tiles. */
-export function roadSurfaceAt(world:World,x:number,y:number,rain:number,offroad:boolean){
- const tile=world.tile(Math.floor(x),Math.floor(y));
- if(world.mapped&&[T.GRASS,T.SAND,T.PATH,T.SIDEWALK].includes(tile)){
-  for(const i of worldIndex(world).roads.query(x-12,y-12,x+12,y+12)){
-   const r=world.mapped.streetSegments[i],at=(x-r.x)*r.dx+(y-r.y)*r.dy;
-   if(at>=0&&at<=r.length&&Math.abs(-(x-r.x)*r.dy+(y-r.y)*r.dx)<=r.half)return roadSurface(T.ROAD,rain,offroad);
+/** Surface and weather estimates: maps may lack material tags; temperature is live only when fresh. */
+export function roadSurfaceAt(world:World,x:number,y:number,rain:number,offroad:boolean,daylight=.5){
+ const tx=Math.floor(x),ty=Math.floor(y),tile=world.tile(tx,ty);let material:string|undefined;
+ if(world.mapped&&tile!==T.WATER&&tile!==T.BUILDING){
+  let nearest=Infinity;for(const i of worldIndex(world).roads.query(x-12,y-12,x+12,y+12)){
+   const r=world.mapped.streetSegments[i],at=(x-r.x)*r.dx+(y-r.y)*r.dy,cross=Math.abs(-(x-r.x)*r.dy+(y-r.y)*r.dx);
+   if(at>=0&&at<=r.length&&cross<=r.half&&cross<nearest){nearest=cross;material=r.surface??'asphalt';}
   }
  }
- return roadSurface(tile,rain,offroad);
+ let result=roadSurface(material?T.ROAD:tile,rain,offroad);
+ if(material&&['gravel','fine_gravel','unpaved','dirt','ground','sand'].includes(material))result={grip:(offroad?.76:.58)*(1-clamp(rain,0,1)*.25),drag:offroad?.15:.3,loose:true};
+ else if(material&&['paving_stones','sett','cobblestone'].includes(material))result={grip:.85*(1-clamp(rain,0,1)*.4),drag:.04,loose:false};
+ else if(tile===T.GRASS&&!material&&[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>world.tile(tx+dx,ty+dy)===T.WATER))result={grip:result.grip*.82,drag:result.drag+.08,loose:true};
+ const data=world.mapped?.liveConditions,weather=data?.weather&&Date.now()-Date.parse(data.fetchedAt)<1800000?data.weather:null;
+ if(weather&&Number.isFinite(weather.temperature)){const cold=clamp((12-weather.temperature)/22,0,1),sun=clamp(daylight,0,1)*(1-clamp(weather.cloud/100,0,1))*(1-clamp(rain,0,1));result={...result,grip:result.grip*(1-cold*.12+sun*.025)};}
+ return result;
 }
