@@ -32,7 +32,7 @@ import { drawLitter } from "./LitterArt";
 import { T, TILE_HEIGHT, ROAD_W } from "../world/World";
 import { Camera } from "./Camera";
 import { Terrain, drawTallTile, drawPoi } from "./Terrain";
-import { decorGrid, drawDecor } from "./StreetDecor";
+import { decorGrid, drawDecor, mappedStreetDecor } from "./StreetDecor";
 import { Particles } from "./Particles";
 import { Lighting, Rain } from "./Lighting";
 import { NightFX } from "./NightFX";
@@ -59,7 +59,7 @@ import {drawMappedFacadeDamage} from './MappedFacadeArt';
 const STREET_2D = false;
 
 export type Quality = 0 | 1 | 2 | 3; // low, medium, high, ultra
-interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14; ref: number; sx: number; sy: number } // 14 exact mapped building
+interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15; ref: number; sx: number; sy: number } // 14 exact mapped building
 interface Decal { x: number; y: number; r: number; color: string; born: number; life: number; rot: number; blood?:boolean; fall?:number }
 
 export interface RenderOptions { selected: number; hovered: number; debug: DebugFlags; reduceMotion: boolean; quality: Quality; showNames: boolean; quietInterface?:boolean }
@@ -271,6 +271,12 @@ export class Renderer {
         if (inView(pt.x, pt.y, 70 * z)) this.push(tx + ty + 1, 7, ty * S + tx, pt.x, pt.y);
       }
     }
+    if (z >= 0.5 && mapped && mapped.visibility.fixtures) {
+      for (let ty=minY;ty<=maxY;ty++) for(let tx=minX;tx<=maxX;tx++) {
+        const kind=mappedStreetDecor(sim.world,tx,ty);if(!kind)continue;
+        cam.toScreen(tx+.5,ty+.5,0,pt);if(inView(pt.x,pt.y,70*z))this.push(tx+ty+1,15,kind*1000+Math.abs(Math.imul(tx,73856093)^Math.imul(ty,19349663))%1000,pt.x,pt.y);
+      }
+    }
     // Water effects must never paint over a mapped road deck, even where the
     // underlying terrain tile is water. Clip all surface effects together.
     g.save();g.beginPath();
@@ -475,6 +481,8 @@ export class Renderer {
           drawBuildingTile(g, sim.world, b, tx, ty, it.sx, it.sy, z, time, 1 - sim.daylight + (sim.env.power ? 0 : -0.5), a, this.graffitiMap);
           drawFacadeDamage(g,sim.world,b.id,tx,ty,it.sx,it.sy,z);
         } else drawTallTile(g, t, it.sx, it.sy, z, time, (it.ref * 0.618) % 1);
+      } else if(it.kind===15){
+        flush();drawDecor(g,Math.floor(it.ref/1000),it.sx,it.sy,z,time,1-sim.daylight,(it.ref%1000)/1000);
       } else if(it.kind===14){
         flush();const source=mapped!.byBuilding.get(it.ref)!;
         const P=(x:number,y:number,height=0):[number,number]=>{const p=cam.toScreen(x/2+mapped!.offsetX,y/2+mapped!.offsetY,height/2,{x:0,y:0});return[p.x,p.y];};

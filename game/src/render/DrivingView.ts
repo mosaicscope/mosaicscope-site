@@ -7,6 +7,7 @@ import {DrivingCamera} from './DrivingCamera';
 import {mappedRails,railSpan} from '../world/MappedRails';
 import {drawCar,drawVehicleFragment} from './Cars';
 import {drawStreetProp} from './StreetProps';
+import {decorGrid,drawDecor,mappedStreetDecor,D} from './StreetDecor';
 import {GLOW} from './Buildings';
 import type {Particles} from './Particles';
 import type {Rain} from './Lighting';
@@ -78,6 +79,14 @@ export class DrivingView {
    let junction=false;for(const otherId of worldIndex(sim.world).roads.query(mx-2,my-2,mx+2,my+2)){const other=map.streetSegments[otherId];if(!other||other.id===r.id||Math.abs(r.dx*other.dx+r.dy*other.dy)>.88)continue;const u=Math.max(0,Math.min(other.length,(mx-other.x)*other.dx+(my-other.y)*other.dy));if(Math.hypot(mx-other.x-other.dx*u,my-other.y-other.dy*u)<other.half+1){junction=true;break;}}if(junction)continue;
    const width=.035;quad([[a-r.dy*width,b+r.dx*width,.012],[c-r.dy*width,d+r.dx*width,.012],[c+r.dy*width,d-r.dx*width,.012],[a+r.dy*width,b-r.dx*width,.012]],offset===0?'#c4a466':'#b0b2a4');}}
   const items:{depth:number;draw:()=>void}[]=[];let windowBudget=quality===0?0:quality===1?18:36,windowGeometryBudget=quality===0?100:quality===1?260:500;
+  // Draw the same street greenery and tree tiles as the overhead view, depth-sorted with traffic.
+  const decor=map?null:decorGrid(sim.world);
+  for(const tile of ground){
+   const kind=tile.t===T.TREE?D.TREE:map&&map.visibility.fixtures?mappedStreetDecor(sim.world,tile.x,tile.y):decor&&tile.x>=0&&tile.y>=0&&tile.x<sim.world.size&&tile.y<sim.world.size?decor[tile.y*sim.world.size+tile.x]:D.NONE;
+   if(!kind)continue;const x=tile.x+.5,y=tile.y+.5,p=local(x,y,tile.z);if(p.z<2||p.z>38||Math.abs(p.x)>p.z+3)continue;
+   const seed=Math.abs(Math.imul(tile.x,73856093)^Math.imul(tile.y,19349663));
+   items.push({depth:p.z,draw:()=>{const at=screen(p),scale=Math.min(2.5,focal/p.z/26);drawDecor(g,kind,at.x,at.y,scale,time,1-daylight,(seed%1000)/1000);}});
+  }
   if(map)for(const rail of mappedRails(map,focus.x,focus.y,38)){
    const [start,end]=railSpan(rail,focus.x,focus.y,38);if(end<=start)continue;
    for(let at=Math.floor(start/4)*4;at<end;at+=4){const from=Math.max(at,start),to=Math.min(at+4,end),ax=rail.x+rail.dx*from,ay=rail.y+rail.dy*from,bx=rail.x+rail.dx*to,by=rail.y+rail.dy*to,p=local((ax+bx)/2,(ay+by)/2,0);

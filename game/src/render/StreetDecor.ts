@@ -54,6 +54,17 @@ export function decorGrid(w: World): Uint8Array {
   return g;
 }
 
+/** Consistent visual street greenery for mapped sidewalks; never adds a physics obstacle. */
+export function mappedStreetDecor(w: World, x: number, y: number): number {
+  if (!w.mapped || w.tile(x,y)!==T.SIDEWALK) return D.NONE;
+  const seed=Math.abs(Math.imul(x,73856093)^Math.imul(y,19349663));
+  if(seed%19!==0) return D.NONE;
+  const neighbours=[[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>w.tile(x+dx,y+dy));
+  if(neighbours.filter(t=>t===T.ROAD).length!==1 || neighbours.some(t=>t===T.CROSSWALK||t===T.BUILDING)) return D.NONE;
+  if(w.carriageway(x+.5,y+.5)||w.pois.some(p=>Math.abs(p.x-x-.5)<1.5&&Math.abs(p.y-y-.5)<1.5)) return D.NONE;
+  return seed%5===0?D.PLANTER:D.TREE;
+}
+
 const INK = "#0e0b0a";
 /** Warm-dark foliage, with the odd autumn tree so the canopy is not one flat green. */
 const LEAF: [string, string, string][] = [["#183a1c", "#1f4a22", "#2a5f2a"], ["#1b3a22", "#245230", "#33663a"], ["#2a3a1a", "#3a4f1f", "#506a28"], ["#4a2a14", "#7a421a", "#a8651e"]];
