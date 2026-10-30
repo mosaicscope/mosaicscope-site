@@ -1,7 +1,7 @@
 {
- "at": 1793348255801,
+ "at": 1793348552127,
  "target": "https://mosaicscope.pages.dev",
- "sha": "76639368925c9a718e3bd97cd50fcf024cc1745a",
+ "sha": "eccf52bd2906c085ae685805c5b33bb08064f4e3",
  "results": [
   {
    "page": "/",
@@ -45,7 +45,17 @@
      "why": "HTTP 402"
     },
     {
-     "url": "https://www.youtube-nocookie.com/embed/cZFXA3scOC4",
+     "url": "https://www.youtube-nocookie.com/s/player/11a45ffb/www-player.css",
+     "own": false,
+     "why": "net::ERR_ABORTED"
+    },
+    {
+     "url": "https://www.youtube-nocookie.com/s/_/ytembeds/_/ss/k=ytembeds.base.l4TkcKEzrz0.L.W.O/am=AAAAQA/d=1/br=1/rs=AGKMywFPYyrlU",
+     "own": false,
+     "why": "net::ERR_ABORTED"
+    },
+    {
+     "url": "https://fonts.gstatic.com/s/roboto/v48/KFO7CnqEu92Fr1ME7kSn66aGLdTylUAMa3yUBA.woff2",
      "own": false,
      "why": "net::ERR_ABORTED"
     }
@@ -56,13 +66,13 @@
    "thirdParty": 60,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 226,
-    "loadMs": 1131,
-    "lcpMs": 568,
+    "domContentLoadedMs": 247,
+    "loadMs": 1222,
+    "lcpMs": 860,
     "cls": 0.125,
-    "tbtMs": 248,
+    "tbtMs": 538,
     "longTasks": 3,
-    "heapMB": 35.6,
+    "heapMB": 33.5,
     "domNodes": 1241,
     "renderBlocking": 3,
     "resourceEntries": 12,
@@ -139,7 +149,9 @@
    "page": "/",
    "url": "https://mosaicscope.pages.dev/",
    "width": 1280,
-   "errors": [],
+   "errors": [
+    "signal is aborted without reason"
+   ],
    "consoleErrors": [
     {
      "text": "Failed to load resource: the server responded with a status of 402 ()",
@@ -177,22 +189,37 @@
      "why": "HTTP 402"
     },
     {
-     "url": "https://www.youtube-nocookie.com/embed/cZFXA3scOC4",
+     "url": "https://www.youtube-nocookie.com/s/_/ytembeds/_/ss/k=ytembeds.base.l4TkcKEzrz0.L.W.O/am=AAAAQA/d=1/br=1/rs=AGKMywFPYyrlU",
+     "own": false,
+     "why": "net::ERR_ABORTED"
+    },
+    {
+     "url": "https://www.youtube-nocookie.com/s/player/11a45ffb/www-player.css",
+     "own": false,
+     "why": "net::ERR_ABORTED"
+    },
+    {
+     "url": "https://fonts.gstatic.com/s/roboto/v48/KFO7CnqEu92Fr1ME7kSn66aGLdTylUAMa3yUBA.woff2",
+     "own": false,
+     "why": "net::ERR_ABORTED"
+    },
+    {
+     "url": "https://playback.media-streaming.soundcloud.cloud/9Oig5SUnHCUE/aac_160k/ad3f1f5c-d895-4046-8a18-ab76c3e81f1a/data009.m4s",
      "own": false,
      "why": "net::ERR_ABORTED"
     }
    ],
-   "requests": 68,
-   "bytes": 3768,
+   "requests": 67,
+   "bytes": 3569,
    "ownBytes": 80,
-   "thirdParty": 62,
+   "thirdParty": 61,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 150,
-    "loadMs": 732,
-    "lcpMs": 172,
-    "cls": 0.095,
-    "tbtMs": 271,
+    "domContentLoadedMs": 210,
+    "loadMs": 1139,
+    "lcpMs": 228,
+    "cls": 0.094,
+    "tbtMs": 512,
     "longTasks": 3,
     "heapMB": 33.5,
     "domNodes": 1517,
@@ -271,8 +298,13 @@
    },
    "interactions": {
     "clicked": 11,
-    "broken": [],
-    "newErrors": 0
+    "broken": [
+     {
+      "button": "Tiles, pause music",
+      "error": "signal is aborted without reason"
+     }
+    ],
+    "newErrors": 1
    }
   },
   {
@@ -294,9 +326,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 150,
-    "loadMs": 150,
-    "lcpMs": 152,
+    "domContentLoadedMs": 102,
+    "loadMs": 103,
+    "lcpMs": 112,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -341,9 +373,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 141,
-    "loadMs": 141,
-    "lcpMs": 100,
+    "domContentLoadedMs": 139,
+    "loadMs": 140,
+    "lcpMs": 104,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -382,9 +414,9 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 190,
-    "loadMs": 285,
-    "lcpMs": 208,
+    "domContentLoadedMs": 194,
+    "loadMs": 292,
+    "lcpMs": 224,
     "cls": 0.007,
     "tbtMs": 0,
     "longTasks": 0,
@@ -423,10 +455,10 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 262,
-    "loadMs": 373,
-    "lcpMs": 284,
-    "cls": 0.147,
+    "domContentLoadedMs": 208,
+    "loadMs": 305,
+    "lcpMs": 220,
+    "cls": 0.146,
     "tbtMs": 0,
     "longTasks": 0,
     "heapMB": 9.5,
@@ -505,84 +537,84 @@
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 390,
-   "ms": 2474,
+   "ms": 2747,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 390,
-   "ms": 1778,
+   "ms": 2033,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 390,
-   "ms": 1958,
+   "ms": 2196,
    "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 390,
-   "ms": 1782,
+   "ms": 1993,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 390,
-   "ms": 2355,
+   "ms": 2503,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 390,
-   "ms": 1129,
+   "ms": 1087,
    "status": "pass"
   },
   {
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 1280,
-   "ms": 2474,
+   "ms": 2900,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 1280,
-   "ms": 1913,
+   "ms": 2085,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 1280,
-   "ms": 2014,
+   "ms": 2249,
    "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 1280,
-   "ms": 1783,
+   "ms": 2040,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 1280,
-   "ms": 2390,
+   "ms": 2618,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 1280,
-   "ms": 1085,
+   "ms": 1077,
    "status": "pass"
   }
  ]
