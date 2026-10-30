@@ -1,5 +1,5 @@
 {
- "at": 1793355350210,
+ "at": 1793357270190,
  "totals": {
   "duplicate-code": 3,
   "long-function": 17,
@@ -123,9 +123,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/render/Renderer.ts",
-   "detail": "1153 lines",
+   "detail": "1159 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|a15pen"
+   "fp": "oversized-module|2brav9"
   },
   {
    "kind": "oversized-module",
