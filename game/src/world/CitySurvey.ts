@@ -35,7 +35,7 @@ export function* bakeCityDistrict(w:World,d:DistrictData):Generator<void>{
    const centre=mappedPoint(m,d.cx*400,-d.cy*400);
    for(let y=Math.max(Math.floor(Math.min(a.y,b.y)-half-1.3),Math.floor(centre.y-150));y<=Math.min(Math.max(a.y,b.y)+half+1.3,centre.y+150);y++)for(let x=Math.max(Math.floor(Math.min(a.x,b.x)-half-1.3),Math.floor(centre.x-150));x<=Math.min(Math.max(a.x,b.x)+half+1.3,centre.x+150);x++){
     const u=Math.max(0,Math.min(len,((x+.5-a.x)*dx+(y+.5-a.y)*dy)/len)),distance=Math.hypot(x+.5-a.x-dx/len*u,y+.5-a.y-dy/len*u);
-    if(distance<half+1.3&&(w.tile(x,y)!==T.WATER||road.tags?.bridge==='yes')){if(distance<half)put(x,y,walk?T.PATH:T.ROAD);else if(!w.carriageway(x,y))put(x,y,T.SIDEWALK);}if(++operations%256===0)yield;
+    if(distance<half+1.3&&(w.tile(x,y)!==T.WATER||(road.tags?.bridge && road.tags.bridge!=='no'))){if(distance<half)put(x,y,walk?T.PATH:T.ROAD);else if(!w.carriageway(x,y))put(x,y,T.SIDEWALK);}if(++operations%256===0)yield;
    }
   }
  }

@@ -3,9 +3,21 @@ import type {Simulation} from './Simulation';
 import type {Vehicle} from '../entities/types';
 import {vehicleGeometry} from './VehicleGeometry';
 
+// The road renderer uses mapped centre lines even when a survey omitted a bridge tag.
+// Match that visible deck for collision, including streamed districts.
+const deckCache=new WeakMap<World,{revision:number;cells:Map<string,boolean>}>();
+function roadDeck(world:World,x:number,y:number):boolean{
+ const m=world.mapped;if(!m)return false;const tx=Math.floor(x),ty=Math.floor(y),revision=m.revision??0;
+ let cache=deckCache.get(world);if(!cache||cache.revision!==revision){cache={revision,cells:new Map()};deckCache.set(world,cache);}
+ const key=tx+','+ty,cached=cache.cells.get(key);if(cached!==undefined)return cached;
+ const px=tx+.5,py=ty+.5;let deck=false;
+ for(const road of m.streetSegments){const along=Math.max(0,Math.min(road.length,(px-road.x)*road.dx+(py-road.y)*road.dy));
+  if(Math.hypot(px-road.x-along*road.dx,py-road.y-along*road.dy)<Math.max(.1,road.half-.15)){deck=true;break;}}
+ if(cache.cells.size>8192)cache.cells.clear();cache.cells.set(key,deck);return deck;
+}
 /** Local depth is inferred from distance to the mapped bank, not a live depth survey. */
 export function waterDepth(world:World,x:number,y:number):number{
- if(world.tile(Math.floor(x),Math.floor(y))!==T.WATER)return 0;
+ if(world.tile(Math.floor(x),Math.floor(y))!==T.WATER||roadDeck(world,x,y))return 0;
  const tx=Math.floor(x),ty=Math.floor(y);for(let r=1;r<=4;r++)for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++)if(Math.max(Math.abs(dx),Math.abs(dy))===r&&world.tile(tx+dx,ty+dy)!==T.WATER)return .12+r*.22;
  return 1.18;
 }
