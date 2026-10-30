@@ -1,3 +1,4 @@
+import {updateFireResponse} from './FireResponse';
 import {waterDepth,waterCurrent} from './WaterPhysics';
 import {LiquidSystem} from './Liquid';
 import {updateBusWaiting} from './BusService';
@@ -316,6 +317,7 @@ export class Simulation {
     if (this.tick % 120 === 0) { this.groups.update(this.chars, this.tick); updateLitter(this); }
     if (this.tick % 30 === 0) this.policeTick();
     if(this.tick%60===0)updateMedicalResponses(this);
+    if(this.tick%15===0)updateFireResponse(this);
     if (this.tick % 60 === 0) this.housekeeping();
     // nothing (car exits, knockbacks, doors on the edge) may leave anyone outside the map
     const lim = this.world.size - 0.3;

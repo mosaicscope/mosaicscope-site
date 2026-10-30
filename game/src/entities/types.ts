@@ -158,6 +158,7 @@ export type WoundKind = "bruise" | "graze" | "cut" | "gash" | "stab" | "fracture
 export interface Wound { tissue?:import("../sim/InjuryResponse").TissueState;reactionAge?:number; ballistics?:{angle:number;exit:boolean;age:number}[]; detached?:import("../sim/Trauma").DetachedLimb;compound?:boolean;weapon?:string; art?:number; marks?:number[]; hits?:number; part: WoundPart; kind: WoundKind; severity: 1 | 2 | 3; bandaged: boolean; tick: number }
 
 export interface Character {
+  fireUntil?:number; fireWoundAt?:number;
   substances?: import('../sim/Substances').SubstanceState;
   id: number;
   name: string;
@@ -329,7 +330,7 @@ export interface Vehicle {
   utility?: import("../sim/VehicleUtility").UtilityState;
   /** Where the car has been hit, 0..1 each: front, rear, left, right (the body crumples there; see Traffic.bump). */
   dmgF?: number; dmgR?: number; dmgL?: number; dmgS?: number;
-  rescueTarget?:number; rescueAt?:number; rescueMedic?:number;
+  rescueTarget?:number; rescueAt?:number; rescueMedic?:number; fireTarget?:number; fireHoseAt?:number;
   cannonRounds?:number;
   lifeMods?: string[];
   components?: import("../sim/VehicleDamage").VehicleComponents; steerAngle?:number;

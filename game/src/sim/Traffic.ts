@@ -1,3 +1,4 @@
+import {fireVisualProfile} from '../render/FireVisuals';
 import {stepWaterVehicle,waterDepth} from './WaterPhysics';
 import {releaseBusPassengers} from './BusService';
 import {stepDrivingTelemetry} from './DrivingTelemetry';
@@ -16,7 +17,7 @@ import { vehicleGeometry, chassisContact, sweptChassisContact } from "./VehicleG
 import { drivingSetup, stepPowertrain, stepDrift, coastResistance, manualGearLimit, driverAssists } from "./DrivingExperience";
 import { utilityDynamics, stepUtility } from "./VehicleUtility";
 import {junctionAvailable} from "./TrafficControl";
-import { components, impactComponents, damageTick, damageParts, repairVehicle } from "./VehicleDamage";
+import { components, impactComponents,blastVehicle, damageTick, damageParts, repairVehicle } from "./VehicleDamage";
 import type { Simulation } from "./Simulation";
 import { Character, Vehicle, Phys } from "../entities/types";
 import { VEHICLES, VehicleClass, FOR_SALE } from "../content/vehicles";
@@ -195,7 +196,7 @@ export function updateVehicles(sim: Simulation, dt: number): void {
   const previous=scratch.previous,fleet=sim.world.mapped?scratch.fleet:sim.vehicles;if(sim.world.mapped)fleet.length=0;
   for(let i=0;i<count;i++){const v=sim.vehicles[i];previous[i*2]=v.x;previous[i*2+1]=v.y;
     if(!sim.world.mapped)continue;
-    if(v.driver===sim.playerId||v.state==='free'||v.state==='crashed'||v.rescueTarget!==undefined||(v.x-sim.focus.x)**2+(v.y-sim.focus.y)**2<sim.trafficRadius*sim.trafficRadius)fleet.push(v);
+    if(v.driver===sim.playerId||v.state==='free'||v.state==='crashed'||v.rescueTarget!==undefined||v.fireTarget!==undefined||(v.x-sim.focus.x)**2+(v.y-sim.focus.y)**2<sim.trafficRadius*sim.trafficRadius)fleet.push(v);
     else{v.px=v.x;v.py=v.y;v.speed=0;v.vx=v.vy=0;}
   }
   // Bound hitch catch-up work and resolve fast contacts at 120 Hz, independently of rendering.
@@ -222,10 +223,11 @@ function stepVehicles(sim: Simulation, dt: number,fleet=sim.vehicles): void {
     }
     const priorBurn=v.burnTime??0;damageTick(v, dt);stepWaterVehicle(sim,v,dt);
     if(v.burning&&v.damage>=.9&&priorBurn<5&&(v.burnTime??0)>=5){
+      blastVehicle(v,Math.cos(v.heading),Math.sin(v.heading),3.5,sim.tick);blastVehicle(v,-Math.cos(v.heading),-Math.sin(v.heading),2.8,sim.tick);
       sim.bus.emit('fx',{kind:'flash',x:v.x,y:v.y,z:1,n:12});sim.bus.emit('fx',{kind:'spark',x:v.x,y:v.y,z:1,n:18,color:'#ff9a3d'});sim.bus.emit('fx',{kind:'dust',x:v.x,y:v.y,z:.5,n:20});sim.bus.emit('sound',{kind:'crash',x:v.x,y:v.y,vol:1});
-      for(const other of sim.vehicles){if(other===v||other.burnt)continue;const dx=other.x-v.x,dy=other.y-v.y,distance=Math.hypot(dx,dy);if(distance>=3.5||distance<.01)continue;const impulse=(1-distance/3.5)*3;other.vx=(other.vx??0)+dx/distance*impulse;other.vy=(other.vy??0)+dy/distance*impulse;other.heat=Math.min(1,(other.heat??0)+impulse*.08);}
+      for(const other of sim.vehicles){if(other===v||other.burnt)continue;const dx=other.x-v.x,dy=other.y-v.y,distance=Math.hypot(dx,dy);if(distance>=3.5||distance<.01)continue;const impulse=(1-distance/3.5)*3;other.vx=(other.vx??0)+dx/distance*impulse;other.vy=(other.vy??0)+dy/distance*impulse;blastVehicle(other,-dx/distance,-dy/distance,impulse,sim.tick);}
     }
-    if(v.burning&&(sim.tick+v.id)%8===0)sim.bus.emit('fx',{kind:'tyre_smoke',x:v.x,y:v.y,z:.8,n:3,color:'rgba(55,56,53,.55)'});
+    if(v.burning&&(sim.tick+v.id)%8===0)sim.bus.emit('fx',{kind:'tyre_smoke',x:v.x,y:v.y,z:.8,n:3,color:fireVisualProfile(v.id).smoke});
     // Burning vehicles can heat nearby vehicles, biased downwind; work is staggered and bounded.
     if(v.burning&&(sim.tick+v.id)%60===0){const live=sim.world.mapped?.liveConditions,weather=live?.weather&&Date.now()-Date.parse(live.fetchedAt)<1800000?live.weather:null,dir=weather?.windDirection,wind=Math.min(1,(weather?.wind??0)/12),angle=dir==null?0:dir*Math.PI/180,wx=dir==null?0:-Math.sin(angle),wy=dir==null?0:Math.cos(angle);let checked=0;
       for(const other of sim.vehicles){if(other===v||other.burning||other.burnt)continue;const dx=other.x-v.x,dy=other.y-v.y,distance=Math.hypot(dx,dy);if(distance>4||distance<.01)continue;if(++checked>8)break;const downwind=dir==null?0:Math.max(0,(dx*wx+dy*wy)/distance)*wind;other.heat=Math.min(1,(other.heat??0)+Math.max(0,1-distance/4)*(.12+downwind*.16)*(1-sim.env.rain*.3));}
