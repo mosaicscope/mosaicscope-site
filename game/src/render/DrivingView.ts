@@ -26,6 +26,8 @@ import {impactRagdollPose} from '../physics/ImpactRagdoll';
 /** Third-person projection of the same simulation. Geometry is clipped at the near plane. */
 export class DrivingView {
  private cam=new Camera();private chase=new DrivingCamera();
+ private facadeStyles=new WeakMap<import('../ui/DestinationDistrict').MappedBuilding,ReturnType<typeof mappedFacadeStyle>>();
+ private facadeStyle(source:import('../ui/DestinationDistrict').MappedBuilding){let style=this.facadeStyles.get(source);if(!style){style=mappedFacadeStyle(source);this.facadeStyles.set(source,style);}return style;}
  private projection?:{ex:number;ey:number;fx:number;fy:number;rx:number;ry:number;eye:number;focal:number;horizon:number;width:number;heading:number;terrain:(x:number,y:number)=>number};
  private picks:{id:number;x:number;y:number;size:number;depth:number}[]=[];
  get heading():number{return this.projection?.heading??0;}
@@ -105,7 +107,7 @@ export class DrivingView {
    const b=sim.world.buildings[id];if(!b)continue;const bx=(b.x0+b.x1+1)/2,by=(b.y0+b.y1+1)/2,extent=Math.hypot(b.x1-b.x0+1,b.y1-b.y0+1)/2,forward=(bx-ex)*fx+(by-ey)*fy,side=(bx-ex)*rx+(by-ey)*ry;if(forward+extent<near||forward-extent>farRadius||Math.abs(side)>Math.max(0,forward)*1.05+extent*2+8)continue;const source=map?.byBuilding.get(id),pts=source&&map?source.points.map(p=>[p[0]/map.metresPerTile+map.offsetX,p[1]/map.metresPerTile+map.offsetY] as [number,number]):[[b.x0,b.y0],[b.x1+1,b.y0],[b.x1+1,b.y1+1],[b.x0,b.y1+1]] as [number,number][];
    if(pts.length>3&&pts[0][0]===pts[pts.length-1][0]&&pts[0][1]===pts[pts.length-1][1])pts.pop();if(pts.length<3)continue;const depths=pts.map(point=>(point[0]-ex)*fx+(point[1]-ey)*fy),depth=Math.max(near,Math.min(...depths));if(Math.max(...depths)<near||depth>farRadius)continue;
    // Far buildings retain their surveyed footprint and facade rhythm with fewer canvas operations.
-   if(depth>45){const height=Math.max(1,Math.min(120,source&&map?source.height/map.metresPerTile:b.height)),arch=source?mappedFacadeStyle(source):null,wall=arch?.wall??b.color,roof=arch?.roof??b.roof;
+   if(depth>45){const height=Math.max(1,Math.min(120,source&&map?source.height/map.metresPerTile:b.height)),arch=source?this.facadeStyle(source):null,wall=arch?.wall??b.color,roof=arch?.roof??b.roof;
     items.push({depth,draw:()=>{const area=pts.reduce((sum,a,i)=>{const z=pts[(i+1)%pts.length];return sum+a[0]*z[1]-z[0]*a[1];},0),winding=area>=0?1:-1;
      for(let i=0;i<pts.length;i++){const a=pts[i],z=pts[(i+1)%pts.length];if(((z[0]-a[0])*(ey-a[1])-(z[1]-a[1])*(ex-a[0]))*winding>=0)continue;
       const corners:[[number,number,number],[number,number,number],[number,number,number],[number,number,number]]=[[a[0],a[1],0],[z[0],z[1],0],[z[0],z[1],height],[a[0],a[1],height]],projected=corners.map(q=>local(...q));
@@ -120,7 +122,7 @@ export class DrivingView {
     }});continue;
    }
    items.push({depth,draw:()=>{
-    const height=Math.max(1,Math.min(120,source&&map?source.height/map.metresPerTile:b.height)),arch=source?mappedFacadeStyle(source):null,wall=arch?.wall??b.color,roof=arch?.roof??b.roof;
+    const height=Math.max(1,Math.min(120,source&&map?source.height/map.metresPerTile:b.height)),arch=source?this.facadeStyle(source):null,wall=arch?.wall??b.color,roof=arch?.roof??b.roof;
     const pitched=pts.length===4&&(arch?.shape==='gable'||arch?.shape==='gabled'),rise=pitched?Math.min(height*.22,1.2):0,wallTop=height-rise;
     const damage=source?damageByBuilding.get(source.id)??[]:[];
     const projectDamage=(d:typeof damage[number],u:number,z:number,out=0):[number,number]=>{const p=local(d.a[0]+(d.b[0]-d.a[0])*u-d.normal[0]*out*d.units,d.a[1]+(d.b[1]-d.a[1])*u-d.normal[1]*out*d.units,z*1.625*d.units),q=screen({...p,z:Math.max(near,p.z)});return[q.x,q.y];};
