@@ -1,5 +1,5 @@
 {
- "at": 1793328575843,
+ "at": 1793329262356,
  "totals": {
   "duplicate-code": 3,
   "long-function": 17,
@@ -123,9 +123,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/render/Renderer.ts",
-   "detail": "1124 lines",
+   "detail": "1133 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|1lpu5f5"
+   "fp": "oversized-module|ckddjd"
   },
   {
    "kind": "oversized-module",
@@ -163,9 +163,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Simulation.ts",
-   "detail": "1007 lines",
+   "detail": "1009 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|1l35sz8"
+   "fp": "oversized-module|zokace"
   },
   {
    "kind": "long-function",
