@@ -12,7 +12,6 @@ import {GLOW} from './Buildings';
 import type {Particles} from './Particles';
 import type {Rain} from './Lighting';
 import {drawToy} from './ToyArt';
-import {textureCanvas,type Material} from './Textures';
 import {GROUND} from './palette';
 import {TOYS} from '../content/toys';
 import {drawPoi} from './Terrain';
@@ -47,8 +46,6 @@ export class DrivingView {
   const screen=(p:P)=>({x:w/2+p.x*focal/p.z,y:horizon-p.y*focal/p.z});
   const polygon=(points:P[],fill:string,stroke?:string)=>{let clipped:P[]=[];for(let i=0;i<points.length;i++){const a=points[i],b=points[(i+1)%points.length],ai=a.z>=near,bi=b.z>=near;if(ai)clipped.push(a);if(ai!==bi){const t=(near-a.z)/(b.z-a.z);clipped.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:near});}}if(clipped.length<3)return;g.beginPath();clipped.forEach((p,i)=>{const q=screen(p);if(i)g.lineTo(q.x,q.y);else g.moveTo(q.x,q.y);});g.closePath();g.fillStyle=fill;g.fill();if(stroke){g.strokeStyle=stroke;g.lineWidth=.6;g.stroke();}};
   const quad=(points:[number,number,number][],fill:string,stroke?:string)=>polygon(points.map(p=>local(...p)),fill,stroke);
-  // Project the same cached materials used by the city onto nearby surfaces.
-  const texture=(corners:[number,number,number][],material:Material,opacity:number)=>{const ps=corners.map(v=>local(...v));if(ps.some(p=>p.z<near+1))return;const [a,b,c,d]=ps.map(screen),image=textureCanvas(material);g.save();g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.lineTo(c.x,c.y);g.lineTo(d.x,d.y);g.closePath();g.clip();g.globalAlpha*=opacity;g.transform((b.x-a.x)/image.width,(b.y-a.y)/image.width,(d.x-a.x)/image.height,(d.y-a.y)/image.height,a.x,a.y);g.drawImage(image,0,0);g.restore();};
   g.setTransform(dpr,0,0,dpr,0,0);const daylight=sim.daylight;const sky=g.createLinearGradient(0,0,0,horizon);sky.addColorStop(0,daylight>.3?'#607f93':'#10192a');sky.addColorStop(1,daylight>.3?'#c3c5b7':'#30394a');g.fillStyle=sky;g.fillRect(0,0,w,h);g.fillStyle=daylight>.3?'#51564b':'#20282d';g.fillRect(0,horizon,w,h-horizon);
   // Coarse distance terrain extends the horizon without drawing thousands of full-detail tiles.
   const farRadius=500,farStep=quality===0?40:32,far:{x:number;y:number;d:number;t:number}[]=[];
@@ -62,7 +59,6 @@ export class DrivingView {
   for(let y=cy-radius;y<=cy+radius;y++)for(let x=cx-radius;x<=cx+radius;x++){const d=(x+.5-ex)*fx+(y+.5-ey)*fy,side=Math.abs((x+.5-ex)*rx+(y+.5-ey)*ry);if(d<near||d>38||side>d*.9+3)continue;ground.push({x,y,d,t:sim.world.tile(x,y),z:sim.world.groundZ(x+.5,y+.5)});}
   // Elevation can overlap neighbouring tiles in projection; paint distant tiles first.
   ground.sort((a,b)=>b.d-a.d);
-  let textureBudget=quality===0?0:120;
   for(const q of ground){
    const hash=Math.abs(Math.imul(q.x,73856093)^Math.imul(q.y,19349663)),variation=hash%5,colors=GROUND[q.t===T.TREE?T.GRASS:q.t]??GROUND[T.PAVE],color=colors[variation<2?0:1];
    quad([[q.x,q.y,q.z],[q.x+1,q.y,q.z],[q.x+1,q.y+1,q.z],[q.x,q.y+1,q.z]],color);
@@ -71,7 +67,6 @@ export class DrivingView {
    // A small kerb lip delineates pavement from traffic lanes; it is visual, not a new road obstacle.
    if(q.t===T.SIDEWALK&&q.d<22){const sides:[[number,number],[number,number],number,number][]=[[[q.x,q.y],[q.x+1,q.y],q.x,q.y-1],[[q.x+1,q.y],[q.x+1,q.y+1],q.x+1,q.y],[[q.x+1,q.y+1],[q.x,q.y+1],q.x,q.y+1],[[q.x,q.y+1],[q.x,q.y],q.x-1,q.y]];for(const [a,b,nx,ny] of sides){const t=sim.world.tile(nx,ny);if(t===T.ROAD||t===T.CROSSWALK)quad([[a[0],a[1],q.z],[b[0],b[1],q.z],[b[0],b[1],q.z+.045],[a[0],a[1],q.z+.045]],'#a6a49a');}}
    if(q.t===T.SIDEWALK&&q.d<15){quad([[q.x,q.y+.49,q.z+.012],[q.x+1,q.y+.49,q.z+.012],[q.x+1,q.y+.505,q.z+.012],[q.x,q.y+.505,q.z+.012]],'#514f4c80');}
-   if(q.d<15&&textureBudget>0&&(q.t===T.GRASS||q.t===T.ROAD||q.t===T.SIDEWALK||q.t===T.PAVE)){textureBudget--;texture([[q.x,q.y,q.z+.008],[q.x+1,q.y,q.z+.008],[q.x+1,q.y+1,q.z+.008],[q.x,q.y+1,q.z+.008]],q.t===T.GRASS?'grass':q.t===T.ROAD?'asphalt':q.t===T.SIDEWALK||q.t===T.PAVE?'pavers':'concrete',.7);}
    if(q.d<24){const x=q.x+.15+(hash%37)/70,y=q.y+.15+(hash%29)/60;
     if(q.t===T.WATER){const wave=.06*Math.sin(time*2+q.x*.9+q.y);quad([[x,y,.025],[x+.24,y+.06,.025],[x+.29,y+.09,.025],[x+.04,y+.03,.025]],wave>0?'#7499a080':'#254c5780');}
     else if(q.t===T.GRASS)quad([[x,y,.015],[x+.035,y,.015],[x+.035,y+.14,.015],[x,y+.14,.015]],'#76907088');
@@ -132,7 +127,7 @@ export class DrivingView {
     const area=pts.reduce((sum,a,i)=>{const z=pts[(i+1)%pts.length];return sum+a[0]*z[1]-z[0]*a[1];},0),winding=area>=0?1:-1;
     const inside=pointInside(ex,ey);
     const faces=pts.map((a,i)=>{const z=pts[(i+1)%pts.length];return {a,z,dist:((a[0]+z[0])/2-ex)*fx+((a[1]+z[1])/2-ey)*fy,visible:inside||((z[0]-a[0])*(ey-a[1])-(z[1]-a[1])*(ex-a[0]))*winding<0};}).filter(f=>f.visible).sort((a,z)=>z.dist-a.dist);
-    for(const {a,z,dist} of faces){const length=Math.hypot(z[0]-a[0],z[1]-a[1]);if(length<.01)continue;const at=(u:number,h:number):[number,number,number]=>[a[0]+(z[0]-a[0])*u,a[1]+(z[1]-a[1])*u,h];quad([at(0,0),at(1,0),at(1,wallTop),at(0,wallTop)],wall,'#353b3b');if(dist<22&&quality>0){const parts=Math.max(1,Math.min(12,Math.ceil(length/3)));for(let part=0;part<parts;part++){const u=part/parts,v=(part+1)/parts;texture([at(u,0),at(v,0),at(v,wallTop),at(u,wallTop)],arch?.material==='brick'||arch?.material==='stone'?'brick':'concrete',.38);}}
+    for(const {a,z,dist} of faces){const length=Math.hypot(z[0]-a[0],z[1]-a[1]);if(length<.01)continue;const at=(u:number,h:number):[number,number,number]=>[a[0]+(z[0]-a[0])*u,a[1]+(z[1]-a[1])*u,h];quad([at(0,0),at(1,0),at(1,wallTop),at(0,wallTop)],wall,'#353b3b');
      const cols=Math.min(20,Math.max(1,Math.floor(length/(arch?.bayWidth?arch.bayWidth/2:1.4)))),floors=Math.min(18,Math.max(1,b.floors)),floor=wallTop/floors;
      // Preserve a readable window rhythm on distant mapped facades with a bounded amount of geometry.
      if(dist>=30&&distantFacadeBudget>0){const rows=Math.min(floors,4),groups=Math.min(cols,5);for(let f=0;f<rows&&distantFacadeBudget>0;f++)for(let c=0;c<groups&&distantFacadeBudget>0;c++){distantFacadeBudget--;const lo=(f+.25)*wallTop/rows,hi=(f+.72)*wallTop/rows,u=(c+.18)/groups,v=(c+.82)/groups;quad([at(u,lo),at(v,lo),at(v,hi),at(u,hi)],daylight<.35&&((b.id+f+c)%5===0)?'#c8bc91':'#536d76');}}

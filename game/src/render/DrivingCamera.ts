@@ -23,13 +23,13 @@ export class DrivingCamera {
   const look=reduceMotion?0:clamp(Math.atan2(Math.sin(slip),Math.cos(slip))*.22,-.17,.17);
   const heading=vehicle.heading+look;
   if(snap){this.pose={x,y,heading,distance,height,focalFactor};}
-  else {const pose=this.pose!,k=reduceMotion?1:1-Math.exp(-clamp(dt,0,.1)*6),rotation=Math.atan2(Math.sin(heading-pose.heading),Math.cos(heading-pose.heading));pose.x=x;pose.y=y;pose.heading+=rotation*k;pose.distance+=(distance-pose.distance)*k;pose.height+=(height-pose.height)*k;pose.focalFactor+=(focalFactor-pose.focalFactor)*k;}
+  else {const pose=this.pose!,k=reduceMotion?1:1-Math.exp(-clamp(dt,0,.1)*6),rotation=Math.atan2(Math.sin(heading-pose.heading),Math.cos(heading-pose.heading));const follow=reduceMotion?1:1-Math.exp(-clamp(dt,0,.1)*16);pose.x+=(x-pose.x)*follow;pose.y+=(y-pose.y)*follow;pose.heading+=rotation*k;pose.distance+=(distance-pose.distance)*k;pose.height+=(height-pose.height)*k;pose.focalFactor+=(focalFactor-pose.focalFactor)*k;}
   this.lastX=x;this.lastY=y;return this.pose!;
  }
  updateFoot(character:Character,alpha:number,dt:number,reduceMotion=false):DriveCameraPose {
   const t=clamp(Number.isFinite(alpha)?alpha:1,0,1),x=character.px+(character.x-character.px)*t,y=character.py+(character.y-character.py)*t;
   if(!this.pose||Math.hypot(x-this.lastX,y-this.lastY)>35)this.pose={x,y,heading:character.facing,distance:5,height:2.8,focalFactor:.95};
-  else {const k=reduceMotion?1:1-Math.exp(-clamp(dt,0,.1)*8);this.pose.x=x;this.pose.y=y;this.pose.distance+=(5-this.pose.distance)*k;this.pose.height+=(2.8-this.pose.height)*k;this.pose.focalFactor+=(.95-this.pose.focalFactor)*k;}
+  else {const k=reduceMotion?1:1-Math.exp(-clamp(dt,0,.1)*8);const follow=reduceMotion?1:1-Math.exp(-clamp(dt,0,.1)*16);this.pose.x+=(x-this.pose.x)*follow;this.pose.y+=(y-this.pose.y)*follow;this.pose.distance+=(5-this.pose.distance)*k;this.pose.height+=(2.8-this.pose.height)*k;this.pose.focalFactor+=(.95-this.pose.focalFactor)*k;}
   this.lastX=x;this.lastY=y;return this.pose;
  }
 }
