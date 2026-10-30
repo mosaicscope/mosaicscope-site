@@ -276,7 +276,7 @@ function tyreGrip(sim: Simulation, v: Vehicle, surfaces?:number[], roughness?:nu
     const x = (i < 2 ? 1 : -1) * geometry.wheelbase / 2, y = profile.twoWheeler ? 0 : (i % 2 ? 1 : -1) * (geometry.width/2-0.02);
     const wheel = v.components?.wheels[i];
     const condition = wheel ? wheel.missing ? 0 : (wheel.puncture ? 0.55 : 1)*(1-wheel.suspension*0.25-wheel.rim*0.1)*(0.45+0.55*(wheel.attachment??1)) : (i%2 === 0 ? v.flatLeft : v.flatRight) ? 0.55 : 1;
-    const contactSurface=roadSurfaceAt(sim.world,v.x+x*c-y*s,v.y+x*s+y*c,sim.env.rain,profile.offroad),surface=contactSurface.grip;
+    const contactSurface=roadSurfaceAt(sim.world,v.x+x*c-y*s,v.y+x*s+y*c,sim.env.rain,profile.offroad,sim.daylight),surface=contactSurface.grip;
     if(surfaces)surfaces[i]=surface;if(roughness)roughness[i]=contactSurface.loose?1:0;
     const footprint=contactSurface.loose?1+.45*(1-(v.dynamics?.wheels[i]?.pressure??1)):1;
     surfaceGrip += surface * condition * wheelGrip(v,i) * footprint * (v.dynamics?.wheels[i]?.load??.25) * (profile.twoWheeler?2:1);
@@ -308,7 +308,7 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const grip = tyreGrip(sim, v,surfaces,roughness)*structural.grip*parts.grip*aero.load;
   const profile = handlingProfile(v.cls);
   const geometry = vehicleGeometry(v);
-  const surface = roadSurfaceAt(sim.world,v.x,v.y,sim.env.rain,profile.offroad);
+  const surface = roadSurfaceAt(sim.world,v.x,v.y,sim.env.rain,profile.offroad,sim.daylight);
   // Pedal response builds torque smoothly; braking always responds immediately.
   const pedal = v.water?.locked?0:clamp(inp.throttle, -1, 1);
   const serviceBrake=clamp(inp.serviceBrake??0,0,1);
@@ -503,7 +503,7 @@ function skidMarks(sim: Simulation, v: Vehicle, lat: number, lock: number): void
     if (v.components?.wheels[i]?.missing) continue;
     const lx = (i < 2 ? 1 : -1)*geometry.wheelbase/2, ly = profile.twoWheeler ? 0 : (i%2 ? 1 : -1)*(geometry.width/2-0.02);
     const x=v.x+lx*c-ly*s, y=v.y+lx*s+ly*c;
-    const surface = roadSurfaceAt(sim.world,x,y,sim.env.rain,profile.offroad);
+    const surface = roadSurfaceAt(sim.world,x,y,sim.env.rain,profile.offroad,sim.daylight);
     const powered = profile.drive === "awd" || (profile.drive === "fwd" ? i<2 : i>=2);
     const patchLock=v.contactControl?.wheels[i]?.lock??0;
     const scrub = Math.max(Math.abs(lat)-0.65, i>=2 && lock>0 ? 0.6 : 0, patchLock>.25?patchLock*.8:0, powered ? (v.wheelspin ?? 0)*0.5 : 0);

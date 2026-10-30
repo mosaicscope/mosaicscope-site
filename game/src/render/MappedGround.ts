@@ -17,7 +17,7 @@ export class MappedGround{
     let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;for(const [x,y] of terrain.points){x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);}
     if(x1<bounds.x0||x0>bounds.x1||y1<bounds.y0||y0>bounds.y1)continue;
     cg.beginPath();for(const ring of [terrain.points,...(terrain.holes??[])]){for(let i=0;i<ring.length;i++){const [x,y]=ring[i],p=cam.toScreen(x/map.metresPerTile+map.offsetX,y/map.metresPerTile+map.offsetY,0,{x:0,y:0});if(i)cg.lineTo(p.x+this.pad,p.y+this.pad);else cg.moveTo(p.x+this.pad,p.y+this.pad);}cg.closePath();}
-    cg.fillStyle='#20444a';cg.fill('evenodd');cg.strokeStyle='rgba(112,163,155,.30)';cg.lineWidth=Math.max(1,3*cam.zoom);cg.stroke();
+    cg.fillStyle='#20444a';cg.fill('evenodd');cg.lineJoin='round';for(const [width,alpha] of [[14,.035],[8,.055],[3,.10]]){cg.strokeStyle='rgba(150,188,164,'+alpha+')';cg.lineWidth=Math.max(1,width*cam.zoom);cg.stroke();}
    }
    this.roads.draw(cg,map.data,(x,y)=>{const p=cam.toScreen(x/map.metresPerTile+map.offsetX,y/map.metresPerTile+map.offsetY,0,{x:0,y:0});return[p.x+this.pad,p.y+this.pad];},this.cv.width,this.cv.height,false,bounds);
   }
