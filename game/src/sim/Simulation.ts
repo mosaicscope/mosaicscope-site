@@ -208,7 +208,9 @@ export class Simulation {
   step(): void {
     const t0 = performance.now();
     const dt = this.step_dt;
-    this.tick++;this.liquids.step(this.step_dt);updateWorldFun(this);
+    this.tick++;this.liquids.step(this.step_dt,this.world,waterCurrent(this,this.focus.x,this.focus.y));
+    if(this.env.rain>.15&&this.tick%30===0){const x=this.focus.x+Math.sin(this.tick*.093)*4,y=this.focus.y+Math.cos(this.tick*.071)*4;if(waterDepth(this.world,x,y)>0)this.liquids.disturb(x,y,.5,0,0,false);}
+    updateWorldFun(this);
     const horseRace=this.expansion.casino.race?.physics;if(horseRace&&!horseRace.finished)advanceHorseRace(horseRace,this.tick);
     if (hasUpgrade(this.life.upgrades, "bando")) {
       const u = this.life.upgrades, p = this.player, home = this.world.buildings[p.home];
@@ -375,7 +377,7 @@ export class Simulation {
     // nobody stands about in the road: someone stopped in a lane (chatting, waiting, idling, getting up after a fall)
     // steps up onto the footpath. Not people on a job there: cops on a chase, medics, anyone fighting or fleeing.
     if (this.kerbStep(c)) { vx = this.kerb.x; vy = this.kerb.y; }
-    const water=waterDepth(this.world,c.x,c.y);if(c.tier==="player"&&water>0){const flow=waterCurrent(this),pace=water>.35?.52:.75;vx=vx*pace+flow.x;vy=vy*pace+flow.y;if((this.tick+c.id)%60===0)this.liquids.disturb(c.x,c.y,Math.max(1,Math.hypot(vx,vy)));}
+    const water=waterDepth(this.world,c.x,c.y);if(c.tier==="player"&&water>0){const flow=waterCurrent(this,c.x,c.y),pace=water>.35?.52:.75;vx=vx*pace+flow.x;vy=vy*pace+flow.y;if((this.tick+c.id)%60===0)this.liquids.disturb(c.x,c.y,Math.max(1,Math.hypot(vx,vy)),vx,vy);}
     if ((vx !== 0 || vy !== 0) && c.tier !== "player" && this.trafficAhead(c, vx, vy)) { vx = 0; vy = 0; c.vx = 0; c.vy = 0; }
     if (vx !== 0 || vy !== 0) {
       const blocked = this.physics.moveCircle(c, vx * dt, vy * dt, c.tier==="player");
