@@ -49,12 +49,14 @@ export function paintFacadeDamage(g:CanvasRenderingContext2D,d:CivicDamage,P:Dam
     for(const u of[centre-width,centre+width])line([P(u,0,.18),P(u,height,.18)],'#a7b0a6',1.4);
     line([P(centre-width,.12,.18),P(centre+width,height,.18)],'#788981',.7);
     for(const h of[.48,1.1]){line([P(centre-width,h,.18),P(centre+width,h,.18)],'#b4bbb0',1.2);box(centre-width,h-.04,width*2,.055,'#9c8764',.2);}
-    // A maintenance worker and the work lamp move while the recorded job makes progress.
-    const worker=centre+.36,arm=.65+Math.sin(time*3.7+(d.variant??0))*.08;
-    box(worker-.045,.23,.09,.25,'#d3b455',.32);
-    const head=P(worker,.59,.32);g.fillStyle='#e4c69a';g.beginPath();g.arc(...head,Math.max(1,2*z),0,Math.PI*2);g.fill();
-    line([P(worker,.25,.32),P(worker-.06,.02,.32)],'#303b40',1.1);line([P(worker,.25,.32),P(worker+.06,.02,.32)],'#303b40',1.1);
-    line([P(worker,.45,.32),P(worker-.15,arm,.28)],'#e4c69a',1.1);
+    // Worker uses the same slender stick-figure proportions as street Mosaics.
+    const worker=centre+.36,arm=.48+Math.sin(time*3.7+(d.variant??0))*.06;
+    const head=P(worker,.68,.32);g.fillStyle='#e4c69a';g.beginPath();g.arc(...head,Math.max(.8,1.35*z),0,Math.PI*2);g.fill();
+    line([P(worker,.59,.32),P(worker,.29,.32)],'#d3b455',1.2);
+    line([P(worker,.51,.32),P(worker-.13,arm,.28)],'#d3b455',.9);
+    line([P(worker,.51,.32),P(worker+.1,.35,.32)],'#d3b455',.9);
+    line([P(worker,.29,.32),P(worker-.055,.02,.32)],'#303b40',.9);
+    line([P(worker,.29,.32),P(worker+.055,.02,.32)],'#303b40',.9);
     box(centre-.24,.98,.48,.055,'#354449');box(centre-.24,.98,.48*progress,.055,'#b2c995');
   }else{
     const seed=d.variant??0;
