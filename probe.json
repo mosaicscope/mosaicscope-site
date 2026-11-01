@@ -1,5 +1,5 @@
 {
- "at": 1793483158655,
+ "at": 1793514513206,
  "target": "https://mosaicscope.pages.dev",
  "sha": "09828b3cf4e2279b049666325fef41e266bcb21f",
  "results": [
@@ -10,10 +10,6 @@
    "errors": [],
    "consoleErrors": [
     {
-     "text": "Failed to load resource: the server responded with a status of 402 ()",
-     "own": false
-    },
-    {
      "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
      "own": false
     },
@@ -38,43 +34,47 @@
      "own": false
     }
    ],
-   "failed": [
-    {
-     "url": "https://feeds.behold.so/BTTwoWiBb9xHhr96wOcE",
-     "own": false,
-     "why": "HTTP 402"
-    },
-    {
-     "url": "https://www.youtube-nocookie.com/embed/cZFXA3scOC4",
-     "own": false,
-     "why": "net::ERR_ABORTED"
-    }
-   ],
-   "requests": 66,
-   "bytes": 3732,
-   "ownBytes": 79,
-   "thirdParty": 60,
+   "failed": [],
+   "requests": 74,
+   "bytes": 4109,
+   "ownBytes": 80,
+   "thirdParty": 68,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 360,
-    "loadMs": 1345,
-    "lcpMs": 716,
-    "cls": 0.125,
-    "tbtMs": 273,
-    "longTasks": 3,
+    "domContentLoadedMs": 398,
+    "loadMs": 3212,
+    "lcpMs": 744,
+    "cls": 0.154,
+    "tbtMs": 235,
+    "longTasks": 2,
     "heapMB": 33.5,
-    "domNodes": 1241,
+    "domNodes": 1309,
     "renderBlocking": 3,
-    "resourceEntries": 12,
-    "screens": 10.1
+    "resourceEntries": 19,
+    "screens": 10.7
    },
    "ui": {
     "overflowPx": 0,
     "smallTargets": [
      {
+      "el": "#hero-plate",
+      "w": 127,
+      "h": 20
+     },
+     {
       "el": "a.follow",
       "w": 119,
       "h": 23
+     },
+     {
+      "el": "a.tag-link",
+      "w": 98,
+      "h": 14
+     },
+     {
+      "el": "a.tag-link",
+      "w": 84,
+      "h": 14
      }
     ],
     "smallText": [
@@ -93,6 +93,14 @@
      {
       "el": "span.slide__label > span",
       "px": 11
+     },
+     {
+      "el": "a.tag-link",
+      "px": 11
+     },
+     {
+      "el": "span.reel-tag",
+      "px": 10
      },
      {
       "el": "a.prop",
@@ -118,7 +126,7 @@
      },
      {
       "component": "link",
-      "variants": 6,
+      "variants": 7,
       "examples": [
        "\"IBM Plex Mono\"|13px|400|0px|uppercase",
        "Archivo|16.8px|400|0px|none",
@@ -130,7 +138,7 @@
     "hierarchyInverted": true
    },
    "interactions": {
-    "clicked": 10,
+    "clicked": 6,
     "broken": [],
     "newErrors": 0
    }
@@ -141,10 +149,6 @@
    "width": 1280,
    "errors": [],
    "consoleErrors": [
-    {
-     "text": "Failed to load resource: the server responded with a status of 402 ()",
-     "own": false
-    },
     {
      "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
      "own": false
@@ -172,41 +176,51 @@
    ],
    "failed": [
     {
-     "url": "https://feeds.behold.so/BTTwoWiBb9xHhr96wOcE",
-     "own": false,
-     "why": "HTTP 402"
-    },
-    {
-     "url": "https://www.youtube-nocookie.com/embed/cZFXA3scOC4",
+     "url": "https://scontent-ord5-2.cdninstagram.com/o1/v/t2/f2/m86/AQNDUUgO31IRKJPm8WOZqi4iB7DgRO8CES7QqzBGxnKZEG2twP8PrQl8TQl8uQaL",
      "own": false,
      "why": "net::ERR_ABORTED"
     }
    ],
-   "requests": 67,
-   "bytes": 3765,
+   "requests": 73,
+   "bytes": 4143,
    "ownBytes": 80,
-   "thirdParty": 61,
+   "thirdParty": 67,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 174,
-    "loadMs": 758,
-    "lcpMs": 188,
-    "cls": 0.095,
-    "tbtMs": 285,
+    "domContentLoadedMs": 150,
+    "loadMs": 930,
+    "lcpMs": 172,
+    "cls": 0.096,
+    "tbtMs": 269,
     "longTasks": 3,
-    "heapMB": 35.6,
-    "domNodes": 1517,
+    "heapMB": 33.5,
+    "domNodes": 1585,
     "renderBlocking": 3,
-    "resourceEntries": 12,
-    "screens": 8.9
+    "resourceEntries": 19,
+    "screens": 9.7
    },
    "ui": {
     "overflowPx": 0,
     "smallTargets": [
      {
+      "el": "#hero-plate",
+      "w": 127,
+      "h": 20
+     },
+     {
       "el": "a.follow",
       "w": 119,
       "h": 23
+     },
+     {
+      "el": "a.tag-link",
+      "w": 98,
+      "h": 14
+     },
+     {
+      "el": "a.tag-link",
+      "w": 84,
+      "h": 14
      }
     ],
     "smallText": [
@@ -216,6 +230,10 @@
      },
      {
       "el": "span.slate > span",
+      "px": 11
+     },
+     {
+      "el": "span.cat-photo",
       "px": 11
      },
      {
@@ -229,6 +247,14 @@
      {
       "el": "span.slide__label > span",
       "px": 11
+     },
+     {
+      "el": "a.tag-link",
+      "px": 11
+     },
+     {
+      "el": "span.reel-tag",
+      "px": 10
      },
      {
       "el": "p.stage__label",
@@ -258,7 +284,7 @@
      },
      {
       "component": "link",
-      "variants": 6,
+      "variants": 7,
       "examples": [
        "\"IBM Plex Mono\"|13px|400|0px|uppercase",
        "Archivo|16.8px|400|0px|none",
@@ -270,7 +296,7 @@
     "hierarchyInverted": true
    },
    "interactions": {
-    "clicked": 11,
+    "clicked": 7,
     "broken": [],
     "newErrors": 0
    }
@@ -294,9 +320,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 152,
-    "loadMs": 152,
-    "lcpMs": 152,
+    "domContentLoadedMs": 161,
+    "loadMs": 161,
+    "lcpMs": 160,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -341,9 +367,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 139,
-    "loadMs": 139,
-    "lcpMs": 88,
+    "domContentLoadedMs": 162,
+    "loadMs": 162,
+    "lcpMs": 112,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -382,9 +408,9 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 153,
-    "loadMs": 237,
-    "lcpMs": 168,
+    "domContentLoadedMs": 211,
+    "loadMs": 328,
+    "lcpMs": 236,
     "cls": 0.007,
     "tbtMs": 0,
     "longTasks": 0,
@@ -423,10 +449,10 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 190,
-    "loadMs": 240,
-    "lcpMs": 200,
-    "cls": 0.147,
+    "domContentLoadedMs": 146,
+    "loadMs": 250,
+    "lcpMs": 168,
+    "cls": 0.148,
     "tbtMs": 0,
     "longTasks": 0,
     "heapMB": 9.5,
@@ -505,84 +531,84 @@
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 390,
-   "ms": 2492,
+   "ms": 2693,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 390,
-   "ms": 1747,
+   "ms": 2031,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 390,
-   "ms": 1954,
+   "ms": 2158,
    "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 390,
-   "ms": 1820,
+   "ms": 1917,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 390,
-   "ms": 2380,
+   "ms": 2491,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 390,
-   "ms": 1006,
+   "ms": 1076,
    "status": "pass"
   },
   {
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 1280,
-   "ms": 2509,
+   "ms": 2677,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 1280,
-   "ms": 1915,
+   "ms": 2057,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 1280,
-   "ms": 2162,
+   "ms": 2122,
    "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 1280,
-   "ms": 1781,
+   "ms": 1799,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 1280,
-   "ms": 2307,
+   "ms": 2277,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 1280,
-   "ms": 1058,
+   "ms": 1083,
    "status": "pass"
   }
  ]
