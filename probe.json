@@ -1,5 +1,5 @@
 {
- "at": 1793600967501,
+ "at": 1793656214149,
  "target": "https://mosaicscope.pages.dev",
  "sha": "09828b3cf4e2279b049666325fef41e266bcb21f",
  "results": [
@@ -34,23 +34,29 @@
      "own": false
     }
    ],
-   "failed": [],
-   "requests": 60,
-   "bytes": 2250,
-   "ownBytes": 79,
-   "thirdParty": 54,
+   "failed": [
+    {
+     "url": "https://scontent-atl3-2.cdninstagram.com/o1/v/t2/f2/m86/AQNDUUgO31IRKJPm8WOZqi4iB7DgRO8CES7QqzBGxnKZEG2twP8PrQl8TQl8uQaL",
+     "own": false,
+     "why": "net::ERR_ABORTED"
+    }
+   ],
+   "requests": 72,
+   "bytes": 4113,
+   "ownBytes": 80,
+   "thirdParty": 66,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 500,
-    "loadMs": 560,
-    "lcpMs": 1092,
-    "cls": 0.206,
-    "tbtMs": 492,
+    "domContentLoadedMs": 282,
+    "loadMs": 297,
+    "lcpMs": 828,
+    "cls": 0.152,
+    "tbtMs": 451,
     "longTasks": 3,
     "heapMB": 9.5,
-    "domNodes": 1244,
+    "domNodes": 1309,
     "renderBlocking": 3,
-    "resourceEntries": 12,
+    "resourceEntries": 18,
     "screens": 10.7
    },
    "ui": {
@@ -174,20 +180,26 @@
      "own": false
     }
    ],
-   "failed": [],
-   "requests": 74,
-   "bytes": 4344,
+   "failed": [
+    {
+     "url": "https://scontent-atl3-2.cdninstagram.com/o1/v/t2/f2/m86/AQNDUUgO31IRKJPm8WOZqi4iB7DgRO8CES7QqzBGxnKZEG2twP8PrQl8TQl8uQaL",
+     "own": false,
+     "why": "net::ERR_ABORTED"
+    }
+   ],
+   "requests": 75,
+   "bytes": 4343,
    "ownBytes": 80,
-   "thirdParty": 68,
+   "thirdParty": 69,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 212,
-    "loadMs": 264,
-    "lcpMs": 224,
-    "cls": 0.095,
-    "tbtMs": 517,
+    "domContentLoadedMs": 195,
+    "loadMs": 1107,
+    "lcpMs": 216,
+    "cls": 0.096,
+    "tbtMs": 607,
     "longTasks": 3,
-    "heapMB": 9.5,
+    "heapMB": 33.5,
     "domNodes": 1585,
     "renderBlocking": 3,
     "resourceEntries": 19,
@@ -314,9 +326,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 248,
-    "loadMs": 248,
-    "lcpMs": 248,
+    "domContentLoadedMs": 115,
+    "loadMs": 115,
+    "lcpMs": 120,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -361,9 +373,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 167,
-    "loadMs": 167,
-    "lcpMs": 116,
+    "domContentLoadedMs": 160,
+    "loadMs": 160,
+    "lcpMs": 128,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -402,10 +414,10 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 278,
-    "loadMs": 338,
-    "lcpMs": 304,
-    "cls": 0.014,
+    "domContentLoadedMs": 192,
+    "loadMs": 205,
+    "lcpMs": 192,
+    "cls": 0.013,
     "tbtMs": 0,
     "longTasks": 0,
     "heapMB": 9.5,
@@ -443,9 +455,9 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 180,
-    "loadMs": 228,
-    "lcpMs": 192,
+    "domContentLoadedMs": 141,
+    "loadMs": 169,
+    "lcpMs": 156,
     "cls": 0.147,
     "tbtMs": 0,
     "longTasks": 0,
@@ -525,63 +537,64 @@
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 390,
-   "ms": 2755,
+   "ms": 2008,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 390,
-   "ms": 2230,
+   "ms": 1342,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 390,
-   "ms": 2307,
-   "status": "pass"
+   "ms": 1455,
+   "status": "fail",
+   "why": "an empty form was sent"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 390,
-   "ms": 1335,
+   "ms": 1274,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 390,
-   "ms": 2507,
+   "ms": 2570,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 390,
-   "ms": 1030,
+   "ms": 1074,
    "status": "pass"
   },
   {
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 1280,
-   "ms": 2880,
+   "ms": 2047,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 1280,
-   "ms": 2248,
+   "ms": 1436,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 1280,
-   "ms": 1609,
+   "ms": 1591,
    "status": "fail",
    "why": "an empty form was sent"
   },
@@ -589,21 +602,21 @@
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 1280,
-   "ms": 1449,
+   "ms": 1484,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 1280,
-   "ms": 1971,
+   "ms": 1876,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 1280,
-   "ms": 1024,
+   "ms": 952,
    "status": "pass"
   }
  ]
