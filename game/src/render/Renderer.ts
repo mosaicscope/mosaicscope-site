@@ -191,7 +191,7 @@ export class Renderer {
     // camera follow
     if (cam.follow >= 0 && sim.chars[cam.follow]) { const f = sim.chars[cam.follow],car=f.inCar>=0?sim.vehicles[f.inCar]:undefined;const vx=car?.vx??0,vy=car?.vy??0,speed=Math.hypot(vx,vy),ahead=car?Math.min(.32,4/Math.max(1,speed)):0;cam.lookAt(f.x+vx*ahead,f.y+vy*ahead); }
     const perspective=this.perspectiveActive;if(this.lastPerspective!==undefined&&this.lastPerspective!==perspective&&!o.reduceMotion)this.crossfade();this.lastPerspective=perspective;
-    if(perspective) { cam.update(dt,o.reduceMotion); sim.focus.x=sim.player.x; sim.focus.y=sim.player.y; sim.trafficRadius=64; this.drivingView.draw(g,sim,cam.viewW,cam.viewH,this.dpr,time,alpha,dt,this.particles,this.rain,o.quality,o.reduceMotion); this.stats.frameMs=performance.now()-t0; return; }
+    if(perspective) { cam.update(dt,o.reduceMotion); sim.focus.x=sim.player.x; sim.focus.y=sim.player.y; sim.trafficRadius=64; this.drivingView.draw(g,sim,cam.viewW,cam.viewH,this.dpr,time,alpha,dt,this.particles,this.rain,o.quality,o.reduceMotion); if(!o.quietInterface)this.drawPerspectiveBubbles(); this.stats.frameMs=performance.now()-t0; return; }
     // zoomed right in: the camera drops to street level for a flat 2D side view; zoom out to go back to 3D
     // (hysteresis stops it flickering at the boundary mid-pinch; a quick crossfade hides the switch)
     const want2D = STREET_2D && (this.in2D ? cam.zoom > 2.8 : cam.zoom > 3.4);
@@ -760,6 +760,15 @@ export class Renderer {
       const c = this.sim.chars[t.tether];
       if (c) { this.cam.toScreen(c.x, c.y, c.z + 1, this.pt2); g.strokeStyle = "rgba(238,228,211,.6)"; g.lineWidth = 1; g.beginPath(); g.moveTo(this.pt2.x, this.pt2.y); g.lineTo(sx, y - 4 * z); g.stroke(); }
     }
+  }
+
+  /** The street camera uses the same nearby speech as the city view. */
+  private drawPerspectiveBubbles():void {
+    const sim=this.sim,g=this.g,p=sim.player,vehicle=p.inCar>=0?sim.vehicles[p.inCar]:undefined,x=vehicle?.x??p.x,y=vehicle?.y??p.y,w=this.cam.viewW,h=this.cam.viewH,bounds=new ScreenBounds(w,h,8);
+    const ids:number[]=[];sim.charHash.query(x,y,7.2,ids);const nearby=ids.map(id=>sim.chars[id]).filter(c=>c&&c.bubble&&c.bubble.until>sim.tick&&c.inside<0&&c.inCar<0&&(c.id===p.id||Math.hypot(c.x-x,c.y-y)<(c.talkWith>=0?4.2:2.4)+(c.bubble.kind==='shout'?3:0))).sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y));
+    g.save();g.setTransform(this.dpr,0,0,this.dpr,0,0);g.font='600 13px ui-rounded, system-ui, sans-serif';g.textBaseline='alphabetic';let shown=0;
+    for(const c of nearby){if(shown>=2||!c.bubble)break;const at=this.drivingView.project(c.x,c.y,1.6*c.look.scale+c.z);if(at.x<0||at.x>w||at.y<0||at.y>h)continue;const lines=wrap(g,c.bubble.text,w<520?124:168),bw=Math.min(w<520?150:196,Math.max(...lines.map(t=>g.measureText(t).width)))+20,bh=lines.length*16+12,box=bounds.place(at.x-bw/2,at.y-bh-14,bw,bh);if(!box)continue;shown++;g.globalAlpha=Math.min(1,Math.max(0,(c.bubble.until-sim.tick)/20));g.fillStyle=c.bubble.kind==='shout'?'#914f45':'#fff8ee';g.strokeStyle=c.look.color;g.lineWidth=2;roundRect(g,box.x,box.y,bw,bh,12);g.fill();g.stroke();g.fillStyle=c.bubble.kind==='shout'?'#fff':'#2a2430';lines.forEach((line,i)=>g.fillText(line,box.x+10,box.y+19+i*16,bw-20));}
+    g.restore();
   }
 
   private drawBubbles(view: Item[], o: RenderOptions): void {

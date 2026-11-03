@@ -1,3 +1,4 @@
+import {updateNearbyQuips,interruptNearbyQuip} from './NearbyQuips';
 import {updateFireResponse} from './FireResponse';
 import {waterDepth,waterCurrent} from './WaterPhysics';
 import {LiquidSystem} from './Liquid';
@@ -310,6 +311,7 @@ export class Simulation {
 
     this.nav.process(this.cfg.pathsPerTick);
     this.dialogue.update();
+    updateNearbyQuips(this);
     const te = performance.now();
     this.events.process(this.tick);
     this.metrics.eventsMs = performance.now() - te;
@@ -951,6 +953,7 @@ export class Simulation {
 
   say(c: Character, text: string, kind: "say" | "think" | "shout" = "say", secs = 2): void {
     if (!text || text === "...") return;
+    interruptNearbyQuip(this,c);
     c.bubble = { text, until: this.tick + Math.round(secs * 60), kind };
     this.bus.emit("say", { id: c.id, text });
   }
