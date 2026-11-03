@@ -1,8 +1,9 @@
 {
- "at": 1793689284485,
+ "at": 1793695216657,
  "totals": {
-  "duplicate-code": 3,
+  "duplicate-code": 10,
   "long-function": 17,
+  "format": 16,
   "oversized-module": 10,
   "unused-css": 1
  },
@@ -10,10 +11,66 @@
   {
    "kind": "duplicate-code",
    "severity": "low",
+   "where": "game/e2e/canvas-fallback-check.mjs:9 = game/e2e/direct-gpu-prototype.mjs:8",
+   "detail": "8+ identical lines in 3 places",
+   "fix": "extract a shared helper",
+   "fp": "duplicate-code|1cv9car"
+  },
+  {
+   "kind": "duplicate-code",
+   "severity": "low",
+   "where": "game/e2e/canvas-fallback-check.mjs:16 = game/e2e/direct-gpu-prototype.mjs:15",
+   "detail": "8+ identical lines in 4 places",
+   "fix": "extract a shared helper",
+   "fp": "duplicate-code|1yiqh5w"
+  },
+  {
+   "kind": "duplicate-code",
+   "severity": "low",
+   "where": "game/e2e/canvas-fallback-check.mjs:19 = game/e2e/gpu-settings-check.mjs:20",
+   "detail": "8+ identical lines in 3 places",
+   "fix": "extract a shared helper",
+   "fp": "duplicate-code|1qgxv5o"
+  },
+  {
+   "kind": "duplicate-code",
+   "severity": "low",
+   "where": "game/e2e/direct-gpu-prototype.mjs:3 = game/e2e/gpu-settings-check.mjs:3",
+   "detail": "8+ identical lines in 3 places",
+   "fix": "extract a shared helper",
+   "fp": "duplicate-code|1sustb3"
+  },
+  {
+   "kind": "duplicate-code",
+   "severity": "low",
+   "where": "game/e2e/direct-gpu-prototype.mjs:7 = game/e2e/perspective-camera.mjs:7",
+   "detail": "8+ identical lines in 2 places",
+   "fix": "extract a shared helper",
+   "fp": "duplicate-code|8gc6v9"
+  },
+  {
+   "kind": "duplicate-code",
+   "severity": "low",
    "where": "game/e2e/frame-budget.mjs:10 = game/e2e/progressive-budget.mjs:11",
    "detail": "8+ identical lines in 2 places",
    "fix": "extract a shared helper",
    "fp": "duplicate-code|12k6f0p"
+  },
+  {
+   "kind": "duplicate-code",
+   "severity": "low",
+   "where": "game/e2e/gpu-material-check.mjs:3 = game/e2e/gpu-polygon-experiment.mjs:3",
+   "detail": "8+ identical lines in 2 places",
+   "fix": "extract a shared helper",
+   "fp": "duplicate-code|1u2prfw"
+  },
+  {
+   "kind": "duplicate-code",
+   "severity": "low",
+   "where": "game/e2e/gpu-settings-check.mjs:21 = game/e2e/perspective-camera.mjs:19",
+   "detail": "8+ identical lines in 2 places",
+   "fix": "extract a shared helper",
+   "fp": "duplicate-code|4opd1a"
   },
   {
    "kind": "duplicate-code",
@@ -40,6 +97,38 @@
    "fp": "long-function|uaqs63"
   },
   {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/e2e/canvas-fallback-check.mjs",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|1s0oyoq"
+  },
+  {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/e2e/gpu-material-check.mjs",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|5lesh5"
+  },
+  {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/e2e/gpu-polygon-experiment.mjs",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|1yyjqd3"
+  },
+  {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/e2e/gpu-settings-check.mjs",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|1jn5snd"
+  },
+  {
    "kind": "long-function",
    "severity": "low",
    "where": "game/src/ai/steps.ts:53",
@@ -59,9 +148,9 @@
    "kind": "oversized-module",
    "severity": "medium",
    "where": "game/src/app/Game.ts",
-   "detail": "1810 lines",
+   "detail": "1811 lines",
    "fix": "split by feature into modules",
-   "fp": "oversized-module|858mpn"
+   "fp": "oversized-module|vnc5e8"
   },
   {
    "kind": "oversized-module",
@@ -88,6 +177,22 @@
    "fp": "oversized-module|qx1vhj"
   },
   {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/src/experimental/DirectGpuPrototype.ts",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|ihtb6z"
+  },
+  {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/src/persistence/Settings.ts",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|1evkq7o"
+  },
+  {
    "kind": "long-function",
    "severity": "low",
    "where": "game/src/render/Buildings.ts:53",
@@ -112,6 +217,38 @@
    "fp": "long-function|hbv94p"
   },
   {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/src/render/DrivingView.ts",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|11xv55o"
+  },
+  {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/src/render/PerspectiveGroundGPU.ts",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|1eyw1ip"
+  },
+  {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/src/render/PerspectivePrepared.ts",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|poaaef"
+  },
+  {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/src/render/PerspectiveRoadPaint.ts",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|1tiqnxi"
+  },
+  {
    "kind": "long-function",
    "severity": "low",
    "where": "game/src/render/RefFigure.ts:287",
@@ -123,9 +260,25 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/render/Renderer.ts",
-   "detail": "1177 lines",
+   "detail": "1178 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|koqki9"
+   "fp": "oversized-module|btq8bo"
+  },
+  {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/src/render/StreetDecor.ts",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|1dndnvi"
+  },
+  {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/src/render/Textures.ts",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|in7cve"
   },
   {
    "kind": "oversized-module",
@@ -208,6 +361,14 @@
    "fp": "oversized-module|qby4dl"
   },
   {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/src/ui/Modals.ts",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|1om8vuy"
+  },
+  {
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/ui/minigames/Burger.ts",
@@ -230,6 +391,30 @@
    "detail": "212 lines",
    "fix": "split into named steps",
    "fp": "long-function|5n3or5"
+  },
+  {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/tests/gpu-settings.test.ts",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|1wqkao6"
+  },
+  {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/tests/perspective-prepared.test.ts",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|1smvx3i"
+  },
+  {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/tests/perspective-road-paint.test.ts",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|eggeg"
   },
   {
    "kind": "oversized-module",
