@@ -485,3 +485,41 @@ button.cx-circle:hover { border-color: #fff0b8; box-shadow: 0 0 0 5px rgba(243,2
 .casino .precision-number.win{outline:3px solid #e6c786;outline-offset:-4px;box-shadow:inset 0 0 0 6px #c8b17c33}
 .casino-station .play-stage{position:relative;overflow:hidden}.casino-station>.cx-cab,.casino-station>.cx-vp{margin:12px auto;max-width:800px;width:100%;box-sizing:border-box}.blackjack-card-detail{border:1px solid #9b9e7766;border-radius:8px;padding:10px;margin:8px 0}.blackjack-card-detail summary{cursor:pointer;font-weight:600}.casino-station .cx-wrap{padding-top:8px}.casino-station .roulette-camera{max-width:calc(100% - 20px)}
 .casino .iso-roulette .play-stage{position:relative;overflow:hidden}.casino .roulette-camera{position:absolute;top:8px;left:8px;z-index:3;display:flex;align-items:center;gap:4px;padding:5px;background:#182b25ef;border:1px solid #8c9d7766;border-radius:7px;max-width:calc(100% - 166px);flex-wrap:wrap}.casino .roulette-camera .cx-btn{min-height:32px;padding:5px 8px;font-size:11px}.casino .roulette-camera input{width:85px;accent-color:#d5b878}.casino .roulette-camera output{font:11px monospace;color:#e5d4a9;min-width:33px}@media(max-width:700px){.casino .roulette-camera{max-width:calc(100% - 150px)}.casino .roulette-camera .cx-btn{min-height:36px;font-size:10px}.casino .roulette-camera input{width:65px}}@media(max-height:540px) and (min-width:701px){.casino .roulette-camera{max-width:calc(100% - 155px)}.casino .roulette-camera input{width:60px}}
+
+/* Skyline: a quieter casino table with one primary decision at a time. */
+.casino .mosaic-flight{--sky-ink:#182424;--sky-paper:#eee4d3;--sky-gold:#d8c397}
+.casino .mosaic-flight .play-stage{margin:0;min-width:0;background:#222c30;border:1px solid #c2ac7a55;border-radius:12px;overflow:hidden}
+.casino .mosaic-flight .play-scene{display:block;width:100%;max-height:46dvh;object-fit:contain}
+.casino .mosaic-flight .iso-table-console{padding:14px;background:#202827;border:1px solid #c2ad7b44;border-radius:12px}
+.casino .flight-overview{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.casino .flight-overview small{color:#d8c397;font:700 10px/1.3 system-ui;letter-spacing:.1em}
+.casino .flight-overview h3{margin:3px 0 0;color:#f0e8d8;font:700 18px/1.2 system-ui}
+.casino .flight-balance{white-space:nowrap;border:1px solid #a99a6c66;border-radius:999px;padding:6px 10px;color:#ece0c4;font:700 12px system-ui}
+.casino .mosaic-flight .iso-flight-controls{display:grid;grid-template-columns:minmax(100px,1fr) repeat(3,minmax(120px,1fr));gap:8px;align-items:end}
+.casino .mosaic-flight .iso-flight-controls .btn{min-height:44px;font-size:13px;font-weight:650}
+.casino .mosaic-flight .iso-flight-controls .btn:nth-child(2):not(:disabled){background:#d4bf91;color:#182321;border-color:#e1d1ab}
+.casino .mosaic-flight .iso-flight-controls .btn:nth-child(3):not(:disabled){background:#8dbca2;color:#11281f;border-color:#a9d8ba}
+.casino .mosaic-flight .flight-stake{display:flex;flex-direction:column;gap:4px;color:#d3c5a9;font:12px system-ui}
+.casino .mosaic-flight .flight-stake select{height:44px;width:100%}
+.casino .mosaic-flight [role=status]{min-height:1.3em;margin:10px 0;color:#e4dccb}
+.casino .flight-options{display:flex;flex-wrap:wrap;gap:8px}
+.casino .mosaic-flight .flight-options details{position:static;display:block;max-width:100%;margin:0;color:#e6dcca}
+.casino .mosaic-flight .flight-options details[open]{position:static;width:100%;padding:10px;background:#293532;border:1px solid #b4a67955;border-radius:8px}
+.casino .mosaic-flight .flight-options summary{cursor:pointer;min-height:36px;display:flex;align-items:center;padding:0 10px;border:1px solid #a99a6c55;border-radius:7px}
+.casino .mosaic-flight .flight-options details[open] summary{border:0;padding:0}
+.casino .mosaic-flight .flight-disclaimer{margin:10px 0 0;color:#b9c0b3;font-size:11px}
+@media(max-width:700px){.casino .mosaic-flight .play-scene{max-height:34dvh}.casino .mosaic-flight .iso-table-console{padding:10px}.casino .mosaic-flight .flight-overview h3{font-size:15px}.casino .mosaic-flight .iso-flight-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.casino .mosaic-flight .iso-flight-controls>*{grid-column:auto!important}.casino .flight-balance{font-size:10px}.casino .mosaic-flight .flight-options{gap:5px}}
+
+
+.casino .casino-record{padding:clamp(12px,2vw,24px);color:#eee4d3;max-width:1000px}
+.casino .casino-record>p{color:#c7c5b7;line-height:1.5}
+.casino .casino-record h3{font:700 16px system-ui;margin:22px 0 10px;color:#e5d1a5}
+.casino .casino-record-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.casino .casino-record-stat{display:flex;flex-direction:column;gap:5px;background:#273330;border:1px solid #c5b58444;border-radius:9px;padding:12px;min-width:0}
+.casino .casino-record-stat small{color:#b9c2b8;font:11px system-ui}.casino .casino-record-stat strong{font:700 19px system-ui;overflow-wrap:anywhere}
+.casino .casino-record-list,.casino .casino-record-recent{border:1px solid #b1a47a44;border-radius:9px;overflow:hidden;padding:0;margin:0;list-style:none}
+.casino .casino-record-list>div,.casino .casino-record-recent li{display:flex;gap:12px;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #b1a47a33;font:13px system-ui}
+.casino .casino-record-list>div:last-child,.casino .casino-record-recent li:last-child{border-bottom:0}.casino .casino-record-list span{color:#b9c2b8;margin-left:auto}
+.city-challenge-filters{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.city-challenge-filters input,.city-challenge-filters select{min-height:42px;padding:8px 10px;background:#26302e;color:#eee4d3;border:1px solid #ad9d7555;border-radius:7px;flex:1 1 180px}
+@media(max-width:700px){.casino .casino-record-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.casino .casino-record-stat{padding:10px}.casino .casino-record-stat strong{font-size:16px}}
+

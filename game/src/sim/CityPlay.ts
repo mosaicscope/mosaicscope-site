@@ -1,9 +1,10 @@
+import {restoreCasinoRecord,type CasinoRecordState} from '../casino/CasinoRecord';
 import {restoreCityLife,type CityLifeState} from './CityLife';
 import {PROP_KINDS} from '../content/streetProps';
 import type {PokerTable} from '../casino/holdem';
 import type {FlightPreferences,FlightRecord} from '../casino/flight';
 export interface CasinoGuest{id:number;style:'patient'|'pressure'|'tricky'|'loose';balance:number;bet:number;pick:number;line:string;affinity:number}
-export interface CasinoSocial{chips:number;bought?:number;cashedOut?:number;visits:number;round:number;guests:CasinoGuest[];debt:number;debtAt:number;creditor:'bank'|'famiglia'|null;sideBet?:{stake:number;kind:'mafia'|'bimbo';guest:number};poker?:PokerTable;flight?:{stake:number;start:number;bust:number;paid:boolean;endedAt?:number;returned?:number;model:number;scene:number;rate?:number;autoCash?:number;practice?:boolean;outcome?:'landed'|'crashed';cashMultiplier?:number;logged?:boolean};flightPreferences?:FlightPreferences;flightHistory?:FlightRecord[];lastGame:string;lastNet:number;lastAt:number}
+export interface CasinoSocial{record?:CasinoRecordState;chips:number;bought?:number;cashedOut?:number;visits:number;round:number;guests:CasinoGuest[];debt:number;debtAt:number;creditor:'bank'|'famiglia'|null;sideBet?:{stake:number;kind:'mafia'|'bimbo';guest:number};poker?:PokerTable;flight?:{stake:number;start:number;bust:number;paid:boolean;endedAt?:number;returned?:number;model:number;scene:number;rate?:number;autoCash?:number;practice?:boolean;outcome?:'landed'|'crashed';cashMultiplier?:number;logged?:boolean};flightPreferences?:FlightPreferences;flightHistory?:FlightRecord[];lastGame:string;lastNet:number;lastAt:number}
 export interface CityPlay{everyday?:CityLifeState;workshop:{spares:number;until:number;pose:string};props:import("./StreetProps").StreetProp[];casino:CasinoSocial;phone:{snakeBest:number;calls:{name:string;at:number;missed:boolean}[]};drama:{next:number;history:{kind:string;at:number;actors:number[];x:number;y:number}[]}}
 export const newCityPlay=():CityPlay=>({workshop:{spares:0,until:0,pose:''},props:[],casino:{chips:0,visits:0,round:0,guests:[],debt:0,debtAt:0,creditor:null,lastGame:'',lastNet:0,lastAt:0},phone:{snakeBest:0,calls:[]},drama:{next:7200,history:[]}});
 export function casinoCredit(s:CasinoSocial,kind:'bank'|'famiglia',amount:number,tick:number,cash:number):number{if(s.debt||!Number.isFinite(amount)||amount<100||amount>(kind==='bank'?Math.min(5000,Math.max(500,cash*.5)):10000))return 0;const n=Math.floor(amount);s.debt=Math.ceil(n*(kind==='bank'?1.05:1.2));s.debtAt=tick+60*60*24;s.creditor=kind;return n;}
@@ -15,6 +16,7 @@ export function restoreCityPlay(raw:unknown):CityPlay{
  if(r.workshop)out.workshop.spares=finite(r.workshop.spares,0,20)?Math.floor(r.workshop.spares):0;
  const c=r.casino;if(c&&finite(c.chips)&&finite(c.debt)){
   out.casino={...out.casino,...structuredClone(c)};const s=out.casino;
+  s.record=restoreCasinoRecord(s.record);
   s.guests=Array.isArray(c.guests)?c.guests.filter(g=>g&&finite(g.id)&&finite(g.balance)&&finite(g.bet)&&finite(g.pick,0,36)&&['patient','pressure','tricky','loose'].includes(g.style)&&typeof g.line==='string').slice(0,24).map(g=>({...g})):[];
   if(!finite(s.debtAt))s.debtAt=0;if(!['bank','famiglia'].includes(s.creditor??''))s.creditor=null;
   const t=s.poker,card=(c:unknown)=>!!c&&typeof c==='object'&&finite((c as {rank:number}).rank,2,14)&&['♠','♥','♦','♣'].includes((c as {suit:string}).suit);
