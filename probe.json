@@ -1,5 +1,5 @@
 {
- "at": 1793656214149,
+ "at": 1793689283288,
  "target": "https://mosaicscope.pages.dev",
  "sha": "09828b3cf4e2279b049666325fef41e266bcb21f",
  "results": [
@@ -36,28 +36,28 @@
    ],
    "failed": [
     {
-     "url": "https://scontent-atl3-2.cdninstagram.com/o1/v/t2/f2/m86/AQNDUUgO31IRKJPm8WOZqi4iB7DgRO8CES7QqzBGxnKZEG2twP8PrQl8TQl8uQaL",
+     "url": "https://scontent-sjc6-1.cdninstagram.com/o1/v/t2/f2/m86/AQNDUUgO31IRKJPm8WOZqi4iB7DgRO8CES7QqzBGxnKZEG2twP8PrQl8TQl8uQaL",
      "own": false,
      "why": "net::ERR_ABORTED"
     }
    ],
-   "requests": 72,
-   "bytes": 4113,
-   "ownBytes": 80,
-   "thirdParty": 66,
+   "requests": 60,
+   "bytes": 2250,
+   "ownBytes": 79,
+   "thirdParty": 54,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 282,
-    "loadMs": 297,
-    "lcpMs": 828,
+    "domContentLoadedMs": 289,
+    "loadMs": 322,
+    "lcpMs": 836,
     "cls": 0.152,
-    "tbtMs": 451,
+    "tbtMs": 475,
     "longTasks": 3,
     "heapMB": 9.5,
-    "domNodes": 1309,
+    "domNodes": 1262,
     "renderBlocking": 3,
-    "resourceEntries": 18,
-    "screens": 10.7
+    "resourceEntries": 13,
+    "screens": 10.8
    },
    "ui": {
     "overflowPx": 0,
@@ -93,7 +93,7 @@
       "px": 9
      },
      {
-      "el": "span.tag-yt",
+      "el": "span.tag-ph",
       "px": 10
      },
      {
@@ -113,12 +113,7 @@
       "px": 8
      }
     ],
-    "lowContrast": [
-     {
-      "el": "span.tag-yt",
-      "ratio": 4.27
-     }
-    ],
+    "lowContrast": [],
     "noFocusStyle": [],
     "inconsistent": [
      {
@@ -182,28 +177,28 @@
    ],
    "failed": [
     {
-     "url": "https://scontent-atl3-2.cdninstagram.com/o1/v/t2/f2/m86/AQNDUUgO31IRKJPm8WOZqi4iB7DgRO8CES7QqzBGxnKZEG2twP8PrQl8TQl8uQaL",
+     "url": "https://scontent-sjc6-1.cdninstagram.com/o1/v/t2/f2/m86/AQNDUUgO31IRKJPm8WOZqi4iB7DgRO8CES7QqzBGxnKZEG2twP8PrQl8TQl8uQaL",
      "own": false,
      "why": "net::ERR_ABORTED"
     }
    ],
-   "requests": 75,
-   "bytes": 4343,
+   "requests": 73,
+   "bytes": 4146,
    "ownBytes": 80,
-   "thirdParty": 69,
+   "thirdParty": 67,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 195,
-    "loadMs": 1107,
-    "lcpMs": 216,
+    "domContentLoadedMs": 157,
+    "loadMs": 183,
+    "lcpMs": 180,
     "cls": 0.096,
-    "tbtMs": 607,
+    "tbtMs": 508,
     "longTasks": 3,
-    "heapMB": 33.5,
-    "domNodes": 1585,
+    "heapMB": 9.5,
+    "domNodes": 1603,
     "renderBlocking": 3,
-    "resourceEntries": 19,
-    "screens": 9.7
+    "resourceEntries": 17,
+    "screens": 9.8
    },
    "ui": {
     "overflowPx": 0,
@@ -243,12 +238,20 @@
       "px": 11
      },
      {
+      "el": "span.tag-ph",
+      "px": 10
+     },
+     {
       "el": "span.cat-film",
       "px": 11
      },
      {
-      "el": "span.tag-yt",
-      "px": 10
+      "el": "span.cat-sound",
+      "px": 11
+     },
+     {
+      "el": "span.cat-experiment",
+      "px": 11
      },
      {
       "el": "span.slide__label > span",
@@ -271,12 +274,7 @@
       "px": 9
      }
     ],
-    "lowContrast": [
-     {
-      "el": "span.tag-yt",
-      "ratio": 4.27
-     }
-    ],
+    "lowContrast": [],
     "noFocusStyle": [],
     "inconsistent": [
      {
@@ -326,9 +324,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 115,
-    "loadMs": 115,
-    "lcpMs": 120,
+    "domContentLoadedMs": 246,
+    "loadMs": 246,
+    "lcpMs": 244,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -373,9 +371,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 160,
-    "loadMs": 160,
-    "lcpMs": 128,
+    "domContentLoadedMs": 141,
+    "loadMs": 141,
+    "lcpMs": 108,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -414,10 +412,10 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 192,
-    "loadMs": 205,
-    "lcpMs": 192,
-    "cls": 0.013,
+    "domContentLoadedMs": 147,
+    "loadMs": 181,
+    "lcpMs": 168,
+    "cls": 0.007,
     "tbtMs": 0,
     "longTasks": 0,
     "heapMB": 9.5,
@@ -455,10 +453,10 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 141,
-    "loadMs": 169,
+    "domContentLoadedMs": 143,
+    "loadMs": 176,
     "lcpMs": 156,
-    "cls": 0.147,
+    "cls": 0.15,
     "tbtMs": 0,
     "longTasks": 0,
     "heapMB": 9.5,
@@ -537,86 +535,84 @@
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 390,
-   "ms": 2008,
+   "ms": 1926,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 390,
-   "ms": 1342,
+   "ms": 1343,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 390,
-   "ms": 1455,
-   "status": "fail",
-   "why": "an empty form was sent"
+   "ms": 1440,
+   "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 390,
-   "ms": 1274,
+   "ms": 1961,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 390,
-   "ms": 2570,
+   "ms": 1817,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 390,
-   "ms": 1074,
+   "ms": 973,
    "status": "pass"
   },
   {
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 1280,
-   "ms": 2047,
+   "ms": 2821,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 1280,
-   "ms": 1436,
+   "ms": 1343,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 1280,
-   "ms": 1591,
-   "status": "fail",
-   "why": "an empty form was sent"
+   "ms": 2398,
+   "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 1280,
-   "ms": 1484,
+   "ms": 1403,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 1280,
-   "ms": 1876,
+   "ms": 1903,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 1280,
-   "ms": 952,
+   "ms": 957,
    "status": "pass"
   }
  ]
