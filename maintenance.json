@@ -1,9 +1,9 @@
 {
- "at": 1793697928276,
+ "at": 1793700580288,
  "totals": {
   "duplicate-code": 10,
   "long-function": 17,
-  "format": 28,
+  "format": 27,
   "oversized-module": 10,
   "unused-css": 1
  },
@@ -115,14 +115,6 @@
   {
    "kind": "format",
    "severity": "low",
-   "where": "game/e2e/gpu-camera-check.mjs",
-   "detail": "Windows line endings",
-   "fix": "convert to LF",
-   "fp": "format|1uyvzwz"
-  },
-  {
-   "kind": "format",
-   "severity": "low",
    "where": "game/e2e/gpu-material-check.mjs",
    "detail": "Windows line endings",
    "fix": "convert to LF",
@@ -143,6 +135,14 @@
    "detail": "Windows line endings",
    "fix": "convert to LF",
    "fp": "format|1jn5snd"
+  },
+  {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/e2e/two-camera-check.mjs",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|q3ylwr"
   },
   {
    "kind": "long-function",
@@ -292,17 +292,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/render/Renderer.ts",
-   "detail": "1195 lines",
+   "detail": "1179 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|cnonrx"
-  },
-  {
-   "kind": "format",
-   "severity": "low",
-   "where": "game/src/render/Renderer.ts",
-   "detail": "Windows line endings",
-   "fix": "convert to LF",
-   "fp": "format|xkjh9r"
+   "fp": "oversized-module|wmly4f"
   },
   {
    "kind": "format",
@@ -487,6 +479,14 @@
    "detail": "Windows line endings",
    "fix": "convert to LF",
    "fp": "format|1dwkea9"
+  },
+  {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/tests/gpu-settings.test.ts",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|1wqkao6"
   }
  ]
 }
