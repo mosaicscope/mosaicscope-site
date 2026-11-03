@@ -1,5 +1,6 @@
 import { World, T, PERIOD, ROAD_W } from "../world/World";
 import { hash01 } from "./noir";
+import {worldIndex} from "../world/WorldIndex";
 
 /**
  * Street dressing for the iso view: kerb trees, planters, bollards, bike racks and cafe tables.
@@ -58,11 +59,11 @@ export function decorGrid(w: World): Uint8Array {
 export function mappedStreetDecor(w: World, x: number, y: number): number {
   if (!w.mapped || w.tile(x,y)!==T.SIDEWALK) return D.NONE;
   const seed=Math.abs(Math.imul(x,73856093)^Math.imul(y,19349663));
-  if(seed%19!==0) return D.NONE;
+  if(seed%13!==0) return D.NONE;
   const neighbours=[[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>w.tile(x+dx,y+dy));
   if(neighbours.filter(t=>t===T.ROAD).length!==1 || neighbours.some(t=>t===T.CROSSWALK||t===T.BUILDING)) return D.NONE;
-  if(w.carriageway(x+.5,y+.5)||w.pois.some(p=>Math.abs(p.x-x-.5)<1.5&&Math.abs(p.y-y-.5)<1.5)) return D.NONE;
-  return seed%5===0?D.PLANTER:D.TREE;
+  if(w.carriageway(x+.5,y+.5))return D.NONE;for(const id of worldIndex(w).pois.query(x-1,y-1,x+2,y+2)){const p=w.pois[id];if(p&&Math.abs(p.x-x-.5)<1.5&&Math.abs(p.y-y-.5)<1.5)return D.NONE;}
+  const variant=(seed>>>4)%10;return variant<3?D.TREE:variant<6?D.PLANTER:variant<8?D.BIKES:D.BOLLARDS;
 }
 
 const INK = "#0e0b0a";

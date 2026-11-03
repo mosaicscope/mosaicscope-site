@@ -4,7 +4,7 @@ export interface Settings {
   palette: "standard" | "deuteranopia" | "protanopia" | "tritanopia";
   autoPause: boolean;
   gamepad: boolean;
-  quality: "auto" | "low" | "medium" | "high" | "ultra";
+  quality: "auto" | "low" | "medium" | "high" | "ultra" | "ultra-ultra";
   volume: number;          // 0..1
   sound: boolean;
   sfx: boolean;            // in-world sounds (footsteps, cars, weather...), separate from the music
@@ -44,7 +44,7 @@ export function loadSettings(store: StorageProvider): Settings {
     if (["standard", "deuteranopia", "protanopia", "tritanopia"].includes(d.palette)) s.palette = d.palette;
     if (typeof d.autoPause === "boolean") s.autoPause = d.autoPause;
     if (typeof d.gamepad === "boolean") s.gamepad = d.gamepad;
-    if (["auto", "low", "medium", "high", "ultra"].includes(d.quality)) s.quality = d.quality;
+    if (["auto", "low", "medium", "high", "ultra", "ultra-ultra"].includes(d.quality)) s.quality = d.quality;
     if (typeof d.volume === "number" && d.volume >= 0 && d.volume <= 1) s.volume = d.volume;
     if (typeof d.sound === "boolean") s.sound = d.sound;
     if (typeof d.sfx === "boolean") s.sfx = d.sfx;

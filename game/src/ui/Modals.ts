@@ -56,6 +56,9 @@ export function settingsBody(s: Settings, onChange: (s: Settings, needsReset?: b
   const rng = (label: string, value: number, min: number, max: number, step: number, set: (v: number) => void) => h("label", null, [label, h("input", { type: "range", min, max, step, value, onchange: (e: Event) => set(+(e.target as HTMLInputElement).value) })]);
   const change = (fn: () => void, reset = false) => { fn(); onChange(s, reset); };
   const keyRows = (["pickup", "drop", "throw", "talk"] as const).map((k) => h("label", null, [`Key: ${k}`, h("input", { type: "text", maxlength: 1, size: 2, value: s.keys[k] === " " ? "space" : s.keys[k], onchange: (e: Event) => change(() => { const v = (e.target as HTMLInputElement).value.toLowerCase(); s.keys[k] = v === "space" ? " " : v.slice(0, 1) || DEFAULT_KEYS[k]; }) })]));
+  let gpuButton:HTMLButtonElement;
+  const qualityPicker=sel("Graphics quality", s.quality, [["auto", "Auto (adapts to your device)"], ["low", "Low"], ["medium", "Medium"], ["high", "High"], ["ultra", "Ultra (best textures, needs a strong device)"], ["ultra-ultra", "Ultra Ultra (request high-performance GPU)"]], v=>change(()=>{s.quality=v as Settings["quality"];gpuButton?.setAttribute('aria-pressed',String(v==='ultra-ultra'));}));
+  gpuButton=h('button.btn',{type:'button',text:'Ultra Ultra · use high-performance GPU','aria-pressed':String(s.quality==='ultra-ultra'),onclick:()=>change(()=>{s.quality='ultra-ultra';const select=qualityPicker.querySelector('select');if(select)select.value=s.quality;gpuButton.setAttribute('aria-pressed','true');})}) as HTMLButtonElement;
   return [
     h("h3", { text: "Play your way" }),
     chk("Pause when switching tabs", s.autoPause, v => change(() => { s.autoPause = v; })),
@@ -72,7 +75,7 @@ export function settingsBody(s: Settings, onChange: (s: Settings, needsReset?: b
       if (v === "left") s.keys = { ...DEFAULT_KEYS, up: "i", down: "k", left: "j", right: "l", pickup: "u", inspect: "v", log: "g" };
     })),
     h("p", { text: "F5 quick-saves · F9 cinema mode · M city map. Save menu includes export and import backups." }),
-    sel("Graphics quality", s.quality, [["auto", "Auto (adapts to your device)"], ["low", "Low"], ["medium", "Medium"], ["high", "High"], ["ultra", "Ultra (best textures, needs a strong device)"]], (v) => change(() => { s.quality = v as Settings["quality"]; })),
+    qualityPicker, gpuButton, h("p",{text:"Ultra Ultra requests a high-performance GPU for perspective ground; the game falls back when unavailable."}),
     rng(`Crowd size (${s.density} background people, applies on reset)`, s.density, 0, 2000, 50, (v) => change(() => { s.density = v; }, true)),
     chk("Sound", s.sound, (v) => change(() => { s.sound = v; })),
     rng("Volume", s.volume, 0, 1, 0.05, (v) => change(() => { s.volume = v; })),

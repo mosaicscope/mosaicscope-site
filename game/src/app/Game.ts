@@ -156,8 +156,8 @@ export class Game {
     this.terrance = new TerranceUI(S);
     this.terrance.onSpeak = (t) => this.audio?.speak(t);
     this.dev = new DevPanel(S, this.renderer, this.debug, this.lifeFlags, {
-      selected:()=>this.selected,setSpeed:n=>this.setSpeed(n),step:()=>{this.setSpeed(0);this.sim.step();this.clock.tick=this.sim.tick;},setQuality:q=>{if(['auto','low','medium','high','ultra'].includes(q)){this.settings.quality=q as typeof this.settings.quality;this.applySettings();this.persistSettings();}},
-      quality: () => (this.settings.quality === "auto" ? "auto→" : "") + ["low", "medium", "high", "ultra"][this.quality], speed: () => (this.clock.paused ? 0 : this.clock.speed),
+      selected:()=>this.selected,setSpeed:n=>this.setSpeed(n),step:()=>{this.setSpeed(0);this.sim.step();this.clock.tick=this.sim.tick;},setQuality:q=>{if(['auto','low','medium','high','ultra','ultra-ultra'].includes(q)){this.settings.quality=q as typeof this.settings.quality;this.applySettings();this.persistSettings();}},
+      quality: () => this.settings.quality === "ultra-ultra" ? "ultra-ultra" : (this.settings.quality === "auto" ? "auto→" : "") + ["low", "medium", "high", "ultra"][this.quality], speed: () => (this.clock.paused ? 0 : this.clock.speed),
       fps: () => this.fpsAvg, tickRate: () => this.tickRate, reset: (seed) => this.reset(seed), toast: (t) => this.toast(t),
       teleport: () => { const p = this.renderer.screenToWorld(this.mouse.x, this.mouse.y); const w = this.sim.world.nearestWalkable(p.x, p.y); this.sim.player.x = w.x; this.sim.player.y = w.y; },
     });
@@ -1582,7 +1582,8 @@ export class Game {
     this.soundBtn.textContent = s.sound ? "🔊" : "🔇";
     this.soundBtn.classList.toggle("on", s.sound);
     setImpactIntensity(s.gentle ? 0.55 : 1);
-    const q = s.quality === "low" ? 0 : s.quality === "medium" ? 1 : s.quality === "high" ? 2 : s.quality === "ultra" ? 3 : this.quality;
+    this.renderer.setGpuPreference(s.quality === "ultra-ultra");
+    const q = s.quality === "low" ? 0 : s.quality === "medium" ? 1 : s.quality === "high" ? 2 : (s.quality === "ultra" || s.quality === "ultra-ultra") ? 3 : this.quality;
     if (q !== this.quality || s.quality !== "auto") { this.quality = q as Quality; this.renderer.resize(this.quality); }
   }
 

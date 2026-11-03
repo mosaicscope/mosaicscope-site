@@ -80,6 +80,7 @@ export class Renderer {
   screenToWorld(x:number,y:number,height=0):{x:number;y:number}{return this.perspectiveActive?this.drivingView.unproject(x,y,height):this.cam.toWorldAtHeight(x,y,height);}
   worldToScreen(x:number,y:number,height=0):{x:number;y:number}{return this.perspectiveActive?this.drivingView.project(x,y,height):this.cam.toScreen(x,y,height,{x:0,y:0});}
   private drivingView = new DrivingView();
+  setGpuPreference(highPerformance:boolean):void{this.drivingView.setGpuPreference(highPerformance);}
   readonly g: CanvasRenderingContext2D;
   terrain: Terrain;
   get aerialStatus(){return this.mappedArt.aerialStatus;}

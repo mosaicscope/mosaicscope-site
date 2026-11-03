@@ -11,7 +11,7 @@ import {impairment,useSubstance} from './Substances';
 import {busDestination,serviceBus} from './BusService';
 interface Edge{segment:CitySegment;sign:number;from:string;to:string;x:number;y:number;dx:number;dy:number;length:number;offset:number;next:number[];junction:boolean}
 interface Route{edge:number;at:number;wait:number;next?:number;laneFrom?:number;laneBlend?:number}
-interface Network{revision:number;edges:Edge[];routes:WeakMap<Vehicle,Route>;buckets:Map<string,Vehicle[]>;tick:number;edgeCells:Map<string,number[]>;junctions:Map<string,{car:Vehicle;until:number;entry:number;exit:number}>}
+interface Network{revision:number;edges:Edge[];segmentEdges:Map<CitySegment,number[]>;routes:WeakMap<Vehicle,Route>;buckets:Map<string,Vehicle[]>;tick:number;edgeCells:Map<string,number[]>;junctions:Map<string,{car:Vehicle;until:number;entry:number;exit:number}>}
 const networks=new WeakMap<Simulation,Network>();
 const crossingPeople:number[]=[];
 const nearbyObstacles:Vehicle[]=[];
@@ -21,8 +21,9 @@ function network(sim:Simulation):Network{
  let n=networks.get(sim);const revision=sim.world.mapped?.streetSegments.length??0;if(n?.revision===revision)return n;const edges:Edge[]=[],nodes=new Map<string,number[]>();
  for(const s of sim.world.mapped?.streetSegments??[]){if(s.length<.25)continue;for(const lane of s.lanes??(s.oneway?[{sign:s.oneway,offset:-s.oneway*s.half}]:[{sign:1,offset:-Math.min(1.9,s.half)},{sign:-1,offset:Math.min(1.9,s.half)}])){const sign=lane.sign;const x=sign===1?s.x:s.x+s.dx*s.length,y=sign===1?s.y:s.y+s.dy*s.length,dx=s.dx*sign,dy=s.dy*sign,from=key(x,y),to=key(x+dx*s.length,y+dy*s.length),offset=-lane.offset*sign/2;const edge:Edge={segment:s,sign,from,to,x,y,dx,dy,length:s.length,offset,next:[],junction:false};const list=nodes.get(from)??[];list.push(edges.length);nodes.set(from,list);edges.push(edge);}}
  for(const e of edges){const out=nodes.get(e.to)??[];e.next=out.filter(i=>edges[i].to!==e.from);if(!e.next.length)e.next=out;e.junction=e.next.some(i=>edges[i].to!==edges[e.next[0]].to);}
+ const segmentEdges=new Map<CitySegment,number[]>();for(let i=0;i<edges.length;i++){const edge=edges[i],list=segmentEdges.get(edge.segment)??[];list.push(i);segmentEdges.set(edge.segment,list);}
  const edgeCells=new Map<string,number[]>();for(let i=0;i<edges.length;i++){const e=edges[i],ex=e.x+e.dx*e.length,ey=e.y+e.dy*e.length;for(let y=Math.floor((Math.min(e.y,ey)-3)/64);y<=Math.floor((Math.max(e.y,ey)+3)/64);y++)for(let x=Math.floor((Math.min(e.x,ex)-3)/64);x<=Math.floor((Math.max(e.x,ex)+3)/64);x++){const k=x+','+y,a=edgeCells.get(k)??[];a.push(i);edgeCells.set(k,a);}}
- n={revision,edges,edgeCells,routes:n?.routes??new WeakMap(),buckets:new Map(),tick:-1,junctions:new Map()};networks.set(sim,n);return n;
+ n={revision,edges,segmentEdges,edgeCells,routes:n?.routes??new WeakMap(),buckets:new Map(),tick:-1,junctions:new Map()};networks.set(sim,n);return n;
 }
 function localEdges(n:Network,x:number,y:number,r:number):number[]{const out=new Set<number>();for(let cy=Math.floor((y-r)/64);cy<=Math.floor((y+r)/64);cy++)for(let cx=Math.floor((x-r)/64);cx<=Math.floor((x+r)/64);cx++)for(const i of n.edgeCells.get(cx+','+cy)??[])out.add(i);return [...out];}
 /** Stagger cheap far-away updates so stopped boundary cars cannot back queues into the active area. */
@@ -107,14 +108,14 @@ export function driveMappedVehicle(sim:Simulation,v:Vehicle,dt:number):void{
  if(playerCar&&playerCar!==v&&route.laneBlend===undefined&&route.at>5&&e.length-route.at>12){
   const dx=playerCar.x-v.x,dy=playerCar.y-v.y,along=dx*e.dx+dy*e.dy,cross=Math.abs(-dx*e.dy+dy*e.dx),closing=(playerCar.vx??Math.cos(playerCar.heading)*playerCar.speed)*e.dx+(playerCar.vy??Math.sin(playerCar.heading)*playerCar.speed)*e.dy-v.speed;
   if(along<0&&along> -Math.min(100,Math.max(18,closing*2.5))&&closing>5&&cross<(geometry.width+vehicleGeometry(playerCar).width)/2+.5){
-   const alt=localEdges(n,v.x,v.y,4).find(i=>{const q=n.edges[i];return q.segment===e.segment&&q.sign===e.sign&&q!==e&&Math.abs(q.offset-e.offset)>geometry.width*.8;});
+   const alt=(n.segmentEdges.get(e.segment)??[]).find(i=>{const q=n.edges[i];return q.sign===e.sign&&q!==e&&Math.abs(q.offset-e.offset)>geometry.width*.8;});
    if(alt!==undefined){const lane=n.edges[alt],p=position(lane,route.at),safe=obstacles.every(o=>{const ox=o.x-p.x,oy=o.y-p.y,forward=ox*e.dx+oy*e.dy,side=Math.abs(-ox*e.dy+oy*e.dx);return side>(geometry.width+vehicleGeometry(o).width)/2+.6||forward>geometry.length+10||forward< -geometry.length-12;});if(safe){route.laneFrom=e.offset;route.laneBlend=0;route.edge=alt;route.next=undefined;e=lane;}}
   }
  }
  // Only pass on a second lane travelling in the same direction, with space ahead and behind.
  if(target<v.speed*.75&&route.laneBlend===undefined&&route.at>5&&e.length-route.at>12){
-  const alt=n.edges.findIndex(q=>q.segment===e.segment&&q.sign===e.sign&&q!==e&&Math.abs(q.offset-e.offset)>geometry.width*.8);
-  if(alt>=0){const lane=n.edges[alt],p=position(lane,route.at),safe=obstacles.every(o=>{const dx=o.x-p.x,dy=o.y-p.y,along=dx*e.dx+dy*e.dy,cross=Math.abs(-dx*e.dy+dy*e.dx);return cross>(geometry.width+vehicleGeometry(o).width)/2+.5||along>geometry.length+8||along< -geometry.length-10;});
+  const alt=(n.segmentEdges.get(e.segment)??[]).find(i=>{const q=n.edges[i];return q.sign===e.sign&&q!==e&&Math.abs(q.offset-e.offset)>geometry.width*.8;});
+  if(alt!==undefined){const lane=n.edges[alt],p=position(lane,route.at),safe=obstacles.every(o=>{const dx=o.x-p.x,dy=o.y-p.y,along=dx*e.dx+dy*e.dy,cross=Math.abs(-dx*e.dy+dy*e.dx);return cross>(geometry.width+vehicleGeometry(o).width)/2+.5||along>geometry.length+8||along< -geometry.length-10;});
    if(safe){route.laneFrom=e.offset;route.laneBlend=0;route.edge=alt;route.next=undefined;e=lane;}}
  }
  if(sim.world.mapped?.closedRoads?.has(e.segment.id))target=0;
