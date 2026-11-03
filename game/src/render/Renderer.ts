@@ -74,24 +74,12 @@ export class Renderer {
   private artworkBudget=new CrowdArtworkBudget();
   readonly cam = new Camera();
   drivingViewEnabled = false;
-  gpuViewEnabled = false;
-  private gpuView?:import('../experimental/DirectGpuPrototype').DirectGpuPrototype;
-  private gpuLoading=false;
-  cycleCamera():void{
-    if(!this.drivingViewEnabled){this.drivingViewEnabled=true;this.gpuViewEnabled=false;}
-    else if(!this.gpuViewEnabled){this.gpuViewEnabled=true;this.loadGpuView();}
-    else{this.drivingViewEnabled=false;this.gpuViewEnabled=false;}
-    if(this.gpuView)this.gpuView.renderer.domElement.style.display=this.gpuViewEnabled&&this.perspectiveActive?'block':'none';
-  }
-  private loadGpuView():void{
-    if(this.gpuView||this.gpuLoading)return;this.gpuLoading=true;const sim=this.sim;
-    void import('../experimental/DirectGpuPrototype').then(({DirectGpuPrototype})=>{if(!this.gpuViewEnabled||this.sim!==sim)return;const view=new DirectGpuPrototype(sim,this.cam.viewW,this.cam.viewH);view.renderer.domElement.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;display:block';view.renderer.domElement.setAttribute('aria-hidden','true');this.canvas.insertAdjacentElement('afterend',view.renderer.domElement);this.gpuView=view;}).catch(e=>{console.warn('GPU camera unavailable',e);this.gpuViewEnabled=false;}).finally(()=>{this.gpuLoading=false;});
-  }
+  cycleCamera():void{this.drivingViewEnabled=!this.drivingViewEnabled;}
   private lastPerspective?:boolean;
   get perspectiveActive():boolean{return this.drivingViewEnabled&&this.sim.player.inside<0;}
-  get perspectiveHeading():number{return this.gpuViewEnabled&&this.gpuView?this.gpuView.heading:this.drivingView.heading;}
-  screenToWorld(x:number,y:number,height=0):{x:number;y:number}{return this.perspectiveActive?(this.gpuViewEnabled&&this.gpuView?this.gpuView.unproject(x,y,height):this.drivingView.unproject(x,y,height)):this.cam.toWorldAtHeight(x,y,height);}
-  worldToScreen(x:number,y:number,height=0):{x:number;y:number}{return this.perspectiveActive?(this.gpuViewEnabled&&this.gpuView?this.gpuView.project(x,y,height):this.drivingView.project(x,y,height)):this.cam.toScreen(x,y,height,{x:0,y:0});}
+  get perspectiveHeading():number{return this.drivingView.heading;}
+  screenToWorld(x:number,y:number,height=0):{x:number;y:number}{return this.perspectiveActive?this.drivingView.unproject(x,y,height):this.cam.toWorldAtHeight(x,y,height);}
+  worldToScreen(x:number,y:number,height=0):{x:number;y:number}{return this.perspectiveActive?this.drivingView.project(x,y,height):this.cam.toScreen(x,y,height,{x:0,y:0});}
   private drivingView = new DrivingView();
   setGpuPreference(highPerformance:boolean):void{this.drivingView.setGpuPreference(highPerformance);}
   readonly g: CanvasRenderingContext2D;
@@ -141,7 +129,7 @@ export class Renderer {
   }
 
   setSim(sim: Simulation): void {
-    this.gpuView?.dispose();this.gpuView=undefined;this.mappedArt.clear();this.mappedGround=new MappedGround();
+    this.mappedArt.clear();this.mappedGround=new MappedGround();
     this.bubblePositions.clear();this.decals.length=0;
     this.sim = sim; this.terrain = new Terrain(sim.world); this.terrain.setUltra(this.qualityNow === 3); this.particles.clear(); this.lastPose.clear(); this.motion.clear();
     this.cam.worldSize = sim.world.size;this.cam.unbounded=!!sim.world.mapped; this.cam.lookAt(sim.player.x, sim.player.y, true); this.cam.follow = sim.playerId;
@@ -179,7 +167,7 @@ export class Renderer {
     // Lower tiers cap the pixel count instead (fill-rate is the real cost on weak machines); ultra stays at full native sharpness.
     this.dpr = quality === 0 ? Math.min(1, native) : quality === 1 ? Math.min(1.25, native) : quality === 2 ? Math.min(1.5, native) : Math.min(2,native);
     this.canvas.width = Math.round(w * this.dpr); this.canvas.height = Math.round(h * this.dpr);
-    this.cam.resize(w, h);this.gpuView?.resize(w,h);
+    this.cam.resize(w, h);
     this.particles.scale = quality === 0 ? 0.35 : quality === 1 ? 0.7 : quality === 2 ? 1 : 1.4;
     // Ultra: richer textures (2x density, weathering, baked bump light) and supersampled ground
     setTextureTier(quality === 3); this.terrain.setUltra(quality === 3);
@@ -203,11 +191,7 @@ export class Renderer {
     // camera follow
     if (cam.follow >= 0 && sim.chars[cam.follow]) { const f = sim.chars[cam.follow],car=f.inCar>=0?sim.vehicles[f.inCar]:undefined;const vx=car?.vx??0,vy=car?.vy??0,speed=Math.hypot(vx,vy),ahead=car?Math.min(.32,4/Math.max(1,speed)):0;cam.lookAt(f.x+vx*ahead,f.y+vy*ahead); }
     const perspective=this.perspectiveActive;if(this.lastPerspective!==undefined&&this.lastPerspective!==perspective&&!o.reduceMotion)this.crossfade();this.lastPerspective=perspective;
-    if(this.gpuView)this.gpuView.renderer.domElement.style.display=perspective&&this.gpuViewEnabled?'block':'none';
-    if(perspective) { cam.update(dt,o.reduceMotion); sim.focus.x=sim.player.x; sim.focus.y=sim.player.y; sim.trafficRadius=64;
-      if(this.gpuViewEnabled&&this.gpuView)this.gpuView.draw();
-      else {if(this.gpuViewEnabled)this.loadGpuView();this.drivingView.draw(g,sim,cam.viewW,cam.viewH,this.dpr,time,alpha,dt,this.particles,this.rain,o.quality,o.reduceMotion);}
-      this.stats.frameMs=performance.now()-t0; return; }
+    if(perspective) { cam.update(dt,o.reduceMotion); sim.focus.x=sim.player.x; sim.focus.y=sim.player.y; sim.trafficRadius=64; this.drivingView.draw(g,sim,cam.viewW,cam.viewH,this.dpr,time,alpha,dt,this.particles,this.rain,o.quality,o.reduceMotion); this.stats.frameMs=performance.now()-t0; return; }
     // zoomed right in: the camera drops to street level for a flat 2D side view; zoom out to go back to 3D
     // (hysteresis stops it flickering at the boundary mid-pinch; a quick crossfade hides the switch)
     const want2D = STREET_2D && (this.in2D ? cam.zoom > 2.8 : cam.zoom > 3.4);
@@ -1153,7 +1137,7 @@ export class Renderer {
   }
 
   pickCharacter(sx: number, sy: number): number {
-    if(this.perspectiveActive)return this.gpuViewEnabled&&this.gpuView?this.gpuView.pickCharacter(sx,sy):this.drivingView.pickCharacter(sx,sy);
+    if(this.perspectiveActive)return this.drivingView.pickCharacter(sx,sy);
     const b = this.pickBoxes;
     let best = -1, bd = Infinity;
     for (let i = 0; i < b.length; i += 5) {

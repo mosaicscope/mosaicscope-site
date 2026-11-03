@@ -397,7 +397,7 @@ export class Game {
         h("div.drive-alert",{text:v.water?.locked?"ENGINE HYDROLOCKED · exit and recover":v.components?.wheels.some(w=>!w.missing&&(w.attachment??1)<.65)?"WHEEL HANGING · stop and repair":v.components?.wheels.some(w=>w.missing)?"WHEEL MISSING · stop and repair":(v.components?.structure?.temperature??0)>.6?"ENGINE OVERHEATING · pull over":(v.components?.structure?.brakeHeat??0)>.8?"BRAKES HOT · allow cooling":(v.components?.structure?.oil??1)<.25?"LOW OIL · service needed":(v.components?.structure?.coolant??1)<.25?"LOW COOLANT · service needed":(v.flatLeft||v.flatRight?"FLAT TYRE":"")+((v.heat??0)>.5?" · ENGINE HOT: pull over":"")})
       ]));
     }
-    this.cameraButton??=h('button.btn.camera-toggle',{type:'button','aria-label':'Toggle driving camera',onclick:()=>{this.renderer.cycleCamera();this.updateHud();}}) as HTMLButtonElement;this.cameraButton.textContent=this.renderer.gpuViewEnabled?'Camera: WebGL (experimental)':this.renderer.drivingViewEnabled?'Camera: third person':'Camera: city view';kids.push(this.cameraButton);
+    this.cameraButton??=h('button.btn.camera-toggle',{type:'button','aria-label':'Toggle driving camera',onclick:()=>{this.renderer.cycleCamera();this.updateHud();}}) as HTMLButtonElement;this.cameraButton.textContent=this.renderer.drivingViewEnabled?'Camera: third person':'Camera: city view';kids.push(this.cameraButton);
     if(sim.pendingAmbulance.has(p.id))kids.push(h('div.car.medical-status',{text:p.phys===Phys.DOWN?'Ambulance on the way · stay still for treatment':'Ambulance on the way · move clear of traffic'}));
     if(p.substances)kids.push(h('div.car',{text:substancePhase(p,sim.tick)}));
     if (p.bleed > 0) kids.push(h("div.car", { text: "You're bleeding. B to bandage." }));
