@@ -1,9 +1,9 @@
 {
- "at": 1793700580288,
+ "at": 1793702350893,
  "totals": {
   "duplicate-code": 10,
   "long-function": 17,
-  "format": 27,
+  "format": 30,
   "oversized-module": 10,
   "unused-css": 1
  },
@@ -135,6 +135,14 @@
    "detail": "Windows line endings",
    "fix": "convert to LF",
    "fp": "format|1jn5snd"
+  },
+  {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/e2e/nearby-quips-check.mjs",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|1r0w6zf"
   },
   {
    "kind": "format",
@@ -292,9 +300,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/render/Renderer.ts",
-   "detail": "1179 lines",
+   "detail": "1188 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|wmly4f"
+   "fp": "oversized-module|76o203"
   },
   {
    "kind": "format",
@@ -345,6 +353,14 @@
    "fp": "format|nkt0ew"
   },
   {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/src/sim/NearbyQuips.ts",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|1ed61xu"
+  },
+  {
    "kind": "long-function",
    "severity": "low",
    "where": "game/src/sim/Rules.ts:20",
@@ -356,9 +372,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Simulation.ts",
-   "detail": "1012 lines",
+   "detail": "1015 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|hri1hm"
+   "fp": "oversized-module|djqraj"
   },
   {
    "kind": "long-function",
@@ -471,22 +487,6 @@
    "detail": "212 lines",
    "fix": "split into named steps",
    "fp": "long-function|5n3or5"
-  },
-  {
-   "kind": "format",
-   "severity": "low",
-   "where": "game/tests/city-upgrades.test.ts",
-   "detail": "Windows line endings",
-   "fix": "convert to LF",
-   "fp": "format|1dwkea9"
-  },
-  {
-   "kind": "format",
-   "severity": "low",
-   "where": "game/tests/gpu-settings.test.ts",
-   "detail": "Windows line endings",
-   "fix": "convert to LF",
-   "fp": "format|1wqkao6"
   }
  ]
 }
