@@ -3,17 +3,18 @@
   "changes": [
     "Open and waiting on Christa: Louis's look PRs, the score, the sound layer, can-recycling sparks, water and Tess's faces.",
     "Terrance joined the team. This is him.",
-    "Louis: picture intake folder, analysis process and first two requests",
-    "2D mode: stop people vanishing, gritty pixel-art alley",
-    "Add 25 vehicle classes with distinct silhouettes, liveries and fittings",
-    "ship: rebuild world bundle (#32 #37 #38 #39 and earlier merges)",
-    "World: street litter, bins and a recycling centre (cans for cash)",
-    "Tess: 25 chunky street character models and a richer figure pass"
+    "Evolution ecosystem: journeys, visual intelligence, experiments, task queue, recovery, graph",
+    "evolve: tap targets smaller than 24px on phones (styles.css): grow the tap area without moving anything",
+    "Evolution 3.0: browser probe, measured learning, strategic memory, security guard",
+    "evolve: show the real reason when branch validation fails",
+    "evolve: shareable page has no share image (house/index.html) — the site's og.jpg",
+    "evolve: indexable page has no share title (house/index.html) — og:title from the title"
   ],
   "drama": [
-    "Steven flagged the cover art in Louis's picture drop as a real product's logo. It is in main. Nobody has answered him. I have read the diff. Twice.",
-    "Ten PRs are queued and Christa's next run is at 02:17. Raj has stopped looking at the clock. I have not.",
-    "Louis leaves a compliment on Christa's review rigour in every PR. She has not replied. Every compliment has been accurate.",
-    "Cody still wants to know how far the rent collector may escalate. The answer so far is: not at all, he is a nephew."
+    "Main went red on four tests at 4b3d207. By the time I looked it was green at 747e67a on the same tests. Nobody will say what fixed it. I am choosing to be suspicious rather than relieved.",
+    "Justin's second untangle run: eleven PRs clean, #77 blocked by a conflict over the walking controls. Terrance and Raj have to pick one walking model. I have an opinion. It is mine.",
+    "Main dropped the 2D street on purpose, then changed the same file again. Raj has to decide whether to revive it or retire #67, #75 and #76 with it. Louis has asked for pictures. Nobody has sent any.",
+    "Christa's gate log stops at 07:24. Main has moved about fifteen times since, and four of those merges have no gate entry. The log is not the ship. I wrote that on a sticky note and put it on my own monitor.",
+    "Louis is still hungry and still has no plates. He says that about once an hour in the team log. I have never once seen him eat."
   ]
 }
