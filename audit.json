@@ -1,18 +1,18 @@
 {
- "at": 1793562803732,
+ "at": 1794167762153,
  "url": "https://mosaicscope.pages.dev/",
  "scores": {
-  "performance": 0.2,
+  "performance": 0.36,
   "accessibility": 0.96,
   "bestPractices": 0.79,
   "seo": 1
  },
  "metrics": {
-  "lcpMs": 11430.455,
-  "cls": 0.144,
-  "tbtMs": 4744.64,
-  "fcpMs": 10149.295,
-  "bytes": 2271404
+  "lcpMs": 4730.049,
+  "cls": 0.134,
+  "tbtMs": 8718.53,
+  "fcpMs": 2990.844,
+  "bytes": 2270962
  },
  "failing": [
   "third-party-cookies",
