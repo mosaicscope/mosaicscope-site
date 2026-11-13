@@ -1,7 +1,7 @@
 {
- "at": 1794589701403,
+ "at": 1794589930640,
  "target": "https://mosaicscope.pages.dev",
- "sha": "1648aef449da0215a51a9f1011d094e6090dae91",
+ "sha": "15e53fb8838e8ad02230f38be1e72cc09d6b8ba3",
  "results": [
   {
    "page": "/",
@@ -41,23 +41,23 @@
      "why": "net::ERR_ABORTED"
     }
    ],
-   "requests": 71,
-   "bytes": 4110,
-   "ownBytes": 80,
-   "thirdParty": 65,
+   "requests": 76,
+   "bytes": 4123,
+   "ownBytes": 93,
+   "thirdParty": 68,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 218,
-    "loadMs": 239,
-    "lcpMs": 624,
-    "cls": 0.204,
-    "tbtMs": 324,
+    "domContentLoadedMs": 414,
+    "loadMs": 2855,
+    "lcpMs": 756,
+    "cls": 0.155,
+    "tbtMs": 250,
     "longTasks": 2,
-    "heapMB": 9.5,
-    "domNodes": 1262,
-    "renderBlocking": 3,
-    "resourceEntries": 16,
-    "screens": 10.8
+    "heapMB": 33.5,
+    "domNodes": 1437,
+    "renderBlocking": 4,
+    "resourceEntries": 21,
+    "screens": 11.1
    },
    "ui": {
     "overflowPx": 0,
@@ -93,7 +93,7 @@
       "px": 9
      },
      {
-      "el": "span.tag-ph",
+      "el": "span.tag-yt",
       "px": 10
      },
      {
@@ -109,16 +109,29 @@
       "px": 10
      },
      {
+      "el": "span.mcard__lv",
+      "px": 6.76
+     },
+     {
+      "el": "div.mcard__gear > span",
+      "px": 5.02171
+     },
+     {
       "el": "a.prop",
       "px": 8
      }
     ],
-    "lowContrast": [],
+    "lowContrast": [
+     {
+      "el": "span.tag-yt",
+      "ratio": 4.27
+     }
+    ],
     "noFocusStyle": [],
     "inconsistent": [
      {
       "component": "button",
-      "variants": 8,
+      "variants": 9,
       "examples": [
        "Archivo|16px|400|50%|none",
        "Archivo|32px|400|0px|none",
@@ -182,23 +195,23 @@
      "why": "net::ERR_ABORTED"
     }
    ],
-   "requests": 74,
-   "bytes": 4341,
-   "ownBytes": 80,
-   "thirdParty": 68,
+   "requests": 77,
+   "bytes": 4157,
+   "ownBytes": 93,
+   "thirdParty": 69,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 170,
-    "loadMs": 170,
-    "lcpMs": 164,
-    "cls": 0.096,
-    "tbtMs": 356,
+    "domContentLoadedMs": 254,
+    "loadMs": 1420,
+    "lcpMs": 264,
+    "cls": 0.097,
+    "tbtMs": 250,
     "longTasks": 3,
-    "heapMB": 9.5,
-    "domNodes": 1603,
-    "renderBlocking": 3,
-    "resourceEntries": 17,
-    "screens": 9.8
+    "heapMB": 37.8,
+    "domNodes": 1713,
+    "renderBlocking": 4,
+    "resourceEntries": 21,
+    "screens": 10.1
    },
    "ui": {
     "overflowPx": 0,
@@ -238,20 +251,12 @@
       "px": 11
      },
      {
-      "el": "span.tag-ph",
-      "px": 10
-     },
-     {
       "el": "span.cat-film",
       "px": 11
      },
      {
-      "el": "span.cat-sound",
-      "px": 11
-     },
-     {
-      "el": "span.cat-experiment",
-      "px": 11
+      "el": "span.tag-yt",
+      "px": 10
      },
      {
       "el": "span.slide__label > span",
@@ -266,6 +271,14 @@
       "px": 10
      },
      {
+      "el": "span.mcard__lv",
+      "px": 7
+     },
+     {
+      "el": "div.mcard__gear > span",
+      "px": 5.2
+     },
+     {
       "el": "p.stage__label",
       "px": 10
      },
@@ -274,12 +287,17 @@
       "px": 9
      }
     ],
-    "lowContrast": [],
+    "lowContrast": [
+     {
+      "el": "span.tag-yt",
+      "ratio": 4.27
+     }
+    ],
     "noFocusStyle": [],
     "inconsistent": [
      {
       "component": "button",
-      "variants": 9,
+      "variants": 10,
       "examples": [
        "Archivo|16px|400|50%|none",
        "\"IBM Plex Mono\"|13px|400|0px|uppercase",
@@ -324,9 +342,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 96,
-    "loadMs": 96,
-    "lcpMs": 112,
+    "domContentLoadedMs": 163,
+    "loadMs": 163,
+    "lcpMs": 164,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -371,9 +389,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 115,
-    "loadMs": 115,
-    "lcpMs": 88,
+    "domContentLoadedMs": 242,
+    "loadMs": 242,
+    "lcpMs": 168,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -404,29 +422,40 @@
    "url": "https://mosaicscope.pages.dev/404.html",
    "width": 390,
    "errors": [],
-   "consoleErrors": [],
+   "consoleErrors": [
+    {
+     "text": "Failed to load resource: the server responded with a status of 500 ()",
+     "own": true
+    }
+   ],
    "failed": [],
-   "requests": 8,
-   "bytes": 63,
-   "ownBytes": 1,
-   "thirdParty": 6,
-   "status": 200,
+   "requests": 1,
+   "bytes": 21,
+   "ownBytes": 21,
+   "thirdParty": 0,
+   "status": 500,
    "perf": {
-    "domContentLoadedMs": 148,
-    "loadMs": 169,
-    "lcpMs": 160,
-    "cls": 0.013,
+    "domContentLoadedMs": 229,
+    "loadMs": 229,
+    "lcpMs": 240,
+    "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
     "heapMB": 9.5,
-    "domNodes": 16,
-    "renderBlocking": 1,
-    "resourceEntries": 3,
-    "screens": 1.1
+    "domNodes": 116,
+    "renderBlocking": 0,
+    "resourceEntries": 0,
+    "screens": 1
    },
    "ui": {
     "overflowPx": 0,
-    "smallTargets": [],
+    "smallTargets": [
+     {
+      "el": "#cf-footer-ip-reveal",
+      "w": 100,
+      "h": 18
+     }
+    ],
     "smallText": [],
     "lowContrast": [],
     "noFocusStyle": [],
@@ -435,7 +464,7 @@
     "hierarchyInverted": 0
    },
    "interactions": {
-    "clicked": 0,
+    "clicked": 1,
     "broken": [],
     "newErrors": 0
    }
@@ -453,10 +482,10 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 153,
-    "loadMs": 170,
-    "lcpMs": 160,
-    "cls": 0.15,
+    "domContentLoadedMs": 340,
+    "loadMs": 443,
+    "lcpMs": 352,
+    "cls": 0.146,
     "tbtMs": 0,
     "longTasks": 0,
     "heapMB": 9.5,
@@ -535,85 +564,84 @@
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 390,
-   "ms": 1973,
+   "ms": 2506,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 390,
-   "ms": 1200,
+   "ms": 1931,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 390,
-   "ms": 1381,
+   "ms": 1989,
    "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 390,
-   "ms": 1816,
+   "ms": 1793,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 390,
-   "ms": 2274,
+   "ms": 2329,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 390,
-   "ms": 961,
+   "ms": 1154,
    "status": "pass"
   },
   {
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 1280,
-   "ms": 1887,
+   "ms": 2566,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 1280,
-   "ms": 1990,
+   "ms": 1967,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 1280,
-   "ms": 1421,
-   "status": "fail",
-   "why": "no validation shown"
+   "ms": 2203,
+   "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 1280,
-   "ms": 1238,
+   "ms": 1949,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 1280,
-   "ms": 2427,
+   "ms": 2452,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 1280,
-   "ms": 918,
+   "ms": 1187,
    "status": "pass"
   }
  ]
