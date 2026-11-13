@@ -1,0 +1,4 @@
+/* the strip is 3D: the Mosaics drift closer and further away */
+.stage .raver__fig.has-depth { transform-origin: 50% 100%; animation: ms-depth var(--dd, 16s) ease-in-out var(--dl, 0s) infinite alternate; }
+@keyframes ms-depth { from { scale: var(--s0, 1); translate: 0 var(--y0, 0px); filter: brightness(var(--b0, 1)); } to { scale: var(--s1, 0.85); translate: 0 var(--y1, -12px); filter: brightness(var(--b1, 0.8)); } }
+@media (prefers-reduced-motion: reduce) { .stage .raver__fig.has-depth { animation: none; } }

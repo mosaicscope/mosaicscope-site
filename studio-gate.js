@@ -224,7 +224,7 @@
 
   /* ===================================================================
      Full-width stage: the mosaicStudioS wordmark rebuilds itself into the logo,
-     and the Mosaics climb up to mess with it. Everything is physics: springs, gravity, collisions.
+     Everything is physics: springs, gravity, collisions.
      =================================================================== */
   const canvas = document.getElementById('studio-canvas');
   const ctx = canvas.getContext('2d');
@@ -292,7 +292,6 @@
       P.push({ x: W / 2 + (Math.random() - 0.5) * W, y: H / 2 + (Math.random() - 0.5) * H, vx: 0, vy: 0, tx: t[0], ty: t[1], m: 0.8 + Math.random() * 0.7, hue: (t[0] / W) * 300 + 20, r: step * 0.36, sw: 0, ph: Math.random() * 6.28 });
     }
     cur = 'A'; seq = ['A']; si = 0; modeAt = performance.now(); HOLD = 4200;
-    buildSignCols();
   }
   function resize() {
     DPR = Math.min(2.5, window.devicePixelRatio || 1);
@@ -320,21 +319,6 @@
   const GLINT = mk(32, (g, s) => { g.fillStyle = '#fff'; g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 1, 0, 6.2832); g.fill(); });
   const bucket = (h) => (((Math.round(h / (360 / BUCKETS))) % BUCKETS) + BUCKETS) % BUCKETS;
 
-  /* ---------- the Mosaics reach the sign: climbers fire 'mosaic-sign' with a screen position ---------- */
-  document.addEventListener('mosaic-sign', (e) => {
-    if (!W || !P.length) return;
-    const d = e.detail || {}, r = canvas.getBoundingClientRect();
-    if (d.clientY < r.top - 40 || d.clientY > r.bottom + 40) return;
-    const cx = (d.clientX - r.left) * (W / r.width), cy = (d.clientY - r.top) * (H / r.height), rad = (d.radius || 46) * DPR, now = performance.now();
-    for (let i = 0; i < P.length; i++) {
-      const q = P[i], dx = q.x - cx, dy = q.y - cy, dist = Math.hypot(dx, dy);
-      if (dist < rad) {                                  // knocked loose: falls, bounces, then the sign pulls itself back together
-        q.loose = now + rand(2400, 4600);
-        const w = 1 - dist / rad;
-        q.vx += (dx / (dist || 1)) * w * 5 * DPR + rand(-1.5, 1.5) * DPR; q.vy += (dy / (dist || 1)) * w * 5 * DPR - rand(0, 3) * DPR;
-      }
-    }
-  });
   const rand = (a, b) => a + Math.random() * (b - a);
 
   /* ---------- main loop ---------- */
@@ -345,7 +329,7 @@
     const dt = Math.min(48, now - last) / 16.67; last = now;
     const t = now / 1000;
 
-    if (!REDUCED && !holdWord && now - modeAt > HOLD) {                // screensaver: wordmark <-> logo, rebuilt as a staggered wave
+    if (!REDUCED && now - modeAt > HOLD) {                // screensaver: wordmark <-> logo, rebuilt as a staggered wave
       si++; if (si >= seq.length) { seq = makeSeq(); si = 0; }
       cur = seq[si]; modeAt = now; HOLD = 4200;
       const tgt = shapes[cur];
@@ -411,38 +395,6 @@
     }
     pvx *= 0.8; pvy *= 0.8;
   }
-
-  /* ---------- sign outline for the climbing Mosaics (real collision against the letters) ---------- */
-  let holdWord = false, signCols = [];
-  function buildSignCols() {
-    if (!shapes.A) return;
-    const bin = Math.max(3, Math.round(W / 220)), cols = new Map();
-    for (const [x, y] of shapes.A) { const b = Math.floor(x / bin), t = cols.get(b); if (t === undefined || y < t) cols.set(b, y); }
-    const keys = [...cols.keys()].sort((a, b) => a - b), blocks = [];
-    let run = null;
-    for (const k of keys) {
-      const top = cols.get(k);
-      if (run && k === run.k1 + 1 && Math.abs(top - run.top) < bin * 1.5) { run.k1 = k; run.top = Math.min(run.top, top); }
-      else { run = { k0: k, k1: k, top }; blocks.push(run); }
-    }
-    signCols = blocks.map((b) => ({ x0: b.k0 * bin, x1: (b.k1 + 1) * bin, top: b.top }));
-  }
-  window.MosaicSign = {
-    solids() {
-      if (!signCols.length || !W) return [];
-      const r = canvas.getBoundingClientRect(), sy = window.pageYOffset || 0, sx = r.width / W, sh = r.height / H;
-      return signCols.map((b) => ({ l: r.left + b.x0 * sx, r: r.left + b.x1 * sx, top: r.top + sy + b.top * sh, bottom: r.bottom + sy, sign: true }));
-    },
-    band() { const r = canvas.getBoundingClientRect(), sy = window.pageYOffset || 0; return { l: r.left, r: r.right, top: r.top + sy, bottom: r.bottom + sy }; },
-    hold(on) {
-      holdWord = on;
-      if (on && shapes.A && cur !== 'A') {
-        cur = 'A'; seq = ['A']; si = 0; modeAt = performance.now(); HOLD = 4200;
-        const now = performance.now();
-        for (let i = 0; i < P.length; i++) { P[i].sw = now + Math.random() * 400; P[i].nt = shapes.A[i]; }
-      }
-    }
-  };
 
   /* ---------- long jumps (like the Studio link at the very bottom) shouldn't take ages: one quick glide ---------- */
   document.addEventListener('click', (e) => {
