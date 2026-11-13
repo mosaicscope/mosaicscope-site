@@ -130,7 +130,8 @@
         <span class="md:hidden">LUT</span>
       </button>
 
-      <input type="file" id="fileInputImage" accept="image/jpeg,image/png,image/webp,image/tiff" class="hidden" />
+      <a href="3d.html" class="px-2.5 py-1.5 rounded-md bg-studio-surface hover:bg-zinc-700 border border-studio-border text-zinc-200 font-medium flex items-center gap-1.5 transition" title="Open the 3D studio">3D</a>
+      <input type="file" id="fileInputImage" accept="image/jpeg,image/png,image/webp,image/avif,image/gif,image/bmp,image/svg+xml,image/tiff" class="hidden" />
       <input type="file" id="fileInputLut" accept=".cube,.3dl,.look,.xmp,.txt" class="hidden" />
     </div>
 
@@ -178,7 +179,7 @@
       <div class="grid grid-cols-3 border-b border-studio-border bg-studio-bg/60 shrink-0 text-[11px]">
         <button id="tabFilters" class="py-2.5 text-center font-semibold text-blue-400 border-b-2 border-blue-500 transition flex items-center justify-center gap-1">
           <span>Filters</span>
-          <span class="px-1.5 py-0.2 rounded-full text-[9px] bg-blue-500/20 text-blue-300 font-mono">140</span>
+          <span class="px-1.5 py-0.2 rounded-full text-[9px] bg-blue-500/20 text-blue-300 font-mono">190</span>
         </button>
         <button id="tabLuts" class="py-2.5 text-center font-medium text-zinc-400 hover:text-zinc-200 border-b-2 border-transparent transition">
           LUTs & XMP
@@ -195,10 +196,10 @@
         <div class="space-y-2 bg-studio-bg/60 p-2.5 rounded-lg border border-studio-border">
           <div class="flex items-center justify-between">
             <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Filter Discipline</span>
-            <button id="btnClearFilter" class="text-[10px] text-blue-400 hover:text-blue-300 font-medium">Bypass Filter</button>
+            <span class="flex gap-3"><button id="btnInspire" class="text-[10px] text-lime-300 hover:text-lime-200 font-medium">Inspire me</button><button id="btnClearFilter" class="text-[10px] text-blue-400 hover:text-blue-300 font-medium">Bypass Filter</button></span>
           </div>
           <select id="filterCategorySelect" class="w-full bg-studio-surface border border-studio-border rounded-md px-2.5 py-1.5 text-xs text-white font-medium focus:outline-none focus:border-blue-500">
-            <option value="all">All 140 Filters (7 Collections)</option>
+            <option value="all">All 190 Filters (8 Collections)</option>
             <option value="0">1. Glitch Effects (20)</option>
             <option value="1">2. Morphism (20)</option>
             <option value="2">3. Data Convulsions (20)</option>
@@ -206,10 +207,11 @@
             <option value="4">5. Textureism (20)</option>
             <option value="5">6. New Leo Da Vinci (20)</option>
             <option value="6">7. High Fashion Editorial (20)</option>
+            <option value="7">8. Corruption Studies (50)</option>
           </select>
 
           <div class="relative">
-            <input type="text" id="filterSearchInput" placeholder="Search 140 GPU shaders..." class="w-full bg-studio-surface border border-studio-border rounded-md pl-7 pr-2.5 py-1.5 text-[11px] text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-blue-500" />
+            <input type="text" id="filterSearchInput" placeholder="Search 190 GPU shaders..." class="w-full bg-studio-surface border border-studio-border rounded-md pl-7 pr-2.5 py-1.5 text-[11px] text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-blue-500" />
             <svg class="w-3.5 h-3.5 text-zinc-500 absolute left-2 top-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -856,6 +858,13 @@
           ]
         },
         {
+          id: 7,
+          name: 'Corruption Studies (50)',
+          badgeColor: 'text-lime-300 bg-lime-500/15 border-lime-500/30',
+          param2Label: 'Cell Size / Frequency',
+          items: ["Menkman · Vernacular Bit-Rot","DCT Ringing Halos","Murata · Monster Smear","Ikeda · Data Stripes","Bitplane Slicer","Rolling Shutter Tear","Pixel Sort Waterfall","Vasulka · Slit Scan","Chromatic Wobble","Hex Pixelate","Stained-Glass Voronoi","Warhol · CMYK Halftone","Riso Misregister","Newsprint Stipple","CRT Subpixel Curve","VHS Chroma Bleed","Thermal Camera","Night-Vision Static","ASCII Cell Study","Typewriter Rows","Bayer Ordered Dither","Noise Dither Poster","Glitch Bloom Echo","Feedback Ghosts","Kaleidoscope Fold","Polar Warp","Swirl Twirl","Barrel Dispersion","Riley · Moiré Lines","Fourier Ring Ripple","Ink Bleed Erode","Wet Paint Runs","Film Burn Edges","Light Leak Streaks","Scanner Drag","Cassette Wow & Flutter","Signal Loss Blocks","Corrupt Header Swap","Sprite Sheet Tiles","Zebra Mirror Strips","Neon Edge Ghosts","Comic Poster Edge","Luma-Band Channel Shuffle","Shard Refraction","Frozen Block Echo","Negative Frequency Stripes","Digital Rain Overlay","Hologram Interference","Static Snow Ghost","Paik · Magnet TV"]
+        },
+        {
           id: 6,
           name: 'High Fashion Editorial',
           badgeColor: 'text-blue-400 bg-blue-500/15 border-blue-500/30',
@@ -1478,6 +1487,64 @@
         /* =================================================================
            140-FILTER GPU PROCEDURAL SHADER ENGINE (7 CATEGORIES × 20 PRESETS)
         ================================================================= */
+
+        vec3 TX(vec2 p) { return texture(u_image, clamp(p, 0.0, 1.0)).rgb; }
+        vec3 corruptStudy(vec2 uv, vec3 baseCol, float amt, float p2, float seed, int v) {
+          vec3 o = baseCol; vec2 px = u_texelSize, asp = vec2(uv.x * u_aspectRatio, uv.y);
+          float g = mix(24.0, 140.0, p2), L = getLuma(baseCol), h1 = hash12(floor(uv * g) + seed);
+          if (v == 0) { float band = step(0.8, hash12(vec2(floor(uv.y * 40.0), seed))); vec2 s = vec2(band * 0.06 * amt, 0.0); o = vec3(TX(uv + s + vec2(0.01 * amt, 0.0)).r, TX(uv + s).g, TX(uv + s - vec2(0.01 * amt, 0.0)).b); }
+          else if (v == 1) { vec3 e = TX(uv + vec2(px.x * 7.0, 0.0)) - TX(uv - vec2(px.x * 7.0, 0.0)); o = baseCol + e * sin(uv.x * 420.0) * amt * 1.6; }
+          else if (v == 2) { vec2 b = floor(uv * vec2(g * 0.5, g * 0.5)); vec2 mv = (hash22(b + seed) - 0.5) * 0.18 * amt * step(0.55, hash12(b)); o = TX(uv + mv); }
+          else if (v == 3) { float bar = step(0.5, fract(uv.x * mix(20.0, 90.0, p2) + hash12(vec2(floor(uv.y * 30.0), seed)))); o = mix(baseCol, vec3(bar) * (0.4 + L), amt * 0.8); }
+          else if (v == 4) { float n = floor(L * 8.0) / 8.0; o = mix(baseCol, vec3(step(0.5, fract(n * 7.0 + uv.x * 40.0))) * baseCol * 1.6, amt); }
+          else if (v == 5) { vec3 q = floor(baseCol * 255.0); o = mix(baseCol, mod(q, mix(64.0, 8.0, amt)) / mix(64.0, 8.0, amt), amt * 0.9); }
+          else if (v == 6) { o = TX(uv + vec2(sin(uv.y * 14.0 + seed) * 0.04 * amt * (0.4 + p2), 0.0)); }
+          else if (v == 7) { vec3 m = baseCol; for (int k = 1; k <= 8; k++) m = max(m, TX(uv - vec2(0.0, float(k) * 0.01 * amt * (0.4 + p2)))); o = mix(baseCol, m, amt); }
+          else if (v == 8) { o = TX(vec2(uv.x + uv.y * 0.3 * amt * sin(seed + uv.y * 4.0), uv.y)); }
+          else if (v == 9) { vec2 w = (hash22(uv * 600.0 + seed) - 0.5) * 0.02 * amt; o = vec3(TX(uv + w * 2.0).r, TX(uv).g, TX(uv - w * 2.0).b); }
+          else if (v == 10) { vec2 hh = vec2(1.0, 1.7320508) * (g * 0.5); vec2 a = mod(uv * hh, 2.0) - 1.0, b = mod(uv * hh + vec2(1.0, 0.5 * 1.7320508 * 2.0), 2.0) - 1.0; vec2 c = dot(a, a) < dot(b, b) ? floor(uv * hh) / hh : (floor(uv * hh + vec2(1.0, 1.7320508)) - vec2(1.0, 1.7320508)) / hh; o = mix(baseCol, TX(c + 0.5 / hh), amt); }
+          else if (v == 11) { vec2 gp = asp * g * 0.4, id = floor(gp), f = fract(gp); float md = 9.0; vec2 bp = id; for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) { vec2 nb = id + vec2(float(x), float(y)); vec2 pt = nb + hash22(nb + seed); float d = length(pt - gp); if (d < md) { md = d; bp = pt; } } vec3 c = TX(bp / (g * 0.4) / vec2(u_aspectRatio, 1.0)); o = mix(baseCol, c * (0.6 + 0.6 * smoothstep(0.0, 0.5, md)), amt); }
+          else if (v == 12) { vec3 cmy = 1.0 - baseCol; float k = min(cmy.r, min(cmy.g, cmy.b)); vec3 d = vec3(0.0); for (int ch = 0; ch < 3; ch++) { float a = 0.26 + float(ch) * 0.52; mat2 R = mat2(cos(a), -sin(a), sin(a), cos(a)); vec2 gp = R * asp * g * 0.6; float dd = length(fract(gp) - 0.5); d[ch] = smoothstep(0.5 * sqrt(cmy[ch]), 0.5 * sqrt(cmy[ch]) - 0.12, dd); } o = mix(baseCol, 1.0 - d * vec3(0.9, 0.9, 0.95), amt); }
+          else if (v == 13) { vec3 a = TX(uv + vec2(0.006, 0.0) * amt), b = TX(uv - vec2(0.006, 0.004) * amt); float la = getLuma(a), lb = getLuma(b); o = mix(vec3(1.0, 0.97, 0.9), vec3(1.0, 0.25, 0.45), smoothstep(0.7, 0.2, la)) * mix(vec3(1.0), vec3(0.2, 0.45, 1.0), smoothstep(0.7, 0.2, lb) * 0.85); }
+          else if (v == 14) { o = mix(baseCol, vec3(step(h1 * 0.9 + 0.05, L)), amt * 0.9); }
+          else if (v == 15) { vec2 c = uv - 0.5; c *= 1.0 + dot(c, c) * 0.25 * amt; vec2 u2 = c + 0.5; float m = mod(floor(u2.x * g * 3.0), 3.0); vec3 mask = m < 1.0 ? vec3(1.0, 0.3, 0.3) : m < 2.0 ? vec3(0.3, 1.0, 0.3) : vec3(0.3, 0.3, 1.0); o = TX(u2) * mix(vec3(1.0), mask * 1.5, amt * 0.6) * (0.75 + 0.25 * sin(u2.y * u_texelSize.y * 0.0 + u2.y * 700.0)); }
+          else if (v == 16) { vec2 s = vec2(sin(uv.y * 30.0 + seed) * 0.01 * amt, 0.0); float luma = getLuma(TX(uv + s)); o = vec3(luma) + (TX(uv + s + vec2(0.02 * amt, 0.0)) - luma) * vec3(1.0, 0.6, 1.2); o += hash12(uv * 700.0 + seed) * 0.08 * amt; }
+          else if (v == 17) { float t2 = clamp(L, 0.0, 1.0); o = mix(baseCol, mix(mix(vec3(0.0, 0.0, 0.3), vec3(0.8, 0.0, 0.6), smoothstep(0.0, 0.35, t2)), mix(vec3(1.0, 0.5, 0.0), vec3(1.0, 1.0, 0.7), smoothstep(0.5, 1.0, t2)), smoothstep(0.3, 0.65, t2)), amt); }
+          else if (v == 18) { o = mix(baseCol, vec3(0.05, 1.0, 0.25) * (L * 1.4 + (hash12(uv * 900.0 + seed) - 0.5) * 0.3), amt); }
+          else if (v == 19) { vec2 cell = fract(uv * vec2(g * 0.5, g)); float gl = (cell.x > 0.2 && cell.x < 0.8) ? step(abs(cell.y - 0.5), L * 0.45) : 0.0; o = mix(baseCol, vec3(gl) * vec3(0.8, 1.0, 0.85), amt); }
+          else if (v == 20) { float row = fract(uv.y * g * 0.5); float dash = step(0.5, fract(uv.x * g * 1.5 + floor(uv.y * g * 0.5) * 0.37)); o = mix(baseCol, vec3(step(0.5, row) * dash * (1.0 - L)) * 0.2 + (1.0 - step(0.5, row) * dash * (1.0 - L)) * vec3(0.95, 0.92, 0.85), amt); }
+          else if (v == 21) { int bx = int(mod(floor(uv.x * u_aspectRatio * g * 1.5), 4.0)), by = int(mod(floor(uv.y * g * 1.5), 4.0)); float b = float(bx * 4 + by) / 16.0; o = mix(baseCol, vec3(step(b + 0.03, L)), amt); }
+          else if (v == 22) { vec3 q = floor(baseCol * 4.0 + hash12(uv * 1200.0 + seed) - 0.5 + 0.5) / 4.0; o = mix(baseCol, q, amt); }
+          else if (v == 23) { vec3 b = vec3(0.0); for (int k = 0; k < 6; k++) { float a = float(k) * 1.047; b += max(TX(uv + vec2(cos(a), sin(a)) * 0.012 * amt * (0.5 + p2)) - 0.6, 0.0); } o = baseCol + b * vec3(1.6, 0.8, 2.0); }
+          else if (v == 24) { vec3 e = baseCol; for (int k = 1; k <= 5; k++) e += TX(uv + vec2(float(k) * 0.012 * amt, float(k) * 0.004)) * (0.5 / float(k)); o = mix(baseCol, e / 1.9, amt); }
+          else if (v == 25) { vec2 c = uv - 0.5; float a = atan(c.y, c.x), r = length(c); float seg = 6.2832 / floor(mix(3.0, 12.0, p2)); a = abs(mod(a, seg) - seg * 0.5); o = mix(baseCol, TX(0.5 + vec2(cos(a), sin(a)) * r), amt); }
+          else if (v == 26) { vec2 c = uv - 0.5; float r = length(c), a = atan(c.y, c.x); o = mix(baseCol, TX(vec2(a / 6.2832 + 0.5, r * 1.4)), amt); }
+          else if (v == 27) { vec2 c = uv - 0.5; float r = length(c), a = amt * 5.0 * (0.5 - r); a = max(a, 0.0); o = TX(0.5 + mat2(cos(a), -sin(a), sin(a), cos(a)) * c); }
+          else if (v == 28) { vec2 c = uv - 0.5; float r2 = dot(c, c); vec2 k = c * (1.0 + r2 * 0.6 * amt); o = vec3(TX(0.5 + k * 1.02).r, TX(0.5 + k).g, TX(0.5 + k * 0.98).b); }
+          else if (v == 29) { float m = sin(asp.x * g * 2.0 + asp.y * g * 0.3) * sin(asp.x * g * 2.1 - asp.y * g * 0.25); o = baseCol * (1.0 - amt * 0.5 * (0.5 + 0.5 * m)) + vec3(amt * 0.1 * m); }
+          else if (v == 30) { float r = length(uv - 0.5); o = TX(uv + normalize(uv - 0.5 + 1e-4) * sin(r * g * 1.2 - seed) * 0.012 * amt); }
+          else if (v == 31) { vec3 m = baseCol; for (int y = -2; y <= 2; y++) for (int x = -2; x <= 2; x++) m = min(m, TX(uv + vec2(float(x), float(y)) * px * 2.0 * (1.0 + amt * 2.0))); o = mix(baseCol, m, amt); }
+          else if (v == 32) { float d = (1.0 - L) * 0.14 * amt * hash12(vec2(floor(uv.x * g * 0.7), 3.0 + seed)); o = TX(uv + vec2(0.0, -d)); o = mix(o, baseCol, 0.3); }
+          else if (v == 33) { float e = pow(length((uv - 0.5) * vec2(1.0, 1.4)) * 1.5, 2.0) * amt; vec3 burn = mix(vec3(1.0, 0.45, 0.05), vec3(1.0, 0.95, 0.6), smoothstep(0.6, 1.2, e)); o = mix(baseCol, burn, clamp(e * 0.9, 0.0, 1.0)) + (hash12(uv * 800.0 + seed) - 0.5) * 0.12 * amt; }
+          else if (v == 34) { float s = pow(max(0.0, sin(uv.x * 7.0 + uv.y * 3.0 + seed)), 6.0) * amt; o = baseCol + vec3(1.0, 0.35, 0.2) * s * 0.9 + vec3(0.2, 0.4, 1.0) * pow(max(0.0, sin(uv.x * 4.0 - uv.y * 5.0 - seed)), 8.0) * amt * 0.5; }
+          else if (v == 35) { float band = step(0.82, hash12(vec2(floor(uv.y * 22.0), seed))); vec3 m = baseCol; for (int k = 1; k <= 10; k++) m = mix(m, TX(vec2(uv.x - float(k) * 0.02 * amt * band, uv.y)), 0.3); o = mix(baseCol, m, band); }
+          else if (v == 36) { o = TX(uv + vec2(0.0, sin(uv.x * 9.0 + seed) * 0.012 * amt * (0.5 + p2)) + vec2(sin(uv.y * 3.0 + seed * 2.0) * 0.01 * amt, 0.0)); }
+          else if (v == 37) { vec2 b = floor(uv * vec2(g * 0.4, g * 0.25)); float k = step(0.86 - 0.2 * amt, hash12(b + seed)); o = mix(baseCol, vec3(hash12(uv * 500.0 + seed)), k); }
+          else if (v == 38) { float top = step(uv.y, 0.1 + 0.3 * amt * hash12(vec2(seed, 1.0))); o = mix(baseCol, TX(uv + vec2(0.08 * amt, 0.0)).brg, top); o = mix(o, o.gbr, step(0.5, hash12(vec2(floor(uv.y * 10.0), seed))) * amt * 0.7); }
+          else if (v == 39) { float n = floor(mix(2.0, 8.0, p2)); o = mix(baseCol, TX(fract(uv * n)), amt); }
+          else if (v == 40) { float s = floor(uv.x * mix(6.0, 30.0, p2)); vec2 m = vec2(mod(s, 2.0) < 1.0 ? uv.x : 1.0 - uv.x, uv.y); o = mix(baseCol, TX(m), amt); }
+          else if (v == 41) { vec3 e = abs(TX(uv + vec2(px.x, 0.0) * 2.0) - TX(uv - vec2(px.x, 0.0) * 2.0)) + abs(TX(uv + vec2(0.0, px.y) * 2.0) - TX(uv - vec2(0.0, px.y) * 2.0)); o = mix(baseCol, hslShift(e * 5.0, uv.x + seed, 1.6, 1.3), amt); }
+          else if (v == 42) { vec3 e = abs(TX(uv + vec2(px.x, 0.0)) - TX(uv - vec2(px.x, 0.0))) + abs(TX(uv + vec2(0.0, px.y)) - TX(uv - vec2(0.0, px.y))); vec3 pz = floor(baseCol * 4.0) / 4.0; o = mix(baseCol, pz * (1.0 - step(0.15, getLuma(e)) * 0.9), amt); }
+          else if (v == 43) { float b = floor(L * 4.0); o = mix(baseCol, b < 1.0 ? baseCol.gbr : b < 2.0 ? baseCol.brg : b < 3.0 ? baseCol : baseCol.rbg, amt); }
+          else if (v == 44) { vec2 id = floor(asp * g * 0.25); vec2 off = (hash22(id + seed) - 0.5) * 0.06 * amt; o = vec3(TX(uv + off * 1.2).r, TX(uv + off).g, TX(uv + off * 0.8).b) * (0.8 + 0.4 * hash12(id)); }
+          else if (v == 45) { vec2 b = floor(uv * vec2(g * 0.3, g * 0.3)); float k = step(0.75, hash12(b + floor(seed))); o = mix(baseCol, TX(uv + vec2(hash12(b) - 0.5, hash12(b + 4.0) - 0.5) * 0.3 * amt), k); }
+          else if (v == 46) { float s = step(0.5, fract(uv.x * mix(8.0, 60.0, p2))); o = mix(baseCol, s > 0.5 ? 1.0 - baseCol : baseCol, amt); }
+          else if (v == 47) { float col = floor(uv.x * g * 1.2); float drop = fract(uv.y * 2.0 - seed * 0.3 + hash12(vec2(col, 1.0))); o = mix(baseCol, vec3(0.1, 1.0, 0.3) * pow(drop, 6.0) + baseCol * vec3(0.0, 0.5, 0.2), amt * 0.8); }
+          else if (v == 48) { float ln = 0.5 + 0.5 * sin(uv.y * 600.0 + seed * 20.0); float fl = 0.9 + 0.1 * sin(seed * 40.0); o = vec3(TX(uv + vec2(0.004 * amt, 0.0)).r, TX(uv).g, TX(uv - vec2(0.004 * amt, 0.0)).b) * vec3(0.5, 1.1, 1.4) * (0.7 + 0.3 * ln) * fl + vec3(0.0, 0.1, 0.18) * amt; }
+          else { float n = hash12(uv * 700.0 + seed * 3.0); o = mix(baseCol, vec3(n), amt * 0.5) + TX(uv + vec2(0.03 * amt, 0.0)) * 0.25 * amt; o += 0.4 * amt * step(0.998, hash12(vec2(floor(uv.y * 200.0), seed))); }
+          return clamp(o, 0.0, 1.0);
+        }
+
         vec3 applyCreativeEngine(vec2 uv, vec3 baseCol) {
           if (u_filterCat < 0 || u_filterAmt <= 0.001) return baseCol;
 
@@ -1906,6 +1973,8 @@
               outCol = mix(baseCol, studio, amt);
             }
           }
+
+          else if (u_filterCat == 7) { outCol = corruptStudy(uv, baseCol, amt, p2, seed, u_filterVar); }
 
           return clamp(outCol, 0.0, 1.0);
         }
@@ -3649,6 +3718,27 @@
       document.getElementById('filterSearchInput').addEventListener('input', (e) => {
         state.filterSearchQuery = e.target.value;
         renderFilterGrid();
+      });
+
+      // Random inspiration: a filter, a grade, a LUT and a curve, with a made-up artist-flavoured brief
+      const ARTISTS = ['Menkman', 'Ikeda', 'Murata', 'Vasulka', 'Paik', 'Riley', 'Vasarely', 'Warhol', 'Lichtenstein', 'Hockney', 'Moriyama', 'Sugimoto', 'Richter', 'Man Ray', 'Maya Deren', 'Rauschenberg', 'Hamilton', 'Kruger'];
+      const MATS = ['wet-plate silver', 'scanner glass', 'CRT phosphor', 'risograph ink', 'newsprint', 'magnetic tape', 'mirror foil', 'cracked porcelain', 'bleached 16mm', 'LED signage'];
+      const MOODS = ['midnight static', 'sun-bleached', 'wet neon', 'dusty film', 'chrome dawn', 'velvet noir', 'acid pastel', 'cold signal', 'golden decay', 'ultraviolet hush', 'concrete calm'];
+      const pickR = (a) => a[(Math.random() * a.length) | 0], rnd = (a, b) => a + Math.random() * (b - a);
+      document.getElementById('btnInspire').addEventListener('click', () => {
+        const cat = pickR(FILTER_CATEGORIES), vi = (Math.random() * cat.items.length) | 0;
+        state.activeFilterCategory = cat.id; state.activeFilterVariant = vi;
+        state.filterIntensity = Math.round(rnd(55, 100)); state.filterParam2 = Math.round(rnd(10, 95));
+        document.getElementById('slider-filterIntensity').value = state.filterIntensity; document.getElementById('val-filterIntensity').textContent = state.filterIntensity + '%';
+        document.getElementById('slider-filterParam2').value = state.filterParam2; document.getElementById('val-filterParam2').textContent = state.filterParam2 + '%';
+        document.getElementById('activeFilterNameBadge').textContent = cat.items[vi]; document.getElementById('activeFilterCatBadge').textContent = cat.name;
+        document.getElementById('label-filterParam2').textContent = cat.param2Label;
+        const g = state.global; state.selectedMaskId = null;
+        g.temperature = Math.round(rnd(-40, 40)); g.tint = Math.round(rnd(-25, 25)); g.contrast = Math.round(rnd(-20, 40)); g.saturation = Math.round(rnd(-30, 35)); g.grain = Math.round(rnd(0, 45)); g.vignetteAmount = Math.round(rnd(-40, 10));
+        g.curvePoints = [0, 0.25 + rnd(-0.08, 0.08), 0.5 + rnd(-0.1, 0.1), 0.75 + rnd(-0.08, 0.08), 1];
+        if (state.luts.length > 1) { const l = pickR(state.luts.slice(1)); state.activeLutId = l.id; uploadLUTToGPU(l); }
+        syncToneCurveToGPU(); document.getElementById('toneCurveCanvas')._redraw(); syncSlidersToActiveTarget(); renderFilterGrid(); renderLUTList(); render();
+        showToast(pickR(ARTISTS) + ' × ' + pickR(MATS) + ' · ' + pickR(MOODS) + '  [' + cat.items[vi] + ']');
       });
 
       document.getElementById('btnClearFilter').addEventListener('click', () => {
