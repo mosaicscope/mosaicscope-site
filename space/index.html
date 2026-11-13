@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>mosaicSpace</title>
+<!-- mosaicSpace: a video + audio editor in one file. Big ProRes/MOV sources are NEVER loaded into RAM: the File stays on disk, is mounted into an
+     ffmpeg.wasm Web Worker through WORKERFS, and is turned into small 720p H.264 proxy chunks while you already edit. -->
+<style>
+  :root { --bg:#0e0e10; --pan:#161619; --sur:#1f1f24; --line:#2c2c34; --ink:#e8e8ec; --dim:#8a8a94; --acc:#3b82f6; --red:#ec2a1c; --grn:#34c759; --yel:#f6b62c; }
+  * { box-sizing:border-box; } html,body { height:100%; margin:0; background:var(--bg); color:var(--ink); font:13px/1.45 Inter,"Segoe UI",Roboto,system-ui,-apple-system,sans-serif; overflow:hidden; user-select:none; -webkit-font-smoothing:antialiased; }
+  body { display:grid; grid-template-rows:46px minmax(0,1fr) 300px; grid-template-columns:240px minmax(0,1fr) 300px; grid-template-areas:"top top top" "bin view insp" "tl tl tl"; }
+  button,select,label.b { font:inherit; color:var(--ink); background:var(--sur); border:1px solid var(--line); border-radius:7px; padding:6px 11px; cursor:pointer; line-height:1.2; } input[type=range] { accent-color:var(--acc); min-width:0; margin:0; }
+  button:hover,label.b:hover { background:#2a2a31; } button.p { background:var(--acc); border-color:var(--acc); font-weight:600; } button.on { outline:1px solid var(--acc); }
+  header { grid-area:top; display:flex; gap:8px; align-items:center; padding:0 12px; background:var(--pan); border-bottom:1px solid var(--line); overflow-x:auto; white-space:nowrap; }
+  header b { font-size:14px; letter-spacing:.02em; } .sp { flex:1; } .dim { color:var(--dim); } #saved.warn { color:var(--yel); }
+  #bin { grid-area:bin; background:var(--pan); border-right:1px solid var(--line); overflow:auto; padding:8px; }
+  #view { grid-area:view; position:relative; background:#000; display:flex; flex-direction:column; min-width:0; }
+  #stage { flex:1; position:relative; min-height:0; overflow:hidden; background:#000; } canvas#out { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#000; }
+  #hud { position:absolute; left:10px; bottom:10px; background:#000b; padding:4px 9px; border-radius:6px; font:12px Inter,"Segoe UI",system-ui,sans-serif; pointer-events:none; } #hud:empty { display:none; }
+  #transport { display:flex; gap:8px; align-items:center; padding:8px 12px; background:var(--pan); border-top:1px solid var(--line); } #tc { font:13px ui-monospace,monospace; min-width:92px; }
+  #meter { width:90px; height:8px; background:#222; border-radius:4px; overflow:hidden; } #meter i { display:block; height:100%; width:0; background:linear-gradient(90deg,var(--grn),var(--yel),var(--red)); }
+  #insp { grid-area:insp; background:var(--pan); border-left:1px solid var(--line); overflow-y:auto; overflow-x:hidden; padding:12px 14px 24px; }
+  h4 { margin:20px 0 8px; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); } h4:first-child { margin-top:0; }
+  .row { display:grid; grid-template-columns:76px minmax(0,1fr) 46px; align-items:center; column-gap:10px; margin:7px 0; } .row > span { color:var(--dim); white-space:nowrap; } .row output { text-align:right; color:var(--ink); font-variant-numeric:tabular-nums; white-space:nowrap; } .row select { grid-column:2 / 4; min-width:0; } .row.btns { display:flex; gap:6px; flex-wrap:wrap; margin-top:12px; } .row.btns button { flex:1 1 0; padding:6px 4px; }
+  .eq { display:grid; grid-template-columns:repeat(10,minmax(0,1fr)); gap:2px; height:128px; } .eq div { display:flex; flex-direction:column; align-items:center; gap:4px; font-size:10px; color:var(--dim); min-height:0; } .eq input { writing-mode:vertical-lr; direction:rtl; width:100%; flex:1; min-height:0; height:100%; }
+  .media { display:flex; flex-direction:column; gap:4px; padding:10px; margin-bottom:8px; background:var(--sur); border-radius:7px; border:1px solid var(--line); cursor:grab; } .media b { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .media small { color:var(--dim); } .bar { height:4px; background:#333; border-radius:2px; overflow:hidden; } .bar i { display:block; height:100%; background:var(--acc); width:0; transition:width .3s; }
+  #tl { grid-area:tl; background:var(--pan); border-top:1px solid var(--line); display:flex; flex-direction:column; min-width:0; }
+  #tools { display:flex; gap:8px; align-items:center; padding:6px 12px; border-bottom:1px solid var(--line); } #zoom { width:110px; }
+  #scroll { flex:1; overflow:auto; position:relative; } #lanes { position:relative; min-width:100%; }
+  #ruler { height:24px; position:sticky; top:0; z-index:5; background:var(--pan); border-bottom:1px solid var(--line); cursor:pointer; }
+  .tick { position:absolute; top:0; bottom:0; border-left:1px solid #3a3a44; font:10px ui-monospace,Consolas,monospace; color:var(--dim); padding:3px 0 0 4px; }
+  .lane { position:relative; height:50px; border-bottom:1px solid var(--line); background:repeating-linear-gradient(90deg,#15151a 0 1px,transparent 1px 80px); } .lane.a { background-color:#121518; }
+  .lane label { position:sticky; left:0; z-index:4; width:44px; height:100%; display:flex; align-items:center; justify-content:center; background:#101013; border-right:1px solid var(--line); font-size:11px; font-weight:600; color:var(--dim); }
+  .clip { position:absolute; top:3px; bottom:3px; border-radius:6px; overflow:hidden; border:1px solid #fff2; background:#2b4a7a; cursor:grab; } .clip.a { background:#1f5a44; } .clip.sel { outline:2px solid var(--yel); z-index:3; }
+  .clip canvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; } .clip span { position:absolute; left:10px; right:10px; top:3px; font-size:11px; font-weight:500; text-shadow:0 1px 2px #000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; pointer-events:none; }
+  .clip .h { position:absolute; top:0; bottom:0; width:7px; cursor:ew-resize; background:#fff3; } .clip .h.l { left:0; } .clip .h.r { right:0; }
+  #head { position:absolute; top:0; bottom:0; width:0; border-left:2px solid var(--red); z-index:6; pointer-events:none; } #head::before { content:""; position:absolute; left:-7px; top:0; border:6px solid transparent; border-top-color:var(--red); }
+  #drop { position:fixed; inset:0; z-index:50; display:none; place-items:center; background:#0b1a3acc; font-size:22px; pointer-events:none; }
+  #toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:#000d; padding:8px 14px; border-radius:9px; opacity:0; transition:opacity .2s; z-index:60; pointer-events:none; max-width:80vw; }
+  dialog { background:var(--pan); color:var(--ink); border:1px solid var(--line); border-radius:12px; padding:16px; max-width:520px; } dialog::backdrop { background:#000a; } dialog h3 { margin:0 0 10px; }
+  kbd { background:#2a2a31; border:1px solid var(--line); border-radius:4px; padding:0 5px; font:11px ui-monospace,monospace; } table.k td { padding:2px 8px 2px 0; }
+  @media (max-width:1100px) { body { grid-template-columns:200px minmax(0,1fr) 260px; } }
+  @media (max-width:820px) { body { grid-template-columns:minmax(0,1fr); grid-template-rows:46px 42vh auto 300px; grid-template-areas:"top" "view" "bin" "tl"; overflow:auto; } #insp { display:none; } #bin { max-height:150px; } }
+</style>
+</head>
+<body>
+<header>
+  <b>mosaicSpace</b><span class="dim">video + audio</span>
+  <label class="b">Add media<input id="file" type="file" hidden multiple accept="video/*,audio/*,.mov,.mp4,.m4v,.mkv,.mxf,.avi,.webm,.wav,.mp3,.flac,.aac,.m4a,.ogg,.opus,.aif,.aiff" /></label>
+  <label class="b">LUT<input id="lutfile" type="file" hidden accept=".cube" /></label>
+  <button id="undo" title="Ctrl+Z">Undo</button><button id="redo" title="Ctrl+Shift+Z">Redo</button>
+  <span class="sp"></span><span id="mem" class="dim"></span><span id="saved" class="dim">Not saved yet</span>
+  <button id="help">Shortcuts ?</button><button id="export" class="p">Export</button>
+</header>
+<aside id="bin"><div class="dim" id="binhint">Drop videos or audio here. Huge ProRes / MOV files are fine: they stay on disk and proxies build in the background while you edit.</div></aside>
+<main id="view">
+  <div id="stage"><canvas id="out" width="1280" height="720"></canvas><div id="hud"></div></div>
+  <div id="transport">
+    <button id="back" title="J">⏪</button><button id="play" class="p" title="Space / K">▶</button><button id="fwd" title="L">⏩</button><span id="tc">00:00:00:00</span>
+    <span class="sp"></span><span class="dim">level</span><div id="meter"><i></i></div><button id="mute" title="M">🔊</button>
+  </div>
+</main>
+<aside id="insp">
+  <div id="nosel" class="dim">Select a clip to edit it. Everything is one slider or one key.</div>
+  <div id="clipui" hidden>
+    <h4>Clip</h4>
+    <div class="row"><span>Speed</span><input id="c_speed" type="range" min="25" max="400" value="100" /><output></output></div>
+    <div class="row"><span>Volume</span><input id="c_vol" type="range" min="0" max="200" value="100" /><output></output></div>
+    <div class="row"><span>Fade in</span><input id="c_fi" type="range" min="0" max="50" value="0" /><output></output></div>
+    <div class="row"><span>Fade out</span><input id="c_fo" type="range" min="0" max="50" value="0" /><output></output></div>
+    <h4 class="vonly">Colour</h4>
+    <div class="vonly">
+      <div class="row"><span>Exposure</span><input id="c_exp" type="range" min="-300" max="300" value="0" /><output></output></div>
+      <div class="row"><span>Contrast</span><input id="c_con" type="range" min="-100" max="100" value="0" /><output></output></div>
+      <div class="row"><span>Saturation</span><input id="c_sat" type="range" min="-100" max="100" value="0" /><output></output></div>
+      <div class="row"><span>Temp</span><input id="c_tmp" type="range" min="-100" max="100" value="0" /><output></output></div>
+      <div class="row"><span>Tint</span><input id="c_tnt" type="range" min="-100" max="100" value="0" /><output></output></div>
+      <div class="row"><span>LUT</span><select id="c_lut" style="flex:1"><option value="">None</option></select></div>
+      <div class="row"><span>LUT amount</span><input id="c_lutamt" type="range" min="0" max="100" value="100" /><output></output></div>
+    </div>
+    <h4>Equaliser (10 band)</h4>
+    <div class="eq" id="eq"></div><div class="row btns"><button id="eqreset">Flat</button><button id="eqbass">Bass</button><button id="eqvoice">Voice</button><button id="eqair">Air</button></div>
+    <h4>Effects</h4>
+    <div class="row"><span>Echo</span><input id="c_echo" type="range" min="0" max="100" value="0" /><output></output></div>
+    <div class="row"><span>Distort</span><input id="c_dist" type="range" min="0" max="100" value="0" /><output></output></div>
+    <div class="row"><span>Buzz</span><input id="c_buzz" type="range" min="0" max="100" value="0" /><output></output></div>
+    <div class="row"><span>Compress</span><input id="c_comp" type="range" min="0" max="100" value="0" /><output></output></div>
+  </div>
+  <h4>Master EQ (everything)</h4><div class="eq" id="meq"></div>
+  <h4>Project</h4>
+  <div class="row"><span>Export</span><select id="x_res"><option value="1280x720">720p</option><option value="1920x1080">1080p</option><option value="3840x2160" selected>4K UHD</option></select></div>
+  <div class="row"><span>FPS</span><select id="x_fps"><option>24</option><option selected>25</option><option>30</option><option>50</option><option>60</option></select></div>
+  <div class="row"><span>Quality</span><input id="x_crf" type="range" min="14" max="30" value="20" /><output></output></div>
+</aside>
+<section id="tl">
+  <div id="tools"><button id="split" title="S">Split</button><button id="del" title="Del">Delete</button><button id="ripple" title="Shift+Del">Ripple delete</button><button id="dup" title="D">Duplicate</button>
+    <span class="sp"></span><span class="dim">Zoom</span><input id="zoom" type="range" min="10" max="400" value="60" /></div>
+  <div id="scroll"><div id="lanes"><div id="ruler"></div><div id="head"></div></div></div>
+</section>
+<div id="drop">Drop video or audio files</div><div id="toast"></div>
+<dialog id="dlg"><h3 id="dt"></h3><div id="db"></div><div style="text-align:right;margin-top:12px" id="dbtn"></div></dialog>
+
+<!-- ===================== the proxy / export Web Worker (a classic worker, built into a Blob) ===================== -->
+<script id="workersrc" type="text/plain">
+'use strict';
+/* Message protocol  (main -> worker):  init | mount | probe | proxy | peaks | cancel | export | ack | gen
+   (worker -> main): ready | mounted | probe | seg | peaks | prog | xseg | done | error | log
+   The source File never leaves the disk: it is mounted with WORKERFS and read on demand by ffmpeg. */
+let core = null, cancelled = false, logs = [], ackResolve = null; const mounts = new Set();
+self.onmessage = async (e) => {
+  const m = e.data;
+  try {
+    if (m.cmd === 'ack') { if (ackResolve) { ackResolve(); ackResolve = null; } return; }
+    if (m.cmd === 'cancel') { cancelled = true; return; }
+    cancelled = false;
+    if (m.cmd === 'init') await init(m);
+    else if (m.cmd === 'mount') { mountFile(m.id, m.file, m.ext); postMessage({ evt: 'mounted', id: m.id }); }
+    else if (m.cmd === 'probe') await probe(m);
+    else if (m.cmd === 'proxy') await proxy(m);
+    else if (m.cmd === 'peaks') await peaks(m);
+    else if (m.cmd === 'export') await exportEDL(m);
+    else if (m.cmd === 'gen') await gen(m);
+  } catch (err) { postMessage({ evt: 'error', id: m.id, msg: String((err && err.message) || err), tail: logs.slice(-6).join('\\n') }); }
+};
+async function init({ coreURL, wasmURL, workerURL }) {
+  importScripts(coreURL);
+  core = await self.createFFmpegCore({ mainScriptUrlOrBlob: coreURL + '#' + btoa(JSON.stringify({ wasmURL, workerURL })) });
+  core.setLogger((d) => { logs.push(d.message); if (logs.length > 300) logs.shift(); });
+  core.setProgress((p) => postMessage({ evt: 'prog', progress: p.progress, time: p.time }));
+  try { core.FS.mkdir('/m'); } catch (e) { /* exists */ }
+  postMessage({ evt: 'ready' });
+}
+function mountFile(id, file, ext) {                         // zero-copy: ffmpeg reads straight from the user's file on disk
+  const dir = '/m/' + id; if (mounts.has(id)) return;
+  core.FS.mkdir(dir); core.FS.mount(core.FS.filesystems.WORKERFS, { blobs: [{ name: 'src.' + (ext || 'bin'), data: file }] }, dir); mounts.add(id);
+}
+const srcPath = (id, ext) => '/m/' + id + '/src.' + (ext || 'bin');
+function run(args) { logs.length = 0; core.exec(...args); const r = core.ret; core.reset(); return r; }
+async function probe({ id, ext }) {
+  run(['-hide_banner', '-i', srcPath(id, ext)]);
+  const t = logs.join('\\n'), d = /Duration:\\s*(\\d+):(\\d+):(\\d+(?:\\.\\d+)?)/.exec(t), v = /Video:\\s*([^,\\s(]+)[^\\n]*?(\\d{2,5})x(\\d{2,5})/.exec(t), f = /(\\d+(?:\\.\\d+)?)\\s*fps/.exec(t), a = /Audio:\\s*([^,\\s(]+)/.exec(t);
+  postMessage({ evt: 'probe', id, dur: d ? +d[1] * 3600 + +d[2] * 60 + +d[3] : 0, vcodec: v ? v[1] : null, w: v ? +v[2] : 0, h: v ? +v[3] : 0, fps: f ? +f[1] : 0, acodec: a ? a[1] : null });
+}
+/* Chunked proxy generation: 30-60s segments, each 720p H.264, shipped to the main thread the moment it exists, then freed. */
+async function proxy({ id, ext, dur, segSec, from, hasAudio, hasVideo }) {
+  const n = Math.ceil(dur / segSec);
+  for (let i = from || 0; i < n; i++) {
+    if (cancelled) { postMessage({ evt: 'done', id, cancelled: true, next: i }); return; }
+    const t0 = i * segSec, len = Math.min(segSec, dur - t0), mp4 = 'p' + i + '.mp4', raw = 'a' + i + '.raw';
+    const args = ['-hide_banner', '-ss', String(t0), '-i', srcPath(id, ext), '-t', String(len)];
+    if (hasVideo) args.push('-map', '0:v:0', '-vf', 'scale=1280:-2', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28', '-threads', '2', '-pix_fmt', 'yuv420p');
+    if (hasAudio) args.push('-map', '0:a:0?', '-c:a', 'aac', '-b:a', '96k');
+    args.push('-movflags', '+faststart', '-y', mp4);
+    if (hasAudio) args.push('-map', '0:a:0?', '-vn', '-ac', '1', '-ar', '4000', '-f', 's16le', '-y', raw);   // second output from the same decode: waveform peaks
+    run(args);
+    if (hasVideo) { const u = core.FS.readFile(mp4); const buf = u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength); core.FS.unlink(mp4); postMessage({ evt: 'seg', id, index: i, start: t0, dur: len, buf }, [buf]); }
+    if (hasAudio) { try { const r = core.FS.readFile(raw); core.FS.unlink(raw); postMessage({ evt: 'peaks', id, from: t0, data: bucketPeaks(r) }); } catch (e) { /* no audio in this segment */ } }
+    postMessage({ evt: 'prog', id, seg: i + 1, of: n });
+  }
+  postMessage({ evt: 'done', id });
+}
+async function peaks({ id, ext, dur }) {                     // audio-only / natively playable media: just the waveform
+  const SEG = 300, n = Math.ceil(dur / SEG);
+  for (let i = 0; i < n; i++) {
+    if (cancelled) break;
+    const t0 = i * SEG, raw = 'a' + i + '.raw';
+    run(['-hide_banner', '-ss', String(t0), '-i', srcPath(id, ext), '-t', String(Math.min(SEG, dur - t0)), '-map', '0:a:0?', '-vn', '-ac', '1', '-ar', '4000', '-f', 's16le', '-y', raw]);
+    try { const r = core.FS.readFile(raw); core.FS.unlink(raw); postMessage({ evt: 'peaks', id, from: t0, data: bucketPeaks(r) }); } catch (e) { /* silent */ }
+    postMessage({ evt: 'prog', id, seg: i + 1, of: n });
+  }
+  postMessage({ evt: 'done', id });
+}
+function bucketPeaks(u8) {                                   // 4 kHz mono s16 -> one (min,max) byte pair per 20 ms
+  const s = new Int16Array(u8.buffer, u8.byteOffset, u8.byteLength >> 1), B = 80, n = Math.floor(s.length / B), out = new Int8Array(n * 2);
+  for (let i = 0; i < n; i++) { let lo = 32767, hi = -32768; for (let k = 0; k < B; k++) { const v = s[i * B + k]; if (v < lo) lo = v; if (v > hi) hi = v; } out[i * 2] = lo >> 8; out[i * 2 + 1] = hi >> 8; }
+  return out;
+}
+/* Export: the edit list becomes an ffmpeg filter graph and is rendered in timeline windows (default 20 s) from the ORIGINAL files.
+   Each finished window is an MPEG-TS chunk (TS can simply be appended), posted to the main thread, which streams it to disk. */
+const EQF = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+async function exportEDL({ edl, opts, luts }) {
+  const { W, H, fps, crf, win } = opts, total = edl.total; let idx = 0;
+  for (const [name, text] of Object.entries(luts || {})) core.FS.writeFile('/' + name + '.cube', text);
+  for (let t0 = 0; t0 < total; t0 += win) {
+    if (cancelled) { postMessage({ evt: 'done', cancelled: true }); return; }
+    const t1 = Math.min(total, t0 + win), D = t1 - t0, clips = edl.clips.filter((c) => c.start < t1 && c.start + c.dur > t0), inputs = [], vch = [], ach = []; let fg = [];
+    clips.forEach((c, k) => {
+      const off = Math.max(0, c.start - t0), s = Math.max(0, t0 - c.start), dur = Math.min(c.start + c.dur, t1) - Math.max(c.start, t0), inS = c.in + s * c.speed;
+      inputs.push('-ss', inS.toFixed(3), '-t', (dur * c.speed).toFixed(3), '-i', srcPath(c.media, c.ext));
+      if (c.hasVideo && c.track < 2) {
+        let ch = '[' + k + ':v]setpts=(PTS-STARTPTS)/' + c.speed + ',scale=' + W + ':' + H + ':force_original_aspect_ratio=decrease,pad=' + W + ':' + H + ':(ow-iw)/2:(oh-ih)/2,fps=' + fps;
+        if (c.color.exp || c.color.con || c.color.sat) ch += ',eq=brightness=' + (c.color.exp / 600).toFixed(3) + ':contrast=' + (1 + c.color.con / 100).toFixed(3) + ':saturation=' + (1 + c.color.sat / 100).toFixed(3);
+        if (c.color.tmp || c.color.tnt) ch += ',colorbalance=rm=' + (c.color.tmp / 400).toFixed(3) + ':bm=' + (-c.color.tmp / 400).toFixed(3) + ':gm=' + (-c.color.tnt / 400).toFixed(3);
+        if (c.lut) ch += ',lut3d=/' + c.lut + '.cube';
+        fg.push(ch + ',format=yuv420p,setpts=PTS+' + off.toFixed(3) + '/TB[v' + k + ']'); vch.push({ k, track: c.track, off, dur });
+      }
+      if (c.hasAudio) {
+        let ch = '[' + k + ':a]asetpts=PTS-STARTPTS' + (c.speed !== 1 ? ',atempo=' + c.speed : '') + ',aresample=48000,volume=' + c.vol.toFixed(3);
+        if (c.fi > 0) ch += ',afade=t=in:d=' + c.fi; if (c.fo > 0) ch += ',afade=t=out:st=' + Math.max(0, dur - c.fo).toFixed(3) + ':d=' + c.fo;
+        c.eq.forEach((g, b) => { if (g) ch += ',equalizer=f=' + EQF[b] + ':t=o:w=1:g=' + g; });
+        if (c.echo) ch += ',aecho=0.8:0.7:' + Math.round(150 + c.echo * 4) + ':' + (c.echo / 200).toFixed(2);
+        fg.push(ch + ',adelay=' + Math.round(off * 1000) + '|' + Math.round(off * 1000) + '[a' + k + ']'); ach.push('[a' + k + ']');
+      }
+    });
+    fg.unshift('color=c=black:s=' + W + 'x' + H + ':r=' + fps + ':d=' + D.toFixed(3) + '[base]');
+    let cur = 'base'; vch.sort((a, b) => a.track - b.track).forEach((v, i) => { fg.push('[' + cur + '][v' + v.k + ']overlay=eof_action=pass:shortest=0[o' + i + ']'); cur = 'o' + i; });
+    fg.push('[' + cur + ']trim=duration=' + D.toFixed(3) + ',setpts=PTS-STARTPTS[vout]');
+    fg.push('anullsrc=r=48000:cl=stereo,atrim=duration=' + D.toFixed(3) + '[a0]');
+    fg.push('[a0]' + ach.join('') + 'amix=inputs=' + (ach.length + 1) + ':normalize=0:duration=first' + (edl.masterEq || []).map((g, b) => (g ? ',equalizer=f=' + EQF[b] + ':t=o:w=1:g=' + g : '')).join('') + '[aout]');
+    const out = 'x' + idx + '.ts';
+    run(['-hide_banner', ...inputs, '-filter_complex', fg.join(';'), '-map', '[vout]', '-map', '[aout]', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', String(crf), '-pix_fmt', 'yuv420p', '-g', String(fps * 2), '-c:a', 'aac', '-b:a', '192k', '-t', D.toFixed(3), '-f', 'mpegts', '-y', out]);
+    const u = core.FS.readFile(out); const buf = u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength); core.FS.unlink(out);
+    postMessage({ evt: 'xseg', index: idx, t0, t1, total, buf }, [buf]); idx++;
+    await new Promise((res) => { ackResolve = res; });          // backpressure: wait until the main thread has written this chunk to disk
+  }
+  postMessage({ evt: 'done' });
+}
+async function gen({ seconds }) {                           // self-test helper: a small ProRes .mov made inside the worker
+  run(['-f', 'lavfi', '-i', 'testsrc2=size=1920x1080:rate=24:duration=' + seconds, '-f', 'lavfi', '-i', 'sine=frequency=330:duration=' + seconds, '-c:v', 'prores_ks', '-profile:v', '3', '-pix_fmt', 'yuv422p10le', '-c:a', 'pcm_s16le', '-y', 'gen.mov']);
+  const u = core.FS.readFile('gen.mov'); const buf = u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength); core.FS.unlink('gen.mov'); postMessage({ evt: 'gen', buf }, [buf]);
+}
+</script>
+
+<script type="module">
+'use strict';
+const $ = (s) => document.querySelector(s), $$ = (s) => [...document.querySelectorAll(s)], uid = () => Math.random().toString(36).slice(2, 9);
+const SEG = 45, WARN_BYTES = 30 * 2 ** 30, MEM_LIMIT = 1 * 2 ** 30;            // proxy chunk length, "this will take longer" threshold, JS heap budget
+const EQF = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+const fmtT = (t, fps = 25) => { const f = Math.floor((t % 1) * fps), s = Math.floor(t) % 60, m = Math.floor(t / 60) % 60, h = Math.floor(t / 3600), p = (n) => String(n).padStart(2, '0'); return p(h) + ':' + p(m) + ':' + p(s) + ':' + p(f); };
+let toastT; const toast = (m, ms = 3200) => { const t = $('#toast'); t.textContent = m; t.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => (t.style.opacity = 0), ms); };
+function ask(title, body, buttons) { return new Promise((res) => { $('#dt').textContent = title; $('#db').innerHTML = body; const b = $('#dbtn'); b.innerHTML = ''; buttons.forEach(([label, val, cls]) => { const x = document.createElement('button'); x.textContent = label; if (cls) x.className = cls; x.onclick = () => { $('#dlg').close(); res(val); }; b.append(x); }); $('#dlg').showModal(); }); }
+
+/* ===================== state ===================== */
+const G = 44, NT = 4;                                                                   // V1 V2 A1 A2
+const S = { media: {}, clips: [], playhead: 0, zoom: 60, selected: null, masterEq: new Array(10).fill(0), luts: {}, ver: 1 };
+const files = new Map();                                                        // mediaId -> File (disk-backed reference, never read into memory)
+const segs = new Map();                                                         // mediaId -> Map(index -> File in OPFS)
+const peaks = new Map();                                                        // mediaId -> Int8Array[]
+let undoStack = [], redoStack = [], dirty = false;
+const snapshot = () => JSON.stringify({ media: Object.fromEntries(Object.entries(S.media).map(([k, m]) => [k, { ...m, proxy: m.proxy }])), clips: S.clips, masterEq: S.masterEq, luts: S.luts });
+function commit() { undoStack.push(snapshot()); if (undoStack.length > 80) undoStack.shift(); redoStack = []; dirty = true; renderTimeline(); }
+function restore(js) { const o = JSON.parse(js); S.media = o.media; S.clips = o.clips; S.masterEq = o.masterEq; S.luts = o.luts || {}; if (!S.clips.find((c) => c.id === S.selected)) S.selected = null; dirty = true; renderAll(); }
+$('#undo').onclick = () => { if (undoStack.length > 1) { redoStack.push(undoStack.pop()); restore(undoStack[undoStack.length - 1]); } };
+$('#redo').onclick = () => { if (redoStack.length) { const s = redoStack.pop(); undoStack.push(s); restore(s); } };
+
+/* ===================== storage: OPFS for proxies + project, IndexedDB for file handles (crash recovery) ===================== */
+let opfs = null; try { opfs = await navigator.storage.getDirectory(); } catch (e) { /* private mode */ }
+const dirOf = async (...p) => { let d = opfs; for (const n of p) d = await d.getDirectoryHandle(n, { create: true }); return d; };
+const idb = await new Promise((res) => { const r = indexedDB.open('mosaicSpace', 1); r.onupgradeneeded = () => r.result.createObjectStore('h'); r.onsuccess = () => res(r.result); r.onerror = () => res(null); });
+const idbPut = (k, v) => idb && new Promise((res) => { const t = idb.transaction('h', 'readwrite'); t.objectStore('h').put(v, k); t.oncomplete = res; t.onerror = res; });
+const idbGet = (k) => idb && new Promise((res) => { const r = idb.transaction('h').objectStore('h').get(k); r.onsuccess = () => res(r.result); r.onerror = () => res(null); });
+async function saveProject() {
+  if (!dirty) return; const js = snapshot();
+  try { if (opfs) { const f = await (await opfs.getFileHandle('project.json', { create: true })).createWritable(); await f.write(js); await f.close(); } else localStorage.setItem('ms-space', js); dirty = false; $('#saved').textContent = 'Saved ' + new Date().toLocaleTimeString(); $('#saved').className = 'dim'; }
+  catch (e) { $('#saved').textContent = 'Save failed: ' + e.message; $('#saved').className = 'warn'; }
+}
+setInterval(saveProject, 3000); addEventListener('beforeunload', () => { try { localStorage.setItem('ms-space-last', snapshot()); } catch (e) { /* too big */ } saveProject(); });
+async function writeSeg(id, i, buf) {                                           // proxy chunk -> OPFS file, then the buffer is released
+  if (!opfs) { const f = new File([buf], 'p' + i + '.mp4', { type: 'video/mp4' }); segs.get(id).set(i, f); return; }
+  const d = await dirOf('proxy', id), h = await d.getFileHandle('p' + i + '.mp4', { create: true }), w = await h.createWritable(); await w.write(buf); await w.close(); segs.get(id).set(i, await h.getFile());
+}
+
+/* ===================== worker manager ===================== */
+const workerURL = URL.createObjectURL(new Blob([$('#workersrc').textContent.replaceAll('\\\\', '\\')], { type: 'text/javascript' }));
+let worker = null, readyP = null, jobs = [], busy = null; const waiters = new Map();
+const CORE = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core' + (self.crossOriginIsolated ? '-mt' : '') + '@0.12.6/dist/umd/';
+async function blobURL(u, type) { const r = await fetch(u); return URL.createObjectURL(new Blob([await r.arrayBuffer()], { type })); }
+function startWorker() {
+  if (readyP) return readyP;
+  readyP = (async () => {
+    $('#hud').textContent = 'Loading the video engine…';
+    const [coreURL, wasmURL, wk] = await Promise.all([blobURL(CORE + 'ffmpeg-core.js', 'text/javascript'), blobURL(CORE + 'ffmpeg-core.wasm', 'application/wasm'), self.crossOriginIsolated ? blobURL(CORE + 'ffmpeg-core.worker.js', 'text/javascript') : Promise.resolve('')]);
+    worker = new Worker(workerURL);
+    worker.onmessage = onWorker; worker.onerror = (e) => toast('Engine error: ' + e.message);
+    await new Promise((res) => { waiters.set('ready', res); worker.postMessage({ cmd: 'init', coreURL, wasmURL, workerURL: wk }); });
+    $('#hud').textContent = self.crossOriginIsolated ? 'Engine ready (multi-thread)' : 'Engine ready (single-thread)';
+  })();
+  return readyP;
+}
+const callW = (msg, wait) => new Promise((res) => { waiters.set(wait, res); worker.postMessage(msg); });
+function onWorker(e) {
+  const m = e.data;
+  if (m.evt === 'ready') waiters.get('ready')?.();
+  else if (m.evt === 'mounted') waiters.get('mounted:' + m.id)?.();
+  else if (m.evt === 'probe') waiters.get('probe:' + m.id)?.(m);
+  else if (m.evt === 'seg') { const id = m.id; writeSeg(id, m.index, m.buf).then(() => { const md = S.media[id]; md.proxy.done = Math.max(md.proxy.done, m.index + 1); updateBin(id); dirty = true; }); }
+  else if (m.evt === 'peaks') { const arr = peaks.get(m.id) || []; arr.push([m.from, m.data]); peaks.set(m.id, arr); redrawWaves(); }
+  else if (m.evt === 'prog' && m.id) { const md = S.media[m.id]; if (md) { md.proxy.prog = m.seg / m.of; updateBin(m.id); } }
+  else if (m.evt === 'done') waiters.get('done:' + (m.id || 'export'))?.(m);
+  else if (m.evt === 'xseg') exportChunk(m);
+  else if (m.evt === 'gen') waiters.get('gen')?.(m.buf);
+  else if (m.evt === 'error') { toast('Engine: ' + m.msg + (m.tail ? ' — ' + m.tail.split('\n').pop() : ''), 7000); console.error(m); waiters.get('done:' + (m.id || 'export'))?.({ error: true }); waiters.get('probe:' + m.id)?.({ error: true }); }
+}
+async function mountMedia(id) { const md = S.media[id]; if (md._mounted) return; await startWorker(); await callW({ cmd: 'mount', id, file: files.get(id), ext: md.ext }, 'mounted:' + id); md._mounted = true; }
+
+/* ===================== import: size warning, probe, native-playable test, chunked proxies ===================== */
+const extOf = (n) => (n.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5);
+function nativeOK(file) {                                                       // can this browser play it directly? (then no proxy is needed)
+  return new Promise((res) => { const v = document.createElement('video'), u = URL.createObjectURL(file); let done = false; const fin = (ok) => { if (done) return; done = true; v.removeAttribute('src'); v.load(); URL.revokeObjectURL(u); res(ok); };
+    v.preload = 'metadata'; v.onloadedmetadata = () => fin(v.duration > 0 && (v.videoWidth > 0 || file.type.startsWith('audio') || /\.(wav|mp3|flac|aac|m4a|ogg|opus|aif|aiff)$/i.test(file.name))); v.onerror = () => fin(false); setTimeout(() => fin(false), 6000); v.src = u; });
+}
+async function importFile(file, handle) {
+  if (file.size > WARN_BYTES) { const go = await ask('Very large file', '<b>' + file.name + '</b> is ' + (file.size / 2 ** 30).toFixed(1) + ' GB.<br>Building proxies for files over 30 GB takes a long time. You can start editing the first chunks as soon as they appear, and the rest keep building in the background.', [['Cancel', false], ['Continue', true, 'p']]); if (!go) return; }
+  const id = uid(), ext = extOf(file.name), isAudio = file.type.startsWith('audio') || /\.(wav|mp3|flac|aac|m4a|ogg|opus|aif|aiff)$/i.test(file.name);
+  S.media[id] = { id, name: file.name, size: file.size, ext, mod: file.lastModified, kind: isAudio ? 'audio' : 'video', dur: 0, native: false, proxy: { done: 0, total: 0, prog: 0 }, hasVideo: !isAudio, hasAudio: true, w: 0, h: 0 };
+  files.set(id, file); segs.set(id, new Map()); if (handle) idbPut('h:' + id, handle); updateBin(id);
+  const md = S.media[id];
+  try {
+    await startWorker(); await mountMedia(id);
+    const info = await callW({ cmd: 'probe', id, ext }, 'probe:' + id); if (info.error) throw new Error('could not read that file');
+    Object.assign(md, { dur: info.dur, w: info.w, h: info.h, fps: info.fps, vcodec: info.vcodec, hasAudio: !!info.acodec, hasVideo: !!info.vcodec && !isAudio });
+    md.native = await nativeOK(file);                                           // H.264 / HEVC(HW) / VP9 etc: play the original straight off disk, no proxy
+    md.proxy.total = md.native ? 0 : Math.ceil(info.dur / SEG);
+    updateBin(id); dirty = true; if (!S.clips.some((c) => c.media === id)) addClip(id);
+    enqueue(md.native ? { kind: 'peaks', id } : { kind: 'proxy', id });
+  } catch (e) { toast('Could not import ' + file.name + ': ' + e.message, 6000); delete S.media[id]; files.delete(id); updateBin(id); }
+}
+function enqueue(job) { jobs.push(job); pump(); }
+async function pump() {
+  if (busy || !jobs.length) return; busy = jobs.shift(); const { kind, id } = busy, md = S.media[id]; if (!md) { busy = null; return pump(); }
+  const wait = callW({ cmd: kind, id, ext: md.ext, dur: md.dur, segSec: SEG, from: md.proxy.done, hasAudio: md.hasAudio, hasVideo: md.hasVideo }, 'done:' + id);
+  await wait; busy = null; if (kind === 'proxy') md.proxy.prog = 1; updateBin(id); pump();
+}
+function updateBin(id) {
+  let el = $('#m_' + id); const md = S.media[id];
+  if (!md) { el?.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.id = 'm_' + id; el.className = 'media'; el.draggable = true; el.ondragstart = (e) => e.dataTransfer.setData('text/mosaic', id); el.ondblclick = () => addClip(id); $('#bin').append(el); $('#binhint')?.remove(); }
+  const state = !md.dur ? 'reading…' : md.native ? 'plays directly (no proxy needed)' : md.proxy.done >= md.proxy.total && md.proxy.total ? 'proxy ready' : 'building proxy ' + md.proxy.done + ' / ' + md.proxy.total;
+  el.innerHTML = '<b>' + md.name + '</b><small>' + (md.size / 2 ** 20 > 1024 ? (md.size / 2 ** 30).toFixed(1) + ' GB' : Math.round(md.size / 2 ** 20) + ' MB') + (md.w ? ' · ' + md.w + '×' + md.h : '') + (md.dur ? ' · ' + fmtT(md.dur, 25).slice(0, 8) : '') + '</small><small>' + state + '</small><div class="bar"><i style="width:' + Math.round((md.native ? 1 : md.proxy.total ? md.proxy.done / md.proxy.total : 0) * 100) + '%"></i></div>' + (files.has(id) ? '' : '<small style="color:var(--yel)">original not linked (only needed to export): drop it again</small>');
+}
+$('#file').onchange = async (e) => { for (const f of e.target.files) await importFile(f); e.target.value = ''; };
+addEventListener('dragover', (e) => { e.preventDefault(); $('#drop').style.display = 'grid'; }); addEventListener('dragleave', (e) => { if (!e.relatedTarget) $('#drop').style.display = 'none'; });
+addEventListener('drop', async (e) => { e.preventDefault(); $('#drop').style.display = 'none'; const items = [...e.dataTransfer.items]; for (let i = 0; i < items.length; i++) { const it = items[i]; if (it.kind !== 'file') continue; let h = null; try { h = it.getAsFileSystemHandle ? await it.getAsFileSystemHandle() : null; } catch (er) { /* no handle */ } const f = h && h.getFile ? await h.getFile() : it.getAsFile(); if (f) await importFile(f, h); } });
+
+/* ===================== timeline model + UI ===================== */
+function addClip(mediaId, track, start) {
+  const md = S.media[mediaId]; if (!md || !md.dur) return; const tr = track ?? (md.kind === 'audio' ? 2 : 0);
+  const end = S.clips.filter((c) => c.track === tr).reduce((m, c) => Math.max(m, c.start + c.dur), 0);
+  const c = { id: uid(), media: mediaId, track: tr, start: start ?? end, in: 0, dur: md.dur, speed: 1, vol: 1, fi: 0, fo: 0, color: { exp: 0, con: 0, sat: 0, tmp: 0, tnt: 0 }, lut: '', lutAmt: 100, eq: new Array(10).fill(0), echo: 0, dist: 0, buzz: 0, comp: 0 };
+  S.clips.push(c); S.selected = c.id; commit(); if (md.hasVideo && md.hasAudio && tr < 2) { /* audio comes with the video clip */ }
+}
+const total = () => Math.max(10, ...S.clips.map((c) => c.start + c.dur)) + 5;
+const sel = () => S.clips.find((c) => c.id === S.selected);
+function renderTimeline() {
+  const L = $('#lanes'), z = S.zoom; L.style.width = Math.max(G + total() * z, $('#scroll').clientWidth) + 'px';
+  [...L.querySelectorAll('.lane,.clip')].forEach((n) => n.remove());
+  const rl = $('#ruler'); rl.innerHTML = ''; const step = z > 120 ? 1 : z > 40 ? 5 : 15; for (let t = 0; t < total(); t += step) { const k = document.createElement('div'); k.className = 'tick'; k.style.left = G + t * z + 'px'; k.textContent = fmtT(t).slice(0, 8); rl.append(k); }
+  ['V1', 'V2', 'A1', 'A2'].forEach((n, i) => { const lane = document.createElement('div'); lane.className = 'lane' + (i > 1 ? ' a' : ''); lane.dataset.track = i; lane.innerHTML = '<label>' + n + '</label>'; lane.ondragover = (e) => e.preventDefault(); lane.ondrop = (e) => { const id = e.dataTransfer.getData('text/mosaic'); if (id) { e.preventDefault(); addClip(id, i, Math.max(0, (e.clientX - lane.getBoundingClientRect().left - G) / S.zoom)); } }; L.append(lane); });
+  S.clips.forEach((c) => {
+    const md = S.media[c.media]; if (!md) return; const el = document.createElement('div'); el.className = 'clip' + (c.track > 1 ? ' a' : '') + (c.id === S.selected ? ' sel' : ''); el.dataset.id = c.id;
+    el.style.left = G + c.start * z + 'px'; el.style.width = Math.max(6, c.dur / c.speed * z) + 'px'; el.innerHTML = '<canvas></canvas><span>' + md.name + '</span><i class="h l"></i><i class="h r"></i>';
+    $$('.lane')[c.track].append(el); wire(el, c); drawWave(el.querySelector('canvas'), c);
+  });
+  $('#head').style.left = G + S.playhead * z + 'px'; fillInspector();
+}
+function wire(el, c) {                                                          // drag = move (snaps), edges = trim
+  el.onpointerdown = (e) => {
+    e.stopPropagation(); S.selected = c.id; const mode = e.target.classList.contains('l') ? 'l' : e.target.classList.contains('r') ? 'r' : 'm', x0 = e.clientX, s0 = c.start, d0 = c.dur, i0 = c.in, tr0 = c.track; el.setPointerCapture(e.pointerId); let moved = false;
+    const snapTo = (t) => { const pts = [0, S.playhead, ...S.clips.filter((o) => o !== c).flatMap((o) => [o.start, o.start + o.dur / o.speed])]; for (const p of pts) if (Math.abs(p - t) * S.zoom < 8) return p; return t; };
+    el.onpointermove = (e) => { const dt = (e.clientX - x0) / S.zoom; if (Math.abs(e.clientX - x0) > 2) moved = true; if (mode === 'm') { c.start = Math.max(0, snapTo(s0 + dt)); const ln = document.elementFromPoint(e.clientX, e.clientY)?.closest?.('.lane'); if (ln && ln.dataset.track !== undefined && ((+ln.dataset.track > 1) === (tr0 > 1))) c.track = +ln.dataset.track; }
+      else if (mode === 'l') { const d = Math.min(d0 - 0.1, Math.max(-i0, dt)); c.start = s0 + d; c.in = i0 + d * c.speed; c.dur = d0 - d * c.speed; } else c.dur = Math.max(0.1, Math.min(S.media[c.media].dur - c.in, d0 + dt * c.speed)); renderTimeline(); };
+    el.onpointerup = () => { el.onpointermove = null; if (moved) commit(); else renderTimeline(); };
+  };
+}
+$('#lanes').onpointerdown = (e) => { if (e.target.closest('.clip')) return; S.selected = null; seekFromEvent(e); renderTimeline(); const mv = (ev) => seekFromEvent(ev), up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); }; addEventListener('pointermove', mv); addEventListener('pointerup', up); };
+function seekFromEvent(e) { const r = $('#lanes').getBoundingClientRect(); setPlayhead(Math.max(0, (e.clientX - r.left - G) / S.zoom)); }
+$('#zoom').oninput = (e) => { S.zoom = +e.target.value; renderTimeline(); };
+$('#scroll').addEventListener('wheel', (e) => { if (e.ctrlKey) { e.preventDefault(); S.zoom = Math.max(10, Math.min(400, S.zoom * (e.deltaY < 0 ? 1.15 : 0.87))); $('#zoom').value = S.zoom; renderTimeline(); } }, { passive: false });
+function drawWave(cv, c) {                                                      // full waveform from the streamed peaks (20 ms buckets)
+  const md = S.media[c.media], pk = peaks.get(c.media); const w = (cv.width = cv.clientWidth || Math.max(6, c.dur / c.speed * S.zoom)), h = (cv.height = cv.clientHeight || 48), x = cv.getContext('2d'); x.clearRect(0, 0, w, h);
+  if (!pk || !md.hasAudio) return; x.fillStyle = '#ffffff99'; const per = c.dur / w;
+  for (let px = 0; px < w; px++) { const t = c.in + px * per * c.speed, ch = pk.find(([f, d]) => t >= f && t < f + d.length / 100); if (!ch) continue; const i = Math.floor((t - ch[0]) * 50) * 2, lo = ch[1][i] / 128, hi = ch[1][i + 1] / 128; x.fillRect(px, h / 2 - hi * h / 2, 1, Math.max(1, (hi - lo) * h / 2)); }
+}
+const redrawWaves = (() => { let q; return () => { clearTimeout(q); q = setTimeout(() => $$('.clip').forEach((el) => { const c = S.clips.find((k) => k.id === el.dataset.id); if (c) drawWave(el.querySelector('canvas'), c); }), 250); }; })();
+
+/* ===================== inspector ===================== */
+const EQP = { flat: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], bass: [6, 5, 3, 1, 0, 0, 0, 0, 0, 0], voice: [-6, -4, -2, 0, 2, 4, 4, 2, 0, -2], air: [0, 0, 0, 0, 0, 1, 2, 4, 6, 7] };
+function eqUI(host, get, set) { host.innerHTML = ''; EQF.forEach((f, i) => { const d = document.createElement('div'), r = document.createElement('input'); r.type = 'range'; r.min = -12; r.max = 12; r.step = 0.5; r.value = get()[i]; r.oninput = () => { const a = get(); a[i] = +r.value; set(a, false); }; r.onchange = () => set(get(), true); r.ondblclick = () => { r.value = 0; const a = get(); a[i] = 0; set(a, true); }; d.append(r, document.createTextNode(f >= 1000 ? f / 1000 + 'k' : f)); host.append(d); }); }
+const SL = { c_speed: ['speed', (v) => v / 100, (v) => v + '%'], c_vol: ['vol', (v) => v / 100, (v) => v + '%'], c_fi: ['fi', (v) => v / 10, (v) => (v / 10).toFixed(1) + 's'], c_fo: ['fo', (v) => v / 10, (v) => (v / 10).toFixed(1) + 's'], c_lutamt: ['lutAmt', (v) => v, (v) => v + '%'], c_echo: ['echo', (v) => v, (v) => v], c_dist: ['dist', (v) => v, (v) => v], c_buzz: ['buzz', (v) => v, (v) => v], c_comp: ['comp', (v) => v, (v) => v] };
+const COL = { c_exp: 'exp', c_con: 'con', c_sat: 'sat', c_tmp: 'tmp', c_tnt: 'tnt' };
+function fillInspector() {
+  const c = sel(); $('#clipui').hidden = !c; $('#nosel').hidden = !!c;
+  eqUI($('#meq'), () => S.masterEq, (a, cm) => { S.masterEq = a; applyAudio(); if (cm) commit(); });
+  $('#x_crf').nextElementSibling.textContent = $('#x_crf').value;
+  if (!c) return; const md = S.media[c.media]; $$('.vonly').forEach((n) => (n.hidden = !md.hasVideo || c.track > 1));
+  for (const [id, [k, f, show]] of Object.entries(SL)) { const el = $('#' + id); el.value = k === 'speed' || k === 'vol' ? c[k] * 100 : k === 'fi' || k === 'fo' ? c[k] * 10 : c[k]; el.nextElementSibling.textContent = show(+el.value); }
+  for (const [id, k] of Object.entries(COL)) { const el = $('#' + id); el.value = c.color[k]; el.nextElementSibling.textContent = el.value; }
+  $('#c_lut').innerHTML = '<option value="">None</option>' + Object.keys(S.luts).map((n) => '<option' + (c.lut === n ? ' selected' : '') + '>' + n + '</option>').join('');
+  eqUI($('#eq'), () => c.eq, (a, cm) => { c.eq = a; applyAudio(); if (cm) commit(); });
+}
+for (const [id, [k, f, show]] of Object.entries(SL)) { $('#' + id).oninput = (e) => { const c = sel(); if (!c) return; if (k === 'speed') { const old = c.speed; c.speed = f(+e.target.value); c.dur = c.dur * old / c.speed; } else c[k] = f(+e.target.value); e.target.nextElementSibling.textContent = show(+e.target.value); applyAudio(); }; $('#' + id).onchange = commit; }
+for (const [id, k] of Object.entries(COL)) { $('#' + id).oninput = (e) => { const c = sel(); if (c) { c.color[k] = +e.target.value; e.target.nextElementSibling.textContent = e.target.value; } }; $('#' + id).onchange = commit; $('#' + id).ondblclick = (e) => { e.target.value = 0; const c = sel(); if (c) { c.color[k] = 0; commit(); } }; }
+$('#c_lut').onchange = (e) => { const c = sel(); if (c) { c.lut = e.target.value; commit(); } };
+$('#x_crf').oninput = (e) => (e.target.nextElementSibling.textContent = e.target.value);
+$$('#eqreset,#eqbass,#eqvoice,#eqair').forEach((b) => (b.onclick = () => { const c = sel(); if (c) { c.eq = [...EQP[b.id.slice(2) === 'reset' ? 'flat' : b.id.slice(2)]]; commit(); applyAudio(); } }));
+$('#lutfile').onchange = async (e) => { const f = e.target.files[0]; if (!f) return; const t = await f.text(); const n = f.name.replace(/\.cube$/i, ''); S.luts[n] = t; lutTex.delete(n); const c = sel(); if (c) c.lut = n; commit(); toast('LUT added: ' + n); e.target.value = ''; };
+function parseCube(t) { let size = 0; const d = []; for (const ln of t.split(/\r?\n/)) { const s = ln.trim(); if (!s || s[0] === '#') continue; if (s.startsWith('LUT_3D_SIZE')) size = +s.split(/\s+/)[1]; else if (/^[-\d.]/.test(s)) { const p = s.split(/\s+/).map(Number); if (p.length >= 3) d.push(p[0], p[1], p[2]); } } return { size, data: new Float32Array(d) }; }
+
+/* ===================== preview: WebGL grade (exposure, contrast, sat, temp, tint, 3D LUT) ===================== */
+const cv = $('#out'), gl = cv.getContext('webgl2', { preserveDrawingBuffer: true, premultipliedAlpha: false });
+const prog = gl.createProgram(); const sh = (t, s) => { const x = gl.createShader(t); gl.shaderSource(x, s); gl.compileShader(x); return x; };
+gl.attachShader(prog, sh(gl.VERTEX_SHADER, '#version 300 es\nin vec2 p; out vec2 uv; void main(){ uv=vec2(p.x*.5+.5,1.-(p.y*.5+.5)); gl_Position=vec4(p,0,1); }'));
+gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, `#version 300 es
+precision highp float; precision highp sampler3D; in vec2 uv; out vec4 o; uniform sampler2D tx; uniform sampler3D lut; uniform float ex,co,sa,tm,tn,la; uniform bool hasLut;
+void main(){ vec3 c=texture(tx,uv).rgb; c*=pow(2.,ex); c.r+=tm*.002; c.b-=tm*.002; c.g+=tn*.002; c=(c-.5)*(1.+co*.01)+.5; float l=dot(c,vec3(.2126,.7152,.0722)); c=mix(vec3(l),c,1.+sa*.01); c=clamp(c,0.,1.); if(hasLut) c=mix(c,texture(lut,c).rgb,la); o=vec4(c,1.); }`));
+gl.linkProgram(prog); gl.useProgram(prog);
+const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+const vtex = gl.createTexture(); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, vtex); [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]].forEach(([a, b]) => gl.texParameteri(gl.TEXTURE_2D, a, b));
+const U = (n) => gl.getUniformLocation(prog, n); const u = { tx: U('tx'), lut: U('lut'), ex: U('ex'), co: U('co'), sa: U('sa'), tm: U('tm'), tn: U('tn'), la: U('la'), hasLut: U('hasLut') }; gl.uniform1i(u.tx, 0); gl.uniform1i(u.lut, 1);
+const lutTex = new Map(); function lutFor(name) { if (!name || !S.luts[name]) return null; if (lutTex.has(name)) return lutTex.get(name); const { size, data } = parseCube(S.luts[name]); if (!size) return null; const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_3D, t); [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE]].forEach(([a, b]) => gl.texParameteri(gl.TEXTURE_3D, a, b)); const u8 = new Uint8Array(data.length); for (let i = 0; i < data.length; i++) u8[i] = Math.max(0, Math.min(255, Math.round(data[i] * 255))); gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGB8, size, size, size, 0, gl.RGB, gl.UNSIGNED_BYTE, u8); lutTex.set(name, t); return t; }
+
+/* ===================== playback: video element pool, proxy segments, audio graph (EQ + effects) ===================== */
+const ac = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' }); const master = { eq: EQF.map((f) => { const b = ac.createBiquadFilter(); b.type = 'peaking'; b.frequency.value = f; b.Q.value = 1; return b; }), gain: ac.createGain(), an: ac.createAnalyser() };
+master.eq.reduce((a, b) => (a.connect(b), b)); master.eq[9].connect(master.gain); master.gain.connect(master.an); master.an.connect(ac.destination); master.an.fftSize = 512;
+const pool = new Map();                                                         // clipId -> { el, src, node chain }
+let playing = false, tStart = 0, pStart = 0, muted = false, lastRender = 0;
+function chainFor(c, el) {
+  const p = pool.get(c.id); if (p.chain) return p.chain; const src = ac.createMediaElementSource(el);
+  const eq = EQF.map((f) => { const b = ac.createBiquadFilter(); b.type = 'peaking'; b.frequency.value = f; b.Q.value = 1; return b; }), comp = ac.createDynamicsCompressor(), shaper = ac.createWaveShaper(), g = ac.createGain(), dly = ac.createDelay(1), fb = ac.createGain(), wet = ac.createGain(), dry = ac.createGain(), mod = ac.createGain(), osc = ac.createOscillator();
+  src.connect(eq[0]); eq.reduce((a, b) => (a.connect(b), b)); eq[9].connect(comp); comp.connect(shaper); shaper.connect(dry); shaper.connect(dly); dly.connect(fb); fb.connect(dly); dly.connect(wet); dry.connect(mod); wet.connect(mod); mod.connect(g); g.connect(master.eq[0]);
+  osc.frequency.value = 55; osc.type = 'square'; const oscG = ac.createGain(); osc.connect(oscG); oscG.gain.value = 0; oscG.connect(mod.gain); osc.start(); mod.gain.value = 1;
+  return (p.chain = { eq, comp, shaper, g, dly, fb, wet, dry, oscG, mod });
+}
+function applyAudio() {
+  EQF.forEach((_, i) => (master.eq[i].gain.value = S.masterEq[i] || 0)); master.gain.gain.value = muted ? 0 : 1;
+  for (const c of S.clips) { const p = pool.get(c.id); if (!p || !p.chain) continue; const ch = p.chain; ch.eq.forEach((b, i) => (b.gain.value = c.eq[i] || 0));
+    const t = S.playhead - c.start, d = c.dur / c.speed; let v = c.vol; if (c.fi > 0) v *= Math.min(1, Math.max(0, t / c.fi)); if (c.fo > 0) v *= Math.min(1, Math.max(0, (d - t) / c.fo)); ch.g.gain.value = muted ? 0 : v;
+    ch.comp.threshold.value = -6 - c.comp * 0.4; ch.comp.ratio.value = 1 + c.comp * 0.2; const k = c.dist / 100 * 60 + 1, n = 256, cv2 = new Float32Array(n); if (c.dist) { for (let i = 0; i < n; i++) { const x = (i * 2) / n - 1; cv2[i] = Math.tanh(k * x) / Math.tanh(k); } ch.shaper.curve = cv2; } else ch.shaper.curve = null;
+    ch.wet.gain.value = c.echo / 140; ch.fb.gain.value = Math.min(0.7, c.echo / 160); ch.dly.delayTime.value = 0.18 + c.echo / 400; ch.dry.gain.value = 1; ch.oscG.gain.value = c.buzz / 100; ch.mod.gain.value = c.buzz ? 1 - c.buzz / 200 : 1; }
+}
+function srcFor(c, t) {                                                         // t = source time. Returns { url, at } or null while a proxy chunk isn't ready yet
+  const md = S.media[c.media], f = files.get(c.media);
+  if (md.native) { if (!f) return null; if (!md._url) md._url = URL.createObjectURL(f); return { url: md._url, at: t, key: 'n' }; }
+  const i = Math.min(md.proxy.total - 1, Math.floor(t / SEG)), sf = segs.get(c.media)?.get(i); if (!sf) return null; return { url: null, file: sf, at: t - i * SEG, key: 'p' + i };
+}
+function ensure(c, t) {
+  let p = pool.get(c.id); if (!p) { const el = document.createElement('video'); el.playsInline = true; el.preload = 'auto'; el.crossOrigin = 'anonymous'; p = { el, key: '', url: '' }; pool.set(c.id, p); el.addEventListener('seeked', () => { if (!playing) tick(false); }); el.addEventListener('loadeddata', () => { if (!playing) tick(false); }); }
+  const s = srcFor(c, t); if (!s) return null;
+  if (p.key !== s.key) { if (p.url && p.owned) URL.revokeObjectURL(p.url); p.url = s.url || URL.createObjectURL(s.file); p.owned = !s.url; p.key = s.key; p.el.src = p.url; p.ready = false; p.el.onloadeddata = () => (p.ready = true); }
+  chainFor(c, p.el); return { p, at: s.at };
+}
+function trimPool(active) {                                                     // memory discipline: only a few decoders alive; free the rest, revoke their URLs
+  for (const [id, p] of pool) if (!active.has(id) && (pool.size > 4)) { p.el.pause(); p.el.removeAttribute('src'); p.el.load(); if (p.url && p.owned) URL.revokeObjectURL(p.url); pool.delete(id); }
+}
+function activeClips() { return S.clips.filter((c) => S.playhead >= c.start && S.playhead < c.start + c.dur / c.speed); }
+function setPlayhead(t) { S.playhead = Math.max(0, t); pStart = S.playhead; tStart = performance.now(); $('#head').style.left = G + S.playhead * S.zoom + 'px'; $('#tc').textContent = fmtT(S.playhead); if (!playing) tick(true); }
+function tick(forceSeek) {
+  const act = activeClips(), set = new Set(act.map((c) => c.id)); let drawn = false;
+  for (const c of act.sort((a, b) => a.track - b.track)) {
+    const t = c.in + (S.playhead - c.start) * c.speed, e = ensure(c, t); if (!e) { $('#hud').textContent = 'Proxy chunk still building… (' + S.media[c.media].name + ')'; continue; }
+    const el = e.p.el; if (el.playbackRate !== c.speed) el.playbackRate = Math.max(0.0625, Math.min(16, c.speed));
+    if (forceSeek || Math.abs(el.currentTime - e.at) > 0.3) { try { el.currentTime = e.at; } catch (er) { /* not ready */ } }
+    if (playing && el.paused) el.play().catch(() => {}); if (!playing && !el.paused) el.pause();
+    if (c.track < 2 && S.media[c.media].hasVideo && el.readyState >= 2) { draw(el, c); drawn = true; }
+  }
+  for (const [id, p] of pool) if (!set.has(id) && !p.el.paused) p.el.pause();
+  if (!drawn && !act.length) { gl.viewport(0, 0, cv.width, cv.height); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
+  trimPool(set); applyAudio();
+}
+function draw(el, c) {
+  const w = el.videoWidth, h = el.videoHeight; if (!w) return; if (cv.width !== 1280 || cv.height !== Math.round(1280 * h / w)) { cv.width = 1280; cv.height = Math.round(1280 * h / w); }
+  gl.viewport(0, 0, cv.width, cv.height); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, vtex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, el);
+  const lt = lutFor(c.lut); gl.uniform1i(u.hasLut, lt ? 1 : 0); if (lt) { gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_3D, lt); }
+  gl.uniform1f(u.ex, c.color.exp / 100); gl.uniform1f(u.co, c.color.con); gl.uniform1f(u.sa, c.color.sat); gl.uniform1f(u.tm, c.color.tmp); gl.uniform1f(u.tn, c.color.tnt); gl.uniform1f(u.la, c.lutAmt / 100); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); $('#hud').textContent = '';
+}
+function loop(now) {
+  requestAnimationFrame(loop);
+  if (playing) { S.playhead = pStart + (now - tStart) / 1000; if (S.playhead >= total() - 5 && !S.clips.some((c) => c.start + c.dur / c.speed > S.playhead)) { playPause(false); } $('#head').style.left = G + S.playhead * S.zoom + 'px'; $('#tc').textContent = fmtT(S.playhead); tick(false);
+    const sc = $('#scroll'), x = G + S.playhead * S.zoom; if (x > sc.scrollLeft + sc.clientWidth - 40) sc.scrollLeft = x - 40; }
+  if (now - lastRender > 250) { lastRender = now; const d = new Uint8Array(master.an.fftSize); master.an.getByteTimeDomainData(d); let m = 0; for (const v of d) m = Math.max(m, Math.abs(v - 128)); $('#meter i').style.width = Math.min(100, m / 128 * 140) + '%'; memWatch(); }
+}
+function playPause(on) { playing = on ?? !playing; if (playing) { ac.resume(); pStart = S.playhead; tStart = performance.now(); } else { for (const p of pool.values()) p.el.pause(); } $('#play').textContent = playing ? '⏸' : '▶'; if (!playing) tick(true); }
+$('#play').onclick = () => playPause(); $('#back').onclick = () => setPlayhead(S.playhead - 5); $('#fwd').onclick = () => setPlayhead(S.playhead + 5); $('#mute').onclick = () => { muted = !muted; $('#mute').textContent = muted ? '🔇' : '🔊'; applyAudio(); };
+
+/* ===================== memory watchdog ===================== */
+function memWatch() {
+  const m = performance.memory; if (!m) return; const used = m.usedJSHeapSize; $('#mem').textContent = 'RAM ' + Math.round(used / 2 ** 20) + ' MB';
+  if (used > MEM_LIMIT) { for (const [id, p] of pool) if (!activeClips().some((c) => c.id === id)) { p.el.removeAttribute('src'); p.el.load(); if (p.url && p.owned) URL.revokeObjectURL(p.url); pool.delete(id); } for (const md of Object.values(S.media)) if (md._url && !activeClips().some((c) => c.media === md.id)) { URL.revokeObjectURL(md._url); md._url = null; } jobs.length ? null : null; if (!memWatch.warned) { memWatch.warned = true; toast('Memory is getting high: freed idle decoders. Your work is saved.', 5000); setTimeout(() => (memWatch.warned = false), 20000); } saveProject(); }
+}
+async function thumb(id, t) {                                                   // example of strict frame hygiene: every VideoFrame is closed straight after use
+  const e = pool.get(id)?.el; if (!e || !('VideoFrame' in self)) return null; const f = new VideoFrame(e), c = new OffscreenCanvas(160, 90); c.getContext('2d').drawImage(f, 0, 0, 160, 90); f.close(); return c;
+}
+
+/* ===================== editing commands + shortcuts ===================== */
+function splitAt(t) { const c = S.clips.find((k) => t > k.start + 0.05 && t < k.start + k.dur / k.speed - 0.05 && (!sel() || k.id === sel().id)) || S.clips.find((k) => t > k.start + 0.05 && t < k.start + k.dur / k.speed - 0.05); if (!c) return; const off = (t - c.start) * c.speed, b = JSON.parse(JSON.stringify(c)); b.id = uid(); b.start = t; b.in = c.in + off; b.dur = c.dur - off; c.dur = off; b.fi = 0; c.fo = 0; S.clips.push(b); S.selected = b.id; commit(); }
+function del(ripple) { const c = sel(); if (!c) return; const len = c.dur / c.speed; S.clips = S.clips.filter((k) => k !== c); if (ripple) S.clips.forEach((k) => { if (k.track === c.track && k.start >= c.start) k.start -= len; }); S.selected = null; commit(); }
+function dup() { const c = sel(); if (!c) return; const b = JSON.parse(JSON.stringify(c)); b.id = uid(); b.start = c.start + c.dur / c.speed; S.clips.push(b); S.selected = b.id; commit(); }
+$('#split').onclick = () => splitAt(S.playhead); $('#del').onclick = () => del(false); $('#ripple').onclick = () => del(true); $('#dup').onclick = dup;
+const KEYS = [['Space / K', 'Play / pause'], ['J / L', 'Back 5s / forward 5s'], ['← →', 'One frame (Shift = 1 second)'], ['S', 'Split at playhead'], ['Delete', 'Delete clip (Shift = ripple)'], ['D', 'Duplicate'], ['Ctrl+Z / Ctrl+Shift+Z', 'Undo / redo'], ['M', 'Mute'], ['Home / End', 'Start / end'], ['+ / −', 'Zoom timeline'], ['Ctrl + wheel', 'Zoom timeline'], ['E', 'Export'], ['?', 'This list']];
+$('#help').onclick = () => ask('Shortcuts', '<table class="k">' + KEYS.map(([k, d]) => '<tr><td><kbd>' + k + '</kbd></td><td>' + d + '</td></tr>').join('') + '</table>', [['Close', true, 'p']]);
+addEventListener('keydown', (e) => {
+  if (/input|textarea|select/i.test(e.target.tagName) && e.key !== 'Escape') return; if ($('#dlg').open) return; const k = e.key.toLowerCase(), fps = 25;
+  if (k === ' ' || k === 'k') { e.preventDefault(); playPause(); } else if (k === 'j') setPlayhead(S.playhead - 5); else if (k === 'l') setPlayhead(S.playhead + 5);
+  else if (k === 'arrowleft') setPlayhead(S.playhead - (e.shiftKey ? 1 : 1 / fps)); else if (k === 'arrowright') setPlayhead(S.playhead + (e.shiftKey ? 1 : 1 / fps));
+  else if (k === 's' && !e.ctrlKey) splitAt(S.playhead); else if (k === 'delete' || k === 'backspace') del(e.shiftKey); else if (k === 'd' && !e.ctrlKey) dup(); else if (k === 'm') $('#mute').click();
+  else if (k === 'z' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); (e.shiftKey ? $('#redo') : $('#undo')).click(); } else if (k === 'home') setPlayhead(0); else if (k === 'end') setPlayhead(total() - 5);
+  else if (k === '+' || k === '=') { S.zoom = Math.min(400, S.zoom * 1.2); $('#zoom').value = S.zoom; renderTimeline(); } else if (k === '-') { S.zoom = Math.max(10, S.zoom / 1.2); $('#zoom').value = S.zoom; renderTimeline(); } else if (k === 'e') $('#export').click(); else if (k === '?') $('#help').click();
+});
+
+/* ===================== export: ffmpeg windows -> MPEG-TS chunks appended straight to a file on disk ===================== */
+let xw = null, xBytes = 0;
+async function exportChunk(m) { try { if (xw) { await xw.write(new Uint8Array(m.buf)); } xBytes += m.buf.byteLength; toast('Rendering ' + Math.round(m.t1 / m.total * 100) + '%  (' + (xBytes / 2 ** 20).toFixed(0) + ' MB written)', 60000); } catch (e) { toast('Disk write failed: ' + e.message, 8000); } worker.postMessage({ cmd: 'ack' }); }
+$('#export').onclick = async () => {
+  if (!S.clips.length) return toast('Add something to the timeline first');
+  const [W, H] = $('#x_res').value.split('x').map(Number), fps = +$('#x_fps').value, crf = +$('#x_crf').value, tot = Math.max(...S.clips.map((c) => c.start + c.dur / c.speed));
+  const go = await ask('Export ' + W + '×' + H, 'Renders from your <b>original files</b> in 20-second windows and streams each straight to disk, so memory stays flat and a crash never loses finished video. The browser encoder is software-only, so 4K takes a while: keep this tab open.<br><br>Output: <b>.ts</b> (plays everywhere; import into any editor, or remux to MP4 with a copy).', [['Cancel', false], ['Choose file & start', true, 'p']]); if (!go) return;
+  let handle = null; try { handle = await showSaveFilePicker({ suggestedName: 'mosaicSpace_' + W + 'x' + H + '.ts', types: [{ description: 'MPEG transport stream', accept: { 'video/mp2t': ['.ts'] } }] }); xw = await handle.createWritable(); } catch (e) { toast('Pick a file to save to (Chrome/Edge). Export cancelled.'); return; }
+  await startWorker(); xBytes = 0; const used = new Set(S.clips.map((c) => c.media)); for (const id of used) await mountMedia(id);
+  const luts = {}, edl = { total: tot, masterEq: S.masterEq, clips: S.clips.map((c) => { const md = S.media[c.media]; if (c.lut && S.luts[c.lut]) luts[c.lut] = S.luts[c.lut]; return { media: c.media, ext: md.ext, track: c.track, start: c.start, in: c.in, dur: c.dur / c.speed, speed: c.speed, vol: c.vol, fi: c.fi, fo: c.fo, eq: c.eq, echo: c.echo, color: c.color, lut: c.lut || '', hasVideo: md.hasVideo && c.track < 2, hasAudio: md.hasAudio }; }) };
+  jobs.length = 0; worker.postMessage({ cmd: 'cancel' }); await new Promise((r) => setTimeout(r, 50));
+  const done = await callW({ cmd: 'export', edl, opts: { W, H, fps, crf, win: 20 }, luts }, 'done:export'); try { await xw.close(); } catch (e) { /* ignore */ } xw = null;
+  toast(done && done.error ? 'Export failed: see the message above' : done && done.cancelled ? 'Export cancelled' : 'Export finished: ' + handle.name, 9000);
+};
+
+/* ===================== recovery, boot, dev self-test ===================== */
+function renderAll() { for (const id of Object.keys(S.media)) updateBin(id); renderTimeline(); }
+async function recover() {
+  let js = null; try { if (opfs) { const h = await opfs.getFileHandle('project.json'); js = await (await h.getFile()).text(); } else js = localStorage.getItem('ms-space'); } catch (e) { /* none */ } js = js || localStorage.getItem('ms-space-last');
+  if (!js) return; let o; try { o = JSON.parse(js); } catch (e) { return; } if (!o.clips?.length) return;
+  const yes = await ask('Restore your last session?', 'Found a saved project with ' + o.clips.length + ' clips. Nothing was lost when the page closed.', [['Start fresh', false], ['Restore', true, 'p']]); if (!yes) { undoStack = [snapshot()]; return; }
+  restore(js);
+  for (const id of Object.keys(S.media)) {                                      // reconnect media: reopen the saved file handle (one click to allow), proxies are already in OPFS
+    const md = S.media[id]; md._mounted = false; segs.set(id, new Map()); md.proxy = md.proxy || { done: 0, total: 0, prog: 0 };
+    if (opfs && md.proxy.total) { try { const d = await dirOf('proxy', id); for (let i = 0; i < md.proxy.total; i++) { try { segs.get(id).set(i, await (await d.getFileHandle('p' + i + '.mp4')).getFile()); } catch (e) { md.proxy.done = i; break; } } } catch (e) { md.proxy.done = 0; } }
+    const h = await idbGet('h:' + id); if (h) { try { if ((await h.queryPermission({ mode: 'read' })) !== 'granted') await h.requestPermission({ mode: 'read' }); const f = await h.getFile(); files.set(id, f); } catch (e) { /* needs relink */ } }
+    updateBin(id);
+  }
+  renderAll(); toast('Session restored. Re-drop any file marked "needs relinking".', 6000);
+}
+undoStack = [snapshot()]; renderTimeline(); await recover(); requestAnimationFrame(loop);
+window.__space = { S, files, importFile, startWorker, callW, getWorker: () => worker, segs, peaks, jobs, setPlayhead, playPause, addClip, exportChunk };
+</script>
+</body>
+</html>
