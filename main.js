@@ -1696,6 +1696,14 @@
     "twostep", "bounce", "sway", "bop", "clap", "goff", "robot", "shuffle", "sprinkler", "dab", "floss", "runman", "moon", "jacks", "spin"];
   var GIRL_HYPE = ["hipshake", "bootypop", "drop", "wine", "bodyroll"];
   var GUY_HYPE = ["handsup", "handsup", "bounce", "clap", "jerk", "naenae"];
+  // extra moves (mosaic-moves.js): street-corner behaviour, odd dances, pole/pistol/lowrider bits
+  if (window.MOSAIC_MOVES) {
+    window.MOSAIC_MOVES.idle.forEach(function (n) { IDLE.push(n); });
+    window.MOSAIC_MOVES.dance.forEach(function (n) { DANCE_POOL.push(n); });
+    window.MOSAIC_MOVES.girls.forEach(function (n) { GIRL_HYPE.push(n); });
+    ["duckselfie", "mirrorcheck", "phonerage", "cashflash", "fingerguns"].forEach(function (n) { GLAM_IDLE.push(n); });
+    ["chainflex", "meanmug", "dapup", "cashflash", "pistolair"].forEach(function (n) { MAIN_IDLE.push(n); });
+  }
   var STAGES = [
     { at: 60, prop: "boombox" },
     { at: 120, prop: "lights" },
