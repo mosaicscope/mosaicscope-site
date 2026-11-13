@@ -1,8 +1,8 @@
 {
- "at": 1794587860183,
+ "at": 1794589702477,
  "totals": {
   "duplicate-code": 10,
-  "long-function": 18,
+  "long-function": 20,
   "format": 30,
   "oversized-module": 10,
   "unused-css": 1
