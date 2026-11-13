@@ -1,0 +1,3954 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>mosaicStudios — 6K WebGL2 Photo & Editorial Grading Workstation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            studio: {
+              bg: '#101012',
+              panel: '#161619',
+              surface: '#1f1f24',
+              border: '#2c2c34',
+              accent: '#3b82f6',
+              accentHover: '#2563eb',
+              rubylith: '#ef4444'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; user-select: none; }
+    body {
+      background-color: #101012;
+      color: #e4e4e7;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* Custom Pro Darkroom Range Sliders */
+    input[type="range"].studio-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      background: #2c2c34;
+      border-radius: 999px;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type="range"].studio-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #f4f4f5;
+      border: 2px solid #3b82f6;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.6);
+      transition: transform 0.1s ease, background-color 0.1s ease;
+    }
+    input[type="range"].studio-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+      background: #ffffff;
+    }
+
+    /* Gradient Track Hints for Temp/Tint */
+    input[type="range"].slider-temp {
+      background: linear-gradient(90deg, #38bdf8 0%, #2c2c34 50%, #f59e0b 100%);
+    }
+    input[type="range"].slider-tint {
+      background: linear-gradient(90deg, #22c55e 0%, #2c2c34 50%, #ec4899 100%);
+    }
+
+    /* Subtle Darkroom Scrollbars */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #141417; }
+    ::-webkit-scrollbar-thumb { background: #2e2e35; border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #44444f; }
+
+    /* Checkerboard transparency behind canvas */
+    .viewport-bg {
+      background-color: #0c0c0e;
+      background-image: radial-gradient(#1f1f24 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+  </style>
+</head>
+<body class="h-screen w-screen flex flex-col text-xs">
+
+  <!-- TOP HEADER BAR -->
+  <header class="h-12 bg-studio-panel border-b border-studio-border px-3 flex items-center justify-between shrink-0 z-20">
+    <!-- Left: Brand & File Actions -->
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 via-blue-500 to-emerald-400 flex items-center justify-center shadow-md">
+          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+            <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+            <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+            <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+          </svg>
+        </div>
+        <div>
+          <span class="font-bold text-sm tracking-tight text-white">mosaicStudios</span>
+          <span class="ml-1 text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">6K GPU</span>
+        </div>
+      </div>
+
+      <div class="h-5 w-[1px] bg-studio-border mx-1 hidden sm:block"></div>
+
+      <!-- Open Image & Open LUT buttons -->
+      <button id="btnOpenImage" class="px-2.5 py-1.5 rounded-md bg-studio-surface hover:bg-zinc-700 border border-studio-border text-zinc-200 font-medium flex items-center gap-1.5 transition">
+        <svg class="w-3.5 h-3.5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        <span>Open Photo</span>
+      </button>
+
+      <button id="btnOpenLut" class="px-2.5 py-1.5 rounded-md bg-studio-surface hover:bg-zinc-700 border border-studio-border text-zinc-200 font-medium flex items-center gap-1.5 transition">
+        <svg class="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+        </svg>
+        <span class="hidden md:inline">Load LUT / XMP</span>
+        <span class="md:hidden">LUT</span>
+      </button>
+
+      <input type="file" id="fileInputImage" accept="image/jpeg,image/png,image/webp,image/tiff" class="hidden" />
+      <input type="file" id="fileInputLut" accept=".cube,.3dl,.look,.xmp,.txt" class="hidden" />
+    </div>
+
+    <!-- Center: Viewport Controls (Zoom, Split Compare, Hold Compare) -->
+    <div class="hidden lg:flex items-center gap-1.5 bg-studio-bg px-2 py-1 rounded-lg border border-studio-border">
+      <button id="btnZoomFit" class="px-2 py-1 rounded hover:bg-studio-surface text-zinc-300 font-mono text-[11px]" title="Fit to Screen">Fit</button>
+      <button id="btnZoom100" class="px-2 py-1 rounded hover:bg-studio-surface text-zinc-300 font-mono text-[11px]" title="100% Actual Pixels">100%</button>
+      <span id="zoomReadout" class="px-1.5 text-zinc-400 font-mono text-[11px] min-w-[46px] text-center">100%</span>
+      <div class="h-4 w-[1px] bg-studio-border mx-1"></div>
+      <button id="btnSplitCompare" class="px-2.5 py-1 rounded flex items-center gap-1.5 text-zinc-300 hover:bg-studio-surface transition" title="Toggle Before/After Split Slider">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M4 6h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V7a1 1 0 011-1z" />
+        </svg>
+        <span>Split</span>
+      </button>
+      <button id="btnHoldCompare" class="px-2.5 py-1 rounded flex items-center gap-1.5 text-zinc-300 hover:bg-studio-surface active:bg-blue-600 active:text-white transition" title="Hold to view Original">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        </svg>
+        <span>Original</span>
+      </button>
+    </div>
+
+    <!-- Right: Reset & Export -->
+    <div class="flex items-center gap-2">
+      <button id="btnResetAll" class="px-2.5 py-1.5 rounded-md bg-studio-surface hover:bg-zinc-700 border border-studio-border text-zinc-300 transition" title="Reset All Adjustments">
+        Reset All
+      </button>
+      <button id="btnOpenExport" class="px-3.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-sm flex items-center gap-1.5 transition">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        <span>Export 6K</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN WORKSPACE -->
+  <div class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+
+    <!-- LEFT SIDEBAR: 140 FILTERS, LUTS & MASKS -->
+    <aside class="w-full md:w-80 bg-studio-panel border-b md:border-b-0 md:border-r border-studio-border flex flex-col shrink-0 max-h-[36vh] md:max-h-full z-10">
+      <!-- Sidebar Mode Tabs -->
+      <div class="grid grid-cols-3 border-b border-studio-border bg-studio-bg/60 shrink-0 text-[11px]">
+        <button id="tabFilters" class="py-2.5 text-center font-semibold text-blue-400 border-b-2 border-blue-500 transition flex items-center justify-center gap-1">
+          <span>Filters</span>
+          <span class="px-1.5 py-0.2 rounded-full text-[9px] bg-blue-500/20 text-blue-300 font-mono">140</span>
+        </button>
+        <button id="tabLuts" class="py-2.5 text-center font-medium text-zinc-400 hover:text-zinc-200 border-b-2 border-transparent transition">
+          LUTs & XMP
+        </button>
+        <button id="tabMasks" class="py-2.5 text-center font-medium text-zinc-400 hover:text-zinc-200 border-b-2 border-transparent transition flex items-center justify-center gap-1">
+          <span>Masks</span>
+          <span id="maskCountBadge" class="px-1.5 py-0.2 rounded-full text-[9px] bg-studio-surface text-zinc-300 font-mono">0</span>
+        </button>
+      </div>
+
+      <!-- TAB 0: 140 CREATIVE & EDITORIAL FILTER ENGINE -->
+      <div id="panelFilters" class="flex-1 overflow-y-auto p-3 space-y-3">
+        <!-- Category Selector + Search -->
+        <div class="space-y-2 bg-studio-bg/60 p-2.5 rounded-lg border border-studio-border">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Filter Discipline</span>
+            <button id="btnClearFilter" class="text-[10px] text-blue-400 hover:text-blue-300 font-medium">Bypass Filter</button>
+          </div>
+          <select id="filterCategorySelect" class="w-full bg-studio-surface border border-studio-border rounded-md px-2.5 py-1.5 text-xs text-white font-medium focus:outline-none focus:border-blue-500">
+            <option value="all">All 140 Filters (7 Collections)</option>
+            <option value="0">1. Glitch Effects (20)</option>
+            <option value="1">2. Morphism (20)</option>
+            <option value="2">3. Data Convulsions (20)</option>
+            <option value="3">4. New Age Morphism (20)</option>
+            <option value="4">5. Textureism (20)</option>
+            <option value="5">6. New Leo Da Vinci (20)</option>
+            <option value="6">7. High Fashion Editorial (20)</option>
+          </select>
+
+          <div class="relative">
+            <input type="text" id="filterSearchInput" placeholder="Search 140 GPU shaders..." class="w-full bg-studio-surface border border-studio-border rounded-md pl-7 pr-2.5 py-1.5 text-[11px] text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-blue-500" />
+            <svg class="w-3.5 h-3.5 text-zinc-500 absolute left-2 top-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- Active Filter Modulation Controls (Intensity + Secondary Parameter) -->
+        <div id="activeFilterControls" class="bg-studio-surface/70 p-2.5 rounded-lg border border-studio-border space-y-2">
+          <div class="flex items-center justify-between">
+            <span id="activeFilterNameBadge" class="font-semibold text-white truncate pr-2">None (Bypassed)</span>
+            <span id="activeFilterCatBadge" class="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">Clean</span>
+          </div>
+
+          <div>
+            <div class="flex justify-between text-[11px] mb-1">
+              <span class="text-zinc-300">Filter Intensity</span>
+              <span id="val-filterIntensity" class="font-mono text-blue-400">80%</span>
+            </div>
+            <input type="range" id="slider-filterIntensity" class="studio-slider" min="0" max="100" step="1" value="80" />
+          </div>
+
+          <div>
+            <div class="flex justify-between text-[11px] mb-1">
+              <span id="label-filterParam2" class="text-zinc-300">Modulation / Scale</span>
+              <span id="val-filterParam2" class="font-mono text-emerald-400">50%</span>
+            </div>
+            <input type="range" id="slider-filterParam2" class="studio-slider" min="0" max="100" step="1" value="50" />
+          </div>
+        </div>
+
+        <!-- Filter Preset Grid -->
+        <div id="filterGridContainer" class="grid grid-cols-1 gap-1.5 pb-2">
+          <!-- Populated dynamically with all 140 shaders -->
+        </div>
+      </div>
+
+      <!-- TAB 1: LUTS & COLOR GRADING FILES -->
+      <div id="panelLuts" class="hidden flex-1 overflow-y-auto p-3 space-y-3">
+        <div class="bg-studio-surface/70 p-2.5 rounded-lg border border-studio-border space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Active 3D LUT</span>
+            <span id="activeLutFormat" class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/40 text-zinc-300 border border-zinc-700">3D LUT</span>
+          </div>
+          <div>
+            <div class="flex justify-between text-[11px] mb-1">
+              <span class="text-zinc-300">LUT Intensity</span>
+              <span id="val-lutIntensity" class="font-mono text-blue-400">100%</span>
+            </div>
+            <input type="range" id="slider-lutIntensity" class="studio-slider" min="0" max="100" step="1" value="100" />
+          </div>
+        </div>
+
+        <button id="btnLutBrowse" class="w-full py-2 rounded-lg border border-dashed border-studio-border text-zinc-300 hover:bg-studio-surface hover:text-white transition font-medium">
+          Import .CUBE / .3DL / .LOOK / .XMP
+        </button>
+
+        <div id="lutListContainer" class="space-y-1.5 pb-2"></div>
+      </div>
+
+      <!-- TAB 2: NON-DESTRUCTIVE MASKS -->
+      <div id="panelMasks" class="hidden flex-1 overflow-y-auto p-3 space-y-3">
+        <div class="grid grid-cols-3 gap-1.5">
+          <button id="btnAddBrushMask" class="py-2 rounded-lg bg-studio-surface hover:bg-zinc-700 border border-studio-border text-zinc-200 font-medium transition">+ Brush</button>
+          <button id="btnAddRadialMask" class="py-2 rounded-lg bg-studio-surface hover:bg-zinc-700 border border-studio-border text-zinc-200 font-medium transition">+ Radial</button>
+          <button id="btnAddLinearMask" class="py-2 rounded-lg bg-studio-surface hover:bg-zinc-700 border border-studio-border text-zinc-200 font-medium transition">+ Linear</button>
+        </div>
+
+        <label class="flex items-center justify-between cursor-pointer bg-studio-bg/60 px-2.5 py-2 rounded-lg border border-studio-border">
+          <span class="text-zinc-300">Show Rubylith Overlay</span>
+          <span class="relative inline-flex items-center">
+            <input type="checkbox" id="toggleMaskOverlay" class="sr-only peer" checked />
+            <div class="relative w-8 h-4 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-red-500"></div>
+          </span>
+        </label>
+
+        <div id="maskLayerList" class="space-y-1.5">
+          <!-- Mask items injected here -->
+        </div>
+
+        <!-- Contextual Active Mask Tool Controls -->
+        <div id="activeMaskToolControls" class="hidden bg-studio-surface/80 p-2.5 rounded-lg border border-studio-border space-y-2.5">
+          <div class="flex items-center justify-between border-b border-studio-border pb-1.5">
+            <span id="maskToolTitle" class="font-semibold text-zinc-200">Brush Settings</span>
+            <button id="btnInvertMask" class="px-2 py-0.5 rounded bg-zinc-700 hover:bg-zinc-600 text-[10px] font-medium text-zinc-200">Invert</button>
+          </div>
+
+          <!-- Brush Specific -->
+          <div id="brushControlsGroup" class="space-y-2">
+            <div class="flex gap-1.5">
+              <button id="btnBrushPaint" class="flex-1 py-1 rounded bg-blue-600 text-white font-medium text-[11px]">Paint (+)</button>
+              <button id="btnBrushErase" class="flex-1 py-1 rounded bg-zinc-800 text-zinc-300 hover:bg-zinc-700 font-medium text-[11px]">Erase (-)</button>
+              <button id="btnBrushClear" class="px-2 py-1 rounded bg-zinc-800 text-zinc-400 hover:text-red-400 text-[11px]" title="Clear Brush Strokes">Clear</button>
+            </div>
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="text-zinc-400">Brush Size</span>
+                <span id="val-brushSize" class="font-mono text-zinc-300">80px</span>
+              </div>
+              <input type="range" id="slider-brushSize" class="studio-slider" min="10" max="300" value="80" />
+            </div>
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="text-zinc-400">Feather / Softness</span>
+                <span id="val-brushFeather" class="font-mono text-zinc-300">65%</span>
+              </div>
+              <input type="range" id="slider-brushFeather" class="studio-slider" min="0" max="100" value="65" />
+            </div>
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="text-zinc-400">Flow / Opacity</span>
+                <span id="val-brushOpacity" class="font-mono text-zinc-300">85%</span>
+              </div>
+              <input type="range" id="slider-brushOpacity" class="studio-slider" min="5" max="100" value="85" />
+            </div>
+          </div>
+
+          <!-- Gradient (Radial/Linear) Specific -->
+          <div id="gradientControlsGroup" class="hidden space-y-2">
+            <p class="text-[11px] text-zinc-400 leading-relaxed">
+              Drag handles directly on the image canvas to position, resize, or rotate the gradient.
+            </p>
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="text-zinc-400">Gradient Feather</span>
+                <span id="val-gradFeather" class="font-mono text-zinc-300">50%</span>
+              </div>
+              <input type="range" id="slider-gradFeather" class="studio-slider" min="5" max="100" value="50" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CENTER VIEWPORT CANVAS -->
+    <main id="viewportContainer" class="flex-1 viewport-bg relative overflow-hidden flex items-center justify-center">
+      <canvas id="glCanvas" class="block touch-none"></canvas>
+      <!-- Interactive Overlay Canvas for Mask Handles, Brush Cursor & Split Slider -->
+      <canvas id="overlayCanvas" class="absolute inset-0 pointer-events-none"></canvas>
+
+      <!-- Drag & Drop Full-Viewport Overlay -->
+      <div id="dragOverlay" class="hidden absolute inset-3 rounded-2xl border-2 border-dashed border-blue-400 bg-blue-950/75 backdrop-blur-sm z-30 flex flex-col items-center justify-center pointer-events-none">
+        <div class="w-14 h-14 rounded-2xl bg-blue-500/20 border border-blue-400/50 flex items-center justify-center mb-3">
+          <svg class="w-7 h-7 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+        </div>
+        <div class="text-lg font-semibold text-white">Drop 6K Photo or Color LUT File</div>
+        <div class="text-xs text-blue-200 mt-1 font-mono">Supports JPG, PNG, WEBP, .CUBE, .3DL, .LOOK, .XMP</div>
+      </div>
+
+      <!-- Floating Bottom Helper Bar (Native Resolution & Pixel Density Readout) -->
+      <div class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-studio-panel/90 backdrop-blur-md border border-studio-border px-3.5 py-1.5 rounded-full flex items-center gap-3 text-[11px] text-zinc-400 shadow-lg pointer-events-auto max-w-[94vw] truncate">
+        <span id="imageMetaBadge" class="font-mono text-zinc-200 truncate">Sample_Editorial.jpg</span>
+        <span class="text-zinc-600">|</span>
+        <span id="pixelDensityBadge" class="font-mono text-emerald-400 shrink-0">1:1 Native 100% Density</span>
+        <span class="hidden xl:inline text-zinc-600">|</span>
+        <span class="hidden xl:inline shrink-0">Scroll: Zoom · Space+Drag: Pan</span>
+        <div class="flex lg:hidden items-center gap-2 border-l border-studio-border pl-2 shrink-0">
+          <button id="btnMobileFit" class="text-zinc-200 font-mono">Fit</button>
+          <button id="btnMobileCompare" class="text-blue-400 font-medium">Compare</button>
+        </div>
+      </div>
+
+      <!-- Toast Notification -->
+      <div id="toastBanner" class="opacity-0 pointer-events-none transition-opacity duration-200 absolute top-3 left-1/2 -translate-x-1/2 bg-zinc-900/95 border border-zinc-700 text-zinc-100 px-3.5 py-2 rounded-lg shadow-xl text-xs font-medium flex items-center gap-2 z-40">
+        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span id="toastText">Loaded LUT</span>
+      </div>
+    </main>
+
+    <!-- RIGHT SIDEBAR: HISTOGRAM, TONE CURVE & COLOR / TONE INSPECTOR -->
+    <aside class="w-full md:w-80 bg-studio-panel border-t md:border-t-0 md:border-l border-studio-border flex flex-col shrink-0 max-h-[42vh] md:max-h-full z-10">
+      <!-- Real-Time RGB Histogram -->
+      <div class="p-2.5 border-b border-studio-border bg-studio-bg/70 shrink-0">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">RGB Histogram</span>
+          <span id="editingTargetBadge" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+            Global Master
+          </span>
+        </div>
+        <div class="h-16 w-full rounded bg-[#0c0c0e] border border-studio-border overflow-hidden relative">
+          <canvas id="histogramCanvas" class="w-full h-full block"></canvas>
+        </div>
+      </div>
+
+      <!-- Scrollable Sliders, Tone Curve & Color Wheels -->
+      <div class="flex-1 overflow-y-auto p-3 space-y-4">
+
+        <!-- SECTION: WHITE BALANCE & COLOR -->
+        <section class="space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h3 class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Color & White Balance</h3>
+            <span class="text-[10px] text-zinc-500">Double-click to reset</span>
+          </div>
+
+          <div class="space-y-2 bg-studio-surface/40 p-2.5 rounded-lg border border-studio-border/80">
+            <!-- Temperature -->
+            <div>
+              <div class="flex justify-between mb-1">
+                <label class="text-zinc-300 cursor-pointer" data-param="temperature">Temperature</label>
+                <span id="val-temperature" data-param="temperature" class="font-mono text-[11px] text-zinc-400 cursor-pointer">0</span>
+              </div>
+              <input type="range" id="param-temperature" class="studio-slider slider-temp" min="-100" max="100" step="1" value="0" />
+            </div>
+
+            <!-- Tint -->
+            <div>
+              <div class="flex justify-between mb-1">
+                <label class="text-zinc-300 cursor-pointer" data-param="tint">Tint</label>
+                <span id="val-tint" data-param="tint" class="font-mono text-[11px] text-zinc-400 cursor-pointer">0</span>
+              </div>
+              <input type="range" id="param-tint" class="studio-slider slider-tint" min="-100" max="100" step="1" value="0" />
+            </div>
+
+            <!-- Vibrance (Global only or shared) -->
+            <div class="global-only-control">
+              <div class="flex justify-between mb-1">
+                <label class="text-zinc-300 cursor-pointer" data-param="vibrance">Vibrance</label>
+                <span id="val-vibrance" data-param="vibrance" class="font-mono text-[11px] text-zinc-400 cursor-pointer">0</span>
+              </div>
+              <input type="range" id="param-vibrance" class="studio-slider" min="-100" max="100" step="1" value="0" />
+            </div>
+
+            <!-- Saturation -->
+            <div>
+              <div class="flex justify-between mb-1">
+                <label class="text-zinc-300 cursor-pointer" data-param="saturation">Saturation</label>
+                <span id="val-saturation" data-param="saturation" class="font-mono text-[11px] text-zinc-400 cursor-pointer">0</span>
+              </div>
+              <input type="range" id="param-saturation" class="studio-slider" min="-100" max="100" step="1" value="0" />
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION: TONE & LIGHT -->
+        <section class="space-y-2.5">
+          <h3 class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Light & Tone</h3>
+          <div class="space-y-2 bg-studio-surface/40 p-2.5 rounded-lg border border-studio-border/80">
+            <!-- Exposure -->
+            <div>
+              <div class="flex justify-between mb-1">
+                <label class="text-zinc-300 cursor-pointer" data-param="exposure">Exposure</label>
+                <span id="val-exposure" data-param="exposure" class="font-mono text-[11px] text-zinc-400 cursor-pointer">0.00</span>
+              </div>
+              <input type="range" id="param-exposure" class="studio-slider" min="-3" max="3" step="0.05" value="0" />
+            </div>
+
+            <!-- Contrast -->
+            <div>
+              <div class="flex justify-between mb-1">
+                <label class="text-zinc-300 cursor-pointer" data-param="contrast">Contrast</label>
+                <span id="val-contrast" data-param="contrast" class="font-mono text-[11px] text-zinc-400 cursor-pointer">0</span>
+              </div>
+              <input type="range" id="param-contrast" class="studio-slider" min="-100" max="100" step="1" value="0" />
+            </div>
+
+            <!-- Highlights -->
+            <div>
+              <div class="flex justify-between mb-1">
+                <label class="text-zinc-300 cursor-pointer" data-param="highlights">Highlights</label>
+                <span id="val-highlights" data-param="highlights" class="font-mono text-[11px] text-zinc-400 cursor-pointer">0</span>
+              </div>
+              <input type="range" id="param-highlights" class="studio-slider" min="-100" max="100" step="1" value="0" />
+            </div>
+
+            <!-- Shadows -->
+            <div>
+              <div class="flex justify-between mb-1">
+                <label class="text-zinc-300 cursor-pointer" data-param="shadows">Shadows</label>
+                <span id="val-shadows" data-param="shadows" class="font-mono text-[11px] text-zinc-400 cursor-pointer">0</span>
+              </div>
+              <input type="range" id="param-shadows" class="studio-slider" min="-100" max="100" step="1" value="0" />
+            </div>
+
+            <!-- Whites -->
+            <div class="global-only-control">
+              <div class="flex justify-between mb-1">
+                <label class="text-zinc-300 cursor-pointer" data-param="whites">Whites</label>
+                <span id="val-whites" data-param="whites" class="font-mono text-[11px] text-zinc-400 cursor-pointer">0</span>
+              </div>
+              <input type="range" id="param-whites" class="studio-slider" min="-100" max="100" step="1" value="0" />
+            </div>
+
+            <!-- Blacks -->
+            <div class="global-only-control">
+              <div class="flex justify-between mb-1">
+                <label class="text-zinc-300 cursor-pointer" data-param="blacks">Blacks</label>
+                <span id="val-blacks" data-param="blacks" class="font-mono text-[11px] text-zinc-400 cursor-pointer">0</span>
+              </div>
+              <input type="range" id="param-blacks" class="studio-slider" min="-100" max="100" step="1" value="0" />
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION: DETAIL & EFFECTS -->
+        <section class="space-y-2.5">
+          <h3 class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Detail & Finishing</h3>
+          <div class="space-y-2 bg-studio-surface/40 p-2.5 rounded-lg border border-studio-border/80">
+            <!-- Clarity -->
+            <div>
+              <div class="flex justify-between mb-1">
+                <label class="text-zinc-300 cursor-pointer" data-param="clarity">Clarity / Texture</label>
+                <span id="val-clarity" data-param="clarity" class="font-mono text-[11px] text-zinc-400 cursor-pointer">0</span>
+              </div>
+              <input type="range" id="param-clarity" class="studio-slider" min="-100" max="100" step="1" value="0" />
+            </div>
+
+            <!-- Dehaze -->
+            <div class="global-only-control">
+              <div class="flex justify-between mb-1">
+                <label class="text-zinc-300 cursor-pointer" data-param="dehaze">Atmospheric Dehaze</label>
+                <span id="val-dehaze" data-param="dehaze" class="font-mono text-[11px] text-zinc-400 cursor-pointer">0</span>
+              </div>
+              <input type="range" id="param-dehaze" class="studio-slider" min="-100" max="100" step="1" value="0" />
+            </div>
+
+            <!-- Vignette Amount -->
+            <div class="global-only-control">
+              <div class="flex justify-between mb-1">
+                <label class="text-zinc-300 cursor-pointer" data-param="vignetteAmount">Vignette</label>
+                <span id="val-vignetteAmount" data-param="vignetteAmount" class="font-mono text-[11px] text-zinc-400 cursor-pointer">0</span>
+              </div>
+              <input type="range" id="param-vignetteAmount" class="studio-slider" min="-100" max="100" step="1" value="0" />
+            </div>
+
+            <!-- Vignette Feather -->
+            <div class="global-only-control">
+              <div class="flex justify-between mb-1">
+                <label class="text-zinc-300 cursor-pointer" data-param="vignetteFeather">Vignette Feather</label>
+                <span id="val-vignetteFeather" data-param="vignetteFeather" class="font-mono text-[11px] text-zinc-400 cursor-pointer">50</span>
+              </div>
+              <input type="range" id="param-vignetteFeather" class="studio-slider" min="0" max="100" step="1" value="50" />
+            </div>
+
+            <!-- Film Grain -->
+            <div class="global-only-control">
+              <div class="flex justify-between mb-1">
+                <label class="text-zinc-300 cursor-pointer" data-param="grain">Film Grain</label>
+                <span id="val-grain" data-param="grain" class="font-mono text-[11px] text-zinc-400 cursor-pointer">0</span>
+              </div>
+              <input type="range" id="param-grain" class="studio-slider" min="0" max="100" step="1" value="0" />
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION: INTERACTIVE PARAMETRIC TONE CURVE -->
+        <section id="toneCurveSection" class="space-y-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Master Tone Curve</h3>
+            <button id="btnResetCurve" class="text-[10px] text-zinc-400 hover:text-white">Reset Curve</button>
+          </div>
+          <div class="bg-studio-surface/40 p-2.5 rounded-lg border border-studio-border/80 flex flex-col items-center">
+            <canvas id="toneCurveCanvas" width="256" height="140" class="w-full h-32 rounded bg-[#0c0c0e] border border-studio-border cursor-crosshair"></canvas>
+            <div class="w-full flex justify-between text-[10px] font-mono text-zinc-500 mt-1.5 px-0.5">
+              <span>Blacks</span>
+              <span>Shadows</span>
+              <span>Midtones</span>
+              <span>Highlights</span>
+              <span>Whites</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION: 3-WAY COLOR WHEELS (LIFT / GAMMA / GAIN) -->
+        <section id="colorWheelsSection" class="space-y-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Color Wheels</h3>
+            <button id="btnResetWheels" class="text-[10px] text-zinc-400 hover:text-white">Reset Wheels</button>
+          </div>
+          <div class="grid grid-cols-3 gap-2 bg-studio-surface/40 p-2.5 rounded-lg border border-studio-border/80">
+            <div class="flex flex-col items-center gap-1">
+              <canvas id="wheel-lift" width="120" height="120" class="w-full max-w-[84px] aspect-square cursor-crosshair touch-none"></canvas>
+              <span class="text-[10px] font-mono uppercase text-zinc-400">Lift</span>
+            </div>
+            <div class="flex flex-col items-center gap-1">
+              <canvas id="wheel-gamma" width="120" height="120" class="w-full max-w-[84px] aspect-square cursor-crosshair touch-none"></canvas>
+              <span class="text-[10px] font-mono uppercase text-zinc-400">Gamma</span>
+            </div>
+            <div class="flex flex-col items-center gap-1">
+              <canvas id="wheel-gain" width="120" height="120" class="w-full max-w-[84px] aspect-square cursor-crosshair touch-none"></canvas>
+              <span class="text-[10px] font-mono uppercase text-zinc-400">Gain</span>
+            </div>
+          </div>
+          <p class="text-[10px] text-zinc-500">Drag a puck to tint shadows, midtones or highlights. Double-click to reset one wheel.</p>
+        </section>
+
+      </div>
+    </aside>
+  </div>
+
+  <!-- EXPORT MODAL (6K NATIVE RESOLUTION & ZERO-LOSS PIPELINE) -->
+  <div id="exportModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-studio-panel border border-studio-border rounded-xl max-w-md w-full p-5 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-studio-border pb-3">
+        <div>
+          <h2 class="text-base font-semibold text-white">mosaicStudios Master Export</h2>
+          <p class="text-[11px] text-emerald-400 font-mono">Offscreen WebGL2 Render · 100% Pixel Density Preserved</p>
+        </div>
+        <button id="btnCloseExport" class="p-1.5 rounded-lg hover:bg-studio-surface text-zinc-400 hover:text-white">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-zinc-300 font-medium mb-1">Resolution & Pixel Density</label>
+          <div class="grid grid-cols-3 gap-2 text-[11px]">
+            <button data-res="native" class="export-res-btn py-2 px-1.5 rounded-lg bg-blue-600 text-white font-semibold border border-blue-500 text-center">
+              <div>1:1 Native</div>
+              <div class="text-[9px] font-mono opacity-85">Zero Loss</div>
+            </button>
+            <button data-res="6k" class="export-res-btn py-2 px-1.5 rounded-lg bg-studio-surface text-zinc-300 border border-studio-border hover:bg-zinc-700 text-center">
+              <div>6K Master</div>
+              <div class="text-[9px] font-mono opacity-75">6144px Long</div>
+            </button>
+            <button data-res="4k" class="export-res-btn py-2 px-1.5 rounded-lg bg-studio-surface text-zinc-300 border border-studio-border hover:bg-zinc-700 text-center">
+              <div>4K Studio</div>
+              <div class="text-[9px] font-mono opacity-75">3840px Long</div>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-zinc-300 font-medium mb-1">File Encoding</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button data-format="image/png" class="export-fmt-btn py-2 rounded-lg bg-blue-600 text-white font-semibold border border-blue-500">PNG (Lossless)</button>
+            <button data-format="image/jpeg" class="export-fmt-btn py-2 rounded-lg bg-studio-surface text-zinc-300 border border-studio-border hover:bg-zinc-700">JPEG</button>
+            <button data-format="image/webp" class="export-fmt-btn py-2 rounded-lg bg-studio-surface text-zinc-300 border border-studio-border hover:bg-zinc-700">WEBP</button>
+          </div>
+        </div>
+
+        <div id="exportQualityRow" class="hidden">
+          <div class="flex justify-between mb-1">
+            <span class="text-zinc-300 font-medium">Compression Quality</span>
+            <span id="val-exportQuality" class="font-mono text-blue-400">100%</span>
+          </div>
+          <input type="range" id="slider-exportQuality" class="studio-slider" min="80" max="100" value="100" />
+        </div>
+
+        <div class="bg-studio-bg rounded-lg p-2.5 border border-studio-border space-y-1 text-[11px]">
+          <div class="flex justify-between">
+            <span class="text-zinc-400">Target Render Resolution</span>
+            <span id="exportDimensionsText" class="font-mono text-white font-semibold">1600 × 1067 px</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-zinc-400">GPU Max Texture Hardware Limit</span>
+            <span id="gpuMaxTexText" class="font-mono text-emerald-400">16384 × 16384 px</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button id="btnCancelExport" class="px-4 py-2 rounded-lg bg-studio-surface hover:bg-zinc-700 text-zinc-300 font-medium">Cancel</button>
+        <button id="btnConfirmExport" class="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-md">Render & Download</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- APPLICATION LOGIC: WEBGL2 ENGINE, 140 SHADER PRESETS, LUTS & 6K EXPORT -->
+  <!-- ===================================================================== -->
+  <script>
+    (() => {
+      'use strict';
+
+      /* -------------------------------------------------------------------
+         1. APPLICATION STATE
+      ------------------------------------------------------------------- */
+      const MAX_MASKS = 6;
+
+      const defaultGlobalParams = () => ({
+        temperature: 0,
+        tint: 0,
+        vibrance: 0,
+        saturation: 0,
+        exposure: 0,
+        contrast: 0,
+        highlights: 0,
+        shadows: 0,
+        whites: 0,
+        blacks: 0,
+        clarity: 0,
+        dehaze: 0,
+        vignetteAmount: 0,
+        vignetteFeather: 50,
+        grain: 0,
+        lutIntensity: 100,
+        lift: { x: 0, y: 0 },
+        gamma: { x: 0, y: 0 },
+        gain: { x: 0, y: 0 },
+        // 5-point parametric tone curve (x: 0, 0.25, 0.5, 0.75, 1.0)
+        curvePoints: [0.0, 0.25, 0.5, 0.75, 1.0]
+      });
+
+      const defaultMaskAdjustments = () => ({
+        temperature: 0,
+        tint: 0,
+        saturation: 0,
+        exposure: 0,
+        contrast: 0,
+        highlights: 0,
+        shadows: 0,
+        clarity: 0
+      });
+
+      const state = {
+        image: null,
+        imageName: 'Sample_Editorial.jpg',
+        imgWidth: 1600,
+        imgHeight: 1067,
+        maxTextureSize: 8192,
+
+        // Viewport transform
+        zoom: 1,
+        panX: 0,
+        panY: 0,
+        isPanning: false,
+        spacePressed: false,
+        lastPointer: { x: 0, y: 0 },
+
+        // Compare modes
+        splitCompare: false,
+        splitPosition: 0.5,
+        draggingSplit: false,
+        holdOriginal: false,
+
+        // Global adjustments
+        global: defaultGlobalParams(),
+
+        // 140 Creative & Editorial Filter State
+        activeFilterCategory: -1, // -1 = None, 0..6 = 7 categories
+        activeFilterVariant: 0,   // 0..19 = 20 presets per category
+        filterIntensity: 80,
+        filterParam2: 50,
+        filterCategoryFilter: 'all',
+        filterSearchQuery: '',
+
+        // LUT library & active 3D LUT
+        luts: [],
+        activeLutId: 'none',
+
+        // Non-destructive Mask Layers
+        masks: [],
+        selectedMaskId: null,
+        showMaskOverlay: true,
+
+        // Brush tool state
+        brushMode: 'paint',
+        brushSize: 80,
+        brushFeather: 65,
+        brushOpacity: 85,
+        isDrawingMask: false,
+        activeDragHandle: null,
+        pointerPosCanvas: { x: -999, y: -999 },
+
+        // Export settings (Default to Lossless PNG at 1:1 Native Resolution)
+        exportResolutionMode: 'native', // 'native' | '6k' | '4k'
+        exportFormat: 'image/png',
+        exportQuality: 1.0
+      };
+
+      /* -------------------------------------------------------------------
+         1B. 140 CREATIVE & EDITORIAL FILTER CATALOG (7 × 20 = 140)
+      ------------------------------------------------------------------- */
+      const FILTER_CATEGORIES = [
+        {
+          id: 0,
+          name: 'Glitch Effects',
+          badgeColor: 'text-rose-400 bg-rose-500/15 border-rose-500/30',
+          param2Label: 'Glitch Frequency / Offset',
+          items: [
+            'RGB Chromatic Tear', 'VHS Tracking Drift', 'Datamosh Block Shift', 'Scanline Interlace',
+            'Pixel Sort Cascade', 'Sync Loss Roll', 'Bitcrush Quantize', 'Signal Noise Burst',
+            'CRT Phosphor Bleed', 'Buffer Underrun', 'Horizontal Jitter', 'Waveguide Phase',
+            'Digital Dropout', 'Channel Swap Glitch', 'Macroblock Tear', 'Timebase Error',
+            'Subcarrier Shift', 'Slit-Scan Warp', 'Memory Leak Smear', 'Strobe Frame Tear'
+          ]
+        },
+        {
+          id: 1,
+          name: 'Morphism',
+          badgeColor: 'text-cyan-400 bg-cyan-500/15 border-cyan-500/30',
+          param2Label: 'Refraction / Warp Radius',
+          items: [
+            'Glassmorphic Frost', 'Liquid Mercury', 'Refraction Prism', 'Viscous Melt',
+            'Frosted Acrylic', 'Hyperbolic Lens', 'Soap Bubble Iridescence', 'Convex Droplet',
+            'Ripple Distortion', 'Jelly Elasticity', 'Mirror Fold', 'Kaleido-Morph',
+            'Chromatic Dispersion Glass', 'Molten Chrome', 'Satin Diffusion', 'Silk Wave',
+            'Organic Cellular', 'Gelatine Bend', 'Obsidian Gloss', 'Crystal Facet'
+          ]
+        },
+        {
+          id: 2,
+          name: 'Data Convulsions',
+          badgeColor: 'text-amber-400 bg-amber-500/15 border-amber-500/30',
+          param2Label: 'Entropy / Grid Density',
+          items: [
+            'Voronoi Shatter', 'Hilbert Curve Fold', 'Byte-Stream Smear', 'Fourier Ripple',
+            'Entropy Spike', 'Tensor Warp', 'Matrix Rain Echo', 'Packet Loss Grid',
+            'Radix Sort Streak', 'Neural Hallucination', 'Sine-Wave Convulsion', 'Bitplane Collapse',
+            'Hash Noise Dither', 'Eigen-Vector Twist', 'Recursive Feedback', 'Quantization Fault',
+            'Modulo Banding', 'Perlin Turbulence', 'Phase Inversion', 'Kernel Panic'
+          ]
+        },
+        {
+          id: 3,
+          name: 'New Age Morphism',
+          badgeColor: 'text-fuchsia-400 bg-fuchsia-500/15 border-fuchsia-500/30',
+          param2Label: 'Aura Spread / Luminescence',
+          items: [
+            'Ethereal Aura Glow', 'Astral Iridescence', 'Biomorphic Bloom', 'Holographic Silk',
+            'Quantum Mist', 'Opalescent Pearl', 'Celestial Halo', 'Plasma Veil',
+            'Lucid Dream Haze', 'Velvet Nebula', 'Solar Flare Prism', 'Crystal Resonance',
+            'Liquid Opal', 'Aurora Borealis', 'Chakra Chromatic', 'Hyper-Real Softness',
+            'Neo-Pastel Frosted', 'Spectral Dew', 'Astral Refraction', 'Cyber-Zen Glow'
+          ]
+        },
+        {
+          id: 4,
+          name: 'Textureism',
+          badgeColor: 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30',
+          param2Label: 'Surface Grain / Relief Depth',
+          items: [
+            'Raw Linen Weave', 'Impasto Oil Canvas', 'Brushed Titanium', 'Cracked Porcelain',
+            'Heavy Grain 3200ISO', 'Halftone Newsprint', 'Stipple Etching', 'Frosted Sandblast',
+            'Hammered Copper', 'Parchment Fiber', 'Concrete Brutalism', 'Crosshatch Ink',
+            'Woven Carbon', 'Wet Plate Collodion', 'Charcoal Tooth', 'Risograph Grain',
+            'Patina Oxidize', 'Micro-Corduroy', 'Gold Leaf Flake', 'Woodblock Relief'
+          ]
+        },
+        {
+          id: 5,
+          name: 'New Leo Da Vinci',
+          badgeColor: 'text-yellow-400 bg-yellow-500/15 border-yellow-500/30',
+          param2Label: 'Chiaroscuro / Glaze Depth',
+          items: [
+            'Sfumato Chiaroscuro', 'Silverpoint Sketch', 'Vitruvian Golden Grid', 'Mona Lisa Varnish',
+            'Codex Sepia Wash', 'Anatomical Red Chalk', 'Renaissance Fresco', 'Da Vinci Mirror Script',
+            'Umbrian Umber Glaze', 'Florentine Tempera', 'Atmospheric Blue Horizon', 'Golden Ratio Spiral',
+            'Vermilion Underpainting', 'Lapis Lazuli Glaze', 'Burnished Bronze', 'Candlelight Tenebrism',
+            'Antique Crackle Varnish', 'Parchment Codex Ink', 'Masterwork Oil Glaze', 'Sanguine Study'
+          ]
+        },
+        {
+          id: 6,
+          name: 'High Fashion Editorial',
+          badgeColor: 'text-blue-400 bg-blue-500/15 border-blue-500/30',
+          param2Label: 'Tonal Sculpt / Contrast Curve',
+          items: [
+            'Vogue Milan Warm', 'Paris Haute Couture Cool', 'Harper\'s Editorial Matte', 'Balenciaga Brutalist Grey',
+            'Saint Laurent Noir Contrast', 'Gucci Vintage 70s Kodak', 'Prada Clinical Minimal', 'Dior Soft Beauty Glow',
+            'Helmut Newton Silver B&W', 'Lindbergh Raw Contrast', 'Testino Sun-Kissed Skin', 'Meisel Studio Crisp',
+            'Portra 400 Editorial', 'Cinestill 800T Night Runway', 'Medium Format Hasselblad', 'Bleach Bypass Runway',
+            'Silk Skin Retouch Tone', 'Velvet Shadows Luxury', 'Alabaster Porcelain Skin', 'Magazine Cover Punch'
+          ]
+        }
+      ];
+
+      /* -------------------------------------------------------------------
+         2. BUILT-IN HIGH-RESOLUTION SAMPLE PHOTO GENERATOR
+         Generates a rich, photorealistic editorial portrait/landscape scene
+         with skin tones, sky gradient, golden hour highlights, foliage &
+         architectural contrast so LUTs, sliders & masks shine immediately.
+      ------------------------------------------------------------------- */
+      function createBuiltInSampleImage() {
+        const w = 1600;
+        const h = 1067;
+        const off = document.createElement('canvas');
+        off.width = w;
+        off.height = h;
+        const ctx = off.getContext('2d');
+
+        // 1. Golden Hour Sky Backdrop
+        const skyGrad = ctx.createLinearGradient(0, 0, w * 0.85, h * 0.72);
+        skyGrad.addColorStop(0.0, '#1e3a5f');
+        skyGrad.addColorStop(0.35, '#3b6e9c');
+        skyGrad.addColorStop(0.68, '#d98a5f');
+        skyGrad.addColorStop(1.0, '#f6d293');
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, w, h);
+
+        // Soft glowing sun orb
+        const sunGrad = ctx.createRadialGradient(w * 0.72, h * 0.34, 10, w * 0.72, h * 0.34, 420);
+        sunGrad.addColorStop(0, 'rgba(255, 248, 225, 0.95)');
+        sunGrad.addColorStop(0.25, 'rgba(253, 211, 138, 0.55)');
+        sunGrad.addColorStop(1, 'rgba(253, 211, 138, 0)');
+        ctx.fillStyle = sunGrad;
+        ctx.fillRect(0, 0, w, h);
+
+        // 2. Distant Layered Mountain Ridges (great for shadows/clarity/dehaze testing)
+        const drawRidge = (yBase, amp, freq, color) => {
+          ctx.beginPath();
+          ctx.moveTo(0, h);
+          for (let x = 0; x <= w; x += 12) {
+            const n = Math.sin(x * freq) * amp + Math.cos(x * freq * 2.3 + 1.2) * (amp * 0.45);
+            ctx.lineTo(x, yBase + n);
+          }
+          ctx.lineTo(w, h);
+          ctx.closePath();
+          ctx.fillStyle = color;
+          ctx.fill();
+        };
+        drawRidge(h * 0.56, 48, 0.0032, '#3a4b63');
+        drawRidge(h * 0.64, 58, 0.0045, '#263447');
+        drawRidge(h * 0.74, 40, 0.006, '#18222f');
+
+        // 3. Reflective Alpine Lake Water
+        const waterY = h * 0.73;
+        const waterGrad = ctx.createLinearGradient(0, waterY, 0, h);
+        waterGrad.addColorStop(0, '#2c4866');
+        waterGrad.addColorStop(0.4, '#1b2d42');
+        waterGrad.addColorStop(1, '#0e1722');
+        ctx.fillStyle = waterGrad;
+        ctx.fillRect(0, waterY, w, h - waterY);
+
+        // Shimmering sun reflections on water
+        for (let i = 0; i < 65; i++) {
+          const ry = waterY + 8 + Math.pow(i / 65, 1.35) * (h - waterY - 12);
+          const rw = 24 + Math.sin(i * 1.7) * 18 + (i * 1.8);
+          const rx = w * 0.72 - rw * 0.5 + Math.sin(i * 3.1) * 28;
+          ctx.fillStyle = `rgba(255, 224, 166, ${0.32 - (i / 65) * 0.24})`;
+          ctx.fillRect(rx, ry, rw, 2.5);
+        }
+
+        // 4. Foreground Editorial Subject Silhouette / Warm Skin-Tone Portrait Bust on Left-Center
+        // Gives natural skin tones, hair highlights, and wardrobe shadow detail
+        ctx.save();
+        const cx = w * 0.34;
+        const cy = h * 0.58;
+
+        // Warm rim light halo behind subject
+        const rim = ctx.createRadialGradient(cx + 35, cy - 40, 20, cx, cy, 340);
+        rim.addColorStop(0, 'rgba(255, 214, 153, 0.45)');
+        rim.addColorStop(1, 'rgba(255, 214, 153, 0)');
+        ctx.fillStyle = rim;
+        ctx.fillRect(cx - 350, cy - 350, 700, 700);
+
+        // Shoulders / Coat
+        const coatGrad = ctx.createLinearGradient(cx - 210, cy + 90, cx + 210, h);
+        coatGrad.addColorStop(0, '#2d3748');
+        coatGrad.addColorStop(0.5, '#1a202c');
+        coatGrad.addColorStop(1, '#0d1117');
+        ctx.fillStyle = coatGrad;
+        ctx.beginPath();
+        ctx.ellipse(cx, h * 0.96, 250, 230, 0, Math.PI, 0);
+        ctx.fill();
+
+        // Neck & Portrait Face (natural warm skin tones for color grading evaluation)
+        const skinGrad = ctx.createLinearGradient(cx - 75, cy - 150, cx + 95, cy + 90);
+        skinGrad.addColorStop(0, '#c68663');
+        skinGrad.addColorStop(0.55, '#e2a683');
+        skinGrad.addColorStop(1, '#f3c5a6'); // warm sun-kissed cheek highlight
+
+        // Neck
+        ctx.fillStyle = '#b97856';
+        ctx.fillRect(cx - 38, cy + 35, 76, 110);
+
+        // Head
+        ctx.fillStyle = skinGrad;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy - 45, 86, 112, -0.04, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Stylized Hair / Hat Brim for crisp tonal separation
+        ctx.fillStyle = '#1c1917';
+        ctx.beginPath();
+        ctx.ellipse(cx - 6, cy - 115, 145, 28, -0.08, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(cx - 4, cy - 135, 88, 52, -0.08, Math.PI, 0);
+        ctx.fill();
+
+        // Subtle Color Checker Reference Swatches in bottom-left corner (tasteful subtle studio card)
+        const swatches = ['#735244', '#c29682', '#627a9d', '#576c43', '#8580b1', '#67bdaa', '#d67e2c', '#505ba6', '#c15a63'];
+        ctx.fillStyle = 'rgba(18,18,20,0.65)';
+        ctx.roundRect?.(28, h - 56, swatches.length * 22 + 12, 30, 6);
+        ctx.fill();
+        swatches.forEach((hex, idx) => {
+          ctx.fillStyle = hex;
+          ctx.fillRect(34 + idx * 22, h - 50, 18, 18);
+        });
+        ctx.restore();
+
+        return off;
+      }
+
+      /* -------------------------------------------------------------------
+         3. UNIVERSAL LUT & COLOR GRADING PARSER
+         Supports:
+         - .cube (1D and 3D LUTs, any size, DOMAIN_MIN/MAX, comments)
+         - .3dl  (Autodesk/Lustre 3D LUTs with integer bit-depth scaling)
+         - .look (Adobe SpeedGrade XML embedded LUT tables)
+         - .xmp  (Adobe Camera Raw / Lightroom basic tone/color XML tags)
+      ------------------------------------------------------------------- */
+
+      // Helper: Generate an identity 3D LUT of size N
+      function createIdentityLUT(size = 17) {
+        const data = new Float32Array(size * size * size * 3);
+        let idx = 0;
+        for (let b = 0; b < size; b++) {
+          for (let g = 0; g < size; g++) {
+            for (let r = 0; r < size; r++) {
+              data[idx++] = r / (size - 1);
+              data[idx++] = g / (size - 1);
+              data[idx++] = b / (size - 1);
+            }
+          }
+        }
+        return { size, data };
+      }
+
+      // Helper: Convert a 1D LUT (R,G,B curves) into a 3D LUT of size 33 for uniform WebGL 3D texture sampling
+      function convert1DTo3DLUT(lut1D) {
+        const len = lut1D.length / 3;
+        const size = 33;
+        const data = new Float32Array(size * size * size * 3);
+        const sample1D = (val, ch) => {
+          const pos = Math.max(0, Math.min(len - 1, val * (len - 1)));
+          const i0 = Math.floor(pos);
+          const i1 = Math.min(len - 1, i0 + 1);
+          const f = pos - i0;
+          return lut1D[i0 * 3 + ch] * (1 - f) + lut1D[i1 * 3 + ch] * f;
+        };
+        let ptr = 0;
+        for (let b = 0; b < size; b++) {
+          for (let g = 0; g < size; g++) {
+            for (let r = 0; r < size; r++) {
+              data[ptr++] = sample1D(r / (size - 1), 0);
+              data[ptr++] = sample1D(g / (size - 1), 1);
+              data[ptr++] = sample1D(b / (size - 1), 2);
+            }
+          }
+        }
+        return { size, data };
+      }
+
+      // Parse .CUBE file (Adobe / DaVinci Resolve standard)
+      function parseCubeLUT(text, fallbackName) {
+        const lines = text.split(/\r?\n/);
+        let title = fallbackName;
+        let size3D = 0;
+        let size1D = 0;
+        let domainMin = [0, 0, 0];
+        let domainMax = [1, 1, 1];
+        const values = [];
+
+        for (let raw of lines) {
+          const line = raw.trim();
+          if (!line || line.startsWith('#')) continue;
+
+          if (line.startsWith('TITLE')) {
+            const match = line.match(/TITLE\s+"?([^"]+)"?/i);
+            if (match) title = match[1];
+            continue;
+          }
+          if (line.startsWith('LUT_3D_SIZE')) {
+            size3D = parseInt(line.split(/\s+/)[1], 10);
+            continue;
+          }
+          if (line.startsWith('LUT_1D_SIZE')) {
+            size1D = parseInt(line.split(/\s+/)[1], 10);
+            continue;
+          }
+          if (line.startsWith('DOMAIN_MIN')) {
+            const p = line.split(/\s+/).slice(1).map(Number);
+            if (p.length >= 3) domainMin = p;
+            continue;
+          }
+          if (line.startsWith('DOMAIN_MAX')) {
+            const p = line.split(/\s+/).slice(1).map(Number);
+            if (p.length >= 3) domainMax = p;
+            continue;
+          }
+
+          // Numeric RGB triplet
+          const parts = line.split(/\s+/);
+          if (parts.length >= 3 && !isNaN(parseFloat(parts[0]))) {
+            const r = (parseFloat(parts[0]) - domainMin[0]) / ((domainMax[0] - domainMin[0]) || 1);
+            const g = (parseFloat(parts[1]) - domainMin[1]) / ((domainMax[1] - domainMin[1]) || 1);
+            const b = (parseFloat(parts[2]) - domainMin[2]) / ((domainMax[2] - domainMin[2]) || 1);
+            values.push(r, g, b);
+          }
+        }
+
+        if (size3D > 0) {
+          const expected = size3D * size3D * size3D * 3;
+          const data = new Float32Array(expected);
+          for (let i = 0; i < Math.min(values.length, expected); i++) data[i] = values[i];
+          return { type: 'lut', format: `3D ${size3D}³`, title, size: size3D, data };
+        } else if (size1D > 0) {
+          const converted = convert1DTo3DLUT(new Float32Array(values));
+          return { type: 'lut', format: `1D→3D`, title, size: converted.size, data: converted.data };
+        } else {
+          // Infer cube size from total RGB entries
+          const count = Math.floor(values.length / 3);
+          const inferred = Math.round(Math.cbrt(count));
+          if (inferred >= 2 && inferred * inferred * inferred === count) {
+            return { type: 'lut', format: `3D ${inferred}³`, title, size: inferred, data: new Float32Array(values) };
+          }
+          throw new Error('Unrecognized .cube structure');
+        }
+      }
+
+      // Parse .3DL file (Autodesk / Lustre 3D LUT)
+      function parse3dlLUT(text, fallbackName) {
+        const lines = text.split(/\r?\n/);
+        const triplets = [];
+        let maxVal = 0;
+
+        for (let raw of lines) {
+          const line = raw.trim();
+          if (!line || line.startsWith('#') || line.startsWith('Mesh')) continue;
+          const parts = line.split(/\s+/).map(Number);
+          // Skip header shaper line (often has > 3 numbers like 0 64 128 ... 1023)
+          if (parts.length === 3 && parts.every(n => !isNaN(n))) {
+            triplets.push(parts[0], parts[1], parts[2]);
+            maxVal = Math.max(maxVal, parts[0], parts[1], parts[2]);
+          }
+        }
+
+        const count = triplets.length / 3;
+        const size = Math.round(Math.cbrt(count));
+        if (size < 2 || size * size * size !== count) {
+          throw new Error('Invalid .3dl grid dimensions');
+        }
+
+        // Determine bit depth normalization (10-bit=1023, 12-bit=4095, 16-bit=65535, or float 1.0)
+        let denom = 1.0;
+        if (maxVal > 1.0) {
+          if (maxVal <= 1023) denom = 1023.0;
+          else if (maxVal <= 4095) denom = 4095.0;
+          else if (maxVal <= 16383) denom = 16383.0;
+          else denom = 65535.0;
+        }
+
+        // .3dl stores R fastest or B fastest depending on dialect; standard Lustre is R fastest in inner loop or B fastest
+        // Reorder into WebGL R-fastest (x=R, y=G, z=B)
+        const data = new Float32Array(count * 3);
+        let idx = 0;
+        for (let r = 0; r < size; r++) {
+          for (let g = 0; g < size; g++) {
+            for (let b = 0; b < size; b++) {
+              const dstIdx = ((b * size + g) * size + r) * 3;
+              data[dstIdx] = triplets[idx++] / denom;
+              data[dstIdx + 1] = triplets[idx++] / denom;
+              data[dstIdx + 2] = triplets[idx++] / denom;
+            }
+          }
+        }
+
+        return { type: 'lut', format: `3DL ${size}³`, title: fallbackName, size, data };
+      }
+
+      // Parse .LOOK file (Adobe SpeedGrade XML LUT)
+      function parseLookFile(text, fallbackName) {
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(text, 'text/xml');
+        const lutNode = xml.querySelector('LUT') || xml.querySelector('data');
+        if (!lutNode) throw new Error('No <LUT> table found in .look file');
+
+        const sizeAttr = lutNode.getAttribute('size');
+        const size = sizeAttr ? parseInt(sizeAttr, 10) : 0;
+        const rawNums = lutNode.textContent.trim().split(/\s+/).map(Number).filter(n => !isNaN(n));
+
+        const count = Math.floor(rawNums.length / 3);
+        const finalSize = size || Math.round(Math.cbrt(count));
+        if (finalSize < 2) throw new Error('Invalid .look LUT dimensions');
+
+        const data = new Float32Array(finalSize * finalSize * finalSize * 3);
+        for (let i = 0; i < Math.min(data.length, rawNums.length); i++) {
+          data[i] = rawNums[i];
+        }
+        return { type: 'lut', format: `LOOK ${finalSize}³`, title: fallbackName, size: finalSize, data };
+      }
+
+      // Parse .XMP file (Adobe Lightroom / Camera Raw preset parameters)
+      function parseXmpFile(text, fallbackName) {
+        const getTagVal = (tag) => {
+          // Matches either attribute crs:Exposure2012="+0.50" or element <crs:Exposure2012>+0.50</crs:Exposure2012>
+          const attrRegex = new RegExp(`crs:${tag}\\s*=\\s*"([^"]+)"`, 'i');
+          const elRegex = new RegExp(`<crs:${tag}>([^<]+)<\\/crs:${tag}>`, 'i');
+          const m1 = text.match(attrRegex);
+          if (m1) return parseFloat(m1[1]);
+          const m2 = text.match(elRegex);
+          if (m2) return parseFloat(m2[1]);
+          return null;
+        };
+
+        const adjustments = {};
+        const exp = getTagVal('Exposure2012') ?? getTagVal('Exposure');
+        if (exp !== null && !isNaN(exp)) adjustments.exposure = Math.max(-3, Math.min(3, exp));
+
+        const cont = getTagVal('Contrast2012') ?? getTagVal('Contrast');
+        if (cont !== null && !isNaN(cont)) adjustments.contrast = Math.max(-100, Math.min(100, cont));
+
+        const hi = getTagVal('Highlights2012') ?? getTagVal('Highlights');
+        if (hi !== null && !isNaN(hi)) adjustments.highlights = Math.max(-100, Math.min(100, hi));
+
+        const sh = getTagVal('Shadows2012') ?? getTagVal('Shadows');
+        if (sh !== null && !isNaN(sh)) adjustments.shadows = Math.max(-100, Math.min(100, sh));
+
+        const wh = getTagVal('Whites2012') ?? getTagVal('Whites');
+        if (wh !== null && !isNaN(wh)) adjustments.whites = Math.max(-100, Math.min(100, wh));
+
+        const bl = getTagVal('Blacks2012') ?? getTagVal('Blacks');
+        if (bl !== null && !isNaN(bl)) adjustments.blacks = Math.max(-100, Math.min(100, bl));
+
+        const vib = getTagVal('Vibrance');
+        if (vib !== null && !isNaN(vib)) adjustments.vibrance = Math.max(-100, Math.min(100, vib));
+
+        const sat = getTagVal('Saturation');
+        if (sat !== null && !isNaN(sat)) adjustments.saturation = Math.max(-100, Math.min(100, sat));
+
+        const clar = getTagVal('Clarity2012') ?? getTagVal('Clarity');
+        if (clar !== null && !isNaN(clar)) adjustments.clarity = Math.max(-100, Math.min(100, clar));
+
+        // Temperature in XMP can be Kelvin (e.g. 5500) or relative (-100..100)
+        const temp = getTagVal('Temperature');
+        if (temp !== null && !isNaN(temp)) {
+          adjustments.temperature = Math.abs(temp) > 200
+            ? Math.max(-100, Math.min(100, (temp - 5500) / 35))
+            : Math.max(-100, Math.min(100, temp));
+        }
+
+        const tint = getTagVal('Tint');
+        if (tint !== null && !isNaN(tint)) {
+          adjustments.tint = Math.max(-100, Math.min(100, tint));
+        }
+
+        return { type: 'xmp', title: fallbackName, adjustments };
+      }
+
+      /* -------------------------------------------------------------------
+         4. PROCEDURAL CINEMATIC 3D LUT PRESETS
+         Generates authentic 33x33x33 3D color grading LUTs on startup
+      ------------------------------------------------------------------- */
+      function buildBuiltInPresets() {
+        const size = 33;
+        const makeLUT = (id, name, desc, badge, transformFn) => {
+          const data = new Float32Array(size * size * size * 3);
+          let ptr = 0;
+          for (let b = 0; b < size; b++) {
+            for (let g = 0; g < size; g++) {
+              for (let r = 0; r < size; r++) {
+                const nr = r / (size - 1);
+                const ng = g / (size - 1);
+                const nb = b / (size - 1);
+                const [or, og, ob] = transformFn(nr, ng, nb);
+                data[ptr++] = Math.max(0, Math.min(1, or));
+                data[ptr++] = Math.max(0, Math.min(1, og));
+                data[ptr++] = Math.max(0, Math.min(1, ob));
+              }
+            }
+          }
+          return { id, name, desc, format: badge, size, data };
+        };
+
+        const smoothS = (x, str = 0.25) => x + str * Math.sin(Math.PI * x) * (x - 0.5) * 2.0;
+
+        // 0. Neutral Identity
+        const neutral = makeLUT('none', 'Neutral (No LUT)', 'Linear optical passthrough', 'Bypass', (r, g, b) => [r, g, b]);
+
+        // 1. Cinematic Teal & Orange
+        const tealOrange = makeLUT('teal-orange', 'Teal & Orange Blockbuster', 'Cool cyan shadows, warm golden skin highlights', '3D 33³', (r, g, b) => {
+          const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          const sh = Math.pow(1.0 - lum, 1.6);
+          const hi = Math.pow(lum, 1.3);
+          let nr = smoothS(r, 0.22) - sh * 0.08 + hi * 0.11;
+          let ng = smoothS(g, 0.20) + sh * 0.03 + hi * 0.04;
+          let nb = smoothS(b, 0.22) + sh * 0.12 - hi * 0.10;
+          return [nr, ng, nb];
+        });
+
+        // 2. Kodak Portra 400 Film
+        const portra = makeLUT('kodak-portra', 'Kodak Portra 400', 'Soft pastel highlights, creamy warm skin tones', '3D 33³', (r, g, b) => {
+          const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          // Lifted blacks & rolled-off highlights
+          let nr = 0.025 + r * 0.94 + Math.sin(lum * Math.PI) * 0.035;
+          let ng = 0.022 + g * 0.94 + Math.sin(lum * Math.PI) * 0.022;
+          let nb = 0.030 + b * 0.91 - lum * 0.025;
+          return [nr, ng, nb];
+        });
+
+        // 3. Moody Matte Fade
+        const moodyMatte = makeLUT('moody-matte', 'Moody Editorial Matte', 'Faded charcoal blacks, desaturated cool greens', '3D 33³', (r, g, b) => {
+          const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          const desat = 0.76;
+          let nr = lum + (r - lum) * desat;
+          let ng = lum + (g - lum) * desat;
+          let nb = lum + (b - lum) * desat;
+          // Lift blacks & subtle cool slate cast
+          nr = 0.055 + nr * 0.87;
+          ng = 0.060 + ng * 0.88;
+          nb = 0.068 + nb * 0.89;
+          return [nr, ng, nb];
+        });
+
+        // 4. Fuji Velvia 50 Vivid
+        const velvia = makeLUT('fuji-velvia', 'Fuji Velvia 50 Vivid', 'Deep rich contrast, punchy landscape colors', '3D 33³', (r, g, b) => {
+          let nr = smoothS(r, 0.34);
+          let ng = smoothS(g, 0.32);
+          let nb = smoothS(b, 0.36);
+          const lum = 0.2126 * nr + 0.7152 * ng + 0.0722 * nb;
+          const satBoost = 1.24;
+          nr = lum + (nr - lum) * satBoost + 0.015;
+          ng = lum + (ng - lum) * satBoost;
+          nb = lum + (nb - lum) * satBoost + 0.02;
+          return [nr, ng, nb];
+        });
+
+        // 5. Silver Gelatin B&W
+        const bwSilver = makeLUT('bw-silver', 'Ilford Silver B&W', 'High-contrast monochrome with red filter punch', '3D 33³', (r, g, b) => {
+          // Red-channel weighted monochrome for dramatic skies & luminous skin
+          let mono = r * 0.42 + g * 0.46 + b * 0.12;
+          mono = smoothS(mono, 0.38);
+          return [mono * 1.01, mono, mono * 0.98];
+        });
+
+        return [neutral, tealOrange, portra, moodyMatte, velvia, bwSilver];
+      }
+
+      /* -------------------------------------------------------------------
+         5. WEBGL2 GPU COLOR, 140-FILTER ENGINE & MASKING PIPELINE
+      ------------------------------------------------------------------- */
+      const glCanvas = document.getElementById('glCanvas');
+      const gl = glCanvas.getContext('webgl2', {
+        preserveDrawingBuffer: true,
+        premultipliedAlpha: false,
+        antialias: false,
+        powerPreference: 'high-performance'
+      });
+
+      if (!gl) {
+        alert('WebGL2 is required for mosaicStudios.');
+        throw new Error('WebGL2 unavailable');
+      } else {
+        state.maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 8192;
+        document.getElementById('gpuMaxTexText').textContent = `${state.maxTextureSize} × ${state.maxTextureSize} px`;
+      }
+
+      const vertexShaderSrc = `#version 300 es
+        in vec2 a_position;
+        in vec2 a_texCoord;
+        out vec2 v_texCoord;
+        void main() {
+          gl_Position = vec4(a_position, 0.0, 1.0);
+          v_texCoord = a_texCoord;
+        }
+      `;
+
+      const fragmentShaderSrc = `#version 300 es
+        precision highp float;
+        precision highp sampler3D;
+
+        in vec2 v_texCoord;
+        out vec4 fragColor;
+
+        uniform sampler2D u_image;
+        uniform sampler3D u_lut;
+        uniform sampler2D u_maskTex0;
+        uniform sampler2D u_maskTex1;
+        uniform sampler2D u_curveTex;
+
+        uniform vec2 u_texelSize;
+        uniform float u_aspectRatio;
+
+        // Global Controls
+        uniform float u_temperature;
+        uniform float u_tint;
+        uniform float u_vibrance;
+        uniform float u_saturation;
+        uniform float u_exposure;
+        uniform float u_contrast;
+        uniform float u_highlights;
+        uniform float u_shadows;
+        uniform float u_whites;
+        uniform float u_blacks;
+        uniform float u_clarity;
+        uniform float u_dehaze;
+        uniform float u_vignetteAmount;
+        uniform float u_vignetteFeather;
+        uniform float u_grain;
+        uniform float u_lutIntensity;
+
+        // 140 Creative & Editorial Shader Filter Uniforms
+        uniform int u_filterCat;       // -1 = Off, 0..6 = 7 Disciplines
+        uniform int u_filterVar;       // 0..19 = 20 Presets per Discipline
+        uniform float u_filterAmt;     // 0.0..1.0 Intensity
+        uniform float u_filterP2;      // 0.0..1.0 Secondary Modulation
+
+        // 3-Way Color Wheels
+        uniform vec3 u_lift;
+        uniform vec3 u_gamma;
+        uniform vec3 u_gain;
+
+        // Compare & Overlay
+        uniform int u_holdOriginal;
+        uniform int u_splitCompare;
+        uniform float u_splitPos;
+        uniform int u_showMaskOverlay;
+        uniform int u_selectedMaskIdx;
+
+        // Up to 6 Local Masks
+        uniform int u_maskType[6];
+        uniform int u_maskInvert[6];
+        uniform vec4 u_maskGeom[6];
+        uniform float u_maskFeather[6];
+
+        uniform float u_mExposure[6];
+        uniform float u_mContrast[6];
+        uniform float u_mTemp[6];
+        uniform float u_mTint[6];
+        uniform float u_mSat[6];
+        uniform float u_mShadows[6];
+        uniform float u_mHighlights[6];
+        uniform float u_mClarity[6];
+
+        float getLuma(vec3 c) {
+          return dot(c, vec3(0.2126, 0.7152, 0.0722));
+        }
+
+        float hash12(vec2 p) {
+          vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+          p3 += dot(p3, p3.yzx + 33.33);
+          return fract((p3.x + p3.y) * p3.z);
+        }
+
+        vec2 hash22(vec2 p) {
+          vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+          p3 += dot(p3, p3.yzx + 33.33);
+          return fract((p3.xx + p3.yz) * p3.zy);
+        }
+
+        float valueNoise(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          vec2 u = f * f * (3.0 - 2.0 * f);
+          return mix(
+            mix(hash12(i + vec2(0.0, 0.0)), hash12(i + vec2(1.0, 0.0)), u.x),
+            mix(hash12(i + vec2(0.0, 1.0)), hash12(i + vec2(1.0, 1.0)), u.x),
+            u.y
+          );
+        }
+
+        vec3 hslShift(vec3 col, float hueShift, float satMult, float lumMult) {
+          float l = getLuma(col);
+          vec3 c = mix(vec3(l), col, satMult) * lumMult;
+          float angle = hueShift * 6.2831853;
+          float s = sin(angle);
+          float co = cos(angle);
+          mat3 rot = mat3(
+            0.299 + 0.701 * co + 0.168 * s, 0.587 - 0.587 * co + 0.330 * s, 0.114 - 0.114 * co - 0.497 * s,
+            0.299 - 0.299 * co - 0.328 * s, 0.587 + 0.413 * co + 0.035 * s, 0.114 - 0.114 * co + 0.292 * s,
+            0.299 - 0.300 * co + 1.250 * s, 0.587 - 0.588 * co - 1.050 * s, 0.114 + 0.886 * co - 0.203 * s
+          );
+          return clamp(rot * c, 0.0, 1.0);
+        }
+
+        // Helper screen blend for New Age Morphism
+        vec3 screenBlend(vec3 a, vec3 b) {
+          return 1.0 - (1.0 - a) * (1.0 - b);
+        }
+
+        /* =================================================================
+           140-FILTER GPU PROCEDURAL SHADER ENGINE (7 CATEGORIES × 20 PRESETS)
+        ================================================================= */
+        vec3 applyCreativeEngine(vec2 uv, vec3 baseCol) {
+          if (u_filterCat < 0 || u_filterAmt <= 0.001) return baseCol;
+
+          float amt = u_filterAmt;
+          float p2 = u_filterP2;
+          float seed = float(u_filterVar) * 1.731 + 0.37;
+          vec2 aspUV = vec2(uv.x * u_aspectRatio, uv.y);
+          vec3 outCol = baseCol;
+
+          // ---------------------------------------------------------------
+          // CATEGORY 0: GLITCH EFFECTS (20 Variants)
+          // ---------------------------------------------------------------
+          if (u_filterCat == 0) {
+            float scale = mix(8.0, 90.0, p2);
+            vec2 block = floor(uv * vec2(scale * 0.6, scale));
+            float rnd = hash12(block + seed);
+            float lineRnd = hash12(vec2(floor(uv.y * scale * 2.5), seed));
+
+            if (u_filterVar == 0 || u_filterVar == 8 || u_filterVar == 16) {
+              // RGB Chromatic Tear / CRT Bleed / Subcarrier Shift
+              float tear = (lineRnd - 0.5) * 0.045 * amt * (0.5 + p2);
+              float r = texture(u_image, clamp(uv + vec2(tear + 0.008 * amt, 0.0), 0.0, 1.0)).r;
+              float g = texture(u_image, clamp(uv - vec2(tear * 0.4, 0.0), 0.0, 1.0)).g;
+              float b = texture(u_image, clamp(uv - vec2(tear + 0.008 * amt, 0.0), 0.0, 1.0)).b;
+              outCol = vec3(r, g, b);
+              if (u_filterVar == 8) outCol *= 0.85 + 0.25 * sin(uv.y * 650.0);
+            } else if (u_filterVar == 1 || u_filterVar == 5 || u_filterVar == 15) {
+              // VHS Tracking Drift / Sync Loss Roll / Timebase Error
+              float band = smoothstep(0.75, 1.0, sin(uv.y * (12.0 + p2 * 25.0) + seed));
+              vec2 wUV = fract(uv + vec2(band * 0.06 * amt * (lineRnd - 0.3), u_filterVar == 5 ? 0.18 * amt : 0.0));
+              outCol = texture(u_image, wUV).rgb;
+              outCol += vec3(band * 0.15 * hash12(uv * 400.0 + seed));
+            } else if (u_filterVar == 2 || u_filterVar == 9 || u_filterVar == 14) {
+              // Datamosh Block Shift / Buffer Underrun / Macroblock Tear
+              vec2 shift = (rnd > (0.68 - 0.25 * amt)) ? (hash22(block + seed) - 0.5) * 0.14 * amt : vec2(0.0);
+              outCol = texture(u_image, clamp(uv + shift, 0.0, 1.0)).rgb;
+              if (rnd > 0.85) outCol = outCol.gbr;
+            } else if (u_filterVar == 3 || u_filterVar == 10 || u_filterVar == 11) {
+              // Scanline Interlace / Horizontal Jitter / Waveguide Phase
+              float odd = mod(floor(uv.y * (240.0 + p2 * 300.0)), 2.0);
+              float jit = (odd * 2.0 - 1.0) * 0.018 * amt * (0.4 + lineRnd);
+              outCol = texture(u_image, clamp(uv + vec2(jit, 0.0), 0.0, 1.0)).rgb;
+              outCol *= mix(1.0, 0.72 + 0.28 * odd, amt * 0.7);
+            } else if (u_filterVar == 4 || u_filterVar == 17 || u_filterVar == 18) {
+              // Pixel Sort Cascade / Slit-Scan Warp / Memory Leak Smear
+              float lum = getLuma(baseCol);
+              float thresh = smoothstep(0.25, 0.75, lum);
+              vec2 dir = (u_filterVar == 17) ? vec2(sin(uv.y * 18.0 + seed) * 0.06 * amt, 0.0) : vec2(0.0, thresh * 0.12 * amt * (0.4 + p2));
+              outCol = texture(u_image, clamp(uv - dir, 0.0, 1.0)).rgb;
+            } else if (u_filterVar == 6 || u_filterVar == 12 || u_filterVar == 13) {
+              // Bitcrush Quantize / Digital Dropout / Channel Swap
+              float levels = mix(32.0, 3.0, amt * (0.5 + 0.5 * p2));
+              outCol = floor(baseCol * levels + 0.5) / levels;
+              if (u_filterVar == 13) outCol = mix(outCol, outCol.brg, amt);
+              if (u_filterVar == 12 && rnd > 0.82) outCol = vec3(step(0.5, hash12(uv * 200.0)));
+            } else {
+              // Signal Noise Burst / Strobe Frame Tear
+              float burst = hash12(vec2(floor(uv.y * 140.0), floor(uv.x * 24.0) + seed));
+              vec3 nCol = vec3(hash12(uv * 512.0 + seed), hash12(uv * 513.0 + seed), hash12(uv * 514.0 + seed));
+              outCol = mix(baseCol, nCol, step(0.76 - 0.3 * amt, burst) * amt * 0.75);
+            }
+          }
+
+          // ---------------------------------------------------------------
+          // CATEGORY 1: MORPHISM (20 Variants — Glass, Liquid, Refraction)
+          // ---------------------------------------------------------------
+          else if (u_filterCat == 1) {
+            float freq = mix(4.0, 26.0, p2);
+            vec2 center = vec2(0.5, 0.5);
+            vec2 d = uv - center;
+            float r = length(vec2(d.x * u_aspectRatio, d.y));
+
+            if (u_filterVar == 0 || u_filterVar == 4 || u_filterVar == 14) {
+              // Glassmorphic Frost / Frosted Acrylic / Satin Diffusion
+              vec2 n = (hash22(uv * 800.0 + seed) - 0.5) * 0.025 * amt * (0.4 + p2);
+              vec3 frosted = (
+                texture(u_image, clamp(uv + n, 0.0, 1.0)).rgb +
+                texture(u_image, clamp(uv - n * 1.4, 0.0, 1.0)).rgb +
+                texture(u_image, clamp(uv + vec2(n.y, -n.x), 0.0, 1.0)).rgb
+              ) / 3.0;
+              outCol = mix(frosted, frosted * 1.06 + 0.03, amt * 0.5);
+            } else if (u_filterVar == 1 || u_filterVar == 13 || u_filterVar == 18) {
+              // Liquid Mercury / Molten Chrome / Obsidian Gloss
+              float wave = sin(aspUV.x * freq + sin(aspUV.y * freq * 0.8 + seed) * 2.0);
+              vec2 wUV = clamp(uv + vec2(wave, cos(aspUV.y * freq)) * 0.022 * amt, 0.0, 1.0);
+              vec3 mCol = texture(u_image, wUV).rgb;
+              float lum = getLuma(mCol);
+              float chrome = pow(sin(lum * 3.14159 * 2.5) * 0.5 + 0.5, 1.5);
+              vec3 target = (u_filterVar == 18) ? vec3(pow(lum, 1.4)) * vec3(0.92, 0.96, 1.05) : vec3(chrome * 1.15);
+              outCol = mix(mCol, target, amt * 0.85);
+            } else if (u_filterVar == 2 || u_filterVar == 12 || u_filterVar == 19) {
+              // Refraction Prism / Chromatic Dispersion Glass / Crystal Facet
+              float facets = mix(6.0, 28.0, p2);
+              vec2 cell = floor(aspUV * facets) / facets;
+              vec2 refractDir = (hash22(cell + seed) - 0.5) * 0.04 * amt;
+              float disp = 0.014 * amt;
+              float cr = texture(u_image, clamp(uv + refractDir + vec2(disp, 0.0), 0.0, 1.0)).r;
+              float cg = texture(u_image, clamp(uv + refractDir, 0.0, 1.0)).g;
+              float cb = texture(u_image, clamp(uv + refractDir - vec2(disp, 0.0), 0.0, 1.0)).b;
+              outCol = vec3(cr, cg, cb);
+            } else if (u_filterVar == 5 || u_filterVar == 7) {
+              // Hyperbolic Lens / Convex Droplet
+              float mag = mix(0.6, 1.6, p2);
+              float factor = pow(max(0.001, r * 1.6), mag * amt);
+              vec2 lensUV = clamp(center + d * mix(1.0, factor, amt), 0.0, 1.0);
+              outCol = texture(u_image, lensUV).rgb;
+            } else if (u_filterVar == 6) {
+              // Soap Bubble Iridescence
+              float film = sin((r * freq * 2.0 + valueNoise(aspUV * 6.0) * 3.0) + seed);
+              vec3 irid = 0.5 + 0.5 * cos(6.28318 * (film * 0.5 + vec3(0.0, 0.33, 0.67)));
+              outCol = mix(baseCol, baseCol + irid * 0.35, amt * smoothstep(0.1, 0.85, r));
+            } else if (u_filterVar == 10 || u_filterVar == 11) {
+              // Mirror Fold / Kaleido-Morph
+              vec2 mUV = uv;
+              if (u_filterVar == 10) {
+                mUV.x = mix(uv.x, 1.0 - abs(uv.x * 2.0 - 1.0), amt);
+              } else {
+                float a = atan(d.y, d.x);
+                float seg = 6.28318 / mix(4.0, 12.0, p2);
+                a = abs(mod(a, seg) - seg * 0.5);
+                mUV = clamp(center + vec2(cos(a), sin(a)) * length(d), 0.0, 1.0);
+              }
+              outCol = mix(baseCol, texture(u_image, mUV).rgb, amt);
+            } else {
+              // Viscous Melt / Ripple Distortion / Jelly / Silk Wave / Organic Cellular / Gelatine
+              float nx = valueNoise(aspUV * freq + seed) - 0.5;
+              float ny = valueNoise(aspUV * freq + seed + 19.3) - 0.5;
+              vec2 wUV = clamp(uv + vec2(nx, ny) * 0.055 * amt, 0.0, 1.0);
+              outCol = texture(u_image, wUV).rgb;
+            }
+          }
+
+          // ---------------------------------------------------------------
+          // CATEGORY 2: DATA CONVULSIONS (20 Variants — Algorithmic Math)
+          // ---------------------------------------------------------------
+          else if (u_filterCat == 2) {
+            float grid = mix(10.0, 64.0, p2);
+            if (u_filterVar == 0 || u_filterVar == 7) {
+              // Voronoi Shatter / Packet Loss Grid
+              vec2 g = aspUV * grid;
+              vec2 id = floor(g);
+              vec2 f = fract(g);
+              float minDist = 10.0;
+              vec2 bestPt = vec2(0.0);
+              for (int y = -1; y <= 1; y++) {
+                for (int x = -1; x <= 1; x++) {
+                  vec2 nb = vec2(float(x), float(y));
+                  vec2 pt = hash22(id + nb + seed);
+                  float d = length(nb + pt - f);
+                  if (d < minDist) { minDist = d; bestPt = (id + nb + pt) / vec2(grid * u_aspectRatio, grid); }
+                }
+              }
+              vec3 cellCol = texture(u_image, clamp(bestPt, 0.0, 1.0)).rgb;
+              outCol = mix(baseCol, cellCol, amt);
+            } else if (u_filterVar == 1 || u_filterVar == 13) {
+              // Hilbert Curve Fold / Eigen-Vector Twist
+              vec2 p = uv - 0.5;
+              float angle = length(p) * (4.0 + p2 * 10.0) * amt;
+              mat2 rot = mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
+              vec2 tUV = clamp(0.5 + rot * p, 0.0, 1.0);
+              outCol = texture(u_image, tUV).rgb;
+            } else if (u_filterVar == 2 || u_filterVar == 8 || u_filterVar == 14) {
+              // Byte-Stream Smear / Radix Sort Streak / Recursive Feedback
+              vec3 acc = baseCol;
+              for (int k = 1; k <= 5; k++) {
+                float fk = float(k) * 0.012 * amt * (0.4 + p2);
+                vec2 off = (u_filterVar == 8) ? vec2(0.0, fk) : vec2(fk, fk * 0.35);
+                acc = max(acc, texture(u_image, clamp(uv - off, 0.0, 1.0)).rgb);
+              }
+              outCol = mix(baseCol, acc, amt);
+            } else if (u_filterVar == 3 || u_filterVar == 10 || u_filterVar == 17) {
+              // Fourier Ripple / Sine-Wave Convulsion / Perlin Turbulence
+              float f = mix(12.0, 60.0, p2);
+              vec2 conv = vec2(sin(uv.y * f + seed), cos(uv.x * f + seed)) * 0.025 * amt;
+              outCol = texture(u_image, clamp(uv + conv, 0.0, 1.0)).rgb;
+            } else if (u_filterVar == 6) {
+              // Matrix Rain Echo
+              float colId = floor(uv.x * (40.0 + p2 * 80.0));
+              float drop = fract(uv.y * 3.0 + hash12(vec2(colId, seed)));
+              float lum = getLuma(baseCol);
+              vec3 matCol = vec3(0.05, lum * 1.25 + pow(drop, 6.0) * 0.45, 0.12);
+              outCol = mix(baseCol, matCol, amt);
+            } else if (u_filterVar == 11 || u_filterVar == 15 || u_filterVar == 16) {
+              // Bitplane Collapse / Quantization Fault / Modulo Banding
+              float bands = mix(3.0, 14.0, p2);
+              vec3 modCol = fract(baseCol * bands);
+              outCol = mix(baseCol, modCol, amt * 0.75);
+            } else if (u_filterVar == 12) {
+              // Hash Noise Dither (Ordered Bayer-like stipple)
+              float n = hash12(floor(uv / (u_texelSize * 2.0)) + seed);
+              vec3 dithered = step(vec3(n), baseCol);
+              outCol = mix(baseCol, dithered, amt * 0.85);
+            } else if (u_filterVar == 18) {
+              // Phase Inversion
+              vec3 inv = abs(sin(baseCol * 3.14159 * (1.0 + p2 * 2.0)));
+              outCol = mix(baseCol, inv, amt);
+            } else {
+              // Entropy Spike / Tensor Warp / Neural Hallucination / Kernel Panic
+              vec3 n1 = texture(u_image, clamp(uv + vec2(u_texelSize.x * 3.0, 0.0), 0.0, 1.0)).rgb;
+              vec3 n2 = texture(u_image, clamp(uv + vec2(0.0, u_texelSize.y * 3.0), 0.0, 1.0)).rgb;
+              vec3 edge = abs(baseCol - n1) + abs(baseCol - n2);
+              vec3 halluc = hslShift(baseCol + edge * (2.5 + p2 * 3.0), 0.35 * amt, 1.4, 1.05);
+              outCol = mix(baseCol, halluc, amt);
+            }
+          }
+
+          // ---------------------------------------------------------------
+          // CATEGORY 3: NEW AGE MORPHISM (20 Variants — Aura, Iridescence, Bloom)
+          // ---------------------------------------------------------------
+          else if (u_filterCat == 3) {
+            float spread = mix(0.008, 0.032, p2);
+            vec3 bloom = (
+              texture(u_image, clamp(uv + vec2(spread, 0.0), 0.0, 1.0)).rgb +
+              texture(u_image, clamp(uv - vec2(spread, 0.0), 0.0, 1.0)).rgb +
+              texture(u_image, clamp(uv + vec2(0.0, spread), 0.0, 1.0)).rgb +
+              texture(u_image, clamp(uv - vec2(0.0, spread), 0.0, 1.0)).rgb
+            ) * 0.25;
+
+            float hueBase = fract(float(u_filterVar) * 0.13 + uv.x * 0.35 + uv.y * 0.25);
+            vec3 auraTint = 0.5 + 0.5 * cos(6.28318 * (hueBase + vec3(0.0, 0.33, 0.67)));
+            float lum = getLuma(bloom);
+
+            if (u_filterVar == 0 || u_filterVar == 2 || u_filterVar == 8 || u_filterVar == 15) {
+              // Ethereal Aura Glow / Biomorphic Bloom / Lucid Dream Haze / Hyper-Real Softness
+              vec3 soft = mix(baseCol, max(baseCol, bloom * 1.12), amt * 0.85);
+              outCol = mix(soft, soft + auraTint * pow(lum, 1.5) * 0.28, amt);
+            } else if (u_filterVar == 1 || u_filterVar == 3 || u_filterVar == 5 || u_filterVar == 12) {
+              // Astral Iridescence / Holographic Silk / Opalescent Pearl / Liquid Opal
+              vec3 pearl = mix(bloom, auraTint, 0.32 * amt);
+              outCol = mix(baseCol, screenBlend(baseCol, pearl * 0.65), amt);
+            } else if (u_filterVar == 13) {
+              // Aurora Borealis
+              float wave = sin(uv.x * 7.0 + valueNoise(aspUV * 4.0) * 4.0) * 0.5 + 0.5;
+              vec3 aurora = mix(vec3(0.1, 0.95, 0.65), vec3(0.55, 0.2, 0.95), wave);
+              float skyMask = smoothstep(0.85, 0.1, uv.y);
+              outCol = mix(baseCol, baseCol + aurora * 0.38 * skyMask, amt);
+            } else if (u_filterVar == 16) {
+              // Neo-Pastel Frosted
+              vec3 pastel = mix(vec3(getLuma(bloom)), bloom, 0.65) * 0.9 + 0.12;
+              outCol = mix(baseCol, mix(pastel, auraTint, 0.18), amt * 0.85);
+            } else {
+              // Celestial Halo / Plasma Veil / Velvet Nebula / Solar Flare / Chakra / Cyber-Zen
+              float d = length(uv - vec2(0.5, 0.42));
+              float halo = smoothstep(0.65, 0.12, d);
+              vec3 glow = bloom + auraTint * halo * 0.35;
+              outCol = mix(baseCol, clamp(glow, 0.0, 1.0), amt * 0.85);
+            }
+          }
+
+          // ---------------------------------------------------------------
+          // CATEGORY 4: TEXTUREISM (20 Variants — Tactile Surface & Material)
+          // ---------------------------------------------------------------
+          else if (u_filterCat == 4) {
+            float dens = mix(180.0, 750.0, p2);
+            vec2 px = aspUV * dens;
+            float texVal = 0.0;
+
+            if (u_filterVar == 0 || u_filterVar == 12 || u_filterVar == 17) {
+              // Raw Linen Weave / Woven Carbon / Micro-Corduroy
+              float wx = sin(px.x * 3.14159);
+              float wy = (u_filterVar == 17) ? 0.2 : sin(px.y * 3.14159);
+              texVal = (wx * wy) * 0.16;
+            } else if (u_filterVar == 1 || u_filterVar == 14 || u_filterVar == 19) {
+              // Impasto Oil Canvas / Charcoal Tooth / Woodblock Relief
+              float h1 = valueNoise(px * 0.25);
+              float h2 = valueNoise(px * 0.25 + vec2(1.5, 0.0));
+              texVal = (h1 - h2) * 0.45;
+            } else if (u_filterVar == 2 || u_filterVar == 8) {
+              // Brushed Titanium / Hammered Copper
+              texVal = (valueNoise(vec2(px.x * 0.05, px.y * 0.8)) - 0.5) * 0.24;
+            } else if (u_filterVar == 3 || u_filterVar == 16) {
+              // Cracked Porcelain / Patina Oxidize
+              float n = abs(valueNoise(px * 0.08) - 0.5);
+              texVal = -smoothstep(0.03, 0.0, n) * 0.35;
+            } else if (u_filterVar == 5 || u_filterVar == 6 || u_filterVar == 11) {
+              // Halftone Newsprint / Stipple Etching / Crosshatch Ink
+              float dots = sin(px.x * 1.8) * sin(px.y * 1.8);
+              float lum = getLuma(baseCol);
+              float ink = step(dots * 0.45 + 0.5, lum);
+              outCol = mix(baseCol, vec3(ink), amt * 0.8);
+              return outCol;
+            } else if (u_filterVar == 13) {
+              // Wet Plate Collodion (Silver tint + edge vignette)
+              float lum = getLuma(baseCol);
+              float vig = smoothstep(0.35, 0.95, length(uv - 0.5));
+              vec3 silver = vec3(lum * 0.94, lum * 0.98, lum * 1.05) * (1.0 - vig * 0.65);
+              texVal = (hash12(px) - 0.5) * 0.14;
+              outCol = mix(baseCol, silver + texVal, amt);
+              return outCol;
+            } else if (u_filterVar == 18) {
+              // Gold Leaf Flake
+              float flake = step(0.84, valueNoise(px * 0.35));
+              outCol = mix(baseCol, baseCol + vec3(0.95, 0.78, 0.28) * flake * 0.65, amt);
+              return outCol;
+            } else {
+              // Heavy Grain 3200ISO / Frosted Sandblast / Parchment / Concrete / Risograph
+              texVal = (hash12(px + seed) - 0.5) * 0.26;
+            }
+            outCol = clamp(baseCol + vec3(texVal) * amt * 1.4, 0.0, 1.0);
+          }
+
+          // ---------------------------------------------------------------
+          // CATEGORY 5: NEW LEO DA VINCI (20 Variants — Renaissance Masterworks)
+          // ---------------------------------------------------------------
+          else if (u_filterCat == 5) {
+            float lum = getLuma(baseCol);
+            float softBlur = getLuma((
+              texture(u_image, clamp(uv + u_texelSize * 3.0, 0.0, 1.0)).rgb +
+              texture(u_image, clamp(uv - u_texelSize * 3.0, 0.0, 1.0)).rgb
+            ) * 0.5);
+
+            if (u_filterVar == 0 || u_filterVar == 15) {
+              // Sfumato Chiaroscuro / Candlelight Tenebrism
+              float vig = smoothstep(0.95, 0.2, length(uv - vec2(0.5, 0.45)));
+              vec3 warm = vec3(pow(softBlur, 1.15) * 1.12, pow(softBlur, 1.25) * 0.92, pow(softBlur, 1.45) * 0.68);
+              outCol = mix(baseCol, warm * (0.45 + 0.75 * vig), amt);
+            } else if (u_filterVar == 1 || u_filterVar == 11) {
+              // Silverpoint Sketch / Golden Ratio Spiral
+              float edge = abs(lum - softBlur) * 9.0;
+              float hatch = sin((uv.x + uv.y) * (500.0 + p2 * 400.0)) * 0.08;
+              vec3 paper = vec3(0.92, 0.89, 0.82) - edge * vec3(0.55, 0.58, 0.62) + hatch * (1.0 - lum);
+              if (u_filterVar == 2 || u_filterVar == 11) {
+                // Subtle golden geometry lines
+                float grid = smoothstep(0.985, 1.0, max(sin(uv.x * 16.18), sin(uv.y * 16.18)));
+                paper = mix(paper, vec3(0.75, 0.58, 0.22), grid * 0.45);
+              }
+              outCol = mix(baseCol, clamp(paper, 0.0, 1.0), amt);
+            } else if (u_filterVar == 2) {
+              // Vitruvian Golden Grid
+              float circ = abs(length((uv - 0.5) * vec2(u_aspectRatio, 1.0)) - 0.36);
+              float sq = max(abs(uv.x - 0.5) * u_aspectRatio, abs(uv.y - 0.5)) - 0.32;
+              float line = smoothstep(0.004, 0.0, min(circ, abs(sq)));
+              vec3 parchment = mix(baseCol, vec3(lum * 1.05, lum * 0.92, lum * 0.72), 0.75);
+              outCol = mix(baseCol, mix(parchment, vec3(0.85, 0.65, 0.25), line * 0.8), amt);
+            } else if (u_filterVar == 5 || u_filterVar == 19) {
+              // Anatomical Red Chalk / Sanguine Study
+              vec3 paper = vec3(0.94, 0.88, 0.78);
+              vec3 sanguine = vec3(0.64, 0.21, 0.14);
+              vec3 drawn = mix(sanguine, paper, smoothstep(0.12, 0.88, lum));
+              outCol = mix(baseCol, drawn, amt);
+            } else if (u_filterVar == 13 || u_filterVar == 10) {
+              // Lapis Lazuli Glaze / Atmospheric Blue Horizon
+              vec3 lapis = mix(vec3(0.08, 0.16, 0.38), vec3(0.78, 0.86, 0.96), lum);
+              outCol = mix(baseCol, mix(baseCol, lapis, 0.65), amt);
+            } else if (u_filterVar == 16) {
+              // Antique Crackle Varnish
+              float crack = smoothstep(0.025, 0.0, abs(valueNoise(aspUV * (35.0 + p2 * 40.0)) - 0.5));
+              vec3 varnish = baseCol * vec3(1.08, 0.97, 0.80) - crack * 0.28;
+              outCol = mix(baseCol, varnish, amt);
+            } else {
+              // Mona Lisa Varnish / Codex Sepia / Renaissance Fresco / Umbrian Glaze / Masterwork Oil
+              vec3 glaze = vec3(
+                pow(baseCol.r, 0.92) * 1.08 + 0.03,
+                pow(baseCol.g, 0.98) * 0.98 + 0.02,
+                pow(baseCol.b, 1.15) * 0.82
+              );
+              float paperGrain = (valueNoise(aspUV * 300.0) - 0.5) * 0.06;
+              outCol = mix(baseCol, clamp(glaze + paperGrain, 0.0, 1.0), amt);
+            }
+          }
+
+          // ---------------------------------------------------------------
+          // CATEGORY 6: HIGH FASHION EDITORIAL (20 Luxury Runway & Studio Grades)
+          // ---------------------------------------------------------------
+          else if (u_filterCat == 6) {
+            float lum = getLuma(baseCol);
+            float curve = 0.5 + 0.5 * p2;
+
+            if (u_filterVar == 0) {
+              // Vogue Milan Warm (Rich golden skin, deep espresso shadows)
+              vec3 c = pow(baseCol, vec3(0.95, 1.0, 1.08)) * vec3(1.06, 1.01, 0.93);
+              outCol = mix(baseCol, (c - 0.5) * (1.08 + 0.12 * curve) + 0.5, amt);
+            } else if (u_filterVar == 1) {
+              // Paris Haute Couture Cool (Crisp slate highlights, sculptural contrast)
+              vec3 c = pow(baseCol, vec3(1.05, 1.0, 0.94)) * vec3(0.96, 1.0, 1.06);
+              outCol = mix(baseCol, (c - 0.5) * 1.14 + 0.5, amt);
+            } else if (u_filterVar == 2) {
+              // Harper's Editorial Matte (Lifted blacks, muted editorial palette)
+              vec3 desat = mix(vec3(lum), baseCol, 0.82);
+              outCol = mix(baseCol, 0.045 + desat * 0.90, amt);
+            } else if (u_filterVar == 3) {
+              // Balenciaga Brutalist Grey (Desaturated concrete cool, punchy midtones)
+              vec3 c = mix(vec3(lum), baseCol, 0.42) * vec3(0.95, 0.98, 1.03);
+              outCol = mix(baseCol, (c - 0.5) * 1.22 + 0.48, amt);
+            } else if (u_filterVar == 4 || u_filterVar == 8 || u_filterVar == 9) {
+              // Saint Laurent Noir / Helmut Newton Silver / Lindbergh Raw B&W
+              float rWeight = (u_filterVar == 8) ? 0.48 : 0.36;
+              float mono = baseCol.r * rWeight + baseCol.g * 0.48 + baseCol.b * (1.0 - rWeight - 0.48);
+              mono = (mono - 0.5) * (1.28 + 0.25 * p2) + 0.49;
+              vec3 tint = (u_filterVar == 8) ? vec3(0.99, 1.0, 1.03) : vec3(1.01, 1.0, 0.98);
+              outCol = mix(baseCol, clamp(vec3(mono) * tint, 0.0, 1.0), amt);
+            } else if (u_filterVar == 5 || u_filterVar == 12) {
+              // Gucci Vintage 70s Kodak / Portra 400 Editorial
+              vec3 film = 0.025 + baseCol * vec3(0.98, 0.95, 0.88) + vec3(0.03, 0.015, -0.01) * lum;
+              outCol = mix(baseCol, film, amt);
+            } else if (u_filterVar == 6 || u_filterVar == 18) {
+              // Prada Clinical Minimal / Alabaster Porcelain Skin
+              vec3 clean = mix(vec3(lum), baseCol, 0.88) * vec3(0.99, 1.01, 1.03) + 0.02;
+              outCol = mix(baseCol, (clean - 0.5) * 1.08 + 0.51, amt);
+            } else if (u_filterVar == 7 || u_filterVar == 16) {
+              // Dior Soft Beauty Glow / Silk Skin Retouch Tone
+              vec3 soft = (
+                baseCol +
+                texture(u_image, clamp(uv + u_texelSize * 2.0, 0.0, 1.0)).rgb +
+                texture(u_image, clamp(uv - u_texelSize * 2.0, 0.0, 1.0)).rgb
+              ) / 3.0;
+              vec3 luminous = mix(baseCol, soft * vec3(1.04, 1.01, 0.98) + 0.015, 0.65);
+              outCol = mix(baseCol, luminous, amt);
+            } else if (u_filterVar == 10) {
+              // Testino Sun-Kissed Skin
+              vec3 bronze = baseCol * vec3(1.10, 1.02, 0.88) + vec3(0.02, 0.005, -0.01);
+              outCol = mix(baseCol, bronze, amt);
+            } else if (u_filterVar == 13) {
+              // Cinestill 800T Night Runway (Tungsten cyan shadows + warm halation)
+              vec3 cine = baseCol * vec3(0.92, 1.01, 1.12) + vec3(pow(lum, 3.0) * 0.14, 0.0, 0.02 * (1.0 - lum));
+              outCol = mix(baseCol, cine, amt);
+            } else if (u_filterVar == 15) {
+              // Bleach Bypass Runway
+              vec3 bleach = mix(baseCol, vec3(lum), 0.55);
+              bleach = (bleach - 0.5) * 1.32 + 0.5;
+              outCol = mix(baseCol, bleach, amt);
+            } else {
+              // Meisel Crisp / Hasselblad Medium Format / Velvet Shadows / Magazine Cover Punch
+              vec3 studio = (baseCol - 0.5) * (1.15 + 0.15 * p2) + 0.5;
+              studio = mix(vec3(getLuma(studio)), studio, 1.08);
+              outCol = mix(baseCol, studio, amt);
+            }
+          }
+
+          return clamp(outCol, 0.0, 1.0);
+        }
+
+        // Apply localized or global grade adjustments to RGB color
+        vec3 applyToneAndColor(
+          vec3 col,
+          float exposure,
+          float contrast,
+          float temp,
+          float tint,
+          float sat,
+          float shadows,
+          float highlights,
+          float clarity,
+          vec3 blurCol
+        ) {
+          // 1. Exposure (EV stops)
+          col *= pow(2.0, exposure);
+
+          // 2. White Balance (Temperature & Tint)
+          float t = temp * 0.0025;
+          float tn = tint * 0.0025;
+          col.r += t - tn * 0.35;
+          col.g += tn * 0.75;
+          col.b -= t + tn * 0.35;
+          col = max(col, 0.0);
+
+          // 3. Clarity / Local Micro-Contrast
+          if (abs(clarity) > 0.001) {
+            vec3 detail = col - blurCol;
+            float midWeight = 1.0 - abs(getLuma(clamp(col, 0.0, 1.0)) - 0.5) * 1.6;
+            col += detail * (clarity * 0.012) * max(0.2, midWeight);
+          }
+
+          // 4. Shadows & Highlights recovery
+          float lum = getLuma(clamp(col, 0.0, 1.0));
+          if (abs(shadows) > 0.001) {
+            float shadowMask = pow(1.0 - lum, 2.2);
+            col += col * (shadows * 0.0085) * shadowMask + (shadows * 0.0012) * shadowMask;
+          }
+          if (abs(highlights) > 0.001) {
+            float highMask = pow(lum, 2.0);
+            col += (highlights * 0.0045) * highMask;
+          }
+
+          // 5. Contrast around 0.5 mid-gray pivot
+          if (abs(contrast) > 0.001) {
+            float cFactor = 1.0 + (contrast * 0.0065);
+            col = (col - 0.5) * cFactor + 0.5;
+          }
+
+          // 6. Saturation
+          if (abs(sat) > 0.001) {
+            float l = getLuma(col);
+            col = mix(vec3(l), col, 1.0 + sat * 0.01);
+          }
+
+          return max(col, 0.0);
+        }
+
+        // Compute Mask Alpha [0..1] for mask index i
+        float evalMask(int i, vec2 uv, vec4 mTex0, vec4 mTex1) {
+          int mType = u_maskType[i];
+          if (mType == 0) return 0.0;
+
+          float alpha = 0.0;
+          if (mType == 1) {
+            if (i == 0) alpha = mTex0.r;
+            else if (i == 1) alpha = mTex0.g;
+            else if (i == 2) alpha = mTex0.b;
+            else if (i == 3) alpha = mTex0.a;
+            else if (i == 4) alpha = mTex1.r;
+            else if (i == 5) alpha = mTex1.g;
+          } else if (mType == 2) {
+            vec4 g = u_maskGeom[i];
+            vec2 d = (uv - g.xy) / max(g.zw, vec2(0.001));
+            float dist = length(d);
+            float feather = max(0.02, u_maskFeather[i]);
+            alpha = 1.0 - smoothstep(1.0 - feather, 1.0, dist);
+          } else if (mType == 3) {
+            vec4 g = u_maskGeom[i];
+            vec2 p1 = vec2(g.x * u_aspectRatio, g.y);
+            vec2 p2 = vec2(g.z * u_aspectRatio, g.w);
+            vec2 p = vec2(uv.x * u_aspectRatio, uv.y);
+            vec2 dir = p2 - p1;
+            float len = length(dir);
+            if (len > 0.0001) {
+              float proj = dot(p - p1, dir / len) / len;
+              float feather = max(0.05, u_maskFeather[i]);
+              float mid = 0.5;
+              alpha = 1.0 - smoothstep(mid - feather * 0.5, mid + feather * 0.5, proj);
+            }
+          }
+
+          if (u_maskInvert[i] == 1) {
+            alpha = 1.0 - alpha;
+          }
+          return clamp(alpha, 0.0, 1.0);
+        }
+
+        void main() {
+          vec4 origSample = texture(u_image, v_texCoord);
+          vec3 origCol = origSample.rgb;
+
+          if (u_holdOriginal == 1) {
+            fragColor = vec4(origCol, origSample.a);
+            return;
+          }
+
+          if (u_splitCompare == 1 && v_texCoord.x < u_splitPos) {
+            fragColor = vec4(origCol, origSample.a);
+            return;
+          }
+
+          // --- STEP 0: 140-FILTER CREATIVE & EDITORIAL SHADER ENGINE ---
+          vec3 baseAfterFilter = applyCreativeEngine(v_texCoord, origCol);
+
+          // 5-tap local blur sample for Clarity micro-contrast
+          vec2 off = u_texelSize * 2.5;
+          vec3 blurCol = (
+            baseAfterFilter +
+            texture(u_image, v_texCoord + vec2(off.x, 0.0)).rgb +
+            texture(u_image, v_texCoord - vec2(off.x, 0.0)).rgb +
+            texture(u_image, v_texCoord + vec2(0.0, off.y)).rgb +
+            texture(u_image, v_texCoord - vec2(0.0, off.y)).rgb
+          ) * 0.2;
+
+          // --- STEP 1: GLOBAL BASIC TONE & COLOR ---
+          vec3 col = applyToneAndColor(
+            baseAfterFilter,
+            u_exposure,
+            u_contrast,
+            u_temperature,
+            u_tint,
+            u_saturation,
+            u_shadows,
+            u_highlights,
+            u_clarity,
+            blurCol
+          );
+
+          // Atmospheric Dehaze
+          if (abs(u_dehaze) > 0.001) {
+            float dh = u_dehaze * 0.005;
+            float minCh = min(col.r, min(col.g, col.b));
+            col = (col - minCh * dh) / max(0.25, 1.0 - dh * 0.85);
+            col = clamp(col, 0.0, 1.0);
+          }
+
+          // Whites & Blacks endpoints
+          float wShift = u_whites * 0.0025;
+          float bShift = u_blacks * 0.0025;
+          col = (col - bShift) / max(0.1, (1.0 + wShift - bShift));
+          col = clamp(col, 0.0, 1.0);
+
+          // Master Parametric Tone Curve Lookup
+          col.r = texture(u_curveTex, vec2(col.r, 0.5)).r;
+          col.g = texture(u_curveTex, vec2(col.g, 0.5)).r;
+          col.b = texture(u_curveTex, vec2(col.b, 0.5)).r;
+
+          // Vibrance
+          if (abs(u_vibrance) > 0.001) {
+            float l = getLuma(col);
+            float maxC = max(col.r, max(col.g, col.b));
+            float minC = min(col.r, min(col.g, col.b));
+            float curSat = maxC - minC;
+            float vibAmount = (u_vibrance * 0.012) * (1.0 - curSat);
+            col = mix(vec3(l), col, 1.0 + vibAmount);
+            col = clamp(col, 0.0, 1.0);
+          }
+
+          // --- STEP 2: 3-WAY COLOR WHEELS (LIFT / GAMMA / GAIN) ---
+          float luma = getLuma(col);
+          float wLift = pow(1.0 - luma, 2.0);
+          float wGain = pow(luma, 2.0);
+          float wGamma = 1.0 - abs(luma - 0.5) * 2.0;
+
+          col += u_lift * wLift * 0.25;
+          col += u_gamma * max(0.0, wGamma) * 0.22;
+          col += u_gain * wGain * 0.25;
+          col = clamp(col, 0.0, 1.0);
+
+          // --- STEP 3: NON-DESTRUCTIVE LOCAL MASKS ---
+          vec4 mTex0 = texture(u_maskTex0, v_texCoord);
+          vec4 mTex1 = texture(u_maskTex1, v_texCoord);
+          float selectedOverlayAlpha = 0.0;
+
+          for (int i = 0; i < 6; i++) {
+            float mAlpha = evalMask(i, v_texCoord, mTex0, mTex1);
+            if (i == u_selectedMaskIdx) {
+              selectedOverlayAlpha = mAlpha;
+            }
+            if (mAlpha > 0.001) {
+              vec3 gradedLocal = applyToneAndColor(
+                col,
+                u_mExposure[i],
+                u_mContrast[i],
+                u_mTemp[i],
+                u_mTint[i],
+                u_mSat[i],
+                u_mShadows[i],
+                u_mHighlights[i],
+                u_mClarity[i],
+                blurCol
+              );
+              col = mix(col, clamp(gradedLocal, 0.0, 1.0), mAlpha);
+            }
+          }
+
+          // --- STEP 4: 3D LUT APPLICATION ---
+          if (u_lutIntensity > 0.001) {
+            vec3 lutColor = texture(u_lut, clamp(col, 0.0, 1.0)).rgb;
+            col = mix(col, lutColor, u_lutIntensity * 0.01);
+          }
+
+          // --- STEP 5: VIGNETTE & FILM GRAIN ---
+          if (abs(u_vignetteAmount) > 0.001) {
+            vec2 centered = (v_texCoord - 0.5) * 2.0;
+            centered.x *= max(1.0, u_aspectRatio * 0.75);
+            float dist = length(centered);
+            float feather = mix(0.15, 0.95, u_vignetteFeather * 0.01);
+            float vig = smoothstep(1.35 - feather, 1.45, dist);
+            col *= (1.0 + (u_vignetteAmount * 0.0085) * vig);
+          }
+
+          if (u_grain > 0.001) {
+            float n = (hash12(v_texCoord * 1200.0) - 0.5) * (u_grain * 0.0022);
+            col += vec3(n);
+          }
+
+          col = clamp(col, 0.0, 1.0);
+
+          // --- STEP 6: RUBYLITH RED MASK OVERLAY ---
+          if (u_showMaskOverlay == 1 && u_selectedMaskIdx >= 0 && selectedOverlayAlpha > 0.01) {
+            vec3 rubyTint = vec3(0.95, 0.16, 0.22);
+            col = mix(col, rubyTint, selectedOverlayAlpha * 0.42);
+          }
+
+          fragColor = vec4(col, origSample.a);
+        }
+      `;
+
+      // ---- Compile, link and activate the GPU program --------------------
+      function compileShader(type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          const log = gl.getShaderInfoLog(shader);
+          gl.deleteShader(shader);
+          throw new Error('Shader compile failed: ' + log);
+        }
+        return shader;
+      }
+
+      const program = gl.createProgram();
+      gl.attachShader(program, compileShader(gl.VERTEX_SHADER, vertexShaderSrc));
+      gl.attachShader(program, compileShader(gl.FRAGMENT_SHADER, fragmentShaderSrc));
+      gl.bindAttribLocation(program, 0, 'a_position');
+      gl.bindAttribLocation(program, 1, 'a_texCoord');
+      gl.linkProgram(program);
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        throw new Error('Program link failed: ' + gl.getProgramInfoLog(program));
+      }
+      gl.useProgram(program);
+
+      // Full-screen quad (triangle strip). Texture V runs top-down so the
+      // image is upright without needing UNPACK_FLIP_Y.
+      const quadVAO = gl.createVertexArray();
+      gl.bindVertexArray(quadVAO);
+      const quadBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        // x,   y,   u,   v
+        -1, -1,  0,  1,
+         1, -1,  1,  1,
+        -1,  1,  0,  0,
+         1,  1,  1,  0
+      ]), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 16, 0);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 16, 8);
+
+      // Cache every active uniform location (array names lose their "[0]")
+      const uniforms = {};
+      const activeUniformCount = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
+      for (let i = 0; i < activeUniformCount; i++) {
+        const info = gl.getActiveUniform(program, i);
+        const name = info.name.replace(/\[0\]$/, '');
+        uniforms[name] = gl.getUniformLocation(program, info.name);
+      }
+
+      // Create Textures: Source Image, 3D LUT, 2 Packed Mask Textures, and Tone Curve 1D LUT
+      const imageTexture = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, imageTexture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+      const lutTexture = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_3D, lutTexture);
+      gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+      const maskTex0 = gl.createTexture();
+      const maskTex1 = gl.createTexture();
+      [maskTex0, maskTex1].forEach((tex, idx) => {
+        gl.activeTexture(gl.TEXTURE2 + idx);
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      });
+
+      const curveTexture = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE4);
+      gl.bindTexture(gl.TEXTURE_2D, curveTexture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+      // Bind Samplers
+      gl.uniform1i(uniforms.u_image, 0);
+      gl.uniform1i(uniforms.u_lut, 1);
+      gl.uniform1i(uniforms.u_maskTex0, 2);
+      gl.uniform1i(uniforms.u_maskTex1, 3);
+      gl.uniform1i(uniforms.u_curveTex, 4);
+
+      function syncToneCurveToGPU() {
+        const pts = state.global.curvePoints; // 5 control points at x = 0, 0.25, 0.5, 0.75, 1.0
+        const data = new Uint8Array(256 * 4);
+        for (let i = 0; i < 256; i++) {
+          const t = i / 255;
+          const scaled = t * 4.0;
+          const idx = Math.min(3, Math.floor(scaled));
+          const f = scaled - idx;
+          // Catmull-Rom / smooth cubic interpolation across the 5 nodes
+          const p0 = pts[Math.max(0, idx - 1)];
+          const p1 = pts[idx];
+          const p2 = pts[idx + 1];
+          const p3 = pts[Math.min(4, idx + 2)];
+          const f2 = f * f;
+          const f3 = f2 * f;
+          const y = 0.5 * (
+            (2 * p1) +
+            (-p0 + p2) * f +
+            (2 * p0 - 5 * p1 + 4 * p2 - p3) * f2 +
+            (-p0 + 3 * p1 - 3 * p2 + p3) * f3
+          );
+          const v = Math.max(0, Math.min(255, Math.round(y * 255)));
+          data[i * 4 + 0] = v;
+          data[i * 4 + 1] = v;
+          data[i * 4 + 2] = v;
+          data[i * 4 + 3] = 255;
+        }
+        gl.activeTexture(gl.TEXTURE4);
+        gl.bindTexture(gl.TEXTURE_2D, curveTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+      }
+
+      // Upload Source Image to GPU (Preserving Full 6K+ Native Resolution)
+      function uploadSourceImage(sourceEl, name) {
+        state.image = sourceEl;
+        state.imageName = name;
+        let w = sourceEl.naturalWidth || sourceEl.width;
+        let h = sourceEl.naturalHeight || sourceEl.height;
+
+        // Only scale down if hardware MAX_TEXTURE_SIZE is exceeded
+        if (w > state.maxTextureSize || h > state.maxTextureSize) {
+          const ratio = Math.min(state.maxTextureSize / w, state.maxTextureSize / h);
+          w = Math.floor(w * ratio);
+          h = Math.floor(h * ratio);
+        }
+
+        state.imgWidth = w;
+        state.imgHeight = h;
+
+        // If the photo is larger than the GPU allows, resample it on a 2D canvas first
+        let uploadSource = sourceEl;
+        if (w !== (sourceEl.naturalWidth || sourceEl.width) || h !== (sourceEl.naturalHeight || sourceEl.height)) {
+          const c = document.createElement('canvas');
+          c.width = w;
+          c.height = h;
+          c.getContext('2d').drawImage(sourceEl, 0, 0, w, h);
+          uploadSource = c;
+        }
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, imageTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, uploadSource);
+
+        const mp = ((w * h) / 1_000_000).toFixed(1);
+        const is6K = Math.max(w, h) >= 5800;
+        document.getElementById('imageMetaBadge').textContent = `${name} (${w}×${h} · ${mp}MP)`;
+        document.getElementById('pixelDensityBadge').textContent = is6K ? '6K UHD Native Density' : '1:1 Native 100% Density';
+        updateExportDimensionPreview();
+
+        initMaskBuffers();
+        fitCanvasToScreen();
+        render();
+      }
+
+      // Upload 3D LUT to GPU
+      function uploadLUTToGPU(lutObj) {
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_3D, lutTexture);
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+        // Float textures only filter linearly when this extension is enabled
+        const floatLinear = gl.getExtension('OES_texture_float_linear');
+        if (floatLinear) {
+          gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGB32F, lutObj.size, lutObj.size, lutObj.size, 0, gl.RGB, gl.FLOAT, lutObj.data);
+        } else {
+          // Mobile GPUs without it: 8-bit LUT keeps guaranteed trilinear filtering
+          const u8 = new Uint8Array(lutObj.data.length);
+          for (let i = 0; i < lutObj.data.length; i++) {
+            u8[i] = Math.max(0, Math.min(255, Math.round(lutObj.data[i] * 255)));
+          }
+          gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGB8, lutObj.size, lutObj.size, lutObj.size, 0, gl.RGB, gl.UNSIGNED_BYTE, u8);
+        }
+        document.getElementById('activeLutFormat').textContent = lutObj.format || '3D LUT';
+      }
+
+      /* -------------------------------------------------------------------
+         6. MASK PAINT BUFFER PACKING & MANAGEMENT
+      ------------------------------------------------------------------- */
+      const MASK_RES = 512; // Fast smooth mask buffer resolution
+      let maskPacked0 = new Uint8Array(MASK_RES * MASK_RES * 4);
+      let maskPacked1 = new Uint8Array(MASK_RES * MASK_RES * 4);
+
+      function initMaskBuffers() {
+        maskPacked0.fill(0);
+        maskPacked1.fill(0);
+        state.masks.forEach(m => {
+          if (m.type === 'brush') {
+            m.buffer = new Uint8Array(MASK_RES * MASK_RES);
+          }
+        });
+        syncMasksToGPU();
+      }
+
+      function syncMasksToGPU() {
+        maskPacked0.fill(0);
+        maskPacked1.fill(0);
+
+        state.masks.forEach((m, idx) => {
+          if (idx >= MAX_MASKS || m.type !== 'brush' || !m.buffer) return;
+          const buf = m.buffer;
+          if (idx < 4) {
+            const ch = idx;
+            for (let p = 0; p < MASK_RES * MASK_RES; p++) {
+              maskPacked0[p * 4 + ch] = buf[p];
+            }
+          } else {
+            const ch = idx - 4;
+            for (let p = 0; p < MASK_RES * MASK_RES; p++) {
+              maskPacked1[p * 4 + ch] = buf[p];
+            }
+          }
+        });
+
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_2D, maskTex0);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, MASK_RES, MASK_RES, 0, gl.RGBA, gl.UNSIGNED_BYTE, maskPacked0);
+
+        gl.activeTexture(gl.TEXTURE3);
+        gl.bindTexture(gl.TEXTURE_2D, maskTex1);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, MASK_RES, MASK_RES, 0, gl.RGBA, gl.UNSIGNED_BYTE, maskPacked1);
+      }
+
+      function paintBrushDab(mask, normX, normY) {
+        if (!mask || mask.type !== 'brush') return;
+        // The mask buffer is square (MASK_RES x MASK_RES) but the image is not,
+        // so size the brush per axis to keep it a true circle on screen.
+        const cx = normX * MASK_RES;
+        const cy = normY * MASK_RES;
+        const rx = Math.max(1.5, (state.brushSize / state.imgWidth) * MASK_RES * 0.5);
+        const ry = Math.max(1.5, (state.brushSize / state.imgHeight) * MASK_RES * 0.5);
+        const innerN = 1.0 - state.brushFeather / 100;
+        const opacity = (state.brushOpacity / 100) * 0.38; // smooth accumulation per dab
+        const isErase = state.brushMode === 'erase';
+
+        const minX = Math.max(0, Math.floor(cx - rx));
+        const maxX = Math.min(MASK_RES - 1, Math.ceil(cx + rx));
+        const minY = Math.max(0, Math.floor(cy - ry));
+        const maxY = Math.min(MASK_RES - 1, Math.ceil(cy + ry));
+
+        const buf = mask.buffer;
+        for (let y = minY; y <= maxY; y++) {
+          for (let x = minX; x <= maxX; x++) {
+            const dx = (x - cx) / rx;
+            const dy = (y - cy) / ry;
+            const dist = Math.sqrt(dx * dx + dy * dy); // 0 centre .. 1 edge
+            if (dist > 1) continue;
+
+            let falloff = 1.0;
+            if (dist > innerN && innerN < 1) {
+              const t = (dist - innerN) / (1 - innerN);
+              falloff = 1.0 - (t * t * (3.0 - 2.0 * t));
+            }
+
+            const idx = y * MASK_RES + x;
+            const cur = buf[idx] / 255;
+            const next = isErase
+              ? Math.max(0, cur - falloff * opacity)
+              : Math.min(1, cur + falloff * opacity);
+            buf[idx] = Math.round(next * 255);
+          }
+        }
+        // Callers upload the buffer once per pointer event via syncMasksToGPU().
+      }
+
+      /* -------------------------------------------------------------------
+         7. REAL-TIME RGB HISTOGRAM RENDERER
+      ------------------------------------------------------------------- */
+      const histCanvas = document.getElementById('histogramCanvas');
+      const histCtx = histCanvas.getContext('2d');
+      const sampleThumbCanvas = document.createElement('canvas');
+      sampleThumbCanvas.width = 160;
+      sampleThumbCanvas.height = 106;
+      const sampleThumbCtx = sampleThumbCanvas.getContext('2d');
+      let histTimer = null;
+
+      function scheduleHistogramUpdate() {
+        if (histTimer) return;
+        histTimer = requestAnimationFrame(() => {
+          histTimer = null;
+          drawHistogram();
+        });
+      }
+
+      function drawHistogram() {
+        const w = histCanvas.clientWidth || 280;
+        const h = histCanvas.clientHeight || 64;
+        if (histCanvas.width !== w || histCanvas.height !== h) {
+          histCanvas.width = w;
+          histCanvas.height = h;
+        }
+
+        // Draw downsampled current WebGL output into 2D canvas to compute RGB distribution
+        sampleThumbCtx.drawImage(glCanvas, 0, 0, sampleThumbCanvas.width, sampleThumbCanvas.height);
+        const imgData = sampleThumbCtx.getImageData(0, 0, sampleThumbCanvas.width, sampleThumbCanvas.height).data;
+
+        const rBins = new Uint32Array(256);
+        const gBins = new Uint32Array(256);
+        const bBins = new Uint32Array(256);
+
+        for (let i = 0; i < imgData.length; i += 4) {
+          rBins[imgData[i]]++;
+          gBins[imgData[i + 1]]++;
+          bBins[imgData[i + 2]]++;
+        }
+
+        let maxCount = 1;
+        for (let i = 4; i < 252; i++) {
+          maxCount = Math.max(maxCount, rBins[i], gBins[i], bBins[i]);
+        }
+
+        histCtx.clearRect(0, 0, w, h);
+
+        // Subtle grid lines
+        histCtx.strokeStyle = 'rgba(255,255,255,0.06)';
+        histCtx.lineWidth = 1;
+        [0.25, 0.5, 0.75].forEach(p => {
+          histCtx.beginPath();
+          histCtx.moveTo(w * p, 0);
+          histCtx.lineTo(w * p, h);
+          histCtx.stroke();
+        });
+
+        histCtx.globalCompositeOperation = 'screen';
+        const drawChannel = (bins, stroke, fill) => {
+          histCtx.beginPath();
+          histCtx.moveTo(0, h);
+          for (let i = 0; i < 256; i++) {
+            const x = (i / 255) * w;
+            const norm = Math.min(1, bins[i] / maxCount);
+            const y = h - norm * (h - 4);
+            histCtx.lineTo(x, y);
+          }
+          histCtx.lineTo(w, h);
+          histCtx.closePath();
+          histCtx.fillStyle = fill;
+          histCtx.fill();
+          histCtx.strokeStyle = stroke;
+          histCtx.lineWidth = 1.2;
+          histCtx.stroke();
+        };
+
+        drawChannel(rBins, 'rgba(248, 113, 113, 0.85)', 'rgba(239, 68, 68, 0.28)');
+        drawChannel(gBins, 'rgba(74, 222, 128, 0.85)', 'rgba(34, 197, 94, 0.28)');
+        drawChannel(bBins, 'rgba(96, 165, 250, 0.85)', 'rgba(59, 130, 246, 0.28)');
+        histCtx.globalCompositeOperation = 'source-over';
+      }
+
+      /* -------------------------------------------------------------------
+         8. MAIN RENDER LOOP & OVERLAY UI HANDLES
+      ------------------------------------------------------------------- */
+      const overlayCanvas = document.getElementById('overlayCanvas');
+      const overlayCtx = overlayCanvas.getContext('2d');
+      const viewportContainer = document.getElementById('viewportContainer');
+
+      function updateCanvasLayout() {
+        const vw = viewportContainer.clientWidth;
+        const vh = viewportContainer.clientHeight;
+
+        overlayCanvas.width = vw;
+        overlayCanvas.height = vh;
+
+        const dispW = Math.round(state.imgWidth * state.zoom);
+        const dispH = Math.round(state.imgHeight * state.zoom);
+
+        // Cap the drawing buffer so extreme zoom can't exhaust GPU memory (CSS size stays exact)
+        const bufScale = Math.min(1, 8192 / Math.max(dispW, dispH, 1));
+        glCanvas.width = Math.max(1, Math.round(dispW * bufScale));
+        glCanvas.height = Math.max(1, Math.round(dispH * bufScale));
+        glCanvas.style.width = `${dispW}px`;
+        glCanvas.style.height = `${dispH}px`;
+        glCanvas.style.transform = `translate(${state.panX}px, ${state.panY}px)`;
+
+        document.getElementById('zoomReadout').textContent = `${Math.round(state.zoom * 100)}%`;
+      }
+
+      function fitCanvasToScreen() {
+        const vw = viewportContainer.clientWidth - 48;
+        const vh = viewportContainer.clientHeight - 56;
+        const scaleX = vw / state.imgWidth;
+        const scaleY = vh / state.imgHeight;
+        state.zoom = Math.max(0.05, Math.min(1.0, Math.min(scaleX, scaleY)));
+        state.panX = 0;
+        state.panY = 0;
+        updateCanvasLayout();
+        render();
+      }
+
+      function render() {
+        if (!state.image) return;
+
+        gl.viewport(0, 0, glCanvas.width, glCanvas.height);
+
+        const g = state.global;
+        gl.uniform2f(uniforms.u_texelSize, 1.0 / state.imgWidth, 1.0 / state.imgHeight);
+        gl.uniform1f(uniforms.u_aspectRatio, state.imgWidth / state.imgHeight);
+
+        gl.uniform1f(uniforms.u_temperature, g.temperature);
+        gl.uniform1f(uniforms.u_tint, g.tint);
+        gl.uniform1f(uniforms.u_vibrance, g.vibrance);
+        gl.uniform1f(uniforms.u_saturation, g.saturation);
+        gl.uniform1f(uniforms.u_exposure, g.exposure);
+        gl.uniform1f(uniforms.u_contrast, g.contrast);
+        gl.uniform1f(uniforms.u_highlights, g.highlights);
+        gl.uniform1f(uniforms.u_shadows, g.shadows);
+        gl.uniform1f(uniforms.u_whites, g.whites);
+        gl.uniform1f(uniforms.u_blacks, g.blacks);
+        gl.uniform1f(uniforms.u_clarity, g.clarity);
+        gl.uniform1f(uniforms.u_dehaze, g.dehaze);
+        gl.uniform1f(uniforms.u_vignetteAmount, g.vignetteAmount);
+        gl.uniform1f(uniforms.u_vignetteFeather, g.vignetteFeather);
+        gl.uniform1f(uniforms.u_grain, g.grain);
+        gl.uniform1f(uniforms.u_lutIntensity, state.activeLutId === 'none' ? 0 : g.lutIntensity);
+
+        // 140 Creative & Editorial Shader Uniforms
+        gl.uniform1i(uniforms.u_filterCat, state.activeFilterCategory);
+        gl.uniform1i(uniforms.u_filterVar, state.activeFilterVariant);
+        gl.uniform1f(uniforms.u_filterAmt, state.filterIntensity / 100.0);
+        gl.uniform1f(uniforms.u_filterP2, state.filterParam2 / 100.0);
+
+        // 3-Way Wheels
+        gl.uniform3f(uniforms.u_lift, ...wheelToRGB(g.lift));
+        gl.uniform3f(uniforms.u_gamma, ...wheelToRGB(g.gamma));
+        gl.uniform3f(uniforms.u_gain, ...wheelToRGB(g.gain));
+
+        // Compare & Overlay states
+        gl.uniform1i(uniforms.u_holdOriginal, state.holdOriginal ? 1 : 0);
+        gl.uniform1i(uniforms.u_splitCompare, state.splitCompare ? 1 : 0);
+        gl.uniform1f(uniforms.u_splitPos, state.splitPosition);
+
+        const selIdx = state.masks.findIndex(m => m.id === state.selectedMaskId);
+        gl.uniform1i(uniforms.u_showMaskOverlay, state.showMaskOverlay ? 1 : 0);
+        gl.uniform1i(uniforms.u_selectedMaskIdx, selIdx);
+
+        // Pack 6 Masks into Shader Uniform Arrays
+        const mType = new Int32Array(MAX_MASKS);
+        const mInvert = new Int32Array(MAX_MASKS);
+        const mGeom = new Float32Array(MAX_MASKS * 4);
+        const mFeather = new Float32Array(MAX_MASKS);
+        const mExp = new Float32Array(MAX_MASKS);
+        const mCont = new Float32Array(MAX_MASKS);
+        const mTemp = new Float32Array(MAX_MASKS);
+        const mTint = new Float32Array(MAX_MASKS);
+        const mSat = new Float32Array(MAX_MASKS);
+        const mShad = new Float32Array(MAX_MASKS);
+        const mHigh = new Float32Array(MAX_MASKS);
+        const mClar = new Float32Array(MAX_MASKS);
+
+        for (let i = 0; i < MAX_MASKS; i++) {
+          const m = state.masks[i];
+          if (!m || !m.enabled) {
+            mType[i] = 0;
+            continue;
+          }
+          mType[i] = m.type === 'brush' ? 1 : (m.type === 'radial' ? 2 : 3);
+          mInvert[i] = m.invert ? 1 : 0;
+          mFeather[i] = m.feather / 100;
+
+          if (m.type === 'radial') {
+            mGeom[i * 4 + 0] = m.cx;
+            mGeom[i * 4 + 1] = m.cy;
+            mGeom[i * 4 + 2] = m.rx;
+            mGeom[i * 4 + 3] = m.ry;
+          } else if (m.type === 'linear') {
+            mGeom[i * 4 + 0] = m.x1;
+            mGeom[i * 4 + 1] = m.y1;
+            mGeom[i * 4 + 2] = m.x2;
+            mGeom[i * 4 + 3] = m.y2;
+          }
+
+          const a = m.adjustments;
+          mExp[i] = a.exposure;
+          mCont[i] = a.contrast;
+          mTemp[i] = a.temperature;
+          mTint[i] = a.tint;
+          mSat[i] = a.saturation;
+          mShad[i] = a.shadows;
+          mHigh[i] = a.highlights;
+          mClar[i] = a.clarity;
+        }
+
+        gl.uniform1iv(uniforms.u_maskType, mType);
+        gl.uniform1iv(uniforms.u_maskInvert, mInvert);
+        gl.uniform4fv(uniforms.u_maskGeom, mGeom);
+        gl.uniform1fv(uniforms.u_maskFeather, mFeather);
+        gl.uniform1fv(uniforms.u_mExposure, mExp);
+        gl.uniform1fv(uniforms.u_mContrast, mCont);
+        gl.uniform1fv(uniforms.u_mTemp, mTemp);
+        gl.uniform1fv(uniforms.u_mTint, mTint);
+        gl.uniform1fv(uniforms.u_mSat, mSat);
+        gl.uniform1fv(uniforms.u_mShadows, mShad);
+        gl.uniform1fv(uniforms.u_mHighlights, mHigh);
+        gl.uniform1fv(uniforms.u_mClarity, mClar);
+
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+        drawViewportOverlays();
+        scheduleHistogramUpdate();
+      }
+
+      // Convert normalized image UV (0..1) to overlayCanvas screen pixels
+      function uvToScreen(u, v) {
+        const rect = glCanvas.getBoundingClientRect();
+        const vpRect = viewportContainer.getBoundingClientRect();
+        return {
+          x: (rect.left - vpRect.left) + u * rect.width,
+          y: (rect.top - vpRect.top) + v * rect.height
+        };
+      }
+
+      // Convert overlayCanvas screen pixels to normalized image UV (0..1)
+      function screenToUV(sx, sy) {
+        const rect = glCanvas.getBoundingClientRect();
+        const vpRect = viewportContainer.getBoundingClientRect();
+        const x = sx - (rect.left - vpRect.left);
+        const y = sy - (rect.top - vpRect.top);
+        return {
+          u: x / rect.width,
+          v: y / rect.height
+        };
+      }
+
+      function drawViewportOverlays() {
+        const vw = overlayCanvas.width;
+        const vh = overlayCanvas.height;
+        overlayCtx.clearRect(0, 0, vw, vh);
+
+        const rect = glCanvas.getBoundingClientRect();
+        const vpRect = viewportContainer.getBoundingClientRect();
+        const imgLeft = rect.left - vpRect.left;
+        const imgTop = rect.top - vpRect.top;
+
+        // 1. Before/After Split Line & Handle
+        if (state.splitCompare && !state.holdOriginal) {
+          const sx = imgLeft + state.splitPosition * rect.width;
+          overlayCtx.save();
+          overlayCtx.strokeStyle = '#ffffff';
+          overlayCtx.lineWidth = 2;
+          overlayCtx.shadowColor = 'rgba(0,0,0,0.6)';
+          overlayCtx.shadowBlur = 4;
+          overlayCtx.beginPath();
+          overlayCtx.moveTo(sx, imgTop);
+          overlayCtx.lineTo(sx, imgTop + rect.height);
+          overlayCtx.stroke();
+
+          // Center Handle Pill
+          const midY = imgTop + rect.height * 0.5;
+          overlayCtx.fillStyle = '#18181b';
+          overlayCtx.beginPath();
+          overlayCtx.arc(sx, midY, 15, 0, Math.PI * 2);
+          overlayCtx.fill();
+          overlayCtx.strokeStyle = '#ffffff';
+          overlayCtx.stroke();
+
+          // Left/Right arrows
+          overlayCtx.fillStyle = '#ffffff';
+          overlayCtx.font = 'bold 11px Inter';
+          overlayCtx.textAlign = 'center';
+          overlayCtx.textBaseline = 'middle';
+          overlayCtx.fillText('◀▶', sx, midY);
+
+          // Labels
+          overlayCtx.fillStyle = 'rgba(0,0,0,0.65)';
+          overlayCtx.fillRect(imgLeft + 10, imgTop + 10, 52, 20);
+          overlayCtx.fillRect(imgLeft + rect.width - 56, imgTop + 10, 46, 20);
+          overlayCtx.fillStyle = '#e4e4e7';
+          overlayCtx.font = '10px JetBrains Mono';
+          overlayCtx.fillText('BEFORE', imgLeft + 36, imgTop + 20);
+          overlayCtx.fillText('AFTER', imgLeft + rect.width - 33, imgTop + 20);
+          overlayCtx.restore();
+        }
+
+        // 2. Active Mask Interactive Handles (Radial Ellipse, Linear Line, or Brush Cursor)
+        const activeMask = state.masks.find(m => m.id === state.selectedMaskId);
+        if (!activeMask) return;
+
+        overlayCtx.save();
+        if (activeMask.type === 'radial') {
+          const c = uvToScreen(activeMask.cx, activeMask.cy);
+          const rxPx = activeMask.rx * rect.width;
+          const ryPx = activeMask.ry * rect.height;
+
+          // Outer Ellipse
+          overlayCtx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+          overlayCtx.lineWidth = 1.5;
+          overlayCtx.setLineDash([5, 4]);
+          overlayCtx.beginPath();
+          overlayCtx.ellipse(c.x, c.y, Math.max(4, rxPx), Math.max(4, ryPx), 0, 0, Math.PI * 2);
+          overlayCtx.stroke();
+          overlayCtx.setLineDash([]);
+
+          // Center Pin & Edge Radius Handle
+          drawControlPin(c.x, c.y, '#3b82f6');
+          drawControlPin(c.x + rxPx, c.y, '#ffffff');
+          drawControlPin(c.x, c.y + ryPx, '#ffffff');
+        } else if (activeMask.type === 'linear') {
+          const p1 = uvToScreen(activeMask.x1, activeMask.y1);
+          const p2 = uvToScreen(activeMask.x2, activeMask.y2);
+
+          overlayCtx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+          overlayCtx.lineWidth = 1.5;
+          overlayCtx.beginPath();
+          overlayCtx.moveTo(p1.x, p1.y);
+          overlayCtx.lineTo(p2.x, p2.y);
+          overlayCtx.stroke();
+
+          drawControlPin(p1.x, p1.y, '#a855f7');
+          drawControlPin(p2.x, p2.y, '#ffffff');
+        } else if (activeMask.type === 'brush') {
+          const { x, y } = state.pointerPosCanvas;
+          if (x >= 0 && y >= 0) {
+            const radiusPx = Math.max(4, (state.brushSize * state.zoom) * 0.5);
+            const innerR = radiusPx * (1.0 - state.brushFeather / 100);
+
+            overlayCtx.strokeStyle = state.brushMode === 'erase' ? '#f87171' : '#ffffff';
+            overlayCtx.lineWidth = 1.5;
+            overlayCtx.beginPath();
+            overlayCtx.arc(x, y, radiusPx, 0, Math.PI * 2);
+            overlayCtx.stroke();
+
+            if (innerR > 2) {
+              overlayCtx.strokeStyle = 'rgba(255,255,255,0.45)';
+              overlayCtx.setLineDash([3, 3]);
+              overlayCtx.beginPath();
+              overlayCtx.arc(x, y, innerR, 0, Math.PI * 2);
+              overlayCtx.stroke();
+            }
+          }
+        }
+        overlayCtx.restore();
+      }
+
+      function drawControlPin(x, y, fill) {
+        overlayCtx.fillStyle = fill;
+        overlayCtx.beginPath();
+        overlayCtx.arc(x, y, 6, 0, Math.PI * 2);
+        overlayCtx.fill();
+        overlayCtx.strokeStyle = '#121214';
+        overlayCtx.lineWidth = 2;
+        overlayCtx.stroke();
+      }
+
+      /* -------------------------------------------------------------------
+         9B. INTERACTIVE PARAMETRIC TONE CURVE CONTROLLER
+      ------------------------------------------------------------------- */
+      function setupToneCurve() {
+        const canvas = document.getElementById('toneCurveCanvas');
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+        let draggingIdx = -1;
+
+        const drawCurve = () => {
+          ctx.clearRect(0, 0, w, h);
+
+          // Grid lines
+          ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+          ctx.lineWidth = 1;
+          [0.25, 0.5, 0.75].forEach(p => {
+            ctx.beginPath();
+            ctx.moveTo(w * p, 0); ctx.lineTo(w * p, h);
+            ctx.moveTo(0, h * p); ctx.lineTo(w, h * p);
+            ctx.stroke();
+          });
+
+          // Diagonal identity reference line
+          ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(0, h);
+          ctx.lineTo(w, 0);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Smooth spline curve
+          const pts = state.global.curvePoints;
+          ctx.strokeStyle = '#3b82f6';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          for (let px = 0; px <= w; px += 2) {
+            const t = px / w;
+            const scaled = t * 4.0;
+            const idx = Math.min(3, Math.floor(scaled));
+            const f = scaled - idx;
+            const p0 = pts[Math.max(0, idx - 1)];
+            const p1 = pts[idx];
+            const p2 = pts[idx + 1];
+            const p3 = pts[Math.min(4, idx + 2)];
+            const f2 = f * f;
+            const f3 = f2 * f;
+            const yVal = 0.5 * (
+              (2 * p1) +
+              (-p0 + p2) * f +
+              (2 * p0 - 5 * p1 + 4 * p2 - p3) * f2 +
+              (-p0 + 3 * p1 - 3 * p2 + p3) * f3
+            );
+            const py = h - Math.max(0, Math.min(1, yVal)) * h;
+            if (px === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.stroke();
+
+          // Control Nodes
+          pts.forEach((yVal, i) => {
+            const cx = (i / 4) * w;
+            const cy = h - yVal * h;
+            ctx.fillStyle = draggingIdx === i ? '#60a5fa' : '#ffffff';
+            ctx.beginPath();
+            ctx.arc(cx, cy, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#101012';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+          });
+        };
+
+        canvas._redraw = drawCurve;
+        drawCurve();
+
+        canvas.addEventListener('pointerdown', (e) => {
+          const rect = canvas.getBoundingClientRect();
+          const mx = ((e.clientX - rect.left) / rect.width) * w;
+          const my = ((e.clientY - rect.top) / rect.height) * h;
+          let best = -1;
+          let minDist = 24;
+          state.global.curvePoints.forEach((yVal, i) => {
+            const cx = (i / 4) * w;
+            const cy = h - yVal * h;
+            const d = Math.hypot(mx - cx, my - cy);
+            if (d < minDist) { minDist = d; best = i; }
+          });
+          if (best !== -1) {
+            draggingIdx = best;
+            canvas.setPointerCapture(e.pointerId);
+          }
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+          if (draggingIdx === -1) return;
+          const rect = canvas.getBoundingClientRect();
+          const normY = 1.0 - Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+          state.global.curvePoints[draggingIdx] = normY;
+          syncToneCurveToGPU();
+          drawCurve();
+          render();
+        });
+
+        canvas.addEventListener('pointerup', () => { draggingIdx = -1; drawCurve(); });
+        document.getElementById('btnResetCurve').addEventListener('click', () => {
+          state.global.curvePoints = [0.0, 0.25, 0.5, 0.75, 1.0];
+          syncToneCurveToGPU();
+          drawCurve();
+          render();
+        });
+      }
+
+      /* -------------------------------------------------------------------
+         10. UI SYNCHRONIZATION & 140-FILTER GRID CONTROLLER
+      ------------------------------------------------------------------- */
+      const sliderKeys = [
+        'temperature', 'tint', 'vibrance', 'saturation',
+        'exposure', 'contrast', 'highlights', 'shadows',
+        'whites', 'blacks', 'clarity', 'dehaze',
+        'vignetteAmount', 'vignetteFeather', 'grain'
+      ];
+
+      function getActiveAdjustmentObject() {
+        if (state.selectedMaskId) {
+          const m = state.masks.find(item => item.id === state.selectedMaskId);
+          if (m) return m.adjustments;
+        }
+        return state.global;
+      }
+
+      function syncSlidersToActiveTarget() {
+        const target = getActiveAdjustmentObject();
+        const isMask = Boolean(state.selectedMaskId);
+
+        // Show/hide global-only controls when editing a local mask
+        document.querySelectorAll('.global-only-control').forEach(el => {
+          el.classList.toggle('hidden', isMask);
+        });
+        document.getElementById('colorWheelsSection').classList.toggle('hidden', isMask);
+
+        const badge = document.getElementById('editingTargetBadge');
+        if (isMask) {
+          const m = state.masks.find(item => item.id === state.selectedMaskId);
+          badge.textContent = `Mask: ${m.name}`;
+          badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-red-500/20 text-red-300 border border-red-500/40';
+        } else {
+          badge.textContent = 'Global Master';
+          badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30';
+        }
+
+        sliderKeys.forEach(key => {
+          const slider = document.getElementById(`param-${key}`);
+          const readout = document.getElementById(`val-${key}`);
+          if (!slider || !readout) return;
+          const val = target[key] ?? 0;
+          slider.value = val;
+          readout.textContent = key === 'exposure' ? Number(val).toFixed(2) : Math.round(val);
+        });
+
+        // LUT intensity
+        const lutSlider = document.getElementById('slider-lutIntensity');
+        lutSlider.value = state.global.lutIntensity;
+        document.getElementById('val-lutIntensity').textContent = `${Math.round(state.global.lutIntensity)}%`;
+      }
+
+      sliderKeys.forEach(key => {
+        const slider = document.getElementById(`param-${key}`);
+        const readout = document.getElementById(`val-${key}`);
+        const label = document.querySelector(`label[data-param="${key}"]`);
+
+        slider.addEventListener('input', () => {
+          const val = parseFloat(slider.value);
+          const target = getActiveAdjustmentObject();
+          target[key] = val;
+          readout.textContent = key === 'exposure' ? val.toFixed(2) : Math.round(val);
+          render();
+        });
+
+        // Double-click label or value to reset parameter
+        const resetParam = () => {
+          const defVal = key === 'vignetteFeather' ? 50 : 0;
+          const target = getActiveAdjustmentObject();
+          target[key] = defVal;
+          slider.value = defVal;
+          readout.textContent = key === 'exposure' ? defVal.toFixed(2) : defVal;
+          render();
+        };
+        label?.addEventListener('dblclick', resetParam);
+        readout?.addEventListener('dblclick', resetParam);
+      });
+
+      // LUT Intensity Slider
+      const lutIntensitySlider = document.getElementById('slider-lutIntensity');
+      lutIntensitySlider.addEventListener('input', () => {
+        state.global.lutIntensity = parseFloat(lutIntensitySlider.value);
+        document.getElementById('val-lutIntensity').textContent = `${Math.round(state.global.lutIntensity)}%`;
+        render();
+      });
+
+      /* -------------------------------------------------------------------
+         11. LUT LIST RENDERING & UNIVERSAL FILE DROP HANDLER
+      ------------------------------------------------------------------- */
+      function renderLUTList() {
+        const container = document.getElementById('lutListContainer');
+        container.innerHTML = '';
+
+        state.luts.forEach(lut => {
+          const active = lut.id === state.activeLutId;
+          const item = document.createElement('button');
+          item.className = `w-full text-left p-2.5 rounded-lg border transition flex items-center justify-between ${
+            active
+              ? 'bg-blue-600/20 border-blue-500 text-white'
+              : 'bg-studio-surface/50 border-studio-border hover:bg-studio-surface text-zinc-300'
+          }`;
+          item.innerHTML = `
+            <div class="min-w-0 pr-2">
+              <div class="font-medium truncate">${lut.name}</div>
+              <div class="text-[10px] text-zinc-400 truncate">${lut.desc || 'Custom Color Grading Profile'}</div>
+            </div>
+            <span class="shrink-0 text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/40 text-zinc-300 border border-zinc-700">
+              ${lut.format}
+            </span>
+          `;
+          item.addEventListener('click', () => {
+            state.activeLutId = lut.id;
+            uploadLUTToGPU(lut);
+            renderLUTList();
+            render();
+          });
+          container.appendChild(item);
+        });
+      }
+
+      async function handleIncomingFile(file) {
+        const name = file.name;
+        const ext = name.split('.').pop().toLowerCase();
+
+        // 1. Image Files
+        if (file.type.startsWith('image/') || ['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+          const url = URL.createObjectURL(file);
+          const img = new Image();
+          img.onload = () => {
+            uploadSourceImage(img, name);
+            URL.revokeObjectURL(url);
+            showToast(`Loaded image: ${name}`);
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(url);
+            showToast(`Could not decode ${name} (try JPG, PNG or WEBP)`);
+          };
+          img.src = url;
+          return;
+        }
+
+        // 2. LUT & Color Grading Files (.cube, .3dl, .look, .xmp)
+        if (['cube', '3dl', 'look', 'xmp', 'txt'].includes(ext)) {
+          try {
+            const text = await file.text();
+            const baseTitle = name.replace(/\.[^/.]+$/, '');
+            let parsed;
+
+            if (ext === 'cube' || ext === 'txt') parsed = parseCubeLUT(text, baseTitle);
+            else if (ext === '3dl') parsed = parse3dlLUT(text, baseTitle);
+            else if (ext === 'look') parsed = parseLookFile(text, baseTitle);
+            else if (ext === 'xmp') parsed = parseXmpFile(text, baseTitle);
+
+            if (parsed.type === 'lut') {
+              const newLut = {
+                id: 'custom-' + Date.now(),
+                name: parsed.title,
+                desc: `Imported ${name}`,
+                format: parsed.format,
+                size: parsed.size,
+                data: parsed.data
+              };
+              state.luts.unshift(newLut);
+              state.activeLutId = newLut.id;
+              uploadLUTToGPU(newLut);
+              renderLUTList();
+              switchLeftTab('luts');
+              render();
+              showToast(`Applied ${parsed.format} LUT: ${parsed.title}`);
+            } else if (parsed.type === 'xmp') {
+              // Apply Lightroom/ACR XMP adjustments to Global Master
+              state.selectedMaskId = null;
+              Object.assign(state.global, parsed.adjustments);
+              syncSlidersToActiveTarget();
+              renderMaskList();
+              render();
+              showToast(`Applied XMP Preset: ${parsed.title}`);
+            }
+          } catch (err) {
+            console.error(err);
+            showToast(`Could not parse ${name}: ${err.message}`);
+          }
+          return;
+        }
+
+        showToast(`Unsupported file type: .${ext}`);
+      }
+
+      /* -------------------------------------------------------------------
+         12. NON-DESTRUCTIVE MASK LAYER MANAGEMENT
+      ------------------------------------------------------------------- */
+      function addMask(type) {
+        if (state.masks.length >= MAX_MASKS) {
+          showToast(`Maximum of ${MAX_MASKS} non-destructive masks reached`);
+          return;
+        }
+        const id = 'mask-' + Date.now();
+        const count = state.masks.filter(m => m.type === type).length + 1;
+        const labelMap = { brush: 'Brush Mask', radial: 'Radial Gradient', linear: 'Linear Gradient' };
+
+        const mask = {
+          id,
+          type,
+          name: `${labelMap[type]} ${count}`,
+          enabled: true,
+          invert: false,
+          feather: 55,
+          adjustments: defaultMaskAdjustments()
+        };
+
+        if (type === 'brush') {
+          mask.buffer = new Uint8Array(MASK_RES * MASK_RES);
+        } else if (type === 'radial') {
+          mask.cx = 0.5;
+          mask.cy = 0.45;
+          mask.rx = 0.28;
+          mask.ry = 0.34;
+        } else if (type === 'linear') {
+          mask.x1 = 0.5;
+          mask.y1 = 0.22;
+          mask.x2 = 0.5;
+          mask.y2 = 0.68;
+        }
+
+        state.masks.push(mask);
+        state.selectedMaskId = id;
+        syncMasksToGPU();
+        renderMaskList();
+        syncSlidersToActiveTarget();
+        render();
+        showToast(`Added ${mask.name}`);
+      }
+
+      function renderMaskList() {
+        const list = document.getElementById('maskLayerList');
+        document.getElementById('maskCountBadge').textContent = state.masks.length;
+        list.innerHTML = '';
+
+        // Global Master Item at Top
+        const globalBtn = document.createElement('div');
+        const isGlobalSel = state.selectedMaskId === null;
+        globalBtn.className = `p-2 rounded-lg border cursor-pointer flex items-center justify-between transition ${
+          isGlobalSel
+            ? 'bg-blue-600/20 border-blue-500 text-white'
+            : 'bg-studio-surface/40 border-studio-border text-zinc-300 hover:bg-studio-surface'
+        }`;
+        globalBtn.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+            <span class="font-medium">Global Master Image</span>
+          </div>
+          <span class="text-[10px] font-mono text-zinc-400">BASE</span>
+        `;
+        globalBtn.addEventListener('click', () => {
+          state.selectedMaskId = null;
+          renderMaskList();
+          syncSlidersToActiveTarget();
+          render();
+        });
+        list.appendChild(globalBtn);
+
+        // Mask Layers
+        state.masks.forEach(m => {
+          const isSel = m.id === state.selectedMaskId;
+          const row = document.createElement('div');
+          row.className = `p-2 rounded-lg border cursor-pointer flex items-center justify-between transition ${
+            isSel
+              ? 'bg-red-500/15 border-red-500/70 text-white'
+              : 'bg-studio-surface/60 border-studio-border text-zinc-300 hover:bg-studio-surface'
+          }`;
+
+          row.innerHTML = `
+            <div class="flex items-center gap-2 min-w-0">
+              <input type="checkbox" ${m.enabled ? 'checked' : ''} class="mask-toggle accent-blue-500 cursor-pointer" />
+              <span class="truncate font-medium">${m.name}</span>
+            </div>
+            <button class="mask-delete p-1 text-zinc-400 hover:text-red-400" title="Delete Mask">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          `;
+
+          row.addEventListener('click', (e) => {
+            if (e.target.closest('.mask-toggle') || e.target.closest('.mask-delete')) return;
+            state.selectedMaskId = m.id;
+            renderMaskList();
+            syncSlidersToActiveTarget();
+            render();
+          });
+
+          row.querySelector('.mask-toggle').addEventListener('change', (e) => {
+            m.enabled = e.target.checked;
+            render();
+          });
+
+          row.querySelector('.mask-delete').addEventListener('click', () => {
+            state.masks = state.masks.filter(item => item.id !== m.id);
+            if (state.selectedMaskId === m.id) {
+              state.selectedMaskId = state.masks.length ? state.masks[state.masks.length - 1].id : null;
+            }
+            syncMasksToGPU();
+            renderMaskList();
+            syncSlidersToActiveTarget();
+            render();
+          });
+
+          list.appendChild(row);
+        });
+
+        // Update Contextual Mask Tool Controls Panel
+        const activeMask = state.masks.find(m => m.id === state.selectedMaskId);
+        const toolPanel = document.getElementById('activeMaskToolControls');
+        if (!activeMask) {
+          toolPanel.classList.add('hidden');
+        } else {
+          toolPanel.classList.remove('hidden');
+          document.getElementById('maskToolTitle').textContent = activeMask.name;
+          document.getElementById('btnInvertMask').classList.toggle('bg-red-600', activeMask.invert);
+
+          if (activeMask.type === 'brush') {
+            document.getElementById('brushControlsGroup').classList.remove('hidden');
+            document.getElementById('gradientControlsGroup').classList.add('hidden');
+          } else {
+            document.getElementById('brushControlsGroup').classList.add('hidden');
+            document.getElementById('gradientControlsGroup').classList.remove('hidden');
+            document.getElementById('slider-gradFeather').value = activeMask.feather;
+            document.getElementById('val-gradFeather').textContent = `${activeMask.feather}%`;
+          }
+        }
+      }
+
+      /* -------------------------------------------------------------------
+         13. VIEWPORT POINTER INTERACTIONS (ZOOM, PAN, BRUSH, GRADIENTS, SPLIT)
+      ------------------------------------------------------------------- */
+      viewportContainer.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89;
+        state.zoom = Math.max(0.05, Math.min(8.0, state.zoom * zoomFactor));
+        updateCanvasLayout();
+        render();
+      }, { passive: false });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+          e.preventDefault();
+          state.spacePressed = true;
+          viewportContainer.style.cursor = 'grab';
+        }
+      });
+      window.addEventListener('keyup', (e) => {
+        if (e.code === 'Space') {
+          state.spacePressed = false;
+          viewportContainer.style.cursor = 'default';
+        }
+      });
+
+      viewportContainer.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('button')) return;
+        const vpRect = viewportContainer.getBoundingClientRect();
+        const sx = e.clientX - vpRect.left;
+        const sy = e.clientY - vpRect.top;
+        state.lastPointer = { x: e.clientX, y: e.clientY };
+
+        // Middle click or Spacebar+Click -> Pan
+        if (e.button === 1 || state.spacePressed) {
+          state.isPanning = true;
+          viewportContainer.setPointerCapture(e.pointerId);
+          viewportContainer.style.cursor = 'grabbing';
+          return;
+        }
+
+        // Check Split Compare Handle Drag
+        if (state.splitCompare && !state.holdOriginal) {
+          const rect = glCanvas.getBoundingClientRect();
+          const splitX = (rect.left - vpRect.left) + state.splitPosition * rect.width;
+          if (Math.abs(sx - splitX) < 22) {
+            state.draggingSplit = true;
+            viewportContainer.setPointerCapture(e.pointerId);
+            return;
+          }
+        }
+
+        // Check Active Mask Interactions
+        const activeMask = state.masks.find(m => m.id === state.selectedMaskId);
+        if (activeMask && activeMask.enabled) {
+          const rect = glCanvas.getBoundingClientRect();
+          const uv = screenToUV(sx, sy);
+
+          if (activeMask.type === 'radial') {
+            const c = uvToScreen(activeMask.cx, activeMask.cy);
+            const rxPx = activeMask.rx * rect.width;
+            const ryPx = activeMask.ry * rect.height;
+
+            if (Math.hypot(sx - c.x, sy - c.y) < 16) {
+              state.activeDragHandle = { mask: activeMask, handle: 'center' };
+            } else if (Math.hypot(sx - (c.x + rxPx), sy - c.y) < 16) {
+              state.activeDragHandle = { mask: activeMask, handle: 'rx' };
+            } else if (Math.hypot(sx - c.x, sy - (c.y + ryPx)) < 16) {
+              state.activeDragHandle = { mask: activeMask, handle: 'ry' };
+            }
+            if (state.activeDragHandle) {
+              viewportContainer.setPointerCapture(e.pointerId);
+              return;
+            }
+          } else if (activeMask.type === 'linear') {
+            const p1 = uvToScreen(activeMask.x1, activeMask.y1);
+            const p2 = uvToScreen(activeMask.x2, activeMask.y2);
+
+            if (Math.hypot(sx - p1.x, sy - p1.y) < 16) {
+              state.activeDragHandle = { mask: activeMask, handle: 'start' };
+            } else if (Math.hypot(sx - p2.x, sy - p2.y) < 16) {
+              state.activeDragHandle = { mask: activeMask, handle: 'end' };
+            }
+            if (state.activeDragHandle) {
+              viewportContainer.setPointerCapture(e.pointerId);
+              return;
+            }
+          } else if (activeMask.type === 'brush') {
+            if (uv.u >= 0 && uv.u <= 1 && uv.v >= 0 && uv.v <= 1) {
+              state.isDrawingMask = true;
+              viewportContainer.setPointerCapture(e.pointerId);
+              lastBrushUV = null;
+              strokeTo(activeMask, uv.u, uv.v);
+              syncMasksToGPU();
+              render();
+              return;
+            }
+          }
+        }
+      });
+
+      viewportContainer.addEventListener('pointermove', (e) => {
+        const vpRect = viewportContainer.getBoundingClientRect();
+        const sx = e.clientX - vpRect.left;
+        const sy = e.clientY - vpRect.top;
+        state.pointerPosCanvas = { x: sx, y: sy };
+
+        if (state.isPanning) {
+          state.panX += e.clientX - state.lastPointer.x;
+          state.panY += e.clientY - state.lastPointer.y;
+          state.lastPointer = { x: e.clientX, y: e.clientY };
+          updateCanvasLayout();
+          drawViewportOverlays();
+          return;
+        }
+
+        if (state.draggingSplit) {
+          const uv = screenToUV(sx, sy);
+          state.splitPosition = Math.max(0.02, Math.min(0.98, uv.u));
+          render();
+          return;
+        }
+
+        if (state.activeDragHandle) {
+          const { mask, handle } = state.activeDragHandle;
+          const uv = screenToUV(sx, sy);
+          if (mask.type === 'radial') {
+            if (handle === 'center') {
+              mask.cx = Math.max(0, Math.min(1, uv.u));
+              mask.cy = Math.max(0, Math.min(1, uv.v));
+            } else if (handle === 'rx') {
+              mask.rx = Math.max(0.03, Math.abs(uv.u - mask.cx));
+            } else if (handle === 'ry') {
+              mask.ry = Math.max(0.03, Math.abs(uv.v - mask.cy));
+            }
+          } else if (mask.type === 'linear') {
+            if (handle === 'start') {
+              mask.x1 = uv.u;
+              mask.y1 = uv.v;
+            } else if (handle === 'end') {
+              mask.x2 = uv.u;
+              mask.y2 = uv.v;
+            }
+          }
+          render();
+          return;
+        }
+
+        // Continue a brush stroke
+        if (state.isDrawingMask) {
+          const m = state.masks.find(item => item.id === state.selectedMaskId);
+          const uv = screenToUV(sx, sy);
+          if (m && m.type === 'brush' && uv.u >= 0 && uv.u <= 1 && uv.v >= 0 && uv.v <= 1) {
+            strokeTo(m, uv.u, uv.v);
+            syncMasksToGPU();
+          }
+          render();
+          return;
+        }
+
+        // Idle hover: just refresh the brush cursor / handles
+        drawViewportOverlays();
+      });
+
+      // Paint evenly spaced dabs between the previous and current pointer
+      // position so fast strokes stay continuous.
+      let lastBrushUV = null;
+      function strokeTo(mask, u, v) {
+        if (lastBrushUV) {
+          const du = u - lastBrushUV.u;
+          const dv = v - lastBrushUV.v;
+          const distPx = Math.hypot(du * state.imgWidth, dv * state.imgHeight);
+          const step = Math.max(2, state.brushSize * 0.2);
+          const n = Math.max(1, Math.ceil(distPx / step));
+          for (let i = 1; i <= n; i++) {
+            const t = i / n;
+            paintBrushDab(mask, lastBrushUV.u + du * t, lastBrushUV.v + dv * t);
+          }
+        } else {
+          paintBrushDab(mask, u, v);
+        }
+        lastBrushUV = { u, v };
+      }
+
+      const endPointerInteraction = (e) => {
+        if (state.isPanning) {
+          viewportContainer.style.cursor = state.spacePressed ? 'grab' : 'default';
+        }
+        state.isPanning = false;
+        state.draggingSplit = false;
+        state.activeDragHandle = null;
+        state.isDrawingMask = false;
+        lastBrushUV = null;
+        if (viewportContainer.hasPointerCapture && viewportContainer.hasPointerCapture(e.pointerId)) {
+          viewportContainer.releasePointerCapture(e.pointerId);
+        }
+      };
+      viewportContainer.addEventListener('pointerup', endPointerInteraction);
+      viewportContainer.addEventListener('pointercancel', endPointerInteraction);
+      viewportContainer.addEventListener('pointerleave', () => {
+        if (state.isDrawingMask || state.isPanning || state.draggingSplit || state.activeDragHandle) return;
+        state.pointerPosCanvas = { x: -999, y: -999 };
+        drawViewportOverlays();
+      });
+
+      /* -------------------------------------------------------------------
+         14. COLOR WHEELS, FILE OPEN BUTTONS & DRAG-AND-DROP
+      ------------------------------------------------------------------- */
+
+      // Convert a wheel puck position (x,y in the unit circle) into an RGB
+      // offset: hue from the angle, strength from the radius, luma-neutral.
+      function wheelToRGB(w) {
+        const amt = Math.min(1, Math.hypot(w.x, w.y));
+        if (amt < 0.0001) return [0, 0, 0];
+        const h = Math.atan2(w.y, w.x);
+        const TWO_THIRDS_PI = (Math.PI * 2) / 3;
+        const r = (0.5 + 0.5 * Math.cos(h) - 0.5) * 2 * amt;
+        const g = (0.5 + 0.5 * Math.cos(h - TWO_THIRDS_PI) - 0.5) * 2 * amt;
+        const b = (0.5 + 0.5 * Math.cos(h - 2 * TWO_THIRDS_PI) - 0.5) * 2 * amt;
+        return [r, g, b];
+      }
+
+      function setupColorWheels() {
+        ['lift', 'gamma', 'gain'].forEach(key => {
+          const canvas = document.getElementById(`wheel-${key}`);
+          const ctx = canvas.getContext('2d');
+          const size = canvas.width;
+          const cx = size / 2;
+          const radius = size / 2 - 4;
+
+          // Pre-render the hue disc once (hue = angle, saturation = radius)
+          const disc = ctx.createImageData(size, size);
+          for (let py = 0; py < size; py++) {
+            for (let px = 0; px < size; px++) {
+              const dx = px + 0.5 - cx;
+              const dy = cx - (py + 0.5);
+              const d = Math.hypot(dx, dy);
+              const i = (py * size + px) * 4;
+              if (d > radius) continue;
+              const [r, g, b] = wheelToRGB({ x: dx / radius, y: dy / radius });
+              const base = 38;
+              disc.data[i + 0] = Math.max(0, Math.min(255, base + r * 150));
+              disc.data[i + 1] = Math.max(0, Math.min(255, base + g * 150));
+              disc.data[i + 2] = Math.max(0, Math.min(255, base + b * 150));
+              disc.data[i + 3] = d > radius - 1 ? 180 : 255;
+            }
+          }
+
+          const draw = () => {
+            ctx.clearRect(0, 0, size, size);
+            ctx.putImageData(disc, 0, 0);
+            ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(cx, cx, radius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            const v = state.global[key];
+            const pxp = cx + v.x * radius;
+            const pyp = cx - v.y * radius;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(pxp, pyp, 5.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#101012';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          };
+          canvas._redraw = draw;
+          draw();
+
+          const moveTo = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            let x = ((e.clientX - rect.left) / rect.width * size - cx) / radius;
+            let y = (cx - (e.clientY - rect.top) / rect.height * size) / radius;
+            const len = Math.hypot(x, y);
+            if (len > 1) { x /= len; y /= len; }
+            state.global[key] = { x, y };
+            draw();
+            render();
+          };
+
+          let dragging = false;
+          canvas.addEventListener('pointerdown', (e) => {
+            dragging = true;
+            canvas.setPointerCapture(e.pointerId);
+            moveTo(e);
+          });
+          canvas.addEventListener('pointermove', (e) => { if (dragging) moveTo(e); });
+          const stop = () => { dragging = false; };
+          canvas.addEventListener('pointerup', stop);
+          canvas.addEventListener('pointercancel', stop);
+          canvas.addEventListener('dblclick', () => {
+            state.global[key] = { x: 0, y: 0 };
+            draw();
+            render();
+          });
+        });
+      }
+
+      // Open Photo / Load LUT buttons
+      const fileInputImage = document.getElementById('fileInputImage');
+      const fileInputLut = document.getElementById('fileInputLut');
+      document.getElementById('btnOpenImage').addEventListener('click', () => fileInputImage.click());
+      document.getElementById('btnOpenLut').addEventListener('click', () => fileInputLut.click());
+      document.getElementById('btnLutBrowse').addEventListener('click', () => fileInputLut.click());
+      [fileInputImage, fileInputLut].forEach(input => {
+        input.addEventListener('change', () => {
+          Array.from(input.files).forEach(handleIncomingFile);
+          input.value = '';
+        });
+      });
+
+      // Drag & drop anywhere on the page (photos or LUT / XMP files)
+      const dragOverlay = document.getElementById('dragOverlay');
+      let dragDepth = 0;
+      const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+      window.addEventListener('dragenter', (e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        dragDepth++;
+        dragOverlay.classList.remove('hidden');
+      });
+      window.addEventListener('dragover', (e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+      });
+      window.addEventListener('dragleave', (e) => {
+        if (!hasFiles(e)) return;
+        dragDepth = Math.max(0, dragDepth - 1);
+        if (dragDepth === 0) dragOverlay.classList.add('hidden');
+      });
+      window.addEventListener('drop', (e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        dragDepth = 0;
+        dragOverlay.classList.add('hidden');
+        Array.from(e.dataTransfer.files).forEach(handleIncomingFile);
+      });
+
+      /* -------------------------------------------------------------------
+         14B. FILTER GRID & SIDEBAR CONTROLS
+      ------------------------------------------------------------------- */
+      function renderFilterGrid() {
+        const container = document.getElementById('filterGridContainer');
+        container.innerHTML = '';
+
+        const catFilter = state.filterCategoryFilter;
+        const query = state.filterSearchQuery.trim().toLowerCase();
+
+        FILTER_CATEGORIES.forEach(cat => {
+          if (catFilter !== 'all' && String(cat.id) !== catFilter) return;
+
+          cat.items.forEach((filterName, varIdx) => {
+            if (query && !filterName.toLowerCase().includes(query) && !cat.name.toLowerCase().includes(query)) {
+              return;
+            }
+
+            const isActive = state.activeFilterCategory === cat.id && state.activeFilterVariant === varIdx;
+            const btn = document.createElement('button');
+            btn.className = `w-full text-left px-2.5 py-2 rounded-lg border transition flex items-center justify-between ${
+              isActive
+                ? 'bg-blue-600/20 border-blue-500 text-white shadow-sm'
+                : 'bg-studio-surface/45 border-studio-border/80 hover:bg-studio-surface text-zinc-300'
+            }`;
+
+            btn.innerHTML = `
+              <div class="min-w-0 pr-2 flex items-center gap-2">
+                <span class="text-[10px] font-mono text-zinc-500 w-5 shrink-0">${String(varIdx + 1).padStart(2, '0')}</span>
+                <span class="font-medium truncate">${filterName}</span>
+              </div>
+              <span class="shrink-0 text-[9px] font-mono px-1.5 py-0.5 rounded border ${cat.badgeColor}">
+                ${cat.name.split(' ')[0]}
+              </span>
+            `;
+
+            btn.addEventListener('click', () => {
+              state.activeFilterCategory = cat.id;
+              state.activeFilterVariant = varIdx;
+              document.getElementById('activeFilterNameBadge').textContent = filterName;
+              document.getElementById('activeFilterCatBadge').textContent = cat.name;
+              document.getElementById('label-filterParam2').textContent = cat.param2Label;
+              renderFilterGrid();
+              render();
+            });
+
+            container.appendChild(btn);
+          });
+        });
+      }
+
+      document.getElementById('filterCategorySelect').addEventListener('change', (e) => {
+        state.filterCategoryFilter = e.target.value;
+        renderFilterGrid();
+      });
+
+      document.getElementById('filterSearchInput').addEventListener('input', (e) => {
+        state.filterSearchQuery = e.target.value;
+        renderFilterGrid();
+      });
+
+      document.getElementById('btnClearFilter').addEventListener('click', () => {
+        state.activeFilterCategory = -1;
+        document.getElementById('activeFilterNameBadge').textContent = 'None (Bypassed)';
+        document.getElementById('activeFilterCatBadge').textContent = 'Clean';
+        renderFilterGrid();
+        render();
+      });
+
+      document.getElementById('slider-filterIntensity').addEventListener('input', (e) => {
+        state.filterIntensity = parseInt(e.target.value, 10);
+        document.getElementById('val-filterIntensity').textContent = `${state.filterIntensity}%`;
+        render();
+      });
+
+      document.getElementById('slider-filterParam2').addEventListener('input', (e) => {
+        state.filterParam2 = parseInt(e.target.value, 10);
+        document.getElementById('val-filterParam2').textContent = `${state.filterParam2}%`;
+        render();
+      });
+
+      // Left Sidebar 3-Tab Switcher (Filters | LUTs | Masks)
+      function switchLeftTab(tab) {
+        const tabs = ['filters', 'luts', 'masks'];
+        tabs.forEach(t => {
+          const panel = document.getElementById(`panel${t.charAt(0).toUpperCase() + t.slice(1)}`);
+          const btn = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`);
+          const active = t === tab;
+          panel.classList.toggle('hidden', !active);
+          btn.className = active
+            ? 'py-2.5 text-center font-semibold text-blue-400 border-b-2 border-blue-500 transition flex items-center justify-center gap-1'
+            : 'py-2.5 text-center font-medium text-zinc-400 hover:text-zinc-200 border-b-2 border-transparent transition flex items-center justify-center gap-1';
+        });
+      }
+      document.getElementById('tabFilters').addEventListener('click', () => switchLeftTab('filters'));
+      document.getElementById('tabLuts').addEventListener('click', () => switchLeftTab('luts'));
+      document.getElementById('tabMasks').addEventListener('click', () => switchLeftTab('masks'));
+
+      // Mask Creation & Controls
+      document.getElementById('btnAddBrushMask').addEventListener('click', () => addMask('brush'));
+      document.getElementById('btnAddRadialMask').addEventListener('click', () => addMask('radial'));
+      document.getElementById('btnAddLinearMask').addEventListener('click', () => addMask('linear'));
+
+      document.getElementById('toggleMaskOverlay').addEventListener('change', (e) => {
+        state.showMaskOverlay = e.target.checked;
+        render();
+      });
+
+      document.getElementById('btnInvertMask').addEventListener('click', () => {
+        const m = state.masks.find(item => item.id === state.selectedMaskId);
+        if (m) {
+          m.invert = !m.invert;
+          renderMaskList();
+          render();
+        }
+      });
+
+      document.getElementById('btnBrushPaint').addEventListener('click', () => {
+        state.brushMode = 'paint';
+        document.getElementById('btnBrushPaint').className = 'flex-1 py-1 rounded bg-blue-600 text-white font-medium text-[11px]';
+        document.getElementById('btnBrushErase').className = 'flex-1 py-1 rounded bg-zinc-800 text-zinc-300 hover:bg-zinc-700 font-medium text-[11px]';
+      });
+      document.getElementById('btnBrushErase').addEventListener('click', () => {
+        state.brushMode = 'erase';
+        document.getElementById('btnBrushErase').className = 'flex-1 py-1 rounded bg-red-600 text-white font-medium text-[11px]';
+        document.getElementById('btnBrushPaint').className = 'flex-1 py-1 rounded bg-zinc-800 text-zinc-300 hover:bg-zinc-700 font-medium text-[11px]';
+      });
+      document.getElementById('btnBrushClear').addEventListener('click', () => {
+        const m = state.masks.find(item => item.id === state.selectedMaskId);
+        if (m && m.type === 'brush') {
+          m.buffer.fill(0);
+          syncMasksToGPU();
+          render();
+        }
+      });
+
+      document.getElementById('slider-brushSize').addEventListener('input', (e) => {
+        state.brushSize = parseInt(e.target.value, 10);
+        document.getElementById('val-brushSize').textContent = `${state.brushSize}px`;
+        drawViewportOverlays();
+      });
+      document.getElementById('slider-brushFeather').addEventListener('input', (e) => {
+        state.brushFeather = parseInt(e.target.value, 10);
+        document.getElementById('val-brushFeather').textContent = `${state.brushFeather}%`;
+        drawViewportOverlays();
+      });
+      document.getElementById('slider-brushOpacity').addEventListener('input', (e) => {
+        state.brushOpacity = parseInt(e.target.value, 10);
+        document.getElementById('val-brushOpacity').textContent = `${state.brushOpacity}%`;
+      });
+      document.getElementById('slider-gradFeather').addEventListener('input', (e) => {
+        const m = state.masks.find(item => item.id === state.selectedMaskId);
+        if (m) {
+          m.feather = parseInt(e.target.value, 10);
+          document.getElementById('val-gradFeather').textContent = `${m.feather}%`;
+          render();
+        }
+      });
+
+      // Zoom & Compare Controls
+      document.getElementById('btnZoomFit').addEventListener('click', fitCanvasToScreen);
+      document.getElementById('btnMobileFit').addEventListener('click', fitCanvasToScreen);
+      document.getElementById('btnZoom100').addEventListener('click', () => {
+        state.zoom = 1.0;
+        state.panX = 0;
+        state.panY = 0;
+        updateCanvasLayout();
+        render();
+      });
+
+      document.getElementById('btnSplitCompare').addEventListener('click', (e) => {
+        state.splitCompare = !state.splitCompare;
+        e.currentTarget.classList.toggle('bg-blue-600', state.splitCompare);
+        e.currentTarget.classList.toggle('text-white', state.splitCompare);
+        render();
+      });
+
+      const holdBtn = document.getElementById('btnHoldCompare');
+      const mobileCompareBtn = document.getElementById('btnMobileCompare');
+      [holdBtn, mobileCompareBtn].forEach(btn => {
+        btn.addEventListener('pointerdown', () => { state.holdOriginal = true; render(); });
+        btn.addEventListener('pointerup', () => { state.holdOriginal = false; render(); });
+        btn.addEventListener('pointerleave', () => { if (state.holdOriginal) { state.holdOriginal = false; render(); } });
+      });
+
+      // Reset All & Wheels
+      document.getElementById('btnResetWheels').addEventListener('click', () => {
+        state.global.lift = { x: 0, y: 0 };
+        state.global.gamma = { x: 0, y: 0 };
+        state.global.gain = { x: 0, y: 0 };
+        ['lift', 'gamma', 'gain'].forEach(k => document.getElementById(`wheel-${k}`)._redraw());
+        render();
+      });
+
+      document.getElementById('btnResetAll').addEventListener('click', () => {
+        state.global = defaultGlobalParams();
+        state.masks = [];
+        state.selectedMaskId = null;
+        state.activeLutId = 'none';
+        state.activeFilterCategory = -1;
+        document.getElementById('activeFilterNameBadge').textContent = 'None (Bypassed)';
+        document.getElementById('activeFilterCatBadge').textContent = 'Clean';
+        uploadLUTToGPU(state.luts[0]);
+        syncToneCurveToGPU();
+        document.getElementById('toneCurveCanvas')._redraw();
+        ['lift', 'gamma', 'gain'].forEach(k => document.getElementById(`wheel-${k}`)._redraw());
+        syncMasksToGPU();
+        renderFilterGrid();
+        renderLUTList();
+        renderMaskList();
+        syncSlidersToActiveTarget();
+        render();
+        showToast('All adjustments, filters & masks reset');
+      });
+
+      // Full-Resolution 6K Offscreen Export Pipeline (Zero Pixel Density Loss)
+      function computeTargetExportDimensions() {
+        const origW = state.imgWidth;
+        const origH = state.imgHeight;
+        const aspect = origW / origH;
+
+        if (state.exportResolutionMode === 'native') {
+          return { w: origW, h: origH };
+        }
+        const targetLongEdge = state.exportResolutionMode === '6k' ? 6144 : 3840;
+        const clampedLong = Math.min(targetLongEdge, state.maxTextureSize);
+        if (origW >= origH) {
+          return { w: clampedLong, h: Math.round(clampedLong / aspect) };
+        } else {
+          return { w: Math.round(clampedLong * aspect), h: clampedLong };
+        }
+      }
+
+      function updateExportDimensionPreview() {
+        const { w, h } = computeTargetExportDimensions();
+        const mp = ((w * h) / 1_000_000).toFixed(1);
+        document.getElementById('exportDimensionsText').textContent = `${w} × ${h} px (${mp} MP)`;
+      }
+
+      const exportModal = document.getElementById('exportModal');
+      document.getElementById('btnOpenExport').addEventListener('click', () => {
+        updateExportDimensionPreview();
+        exportModal.classList.remove('hidden');
+      });
+      document.getElementById('btnCloseExport').addEventListener('click', () => exportModal.classList.add('hidden'));
+      document.getElementById('btnCancelExport').addEventListener('click', () => exportModal.classList.add('hidden'));
+
+      document.querySelectorAll('.export-res-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.exportResolutionMode = btn.dataset.res;
+          document.querySelectorAll('.export-res-btn').forEach(b => {
+            const sel = b === btn;
+            b.className = sel
+              ? 'export-res-btn py-2 px-1.5 rounded-lg bg-blue-600 text-white font-semibold border border-blue-500 text-center'
+              : 'export-res-btn py-2 px-1.5 rounded-lg bg-studio-surface text-zinc-300 border border-studio-border hover:bg-zinc-700 text-center';
+          });
+          updateExportDimensionPreview();
+        });
+      });
+
+      document.querySelectorAll('.export-fmt-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.exportFormat = btn.dataset.format;
+          document.querySelectorAll('.export-fmt-btn').forEach(b => {
+            const sel = b === btn;
+            b.className = sel
+              ? 'export-fmt-btn py-2 rounded-lg bg-blue-600 text-white font-semibold border border-blue-500'
+              : 'export-fmt-btn py-2 rounded-lg bg-studio-surface text-zinc-300 border border-studio-border hover:bg-zinc-700';
+          });
+          document.getElementById('exportQualityRow').classList.toggle('hidden', state.exportFormat === 'image/png');
+        });
+      });
+
+      document.getElementById('slider-exportQuality').addEventListener('input', (e) => {
+        const q = parseInt(e.target.value, 10);
+        state.exportQuality = q / 100;
+        document.getElementById('val-exportQuality').textContent = `${q}%`;
+      });
+
+      document.getElementById('btnConfirmExport').addEventListener('click', () => {
+        const { w: targetW, h: targetH } = computeTargetExportDimensions();
+        const prevW = glCanvas.width;
+        const prevH = glCanvas.height;
+        const prevOverlay = state.showMaskOverlay;
+        const prevSplit = state.splitCompare;
+
+        // Render at full target 6K / native resolution without UI overlays
+        state.showMaskOverlay = false;
+        state.splitCompare = false;
+        glCanvas.width = targetW;
+        glCanvas.height = targetH;
+        render();
+
+        const extMap = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+        const cleanBase = state.imageName.replace(/\.[^/.]+$/, '');
+        const filename = `${cleanBase}_mosaicStudios_${targetW}x${targetH}.${extMap[state.exportFormat]}`;
+
+        const restoreViewport = () => {
+          state.showMaskOverlay = prevOverlay;
+          state.splitCompare = prevSplit;
+          glCanvas.width = prevW;
+          glCanvas.height = prevH;
+          render();
+        };
+
+        glCanvas.toBlob((blob) => {
+          if (!blob) {
+            restoreViewport();
+            showToast('Export failed: this browser could not encode that size');
+            return;
+          }
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+          // Restore interactive viewport dimensions & overlays
+          restoreViewport();
+          exportModal.classList.add('hidden');
+          showToast(`Exported ${filename} (${targetW}×${targetH}px · Zero Loss)`);
+        }, state.exportFormat, state.exportQuality);
+      });
+
+      // Toast Notification Helper
+      let toastTimeout = null;
+      function showToast(msg) {
+        const banner = document.getElementById('toastBanner');
+        document.getElementById('toastText').textContent = msg;
+        banner.classList.remove('opacity-0');
+        clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => banner.classList.add('opacity-0'), 2800);
+      }
+
+      /* -------------------------------------------------------------------
+         15. INITIALIZE STUDIO ON WINDOW LOAD
+      ------------------------------------------------------------------- */
+      window.addEventListener('resize', () => {
+        updateCanvasLayout();
+        render();
+      });
+
+      window.onload = () => {
+        state.luts = buildBuiltInPresets();
+        uploadLUTToGPU(state.luts[0]);
+        syncToneCurveToGPU();
+        renderFilterGrid();
+        renderLUTList();
+        renderMaskList();
+        setupToneCurve();
+        setupColorWheels();
+        syncSlidersToActiveTarget();
+
+        const sampleImg = createBuiltInSampleImage();
+        uploadSourceImage(sampleImg, 'Sample_Editorial.jpg');
+      };
+    })();
+  </script>
+</body>
+</html>
