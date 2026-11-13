@@ -14,6 +14,8 @@
   button:hover,label.b:hover { background:#2a2a31; } button.p { background:var(--acc); border-color:var(--acc); font-weight:600; } button.on { outline:1px solid var(--acc); }
   header { grid-area:top; display:flex; gap:8px; align-items:center; padding:0 12px; background:var(--pan); border-bottom:1px solid var(--line); overflow-x:auto; white-space:nowrap; }
   header b { font-size:14px; letter-spacing:.02em; } .sp { flex:1; } .dim { color:var(--dim); } #saved.warn { color:var(--yel); }
+  .hb { border-radius:999px; font-weight:600; white-space:nowrap; } .hb.ok { color:#7ee2a0; border-color:#2b6b45; } .hb.warn { color:#ffd166; border-color:#7a5b1a; } .hb.crit { color:#ff8a8a; border-color:#9a3030; animation:pls 1.2s infinite; } @keyframes pls { 50% { opacity:.55; } }
+  .hi { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:center; padding:9px 0; border-top:1px solid var(--line); } .bkb { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; } #db { max-height:62vh; overflow:auto; } #dlg { max-width:min(560px,92vw); }
   #bin { grid-area:bin; background:var(--pan); border-right:1px solid var(--line); overflow:auto; padding:8px; }
   #view { grid-area:view; position:relative; background:#000; display:flex; flex-direction:column; min-width:0; }
   #stage { flex:1; position:relative; min-height:0; overflow:hidden; background:#000; } canvas#out { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#000; }
@@ -51,7 +53,7 @@
   <label class="b">LUT<input id="lutfile" type="file" hidden accept=".cube" /></label>
   <button id="undo" title="Ctrl+Z">Undo</button><button id="redo" title="Ctrl+Shift+Z">Redo</button>
   <span class="sp"></span><span id="mem" class="dim"></span><span id="saved" class="dim">Not saved yet</span>
-  <button id="help">Shortcuts ?</button><button id="export" class="p">Export</button>
+  <button id="hb" class="hb ok" title="Project health">● Safe</button><button id="bk" title="Backup and recovery">Backup</button><button id="help">Shortcuts ?</button><button id="export" class="p">Export</button>
 </header>
 <aside id="bin"><div class="dim" id="binhint">Drop videos or audio here. Huge ProRes / MOV files are fine: they stay on disk and proxies build in the background while you edit.</div></aside>
 <main id="view">
@@ -250,10 +252,11 @@ const dirOf = async (...p) => { let d = opfs; for (const n of p) d = await d.get
 const idb = await new Promise((res) => { const r = indexedDB.open('mosaicSpace', 1); r.onupgradeneeded = () => r.result.createObjectStore('h'); r.onsuccess = () => res(r.result); r.onerror = () => res(null); });
 const idbPut = (k, v) => idb && new Promise((res) => { const t = idb.transaction('h', 'readwrite'); t.objectStore('h').put(v, k); t.oncomplete = res; t.onerror = res; });
 const idbGet = (k) => idb && new Promise((res) => { const r = idb.transaction('h').objectStore('h').get(k); r.onsuccess = () => res(r.result); r.onerror = () => res(null); });
+let saveFail = false, lastSaveAt = Date.now(), lastWorkerMsg = Date.now();
 async function saveProject() {
   if (!dirty) return; const js = snapshot();
-  try { if (opfs) { const f = await (await opfs.getFileHandle('project.json', { create: true })).createWritable(); await f.write(js); await f.close(); } else localStorage.setItem('ms-space', js); dirty = false; $('#saved').textContent = 'Saved ' + new Date().toLocaleTimeString(); $('#saved').className = 'dim'; }
-  catch (e) { $('#saved').textContent = 'Save failed: ' + e.message; $('#saved').className = 'warn'; }
+  try { if (opfs) { const f = await (await opfs.getFileHandle('project.json', { create: true })).createWritable(); await f.write(js); await f.close(); } else localStorage.setItem('ms-space', js); dirty = false; saveFail = false; lastSaveAt = Date.now(); histMaybe(js); $('#saved').textContent = 'Saved ' + new Date().toLocaleTimeString(); $('#saved').className = 'dim'; }
+  catch (e) { saveFail = true; $('#saved').textContent = 'Save failed: ' + e.message; $('#saved').className = 'warn'; }
 }
 setInterval(saveProject, 3000); addEventListener('beforeunload', () => { try { localStorage.setItem('ms-space-last', snapshot()); } catch (e) { /* too big */ } saveProject(); });
 async function writeSeg(id, i, buf) {                                           // proxy chunk -> OPFS file, then the buffer is released
@@ -280,7 +283,7 @@ function startWorker() {
 }
 const callW = (msg, wait) => new Promise((res) => { waiters.set(wait, res); worker.postMessage(msg); });
 function onWorker(e) {
-  const m = e.data;
+  const m = e.data; lastWorkerMsg = Date.now();
   if (m.evt === 'ready') waiters.get('ready')?.();
   else if (m.evt === 'mounted') waiters.get('mounted:' + m.id)?.();
   else if (m.evt === 'probe') waiters.get('probe:' + m.id)?.(m);
@@ -302,6 +305,8 @@ function nativeOK(file) {                                                       
 }
 async function importFile(file, handle) {
   if (file.size > WARN_BYTES) { const go = await ask('Very large file', '<b>' + file.name + '</b> is ' + (file.size / 2 ** 30).toFixed(1) + ' GB.<br>Building proxies for files over 30 GB takes a long time. You can start editing the first chunks as soon as they appear, and the rest keep building in the background.', [['Cancel', false], ['Continue', true, 'p']]); if (!go) return; }
+  const old = Object.values(S.media).find((m) => m.dur && !files.has(m.id) && m.name === file.name && m.size === file.size);
+  if (old) { files.set(old.id, file); if (handle) idbPut('h:' + old.id, handle); old._mounted = false; updateBin(old.id); toast('Relinked ' + file.name); if (!old.native && old.proxy.done < old.proxy.total) enqueue({ kind: 'proxy', id: old.id }); else if (!peaks.has(old.id)) enqueue({ kind: 'peaks', id: old.id }); return; }
   const id = uid(), ext = extOf(file.name), isAudio = file.type.startsWith('audio') || /\.(wav|mp3|flac|aac|m4a|ogg|opus|aif|aiff)$/i.test(file.name);
   S.media[id] = { id, name: file.name, size: file.size, ext, mod: file.lastModified, kind: isAudio ? 'audio' : 'video', dur: 0, native: false, proxy: { done: 0, total: 0, prog: 0 }, hasVideo: !isAudio, hasAudio: true, w: 0, h: 0 };
   files.set(id, file); segs.set(id, new Map()); if (handle) idbPut('h:' + id, handle); updateBin(id);
@@ -513,6 +518,117 @@ $('#export').onclick = async () => {
   toast(done && done.error ? 'Export failed: see the message above' : done && done.cancelled ? 'Export cancelled' : 'Export finished: ' + handle.name, 9000);
 };
 
+/* ===================== safety: health checks, early warnings, version history, cloud-synced folder backup ===================== */
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])), hbEl = $('#hb'), closeDlg = () => { if ($('#dlg').open) $('#dlg').close(); }, gb = (n) => (n / 2 ** 30).toFixed(1);
+let bkDir = null, lastBackup = 0, lastStamped = 0, lastBackedSnap = '', gpuLost = false, errBurst = [], seenCrit = new Set(), lastHealth = [], histT = 0;
+idbGet('backupDir').then((h) => { if (h) bkDir = h; });
+const noteErr = () => { const n = Date.now(); errBurst = errBurst.filter((t) => n - t < 60000); errBurst.push(n); if (errBurst.length === 4) { saveProject(); histNow(); writeFolder(); } };
+addEventListener('error', noteErr); addEventListener('unhandledrejection', noteErr);
+$('#out').addEventListener('webglcontextlost', (e) => { e.preventDefault(); gpuLost = true; checkHealth(); });
+$('#out').addEventListener('webglcontextrestored', () => { gpuLost = false; toast('Graphics recovered. Reload the page if the preview stays blank (your work is saved).', 6000); });
+addEventListener('beforeunload', (e) => { if (busy || jobs.length || dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ---- version history: the last 15 autosaves live in OPFS, so a bad edit or a crash is never the end ---- */
+async function histWrite(js) {
+  if (!opfs) return;
+  try { const d = await dirOf('history'), h = await d.getFileHandle('p' + Date.now() + '.json', { create: true }), w = await h.createWritable(); await w.write(js); await w.close(); const names = []; for await (const [n] of d.entries()) names.push(n); names.sort(); while (names.length > 15) await d.removeEntry(names.shift()); }
+  catch (e) { /* storage full: the health check already warns about that */ }
+}
+function histMaybe(js) { if (Date.now() - histT > 45000 && S.clips.length) { histT = Date.now(); histWrite(js); } }
+const histNow = () => { histT = Date.now(); return histWrite(snapshot()); };
+
+/* ---- project file: small JSON (no media inside), safe to keep anywhere, email, or put in cloud storage ---- */
+const clean = (k, v) => (k[0] === '_' ? undefined : v), stamp = () => new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+const projJSON = () => JSON.stringify({ app: 'mosaicSpace', v: 1, saved: new Date().toISOString(), snapshot: JSON.parse(snapshot()) }, clean, 1);
+function downloadProject() { const u = URL.createObjectURL(new Blob([projJSON()], { type: 'application/json' })), a = document.createElement('a'); a.href = u; a.download = 'mosaicSpace-' + stamp() + '.mosaicspace.json'; a.click(); setTimeout(() => URL.revokeObjectURL(u), 4000); lastBackup = Date.now(); toast('Project file saved to your Downloads folder'); }
+async function reconnect(id) {                                                  // re-attach proxies (OPFS) and the original file handle (IndexedDB) after a restore
+  const md = S.media[id]; md._mounted = false; segs.set(id, new Map()); md.proxy = md.proxy || { done: 0, total: 0, prog: 0 }; let got = 0;
+  if (opfs && md.proxy.total) { try { const d = await dirOf('proxy', id); for (let i = 0; i < md.proxy.total; i++) { try { segs.get(id).set(i, await (await d.getFileHandle('p' + i + '.mp4')).getFile()); got = i + 1; } catch (e) { break; } } } catch (e) { /* none */ } }
+  md.proxy.done = got; const h = await idbGet('h:' + id); if (h) { try { if ((await h.queryPermission({ mode: 'read' })) !== 'granted') await h.requestPermission({ mode: 'read' }); files.set(id, await h.getFile()); } catch (e) { /* needs relink */ } } updateBin(id);
+}
+async function loadProjectText(txt) {
+  let o; try { o = JSON.parse(txt); } catch (e) { toast('That is not a mosaicSpace project file'); return false; }
+  const s = o.snapshot || o; if (!s.clips || !s.media) { toast('That is not a mosaicSpace project file'); return false; }
+  restore(JSON.stringify(s)); for (const id of Object.keys(S.media)) await reconnect(id); commit();
+  const miss = Object.keys(S.media).filter((id) => !files.has(id)).length; toast('Project loaded.' + (miss ? ' ' + miss + ' original file(s) to relink: drop them in again, they match by name and size.' : ''), 7000); return true;
+}
+function pickProject() { const i = document.createElement('input'); i.type = 'file'; i.accept = '.json,application/json'; i.onchange = async () => { if (i.files[0]) { await loadProjectText(await i.files[0].text()); closeDlg(); } }; i.click(); }
+
+/* ---- cloud-synced folder: pick the folder Google Drive / OneDrive / Dropbox / iCloud already syncs, and a copy lands there every minute ---- */
+async function pickFolder() {
+  if (!self.showDirectoryPicker) { toast('This browser cannot pick a folder (use Chrome or Edge). Use "Download project file" instead.', 6000); return; }
+  try { bkDir = await showDirectoryPicker({ id: 'mosaicspace-backup', mode: 'readwrite' }); await idbPut('backupDir', bkDir); lastBackedSnap = ''; await writeFolder(); toast('Backing up to "' + esc(bkDir.name) + '" every minute'); } catch (e) { /* cancelled */ }
+}
+async function regrant() { if (!bkDir) return; try { if ((await bkDir.requestPermission({ mode: 'readwrite' })) === 'granted') { lastBackedSnap = ''; await writeFolder(); toast('Backup folder reconnected'); } } catch (e) { toast('Could not reconnect the backup folder'); } checkHealth(); }
+async function writeFolder() {
+  if (!bkDir || !S.clips.length) return false;
+  try {
+    if ((await bkDir.queryPermission({ mode: 'readwrite' })) !== 'granted') return false;
+    const sn = snapshot(); if (sn === lastBackedSnap) return true; const js = projJSON();
+    const put = async (name) => { const h = await bkDir.getFileHandle(name, { create: true }), x = await h.createWritable(); await x.write(js); await x.close(); };
+    await put('mosaicSpace-latest.json');
+    if (Date.now() - lastStamped > 600000) { lastStamped = Date.now(); await put('mosaicSpace-' + stamp() + '.json'); const names = []; for await (const [n] of bkDir.entries()) if (/^mosaicSpace-\d{4}/.test(n)) names.push(n); names.sort(); while (names.length > 20) await bkDir.removeEntry(names.shift()); }
+    lastBackedSnap = sn; lastBackup = Date.now(); return true;
+  } catch (e) { return false; }
+}
+setInterval(() => { writeFolder(); }, 60000);
+
+/* ---- fixes the warnings can offer ---- */
+function freeIdle() {
+  for (const [id, p] of pool) if (!activeClips().some((c) => c.id === id)) { p.el.removeAttribute('src'); p.el.load(); if (p.url && p.owned) URL.revokeObjectURL(p.url); pool.delete(id); }
+  for (const md of Object.values(S.media)) if (md._url && !activeClips().some((c) => c.media === md.id)) { URL.revokeObjectURL(md._url); md._url = null; }
+  undoStack = undoStack.slice(-25); toast('Freed idle decoders and old undo history. Your work is saved.'); saveProject(); checkHealth();
+}
+async function clearUnusedProxies() {
+  if (!opfs) return; let n = 0;
+  try { const d = await dirOf('proxy'), names = []; for await (const [name] of d.entries()) names.push(name); for (const name of names) if (!S.clips.some((c) => c.media === name)) { await d.removeEntry(name, { recursive: true }); segs.delete(name); if (S.media[name]) S.media[name].proxy.done = 0; n++; } } catch (e) { /* ignore */ }
+  toast('Cleared proxies for ' + n + ' media that are not on the timeline'); checkHealth();
+}
+function restartEngine() { try { worker?.terminate(); } catch (e) { /* gone */ } worker = null; readyP = null; for (const md of Object.values(S.media)) md._mounted = false; if (busy) jobs.unshift(busy); busy = null; lastWorkerMsg = Date.now(); toast('Engine restarted. Interrupted jobs continue from the last finished chunk.', 5000); pump(); }
+
+/* ---- the checks: each returns something the person can act on, not just "error" ---- */
+async function checkHealth() {
+  const L = [], add = (lvl, key, msg, fix) => L.push({ lvl, key, msg, fix });
+  let sz = 0; for (const s of undoStack) sz += s.length; if (sz > 60e6) undoStack = undoStack.slice(-20);
+  try {
+    const e = await navigator.storage?.estimate?.();
+    if (e?.quota) { const f = e.usage / e.quota, free = e.quota - e.usage, why = 'Browser storage is ' + Math.round(f * 100) + '% full (' + gb(free) + ' GB left). New proxies or saves may fail.'; if (f > 0.92 || free < 2 ** 30) add('crit', 'quota', why, ['Delete proxies that are not on the timeline', clearUnusedProxies]); else if (f > 0.8 || free < 3 * 2 ** 30) add('warn', 'quota', why, ['Delete proxies that are not on the timeline', clearUnusedProxies]); }
+    if (S.clips.length && navigator.storage?.persisted && !(await navigator.storage.persisted())) add('info', 'persist', 'The browser may delete saved proxies if the disk gets low.', ['Protect my data', async () => { const ok = await navigator.storage.persist(); toast(ok ? 'Storage protected' : 'The browser said no. It usually agrees once you use the site often or bookmark it.', 5000); checkHealth(); }]);
+  } catch (e) { /* estimate unsupported */ }
+  const m = performance.memory; if (m) { const r = m.usedJSHeapSize / MEM_LIMIT; if (r > 1) add('crit', 'mem', 'Memory is full (' + Math.round(m.usedJSHeapSize / 2 ** 20) + ' MB). The tab could crash.', ['Free memory now', freeIdle]); else if (r > 0.75) add('warn', 'mem', 'Memory is getting high (' + Math.round(m.usedJSHeapSize / 2 ** 20) + ' MB). Close other tabs or free some now.', ['Free memory now', freeIdle]); }
+  if (saveFail) add('crit', 'save', 'Autosave is failing, so recent edits are NOT safe. Download a project file now.', ['Download project file', downloadProject]);
+  else if (dirty && Date.now() - lastSaveAt > 20000) add('warn', 'unsaved', 'Edits have not been saved for over 20 seconds.', ['Save now', () => { saveProject(); checkHealth(); }]);
+  if (bkDir) { try { if ((await bkDir.queryPermission({ mode: 'readwrite' })) !== 'granted') add('warn', 'bkperm', 'The cloud backup folder "' + esc(bkDir.name) + '" needs permission again.', ['Allow', regrant]); } catch (e) { /* ignore */ } }
+  if (S.clips.length && Date.now() - lastBackup > 600000) add('info', 'nocopy', 'No copy of this project exists outside the browser yet.', ['Back up now', openBackup]);
+  try { const b = await navigator.getBattery?.(); if (b && !b.charging && b.level < 0.15) add('warn', 'bat', 'Battery is at ' + Math.round(b.level * 100) + '%. Plug in before a long render.'); } catch (e) { /* none */ }
+  if (document.hidden && (busy || jobs.length)) add('info', 'hidden', 'This tab is in the background. Browsers slow it down, so proxies build faster with it in front.');
+  const idle = Date.now() - lastWorkerMsg; if (busy && idle > 600000) add('crit', 'stall', 'The video engine has been silent for ' + Math.round(idle / 60000) + ' minutes and may be stuck.', ['Restart engine', restartEngine]); else if (busy && idle > 180000) add('warn', 'stall', 'The engine has spent ' + Math.round(idle / 60000) + ' minutes on one step. Normal for big 4K ProRes, but watch it.', ['Restart engine', restartEngine]);
+  const nolink = Object.values(S.media).filter((md) => S.clips.some((c) => c.media === md.id) && !files.has(md.id)).length; if (nolink) add('info', 'nolink', nolink + ' media file(s) are not linked to their originals. Preview uses proxies, but export needs the originals.', ['Add media', () => $('#file').click()]);
+  if (gpuLost) add('crit', 'gpu', 'The graphics card reset and the preview stopped. Reload the page; your project restores itself.', ['Reload now', () => { saveProject(); setTimeout(() => location.reload(), 400); }]);
+  if (errBurst.length >= 4) add('warn', 'errs', 'Several errors in the last minute. A safety copy was saved to version history.', ['Download project file', downloadProject]);
+  if (S.clips.length > 400) add('warn', 'big', 'The timeline has ' + S.clips.length + ' clips and may get slow. Consider splitting the project.');
+  lastHealth = L; const crit = L.filter((x) => x.lvl === 'crit').length, warn = L.filter((x) => x.lvl === 'warn').length;
+  hbEl.className = 'hb ' + (crit ? 'crit' : warn ? 'warn' : 'ok'); hbEl.textContent = crit ? '● At risk' : warn ? '● Check (' + warn + ')' : '● Safe'; hbEl.title = L.length ? L.map((x) => x.msg).join('\n') : 'No problems detected';
+  for (const x of L) if (x.lvl === 'crit' && !seenCrit.has(x.key)) { seenCrit.add(x.key); toast('⚠ ' + x.msg, 9000); saveProject(); histNow(); writeFolder(); } for (const k of [...seenCrit]) if (!L.some((x) => x.key === k && x.lvl === 'crit')) seenCrit.delete(k);
+}
+setInterval(checkHealth, 4000); checkHealth();
+function showHealth() {
+  const rows = lastHealth.length ? lastHealth.map((x, i) => '<div class="hi ' + x.lvl + '"><span>' + (x.lvl === 'crit' ? '🔴 ' : x.lvl === 'warn' ? '🟡 ' : '🔵 ') + x.msg + '</span>' + (x.fix ? '<button data-i="' + i + '">' + x.fix[0] + '</button>' : '') + '</div>').join('') : '<p>Everything looks fine: autosave is working, memory and storage have room.</p>';
+  ask('Project health', rows + '<p class="dim">Checks run every 4 seconds. Red items also save a safety copy automatically.</p>', [['Backup options', 'b'], ['Close', true, 'p']]).then((v) => { if (v === 'b') openBackup(); });
+  $$('#db .hi button').forEach((b) => (b.onclick = () => { const f = lastHealth[+b.dataset.i]?.fix; closeDlg(); if (f) f[1](); }));
+}
+async function openBackup() {
+  const body = '<p>Your work autosaves every 3 seconds in this browser and the last 15 versions are kept. For real safety keep a copy <b>outside</b> the browser too.</p>' +
+    '<div class="bkb"><button id="b1">Download project file</button><button id="b2">Open project file…</button><button id="b3">Cloud / folder backup…</button></div>' +
+    '<p class="dim">Cloud backup: choose a folder that Google Drive for desktop, OneDrive, Dropbox or iCloud Drive already syncs. mosaicSpace then writes a fresh copy into it every minute (plus a dated copy every 10 minutes), so it is in the cloud without any sign-in here. Project files hold only your edit decisions, not the video, so they stay tiny.</p><p id="b3s" class="dim">' + (bkDir ? 'Currently backing up to: <b>' + esc(bkDir.name) + '</b>' : 'No backup folder chosen yet.') + '</p><h4>Earlier versions</h4><div id="b4" class="dim">Loading…</div>';
+  ask('Backup and recovery', body, [['Close', true, 'p']]);
+  $('#b1').onclick = downloadProject; $('#b2').onclick = pickProject; $('#b3').onclick = async () => { await pickFolder(); $('#b3s').innerHTML = bkDir ? 'Currently backing up to: <b>' + esc(bkDir.name) + '</b>' : ''; };
+  const box = $('#b4'); box.textContent = ''; const texts = new Map();
+  try { const d = await dirOf('history'), names = []; for await (const [n] of d.entries()) names.push(n); names.sort().reverse(); if (!names.length) box.textContent = 'No earlier versions yet.';
+    for (const n of names.slice(0, 15)) { const t = await (await d.getFileHandle(n)).getFile().then((f) => f.text()); let c = '?'; try { c = JSON.parse(t).clips.length; } catch (e) { /* skip */ } texts.set(n, t); const r = document.createElement('div'); r.className = 'hi'; r.innerHTML = '<span>' + new Date(+n.slice(1, -5)).toLocaleString() + ' · ' + c + ' clips</span><button>Restore</button>'; r.querySelector('button').onclick = async () => { await histNow(); await loadProjectText(texts.get(n)); closeDlg(); }; box.append(r); } } catch (e) { box.textContent = 'History is not available in this browser mode.'; }
+}
+$('#hb').onclick = showHealth; $('#bk').onclick = openBackup;
+
 /* ===================== recovery, boot, dev self-test ===================== */
 function renderAll() { for (const id of Object.keys(S.media)) updateBin(id); renderTimeline(); }
 async function recover() {
@@ -529,7 +645,7 @@ async function recover() {
   renderAll(); toast('Session restored. Re-drop any file marked "needs relinking".', 6000);
 }
 undoStack = [snapshot()]; renderTimeline(); await recover(); requestAnimationFrame(loop);
-window.__space = { S, files, importFile, startWorker, callW, getWorker: () => worker, segs, peaks, jobs, setPlayhead, playPause, addClip, exportChunk };
+window.__space = { S, files, importFile, startWorker, callW, getWorker: () => worker, segs, peaks, jobs, setPlayhead, playPause, addClip, exportChunk, checkHealth, histNow, downloadProject, loadProjectText, getHealth: () => lastHealth, restartEngine };
 </script>
 </body>
 </html>
