@@ -1,0 +1,45 @@
+/* The Mosaics climbing the side of the screen (see mosaic-climb.js) */
+.mclimb { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 38; pointer-events: none; overflow: visible; }
+.mclimb .raver { position: absolute; left: 0; top: 0; bottom: auto; transform: none; transition: none; pointer-events: auto; cursor: pointer; will-change: transform; }
+.mclimb .raver[hidden] { display: none; }
+
+/* hand over hand up the wall */
+.mclimb .raver.is-climb .rv { animation: mc-bob 0.62s ease-in-out infinite; }
+.mclimb .raver.is-climb .rv__armL { animation: mc-reach-a 0.62s ease-in-out infinite alternate; }
+.mclimb .raver.is-climb .rv__armR { animation: mc-reach-b 0.62s ease-in-out infinite alternate; }
+.mclimb .raver.is-climb .rv__legL { animation: mc-kick-a 0.62s ease-in-out infinite alternate; }
+.mclimb .raver.is-climb .rv__legR { animation: mc-kick-b 0.62s ease-in-out infinite alternate; }
+.mclimb .raver.is-slip .rv__armL, .mclimb .raver.is-slip .rv__armR { animation: mc-flail 0.16s linear infinite alternate; }
+@keyframes mc-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes mc-reach-a { from { transform: rotate(168deg); } to { transform: rotate(128deg); } }
+@keyframes mc-reach-b { from { transform: rotate(-128deg); } to { transform: rotate(-168deg); } }
+@keyframes mc-kick-a { from { transform: rotate(-34deg); } to { transform: rotate(8deg); } }
+@keyframes mc-kick-b { from { transform: rotate(8deg); } to { transform: rotate(-34deg); } }
+@keyframes mc-flail { from { transform: rotate(150deg); } to { transform: rotate(-150deg); } }
+
+/* falling and landing */
+.mclimb .raver.is-fall .raver__fig { animation: mc-tumble 0.55s linear infinite; }
+.mclimb .raver.is-fall .rv__armL, .mclimb .raver.is-fall .rv__armR { animation: mc-flail 0.14s linear infinite alternate; }
+@keyframes mc-tumble { to { transform: rotate(360deg); } }
+.mclimb .raver.is-splat .raver__fig { transform: rotate(84deg) translateY(14px); }
+
+.mclimb__say {
+  position: absolute; left: 0; top: 0; margin: -22px 0 0 -4px; padding: 4px 8px; border-radius: 10px 10px 10px 2px; background: var(--paper); color: var(--ink);
+  font-size: 11px; font-weight: 700; white-space: nowrap; pointer-events: none; z-index: 2;
+}
+.mclimb__say[hidden] { display: none; }
+.mclimb__conf { position: absolute; width: 7px; height: 7px; pointer-events: none; animation: mc-conf 1s ease-out forwards; }
+@keyframes mc-conf { to { transform: translate(var(--dx), calc(var(--dy) + 220px)) rotate(540deg); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .mclimb { display: none; } }
+
+/* procedural poses: quick, direct limb motion */
+.mclimb .raver [class^="rv"] { transition: transform 0.12s linear; }
+
+/* the strip is 3D: the Mosaics drift closer and further away */
+.stage .raver__fig.has-depth { transform-origin: 50% 100%; animation: ms-depth var(--dd, 16s) ease-in-out var(--dl, 0s) infinite alternate; }
+@keyframes ms-depth { from { scale: var(--s0, 1); translate: 0 var(--y0, 0px); filter: brightness(var(--b0, 1)); } to { scale: var(--s1, 0.85); translate: 0 var(--y1, -12px); filter: brightness(var(--b1, 0.8)); } }
+@media (prefers-reduced-motion: reduce) { .stage .raver__fig.has-depth { animation: none; } }
+
+/* the short stick-figure ladder */
+.mclimb__ladder { position: absolute; left: 0; top: 0; pointer-events: none; filter: drop-shadow(0 0 4px rgba(246, 182, 44, 0.55)); }
+.mclimb__ladder svg { display: block; }
