@@ -35,7 +35,9 @@
   <select id="rs" title="Render size (long edge)"><option value="0">Viewport</option><option value="1920">Full HD 1920</option><option value="3840" selected>4K 3840</option><option value="6144">6K 6144</option></select>
   <select id="ra" title="Aspect"><option value="0">Viewport aspect</option><option value="1.7778" selected>16:9 (UHD)</option><option value="1.5">3:2</option><option value="1">1:1</option><option value="0.8">4:5</option><option value="0.5625">9:16</option><option value="2.3333">21:9</option></select>
   <label><input type="checkbox" id="alpha"> clear bg</label>
-  <select id="exp"><option value="">Export…</option><option>GLB</option><option>OBJ</option><option>STL</option><option>PLY</option></select>
+  <label class="btn" title="Convert files: pick any supported 3D files (plus their .mtl / textures), choose the output format, and they download converted">Convert…<input id="conv" type="file" hidden multiple accept=".glb,.gltf,.bin,.obj,.mtl,.fbx,.stl,.ply,.dae,.3mf,.3ds,.usdz,.pcd,.xyz,.wrl,.vrml,.png,.jpg,.jpeg,.webp" /></label>
+  <select id="cfmt" title="Convert to"><option>GLB</option><option>GLTF</option><option>OBJ</option><option>STL</option><option>PLY</option><option>USDZ</option><option>DAE</option><option>3MF</option><option>WRL</option><option>XYZ</option><option>PCD</option></select>
+  <select id="exp"><option value="">Export…</option><option>GLB</option><option>GLTF</option><option>OBJ</option><option>STL</option><option>PLY</option><option>USDZ</option><option>DAE</option><option>3MF</option><option>WRL</option><option>XYZ</option><option>PCD</option></select>
 </header>
 <aside>
   <h4>Add shape</h4>
@@ -48,7 +50,7 @@
   <div class="g"><button data-def="twist">Twist</button><button data-def="bend">Bend</button><button data-def="taper">Taper</button><button data-def="noise">Noise</button><button data-def="inflate">Inflate</button><button data-def="smooth">Smooth</button></div>
   <div class="row"><span>Amount</span><input id="amt" type="range" min="1" max="100" value="30" /></div>
   <h4>Edit</h4>
-  <div class="g"><button id="dup">Duplicate</button><button id="del">Delete</button><button id="mirror">Mirror X</button><button id="array">Array ×5</button><button id="ctr">Centre</button><button id="ground">Drop to floor</button></div>
+  <div class="g"><button id="reduce" title="Halve triangles / points (vertex clustering). Keeps big files light.">Simplify ½</button><button id="reduce4" title="Keep a quarter">Simplify ¼</button><button id="dup">Duplicate</button><button id="del">Delete</button><button id="mirror">Mirror X</button><button id="array">Array ×5</button><button id="ctr">Centre</button><button id="ground">Drop to floor</button></div>
   <h4>Scene</h4><div id="list"></div>
 </aside>
 <main><canvas id="view"></canvas><div id="drop">Drop a 3D file (GLB, GLTF, OBJ, FBX, STL, PLY, DAE, 3MF, 3DS, USDZ, PCD, XYZ, VRML)</div><div id="info"></div><div id="toast"></div></main>
@@ -92,6 +94,7 @@ import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
 import { STLExporter } from 'three/addons/exporters/STLExporter.js';
 import { PLYExporter } from 'three/addons/exporters/PLYExporter.js';
+import { USDZExporter } from 'three/addons/exporters/USDZExporter.js';
 
 const $ = (s) => document.querySelector(s), $$ = (s) => [...document.querySelectorAll(s)];
 const cv = $('#view'), renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true, alpha: true, powerPreference: 'high-performance' });
@@ -122,7 +125,7 @@ function frameAll() { const b = new THREE.Box3().setFromObject(world); if (b.isE
 
 /* ---- reading files ---- */
 const draco = new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/draco/');
-async function open(files) {
+async function open(files, opts) {
   const list2 = [...files], main = list2.find((f) => /\.(glb|gltf|obj|fbx|stl|ply|dae|3mf|3ds|usdz|pcd|xyz|wrl|vrml)$/i.test(f.name)); if (!main) return toast('Unsupported file');
   const ext = main.name.split('.').pop().toLowerCase(), url = URL.createObjectURL(main); toast('Loading ' + main.name + '…');
   const side = Object.fromEntries(list2.map((f) => [f.name, URL.createObjectURL(f)])); const mgr = new THREE.LoadingManager(); mgr.setURLModifier((u) => side[decodeURIComponent(u.split('/').pop())] || u);
@@ -141,10 +144,11 @@ async function open(files) {
     else if (ext === 'ply') { const g = await L(PLYLoader).loadAsync(url); g.computeVertexNormals(); obj = g.index || g.attributes.normal ? new THREE.Mesh(g, g.attributes.color ? new THREE.MeshStandardMaterial({ vertexColors: true }) : mat()) : new THREE.Points(g, new THREE.PointsMaterial({ size: pointSize, sizeAttenuation: false, vertexColors: !!g.attributes.color })); }
     else if (ext === 'pcd') obj = await L(PCDLoader).loadAsync(url);
     else if (ext === 'xyz') obj = new THREE.Points(await L(XYZLoader).loadAsync(url), new THREE.PointsMaterial({ size: pointSize, sizeAttenuation: false, vertexColors: true }));
+    if (opts && opts.raw) return { obj, name: main.name };
     const b = new THREE.Box3().setFromObject(obj), s = b.getSize(new THREE.Vector3()); const r = Math.max(s.x, s.y, s.z) || 1; if (r > 20 || r < 0.2) obj.scale.multiplyScalar(2 / r);        // normalise to a workable size
     const b2 = new THREE.Box3().setFromObject(obj); obj.position.sub(b2.getCenter(new THREE.Vector3())); obj.position.y += (b2.max.y - b2.min.y) / 2;
     register(obj, main.name); target = obj; frameAll(); toast('Opened ' + main.name);
-  } catch (e) { console.error(e); toast('Could not read that file: ' + (e.message || e)); }
+  } catch (e) { console.error(e); toast('Could not read that file: ' + (e.message || e)); return null; }
 }
 $('#file').onchange = (e) => open(e.target.files);
 addEventListener('dragover', (e) => { e.preventDefault(); $('#drop').style.display = 'grid'; }); addEventListener('dragleave', (e) => { if (!e.relatedTarget) $('#drop').style.display = 'none'; });
@@ -202,6 +206,8 @@ $$('[data-def]').forEach((b) => (b.onclick = () => deform(b.dataset.def)));
 
 /* ---- edit tools ---- */
 const dupe = (o) => { const c = o.clone(true); c.traverse((m) => { if (m.isMesh) m.material = m.material.clone(); }); return c; };
+const reduceSel = (k) => { const t = sel || world; try { const [b, a] = simplify(t, k); stats(); toast('Simplified: ' + Math.round(b).toLocaleString() + ' → ' + Math.round(a).toLocaleString()); } catch (er) { toast('Simplify failed: ' + er.message); } };
+$('#reduce').onclick = () => reduceSel(0.5); $('#reduce4').onclick = () => reduceSel(0.25);
 $('#dup').onclick = () => { if (!sel) return; const c = dupe(sel); c.position.x += 0.5; register(c, sel.userData.name + ' copy'); };
 $('#del').onclick = () => { if (!sel) return; world.remove(sel); items.splice(items.indexOf(sel), 1); if (target === sel) target = null; tc.detach(); sel = items[items.length - 1] || null; select(sel); stats(); };
 $('#mirror').onclick = () => { if (!sel) return; const c = dupe(sel); c.scale.x *= -1; c.position.x = -sel.position.x; register(c, sel.userData.name + ' mirror'); };
@@ -245,17 +251,138 @@ $('#render').onclick = async () => {
   renderer.setPixelRatio(pr); scene.background = bg; tc.visible = tv; grid.visible = gv; cam.aspect = ca; key.shadow.mapSize.set(sm, sm); if (key.shadow.map) { key.shadow.map.dispose(); key.shadow.map = null; } size();
   window.__lastRender = { W, H, ok, bytes: blob ? blob.size : 0 };
 };
+
+/* ---- format writers ---- */
+const meshesOf = (root) => { const out = []; root.updateMatrixWorld(true); root.traverse((o) => { if (o.isMesh && o.geometry && o.geometry.attributes.position) out.push(o); }); return out; };
+const f6 = (n) => (Math.round(n * 1e5) / 1e5).toString();
+/* Memory-friendly writers: text is streamed into ~200KB chunks that go straight into a Blob (which lives outside the JS heap),
+   geometry stays indexed (shared vertices written once), and nothing is cloned or expanded to one-vertex-per-corner. */
+const chunker = () => { const parts = []; let buf = ''; return { w(s) { buf += s; if (buf.length > 200000) { parts.push(buf); buf = ''; } }, list() { if (buf) { parts.push(buf); buf = ''; } return parts; } }; };
+const triCount = (g) => (g.index ? g.index.count : g.attributes.position.count) / 3;
+const tri = (g, k) => (g.index ? g.index.getX(k) : k);
+const _v = new THREE.Vector3();
+const world3 = (m, p, i) => _v.fromBufferAttribute(p, i).applyMatrix4(m.matrixWorld);
+function toDAE(root) {
+  const c = chunker(); let nodes = '';
+  c.w('<?xml version="1.0" encoding="utf-8"?><COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1"><asset><unit name="meter" meter="1"/><up_axis>Y_UP</up_axis></asset><library_geometries>');
+  meshesOf(root).forEach((m, i) => {
+    const g = m.geometry, p = g.attributes.position, n = p.count, T = triCount(g);
+    c.w('<geometry id="g' + i + '"><mesh><source id="p' + i + '"><float_array id="pa' + i + '" count="' + n * 3 + '">');
+    for (let k = 0; k < n; k++) { const v = world3(m, p, k); c.w(f6(v.x) + ' ' + f6(v.y) + ' ' + f6(v.z) + ' '); }
+    c.w('</float_array><technique_common><accessor source="#pa' + i + '" count="' + n + '" stride="3"><param name="X" type="float"/><param name="Y" type="float"/><param name="Z" type="float"/></accessor></technique_common></source><vertices id="v' + i + '"><input semantic="POSITION" source="#p' + i + '"/></vertices><triangles count="' + T + '"><input semantic="VERTEX" source="#v' + i + '" offset="0"/><p>');
+    for (let k = 0; k < T * 3; k++) c.w(tri(g, k) + ' ');
+    c.w('</p></triangles></mesh></geometry>'); nodes += '<node id="n' + i + '" name="mesh' + i + '"><instance_geometry url="#g' + i + '"/></node>';
+  });
+  c.w('</library_geometries><library_visual_scenes><visual_scene id="S">' + nodes + '</visual_scene></library_visual_scenes><scene><instance_visual_scene url="#S"/></scene></COLLADA>');
+  return new Blob(c.list(), { type: 'model/vnd.collada+xml' });
+}
+function toWRL(root) {
+  const c = chunker(); c.w('#VRML V2.0 utf8\n');
+  meshesOf(root).forEach((m) => {
+    const g = m.geometry, p = g.attributes.position, T = triCount(g), col = m.material && m.material.color ? m.material.color : new THREE.Color(0.8, 0.8, 0.8);
+    c.w('Shape{appearance Appearance{material Material{diffuseColor ' + col.r.toFixed(3) + ' ' + col.g.toFixed(3) + ' ' + col.b.toFixed(3) + '}}geometry IndexedFaceSet{coord Coordinate{point[');
+    for (let k = 0; k < p.count; k++) { const v = world3(m, p, k); c.w(f6(v.x) + ' ' + f6(v.y) + ' ' + f6(v.z) + ','); }
+    c.w(']}coordIndex[');
+    for (let k = 0; k < T; k++) c.w(tri(g, k * 3) + ',' + tri(g, k * 3 + 1) + ',' + tri(g, k * 3 + 2) + ',-1,');
+    c.w(']}}\n');
+  });
+  return new Blob(c.list(), { type: 'model/vrml' });
+}
+function pointSources(root) { const s = []; root.updateMatrixWorld(true); root.traverse((o) => { const g = o.geometry; if ((o.isMesh || o.isPoints) && g && g.attributes.position) s.push(o); }); return s; }
+function toXYZ(root) {
+  const c = chunker();
+  pointSources(root).forEach((o) => { const p = o.geometry.attributes.position, col = o.geometry.attributes.color; for (let i = 0; i < p.count; i++) { const v = world3(o, p, i); c.w(f6(v.x) + ' ' + f6(v.y) + ' ' + f6(v.z) + (col ? ' ' + f6(col.getX(i)) + ' ' + f6(col.getY(i)) + ' ' + f6(col.getZ(i)) : '') + '\n'); } });
+  return new Blob(c.list(), { type: 'text/plain' });
+}
+function toPCD(root) {
+  const src = pointSources(root), N = src.reduce((s, o) => s + o.geometry.attributes.position.count, 0), c = chunker();
+  c.w('VERSION .7\nFIELDS x y z\nSIZE 4 4 4\nTYPE F F F\nCOUNT 1 1 1\nWIDTH ' + N + '\nHEIGHT 1\nVIEWPOINT 0 0 0 1 0 0 0\nPOINTS ' + N + '\nDATA ascii\n');
+  src.forEach((o) => { const p = o.geometry.attributes.position; for (let i = 0; i < p.count; i++) { const v = world3(o, p, i); c.w(f6(v.x) + ' ' + f6(v.y) + ' ' + f6(v.z) + '\n'); } });
+  return new Blob(c.list(), { type: 'text/plain' });
+}
+/* a tiny streaming ZIP writer (stored, no compression) for the .3mf container: entries are lists of string chunks */
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function zip(files) {
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0, count = 0;
+  for (const [name, chunks] of Object.entries(files)) {
+    const nb = enc.encode(name), bytes = chunks.map((s) => enc.encode(s)); let crc = 0xffffffff, size = 0;
+    for (const u of bytes) { for (let i = 0; i < u.length; i++) crc = CRC[(crc ^ u[i]) & 255] ^ (crc >>> 8); size += u.length; }
+    crc = (crc ^ 0xffffffff) >>> 0;
+    const lh = new DataView(new ArrayBuffer(30)); lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint32(14, crc, true); lh.setUint32(18, size, true); lh.setUint32(22, size, true); lh.setUint16(26, nb.length, true);
+    parts.push(new Uint8Array(lh.buffer), nb, ...bytes);
+    const ch = new DataView(new ArrayBuffer(46)); ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint32(16, crc, true); ch.setUint32(20, size, true); ch.setUint32(24, size, true); ch.setUint16(28, nb.length, true); ch.setUint32(42, off, true);
+    central.push(new Uint8Array(ch.buffer), nb); off += 30 + nb.length + size; count++;
+  }
+  const csize = central.reduce((s, u) => s + u.length, 0), end = new DataView(new ArrayBuffer(22)); end.setUint32(0, 0x06054b50, true); end.setUint16(8, count, true); end.setUint16(10, count, true); end.setUint32(12, csize, true); end.setUint32(16, off, true);
+  return new Blob([...parts, ...central, new Uint8Array(end.buffer)], { type: 'model/3mf' });
+}
+function to3MF(root) {
+  const c = chunker(); let items = '';
+  c.w('<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><resources>');
+  meshesOf(root).forEach((m, i) => {
+    const g = m.geometry, p = g.attributes.position, T = triCount(g);
+    c.w('<object id="' + (i + 1) + '" type="model"><mesh><vertices>');
+    for (let k = 0; k < p.count; k++) { const v = world3(m, p, k); c.w('<vertex x="' + f6(v.x) + '" y="' + f6(v.y) + '" z="' + f6(v.z) + '"/>'); }
+    c.w('</vertices><triangles>');
+    for (let k = 0; k < T; k++) c.w('<triangle v1="' + tri(g, k * 3) + '" v2="' + tri(g, k * 3 + 1) + '" v3="' + tri(g, k * 3 + 2) + '"/>');
+    c.w('</triangles></mesh></object>'); items += '<item objectid="' + (i + 1) + '"/>';
+  });
+  c.w('</resources><build>' + items + '</build></model>');
+  return zip({ '[Content_Types].xml': ['<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>'],
+    '_rels/.rels': ['<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>'], '3D/3dmodel.model': c.list() });
+}
+/* Simplify: vertex clustering. Merges vertices that share a grid cell and drops collapsed triangles, searching for the cell size that keeps ~half the triangles (point clouds: keeps every other point). */
+function simplify(root, keep) {
+  let before = 0, after = 0;
+  root.traverse((o) => {
+    const g = o.geometry; if (!g || !g.attributes.position) return;
+    if (o.isPoints) { const p = g.attributes.position, c = g.attributes.color, n = Math.ceil(p.count * keep), step = p.count / n, np = new Float32Array(n * 3), nc = c ? new Float32Array(n * 3) : null; for (let i = 0; i < n; i++) { const s = Math.floor(i * step); np.set([p.getX(s), p.getY(s), p.getZ(s)], i * 3); if (nc) nc.set([c.getX(s), c.getY(s), c.getZ(s)], i * 3); } before += p.count; after += n; const ng = new THREE.BufferGeometry(); ng.setAttribute('position', new THREE.BufferAttribute(np, 3)); if (nc) ng.setAttribute('color', new THREE.BufferAttribute(nc, 3)); g.dispose(); o.geometry = ng; return; }
+    if (!o.isMesh) return;
+    const p = g.attributes.position, T = triCount(g); g.computeBoundingBox(); const size = g.boundingBox.getSize(new THREE.Vector3()), diag = size.length() || 1; before += T;
+    let lo = diag / 4000, hi = diag / 4, best = null;
+    for (let it = 0; it < 8; it++) {
+      const cell = Math.sqrt(lo * hi), map = new Map(), remap = new Int32Array(p.count), pos = [];
+      for (let i = 0; i < p.count; i++) { const k = Math.floor(p.getX(i) / cell) + ',' + Math.floor(p.getY(i) / cell) + ',' + Math.floor(p.getZ(i) / cell); let id = map.get(k); if (id === undefined) { id = pos.length / 3; map.set(k, id); pos.push(p.getX(i), p.getY(i), p.getZ(i)); } remap[i] = id; }
+      const idx = []; for (let t = 0; t < T; t++) { const a = remap[tri(g, t * 3)], b = remap[tri(g, t * 3 + 1)], c = remap[tri(g, t * 3 + 2)]; if (a !== b && b !== c && a !== c) idx.push(a, b, c); }
+      best = { pos, idx }; if (idx.length / 3 > T * keep) lo = cell; else hi = cell;
+    }
+    const ng = new THREE.BufferGeometry(); ng.setAttribute('position', new THREE.Float32BufferAttribute(best.pos, 3)); ng.setIndex(best.idx); ng.computeVertexNormals(); after += best.idx.length / 3; g.dispose(); o.geometry = ng;
+  });
+  return [before, after];
+}
+const save = (data, name, type) => { const a = document.createElement('a'); a.href = URL.createObjectURL(data instanceof Blob ? data : new Blob([data], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1500); };
+async function exportAs(fmt, root, base) {
+  let tris = 0; root.traverse((o) => { if (o.isMesh && o.geometry) tris += triCount(o.geometry); });
+  if (tris > 4e6 && ['GLB', 'GLTF', 'OBJ', 'USDZ'].includes(fmt)) toast('That is ' + Math.round(tris / 1e6) + 'M triangles: if the browser runs out of memory, press Simplify first, or export STL / PLY / 3MF (lighter).');
+  const n = (base || 'scene') + '.' + fmt.toLowerCase(), pj = (fn) => new Promise((res, rej) => fn(res, rej));
+  if (fmt === 'GLB') save(await pj((ok, no) => new GLTFExporter().parse(root, ok, no, { binary: true })), n, 'model/gltf-binary');
+  else if (fmt === 'GLTF') save(JSON.stringify(await pj((ok, no) => new GLTFExporter().parse(root, ok, no, { binary: false }))), n, 'model/gltf+json');
+  else if (fmt === 'OBJ') save(new OBJExporter().parse(root), n, 'text/plain');
+  else if (fmt === 'STL') save(new STLExporter().parse(root, { binary: true }), n, 'model/stl');
+  else if (fmt === 'PLY') save(await pj((ok) => new PLYExporter().parse(root, ok, { binary: true })), n, 'application/octet-stream');
+  else if (fmt === 'USDZ') {                       // USDZ only understands standard PBR materials: swap them in for the export, then put the originals back
+    const saved = []; root.traverse((o) => { if (o.isMesh) { saved.push([o, o.material]); const s = [].concat(o.material)[0] || {}; o.material = new THREE.MeshStandardMaterial({ color: s.color || 0xcccccc, map: s.map || null, metalness: s.metalness !== undefined ? s.metalness : 0, roughness: s.roughness !== undefined ? s.roughness : 0.8 }); } });
+    try { save(await new USDZExporter().parse(root), n, 'model/vnd.usdz+zip'); } finally { saved.forEach(([o, m]) => { o.material = m; }); }
+  }
+  else if (fmt === 'DAE') save(toDAE(root), n, 'model/vnd.collada+xml');
+  else if (fmt === '3MF') save(to3MF(root), n, 'model/3mf');
+  else if (fmt === 'WRL') save(toWRL(root), n, 'model/vrml');
+  else if (fmt === 'XYZ') save(toXYZ(root), n, 'text/plain');
+  else if (fmt === 'PCD') save(toPCD(root), n, 'text/plain');
+  else throw new Error('unknown format ' + fmt);
+}
 $('#exp').onchange = async (e) => {
-  const t = e.target.value; e.target.value = ''; if (!t) return; const save = (data, name, type) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1500); };
-  tc.detach();
-  try {
-    if (t === 'GLB') new GLTFExporter().parse(world, (r) => save(r, 'scene.glb', 'model/gltf-binary'), (er) => toast('Export failed'), { binary: true });
-    else if (t === 'OBJ') save(new OBJExporter().parse(world), 'scene.obj', 'text/plain');
-    else if (t === 'STL') save(new STLExporter().parse(world, { binary: true }), 'scene.stl', 'model/stl');
-    else if (t === 'PLY') new PLYExporter().parse(world, (r) => save(r, 'scene.ply', 'application/octet-stream'), { binary: true });
-    toast('Exported ' + t);
-  } catch (er) { toast('Export failed: ' + er.message); }
+  const t = e.target.value; e.target.value = ''; if (!t) return; tc.detach();
+  try { await exportAs(t, world, 'scene'); toast('Exported ' + t); } catch (er) { toast('Export failed: ' + er.message); }
   if (sel) tc.attach(sel);
+};
+/* the converter: any readable files in, the chosen format out (sidecar .mtl / textures travel with their model) */
+$('#conv').onchange = async (e) => {
+  const all = [...e.target.files], side = all.filter((f) => /\.(mtl|png|jpe?g|webp|bin)$/i.test(f.name)), mains = all.filter((f) => !/\.(mtl|png|jpe?g|webp|bin)$/i.test(f.name)), fmt = $('#cfmt').value; e.target.value = '';
+  if (!mains.length) return toast('Pick at least one 3D model');
+  let ok = 0;
+  for (const f of mains) { const r = await open([f, ...side], { raw: true }); if (!r) continue; try { await exportAs(fmt, r.obj, f.name.replace(/\.[^.]+$/, '')); ok++; } catch (er) { toast('Could not write ' + f.name + ' as ' + fmt + ': ' + er.message); } }
+  if (ok) toast('Converted ' + ok + ' file' + (ok > 1 ? 's' : '') + ' to ' + fmt);
 };
 
 function size() { const w = cv.parentElement.clientWidth, h = cv.parentElement.clientHeight; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
