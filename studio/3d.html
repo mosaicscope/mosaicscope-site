@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>mosaicStudioS 3D</title>
+<!-- A simpler Maya/Blender: open almost any 3D file, add shapes and hats, deform, fit to a model, material it, render and export. -->
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
+<style>
+  :root { --bg: #101012; --panel: #161619; --surf: #1f1f24; --line: #2c2c34; --ink: #e4e4e7; --dim: #8a8a94; --acc: #3b82f6; }
+  * { box-sizing: border-box; } html, body { height: 100%; margin: 0; background: var(--bg); color: var(--ink); font: 12px/1.4 Inter, system-ui, sans-serif; overflow: hidden; }
+  body { display: grid; grid-template-columns: 240px 1fr 260px; grid-template-rows: 44px 1fr; }
+  header { grid-column: 1 / 4; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: var(--panel); border-bottom: 1px solid var(--line); overflow-x: auto; white-space: nowrap; }
+  header b { font-size: 14px; margin-right: 6px; } a, button, select, label.btn { color: var(--ink); background: var(--surf); border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; font: inherit; cursor: pointer; text-decoration: none; }
+  button:hover, a:hover, label.btn:hover { background: #2a2a31; } button.on { background: var(--acc); border-color: var(--acc); } button.primary { background: var(--acc); border-color: var(--acc); font-weight: 600; }
+  aside { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding: 10px; } aside.r { border-right: 0; border-left: 1px solid var(--line); }
+  h4 { margin: 12px 0 6px; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); } h4:first-child { margin-top: 0; }
+  .g { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; } .g3 { grid-template-columns: 1fr 1fr 1fr; }
+  input[type=range] { width: 100%; } input[type=color] { width: 100%; height: 28px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: none; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0; } .row span { color: var(--dim); }
+  #list { display: flex; flex-direction: column; gap: 3px; } #list div { display: flex; justify-content: space-between; padding: 5px 7px; border-radius: 5px; background: var(--surf); cursor: pointer; } #list div.sel { outline: 1px solid var(--acc); }
+  main { position: relative; } canvas#view { width: 100%; height: 100%; display: block; touch-action: none; } #drop { position: absolute; inset: 10px; border: 2px dashed var(--acc); border-radius: 12px; display: none; place-items: center; background: rgba(20, 40, 90, .6); font-size: 16px; pointer-events: none; }
+  #info { position: absolute; left: 10px; bottom: 8px; color: var(--dim); font: 11px ui-monospace, monospace; pointer-events: none; } #toast { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: #000c; padding: 6px 12px; border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  @media (max-width: 900px) { body { grid-template-columns: 1fr; grid-template-rows: 44px 52vh auto auto; overflow: auto; } header { grid-column: 1; } aside { border: 0; border-top: 1px solid var(--line); } html, body { overflow: auto; } }
+</style>
+</head>
+<body>
+<header>
+  <b>mosaicStudioS · 3D</b><a href="./">Photo</a>
+  <label class="btn">Open 3D file<input id="file" type="file" hidden multiple accept=".glb,.gltf,.obj,.mtl,.fbx,.stl,.ply,.dae,.3mf,.3ds,.usdz,.pcd,.xyz,.wrl,.vrml" /></label>
+  <button data-m="translate" class="on">Move</button><button data-m="rotate">Rotate</button><button data-m="scale">Scale</button>
+  <button id="snap">Snap</button><button id="wire">Wire</button><button id="grid" class="on">Grid</button>
+  <select id="env"><option>Studio</option><option>Sunset</option><option>Noir</option><option>Neon</option></select>
+  <button id="render" class="primary">Render PNG</button>
+  <select id="rs" title="Render size (long edge)"><option value="0">Viewport</option><option value="1920">Full HD 1920</option><option value="3840" selected>4K 3840</option><option value="6144">6K 6144</option></select>
+  <select id="ra" title="Aspect"><option value="0">Viewport aspect</option><option value="1.7778" selected>16:9 (UHD)</option><option value="1.5">3:2</option><option value="1">1:1</option><option value="0.8">4:5</option><option value="0.5625">9:16</option><option value="2.3333">21:9</option></select>
+  <label><input type="checkbox" id="alpha"> clear bg</label>
+  <select id="exp"><option value="">Export…</option><option>GLB</option><option>OBJ</option><option>STL</option><option>PLY</option></select>
+</header>
+<aside>
+  <h4>Add shape</h4>
+  <div class="g"><button data-add="box">Cube</button><button data-add="sphere">Sphere</button><button data-add="cylinder">Cylinder</button><button data-add="cone">Cone</button><button data-add="torus">Torus</button><button data-add="plane">Plane</button></div>
+  <h4>Hats (auto-fit to the selected model)</h4>
+  <div class="g"><button data-hat="tophat">Top hat</button><button data-hat="beanie">Beanie</button><button data-hat="cap">Cap</button><button data-hat="cowboy">Cowboy</button><button data-hat="party">Party</button><button data-hat="halo">Halo</button><button data-hat="crown">Crown</button><button data-hat="bucket">Bucket</button></div>
+  <div class="row"><span>Fit size</span><input id="hatSize" type="range" min="30" max="130" value="62" /></div>
+  <button id="fit" style="width:100%">Fit selection onto target (last opened model)</button>
+  <h4>Deform</h4>
+  <div class="g"><button data-def="twist">Twist</button><button data-def="bend">Bend</button><button data-def="taper">Taper</button><button data-def="noise">Noise</button><button data-def="inflate">Inflate</button><button data-def="smooth">Smooth</button></div>
+  <div class="row"><span>Amount</span><input id="amt" type="range" min="1" max="100" value="30" /></div>
+  <h4>Edit</h4>
+  <div class="g"><button id="dup">Duplicate</button><button id="del">Delete</button><button id="mirror">Mirror X</button><button id="array">Array ×5</button><button id="ctr">Centre</button><button id="ground">Drop to floor</button></div>
+  <h4>Scene</h4><div id="list"></div>
+</aside>
+<main><canvas id="view"></canvas><div id="drop">Drop a 3D file (GLB, GLTF, OBJ, FBX, STL, PLY, DAE, 3MF, 3DS, USDZ, PCD, XYZ, VRML)</div><div id="info"></div><div id="toast"></div></main>
+<aside class="r">
+  <h4>Material</h4>
+  <div class="row"><span>Colour</span><input id="mc" type="color" value="#c9ccd1" /></div>
+  <div class="row"><span>Metal</span><input id="mm" type="range" min="0" max="100" value="80" /></div>
+  <div class="row"><span>Rough</span><input id="mr" type="range" min="0" max="100" value="25" /></div>
+  <div class="row"><span>Glow</span><input id="mg" type="range" min="0" max="100" value="0" /></div>
+  <div class="row"><span>Glow colour</span><input id="mgc" type="color" value="#3dd6ff" /></div>
+  <div class="row"><span>Opacity</span><input id="mo" type="range" min="5" max="100" value="100" /></div>
+  <div class="g"><button data-mat="chrome">Chrome</button><button data-mat="gold">Gold</button><button data-mat="glass">Glass</button><button data-mat="clay">Clay</button><button data-mat="neon">Neon</button><button data-mat="matte">Matte black</button></div>
+  <h4>Light</h4>
+  <div class="row"><span>Key angle</span><input id="la" type="range" min="0" max="360" value="45" /></div>
+  <div class="row"><span>Key power</span><input id="lp" type="range" min="0" max="300" value="120" /></div>
+  <div class="row"><span>Exposure</span><input id="ex" type="range" min="20" max="250" value="100" /></div>
+  <h4>Points &amp; detail</h4>
+  <div class="row"><span>Point size</span><input id="ps" type="range" min="1" max="30" value="3" /></div>
+  <p style="color:var(--dim)">Big meshes and dense point clouds are supported: everything renders on the GPU. Use a 4× render for print resolution.</p>
+</aside>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
+import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
+import { ThreeMFLoader } from 'three/addons/loaders/3MFLoader.js';
+import { TDSLoader } from 'three/addons/loaders/TDSLoader.js';
+import { USDZLoader } from 'three/addons/loaders/USDZLoader.js';
+import { PCDLoader } from 'three/addons/loaders/PCDLoader.js';
+import { XYZLoader } from 'three/addons/loaders/XYZLoader.js';
+import { VRMLLoader } from 'three/addons/loaders/VRMLLoader.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
+import { STLExporter } from 'three/addons/exporters/STLExporter.js';
+import { PLYExporter } from 'three/addons/exporters/PLYExporter.js';
+
+const $ = (s) => document.querySelector(s), $$ = (s) => [...document.querySelectorAll(s)];
+const cv = $('#view'), renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true, alpha: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(45, 1, 0.01, 5000); cam.position.set(3, 2.4, 4);
+const orbit = new OrbitControls(cam, cv); orbit.enableDamping = true;
+const tc = new TransformControls(cam, cv); scene.add(tc); tc.addEventListener('dragging-changed', (e) => { orbit.enabled = !e.value; });
+const world = new THREE.Group(); scene.add(world);
+const grid = new THREE.GridHelper(20, 40, 0x555566, 0x2a2a33); scene.add(grid);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.ShadowMaterial({ opacity: 0.35 })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+const key = new THREE.DirectionalLight(0xffffff, 1.2); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.camera.left = key.shadow.camera.bottom = -8; key.shadow.camera.right = key.shadow.camera.top = 8; scene.add(key, key.target);
+const pm = new THREE.PMREMGenerator(renderer);
+const ENV = {
+  Studio: () => pm.fromScene(new RoomEnvironment(), 0.04).texture,
+  Sunset: () => envGrad(['#ff9a3d', '#ff3d6e', '#2a1b4a', '#0b0b1a']), Noir: () => envGrad(['#222', '#111', '#050505', '#000']), Neon: () => envGrad(['#ff2d95', '#2d7dff', '#0b0b1a', '#00f0ff'])
+};
+function envGrad(c) { const k = document.createElement('canvas'); k.width = 256; k.height = 128; const x = k.getContext('2d'), g = x.createLinearGradient(0, 0, 0, 128); c.forEach((v, i) => g.addColorStop(i / (c.length - 1), v)); x.fillStyle = g; x.fillRect(0, 0, 256, 128); const t = new THREE.CanvasTexture(k); t.mapping = THREE.EquirectangularReflectionMapping; t.colorSpace = THREE.SRGBColorSpace; const r = pm.fromEquirectangular(t).texture; return r; }
+const setEnv = (n) => { scene.environment = ENV[n](); scene.background = null; }; setEnv('Studio');
+
+let sel = null, target = null, pointSize = 3; const items = [];
+const toast = (m) => { const t = $('#toast'); t.textContent = m; t.style.opacity = 1; clearTimeout(toast.t); toast.t = setTimeout(() => (t.style.opacity = 0), 2200); };
+const mat = () => new THREE.MeshStandardMaterial({ color: $('#mc').value, metalness: $('#mm').value / 100, roughness: $('#mr').value / 100 });
+function register(obj, name) { obj.userData.name = name || obj.name || obj.type; obj.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } if (o.isPoints) o.material.size = pointSize; }); world.add(obj); items.push(obj); select(obj); list(); stats(); return obj; }
+function stats() { let tri = 0, pts = 0; world.traverse((o) => { if (o.isMesh && o.geometry) tri += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; if (o.isPoints) pts += o.geometry.attributes.position.count; }); $('#info').textContent = Math.round(tri).toLocaleString() + ' triangles · ' + pts.toLocaleString() + ' points · ' + items.length + ' objects'; }
+function list() { const l = $('#list'); l.innerHTML = ''; items.forEach((o, i) => { const d = document.createElement('div'); d.className = o === sel ? 'sel' : ''; d.textContent = (i + 1) + '. ' + o.userData.name; d.onclick = () => select(o); l.append(d); }); }
+function select(o) { sel = o; if (o) tc.attach(o); else tc.detach(); list(); }
+function frameAll() { const b = new THREE.Box3().setFromObject(world); if (b.isEmpty()) return; const s = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3()), r = Math.max(s.x, s.y, s.z) || 1; cam.near = r / 500; cam.far = r * 200; cam.updateProjectionMatrix(); cam.position.copy(c).add(new THREE.Vector3(r * 1.1, r * 0.8, r * 1.4)); orbit.target.copy(c); grid.position.y = floor.position.y = b.min.y; }
+
+/* ---- reading files ---- */
+const draco = new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/draco/');
+async function open(files) {
+  const list2 = [...files], main = list2.find((f) => /\.(glb|gltf|obj|fbx|stl|ply|dae|3mf|3ds|usdz|pcd|xyz|wrl|vrml)$/i.test(f.name)); if (!main) return toast('Unsupported file');
+  const ext = main.name.split('.').pop().toLowerCase(), url = URL.createObjectURL(main); toast('Loading ' + main.name + '…');
+  const side = Object.fromEntries(list2.map((f) => [f.name, URL.createObjectURL(f)])); const mgr = new THREE.LoadingManager(); mgr.setURLModifier((u) => side[decodeURIComponent(u.split('/').pop())] || u);
+  const L = (C) => { const l = new C(mgr); return l; };
+  try {
+    let obj;
+    if (ext === 'glb' || ext === 'gltf') { const l = L(GLTFLoader); l.setDRACOLoader(draco); obj = (await l.loadAsync(url)).scene; }
+    else if (ext === 'obj') { const l = L(OBJLoader); const mtl = list2.find((f) => /\.mtl$/i.test(f.name)); if (mtl) { const m = await L(MTLLoader).loadAsync(side[mtl.name]); m.preload(); l.setMaterials(m); } obj = await l.loadAsync(url); }
+    else if (ext === 'fbx') obj = await L(FBXLoader).loadAsync(url);
+    else if (ext === 'dae') obj = (await L(ColladaLoader).loadAsync(url)).scene;
+    else if (ext === '3mf') obj = await L(ThreeMFLoader).loadAsync(url);
+    else if (ext === '3ds') obj = await L(TDSLoader).loadAsync(url);
+    else if (ext === 'usdz') obj = await L(USDZLoader).loadAsync(url);
+    else if (ext === 'wrl' || ext === 'vrml') obj = await L(VRMLLoader).loadAsync(url);
+    else if (ext === 'stl') obj = new THREE.Mesh(await L(STLLoader).loadAsync(url), mat());
+    else if (ext === 'ply') { const g = await L(PLYLoader).loadAsync(url); g.computeVertexNormals(); obj = g.index || g.attributes.normal ? new THREE.Mesh(g, g.attributes.color ? new THREE.MeshStandardMaterial({ vertexColors: true }) : mat()) : new THREE.Points(g, new THREE.PointsMaterial({ size: pointSize, sizeAttenuation: false, vertexColors: !!g.attributes.color })); }
+    else if (ext === 'pcd') obj = await L(PCDLoader).loadAsync(url);
+    else if (ext === 'xyz') obj = new THREE.Points(await L(XYZLoader).loadAsync(url), new THREE.PointsMaterial({ size: pointSize, sizeAttenuation: false, vertexColors: true }));
+    const b = new THREE.Box3().setFromObject(obj), s = b.getSize(new THREE.Vector3()); const r = Math.max(s.x, s.y, s.z) || 1; if (r > 20 || r < 0.2) obj.scale.multiplyScalar(2 / r);        // normalise to a workable size
+    const b2 = new THREE.Box3().setFromObject(obj); obj.position.sub(b2.getCenter(new THREE.Vector3())); obj.position.y += (b2.max.y - b2.min.y) / 2;
+    register(obj, main.name); target = obj; frameAll(); toast('Opened ' + main.name);
+  } catch (e) { console.error(e); toast('Could not read that file: ' + (e.message || e)); }
+}
+$('#file').onchange = (e) => open(e.target.files);
+addEventListener('dragover', (e) => { e.preventDefault(); $('#drop').style.display = 'grid'; }); addEventListener('dragleave', (e) => { if (!e.relatedTarget) $('#drop').style.display = 'none'; });
+addEventListener('drop', (e) => { e.preventDefault(); $('#drop').style.display = 'none'; open(e.dataTransfer.files); });
+
+/* ---- shapes and hats (hat = a lathe profile, so it is a real revolved mesh) ---- */
+const lathe = (pts, seg = 48) => new THREE.LatheGeometry(pts.map((p) => new THREE.Vector2(p[0], p[1])), seg);
+const HATS = {
+  tophat: () => lathe([[0, 0], [0.5, 0], [0.9, 0], [0.9, 0.06], [0.5, 0.08], [0.5, 1.1], [0.46, 1.16], [0, 1.16]]),
+  beanie: () => lathe(Array.from({ length: 14 }, (_, i) => { const a = i / 13 * Math.PI / 2; return [Math.cos(a) * 0.6, Math.sin(a) * 0.7]; })),
+  cap: () => lathe(Array.from({ length: 14 }, (_, i) => { const a = i / 13 * Math.PI / 2; return [Math.cos(a) * 0.6, Math.sin(a) * 0.45]; })),
+  cowboy: () => lathe([[0, 0.05], [0.4, 0.05], [0.9, 0], [1.25, 0.12], [1.3, 0.16], [0.9, 0.08], [0.45, 0.14], [0.42, 0.6], [0.3, 0.7], [0.18, 0.55], [0, 0.6]]),
+  party: () => lathe([[0, 0], [0.55, 0], [0.5, 0.02], [0, 1.2]]),
+  halo: () => new THREE.TorusGeometry(0.55, 0.05, 16, 64).rotateX(Math.PI / 2),
+  crown: () => { const g = lathe([[0.52, 0], [0.55, 0.05], [0.55, 0.5], [0.52, 0.5]], 8); return g; },
+  bucket: () => lathe([[0, 0.02], [0.5, 0.02], [0.52, 0.45], [0.8, 0.36], [0.82, 0.4], [0.55, 0.52], [0.5, 0.5], [0, 0.5]])
+};
+function addShape(kind) { const G = { box: () => new THREE.BoxGeometry(1, 1, 1), sphere: () => new THREE.SphereGeometry(0.6, 48, 32), cylinder: () => new THREE.CylinderGeometry(0.5, 0.5, 1, 48), cone: () => new THREE.ConeGeometry(0.55, 1.1, 48), torus: () => new THREE.TorusGeometry(0.5, 0.18, 24, 64), plane: () => new THREE.PlaneGeometry(1.5, 1.5) }[kind](); const m = new THREE.Mesh(G, mat()); m.position.y = 0.6; register(m, kind); }
+function addHat(name) {
+  const g = HATS[name](), m = new THREE.Mesh(g, mat()); m.userData.hat = name; register(m, name + ' hat');
+  if (name === 'crown') { /* points on the rim */ const gr = new THREE.Group(); for (let i = 0; i < 8; i++) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.4, 8), mat()); const a = i / 8 * Math.PI * 2; c.position.set(Math.cos(a) * 0.53, 0.7, Math.sin(a) * 0.53); gr.add(c); } m.add(gr); }
+  if (target) fitTo(m, target); else m.position.y = 0.6;
+}
+function fitTo(obj, tgt) {                      // size to ~62% of the target's width, sit on its top, centred, then snap down onto the surface with a ray
+  const tb = new THREE.Box3().setFromObject(tgt), ts = tb.getSize(new THREE.Vector3()), tcn = tb.getCenter(new THREE.Vector3());
+  obj.scale.set(1, 1, 1); obj.rotation.set(0, 0, 0); obj.updateMatrixWorld(true);
+  const ob = new THREE.Box3().setFromObject(obj), os = ob.getSize(new THREE.Vector3()), k = (Math.max(ts.x, ts.z) * $('#hatSize').value / 100) / (Math.max(os.x, os.z) || 1);
+  obj.scale.multiplyScalar(k); obj.updateMatrixWorld(true);
+  const ob2 = new THREE.Box3().setFromObject(obj); obj.position.x += tcn.x - ob2.getCenter(new THREE.Vector3()).x; obj.position.z += tcn.z - ob2.getCenter(new THREE.Vector3()).z;
+  let topY = tb.max.y; const ray = new THREE.Raycaster(new THREE.Vector3(tcn.x, tb.max.y + 5, tcn.z), new THREE.Vector3(0, -1, 0)), hits = ray.intersectObject(tgt, true); if (hits.length) topY = hits[0].point.y;
+  obj.position.y += topY - new THREE.Box3().setFromObject(obj).min.y - ts.y * 0.03;
+}
+$$('[data-add]').forEach((b) => (b.onclick = () => addShape(b.dataset.add))); $$('[data-hat]').forEach((b) => (b.onclick = () => addHat(b.dataset.hat)));
+$('#fit').onclick = () => { if (sel && target && sel !== target) { fitTo(sel, target); toast('Fitted'); } else toast('Select a shape, open a model first'); };
+
+/* ---- deformers (real vertex edits) ---- */
+function deform(kind) {
+  if (!sel) return; const a = $('#amt').value / 100; let n = 0;
+  sel.traverse((o) => {
+    if (!o.isMesh) return; o.geometry = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone(); const p = o.geometry.attributes.position; o.geometry.computeBoundingBox(); const bb = o.geometry.boundingBox, h = (bb.max.y - bb.min.y) || 1, v = new THREE.Vector3();
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i); const t = (v.y - bb.min.y) / h;
+      if (kind === 'twist') { const an = (t - 0.5) * a * 6, c = Math.cos(an), s = Math.sin(an), x = v.x * c - v.z * s; v.z = v.x * s + v.z * c; v.x = x; }
+      else if (kind === 'bend') { const an = a * 1.2 * (t - 0.5), c = Math.cos(an), s = Math.sin(an), y = v.y - (bb.min.y + h / 2); v.x += Math.sin(an) * y * 0.8; v.y = bb.min.y + h / 2 + y * c - 0 * s; }
+      else if (kind === 'taper') { const k = 1 - a * 0.8 * t; v.x *= k; v.z *= k; }
+      else if (kind === 'noise') { const r = Math.sin(v.x * 12.9898 + v.y * 78.233 + v.z * 37.719) * 43758.5453; v.addScalar((r - Math.floor(r) - 0.5) * a * h * 0.12); }
+      else if (kind === 'inflate') { const l = v.length() || 1; v.multiplyScalar(1 + a * 0.2 * (1 - Math.min(1, l / (h * 1.5)))); }
+      else if (kind === 'smooth') { v.x *= 1 - a * 0.02; v.z *= 1 - a * 0.02; }
+      p.setXYZ(i, v.x, v.y, v.z); n++;
+    }
+    p.needsUpdate = true; o.geometry.computeVertexNormals();
+  }); toast(kind + ' applied (' + n.toLocaleString() + ' vertices)'); stats();
+}
+$$('[data-def]').forEach((b) => (b.onclick = () => deform(b.dataset.def)));
+
+/* ---- edit tools ---- */
+const dupe = (o) => { const c = o.clone(true); c.traverse((m) => { if (m.isMesh) m.material = m.material.clone(); }); return c; };
+$('#dup').onclick = () => { if (!sel) return; const c = dupe(sel); c.position.x += 0.5; register(c, sel.userData.name + ' copy'); };
+$('#del').onclick = () => { if (!sel) return; world.remove(sel); items.splice(items.indexOf(sel), 1); if (target === sel) target = null; tc.detach(); sel = items[items.length - 1] || null; select(sel); stats(); };
+$('#mirror').onclick = () => { if (!sel) return; const c = dupe(sel); c.scale.x *= -1; c.position.x = -sel.position.x; register(c, sel.userData.name + ' mirror'); };
+$('#array').onclick = () => { if (!sel) return; const s = new THREE.Box3().setFromObject(sel).getSize(new THREE.Vector3()); for (let i = 1; i <= 4; i++) { const c = dupe(sel); c.position.x += s.x * 1.15 * i; register(c, sel.userData.name + ' ' + (i + 1)); } };
+$('#ctr').onclick = () => { if (!sel) return; const b = new THREE.Box3().setFromObject(sel), c = b.getCenter(new THREE.Vector3()); sel.position.x -= c.x; sel.position.z -= c.z; };
+$('#ground').onclick = () => { if (!sel) return; sel.position.y -= new THREE.Box3().setFromObject(sel).min.y - floor.position.y; };
+$$('[data-m]').forEach((b) => (b.onclick = () => { tc.setMode(b.dataset.m); $$('[data-m]').forEach((x) => x.classList.toggle('on', x === b)); }));
+$('#snap').onclick = (e) => { const on = e.target.classList.toggle('on'); tc.setTranslationSnap(on ? 0.1 : null); tc.setRotationSnap(on ? Math.PI / 12 : null); tc.setScaleSnap(on ? 0.1 : null); };
+$('#wire').onclick = (e) => { const on = e.target.classList.toggle('on'); world.traverse((o) => { if (o.isMesh) [].concat(o.material).forEach((m) => (m.wireframe = on)); }); };
+$('#grid').onclick = (e) => { grid.visible = e.target.classList.toggle('on'); };
+cv.addEventListener('pointerdown', (e) => { if (tc.dragging) return; const r = cv.getBoundingClientRect(), ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), cam); const hit = ray.intersectObjects(items, true)[0]; if (hit) { let o = hit.object; while (o.parent && o.parent !== world) o = o.parent; if (items.includes(o)) select(o); } });
+addEventListener('keydown', (e) => { if (/input|select|textarea/i.test(e.target.tagName)) return; const k = e.key.toLowerCase(); if (k === 'w') $('[data-m=translate]').click(); if (k === 'e') $('[data-m=rotate]').click(); if (k === 'r') $('[data-m=scale]').click(); if (k === 'delete' || k === 'backspace') $('#del').click(); if (k === 'd' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $('#dup').click(); } });
+
+/* ---- materials, light ---- */
+function applyMat() { if (!sel) return; sel.traverse((o) => { if (!o.isMesh) return; [].concat(o.material).forEach((m) => { if (!m.color) return; m.color.set($('#mc').value); m.metalness = $('#mm').value / 100; m.roughness = $('#mr').value / 100; m.emissive && m.emissive.set($('#mgc').value); m.emissiveIntensity = $('#mg').value / 40; if (m.emissive && $('#mg').value == 0) m.emissive.set(0x000000); m.opacity = $('#mo').value / 100; m.transparent = m.opacity < 1; m.needsUpdate = true; }); }); }
+['#mc', '#mm', '#mr', '#mg', '#mgc', '#mo'].forEach((s) => $(s).addEventListener('input', applyMat));
+const PRE = { chrome: ['#ffffff', 100, 4, 0, 100], gold: ['#ffc14a', 100, 18, 0, 100], glass: ['#cfe8ff', 0, 2, 0, 28], clay: ['#b9876b', 0, 90, 0, 100], neon: ['#101020', 20, 30, 70, 100], matte: ['#0a0a0c', 10, 70, 0, 100] };
+$$('[data-mat]').forEach((b) => (b.onclick = () => { const p = PRE[b.dataset.mat]; $('#mc').value = p[0]; $('#mm').value = p[1]; $('#mr').value = p[2]; $('#mg').value = p[3]; $('#mo').value = p[4]; applyMat(); }));
+function light() { const a = $('#la').value * Math.PI / 180, d = 8; key.position.set(Math.cos(a) * d, 7, Math.sin(a) * d); key.intensity = $('#lp').value / 100; renderer.toneMappingExposure = $('#ex').value / 100; }
+['#la', '#lp', '#ex'].forEach((s) => $(s).addEventListener('input', light)); light();
+$('#env').onchange = (e) => setEnv(e.target.value);
+$('#ps').oninput = (e) => { pointSize = +e.target.value; world.traverse((o) => { if (o.isPoints) o.material.size = pointSize; }); };
+
+/* ---- render + export ---- */
+$('#render').onclick = async () => {
+  const L = +$('#rs').value, vw = cv.clientWidth, vh = cv.clientHeight, gl = renderer.getContext();
+  const cap = Math.min(gl.getParameter(gl.MAX_RENDERBUFFER_SIZE), gl.getParameter(gl.MAX_VIEWPORT_DIMS)[0], gl.getParameter(gl.MAX_TEXTURE_SIZE));
+  let W = vw, H = vh, pr = renderer.getPixelRatio();
+  if (L) { const a = +$("#ra").value || vw / vh; if (a >= 1) { W = L; H = Math.round(L / a); } else { H = L; W = Math.round(L * a); } }
+  else { W = Math.round(vw * pr); H = Math.round(vh * pr); }
+  if (Math.max(W, H) > cap) { const k = cap / Math.max(W, H); W = Math.floor(W * k); H = Math.floor(H * k); toast('This GPU caps renders at ' + cap + 'px; rendering ' + W + '×' + H); }
+  const bg = scene.background, gv = grid.visible, tv = tc.visible, sm = key.shadow.mapSize.x, ca = cam.aspect;
+  tc.visible = false; grid.visible = false; toast('Rendering ' + W + '×' + H + '…'); await new Promise((r) => setTimeout(r, 30));
+  if (!$('#alpha').checked) { scene.background = new THREE.Color(0x101012); renderer.setClearAlpha(1); } else renderer.setClearAlpha(0);
+  if (sm < 4096) { key.shadow.mapSize.set(4096, 4096); if (key.shadow.map) { key.shadow.map.dispose(); key.shadow.map = null; } }
+  renderer.setPixelRatio(1); renderer.setSize(W, H, false); cam.aspect = W / H; cam.updateProjectionMatrix(); renderer.render(scene, cam);
+  const blob = await new Promise((res) => cv.toBlob(res, 'image/png'));
+  const bmp = blob && await createImageBitmap(blob); const ok = bmp && bmp.width === W && bmp.height === H; if (bmp) bmp.close();
+  if (blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'mosaicStudioS_render_' + W + 'x' + H + '.png'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1500); }
+  toast(blob ? (ok ? 'Rendered ' + W + '×' + H + ' (verified)' : 'Rendered, but the browser changed the size') : 'Render failed: try a smaller size');
+  renderer.setPixelRatio(pr); scene.background = bg; tc.visible = tv; grid.visible = gv; cam.aspect = ca; key.shadow.mapSize.set(sm, sm); if (key.shadow.map) { key.shadow.map.dispose(); key.shadow.map = null; } size();
+  window.__lastRender = { W, H, ok, bytes: blob ? blob.size : 0 };
+};
+$('#exp').onchange = async (e) => {
+  const t = e.target.value; e.target.value = ''; if (!t) return; const save = (data, name, type) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1500); };
+  tc.detach();
+  try {
+    if (t === 'GLB') new GLTFExporter().parse(world, (r) => save(r, 'scene.glb', 'model/gltf-binary'), (er) => toast('Export failed'), { binary: true });
+    else if (t === 'OBJ') save(new OBJExporter().parse(world), 'scene.obj', 'text/plain');
+    else if (t === 'STL') save(new STLExporter().parse(world, { binary: true }), 'scene.stl', 'model/stl');
+    else if (t === 'PLY') new PLYExporter().parse(world, (r) => save(r, 'scene.ply', 'application/octet-stream'), { binary: true });
+    toast('Exported ' + t);
+  } catch (er) { toast('Export failed: ' + er.message); }
+  if (sel) tc.attach(sel);
+};
+
+function size() { const w = cv.parentElement.clientWidth, h = cv.parentElement.clientHeight; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
+addEventListener('resize', size); size();
+renderer.setAnimationLoop(() => { orbit.update(); renderer.render(scene, cam); });
+addShape('torus'); frameAll(); target = null; toast('Drop a 3D file, or add shapes and hats');
+</script>
+</body>
+</html>
