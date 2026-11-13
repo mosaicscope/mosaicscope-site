@@ -1,5 +1,5 @@
 /* mosaicStudioS entry: physics dot sign that opens an iPhone 17 Pro Max lock when clicked.
-   2372 opens the studio, 0000 the follow-me easter egg. The codes are a playful gate, not security. */
+   2372 opens the studio, 0000 the follow-me easter egg, 7500 mosaicSpace. The codes are a playful gate, not security. */
 (() => {
   'use strict';
   const TARGET = '/studio/';
@@ -20,9 +20,10 @@
   // Two passcodes: 2372 opens mosaicStudioS, 0000 turns the phone into the follow-me easter egg.
   const CODES = {
     'eb3d9dac46073924cffbc322aeac56e17b3c33c8005b591d3209e26e14af625b': 'studio',
-    '9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0': 'egg'
+    '9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0': 'egg',
+    '04d901cdcc744547648b1942b9ecb2ad2b6a4af2a98be503d39cacd3e88da431': 'space'      // 7500 (D750), opened from the little camera on the Instagram board
   };
-  const PLAIN = { '2372': 'studio', '0000': 'egg' };     // only used where crypto.subtle is unavailable
+  const PLAIN = { '2372': 'studio', '0000': 'egg', '7500': 'space' };     // only used where crypto.subtle is unavailable
   const IG = 'https://www.instagram.com/mosaicscope/';
   const YT = 'https://www.youtube.com/@mosaicscope';
   const TH = 'https://www.threads.net/@mosaicscope';
@@ -125,6 +126,11 @@
     if (result === 'studio') {
       ip.classList.add('is-ok');
       setTimeout(() => { showStudioHome(); ip.classList.remove('is-ok'); busy = false; }, REDUCED ? 100 : 600);
+      return;
+    }
+    if (result === 'space') {
+      ip.classList.add('is-ok');
+      setTimeout(() => { location.assign('/space/'); }, REDUCED ? 100 : 600);
       return;
     }
     if (result === 'egg') {
@@ -249,6 +255,7 @@
     if (!dlg.open) dlg.showModal();
     $('ip-swipe').focus({ preventScroll: true });
   }
+  window.MS_OPEN_LOCK = openLock;
   dlg.addEventListener('close', () => { clearInterval(eggTimer); if (opener && opener.focus) opener.focus({ preventScroll: true }); });
   setInterval(() => { if (dlg.open) tick(); }, 15000);
 

@@ -1,52 +1,49 @@
-/* A Blender-rendered Nikon D750 sitting in the bottom-right corner of the Polaroid board.
-   Idle: the lens is reactive (leans toward the cursor, a soft-box glint slides across the glass).
-   Hover / tap once: it comes apart into an exploded diagram that stays inside its own box (no spill onto the page):
-   top plate, body and lens stacked on the left, the internals in a labelled grid on the right.
-   Click / tap again opens mosaicSpace. */
+/* A tiny Blender-rendered Nikon D750 left on the corner of the Polaroid board. No label, no hint.
+   It is a toy: drag it and it turns like a real 3D object (body, prism and lens sit at different depths), fling it and it
+   swings on a spring, the lens glint follows the cursor. A plain click opens the phone lock; 7500 opens mosaicSpace. */
 (() => {
   'use strict';
   const sec = document.getElementById('instagram'), board = document.getElementById('ig-board'); if (!sec || !board) return;
-  const BASE = '/assets/d750/', EXT = 'webp';
-  /* name, natural centre (% of box), target centre (% of box), scale when exploded, label */
-  const PARTS = [
-    ['top', 51, 20, 12, 14, 0.3, 'TOP PLATE'],
-    ['body', 50, 55, 34, 14, 0.3, 'BODY'],
-    ['lens', 49, 61.5, 14, 39, 0.3, 'NIKKOR LENS'],
-    ['battery', 28.3, 65.3, 40, 39, 0.5, 'EN-EL15'],
-    ['prism', 51, 17, 58, 14, 0.55, 'PENTAPRISM'],
-    ['mirror', 48.6, 48, 74, 14, 0.55, 'REFLEX MIRROR'],
-    ['board', 46.6, 56.4, 90, 14, 0.55, 'EXPEED 4'],
-    ['lcd', 48.6, 61.5, 58, 38, 0.55, 'TILTING LCD'],
-    ['shutter', 48.6, 60.2, 74, 38, 0.55, 'SHUTTER'],
-    ['sensor', 48.6, 60.2, 90, 38, 0.55, 'FX SENSOR']
-  ];
-  const INNER = new Set(['prism', 'mirror', 'board', 'lcd', 'shutter', 'sensor', 'battery']);
-  const a = document.createElement('a');
-  a.className = 'd750'; a.href = '/space/'; a.setAttribute('aria-label', 'Nikon D750. Hover to see inside. Click to open mosaicSpace, the video and audio editor');
-  let h = '';
-  const order = ['prism', 'mirror', 'board', 'lcd', 'shutter', 'sensor', 'battery', 'body', 'top', 'lens'];
-  for (const n of order) {
-    const [, cx, cy, tx, ty, s] = PARTS.find((p) => p[0] === n);
-    const dx = tx - 50 - (cx - 50) * s, dy = ty - 50 - (cy - 50) * s;       // translate so the part's centre lands on its target after scaling about the box centre
-    h += '<img class="dpart ' + (INNER.has(n) ? 'in' : 'sh') + '" data-p="' + n + '" alt="" decoding="async" src="' + BASE + n + '.' + EXT + '" style="--dx:' + dx.toFixed(2) + '%;--dy:' + dy.toFixed(2) + '%;--s:' + s + '">';
-  }
-  h += '<span class="d750__glass"><i></i></span>';
-  for (const [n, , , tx, ty, , l] of PARTS) h += '<span class="dlab mono" style="left:' + tx + '%;top:' + (ty + (INNER.has(n) ? 10 : 12)) + '%">' + l + '</span>';
-  h += '<span class="d750__tag mono">mosaicSpace ↗</span>';
-  a.innerHTML = h; sec.append(a);
-  /* sit in the board's bottom-right corner, like it was put down on the table with the prints */
-  function place() { const s = sec.getBoundingClientRect(), b = board.getBoundingClientRect(), w = a.offsetWidth; a.style.left = Math.max(0, b.right - s.left - w * 0.97) + 'px'; a.style.top = Math.max(0, b.top - s.top - a.offsetHeight * 0.1) + 'px'; }
+  const BASE = '/assets/d750/';
+  const a = document.createElement('button');
+  a.type = 'button'; a.className = 'd750'; a.setAttribute('aria-label', 'Camera');
+  a.innerHTML = '<span class="d750__3d">' +
+    '<img class="dl" style="--z:0px" alt="" draggable="false" src="' + BASE + 'body.webp">' +
+    '<img class="dl" style="--z:9px" alt="" draggable="false" src="' + BASE + 'top.webp">' +
+    '<img class="dl" style="--z:20px" alt="" draggable="false" src="' + BASE + 'lens.webp">' +
+    '<span class="d750__glass"><i></i></span></span>';
+  sec.append(a);
+  const rig = a.querySelector('.d750__3d');
+  /* sit on the bottom-right corner of the board, small enough to miss */
+  function place() { const s = sec.getBoundingClientRect(), b = board.getBoundingClientRect(), w = a.offsetWidth; a.style.left = Math.max(0, b.right - s.left - w * 0.9) + 'px'; a.style.top = Math.max(0, b.bottom - s.top - a.offsetHeight * 0.8) + 'px'; }
   new ResizeObserver(place).observe(board); addEventListener('resize', place); setTimeout(place, 600); setTimeout(place, 2500);
-  /* reactive lens: the lens leans toward the pointer and a soft-box glint slides across the glass */
-  const glass = a.querySelector('.d750__glass');
-  let raf = 0, tx = 0, ty = 0, mx = 0, my = 0;
-  const loop = () => { mx += (tx - mx) * 0.14; my += (ty - my) * 0.14; a.style.setProperty('--mx', mx.toFixed(3)); a.style.setProperty('--my', my.toFixed(3)); raf = Math.abs(tx - mx) + Math.abs(ty - my) > 0.002 ? requestAnimationFrame(loop) : 0; };
-  const aim = (x, y) => { const r = glass.getBoundingClientRect(); tx = Math.max(-1.6, Math.min(1.6, (x - (r.left + r.width / 2)) / (r.width * 0.9))); ty = Math.max(-1.6, Math.min(1.6, (y - (r.top + r.height / 2)) / (r.height * 0.9))); if (!raf) raf = requestAnimationFrame(loop); };
-  addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') aim(e.clientX, e.clientY); }, { passive: true });
-  addEventListener('deviceorientation', (e) => { if (e.gamma == null) return; tx = Math.max(-1, Math.min(1, e.gamma / 30)); ty = Math.max(-1, Math.min(1, (e.beta - 45) / 30)); if (!raf) raf = requestAnimationFrame(loop); }, { passive: true });
-  let armed = false;
-  const open = (on) => a.classList.toggle('is-open', on);
-  a.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') open(true); }); a.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') open(false); });
-  a.addEventListener('focus', () => open(true)); a.addEventListener('blur', () => open(false));
-  a.addEventListener('click', (e) => { if (matchMedia('(hover: none)').matches && !armed) { e.preventDefault(); armed = true; open(true); setTimeout(() => { armed = false; open(false); }, 6000); } });
+
+  /* ---- toy physics: a trackball with inertia, a spring back to rest and soft stops ---- */
+  let rx = 0, ry = 0, vx = 0, vy = 0, px = 0, py = 0, aimX = 0, aimY = 0, dragging = false, moved = 0, lx = 0, ly = 0, raf = 0;
+  const LIM = 78;
+  function frame() {
+    if (!dragging) {
+      vx += -rx * 0.035; vy += -ry * 0.035;                                   // spring toward rest
+      vx *= 0.93; vy *= 0.93; rx += vx; ry += vy;
+      if (Math.abs(ry) > LIM) { ry = Math.sign(ry) * LIM; vy *= -0.55; }
+      if (Math.abs(rx) > LIM) { rx = Math.sign(rx) * LIM; vx *= -0.55; }
+    }
+    const tiltX = rx + (dragging ? 0 : -aimY * 6), tiltY = ry + (dragging ? 0 : aimX * 8);
+    rig.style.transform = 'translate(' + (px * 0.2).toFixed(2) + 'px,' + (py * 0.2).toFixed(2) + 'px) rotateX(' + tiltX.toFixed(2) + 'deg) rotateY(' + tiltY.toFixed(2) + 'deg)';
+    a.style.setProperty('--mx', (aimX + ry / 40).toFixed(3)); a.style.setProperty('--my', (aimY - rx / 40).toFixed(3));
+    const live = dragging || Math.abs(vx) + Math.abs(vy) > 0.02 || Math.abs(rx) + Math.abs(ry) > 0.05;
+    raf = live ? requestAnimationFrame(frame) : 0;
+  }
+  const wake = () => { if (!raf) raf = requestAnimationFrame(frame); };
+  a.addEventListener('pointerdown', (e) => { dragging = true; moved = 0; lx = e.clientX; ly = e.clientY; vx = vy = 0; try { a.setPointerCapture(e.pointerId); } catch (er) { /* fine */ } wake(); });
+  a.addEventListener('pointermove', (e) => {
+    if (!dragging) return; const dx = e.clientX - lx, dy = e.clientY - ly; lx = e.clientX; ly = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
+    ry += dx * 1.1; rx -= dy * 1.1; vy = dx * 1.1; vx = -dy * 1.1; px += dx; py += dy; px *= 0.9; py *= 0.9;
+    ry = Math.max(-LIM * 1.15, Math.min(LIM * 1.15, ry)); rx = Math.max(-LIM * 1.15, Math.min(LIM * 1.15, rx));
+  });
+  const up = () => { if (!dragging) return; dragging = false; px = py = 0; wake(); };
+  a.addEventListener('pointerup', up); a.addEventListener('pointercancel', up);
+  a.addEventListener('click', () => { if (moved < 6 && window.MS_OPEN_LOCK) window.MS_OPEN_LOCK(); });
+  /* the lens notices the cursor from anywhere on the page */
+  addEventListener('pointermove', (e) => { if (e.pointerType !== 'mouse' || dragging) return; const r = a.getBoundingClientRect(); aimX = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / 420)); aimY = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / 420)); wake(); }, { passive: true });
 })();
