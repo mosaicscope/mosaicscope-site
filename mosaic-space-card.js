@@ -1,62 +1,52 @@
-/* A physical Nikon D750 resting on the light table, in the bottom-right corner of the Polaroid board.
-   Hover (or tap once) and it comes apart into its real internals: Nikkor lens groups, F-mount, mirror, shutter, FX sensor,
-   pentaprism, viewfinder eyepiece, EXPEED board, EN-EL15, tilting LCD, dials and buttons. Click (or tap again) opens mosaicSpace. */
+/* A Blender-rendered Nikon D750 sitting in the bottom-right corner of the Polaroid board.
+   Idle: the lens is reactive (leans toward the cursor, a soft-box glint slides across the glass).
+   Hover / tap once: it comes apart into an exploded diagram that stays inside its own box (no spill onto the page):
+   top plate, body and lens stacked on the left, the internals in a labelled grid on the right.
+   Click / tap again opens mosaicSpace. */
 (() => {
   'use strict';
   const sec = document.getElementById('instagram'), board = document.getElementById('ig-board'); if (!sec || !board) return;
-  const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  /* part helper: explodes by (dx,dy) with a little rotation; label rides along with the part */
-  const part = (name, dx, dy, rot, body, label, lx, ly) => '<g class="dp" data-p="' + name + '" style="--dx:' + dx + 'px;--dy:' + dy + 'px;--r:' + (rot || 0) + 'deg">' + body +
-    (label ? '<g class="dl"><path d="M' + lx + ' ' + ly + ' l-12 10" /><text x="' + lx + '" y="' + (ly - 3) + '" text-anchor="' + (lx > 380 ? 'end' : 'start') + '">' + label + '</text></g>' : '') + '</g>';
-  const ribs = (x, y, w, h, n, c) => { let s = ''; for (let i = 0; i < n; i++) s += '<rect x="' + (x + i * (w / n)) + '" y="' + y + '" width="' + (w / n * 0.45) + '" height="' + h + '" fill="' + c + '"/>'; return s; };
-  const defs = '<defs>' +
-    '<linearGradient id="dBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a3a3f"/><stop offset=".12" stop-color="#202024"/><stop offset=".6" stop-color="#121214"/><stop offset="1" stop-color="#070708"/></linearGradient>' +
-    '<linearGradient id="dTop" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#55555b"/><stop offset=".25" stop-color="#2a2a2e"/><stop offset="1" stop-color="#151517"/></linearGradient>' +
-    '<linearGradient id="dChrome" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fafbff"/><stop offset=".3" stop-color="#9aa0ae"/><stop offset=".55" stop-color="#f3f5fb"/><stop offset=".8" stop-color="#6f7584"/><stop offset="1" stop-color="#d6dae4"/></linearGradient>' +
-    '<linearGradient id="dRubber" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c2c30"/><stop offset=".5" stop-color="#0c0c0e"/><stop offset="1" stop-color="#1e1e22"/></linearGradient>' +
-    '<radialGradient id="dGlass" cx=".38" cy=".34" r=".75"><stop offset="0" stop-color="#7c6aa8"/><stop offset=".25" stop-color="#2b2a5a"/><stop offset=".55" stop-color="#0b1b2a"/><stop offset=".8" stop-color="#1c3a2e"/><stop offset="1" stop-color="#05060a"/></radialGradient>' +
-    '<radialGradient id="dGlint" cx=".3" cy=".25" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>' +
-    '<linearGradient id="dPrism" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8f2ff" stop-opacity=".95"/><stop offset=".5" stop-color="#8fb3d6" stop-opacity=".7"/><stop offset="1" stop-color="#2d4a66" stop-opacity=".9"/></linearGradient>' +
-    '<linearGradient id="dPcb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1f6b45"/><stop offset="1" stop-color="#0d3b27"/></linearGradient>' +
-    '<linearGradient id="dLcd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1b2a3c"/><stop offset=".5" stop-color="#0a1018"/><stop offset="1" stop-color="#2b3d52"/></linearGradient>' +
-    '<pattern id="dLeather" width="5" height="5" patternUnits="userSpaceOnUse"><circle cx="1.2" cy="1.2" r=".7" fill="#000" opacity=".5"/><circle cx="3.7" cy="3.6" r=".6" fill="#fff" opacity=".07"/></pattern>' +
-    '<pattern id="dCfa" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="3" height="3" fill="#2f9d4a"/><rect x="3" width="3" height="3" fill="#d04040"/><rect y="3" width="3" height="3" fill="#4a6fd0"/><rect x="3" y="3" width="3" height="3" fill="#2f9d4a"/></pattern>' +
-    '<filter id="dShadow" x="-20%" y="-20%" width="140%" height="160%"><feGaussianBlur stdDeviation="9"/></filter></defs>';
-  const svg = '<svg viewBox="0 0 600 420" aria-hidden="true">' + defs +
-    '<ellipse cx="300" cy="372" rx="250" ry="22" fill="#000" opacity=".42" filter="url(#dShadow)"/>' +
-    /* ----- internals: they sit behind the shell and slide out ----- */
-    part('sensor', 60, 150, 4, '<g><rect x="262" y="214" width="76" height="52" rx="3" fill="#b88a2e" stroke="#6b4c10"/><rect x="270" y="221" width="60" height="38" fill="url(#dCfa)" opacity=".85"/><rect x="270" y="221" width="60" height="38" fill="url(#dGlint)"/><path d="M262 224 h-6 M262 232 h-6 M262 240 h-6 M262 248 h-6 M338 224 h6 M338 232 h6 M338 240 h6 M338 248 h6" stroke="#e8c15a" stroke-width="2"/></g>', 'FX CMOS SENSOR 35.9×24 mm', 262, 280) +
-    part('shutter', 0, 100, 2, '<g><rect x="258" y="206" width="84" height="68" rx="3" fill="#2a2a2e" stroke="#555"/>' + [0, 1, 2, 3].map((i) => '<rect x="264" y="' + (212 + i * 15) + '" width="72" height="12" rx="1" fill="url(#dChrome)" opacity=".55"/>').join('') + '</g>', 'SHUTTER UNIT', 258, 198) +
-    part('mirror', -70, -50, -4, '<g><path d="M258 158 L346 158 L360 196 L244 196 Z" fill="url(#dChrome)" stroke="#555"/><path d="M262 164 h80" stroke="#fff" opacity=".7"/></g>', 'REFLEX MIRROR', 244, 152) +
-    part('board', 130, -50, 4, '<g><rect x="196" y="164" width="76" height="58" rx="3" fill="url(#dPcb)" stroke="#0a2a1a"/><rect x="206" y="174" width="22" height="22" fill="#141418"/><rect x="236" y="176" width="16" height="12" fill="#141418"/><path d="M204 208 h56 M204 214 h40" stroke="#c9a640" stroke-width="1.4"/><circle cx="256" cy="204" r="3" fill="#c9a640"/></g>', 'EXPEED 4 PROCESSOR', 196, 160) +
-    part('battery', -60, 110, -3, '<g><rect x="132" y="262" width="52" height="64" rx="5" fill="#1a1c22" stroke="#444"/><rect x="132" y="282" width="52" height="16" fill="#e8e8ee"/><text x="158" y="294" text-anchor="middle" style="font:700 8px monospace;fill:#111;stroke:none">EN-EL15</text><rect x="148" y="326" width="20" height="5" fill="#c9a640"/></g>', 'EN-EL15 BATTERY', 126, 346) +
-    part('eyepiece', 70, -110, 8, '<g><circle cx="402" cy="176" r="15" fill="#0c0c0e" stroke="#555"/><circle cx="402" cy="176" r="10" fill="url(#dGlass)"/><circle cx="402" cy="176" r="10" fill="url(#dGlint)"/><circle cx="402" cy="176" r="5" fill="none" stroke="#7aa0c8" opacity=".6"/></g>', 'VIEWFINDER EYEPIECE LENS', 418, 148) +
-    part('prism', 0, -150, 0, '<g><path d="M232 130 L268 92 H332 L368 130 Z" fill="url(#dPrism)" stroke="#9fc0e0"/><path d="M268 92 L276 130 M332 92 L324 130" stroke="#fff" opacity=".35"/></g>', 'PENTAPRISM', 372, 100) +
-    part('lcd', 150, 130, 8, '<g><rect x="168" y="182" width="64" height="44" rx="3" fill="url(#dLcd)" stroke="#555"/><path d="M174 190 L226 218" stroke="#fff" opacity=".12" stroke-width="6"/></g>', '3.2" TILTING LCD', 168, 176) +
-    /* ----- the shell ----- */
-    part('body', 0, 14, 0, '<g><path d="M96 168 Q96 150 116 150 H478 Q504 150 504 176 V318 Q504 338 480 338 H128 Q96 338 96 312 Z" fill="url(#dBody)"/><path d="M96 168 Q96 150 116 150 H478 Q504 150 504 176 V318 Q504 338 480 338 H128 Q96 338 96 312 Z" fill="url(#dLeather)"/><path d="M118 152 H476" stroke="#6a6a72" stroke-width="1.5" opacity=".7"/><path d="M98 170 Q98 154 116 152" stroke="#8a8a94" opacity=".5"/><circle cx="148" cy="172" r="3.5" fill="#1a0a0a" stroke="#555"/><rect x="140" y="214" width="3" height="6" fill="#888"/><path d="M466 196 h20 M466 204 h20 M466 212 h20" stroke="#111" stroke-width="1.6"/></g>') +
-    part('grip', -70, 8, -3, '<g><path d="M96 168 Q60 176 54 218 Q50 286 86 330 Q100 340 128 338 L130 160 Z" fill="url(#dRubber)"/><path d="M96 168 Q60 176 54 218 Q50 286 86 330 Q100 340 128 338 L130 160 Z" fill="url(#dLeather)"/><path d="M62 230 Q60 280 88 322" stroke="#777" opacity=".4" stroke-width="1.4"/></g>', 'DEEP CARBON-FIBRE GRIP', 24, 350) +
-    part('topplate', 0, -70, 0, '<g><path d="M150 152 H452 L440 118 H312 L296 96 H236 L212 118 H162 Z" fill="url(#dTop)"/><path d="M150 152 H452" stroke="#777" opacity=".7"/><path d="M236 98 H296" stroke="#aaa" opacity=".5"/><rect x="246" y="86" width="40" height="11" rx="2" fill="url(#dChrome)" stroke="#444"/><path d="M256 92 h20" stroke="#ec2a1c" stroke-width="2"/><path d="M214 128 h96" stroke="#000" opacity=".5"/>' + [0, 1, 2, 3, 4, 5].map((i) => '<circle cx="' + (330 + i * 5) + '" cy="108" r="1.2" fill="#000"/>').join('') + '</g>', 'TOP PLATE + HOT SHOE', 210, 76) +
-    part('mode', -70, -60, -6, '<g><rect x="160" y="108" width="50" height="22" rx="4" fill="url(#dChrome)" stroke="#333"/>' + ribs(163, 110, 44, 18, 14, '#222') + '<rect x="172" y="104" width="26" height="6" rx="1" fill="#111"/><text x="185" y="110" text-anchor="middle" style="font:700 5px monospace;fill:#ddd;stroke:none">U1 U2</text></g>', 'MODE DIAL', 150, 104) +
-    part('shutter', 20, -90, 3, '<g><ellipse cx="408" cy="128" rx="22" ry="9" fill="url(#dChrome)" stroke="#333"/><ellipse cx="408" cy="122" rx="14" ry="6" fill="#2a2a2e" stroke="#555"/><ellipse cx="408" cy="120" rx="6" ry="2.6" fill="url(#dChrome)"/><circle cx="440" cy="132" r="5" fill="#ec2a1c" stroke="#400"/><rect x="366" y="124" width="22" height="8" rx="3" fill="url(#dRubber)" stroke="#444"/></g>', 'SHUTTER · MOVIE · ON/OFF', 380, 96) +
-    part('cmd', 50, -20, 5, '<g><rect x="452" y="122" width="26" height="12" rx="3" fill="url(#dChrome)" stroke="#333"/>' + ribs(454, 123, 22, 10, 8, '#222') + '</g>', 'COMMAND DIAL', 454, 112) +
-    /* ----- the lens: ring by ring, front to back ----- */
-    part('mount', -66, 30, -2, '<g><circle cx="300" cy="244" r="86" fill="url(#dChrome)" stroke="#444" stroke-width="2"/><circle cx="300" cy="244" r="74" fill="#101012" stroke="#666"/>' + [0, 1, 2].map((i) => '<path d="M' + (300 + 80 * Math.cos(i * 2.094 + 0.5)) + ' ' + (244 + 80 * Math.sin(i * 2.094 + 0.5)) + ' l8 0" stroke="#222" stroke-width="5"/>').join('') + '<circle cx="300" cy="170" r="3" fill="#ec2a1c"/></g>', 'F-MOUNT BAYONET', 214, 168) +
-    part('barrel', -132, 62, -4, '<g><circle cx="300" cy="244" r="78" fill="url(#dRubber)" stroke="#555" stroke-width="2"/>' + [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].map((i) => '<path d="M' + (300 + 66 * Math.cos(i * 0.2618)) + ' ' + (244 + 66 * Math.sin(i * 0.2618)) + ' L' + (300 + 78 * Math.cos(i * 0.2618)) + ' ' + (244 + 78 * Math.sin(i * 0.2618)) + '" stroke="#000" stroke-width="2.6" opacity=".7"/>').join('') + '<circle cx="300" cy="244" r="64" fill="url(#dChrome)" opacity=".9"/><circle cx="300" cy="244" r="58" fill="#0c0c0e"/></g>', 'FOCUS + ZOOM RINGS', 214, 336) +
-    part('elements', -196, 98, -6, '<g><circle cx="300" cy="244" r="56" fill="#0a0a0d" stroke="#888"/><circle cx="300" cy="244" r="46" fill="url(#dGlass)" stroke="#9aa"/><circle cx="300" cy="244" r="32" fill="none" stroke="#6b78a8" opacity=".8"/><circle cx="300" cy="244" r="22" fill="url(#dGlass)" opacity=".9"/><circle cx="300" cy="244" r="12" fill="#000" stroke="#c9a640"/></g>', 'LENS ELEMENTS · APERTURE', 232, 360) +
-    part('front', -260, 140, -8, '<g><circle cx="300" cy="244" r="52" fill="none" stroke="url(#dChrome)" stroke-width="5"/><circle cx="300" cy="244" r="44" fill="url(#dGlass)"/><circle cx="300" cy="244" r="44" fill="url(#dGlint)"/><path d="M270 222 Q300 206 330 222" stroke="#fff" stroke-width="3" opacity=".6" fill="none"/><path d="M276 270 Q300 284 324 270" stroke="#9fd0ff" stroke-width="2" opacity=".5" fill="none"/></g>', 'FRONT ELEMENT · NANO CRYSTAL COAT', 214, 396) +
-    '</svg>';
+  const BASE = '/assets/d750/', EXT = 'webp';
+  /* name, natural centre (% of box), target centre (% of box), scale when exploded, label */
+  const PARTS = [
+    ['top', 51, 20, 12, 14, 0.3, 'TOP PLATE'],
+    ['body', 50, 55, 34, 14, 0.3, 'BODY'],
+    ['lens', 49, 61.5, 14, 39, 0.3, 'NIKKOR LENS'],
+    ['battery', 28.3, 65.3, 40, 39, 0.5, 'EN-EL15'],
+    ['prism', 51, 17, 58, 14, 0.55, 'PENTAPRISM'],
+    ['mirror', 48.6, 48, 74, 14, 0.55, 'REFLEX MIRROR'],
+    ['board', 46.6, 56.4, 90, 14, 0.55, 'EXPEED 4'],
+    ['lcd', 48.6, 61.5, 58, 38, 0.55, 'TILTING LCD'],
+    ['shutter', 48.6, 60.2, 74, 38, 0.55, 'SHUTTER'],
+    ['sensor', 48.6, 60.2, 90, 38, 0.55, 'FX SENSOR']
+  ];
+  const INNER = new Set(['prism', 'mirror', 'board', 'lcd', 'shutter', 'sensor', 'battery']);
   const a = document.createElement('a');
   a.className = 'd750'; a.href = '/space/'; a.setAttribute('aria-label', 'Nikon D750. Hover to see inside. Click to open mosaicSpace, the video and audio editor');
-  a.innerHTML = svg + '<span class="d750__tag mono">mosaicSpace ↗</span>';
-  sec.append(a);
+  let h = '';
+  const order = ['prism', 'mirror', 'board', 'lcd', 'shutter', 'sensor', 'battery', 'body', 'top', 'lens'];
+  for (const n of order) {
+    const [, cx, cy, tx, ty, s] = PARTS.find((p) => p[0] === n);
+    const dx = tx - 50 - (cx - 50) * s, dy = ty - 50 - (cy - 50) * s;       // translate so the part's centre lands on its target after scaling about the box centre
+    h += '<img class="dpart ' + (INNER.has(n) ? 'in' : 'sh') + '" data-p="' + n + '" alt="" decoding="async" src="' + BASE + n + '.' + EXT + '" style="--dx:' + dx.toFixed(2) + '%;--dy:' + dy.toFixed(2) + '%;--s:' + s + '">';
+  }
+  h += '<span class="d750__glass"><i></i></span>';
+  for (const [n, , , tx, ty, , l] of PARTS) h += '<span class="dlab mono" style="left:' + tx + '%;top:' + (ty + (INNER.has(n) ? 10 : 12)) + '%">' + l + '</span>';
+  h += '<span class="d750__tag mono">mosaicSpace ↗</span>';
+  a.innerHTML = h; sec.append(a);
   /* sit in the board's bottom-right corner, like it was put down on the table with the prints */
-  function place() { const s = sec.getBoundingClientRect(), b = board.getBoundingClientRect(), w = a.offsetWidth; a.style.left = Math.max(0, b.right - s.left - w * 0.86) + 'px'; a.style.top = Math.max(0, b.bottom - s.top - a.offsetHeight * 0.72) + 'px'; }
+  function place() { const s = sec.getBoundingClientRect(), b = board.getBoundingClientRect(), w = a.offsetWidth; a.style.left = Math.max(0, b.right - s.left - w * 0.97) + 'px'; a.style.top = Math.max(0, b.top - s.top - a.offsetHeight * 0.1) + 'px'; }
   new ResizeObserver(place).observe(board); addEventListener('resize', place); setTimeout(place, 600); setTimeout(place, 2500);
+  /* reactive lens: the lens leans toward the pointer and a soft-box glint slides across the glass */
+  const glass = a.querySelector('.d750__glass');
+  let raf = 0, tx = 0, ty = 0, mx = 0, my = 0;
+  const loop = () => { mx += (tx - mx) * 0.14; my += (ty - my) * 0.14; a.style.setProperty('--mx', mx.toFixed(3)); a.style.setProperty('--my', my.toFixed(3)); raf = Math.abs(tx - mx) + Math.abs(ty - my) > 0.002 ? requestAnimationFrame(loop) : 0; };
+  const aim = (x, y) => { const r = glass.getBoundingClientRect(); tx = Math.max(-1.6, Math.min(1.6, (x - (r.left + r.width / 2)) / (r.width * 0.9))); ty = Math.max(-1.6, Math.min(1.6, (y - (r.top + r.height / 2)) / (r.height * 0.9))); if (!raf) raf = requestAnimationFrame(loop); };
+  addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') aim(e.clientX, e.clientY); }, { passive: true });
+  addEventListener('deviceorientation', (e) => { if (e.gamma == null) return; tx = Math.max(-1, Math.min(1, e.gamma / 30)); ty = Math.max(-1, Math.min(1, (e.beta - 45) / 30)); if (!raf) raf = requestAnimationFrame(loop); }, { passive: true });
   let armed = false;
   const open = (on) => a.classList.toggle('is-open', on);
   a.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') open(true); }); a.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') open(false); });
   a.addEventListener('focus', () => open(true)); a.addEventListener('blur', () => open(false));
   a.addEventListener('click', (e) => { if (matchMedia('(hover: none)').matches && !armed) { e.preventDefault(); armed = true; open(true); setTimeout(() => { armed = false; open(false); }, 6000); } });
-  void REDUCED;
 })();

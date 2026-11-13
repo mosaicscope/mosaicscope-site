@@ -1,13 +1,19 @@
 /* The D750 on the light table (see mosaic-space-card.js) */
 .lightbox { position: relative; }
-.d750 { position: absolute; z-index: 6; width: clamp(190px, 31vw, 430px); aspect-ratio: 600 / 420; display: block; transform: rotate(-7deg); transform-origin: 60% 70%; text-decoration: none; filter: drop-shadow(0 14px 16px rgba(14, 11, 10, 0.32)); transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.1, 1), width 0.6s; cursor: pointer; }
-.d750 svg { width: 100%; height: 100%; display: block; overflow: visible; }
-.d750:hover, .d750.is-open { transform: rotate(-2deg) scale(1.05); z-index: 12; }
-.d750__tag { position: absolute; right: 8%; bottom: -4px; padding: 3px 9px; background: #0e0b0a; color: #eee4d3; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; transform: rotate(3deg); transition: opacity 0.3s; }
+.d750 { position: absolute; z-index: 6; width: clamp(300px, 34vw, 640px); aspect-ratio: 4 / 3; display: block; text-decoration: none; cursor: pointer; transform: rotate(-3deg) scale(0.84); transform-origin: 50% 0; transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.1, 1); --mx: 0; --my: 0; }
+.d750:hover, .d750.is-open { transform: rotate(0deg) scale(1); z-index: 12; }
+.dpart { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; user-select: none; -webkit-user-drag: none; transform: translate(0, 0) scale(1); transition: transform 1s cubic-bezier(0.65, 0, 0.2, 1), opacity 0.5s; filter: drop-shadow(0 12px 14px rgba(14, 11, 10, 0.34)); }
+.dpart.in { opacity: 0; transform: translate(0, 0) scale(0.9); }
+.d750.is-open .dpart { transform: translate(var(--dx), var(--dy)) scale(var(--s)); }
+.d750.is-open .dpart.in { opacity: 1; transition-delay: 0.12s, 0.3s; }
+/* reactive lens: leans toward the pointer while closed */
+.d750:not(.is-open) .dpart[data-p="lens"] { transform: translate(calc(var(--mx) * 0.55%), calc(var(--my) * 0.55%)); transition: transform 0.12s linear; }
+.d750__glass { position: absolute; left: 49%; top: 61.6%; width: 33%; aspect-ratio: 1; transform: translate(calc(-50% + var(--mx) * 0.55% * 3), calc(-50% + var(--my) * 0.55% * 3)); border-radius: 50%; overflow: hidden; pointer-events: none; mix-blend-mode: screen; opacity: 0.9; transition: opacity 0.4s; }
+.d750__glass i { position: absolute; inset: -30%; background: radial-gradient(circle at calc(50% + var(--mx) * 22%) calc(50% + var(--my) * 22%), rgba(255, 255, 255, 0.5), rgba(180, 210, 255, 0.16) 18%, transparent 36%), radial-gradient(circle at calc(50% - var(--mx) * 30%) calc(50% - var(--my) * 30%), rgba(255, 190, 120, 0.22), transparent 24%); }
+.d750.is-open .d750__glass { opacity: 0; }
+.d750__tag { position: absolute; right: 8%; bottom: 3%; padding: 3px 9px; background: #0e0b0a; color: #eee4d3; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; transform: rotate(3deg); transition: opacity 0.3s; }
 .d750.is-open .d750__tag { opacity: 0; }
-.dp { transform: translate(0, 0) rotate(0deg); transform-box: fill-box; transform-origin: center; transition: transform 1.05s cubic-bezier(0.65, 0, 0.2, 1); }
-.d750.is-open .dp { transform: translate(var(--dx), var(--dy)) rotate(var(--r)); }
-.dl { opacity: 0; transition: opacity 0.4s; pointer-events: none; } .dl path { stroke: #0e0b0a; stroke-width: 1.2; fill: none; } .dl text { font: 700 14px/1 var(--f-mono, ui-monospace, monospace); letter-spacing: 0.05em; fill: #0e0b0a; paint-order: stroke; stroke: #eee4d3; stroke-width: 4px; stroke-linejoin: round; }
-.d750.is-open .dl { opacity: 1; transition: opacity 0.6s 0.9s; }
-@media (max-width: 720px) { .d750 { width: clamp(150px, 46vw, 230px); } .dl text { font-size: 15px; } }
-@media (prefers-reduced-motion: reduce) { .d750, .dp, .dl { transition: none; } }
+.dlab { position: absolute; transform: translateX(-50%); font-size: clamp(8px, 0.82vw, 12px); line-height: 1.2; letter-spacing: 0.06em; font-weight: 700; color: #0e0b0a; text-align: center; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+.d750.is-open .dlab { opacity: 1; transition: opacity 0.5s 0.95s; }
+@media (max-width: 720px) { .d750 { width: clamp(260px, 72vw, 420px); } .dlab { font-size: 8px; white-space: normal; max-width: 22%; } }
+@media (prefers-reduced-motion: reduce) { .d750, .dpart, .dlab { transition: none; } }
