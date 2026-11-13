@@ -9,7 +9,7 @@
 <style>
   :root { --bg:#0e0e10; --pan:#161619; --sur:#1f1f24; --line:#2c2c34; --ink:#e8e8ec; --dim:#8a8a94; --acc:#3b82f6; --red:#ec2a1c; --grn:#34c759; --yel:#f6b62c; }
   * { box-sizing:border-box; } html,body { height:100%; margin:0; background:var(--bg); color:var(--ink); font:13px/1.45 Inter,"Segoe UI",Roboto,system-ui,-apple-system,sans-serif; overflow:hidden; user-select:none; -webkit-font-smoothing:antialiased; }
-  body { display:grid; grid-template-rows:46px minmax(0,1fr) 300px; grid-template-columns:240px minmax(0,1fr) 300px; grid-template-areas:"top top top" "bin view insp" "tl tl tl"; }
+  body { display:grid; grid-template-rows:46px minmax(0,1fr) 340px; grid-template-columns:240px minmax(0,1fr) 300px; grid-template-areas:"top top top" "bin view insp" "tl tl tl"; }
   button,select,label.b { font:inherit; color:var(--ink); background:var(--sur); border:1px solid var(--line); border-radius:7px; padding:6px 11px; cursor:pointer; line-height:1.2; } input[type=range] { accent-color:var(--acc); min-width:0; margin:0; }
   button:hover,label.b:hover { background:#2a2a31; } button.p { background:var(--acc); border-color:var(--acc); font-weight:600; } button.on { outline:1px solid var(--acc); }
   header { grid-area:top; display:flex; gap:8px; align-items:center; padding:0 12px; background:var(--pan); border-bottom:1px solid var(--line); overflow-x:auto; white-space:nowrap; }
@@ -32,7 +32,7 @@
   #scroll { flex:1; overflow:auto; position:relative; } #lanes { position:relative; min-width:100%; }
   #ruler { height:24px; position:sticky; top:0; z-index:5; background:var(--pan); border-bottom:1px solid var(--line); cursor:pointer; }
   .tick { position:absolute; top:0; bottom:0; border-left:1px solid #3a3a44; font:10px ui-monospace,Consolas,monospace; color:var(--dim); padding:3px 0 0 4px; }
-  .lane { position:relative; height:50px; border-bottom:1px solid var(--line); background:repeating-linear-gradient(90deg,#15151a 0 1px,transparent 1px 80px); } .lane.a { background-color:#121518; }
+  .lane { position:relative; height:40px; border-bottom:1px solid var(--line); background:repeating-linear-gradient(90deg,#15151a 0 1px,transparent 1px 80px); } .lane.a { background-color:#121518; }
   .lane label { position:sticky; left:0; z-index:4; width:44px; height:100%; display:flex; align-items:center; justify-content:center; background:#101013; border-right:1px solid var(--line); font-size:11px; font-weight:600; color:var(--dim); }
   .clip { position:absolute; top:3px; bottom:3px; border-radius:6px; overflow:hidden; border:1px solid #fff2; background:#2b4a7a; cursor:grab; } .clip.a { background:#1f5a44; } .clip.sel { outline:2px solid var(--yel); z-index:3; }
   .clip canvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; } .clip span { position:absolute; left:10px; right:10px; top:3px; font-size:11px; font-weight:500; text-shadow:0 1px 2px #000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; pointer-events:none; }
@@ -41,6 +41,7 @@
   #drop { position:fixed; inset:0; z-index:50; display:none; place-items:center; background:#0b1a3acc; font-size:22px; pointer-events:none; }
   #fxui details { border-top:1px solid var(--line); padding:6px 0; } #fxui summary { cursor:pointer; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); padding:6px 0; } #fxui summary:hover { color:var(--ink); } #fxui .chk { grid-column:2 / 4; display:flex; gap:8px; align-items:center; color:var(--ink); } #fxui input[type=color] { grid-column:2 / 4; width:46px; height:26px; padding:0; border:1px solid var(--line); background:none; } #fxui .note { margin:4px 0 8px; font-size:12px; color:var(--dim); }
   canvas#ov { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; pointer-events:none; }
+  .clip { touch-action:none; user-select:none; } .clip.dragging { cursor:grabbing; box-shadow:0 8px 22px #000a; z-index:6; opacity:.93; } #snapline { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--yel); z-index:9; pointer-events:none; display:none; box-shadow:0 0 8px var(--yel); } button#mag.on { background:var(--acc); color:#fff; border-color:transparent; }
   #toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:#000d; padding:8px 14px; border-radius:9px; opacity:0; transition:opacity .2s; z-index:60; pointer-events:none; max-width:80vw; }
   dialog { background:var(--pan); color:var(--ink); border:1px solid var(--line); border-radius:12px; padding:16px; max-width:520px; } dialog::backdrop { background:#000a; } dialog h3 { margin:0 0 10px; }
   kbd { background:#2a2a31; border:1px solid var(--line); border-radius:4px; padding:0 5px; font:11px ui-monospace,monospace; } table.k td { padding:2px 8px 2px 0; }
@@ -94,12 +95,14 @@
       <div class="row"><span></span><label class="chk"><input type="checkbox" data-fx="flipV" /> Vertical</label></div>
     </details>
     <details><summary>Mask and chroma key</summary>
-      <div class="row"><span>Mask shape</span><select data-fx="mask.shape"><option value="none">None</option><option value="rect">Rectangle</option><option value="ellipse">Ellipse</option></select></div>
+      <div class="row"><span>Mask shape</span><select data-fx="mask.shape"><option value="none">None</option><option value="rect">Rectangle</option><option value="ellipse">Ellipse</option><optgroup label="Scattered patterns (layer videos through them)"><option value="pat1">Scatter dots</option><option value="pat2">Halftone</option><option value="pat3">Shards</option><option value="pat4">Torn paper</option><option value="pat5">Confetti</option><option value="pat6">Brush strokes</option><option value="pat7">Blinds</option><option value="pat8">Checker scatter</option><option value="pat9">Ink blobs</option><option value="pat10">Mosaic tiles</option></optgroup></select></div>
       <div class="row"><span>Centre X</span><input type="range" data-fx="mask.x" min="0" max="100" value="50" /><output></output></div>
       <div class="row"><span>Centre Y</span><input type="range" data-fx="mask.y" min="0" max="100" value="50" /><output></output></div>
       <div class="row"><span>Width</span><input type="range" data-fx="mask.w" min="2" max="200" value="60" /><output></output></div>
       <div class="row"><span>Height</span><input type="range" data-fx="mask.h" min="2" max="200" value="60" /><output></output></div>
       <div class="row"><span>Feather</span><input type="range" data-fx="mask.feather" min="0" max="100" value="0" /><output></output></div>
+      <div class="row"><span>Coverage</span><input type="range" data-fx="mask.cov" min="5" max="95" value="50" /><output></output></div>
+      <div class="row btns"><button id="patshuffle">Shuffle pattern</button></div>
       <div class="row"><span></span><label class="chk"><input type="checkbox" data-fx="mask.inv" /> Invert mask</label></div>
       <div class="row"><span>Green screen</span><label class="chk"><input type="checkbox" data-fx="key.on" /> Key out a colour</label></div>
       <div class="row"><span>Key colour</span><input type="color" data-fx="key.color" value="#00ff00" /></div>
@@ -145,7 +148,7 @@
   <div class="row"><span>Quality</span><input id="x_crf" type="range" min="14" max="30" value="20" /><output></output></div>
 </aside>
 <section id="tl">
-  <div id="tools"><button id="split" title="S">Split</button><button id="del" title="Del">Delete</button><button id="ripple" title="Shift+Del">Ripple delete</button><button id="dup" title="D">Duplicate</button><button id="ovl" title="Make the selected clip a screen-blended overlay on V2">To overlay</button>
+  <div id="tools"><button id="split" title="S">Split</button><button id="del" title="Del">Delete</button><button id="ripple" title="Shift+Del">Ripple delete</button><button id="dup" title="D">Duplicate</button><button id="mag" title="Magnet: clips and the playhead snap to the nearest edge (N). Hold Alt to drag freely">Magnet</button><button id="ovl" title="Make the selected clip a screen-blended overlay on V2">To overlay</button>
     <span class="sp"></span><span class="dim">Zoom</span><input id="zoom" type="range" min="10" max="400" value="60" /></div>
   <div id="scroll"><div id="lanes"><div id="ruler"></div><div id="head"></div></div></div>
 </section>
@@ -242,7 +245,7 @@ async function exportEDL({ edl, opts, luts }) {
       const c = clips[k];
       const off = Math.max(0, c.start - t0), s = Math.max(0, t0 - c.start), dur = Math.min(c.start + c.dur, t1) - Math.max(c.start, t0), inS = c.in + s * c.speed;
       inputs.push('-ss', inS.toFixed(3), '-t', (dur * c.speed).toFixed(3), '-i', srcPath(c.media, c.ext));
-      if (c.hasVideo && c.track < 2) {
+      if (c.hasVideo && c.track < 4) {
         const F = c.fx || {}, E = F.e || {}, MK = F.mask || {}, KY = F.key || {}, AI = F.ai || {}, scl = (F.sc == null ? 100 : F.sc) / 100, sg = W / 1920, bm = F.blend || 'normal', opa = (F.op == null ? 100 : F.op) / 100;
         const ev = (v) => (v % 2 ? v + 1 : v), mw = c.w || W, mh = c.h || H, rr = Math.min(W * scl / mw, H * scl / mh), fw = Math.max(2, ev(Math.round(mw * rr))), fh = Math.max(2, ev(Math.round(mh * rr)));
         let cl = k + ':v', n = 0; const L = (p) => 'l' + k + p, step = (f) => { const o = L('_' + (n++)); fg.push('[' + cl + ']' + f + '[' + o + ']'); cl = o; };
@@ -263,7 +266,10 @@ async function exportEDL({ edl, opts, luts }) {
         if (E.glow) { const a = L('ga'), b = L('gb'), g = L('gc'), o = L('_' + (n++)); fg.push('[' + cl + ']split[' + a + '][' + b + ']'); fg.push('[' + b + ']gblur=sigma=' + (10 * sg).toFixed(1) + ',eq=brightness=0.04[' + g + ']'); fg.push('[' + a + '][' + g + ']blend=all_mode=screen:all_opacity=' + (E.glow / 100).toFixed(2) + '[' + o + ']'); cl = o; }
         const grays = []; let hasA = false;
         if (KY.on) { const a = L('ka'), b = L('kb'), g = L('kg'); fg.push('[' + cl + ']split[' + a + '][' + b + ']'); fg.push('[' + b + ']format=rgba,colorkey=0x' + String(KY.color || '#00ff00').replace('#', '') + ':' + ((KY.sim == null ? 35 : KY.sim) / 100 * 0.9).toFixed(2) + ':' + ((KY.soft == null ? 12 : KY.soft) / 100).toFixed(2) + ',alphaextract[' + g + ']'); cl = a; grays.push(g); }
-        if (MK.shape && MK.shape !== 'none') {
+        if (MK.shape && String(MK.shape).indexOf('pat') === 0 && c.pat) {
+          const pg = L('pg'), pi = clips.length + exN++; core.FS.writeFile('/p' + k + '.raw', c.pat); extra.push('-f', 'rawvideo', '-pixel_format', 'gray', '-video_size', '512x288', '-framerate', String(fps), '-i', '/p' + k + '.raw');
+          fg.push('[' + pi + ':v]loop=loop=-1:size=1,trim=duration=' + dur.toFixed(3) + ',setpts=PTS-STARTPTS,fps=' + fps + ',scale=' + fw + ':' + fh + ':flags=bilinear,format=gray' + (MK.inv ? ',negate' : '') + '[' + pg + ']'); grays.push(pg);
+        } else if (MK.shape && MK.shape !== 'none') {
           const g = L('sg'), hw = Math.max(0.005, (MK.w == null ? 60 : MK.w) / 200), hh = Math.max(0.005, (MK.h == null ? 60 : MK.h) / 200), ff = Math.max(0.01, (MK.feather || 0) / 100 * 0.5);
           const nx = '(X/W-' + ((MK.x == null ? 50 : MK.x) / 100) + ')/' + hw, ny = '(Y/H-' + ((MK.y == null ? 50 : MK.y) / 100) + ')/' + hh, d = MK.shape === 'ellipse' ? 'hypot(' + nx + ',' + ny + ')' : 'max(abs(' + nx + '),abs(' + ny + '))';
           const v = MK.feather ? 'clip((1-' + d + ')/' + ff + ',0,1)' : 'lt(' + d + ',1)', lum = MK.inv ? '255*(1-' + v + ')' : '255*' + v;
@@ -330,15 +336,15 @@ let toastT; const toast = (m, ms = 3200) => { const t = $('#toast'); t.textConte
 function ask(title, body, buttons) { return new Promise((res) => { $('#dt').textContent = title; $('#db').innerHTML = body; const b = $('#dbtn'); b.innerHTML = ''; buttons.forEach(([label, val, cls]) => { const x = document.createElement('button'); x.textContent = label; if (cls) x.className = cls; x.onclick = () => { $('#dlg').close(); res(val); }; b.append(x); }); $('#dlg').showModal(); }); }
 
 /* ===================== state ===================== */
-const G = 44, NT = 4;                                                                   // V1 V2 A1 A2
+const G = 44, NT = 6;                                                                   // V1 V2 A1 A2
 const S = { media: {}, clips: [], playhead: 0, zoom: 60, selected: null, masterEq: new Array(10).fill(0), luts: {}, ver: 1 };
 const files = new Map();                                                        // mediaId -> File (disk-backed reference, never read into memory)
 const segs = new Map();                                                         // mediaId -> Map(index -> File in OPFS)
 const peaks = new Map();                                                        // mediaId -> Int8Array[]
 let undoStack = [], redoStack = [], dirty = false;
-const snapshot = () => JSON.stringify({ media: Object.fromEntries(Object.entries(S.media).map(([k, m]) => [k, { ...m, proxy: m.proxy }])), clips: S.clips, masterEq: S.masterEq, luts: S.luts });
+const snapshot = () => JSON.stringify({ tv: 2, media: Object.fromEntries(Object.entries(S.media).map(([k, m]) => [k, { ...m, proxy: m.proxy }])), clips: S.clips, masterEq: S.masterEq, luts: S.luts });
 function commit() { undoStack.push(snapshot()); if (undoStack.length > 80) undoStack.shift(); redoStack = []; dirty = true; renderTimeline(); }
-function restore(js) { const o = JSON.parse(js); S.media = o.media; S.clips = o.clips; S.masterEq = o.masterEq; S.luts = o.luts || {}; if (!S.clips.find((c) => c.id === S.selected)) S.selected = null; dirty = true; renderAll(); }
+function restore(js) { const o = JSON.parse(js); if (o.tv !== 2) (o.clips || []).forEach((c) => { if (c.track >= 2) c.track += 2; }); S.media = o.media; S.clips = o.clips; S.masterEq = o.masterEq; S.luts = o.luts || {}; if (!S.clips.find((c) => c.id === S.selected)) S.selected = null; dirty = true; renderAll(); }
 $('#undo').onclick = () => { if (undoStack.length > 1) { redoStack.push(undoStack.pop()); restore(undoStack[undoStack.length - 1]); } };
 $('#redo').onclick = () => { if (redoStack.length) { const s = redoStack.pop(); undoStack.push(s); restore(s); } };
 
@@ -436,7 +442,7 @@ addEventListener('drop', async (e) => { e.preventDefault(); $('#drop').style.dis
 
 /* ===================== timeline model + UI ===================== */
 function addClip(mediaId, track, start) {
-  const md = S.media[mediaId]; if (!md || !md.dur) return; const tr = track ?? (md.kind === 'audio' ? 2 : 0);
+  const md = S.media[mediaId]; if (!md || !md.dur) return; const tr = track ?? (md.kind === 'audio' ? 4 : 0);
   const end = S.clips.filter((c) => c.track === tr).reduce((m, c) => Math.max(m, c.start + c.dur), 0);
   const c = { id: uid(), media: mediaId, track: tr, start: start ?? end, in: 0, dur: md.dur, speed: 1, vol: 1, fi: 0, fo: 0, color: { exp: 0, con: 0, sat: 0, tmp: 0, tnt: 0 }, lut: '', lutAmt: 100, eq: new Array(10).fill(0), echo: 0, dist: 0, buzz: 0, comp: 0 };
   S.clips.push(c); S.selected = c.id; commit(); if (md.hasVideo && md.hasAudio && tr < 2) { /* audio comes with the video clip */ }
@@ -447,25 +453,55 @@ function renderTimeline() {
   const L = $('#lanes'), z = S.zoom; L.style.width = Math.max(G + total() * z, $('#scroll').clientWidth) + 'px';
   [...L.querySelectorAll('.lane,.clip')].forEach((n) => n.remove());
   const rl = $('#ruler'); rl.innerHTML = ''; const step = z > 120 ? 1 : z > 40 ? 5 : 15; for (let t = 0; t < total(); t += step) { const k = document.createElement('div'); k.className = 'tick'; k.style.left = G + t * z + 'px'; k.textContent = fmtT(t).slice(0, 8); rl.append(k); }
-  ['V1', 'V2', 'A1', 'A2'].forEach((n, i) => { const lane = document.createElement('div'); lane.className = 'lane' + (i > 1 ? ' a' : ''); lane.dataset.track = i; lane.innerHTML = '<label>' + n + '</label>'; lane.ondragover = (e) => e.preventDefault(); lane.ondrop = (e) => { const id = e.dataTransfer.getData('text/mosaic'); if (id) { e.preventDefault(); addClip(id, i, Math.max(0, (e.clientX - lane.getBoundingClientRect().left - G) / S.zoom)); } }; L.append(lane); });
+  ['V1', 'V2', 'V3', 'V4', 'A1', 'A2'].forEach((n, i) => { const lane = document.createElement('div'); lane.className = 'lane' + (i > 3 ? ' a' : ''); lane.dataset.track = i; lane.innerHTML = '<label>' + n + '</label>'; lane.ondragover = (e) => e.preventDefault(); lane.ondrop = (e) => { const id = e.dataTransfer.getData('text/mosaic'); if (id) { e.preventDefault(); addClip(id, i, Math.max(0, (e.clientX - lane.getBoundingClientRect().left - G) / S.zoom)); } }; L.append(lane); });
   S.clips.forEach((c) => {
-    const md = S.media[c.media]; if (!md) return; const el = document.createElement('div'); el.className = 'clip' + (c.track > 1 ? ' a' : '') + (c.id === S.selected ? ' sel' : ''); el.dataset.id = c.id;
+    const md = S.media[c.media]; if (!md) return; const el = document.createElement('div'); el.className = 'clip' + (c.track > 3 ? ' a' : '') + (c.id === S.selected ? ' sel' : ''); el.dataset.id = c.id;
     el.style.left = G + c.start * z + 'px'; el.style.width = Math.max(6, c.dur / c.speed * z) + 'px'; el.innerHTML = '<canvas></canvas><span>' + md.name + '</span><i class="h l"></i><i class="h r"></i>';
     $$('.lane')[c.track].append(el); wire(el, c); drawWave(el.querySelector('canvas'), c);
   });
   $('#head').style.left = G + S.playhead * z + 'px'; fillInspector();
 }
-function wire(el, c) {                                                          // drag = move (snaps), edges = trim
+let magnet = (() => { try { return localStorage.getItem('ms-mag') !== '0'; } catch (e) { return true; } })(), altDown = false;
+const MAG_PX = 12, laneOf = (y) => $$('.lane').find((l) => { const r = l.getBoundingClientRect(); return y >= r.top && y < r.bottom; });
+addEventListener('keydown', (e) => { if (e.key === 'Alt') altDown = true; }); addEventListener('keyup', (e) => { if (e.key === 'Alt') altDown = false; }); addEventListener('blur', () => { altDown = false; });
+function snapPts(skip) { const p = [0, S.playhead]; for (const o of S.clips) if (o !== skip) p.push(o.start, o.start + o.dur / o.speed); return p; }
+function nearestPt(t, pts) { let best = null, bd = MAG_PX / S.zoom; for (const p of pts) { const d = Math.abs(p - t); if (d < bd) { bd = d; best = p; } } return best; }
+function snapLine(t) { let g = $('#snapline'); if (!g) { g = document.createElement('div'); g.id = 'snapline'; $('#lanes').append(g); } if (t == null) { g.style.display = 'none'; return; } g.style.display = 'block'; g.style.left = G + t * S.zoom + 'px'; }
+/* clips: drag anywhere (smooth, no re-render while dragging), edges trim. With the magnet on, a clip's start OR end jumps to the nearest edge,
+   the playhead or time zero within 12 px, and a yellow guide shows what it caught. Hold Alt to drag freely. */
+function wire(el, c) {
   el.onpointerdown = (e) => {
-    e.stopPropagation(); S.selected = c.id; const mode = e.target.classList.contains('l') ? 'l' : e.target.classList.contains('r') ? 'r' : 'm', x0 = e.clientX, s0 = c.start, d0 = c.dur, i0 = c.in, tr0 = c.track; el.setPointerCapture(e.pointerId); let moved = false;
-    const snapTo = (t) => { const pts = [0, S.playhead, ...S.clips.filter((o) => o !== c).flatMap((o) => [o.start, o.start + o.dur / o.speed])]; for (const p of pts) if (Math.abs(p - t) * S.zoom < 8) return p; return t; };
-    el.onpointermove = (e) => { const dt = (e.clientX - x0) / S.zoom; if (Math.abs(e.clientX - x0) > 2) moved = true; if (mode === 'm') { c.start = Math.max(0, snapTo(s0 + dt)); const ln = document.elementFromPoint(e.clientX, e.clientY)?.closest?.('.lane'); if (ln && ln.dataset.track !== undefined && ((+ln.dataset.track > 1) === (tr0 > 1))) c.track = +ln.dataset.track; }
-      else if (mode === 'l') { const d = Math.min(d0 - 0.1, Math.max(-i0, dt)); c.start = s0 + d; c.in = i0 + d * c.speed; c.dur = d0 - d * c.speed; } else c.dur = Math.max(0.1, Math.min(S.media[c.media].dur - c.in, d0 + dt * c.speed)); renderTimeline(); };
-    el.onpointerup = () => { el.onpointermove = null; if (moved) commit(); else renderTimeline(); };
+    if (e.button !== 0) return; e.stopPropagation(); e.preventDefault();
+    const mode = e.target.classList.contains('l') ? 'l' : e.target.classList.contains('r') ? 'r' : 'm', sc = $('#scroll');
+    const x0 = e.clientX, y0 = e.clientY, sl0 = sc.scrollLeft, s0 = c.start, d0 = c.dur, i0 = c.in, tr0 = c.track, len0 = c.dur / c.speed;
+    let moved = false, active = true, cx = x0, cy = y0, raf = 0;
+    if (S.selected !== c.id) { S.selected = c.id; $$('.clip.sel').forEach((n) => n.classList.remove('sel')); el.classList.add('sel'); fillInspector(); tick(true); }
+    const pts = snapPts(c), mag = () => magnet && !altDown;
+    const apply = () => {
+      const dt = (cx + sc.scrollLeft - x0 - sl0) / S.zoom; let snapped = null;
+      if (mode === 'm') {
+        let st = Math.max(0, s0 + dt);
+        if (mag()) { const a = nearestPt(st, pts), b = nearestPt(st + len0, pts), da = a == null ? 9e9 : Math.abs(a - st), db = b == null ? 9e9 : Math.abs(b - st - len0); if (a != null && da <= db) { st = a; snapped = a; } else if (b != null) { st = Math.max(0, b - len0); snapped = b; } }
+        c.start = st; const ln = laneOf(cy); if (ln && (+ln.dataset.track > 3) === (tr0 > 3) && +ln.dataset.track !== c.track) { c.track = +ln.dataset.track; ln.append(el); el.classList.toggle('a', c.track > 3); }
+      } else if (mode === 'l') {
+        let d = Math.min(d0 - 0.1, Math.max(-i0, dt)); if (mag()) { const p = nearestPt(s0 + d, pts); if (p != null) { d = Math.min(d0 - 0.1, Math.max(-i0, p - s0)); snapped = s0 + d; } }
+        c.start = s0 + d; c.in = i0 + d * c.speed; c.dur = d0 - d * c.speed;
+      } else {
+        const lim = S.media[c.media].dur - c.in; let nd = Math.max(0.1, Math.min(lim, d0 + dt * c.speed)); if (mag()) { const p = nearestPt(s0 + nd / c.speed, pts); if (p != null) { nd = Math.max(0.1, Math.min(lim, (p - s0) * c.speed)); snapped = s0 + nd / c.speed; } } c.dur = nd;
+      }
+      el.style.left = G + c.start * S.zoom + 'px'; el.style.width = Math.max(6, c.dur / c.speed * S.zoom) + 'px'; snapLine(snapped);
+    };
+    const loop = () => {
+      if (!active) return; const r = sc.getBoundingClientRect(); let v = 0; if (moved) { if (cx > r.right - 60) v = (cx - r.right + 60) / 3; else if (cx < r.left + G + 40 && sc.scrollLeft > 0) v = -(r.left + G + 40 - cx) / 3; if (v) sc.scrollLeft += v; apply(); }
+      raf = requestAnimationFrame(loop);
+    };
+    const move = (ev) => { cx = ev.clientX; cy = ev.clientY; if (!moved && Math.abs(cx - x0) + Math.abs(cy - y0) > 3) { moved = true; el.classList.add('dragging'); } };
+    const up = () => { active = false; cancelAnimationFrame(raf); removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); el.classList.remove('dragging'); snapLine(null); if (moved) commit(); };
+    addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', up); raf = requestAnimationFrame(loop);
   };
 }
 $('#lanes').onpointerdown = (e) => { if (e.target.closest('.clip')) return; S.selected = null; seekFromEvent(e); renderTimeline(); const mv = (ev) => seekFromEvent(ev), up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); }; addEventListener('pointermove', mv); addEventListener('pointerup', up); };
-function seekFromEvent(e) { const r = $('#lanes').getBoundingClientRect(); setPlayhead(Math.max(0, (e.clientX - r.left - G) / S.zoom)); }
+function seekFromEvent(e) { const r = $('#lanes').getBoundingClientRect(); let t = Math.max(0, (e.clientX - r.left - G) / S.zoom); if (magnet && !altDown) { const p = nearestPt(t, snapPts(null)); if (p != null) { t = p; snapLine(p); clearTimeout(seekFromEvent.t); seekFromEvent.t = setTimeout(() => snapLine(null), 350); } } setPlayhead(t); }
 $('#zoom').oninput = (e) => { S.zoom = +e.target.value; renderTimeline(); };
 $('#scroll').addEventListener('wheel', (e) => { if (e.ctrlKey) { e.preventDefault(); S.zoom = Math.max(10, Math.min(400, S.zoom * (e.deltaY < 0 ? 1.15 : 0.87))); $('#zoom').value = S.zoom; renderTimeline(); } }, { passive: false });
 function drawWave(cv, c) {                                                      // full waveform from the streamed peaks (20 ms buckets)
@@ -484,7 +520,7 @@ function fillInspector() {
   const c = sel(); $('#clipui').hidden = !c; $('#nosel').hidden = !!c;
   eqUI($('#meq'), () => S.masterEq, (a, cm) => { S.masterEq = a; applyAudio(); if (cm) commit(); });
   $('#x_crf').nextElementSibling.textContent = $('#x_crf').value;
-  if (!c) return; const md = S.media[c.media]; $$('.vonly').forEach((n) => (n.hidden = !md.hasVideo || c.track > 1));
+  if (!c) return; const md = S.media[c.media]; $$('.vonly').forEach((n) => (n.hidden = !md.hasVideo || c.track > 3));
   for (const [id, [k, f, show]] of Object.entries(SL)) { const el = $('#' + id); el.value = k === 'speed' || k === 'vol' ? c[k] * 100 : k === 'fi' || k === 'fo' ? c[k] * 10 : c[k]; el.nextElementSibling.textContent = show(+el.value); }
   for (const [id, k] of Object.entries(COL)) { const el = $('#' + id); el.value = c.color[k]; el.nextElementSibling.textContent = el.value; }
   $('#c_lut').innerHTML = '<option value="">None</option>' + Object.keys(S.luts).map((n) => '<option' + (c.lut === n ? ' selected' : '') + '>' + n + '</option>').join('');
@@ -507,7 +543,7 @@ in vec2 p; out vec2 uv; out vec2 vu; uniform vec2 sc, off, fl;
 void main(){ vu=vec2(p.x*.5+.5,1.-(p.y*.5+.5)); uv=vu; if(fl.x>.5) uv.x=1.-uv.x; if(fl.y>.5) uv.y=1.-uv.y; gl_Position=vec4(p*sc+off,0,1); }`));
 gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, `#version 300 es
 precision highp float; precision highp sampler3D; in vec2 uv; in vec2 vu; out vec4 o;
-uniform sampler2D tx, msk; uniform sampler3D lut; uniform float ex,co,sa,tm,tn,la,op,t,sharp,hasMsk; uniform bool hasLut; uniform vec2 px;
+uniform sampler2D tx, msk, pat; uniform sampler3D lut; uniform float ex,co,sa,tm,tn,la,op,t,sharp,hasMsk; uniform bool hasLut; uniform vec2 px;
 uniform vec4 e1, e2, mk, mg, ky, ai; uniform vec3 kc, bc;
 vec3 smp(vec2 u){ return texture(tx,u).rgb; }
 vec3 blurAt(vec2 u,float r){ vec3 s=vec3(0.); float w=0.; for(int i=-2;i<=2;i++) for(int j=-2;j<=2;j++){ float k=exp(-float(i*i+j*j)*.25); s+=smp(u+vec2(float(i),float(j))*px*r)*k; w+=k; } return s/w; }
@@ -522,7 +558,7 @@ void main(){
   c*=pow(2.,ex); c.r+=tm*.002; c.b-=tm*.002; c.g+=tn*.002; c=(c-.5)*(1.+co*.01)+.5; float l=dot(c,vec3(.2126,.7152,.0722)); c=mix(vec3(l),c,1.+sa*.01); c=clamp(c,0.,1.); if(hasLut) c=mix(c,texture(lut,c).rgb,la);
   float a=op;
   if(ky.x>.5){ float d=distance(c,kc)*.58; a*=smoothstep(ky.y,ky.y+max(ky.z,.001),d); }
-  if(mk.x>.5){ vec2 n=(vu-mg.xy)/mg.zw; float d= mk.x<1.5 ? max(abs(n.x),abs(n.y)) : length(n); float m= mk.y>0. ? clamp((1.-d)/mk.y,0.,1.) : step(d,1.); if(mk.z>.5) m=1.-m; a*=m; }
+  if(mk.x>2.5){ float m=texture(pat,vu).r; if(mk.z>.5) m=1.-m; a*=m; } else if(mk.x>.5){ vec2 n=(vu-mg.xy)/mg.zw; float d= mk.x<1.5 ? max(abs(n.x),abs(n.y)) : length(n); float m= mk.y>0. ? clamp((1.-d)/mk.y,0.,1.) : step(d,1.); if(mk.z>.5) m=1.-m; a*=m; }
   if(ai.x>.5 && hasMsk>.5){ float m=smoothstep(.5-ai.y,.5+ai.y,texture(msk,uv).r); if(ai.x<1.5) a*=m; else if(ai.x<2.5) c=mix(blurAt(u,16.),c,m); else c=mix(bc,c,m); }
   l=dot(c,vec3(.2126,.7152,.0722)); c=mix(c,vec3(l),e2.z*.01); c=mix(c,1.-c,e2.w*.01);
   c*=1.-e1.z*.01*smoothstep(.35,1.1,length(vu-.5)*1.5);
@@ -532,9 +568,9 @@ void main(){
 gl.linkProgram(prog); if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) console.error('link', gl.getProgramInfoLog(prog)); gl.useProgram(prog);
 const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 const texInit = (unit, target) => { const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(target, t); [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]].forEach(([a, b]) => gl.texParameteri(target, a, b)); return t; };
-const vtex = texInit(0, gl.TEXTURE_2D), mtex = texInit(2, gl.TEXTURE_2D);
-const u = {}; ['tx', 'msk', 'lut', 'ex', 'co', 'sa', 'tm', 'tn', 'la', 'op', 't', 'sharp', 'hasMsk', 'hasLut', 'px', 'e1', 'e2', 'mk', 'mg', 'ky', 'ai', 'kc', 'bc', 'sc', 'off', 'fl'].forEach((n) => (u[n] = gl.getUniformLocation(prog, n)));
-gl.uniform1i(u.tx, 0); gl.uniform1i(u.lut, 1); gl.uniform1i(u.msk, 2); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+const vtex = texInit(0, gl.TEXTURE_2D), mtex = texInit(2, gl.TEXTURE_2D), ptex = texInit(3, gl.TEXTURE_2D);
+const u = {}; ['tx', 'msk', 'lut', 'ex', 'co', 'sa', 'tm', 'tn', 'la', 'op', 't', 'sharp', 'hasMsk', 'hasLut', 'px', 'e1', 'e2', 'mk', 'mg', 'ky', 'ai', 'kc', 'bc', 'sc', 'off', 'fl', 'pat'].forEach((n) => (u[n] = gl.getUniformLocation(prog, n)));
+gl.uniform1i(u.tx, 0); gl.uniform1i(u.lut, 1); gl.uniform1i(u.msk, 2); gl.uniform1i(u.pat, 3); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
 gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, mtex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 256, 144, 0, gl.RED, gl.UNSIGNED_BYTE, new Uint8Array(256 * 144));
 gl.enable(gl.BLEND);
 const lutTex = new Map(); function lutFor(name) { if (!name || !S.luts[name]) return null; if (lutTex.has(name)) return lutTex.get(name); const { size, data } = parseCube(S.luts[name]); if (!size) return null; const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_3D, t); [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE]].forEach(([a, b]) => gl.texParameteri(gl.TEXTURE_3D, a, b)); const u8 = new Uint8Array(data.length); for (let i = 0; i < data.length; i++) u8[i] = Math.max(0, Math.min(255, Math.round(data[i] * 255))); gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGB8, size, size, size, 0, gl.RGB, gl.UNSIGNED_BYTE, u8); lutTex.set(name, t); return t; }
@@ -575,13 +611,13 @@ function trimPool(active) {                                                     
 function activeClips() { return S.clips.filter((c) => S.playhead >= c.start && S.playhead < c.start + c.dur / c.speed); }
 function setPlayhead(t) { S.playhead = Math.max(0, t); pStart = S.playhead; tStart = performance.now(); $('#head').style.left = G + S.playhead * S.zoom + 'px'; $('#tc').textContent = fmtT(S.playhead); if (!playing) tick(true); }
 /* ---- per-clip compositing settings (position, opacity, blend, mask, key, FX, AI). Old clips get defaults on first use. ---- */
-const FXD = () => ({ x: 0, y: 0, sc: 100, op: 100, blend: 'normal', flipH: 0, flipV: 0, mask: { shape: 'none', x: 50, y: 50, w: 60, h: 60, feather: 0, inv: 0 }, key: { on: 0, color: '#00ff00', sim: 35, soft: 12 }, ai: { bg: 'off', color: '#00ff00', edge: 12, baked: null }, e: { blur: 0, glow: 0, vig: 0, rgb: 0, pix: 0, grain: 0, bw: 0, inv: 0, sharp: 0 }, det: 0 });
+const FXD = () => ({ x: 0, y: 0, sc: 100, op: 100, blend: 'normal', flipH: 0, flipV: 0, mask: { shape: 'none', x: 50, y: 50, w: 60, h: 60, feather: 0, inv: 0, cov: 50, seed: 1 }, key: { on: 0, color: '#00ff00', sim: 35, soft: 12 }, ai: { bg: 'off', color: '#00ff00', edge: 12, baked: null }, e: { blur: 0, glow: 0, vig: 0, rgb: 0, pix: 0, grain: 0, bw: 0, inv: 0, sharp: 0 }, det: 0 });
 function fxOf(c) { const d = FXD(), f = c.fx || (c.fx = d); for (const k of Object.keys(d)) { if (f[k] === undefined) f[k] = d[k]; else if (d[k] && typeof d[k] === 'object') for (const kk of Object.keys(d[k])) if (f[k][kk] === undefined) f[k][kk] = d[k][kk]; } return f; }
 const hexRGB = (h) => { const n = parseInt(String(h).replace('#', ''), 16) || 0; return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; };
 const AIMODE = { off: 0, transparent: 1, blur: 2, color: 3 }, SHAPE = { none: 0, rect: 1, ellipse: 2 };
 const aiMasks = new Map(), aiLast = new Map(), detBoxes = new Map();      // clipId -> latest mask / last time processed / latest person boxes
 const ai = { vision: null, seg: null, det: null, segObj: null, detObj: null, ts: 0, c: document.createElement('canvas'), idx: 0 }; ai.c.width = 256; ai.c.height = 144; const aix = ai.c.getContext('2d', { willReadFrequently: true });
-function projectAspect() { const v = S.clips.filter((c) => c.track < 2 && S.media[c.media] && S.media[c.media].hasVideo && S.media[c.media].w).sort((a, b) => a.start - b.start)[0]; return v ? S.media[v.media].w / S.media[v.media].h : 16 / 9; }
+function projectAspect() { const v = S.clips.filter((c) => c.track < 4 && S.media[c.media] && S.media[c.media].hasVideo && S.media[c.media].w).sort((a, b) => a.start - b.start)[0]; return v ? S.media[v.media].w / S.media[v.media].h : 16 / 9; }
 function tick(forceSeek) {
   const act = activeClips(), set = new Set(act.map((c) => c.id)); let drawn = false, cleared = false;
   for (const c of act.sort((a, b) => a.track - b.track)) {
@@ -589,7 +625,7 @@ function tick(forceSeek) {
     const el = e.p.el; if (el.playbackRate !== c.speed) el.playbackRate = Math.max(0.0625, Math.min(16, c.speed));
     if (forceSeek || Math.abs(el.currentTime - e.at) > 0.3) { try { el.currentTime = e.at; } catch (er) { /* not ready */ } }
     if (playing && el.paused) el.play().catch(() => {}); if (!playing && !el.paused) el.pause();
-    if (c.track < 2 && S.media[c.media].hasVideo && el.readyState >= 2) { if (!cleared) { gl.viewport(0, 0, cv.width, cv.height); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); cleared = true; } aiStep(c, el, forceSeek); draw(el, c); drawn = true; }
+    if (c.track < 4 && S.media[c.media].hasVideo && el.readyState >= 2) { if (!cleared) { gl.viewport(0, 0, cv.width, cv.height); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); cleared = true; } aiStep(c, el, forceSeek); draw(el, c); drawn = true; }
   }
   for (const [id, p] of pool) if (!set.has(id) && !p.el.paused) p.el.pause();
   if (!drawn && !act.length) { gl.viewport(0, 0, cv.width, cv.height); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
@@ -604,7 +640,7 @@ function draw(el, c) {
   gl.uniform1f(u.ex, c.color.exp / 100); gl.uniform1f(u.co, c.color.con); gl.uniform1f(u.sa, c.color.sat); gl.uniform1f(u.tm, c.color.tmp); gl.uniform1f(u.tn, c.color.tnt); gl.uniform1f(u.la, c.lutAmt / 100);
   gl.uniform1f(u.op, F.op / 100); gl.uniform1f(u.t, (performance.now() / 1000) % 97); gl.uniform1f(u.sharp, E.sharp);
   gl.uniform4f(u.e1, E.blur, E.glow, E.vig, E.rgb); gl.uniform4f(u.e2, E.pix, E.grain, E.bw, E.inv);
-  gl.uniform4f(u.mk, SHAPE[M.shape] || 0, M.feather / 100 * 0.5, M.inv ? 1 : 0, 0); gl.uniform4f(u.mg, M.x / 100, M.y / 100, Math.max(0.005, M.w / 200), Math.max(0.005, M.h / 200));
+  const isPat = /^pat/.test(M.shape); if (isPat) patBind(M); gl.uniform4f(u.mk, isPat ? 3 : (SHAPE[M.shape] || 0), M.feather / 100 * 0.5, M.inv ? 1 : 0, 0); gl.uniform4f(u.mg, M.x / 100, M.y / 100, Math.max(0.005, M.w / 200), Math.max(0.005, M.h / 200));
   const kc = hexRGB(K.color); gl.uniform4f(u.ky, K.on ? 1 : 0, K.sim / 100, K.soft / 100, 0); gl.uniform3f(u.kc, kc[0], kc[1], kc[2]);
   const bc = hexRGB(A.color); gl.uniform3f(u.bc, bc[0], bc[1], bc[2]); const am = AIMODE[A.bg] || 0, mk = aiMasks.get(c.id);
   gl.uniform4f(u.ai, mk ? am : 0, A.edge / 100, 0, 0); gl.uniform1f(u.hasMsk, mk ? 1 : 0);
@@ -687,11 +723,41 @@ $('#export').onclick = async () => {
   for (const c of S.clips) { const F = fxOf(c); if (F.ai.bg !== 'off' && S.media[c.media].hasVideo && (!F.ai.baked || !F.ai.baked.ok || c.in < F.ai.baked.in - 0.01 || c.in + c.dur > F.ai.baked.in + F.ai.baked.frames / F.ai.baked.fps + 0.1)) { const yes = await ask('Bake the AI mask first', 'The clip <b>' + esc(S.media[c.media].name) + '</b> removes its background with AI. That mask has to be baked once so the export can use it (about as long as the clip, done in the background).', [['Cancel export', false], ['Bake now', true, 'p']]); if (!yes) return; await bakeMask(c); const G = fxOf(c); if (!G.ai.baked || !G.ai.baked.ok) return toast('Export stopped: the mask was not baked'); } }
   let handle = null; try { handle = await showSaveFilePicker({ suggestedName: 'mosaicSpace_' + W + 'x' + H + '.ts', types: [{ description: 'MPEG transport stream', accept: { 'video/mp2t': ['.ts'] } }] }); xw = await handle.createWritable(); } catch (e) { toast('Pick a file to save to (Chrome/Edge). Export cancelled.'); return; }
   await startWorker(); xBytes = 0; const used = new Set(S.clips.map((c) => c.media)); for (const id of used) await mountMedia(id);
-  const luts = {}, edl = { total: tot, masterEq: S.masterEq, clips: S.clips.map((c) => { const md = S.media[c.media]; if (c.lut && S.luts[c.lut]) luts[c.lut] = S.luts[c.lut]; return { id: c.id, w: md.w, h: md.h, fx: fxOf(c), media: c.media, ext: md.ext, track: c.track, start: c.start, in: c.in, dur: c.dur / c.speed, speed: c.speed, vol: c.vol, fi: c.fi, fo: c.fo, eq: c.eq, echo: c.echo, color: c.color, lut: c.lut || '', hasVideo: md.hasVideo && c.track < 2, hasAudio: md.hasAudio }; }) };
+  const luts = {}, edl = { total: tot, masterEq: S.masterEq, clips: S.clips.map((c) => { const md = S.media[c.media]; if (c.lut && S.luts[c.lut]) luts[c.lut] = S.luts[c.lut]; return { id: c.id, w: md.w, h: md.h, fx: fxOf(c), pat: /^pat/.test(fxOf(c).mask.shape) ? patBytes(fxOf(c).mask) : null, media: c.media, ext: md.ext, track: c.track, start: c.start, in: c.in, dur: c.dur / c.speed, speed: c.speed, vol: c.vol, fi: c.fi, fo: c.fo, eq: c.eq, echo: c.echo, color: c.color, lut: c.lut || '', hasVideo: md.hasVideo && c.track < 4, hasAudio: md.hasAudio }; }) };
   jobs.length = 0; worker.postMessage({ cmd: 'cancel' }); await new Promise((r) => setTimeout(r, 50));
   const done = await callW({ cmd: 'export', edl, opts: { W, H, fps, crf, win: 20 }, luts }, 'done:export'); try { await xw.close(); } catch (e) { /* ignore */ } xw = null;
   toast(done && done.error ? 'Export failed: see the message above' : done && done.cancelled ? 'Export cancelled' : 'Export finished: ' + handle.name, 9000);
 };
+
+const magBtn = $('#mag'), paintMag = () => magBtn.classList.toggle('on', magnet); paintMag();
+magBtn.onclick = () => { magnet = !magnet; try { localStorage.setItem('ms-mag', magnet ? '1' : '0'); } catch (e) { /* ignore */ } paintMag(); toast('Magnet ' + (magnet ? 'on: clips snap to the nearest edge' : 'off')); };
+addEventListener('keydown', (e) => { if (e.target.closest && e.target.closest('input,select,textarea,dialog')) return; if (e.key.toLowerCase() === 'n' && !e.ctrlKey && !e.metaKey && !e.altKey) magBtn.click(); });
+/* ===================== 10 scattered pattern masks (drawn once, shared by the preview and the export so they match exactly) ===================== */
+const PATS = [['pat1', 'Scatter dots'], ['pat2', 'Halftone'], ['pat3', 'Shards'], ['pat4', 'Torn paper'], ['pat5', 'Confetti'], ['pat6', 'Brush strokes'], ['pat7', 'Blinds'], ['pat8', 'Checker scatter'], ['pat9', 'Ink blobs'], ['pat10', 'Mosaic tiles']];
+const PW = 512, PH = 288, patCache = new Map(), pc = document.createElement('canvas'); pc.width = PW; pc.height = PH; const px2 = pc.getContext('2d', { willReadFrequently: true });
+const rngOf = (seed) => { let a = (seed * 2654435761) >>> 0 || 1; return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+function drawPat(id, k, r) {
+  const c = px2, rnd = (a, b) => a + r() * (b - a); c.fillStyle = c.strokeStyle = '#fff';
+  if (id === 'pat1') { const n = Math.round(30 + k * 260); for (let i = 0; i < n; i++) { c.beginPath(); c.arc(rnd(0, PW), rnd(0, PH), rnd(4, 14 + k * 30), 0, 7); c.fill(); } }
+  else if (id === 'pat2') { const st = 22; for (let y = st / 2; y < PH + st; y += st) for (let x = st / 2 + ((y / st) % 2 ? st / 2 : 0); x < PW + st; x += st) { const t = Math.max(0.05, Math.min(1.05, k * 0.7 + 0.7 * x / PW * (0.6 + k))); c.beginPath(); c.arc(x, y, st * 0.62 * t, 0, 7); c.fill(); } }
+  else if (id === 'pat3') { const n = Math.round(6 + k * 34); for (let i = 0; i < n; i++) { const x = rnd(0, PW), y = rnd(0, PH), s = rnd(30, 70 + k * 60); c.beginPath(); c.moveTo(x + rnd(-s, s), y + rnd(-s, s)); c.lineTo(x + rnd(-s, s), y + rnd(-s, s)); c.lineTo(x + rnd(-s, s), y + rnd(-s, s)); c.closePath(); c.fill(); } }
+  else if (id === 'pat4') { c.beginPath(); c.moveTo(0, 0); const base = PW * (0.15 + k * 0.7); for (let y = 0; y <= PH; y += 6) c.lineTo(base + Math.sin(y * 0.05 + r() * 0.5) * 26 + rnd(-14, 14) + Math.sin(y * 0.013) * 40, y); c.lineTo(0, PH); c.closePath(); c.fill(); }
+  else if (id === 'pat5') { const n = Math.round(30 + k * 230); for (let i = 0; i < n; i++) { c.save(); c.translate(rnd(0, PW), rnd(0, PH)); c.rotate(rnd(0, 6.3)); const w = rnd(8, 18 + k * 26); c.fillRect(-w / 2, -w / 3, w, w * rnd(0.4, 1)); c.restore(); } }
+  else if (id === 'pat6') { c.lineCap = 'round'; const n = Math.round(6 + k * 26); for (let i = 0; i < n; i++) { const x = rnd(-40, PW), y = rnd(0, PH), a = rnd(-0.6, 0.1), l = rnd(90, 260); c.lineWidth = rnd(12, 30 + k * 18); c.beginPath(); c.moveTo(x, y); c.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); c.stroke(); } }
+  else if (id === 'pat7') { let x = 0; while (x < PW) { const w = rnd(8, 40); if (r() < 0.25 + k * 0.7) c.fillRect(x, 0, w, PH); x += w + rnd(0, 8); } }
+  else if (id === 'pat8') { const s = 32; for (let y = 0; y < PH; y += s) for (let x = 0; x < PW; x += s) if (r() < k) c.fillRect(x, y, s, s); }
+  else if (id === 'pat9') { const n = Math.round(5 + k * 20); c.filter = 'blur(12px)'; for (let i = 0; i < n; i++) { c.beginPath(); c.arc(rnd(0, PW), rnd(0, PH), rnd(24, 60 + k * 30), 0, 7); c.fill(); } c.filter = 'none'; const d = c.getImageData(0, 0, PW, PH), a = d.data; for (let i = 0; i < a.length; i += 4) { const v = a[i] > 110 ? 255 : 0; a[i] = a[i + 1] = a[i + 2] = v; a[i + 3] = 255; } c.putImageData(d, 0, 0); }
+  else if (id === 'pat10') { const s = 30; for (let y = 0; y < PH; y += s) for (let x = 0; x < PW; x += s) { const p = Math.max(0.03, Math.min(0.97, k + (x / PW - 0.5) * 0.9)); if (r() < p) { const z = s * rnd(0.55, 1); c.fillRect(x + (s - z) / 2, y + (s - z) / 2, z, z); } } }
+}
+function patBytes(M) {                                                            // 512x288 gray (255 = show). Cached per shape, seed, coverage and feather.
+  const key = [M.shape, M.seed | 0, M.cov, M.feather].join('|'); let b = patCache.get(key); if (b) return b;
+  px2.setTransform(1, 0, 0, 1, 0, 0); px2.filter = 'none'; px2.fillStyle = '#000'; px2.fillRect(0, 0, PW, PH); drawPat(M.shape, Math.max(0.05, Math.min(0.95, (M.cov == null ? 50 : M.cov) / 100)), rngOf((M.seed | 0) + 1));
+  if (M.feather > 0) { const t = document.createElement('canvas'); t.width = PW; t.height = PH; const tx = t.getContext('2d'); tx.filter = 'blur(' + (M.feather * 0.14).toFixed(1) + 'px)'; tx.drawImage(pc, 0, 0); px2.fillStyle = '#000'; px2.fillRect(0, 0, PW, PH); px2.filter = 'none'; px2.drawImage(t, 0, 0); }
+  const d = px2.getImageData(0, 0, PW, PH).data; b = new Uint8Array(PW * PH); for (let i = 0; i < b.length; i++) b[i] = d[i * 4]; if (patCache.size > 24) patCache.delete(patCache.keys().next().value); patCache.set(key, b); return b;
+}
+let patUp = '';
+function patBind(M) { const key = [M.shape, M.seed | 0, M.cov, M.feather].join('|'); gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, ptex); if (patUp !== key) { gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, PW, PH, 0, gl.RED, gl.UNSIGNED_BYTE, patBytes(M)); patUp = key; } }
+$('#patshuffle').onclick = () => { const c = sel(); if (!c) return; const F = fxOf(c); F.mask.seed = (F.mask.seed | 0) + 1; commit(); fillFx(c); tick(true); };
 
 /* ===================== v2 tools: transform / mask / key / FX / AI, person detection, normalise, overlay ===================== */
 const getP = (o, p) => p.split('.').reduce((a, k) => a[k], o), setP = (o, p, v) => { const ks = p.split('.'), l = ks.pop(); ks.reduce((a, k) => a[k], o)[l] = v; };
@@ -883,7 +949,7 @@ async function recover() {
   renderAll(); toast('Session restored. Re-drop any file marked "needs relinking".', 6000);
 }
 undoStack = [snapshot()]; renderTimeline(); await recover(); requestAnimationFrame(loop);
-window.__space = { S, files, importFile, startWorker, callW, getWorker: () => worker, segs, peaks, jobs, setPlayhead, playPause, addClip, exportChunk, fxOf, aiMasks, loadSeg, loadDet, segFrame, bakeMask, checkHealth, histNow, downloadProject, loadProjectText, getHealth: () => lastHealth, restartEngine };
+window.__space = { S, files, importFile, startWorker, callW, getWorker: () => worker, segs, peaks, jobs, setPlayhead, playPause, addClip, exportChunk, fxOf, patBytes, aiMasks, loadSeg, loadDet, segFrame, bakeMask, checkHealth, histNow, downloadProject, loadProjectText, getHealth: () => lastHealth, restartEngine };
 </script>
 </body>
 </html>
