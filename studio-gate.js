@@ -1,5 +1,5 @@
 /* mosaicStudioS entry: physics dot sign that opens an iPhone 17 Pro Max lock when clicked.
-   2372 opens the studio, 0000 the follow-me easter egg, 7500 mosaicSpace. The codes are a playful gate, not security. */
+   2372 opens the dev controls (and the Studio home), 0000 mosaicSpace, 1111 the follow-me easter egg. The codes are a playful gate, not security. */
 (() => {
   'use strict';
   const TARGET = '/studio/';
@@ -19,11 +19,11 @@
   /* ------------------------------------------------------------- iPhone 17 Pro Max */
   // Two passcodes: 2372 opens mosaicStudioS, 0000 turns the phone into the follow-me easter egg.
   const CODES = {
-    'eb3d9dac46073924cffbc322aeac56e17b3c33c8005b591d3209e26e14af625b': 'studio',
-    '9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0': 'egg',
-    '04d901cdcc744547648b1942b9ecb2ad2b6a4af2a98be503d39cacd3e88da431': 'space'      // 7500 (D750), opened from the little camera on the Instagram board
+    'eb3d9dac46073924cffbc322aeac56e17b3c33c8005b591d3209e26e14af625b': 'dev',          // 2372: dev controls (and the Studio home)
+    '9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0': 'space',        // 0000: mosaicSpace
+    '0ffe1abd1a08215353c233d6e009613e95eec4253832a761af28ff37ac5a150c': 'egg'           // 1111: the follow-me easter egg
   };
-  const PLAIN = { '2372': 'studio', '0000': 'egg', '7500': 'space' };     // only used where crypto.subtle is unavailable
+  const PLAIN = { '2372': 'dev', '0000': 'space', '1111': 'egg' };     // only used where crypto.subtle is unavailable
   const IG = 'https://www.instagram.com/mosaicscope/';
   const YT = 'https://www.youtube.com/@mosaicscope';
   const TH = 'https://www.threads.net/@mosaicscope';
@@ -74,6 +74,11 @@
           '<div class="ip__grp"><div class="ip__row ip__row--col"><span>SoundCloud (@orqc only)</span><input id="ip-sc" class="ip__in" type="url" inputmode="url" placeholder="https://soundcloud.com/orqc/…" autocomplete="off" spellcheck="false" />' +
           '<div class="ip__btns"><button type="button" id="ip-sc-save">Save</button><button type="button" id="ip-sc-reset">Reset</button></div><p class="ip__note" id="ip-sc-msg" role="status"></p></div></div>' +
         '</div>' +
+        '<div class="ip__view ip__set" id="ip-dev" hidden>' +
+          '<button class="ip__back" id="ip-dev-home" type="button">‹ Home</button><div class="ip__stitle">Dev controls</div>' +
+          '<div class="ip__grp" id="ip-dev-list"></div>' +
+          '<div class="ip__grp"><div class="ip__btns"><button type="button" id="ip-dev-studio">Open mosaicStudioS</button><button type="button" id="ip-dev-reset">Reset all</button></div></div>' +
+        '</div>' +
         '<div class="ip__ok"></div>' +
                 '<div class="ip__gloss"></div>' +
       '</div></div>' +
@@ -123,9 +128,9 @@
     busy = true;
     const h = await sha(code);
     const result = h ? CODES[h] : PLAIN[code];
-    if (result === 'studio') {
+    if (result === 'dev') {
       ip.classList.add('is-ok');
-      setTimeout(() => { showStudioHome(); ip.classList.remove('is-ok'); busy = false; }, REDUCED ? 100 : 600);
+      setTimeout(() => { showDev(); ip.classList.remove('is-ok'); busy = false; }, REDUCED ? 100 : 600);
       return;
     }
     if (result === 'space') {
@@ -157,7 +162,25 @@
   const shV = $('ip-sh'), setV = $('ip-set'), crude = $('ip-crude'), scIn = $('ip-sc'), scMsg = $('ip-sc-msg');
   const store = (k, v) => { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* private mode */ } };
   const fetchv = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
-  function showStudioHome() { passV.hidden = true; lockV.hidden = true; eggV.hidden = true; setV.hidden = true; shV.hidden = false; }
+  function showStudioHome() { passV.hidden = true; lockV.hidden = true; eggV.hidden = true; setV.hidden = true; devV.hidden = true; shV.hidden = false; }
+  const devV = $('ip-dev');
+  const DEVS = [['nocrew', 'Hide the Mosaics crew'], ['nocars', 'Hide the lowriders'], ['nofw', 'Turn off fireworks'], ['nowm', 'Calm the hero wordmark'], ['nohero3d', 'Hide the hero shader'], ['nograin', 'Hide film grain + ambient glow'], ['nosign', 'Hide the mosaicStudioS sign'], ['perf', 'Performance mode (everything heavy off)']];
+  let dev = {}; try { dev = JSON.parse(localStorage.getItem('ms-dev') || '{}'); } catch (e) { dev = {}; }
+  const FW = window.MS_FIREWORK;
+  function applyDev() {
+    const on = (k) => !!dev[k] || (!!dev.perf && ['nocars', 'nofw', 'nograin', 'nohero3d', 'nowm'].indexOf(k) >= 0);
+    DEVS.forEach(([k]) => { if (k !== 'perf') document.documentElement.classList.toggle('dev-' + k, on(k)); });
+    if (FW) window.MS_FIREWORK = on('nofw') ? () => 'off' : FW;
+  }
+  function showDev() {
+    passV.hidden = true; lockV.hidden = true; eggV.hidden = true; setV.hidden = true; shV.hidden = true; devV.hidden = false;
+    const list = $('ip-dev-list'); list.textContent = '';
+    DEVS.forEach(([k, label]) => { const row = document.createElement('label'); row.className = 'ip__row'; row.innerHTML = '<span></span><span class="ip__sw"><input type="checkbox"><i></i></span>'; row.firstChild.textContent = label; const cb = row.querySelector('input'); cb.checked = !!dev[k]; cb.addEventListener('change', () => { dev[k] = cb.checked; store('ms-dev', JSON.stringify(dev)); applyDev(); }); list.append(row); });
+  }
+  $('ip-dev-home').addEventListener('click', showStudioHome);
+  $('ip-dev-studio').addEventListener('click', () => { location.assign(TARGET); });
+  $('ip-dev-reset').addEventListener('click', () => { dev = {}; store('ms-dev', null); applyDev(); showDev(); });
+  addEventListener('load', applyDev); applyDev();
   $('ip-app-studio').addEventListener('click', () => { location.assign(TARGET); });
   $('ip-app-set').addEventListener('click', () => { shV.hidden = true; setV.hidden = false; crude.checked = fetchv('ms-crude') === '1'; scIn.value = fetchv('ms-sc') || ''; scMsg.textContent = ''; });
   $('ip-back').addEventListener('click', () => { setV.hidden = true; shV.hidden = false; });
@@ -248,7 +271,7 @@
     document.documentElement.classList.remove('has-lens');
     code = ''; busy = false; paintDots(); msg.textContent = '';
     ip.classList.remove('is-ok');
-    clearInterval(eggTimer); eggV.hidden = true; shV.hidden = true; setV.hidden = true; arena.textContent = '';
+    clearInterval(eggTimer); eggV.hidden = true; shV.hidden = true; setV.hidden = true; devV.hidden = true; arena.textContent = '';
     lockV.hidden = false; lockV.classList.remove('ip__view--out');
     passV.hidden = true;
     tick();
