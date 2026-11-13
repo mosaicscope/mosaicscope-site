@@ -60,6 +60,19 @@
           '<button class="ip__follow" id="ip-follow" type="button">Follow</button>' +
           '<div class="ip__dock" id="ip-dock"></div>' +
         '</div>' +
+        '<div class="ip__view ip__sh" id="ip-sh" hidden>' +
+          '<div class="ip__shgrid">' +
+            '<button class="ip__app" id="ip-app-studio" type="button" aria-label="mosaicStudioS"><span class="ip__icon" style="background:linear-gradient(#5a5f6b,#14161b)"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 11V4h7M21 4h7v7M28 21v7h-7M11 28H4v-7" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M10.5 22v-7M10.5 17.5c0-4 5.5-4 5.5 0V22M16 17.5c0-4 5.5-4 5.5 0V22M22 8.5h3.4v3.4H22z" fill="none" stroke="#ec2a1c" stroke-width="2.4"/></svg></span><span class="ip__lbl">Studio</span></button>' +
+            '<button class="ip__app" id="ip-app-set" type="button" aria-label="Settings"><span class="ip__icon" style="background:linear-gradient(#9aa0ab,#4b505b)"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="5" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M16 3v4M16 25v4M3 16h4M25 16h4M7 7l3 3M22 22l3 3M25 7l-3 3M10 22l-3 3" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg></span><span class="ip__lbl">Settings</span></button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="ip__view ip__set" id="ip-set" hidden>' +
+          '<button class="ip__back" id="ip-back" type="button">‹ Home</button><div class="ip__stitle">Settings</div>' +
+          '<div class="ip__grp"><label class="ip__row"><span>Crude words</span><span class="ip__sw"><input type="checkbox" id="ip-crude" /><i></i></span></label>' +
+          '<p class="ip__note">The Mosaics occasionally say crude things. Off by default.</p></div>' +
+          '<div class="ip__grp"><div class="ip__row ip__row--col"><span>SoundCloud (@orqc only)</span><input id="ip-sc" class="ip__in" type="url" inputmode="url" placeholder="https://soundcloud.com/orqc/…" autocomplete="off" spellcheck="false" />' +
+          '<div class="ip__btns"><button type="button" id="ip-sc-save">Save</button><button type="button" id="ip-sc-reset">Reset</button></div><p class="ip__note" id="ip-sc-msg" role="status"></p></div></div>' +
+        '</div>' +
         '<div class="ip__ok"></div>' +
                 '<div class="ip__gloss"></div>' +
       '</div></div>' +
@@ -111,7 +124,7 @@
     const result = h ? CODES[h] : PLAIN[code];
     if (result === 'studio') {
       ip.classList.add('is-ok');
-      setTimeout(() => location.assign(TARGET), REDUCED ? 100 : 650);
+      setTimeout(() => { showStudioHome(); ip.classList.remove('is-ok'); busy = false; }, REDUCED ? 100 : 600);
       return;
     }
     if (result === 'egg') {
@@ -133,6 +146,23 @@
     paintDots();
     if (code.length === 4) check();
   }
+
+  /* ---- 2372: the Studio home screen + Settings ---- */
+  const shV = $('ip-sh'), setV = $('ip-set'), crude = $('ip-crude'), scIn = $('ip-sc'), scMsg = $('ip-sc-msg');
+  const store = (k, v) => { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* private mode */ } };
+  const fetchv = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  function showStudioHome() { passV.hidden = true; lockV.hidden = true; eggV.hidden = true; setV.hidden = true; shV.hidden = false; }
+  $('ip-app-studio').addEventListener('click', () => { location.assign(TARGET); });
+  $('ip-app-set').addEventListener('click', () => { shV.hidden = true; setV.hidden = false; crude.checked = fetchv('ms-crude') === '1'; scIn.value = fetchv('ms-sc') || ''; scMsg.textContent = ''; });
+  $('ip-back').addEventListener('click', () => { setV.hidden = true; shV.hidden = false; });
+  crude.addEventListener('change', () => store('ms-crude', crude.checked ? '1' : '0'));
+  const okSC = (u) => /^https:\/\/(www\.)?soundcloud\.com\/orqc(\/|$|\?)/i.test(u);
+  $('ip-sc-save').addEventListener('click', () => {
+    const u = scIn.value.trim();
+    if (!okSC(u)) { scMsg.textContent = 'Only @orqc SoundCloud links work (soundcloud.com/orqc/…).'; return; }
+    store('ms-sc', u); scMsg.textContent = 'Saved. Reloading the player…'; setTimeout(() => location.reload(), 700);
+  });
+  $('ip-sc-reset').addEventListener('click', () => { store('ms-sc', null); scIn.value = ''; scMsg.textContent = 'Back to the default (soundcloud.com/orqc). Reloading…'; setTimeout(() => location.reload(), 700); });
 
   /* ---- 0000: the follow-me easter egg ---- */
   const eggApps = [
@@ -212,7 +242,7 @@
     document.documentElement.classList.remove('has-lens');
     code = ''; busy = false; paintDots(); msg.textContent = '';
     ip.classList.remove('is-ok');
-    clearInterval(eggTimer); eggV.hidden = true; arena.textContent = '';
+    clearInterval(eggTimer); eggV.hidden = true; shV.hidden = true; setV.hidden = true; arena.textContent = '';
     lockV.hidden = false; lockV.classList.remove('ip__view--out');
     passV.hidden = true;
     tick();
@@ -227,7 +257,6 @@
      Everything is physics: springs, gravity, collisions.
      =================================================================== */
   const canvas = document.getElementById('studio-canvas');
-  const ctx = canvas.getContext('2d');
   let W = 0, H = 0, DPR = 1, visible = true;
   const P = [];                                   // letter particles
   let shapes = {}, seq = ['A'], si = 0, cur = 'A', modeAt = 0, HOLD = 3800;
@@ -301,97 +330,173 @@
     build();
   }
 
-  /* ---------- crisp lit dots (no blur, no additive glow) ----------
-     Each dot is a hard-edged sphere sprite (one per hue), lit by a moving light:
-     a sharp contact shadow thrown away from the light and a sharp specular glint toward it. */
-  const BUCKETS = 72, BODY = [];
-  const mk = (size, draw) => { const c = document.createElement('canvas'); c.width = c.height = size; draw(c.getContext('2d'), size); return c; };
-  for (let b = 0; b < BUCKETS; b++) {
-    BODY.push(mk(64, (g, s) => {
-      const h = (b / BUCKETS) * 360;
-      const grad = g.createRadialGradient(s * 0.36, s * 0.34, s * 0.04, s / 2, s / 2, s / 2);
-      grad.addColorStop(0, 'hsl(' + h + ',95%,76%)'); grad.addColorStop(0.55, 'hsl(' + h + ',92%,56%)'); grad.addColorStop(1, 'hsl(' + h + ',90%,34%)');
-      g.fillStyle = grad; g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 1, 0, 6.2832); g.fill();
-      g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 2; g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 2, 0.2, 1.5); g.stroke();   // fresnel rim catch-light
-    }));
+  /* ---------- WebGL2 renderer: lit metallic spheres with 20 ray-traced-look material effects ----------
+     Physics runs on the CPU in typed arrays; the GPU draws every dot (shadow pass + sphere pass) so it holds 120fps. */
+  const rand = (a, b) => a + Math.random() * (b - a), pick = (a) => a[(Math.random() * a.length) | 0];
+  const VS = `#version 300 es
+in vec2 a_pos; in float a_size; in float a_seed; in float a_speed;
+uniform vec2 u_res; uniform vec2 u_light; uniform float u_pass;
+out float v_seed; out float v_speed; out vec2 v_c; out float v_size;
+void main() {
+  vec2 p = a_pos;
+  if (u_pass > 0.5) { vec2 d = a_pos - u_light; p += d / (length(d) + 1.0) * a_size * 0.6; }
+  gl_Position = vec4(p.x / u_res.x * 2.0 - 1.0, 1.0 - p.y / u_res.y * 2.0, 0.0, 1.0);
+  gl_PointSize = a_size * 2.0 + 2.0; v_seed = a_seed; v_speed = a_speed; v_c = a_pos; v_size = a_size;
+}`;
+  const FS = `#version 300 es
+precision highp float;
+in float v_seed; in float v_speed; in vec2 v_c; in float v_size;
+uniform vec2 u_light; uniform float u_pass; uniform float u_time; uniform float u_hue; uniform float u_spread; uniform int u_mode;
+out vec4 o;
+vec3 hsv(float h, float s, float v) { vec3 k = clamp(abs(mod(h * 6.0 + vec3(0., 4., 2.), 6.0) - 3.0) - 1.0, 0.0, 1.0); return v * mix(vec3(1.0), k, s); }
+float hash(float x) { return fract(sin(x * 127.1) * 43758.5453); }
+vec3 env(vec3 r) {
+  float t = r.y * 0.5 + 0.5; vec3 c = mix(vec3(0.015, 0.02, 0.05), vec3(0.8, 0.88, 1.0), smoothstep(0.12, 0.95, t));
+  c += vec3(1.0, 0.95, 0.88) * smoothstep(0.9, 0.985, sin(r.x * 3.0 + 1.0) * 0.5 + 0.5) * smoothstep(0.25, 0.85, t) * 1.2;      // softbox strips
+  c += vec3(0.35, 0.5, 1.0) * smoothstep(0.82, 1.0, -r.y) * 0.4;                                                               // floor bounce
+  return c;
+}
+void main() {
+  vec2 uv = gl_PointCoord * 2.0 - 1.0; float r2 = dot(uv, uv);
+  float aa = 1.6 / max(v_size, 1.0), edge = 1.0 - smoothstep(1.0 - aa, 1.0, sqrt(r2));
+  if (edge <= 0.0) discard;
+  if (u_pass > 0.5) { o = vec4(0.0, 0.0, 0.0, 0.5 * edge); return; }
+  vec3 n = vec3(uv.x, -uv.y, sqrt(max(0.0, 1.0 - r2))), V = vec3(0.0, 0.0, 1.0);
+  vec2 dl = u_light - v_c; vec3 L = normalize(vec3(dl.x, -dl.y, 140.0 + length(dl) * 0.2));
+  float diff = max(dot(n, L), 0.0), fres = pow(1.0 - n.z, 3.0), t = u_time;
+  vec3 R = reflect(-V, n), H = normalize(L + V); float spec = pow(max(dot(n, H), 0.0), 90.0);
+  float h = fract(u_hue + v_seed * u_spread + v_speed * 0.02); vec3 tint = hsv(h, 0.85, 1.0), col;
+  if (u_mode == 0) col = env(R) * (0.55 + 0.45 * tint);
+  else if (u_mode == 1) col = pow(env(R), vec3(1.4)) * 1.2 * vec3(0.85, 0.9, 1.0) + tint * fres * 0.4;
+  else if (u_mode == 2) col = env(R) * vec3(1.0, 0.78, 0.35) * 1.1;
+  else if (u_mode == 3) col = env(R) * vec3(1.0, 0.62, 0.56) * 1.05;
+  else if (u_mode == 4) col = vec3(0.55) * (0.5 + 0.5 * env(R)) + vec3(0.9) * pow(max(dot(normalize(vec3(n.x * 0.2, n.y, n.z)), H), 0.0), 40.0) * 0.5 + tint * 0.12;
+  else if (u_mode == 5) col = hsv(fract(h + dot(n, V) * 1.3 + t * 0.05), 0.85, 0.2 + env(R).r * 0.9);
+  else if (u_mode == 6) col = hsv(fract(atan(n.y, n.x) / 6.2832 + t * 0.12 + h), 0.65, 0.85) * (0.5 + env(R) * 0.6) + spec;
+  else if (u_mode == 7) col = mix(vec3(0.95, 0.93, 0.96), tint, fres * 1.6 + 0.12) * (0.6 + 0.4 * diff) + env(R) * 0.3;
+  else if (u_mode == 8) col = tint * (0.3 + diff * 0.7) + tint * fres * 2.2;
+  else if (u_mode == 9) col = vec3(env(refract(-V, n, 0.72)).r, env(refract(-V, n, 0.69)).g, env(refract(-V, n, 0.66)).b) * 0.95 + tint * 0.08;
+  else if (u_mode == 10) col = vec3(0.03) + env(R) * 0.28 + tint * fres * 1.2;
+  else if (u_mode == 11) col = mix(vec3(0.85, 0.45, 0.25), vec3(0.2, 0.75, 0.6), hash(floor(v_seed * 90.0))) * (0.4 + env(R) * 0.7);
+  else if (u_mode == 12) { float ck = step(0.5, fract(uv.x * 2.0 + uv.y * 2.0)) * 0.5 + 0.5; col = tint * 0.35 * ck + env(R) * 0.35 + vec3(1.0) * step(0.985, hash(v_seed * 300.0 + floor(t * 9.0))); }
+  else if (u_mode == 13) col = pow(tint, vec3(1.6)) * (0.35 + diff * 0.6) + env(R) * 0.45 * fres + vec3(1.0) * spec;
+  else if (u_mode == 14) col = vec3(env(R + vec3(0.06, 0.0, 0.0)).r, env(R).g, env(R - vec3(0.06, 0.0, 0.0)).b) * (0.6 + 0.4 * tint) + spec * vec3(1.0, 0.7, 0.9);
+  else if (u_mode == 15) col = tint * (0.55 + 0.9 * (1.0 - sqrt(r2))) + step(0.5, 1.0 - sqrt(r2)) * 0.1;
+  else if (u_mode == 16) col = hsv(h + sin(length(uv) * 8.0 - t * 3.0) * 0.15, 1.0, 0.55 + 0.45 * sin(length(uv) * 10.0 + t * 4.0)) + tint * fres;
+  else if (u_mode == 17) col = tint * (0.65 + 0.5 * diff) + vec3(1.0) * pow(max(dot(n, H), 0.0), 140.0);
+  else if (u_mode == 18) col = vec3(0.04, 0.0, 0.1) + tint * (fres * 2.0 + step(0.9, hash(v_seed * 77.0 + floor(t * 4.0))) * 1.5 * (1.0 - sqrt(r2)));
+  else col = vec3(0.04, 0.05, 0.09) + tint * 0.18 * diff + vec3(1.0) * pow(max(0.0, 1.0 - abs(uv.x * uv.y) * 14.0), 8.0) * step(0.55, hash(v_seed * 91.0 + floor(t * 6.0)));
+  col *= mix(0.5, 1.0, n.z); col += vec3(1.0) * spec * (u_mode == 10 ? 0.6 : 0.35);
+  o = vec4(col * edge, edge);
+}`;
+  const MODES = 20;
+  let gl = null, prog = null, buf = null, data = null, loc = {};
+  function initGL() {
+    gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, powerPreference: 'high-performance' });
+    if (!gl) return false;
+    const sh = (t, s) => { const x = gl.createShader(t); gl.shaderSource(x, s); gl.compileShader(x); if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); return x; };
+    prog = gl.createProgram(); gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+    gl.useProgram(prog);
+    ['u_res', 'u_light', 'u_pass', 'u_time', 'u_hue', 'u_spread', 'u_mode'].forEach((n) => { loc[n] = gl.getUniformLocation(prog, n); });
+    buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    [['a_pos', 2, 0], ['a_size', 1, 8], ['a_seed', 1, 12], ['a_speed', 1, 16]].forEach(([n, c, off]) => { const l = gl.getAttribLocation(prog, n); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, c, gl.FLOAT, false, 20, off); });
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    return true;
   }
-  const SHADOW = mk(64, (g, s) => { g.fillStyle = 'rgba(0,0,0,0.5)'; g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 1, 0, 6.2832); g.fill(); });
-  const GLINT = mk(32, (g, s) => { g.fillStyle = '#fff'; g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 1, 0, 6.2832); g.fill(); });
-  const bucket = (h) => (((Math.round(h / (360 / BUCKETS))) % BUCKETS) + BUCKETS) % BUCKETS;
+  try { if (!initGL()) throw new Error('no webgl2'); } catch (e) { gl = null; }
+  const ctx = gl ? null : canvas.getContext('2d');
 
-  const rand = (a, b) => a + Math.random() * (b - a);
+  /* palette + material state: changes every 20s and at every transition; hue/spread glide, the material switches while the dots are mid-scatter */
+  const look = { mode: (Math.random() * MODES) | 0, hue: Math.random(), spread: 1, ty: 'x', tHue: 0, tSpread: 1 };
+  look.tHue = look.hue; look.tSpread = look.spread;
+  const PALS = ['x', 'diag', 'radial', 'random', 'twotone', 'accent', 'y', 'rings'];
+  function newLook(withMode) {
+    look.tHue = Math.random(); look.tSpread = pick([0.15, 0.3, 0.6, 1, 1.4, 2]); look.ty = pick(PALS);
+    if (withMode) look.mode = (Math.random() * MODES) | 0;
+  }
+  setInterval(() => newLook(false), 20000);
+  function seedFor(q) {
+    const nx = q.tx / W, ny = q.ty / H;
+    switch (look.ty) {
+      case 'diag': return (nx + ny) * 0.5; case 'radial': return Math.hypot(nx - 0.5, (ny - 0.5) * 2) * 0.8; case 'random': return q.ph / 6.283;
+      case 'twotone': return nx < 0.5 ? 0 : 0.5; case 'accent': return q.ph > 5.6 ? 0.5 : 0; case 'y': return ny; case 'rings': return (Math.sin(Math.hypot(nx - 0.5, ny - 0.5) * 18) + 1) * 0.25;
+      default: return nx;
+    }
+  }
+
+  /* 12 ways a shape rebuilds itself: wave, spiral, explosion, vortex, rain, magnet, columns, shatter, ripple from the cursor... */
+  const PATTERNS = [
+    (q, i, N) => ({ d: (i / N) * 900, kx: 0, ky: 0 }),                                                                                       // sweep
+    (q) => ({ d: (q.ty / H) * 900, kx: 0, ky: 0 }),                                                                                          // top-down
+    (q) => ({ d: Math.hypot(q.tx - W / 2, q.ty - H / 2) / W * 1100, kx: 0, ky: 0 }),                                                          // from the middle
+    (q) => ({ d: pointer ? Math.hypot(q.tx - pointer.x, q.ty - pointer.y) / W * 1100 : Math.random() * 900, kx: 0, ky: 0 }),                  // ripple from the cursor
+    (q) => ({ d: Math.random() * 900, kx: 0, ky: 0 }),                                                                                        // scatter
+    (q) => ({ d: (Math.atan2(q.ty - H / 2, q.tx - W / 2) + Math.PI) / 6.283 * 900, kx: 0, ky: 0 }),                                           // spiral
+    (q) => { const a = Math.atan2(q.ty - H / 2, q.tx - W / 2); return { d: Math.random() * 200, kx: Math.cos(a) * 14 * DPR, ky: Math.sin(a) * 14 * DPR }; },   // explode & reform
+    (q) => { const a = Math.atan2(q.ty - H / 2, q.tx - W / 2) + 1.57; return { d: Math.random() * 300, kx: Math.cos(a) * 11 * DPR, ky: Math.sin(a) * 11 * DPR }; },  // vortex
+    (q) => ({ d: Math.random() * 250, kx: 0, ky: 16 * DPR }),                                                                                  // everything drops
+    (q) => ({ d: Math.random() * 250, kx: (W / 2 - q.x) * 0.05, ky: (H / 2 - q.y) * 0.05 }),                                                  // magnet to the middle, then out
+    (q) => ({ d: Math.floor(q.tx / (W / 14)) * 90, kx: 0, ky: (Math.floor(q.tx / (W / 14)) % 2 ? -1 : 1) * 12 * DPR }),                         // alternating columns
+    (q) => ({ d: Math.floor(q.tx / (W / 9)) * 70 + Math.floor(q.ty / (H / 5)) * 130, kx: rand(-4, 4) * DPR, ky: rand(-4, 4) * DPR })          // shatter into chunks
+  ];
 
   /* ---------- main loop ---------- */
   let last = performance.now();
   function frame(now) {
     requestAnimationFrame(frame);
     if (!visible || document.hidden || !W || !P.length) return;
-    const dt = Math.min(48, now - last) / 16.67; last = now;
-    const t = now / 1000;
+    const dt = Math.min(3, (now - last) / 16.667); last = now;
+    const t = now / 1000, N = P.length;
 
-    if (!REDUCED && now - modeAt > HOLD) {                // screensaver: wordmark <-> logo, rebuilt as a staggered wave
+    if (!REDUCED && now - modeAt > HOLD) {
       si++; if (si >= seq.length) { seq = makeSeq(); si = 0; }
       cur = seq[si]; modeAt = now; HOLD = 4200;
-      const tgt = shapes[cur];
-      for (let i = 0; i < P.length; i++) { P[i].sw = now + (i / P.length) * 900 + Math.random() * 300; P[i].nt = tgt[i]; }
+      const tgt = shapes[cur], pat = PATTERNS[(Math.random() * PATTERNS.length) | 0];
+      for (let i = 0; i < N; i++) { const q = P[i], r = pat(q, i, N); q.sw = now + r.d + Math.random() * 120; q.nt = tgt[i]; q.kx = r.kx; q.ky = r.ky; }
+      newLook(true);                                                // a new material and palette every time the sign rebuilds
     }
-
-    ctx.clearRect(0, 0, W, H);
-    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-    for (let i = pokes.length - 1; i >= 0; i--) { pokes[i].age += dt * 0.025; if (pokes[i].age > 1) pokes.splice(i, 1); }
+    look.hue += (look.tHue - look.hue) * Math.min(1, 0.04 * dt); look.spread += (look.tSpread - look.spread) * Math.min(1, 0.04 * dt);
 
     const R = Math.min(W, H) * 0.42, damp = Math.pow(0.85, dt);
     const px0 = pointer ? pointer.x : -1e9, py0 = pointer ? pointer.y : -1e9;
     const lx = pointer ? pointer.x : W * (0.5 + Math.cos(t * 0.4) * 0.45), ly = pointer ? pointer.y : H * (0.5 + Math.sin(t * 0.55) * 0.4);
-    const G = 0.42 * DPR;
-    for (let i = 0; i < P.length; i++) {
+    for (let i = pokes.length - 1; i >= 0; i--) { pokes[i].age += dt * 0.025; if (pokes[i].age > 1) pokes.splice(i, 1); }
+
+    if (gl && (!data || data.length < N * 5)) data = new Float32Array(N * 5);
+    for (let i = 0; i < N; i++) {
       const q = P[i];
       if (q.nt && now >= q.sw) {
         q.tx = q.nt[0]; q.ty = q.nt[1]; q.nt = null;
-        const a = Math.random() * 6.283, k = (2 + Math.random() * 6) * DPR;
-        q.vx += Math.cos(a) * k; q.vy += Math.sin(a) * k;
+        const a = Math.random() * 6.283, k = (1 + Math.random() * 4) * DPR;
+        q.vx += Math.cos(a) * k + (q.kx || 0); q.vy += Math.sin(a) * k + (q.ky || 0); q.kx = q.ky = 0;
       }
-      const loose = q.loose && now < q.loose;
-      if (loose) {                                        // rubble: gravity, floor and wall collisions, friction
-        q.vy += G * dt;
-      } else {
-        const k = 0.075 / q.m;
-        q.vx += (q.tx - q.x) * k * dt; q.vy += (q.ty - q.y) * k * dt;
-        q.vx += Math.cos(t * 1.7 + q.ph) * 0.02 * DPR * dt; q.vy += Math.sin(t * 1.3 + q.ph) * 0.02 * DPR * dt;
-      }
-      if (pointer) {                                      // cursor: repel with quadratic falloff, flick, slight swirl
+      const k = 0.075 / q.m;
+      q.vx += (q.tx - q.x) * k * dt; q.vy += (q.ty - q.y) * k * dt;
+      q.vx += Math.cos(t * 1.7 + q.ph) * 0.02 * DPR * dt; q.vy += Math.sin(t * 1.3 + q.ph) * 0.02 * DPR * dt;
+      if (pointer) {
         const dx = q.x - px0, dy = q.y - py0, d = Math.hypot(dx, dy);
-        if (d < R) {
-          const w = 1 - d / R, f = w * w * 3.4 * DPR * dt / q.m;
-          q.vx += (dx / (d || 1)) * f + pvx * w * 0.06; q.vy += (dy / (d || 1)) * f + pvy * w * 0.06;
-          q.vx += (-dy / (d || 1)) * w * 0.5 * dt; q.vy += (dx / (d || 1)) * w * 0.5 * dt;
-        }
+        if (d < R) { const w = 1 - d / R, f = w * w * 3.4 * DPR * dt / q.m; q.vx += (dx / (d || 1)) * f + pvx * w * 0.06; q.vy += (dy / (d || 1)) * f + pvy * w * 0.06; q.vx += (-dy / (d || 1)) * w * 0.5 * dt; q.vy += (dx / (d || 1)) * w * 0.5 * dt; }
       }
       for (let r = 0; r < pokes.length; r++) {
         const pk = pokes[r], dx = q.x - pk.x, dy = q.y - pk.y, d = Math.hypot(dx, dy) || 1, front = pk.age * Math.max(W, H) * 0.7;
-        const w = Math.exp(-Math.pow((d - front) / (R * 0.4), 2)) * (1 - pk.age) * 2.2 * DPR * dt;
-        q.vx += (dx / d) * w; q.vy += (dy / d) * w;
+        const w = Math.exp(-Math.pow((d - front) / (R * 0.4), 2)) * (1 - pk.age) * 2.2 * DPR * dt; q.vx += (dx / d) * w; q.vy += (dy / d) * w;
       }
-      q.vx *= loose ? Math.pow(0.995, dt) : damp; q.vy *= loose ? Math.pow(0.995, dt) : damp;
-      q.x += q.vx * dt; q.y += q.vy * dt;
+      q.vx *= damp; q.vy *= damp; q.x += q.vx * dt; q.y += q.vy * dt;
       if (q.x < q.r) { q.x = q.r; q.vx *= -0.5; } else if (q.x > W - q.r) { q.x = W - q.r; q.vx *= -0.5; }
-      if (q.y > H - q.r) { q.y = H - q.r; q.vy *= -0.45; if (loose) q.vx *= 0.86; } else if (q.y < q.r) { q.y = q.r; q.vy *= -0.5; }
+      if (q.y < q.r) { q.y = q.r; q.vy *= -0.5; } else if (q.y > H - q.r) { q.y = H - q.r; q.vy *= -0.5; }
+      if (gl) { const o = i * 5; data[o] = q.x; data[o + 1] = q.y; data[o + 2] = q.r; data[o + 3] = seedFor(q); data[o + 4] = Math.min(8, Math.abs(q.vx) + Math.abs(q.vy)); }
     }
 
-    // pass 1: sharp contact shadows (thrown away from the light)
-    for (let i = 0; i < P.length; i++) {
-      const q = P[i], dx = q.x - lx, dy = q.y - ly, d = Math.hypot(dx, dy) || 1, dia = Math.max(3, Math.round(q.r * 2));
-      ctx.drawImage(SHADOW, Math.round(q.x + dx / d * q.r * 0.55 - dia / 2), Math.round(q.y + dy / d * q.r * 0.55 - dia / 2), dia, dia);
-    }
-    // pass 2: the spheres
-    for (let i = 0; i < P.length; i++) {
-      const q = P[i], dia = Math.max(3, Math.round(q.r * 2));
-      ctx.drawImage(BODY[bucket(q.hue + t * 18)], Math.round(q.x - dia / 2), Math.round(q.y - dia / 2), dia, dia);
-    }
-    // pass 3: specular glints that track the light
-    for (let i = 0; i < P.length; i++) {
-      const q = P[i], dx = lx - q.x, dy = ly - q.y, d = Math.hypot(dx, dy) || 1, g = Math.max(2, Math.round(q.r * 0.55));
-      ctx.drawImage(GLINT, Math.round(q.x + dx / d * q.r * 0.38 - g / 2), Math.round(q.y + dy / d * q.r * 0.38 - g / 2), g, g);
+    if (gl) {
+      gl.viewport(0, 0, W, H); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
+      gl.uniform2f(loc.u_res, W, H); gl.uniform2f(loc.u_light, lx, ly); gl.uniform1f(loc.u_time, t); gl.uniform1f(loc.u_hue, look.hue); gl.uniform1f(loc.u_spread, look.spread); gl.uniform1i(loc.u_mode, look.mode);
+      gl.uniform1f(loc.u_pass, 1); gl.drawArrays(gl.POINTS, 0, N);      // contact shadows
+      gl.uniform1f(loc.u_pass, 0); gl.drawArrays(gl.POINTS, 0, N);      // lit spheres
+    } else {                                                           // very old devices: plain flat dots
+      ctx.clearRect(0, 0, W, H);
+      for (let i = 0; i < N; i++) { const q = P[i]; ctx.fillStyle = 'hsl(' + (((look.hue + seedFor(q) * look.spread) * 360) | 0) + ',90%,60%)'; ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, 6.2832); ctx.fill(); }
     }
     pvx *= 0.8; pvy *= 0.8;
   }

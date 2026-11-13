@@ -123,3 +123,21 @@ dialog.ip2g::backdrop { background: rgba(4, 3, 3, 0.84); backdrop-filter: blur(8
 .ip__app:active .ip__icon { filter: brightness(0.7); }
 .ip__app.is-launch { transform: scale(1.5); opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .ip, .ip__swipe, .ip__follow, .ip__bub { animation: none; } .ip__bub { bottom: 40%; } }
+
+/* studio home + settings */
+.ip__sh { padding: 4.4em 1.2em 0; align-items: stretch; }
+.ip__shgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.2em 0.4em; }
+.ip__lbl { font-size: 0.62em; font-weight: 600; margin-top: 0.3em; text-shadow: 0 0.06em 0.12em rgba(0,0,0,.9); }
+.ip__sh .ip__app { display: flex; flex-direction: column; align-items: center; color: #fff; }
+.ip__set { padding: 3.6em 1em 0; align-items: stretch; overflow-y: auto; }
+.ip__back { align-self: flex-start; background: none; border: 0; color: #7fb6ff; font: 500 0.95em/1 inherit; cursor: pointer; padding: 0.3em 0; }
+.ip__stitle { font-size: 1.5em; font-weight: 700; margin: 0.3em 0 0.6em; }
+.ip__grp { background: rgba(255,255,255,.14); backdrop-filter: blur(0.7em); border-radius: 0.9em; padding: 0.2em 0.9em 0.6em; margin-bottom: 0.9em; }
+.ip__row { display: flex; align-items: center; justify-content: space-between; padding: 0.7em 0; font-size: 0.95em; cursor: pointer; }
+.ip__row--col { flex-direction: column; align-items: stretch; gap: 0.5em; cursor: default; }
+.ip__sw input { position: absolute; opacity: 0; } .ip__sw { position: relative; width: 3em; height: 1.8em; } .ip__sw i { position: absolute; inset: 0; border-radius: 1em; background: rgba(120,120,128,.5); transition: background .2s; }
+.ip__sw i::after { content: ""; position: absolute; top: 0.15em; left: 0.15em; width: 1.5em; height: 1.5em; border-radius: 50%; background: #fff; transition: transform .2s; box-shadow: 0 0.1em 0.3em rgba(0,0,0,.4); }
+.ip__sw input:checked + i { background: #34c759; } .ip__sw input:checked + i::after { transform: translateX(1.2em); }
+.ip__in { width: 100%; border: 0; border-radius: 0.6em; padding: 0.6em 0.7em; background: rgba(0,0,0,.35); color: #fff; font: 400 0.85em/1.2 inherit; user-select: text; -webkit-user-select: text; }
+.ip__btns { display: flex; gap: 0.6em; } .ip__btns button { flex: 1; border: 0; border-radius: 0.6em; padding: 0.6em; background: rgba(255,255,255,.2); color: #fff; font: 600 0.85em/1 inherit; cursor: pointer; }
+.ip__note { margin: 0.4em 0 0; font-size: 0.7em; opacity: 0.75; line-height: 1.3; }
