@@ -1,7 +1,7 @@
 {
- "at": 1794590643186,
+ "at": 1794593008360,
  "target": "https://mosaicscope.pages.dev",
- "sha": "fc4e23a246b37337b2c1235a172ae2d14104b53f",
+ "sha": "739ce135a7e8548ae6ef7f761667bd61a6dd7e63",
  "results": [
   {
    "page": "/",
@@ -20,38 +20,26 @@
     {
      "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
      "own": false
-    },
-    {
-     "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
-     "own": false
-    },
-    {
-     "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
-     "own": false
-    },
-    {
-     "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
-     "own": false
     }
    ],
    "failed": [],
-   "requests": 66,
-   "bytes": 2282,
-   "ownBytes": 110,
-   "thirdParty": 53,
+   "requests": 121,
+   "bytes": 2803,
+   "ownBytes": 120,
+   "thirdParty": 107,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 397,
-    "loadMs": 444,
-    "lcpMs": 856,
+    "domContentLoadedMs": 450,
+    "loadMs": 1715,
+    "lcpMs": 828,
     "cls": 0.152,
-    "tbtMs": 320,
-    "longTasks": 3,
-    "heapMB": 9.5,
-    "domNodes": 1430,
+    "tbtMs": 226,
+    "longTasks": 2,
+    "heapMB": 35.6,
+    "domNodes": 1473,
     "renderBlocking": 6,
-    "resourceEntries": 24,
-    "screens": 11
+    "resourceEntries": 27,
+    "screens": 10.9
    },
    "ui": {
     "overflowPx": 0,
@@ -87,7 +75,7 @@
       "px": 9
      },
      {
-      "el": "span.tag-ph",
+      "el": "span.tag-yt",
       "px": 10
      },
      {
@@ -107,7 +95,12 @@
       "px": 8
      }
     ],
-    "lowContrast": [],
+    "lowContrast": [
+     {
+      "el": "span.tag-yt",
+      "ratio": 4.27
+     }
+    ],
     "noFocusStyle": [],
     "inconsistent": [
      {
@@ -133,7 +126,7 @@
     "hierarchyInverted": true
    },
    "interactions": {
-    "clicked": 5,
+    "clicked": 6,
     "broken": [],
     "newErrors": 0
    }
@@ -155,38 +148,26 @@
     {
      "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
      "own": false
-    },
-    {
-     "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
-     "own": false
-    },
-    {
-     "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
-     "own": false
-    },
-    {
-     "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
-     "own": false
     }
    ],
    "failed": [],
-   "requests": 77,
-   "bytes": 4163,
-   "ownBytes": 109,
-   "thirdParty": 65,
+   "requests": 125,
+   "bytes": 3629,
+   "ownBytes": 121,
+   "thirdParty": 111,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 173,
-    "loadMs": 886,
-    "lcpMs": 172,
+    "domContentLoadedMs": 499,
+    "loadMs": 499,
+    "lcpMs": 248,
     "cls": 0.096,
-    "tbtMs": 394,
-    "longTasks": 4,
-    "heapMB": 42.6,
-    "domNodes": 1817,
+    "tbtMs": 255,
+    "longTasks": 3,
+    "heapMB": 9.5,
+    "domNodes": 1795,
     "renderBlocking": 6,
-    "resourceEntries": 24,
-    "screens": 10.3
+    "resourceEntries": 27,
+    "screens": 10.1
    },
    "ui": {
     "overflowPx": 0,
@@ -226,20 +207,12 @@
       "px": 11
      },
      {
-      "el": "span.tag-ph",
-      "px": 10
-     },
-     {
       "el": "span.cat-film",
       "px": 11
      },
      {
-      "el": "span.cat-sound",
-      "px": 11
-     },
-     {
-      "el": "span.cat-experiment",
-      "px": 11
+      "el": "span.tag-yt",
+      "px": 10
      },
      {
       "el": "span.slide__label > span",
@@ -262,7 +235,12 @@
       "px": 9
      }
     ],
-    "lowContrast": [],
+    "lowContrast": [
+     {
+      "el": "span.tag-yt",
+      "ratio": 4.27
+     }
+    ],
     "noFocusStyle": [],
     "inconsistent": [
      {
@@ -288,7 +266,7 @@
     "hierarchyInverted": true
    },
    "interactions": {
-    "clicked": 8,
+    "clicked": 7,
     "broken": [],
     "newErrors": 0
    }
@@ -312,9 +290,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 188,
-    "loadMs": 188,
-    "lcpMs": 196,
+    "domContentLoadedMs": 165,
+    "loadMs": 165,
+    "lcpMs": 164,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -359,9 +337,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 96,
-    "loadMs": 96,
-    "lcpMs": 64,
+    "domContentLoadedMs": 141,
+    "loadMs": 141,
+    "lcpMs": 76,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -400,9 +378,9 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 215,
-    "loadMs": 274,
-    "lcpMs": 224,
+    "domContentLoadedMs": 175,
+    "loadMs": 232,
+    "lcpMs": 180,
     "cls": 0.007,
     "tbtMs": 0,
     "longTasks": 0,
@@ -441,10 +419,10 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 117,
-    "loadMs": 175,
-    "lcpMs": 128,
-    "cls": 0.147,
+    "domContentLoadedMs": 221,
+    "loadMs": 459,
+    "lcpMs": 216,
+    "cls": 0.146,
     "tbtMs": 0,
     "longTasks": 0,
     "heapMB": 9.5,
@@ -523,85 +501,84 @@
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 390,
-   "ms": 2571,
+   "ms": 2540,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 390,
-   "ms": 1297,
+   "ms": 1879,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 390,
-   "ms": 1435,
-   "status": "fail",
-   "why": "no validation shown"
+   "ms": 2032,
+   "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 390,
-   "ms": 1856,
+   "ms": 1833,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 390,
-   "ms": 1823,
+   "ms": 2395,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 390,
-   "ms": 1017,
+   "ms": 1124,
    "status": "pass"
   },
   {
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 1280,
-   "ms": 2710,
+   "ms": 2561,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 1280,
-   "ms": 2079,
+   "ms": 1999,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 1280,
-   "ms": 2187,
+   "ms": 2219,
    "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 1280,
-   "ms": 2053,
+   "ms": 1910,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 1280,
-   "ms": 1815,
+   "ms": 2452,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 1280,
-   "ms": 1011,
+   "ms": 1246,
    "status": "pass"
   }
  ]
