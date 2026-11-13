@@ -10,46 +10,25 @@
   /* ------------------------------------------------------------------ markup */
   const foot = document.querySelector('footer.foot');
   if (!foot) return;
-  const section = document.createElement('section');
-  section.className = 'studio';
+  const section = document.createElement('div');
+  section.className = 'studio-dock';
   section.id = 'studio';
-  section.setAttribute('aria-labelledby', 'studio-h');
   section.innerHTML =
-    '<div class="sechead"><h2 id="studio-h"><span class="mono sechead__no">S</span>mosaicStudios <em>grade your own photos</em></h2></div>' +
-    '<div class="studio__stage">' +
-      '<div class="studio__cardwrap">' +
-        '<div class="mcard" id="mcard" tabindex="0" role="button" aria-label="Collectible mosaicStudios card. Tap to scan the next edition.">' +
-          '<div class="mcard__in">' +
-            '<div class="mcard__face">' +
-              '<div class="mcard__metal"></div>' +
-              '<div class="mcard__top"><span class="mcard__stage">BASIC</span><b class="mcard__name">mosaicStudios</b><span class="mcard__hp"><small>HP</small>140</span></div>' +
-              '<div class="mcard__art"><div class="mcard__artbg"></div><div class="mcard__logo"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M2 9V2h7M23 2h7v7M30 23v7h-7M9 30H2v-7" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M10.5 23V15.5M10.5 18.2c0-4.4 6-4.4 6 0V23M16.5 18.2c0-4.4 6-4.4 6 0V23" fill="none" stroke="#ec2a1c" stroke-width="2.8" stroke-linecap="square"/><rect x="23.6" y="8" width="3.6" height="3.6" fill="#f6b62c"/></svg></div><div class="mcard__holo"></div><div class="mcard__glitter"></div></div>' +
-              '<div class="mcard__strip"><span id="mc-ed">CHROME</span><span>6K GRADING WORKSTATION · 140 FILTERS</span></div>' +
-              '<div class="mcard__moves">' +
-                '<p><i>●</i><b>Grade</b><span>Filters, LUTs, masks &amp; curves</span><em>140</em></p>' +
-                '<p><i>●●</i><b>Export 6K</b><span>Zero-loss, in your browser</span><em>6K</em></p>' +
-              '</div>' +
-              '<div class="mcard__foot"><span>No. <b id="mc-no">0007</b> / 2372</span><span>mosaicScope ©</span></div>' +
-              '<div class="mcard__glare"></div>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-        '<div class="studio__chips" role="group" aria-label="Choose edition"></div>' +
-      '</div>' +
-      '<canvas class="studio__canvas" id="studio-canvas" role="img" aria-label="The mosaicStudios wordmark made of chromatic dots. Poke it."></canvas>' +
-      '<p class="mono studio__hint">Move over the card · tap it to scan the next edition · poke the letters</p>' +
-    '</div>' +
-    '<div class="studio__row">' +
-      '<p class="studio__blurb">A 6K, GPU-powered photo and editorial grading workstation that runs right in your browser. 140 filters, LUTs, masks, curves. Passcode required.</p>' +
-      '<button class="studio__btn" id="studio-open" type="button">' + MARK + '<span>Enter mosaicStudios</span></button>' +
-      '<button class="studio__btn studio__btn--ghost" id="studio-scan" type="button"><span>Tap to scan · next edition</span></button>' +
+    '<div class="mcard" id="mcard" tabindex="0" role="button" aria-label="mosaicStudioS collectible card. Tap to enter.">' +
+      '<div class="mcard__in"><div class="mcard__face">' +
+        '<div class="mcard__chrome"></div><div class="mcard__neon"></div>' +
+        '<div class="mcard__top"><b class="mcard__name">mosaicStudioS</b><span class="mcard__lv">LV 99</span></div>' +
+        '<div class="mcard__art"><canvas id="studio-canvas" aria-hidden="true"></canvas><div class="mcard__refl"></div></div>' +
+        '<div class="mcard__gear"><span>D750 · FX</span><span>GH5</span><span>17 PRO MAX</span></div>' +
+        '<div class="mcard__sweep"></div><div class="mcard__glare"></div>' +
+      '</div></div>' +
     '</div>';
   foot.before(section);
 
   /* ------------------------------------------------------------- iPhone 2G */
   const dlg = document.createElement('dialog');
   dlg.className = 'ip2g';
-  dlg.setAttribute('aria-label', 'mosaicStudios passcode');
+  dlg.setAttribute('aria-label', 'mosaicStudioS passcode');
   const keyDefs = [['1', ''], ['2', 'ABC'], ['3', 'DEF'], ['4', 'GHI'], ['5', 'JKL'], ['6', 'MNO'], ['7', 'PQRS'], ['8', 'TUV'], ['9', 'WXYZ']];
   dlg.innerHTML =
     '<div class="ip" id="ip">' +
@@ -58,7 +37,7 @@
         '<div class="ip__wall"></div>' +
         '<div class="ip__status"><span>MosaicScope</span><span id="ip-clock">9:41 AM</span><span class="ip__bat"></span></div>' +
         '<div class="ip__view" id="ip-lock">' +
-          '<div class="ip__time" id="ip-time">9:41</div><div class="ip__date" id="ip-date"></div><div class="ip__tag">mosaicStudios</div>' +
+          '<div class="ip__time" id="ip-time">9:41</div><div class="ip__date" id="ip-date"></div><div class="ip__tag">mosaicStudioS</div>' +
           '<div class="ip__slide" id="ip-slide"><div class="ip__slidetxt">slide to unlock</div><button class="ip__knob" id="ip-knob" type="button" aria-label="Slide to unlock"></button></div>' +
         '</div>' +
         '<div class="ip__view ip__pass" id="ip-pass" hidden>' +
@@ -205,66 +184,46 @@
   dlg.addEventListener('close', () => { if (opener && opener.focus) opener.focus({ preventScroll: true }); });
   setInterval(() => { if (dlg.open) tick(); }, 15000);
   $('ip-time').textContent = '';
-  document.getElementById('studio-open').addEventListener('click', openLock);
 
-  /* ---------------------------------------------- collectible holo card */
+  /* ----------------------------------------------- mirror-chrome card */
   const card = document.getElementById('mcard');
   const cardIn = card.querySelector('.mcard__in');
-  const VARIANTS = [
-    { name: 'Chrome',   c1: '#f4f6fa', c2: '#8b93a3', c3: '#2a2e38', holo: 0.55, pat: 'dots',  hue: 0 },
-    { name: 'Prism',    c1: '#2b2142', c2: '#0e0b1a', c3: '#4b2f7a', holo: 1,    pat: 'grid',  hue: 40 },
-    { name: 'Gold',     c1: '#fff1b8', c2: '#d99a1e', c3: '#6b4208', holo: 0.5,  pat: 'lines', hue: 20 },
-    { name: 'Obsidian', c1: '#3a3330', c2: '#0e0b0a', c3: '#ec2a1c', holo: 0.7,  pat: 'dots',  hue: 330 },
-    { name: 'Acid',     c1: '#f3ffd0', c2: '#c6ff3d', c3: '#17210a', holo: 0.6,  pat: 'grid',  hue: 90 },
-    { name: 'Pearl',    c1: '#fff5f8', c2: '#e7b8d4', c3: '#6c5b9a', holo: 0.8,  pat: 'lines', hue: 280 }
-  ];
-  const chipsEl = section.querySelector('.studio__chips');
-  let vIdx = 0, serial = 7;
-  VARIANTS.forEach((v, i) => {
-    const b = document.createElement('button');
-    b.type = 'button'; b.className = 'studio__chip'; b.setAttribute('aria-label', v.name + ' edition');
-    b.style.setProperty('--a', v.c1); b.style.setProperty('--b', v.c2);
-    b.addEventListener('click', () => setVariant(i, true));
-    chipsEl.append(b);
-  });
-  function setVariant(i, scan) {
-    vIdx = (i + VARIANTS.length) % VARIANTS.length;
-    const v = VARIANTS[vIdx];
-    serial = 1 + Math.floor(Math.random() * 2371);
-    card.style.setProperty('--c1', v.c1); card.style.setProperty('--c2', v.c2); card.style.setProperty('--c3', v.c3);
-    card.style.setProperty('--holo', v.holo); card.style.setProperty('--hue', v.hue + 'deg');
-    card.dataset.pat = v.pat;
-    card.dataset.tone = vIdx === 1 || vIdx === 3 ? 'dark' : 'light';
-    document.getElementById('mc-ed').textContent = v.name.toUpperCase();
-    document.getElementById('mc-no').textContent = String(serial).padStart(4, '0');
-    [...chipsEl.children].forEach((c, k) => c.classList.toggle('is-on', k === vIdx));
-    if (scan) {
-      card.classList.remove('is-scan'); void card.offsetWidth; card.classList.add('is-scan');
-      if (navigator.vibrate) navigator.vibrate(18);
-    }
+  const HUES = [0, 62, 140, 205, 275, 325];
+  let edition = 0;
+  function setEdition(i) {
+    edition = (i + HUES.length) % HUES.length;
+    card.style.setProperty('--hue', HUES[edition] + 'deg');
   }
-  setVariant(0, false);
+  setEdition(0);
+  if (!REDUCED) setInterval(() => { if (!hovering) setEdition(edition + 1); }, 6500);
 
-  // Pointer-driven tilt, with a slow idle drift so it always glints
-  let tx = 0, ty = 0, cx = 0, cy = 0, hovering = false, cardDown = null;
+  // Pointer-driven tilt (kept small so the card still reads as flat) with a slow idle drift
+  let tx = 0, ty = 0, cx = 0, cy = 0, hovering = false, cardDown = null, lastClick = 0;
   const setLight = (px, py) => { card.style.setProperty('--mx', (px * 100).toFixed(1) + '%'); card.style.setProperty('--my', (py * 100).toFixed(1) + '%'); };
+  let pointer = null, pvx = 0, pvy = 0;
   function onMove(e) {
     const r = card.getBoundingClientRect();
     const px = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), py = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
-    tx = (px - 0.5) * 20; ty = -(py - 0.5) * 20; setLight(px, py); hovering = true;
-    if (cardDown && Math.hypot(e.clientX - cardDown.x, e.clientY - cardDown.y) > 6) cardDown.moved = true;
+    tx = (px - 0.5) * 16; ty = -(py - 0.5) * 16; setLight(px, py); hovering = true;
+    const cr = canvas.getBoundingClientRect();
+    const nx = (e.clientX - cr.left) * (canvas.width / cr.width), ny = (e.clientY - cr.top) * (canvas.height / cr.height);
+    if (pointer) { pvx = nx - pointer.x; pvy = ny - pointer.y; }
+    pointer = { x: nx, y: ny };
+    if (cardDown && Math.hypot(e.clientX - cardDown.x, e.clientY - cardDown.y) > 8) cardDown.moved = true;
   }
   card.addEventListener('pointermove', onMove);
-  card.addEventListener('pointerenter', (e) => { hovering = true; onMove(e); });
-  card.addEventListener('pointerleave', () => { hovering = false; cardDown = null; });
-  card.addEventListener('pointerdown', (e) => { cardDown = { x: e.clientX, y: e.clientY, moved: false }; onMove(e); });
-  card.addEventListener('pointerup', () => { if (cardDown && !cardDown.moved) setVariant(vIdx + 1, true); cardDown = null; });
-  card.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setVariant(vIdx + 1, true); }
-    else if (e.key === 'ArrowRight') setVariant(vIdx + 1, true);
-    else if (e.key === 'ArrowLeft') setVariant(vIdx - 1, true);
+  card.addEventListener('pointerenter', (e) => { pointer = null; onMove(e); });
+  card.addEventListener('pointerleave', () => { hovering = false; pointer = null; pvx = pvy = 0; cardDown = null; });
+  card.addEventListener('pointerdown', (e) => { cardDown = { x: e.clientX, y: e.clientY, moved: false, t: performance.now() }; onMove(e); poke(); });
+  card.addEventListener('pointerup', () => {
+    if (cardDown && !cardDown.moved && performance.now() - cardDown.t < 600) {
+      const now = performance.now();
+      if (now - lastClick < 320) { setEdition(edition + 1); lastClick = 0; }   // double tap: next edition
+      else { lastClick = now; setTimeout(() => { if (lastClick === now) { lastClick = 0; openLock(); } }, 330); }
+    }
+    cardDown = null;
   });
-  document.getElementById('studio-scan').addEventListener('click', () => setVariant(vIdx + 1, true));
+  card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLock(); } });
 
   let cardVisible = true;
   function cardLoop(now) {
@@ -272,8 +231,8 @@
     if (!cardVisible || document.hidden) return;
     if (!hovering && !REDUCED) {
       const t = now / 1000;
-      tx = Math.sin(t * 0.8) * 6; ty = Math.cos(t * 0.6) * 4;
-      setLight(0.5 + Math.sin(t * 0.8) * 0.35, 0.5 + Math.cos(t * 0.6) * 0.35);
+      tx = Math.sin(t * 0.8) * 5; ty = Math.cos(t * 0.6) * 3.5;
+      setLight(0.5 + Math.sin(t * 0.8) * 0.4, 0.5 + Math.cos(t * 0.6) * 0.4);
     }
     cx += (tx - cx) * 0.12; cy += (ty - cy) * 0.12;
     cardIn.style.transform = 'rotateY(' + cx.toFixed(2) + 'deg) rotateX(' + cy.toFixed(2) + 'deg)';
@@ -281,49 +240,70 @@
   requestAnimationFrame(cardLoop);
   new IntersectionObserver((en) => { cardVisible = en[0].isIntersecting; }, { rootMargin: '80px' }).observe(card);
 
-  /* ------------------------------------- chromatic dot-matrix wordmark */
+  /* ---------- self-rebuilding particle wordmark <-> logo (screensaver) ---------- */
   const canvas = document.getElementById('studio-canvas');
   const ctx = canvas.getContext('2d');
-  let W = 0, H = 0, DPR = 1, visible = true, pointer = null;
-  const textDots = [];
-  const ripples = [];
+  let W = 0, H = 0, DPR = 1, visible = true;
+  const P = [];                     // particles
+  let shapeA = [], shapeB = [];     // target point lists: wordmark / logo
+  let mode = 0, modeAt = 0, HOLD = 3600;
+  const pokes = [];
 
-  function buildText() {
-    textDots.length = 0;
-    const off = document.createElement('canvas');
-    off.width = Math.round(W); off.height = Math.round(H);
+  function sample(draw, step) {
+    const off = document.createElement('canvas'); off.width = W; off.height = H;
     const o = off.getContext('2d', { willReadFrequently: true });
-    const size = Math.min(W * 0.2, H * 0.62);
-    const bold = '900 ' + size + 'px "Big Shoulders Display", Impact, "Arial Narrow", sans-serif';
-    const serif = 'italic 400 ' + size * 0.95 + 'px "Instrument Serif", Georgia, serif';
-    o.font = bold; const w1 = o.measureText('mosaic').width;
-    o.font = serif; const w2 = o.measureText('Studios').width;
-    const total = w1 + size * 0.18 + w2;
-    const scale = Math.min(1, (W * 0.92) / total);
-    const x0 = (W - total * scale) / 2, base = H * 0.78;
-    o.save(); o.translate(x0, 0); o.scale(scale, scale);
-    o.fillStyle = '#fff'; o.strokeStyle = '#fff';
-    o.font = bold; o.fillText('mosaic', 0, base / scale);
-    o.font = serif; o.fillText('Studios', w1 + size * 0.18, base / scale);
-    o.lineWidth = size * 0.03; o.strokeText('Studios', w1 + size * 0.18, base / scale);
-    o.restore();
-    const step = Math.max(3.2, Math.round(W / 190));
-    const img = o.getImageData(0, 0, off.width, off.height).data;
-    for (let y = 0; y < off.height; y += step) for (let x = 0; x < off.width; x += step) {
-      if (img[((y | 0) * off.width + (x | 0)) * 4 + 3] > 128) {
-        textDots.push({ hx: x, hy: y, x: x + (Math.random() - 0.5) * W * 0.3, y: y + (Math.random() - 0.5) * H * 0.5, vx: 0, vy: 0, hue: (x / off.width) * 300 + 10, r: step * 0.34 });
-      }
+    draw(o);
+    const img = o.getImageData(0, 0, W, H).data, pts = [];
+    for (let y = 0; y < H; y += step) for (let x = 0; x < W; x += step) {
+      if (img[((y | 0) * W + (x | 0)) * 4 + 3] > 128) pts.push([x + (Math.random() - 0.5) * step * 0.5, y + (Math.random() - 0.5) * step * 0.5]);
     }
+    return pts;
+  }
+  function fitLine(o, text, font, maxW) {
+    o.font = font(100); const w = o.measureText(text).width; return 100 * (maxW / w);
+  }
+  function build() {
+    const step = Math.max(2.2, W / 105);
+    const bold = (s) => '900 ' + s + 'px "Big Shoulders Display", Impact, "Arial Narrow", sans-serif';
+    const serif = (s) => 'italic 400 ' + s + 'px "Instrument Serif", Georgia, serif';
+    shapeA = sample((o) => {
+      const maxW = W * 0.9;
+      let s1 = fitLine(o, 'mosaic', bold, maxW), s2 = fitLine(o, 'StudioS', serif, maxW);
+      const cap = H * 0.44; s1 = Math.min(s1, cap); s2 = Math.min(s2, cap * 0.95);
+      o.fillStyle = '#fff'; o.strokeStyle = '#fff'; o.textAlign = 'center'; o.textBaseline = 'alphabetic';
+      o.font = bold(s1); o.fillText('mosaic', W / 2, H * 0.5);
+      o.font = serif(s2); o.fillText('StudioS', W / 2, H * 0.5 + s2 * 0.82);
+      o.lineWidth = s2 * 0.03; o.strokeText('StudioS', W / 2, H * 0.5 + s2 * 0.82);
+    }, step);
+    shapeB = sample((o) => {
+      const s = Math.min(W, H) * 0.78 / 32;
+      o.translate((W - 32 * s) / 2, (H - 32 * s) / 2); o.scale(s, s);
+      o.lineCap = 'square'; o.strokeStyle = '#fff'; o.fillStyle = '#fff';
+      o.lineWidth = 2.6; o.stroke(new Path2D('M2 9V2h7M23 2h7v7M30 23v7h-7M9 30H2v-7'));
+      o.lineWidth = 2.9; o.stroke(new Path2D('M10.5 23V15.5M10.5 18.2c0-4.4 6-4.4 6 0V23M16.5 18.2c0-4.4 6-4.4 6 0V23'));
+      o.fillRect(23.6, 8, 3.6, 3.6);
+    }, step);
+    const N = Math.min(1700, Math.max(shapeA.length, shapeB.length));
+    const fill = (a) => { const out = a.slice(); while (out.length < N) out.push(a[(Math.random() * a.length) | 0]); out.length = N; return out; };
+    shapeA = fill(shapeA).sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+    shapeB = fill(shapeB).sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+    P.length = 0;
+    for (let i = 0; i < N; i++) {
+      const t = shapeA[i];
+      P.push({ x: W / 2 + (Math.random() - 0.5) * W, y: H / 2 + (Math.random() - 0.5) * H, vx: 0, vy: 0, tx: t[0], ty: t[1], m: 0.8 + Math.random() * 0.7, hue: (t[0] / W) * 300 + 20, r: step * 0.36, sw: 0, ph: Math.random() * 6.28 });
+    }
+    mode = 0; modeAt = performance.now();
   }
   function resize() {
     DPR = Math.min(3, window.devicePixelRatio || 1);
     const r = canvas.getBoundingClientRect();
-    W = Math.max(1, Math.round(r.width * DPR)); H = Math.max(1, Math.round(r.height * DPR));
+    W = Math.max(8, Math.round(r.width * DPR)); H = Math.max(8, Math.round(r.height * DPR));
     canvas.width = W; canvas.height = H;
-    buildText();
+    build();
   }
+  function poke() { if (pointer) pokes.push({ x: pointer.x, y: pointer.y, age: 0 }); }
 
-  // pre-built channel sprites per hue bucket (cheap drawImage instead of thousands of path fills)
+  // colour channel sprites (cheap drawImage, chromatic aberration by offsetting R / G / B)
   const BUCKETS = 90, CH = [[], [], []], SPR = [[], [], []];
   function hsl(h, s, l) {
     h = ((h % 360) + 360) % 360 / 360;
@@ -332,13 +312,13 @@
     return [Math.round(f(h + 1 / 3) * 255), Math.round(f(h) * 255), Math.round(f(h - 1 / 3) * 255)];
   }
   for (let b = 0; b < BUCKETS; b++) {
-    const [r, g, bl] = hsl((b / BUCKETS) * 360, 0.95, 0.6);
+    const [r, g, bl] = hsl((b / BUCKETS) * 360, 1, 0.58);
     CH[0].push('rgb(' + r + ',0,0)'); CH[1].push('rgb(0,' + g + ',0)'); CH[2].push('rgb(0,0,' + bl + ')');
   }
   for (let c = 0; c < 3; c++) for (let b = 0; b < BUCKETS; b++) {
     const cv = document.createElement('canvas'); cv.width = cv.height = 32;
     const g = cv.getContext('2d'), grad = g.createRadialGradient(16, 16, 0, 16, 16, 16), col = CH[c][b];
-    grad.addColorStop(0, col); grad.addColorStop(0.55, col); grad.addColorStop(1, col.replace('rgb(', 'rgba(').replace(')', ',0)'));
+    grad.addColorStop(0, col); grad.addColorStop(0.5, col); grad.addColorStop(1, col.replace('rgb(', 'rgba(').replace(')', ',0)'));
     g.fillStyle = grad; g.fillRect(0, 0, 32, 32); SPR[c].push(cv);
   }
   const bucket = (h) => (((Math.round(h / (360 / BUCKETS))) % BUCKETS) + BUCKETS) % BUCKETS;
@@ -347,40 +327,64 @@
   let last = performance.now();
   function frame(now) {
     requestAnimationFrame(frame);
-    if (!visible || document.hidden || !W) return;
+    if (!visible || document.hidden || !W || !P.length) return;
     const dt = Math.min(48, now - last) / 16.67; last = now;
     const t = now / 1000;
-    ctx.globalCompositeOperation = 'source-over';
+
+    // screensaver: every HOLD ms, rebuild into the other shape as a staggered wave
+    if (!REDUCED && now - modeAt > HOLD) {
+      mode = 1 - mode; modeAt = now;
+      const tgt = mode ? shapeB : shapeA;
+      for (let i = 0; i < P.length; i++) { P[i].sw = now + (i / P.length) * 700 + Math.random() * 260; P[i].nt = tgt[i]; }
+    }
+
     ctx.clearRect(0, 0, W, H);
     ctx.globalCompositeOperation = 'lighter';
-    for (let i = ripples.length - 1; i >= 0; i--) { ripples[i].age += dt * 0.022; if (ripples[i].age > 1) ripples.splice(i, 1); }
-    const R = Math.min(W, H) * 0.34;
+    ctx.globalAlpha = 0.96;
+    for (let i = pokes.length - 1; i >= 0; i--) { pokes[i].age += dt * 0.03; if (pokes[i].age > 1) pokes.splice(i, 1); }
+
+    const R = Math.min(W, H) * 0.34, damp = Math.pow(0.84, dt);
     const px0 = pointer ? pointer.x : -1e9, py0 = pointer ? pointer.y : -1e9;
-    ctx.globalAlpha = 0.95;
-    for (let i = 0; i < textDots.length; i++) {
-      const q = textDots[i];
-      q.vx += (q.hx - q.x) * 0.045 * dt; q.vy += (q.hy - q.y) * 0.045 * dt;
-      if (pointer) {
-        const dx = q.x - px0, dy = q.y - py0, dist = Math.hypot(dx, dy);
-        if (dist < R) { const f = (1 - dist / R) * 2.4 * dt; q.vx += (dx / (dist || 1)) * f; q.vy += (dy / (dist || 1)) * f; }
+    const sp = Math.hypot(pvx, pvy);
+    for (let i = 0; i < P.length; i++) {
+      const q = P[i];
+      if (q.nt && now >= q.sw) {              // this particle's turn to rebuild: kick it, then re-aim
+        q.tx = q.nt[0]; q.ty = q.nt[1]; q.nt = null;
+        const a = Math.random() * 6.283, k = (2 + Math.random() * 5) * DPR;
+        q.vx += Math.cos(a) * k; q.vy += Math.sin(a) * k;
       }
-      for (let r = 0; r < ripples.length; r++) {
-        const rp = ripples[r], dx = q.x - rp.x, dy = q.y - rp.y, dist = Math.hypot(dx, dy) || 1, front = rp.age * Math.max(W, H) * 0.9;
-        const w = Math.exp(-Math.pow((dist - front) / (R * 0.5), 2)) * (1 - rp.age);
-        q.vx += (dx / dist) * w * 1.6 * dt; q.vy += (dy / dist) * w * 1.6 * dt;
+      // spring toward target with per-particle mass (underdamped => overshoot & settle)
+      const k = 0.075 / q.m;
+      q.vx += (q.tx - q.x) * k * dt; q.vy += (q.ty - q.y) * k * dt;
+      // gentle idle shimmer so a settled shape still breathes
+      q.vx += Math.cos(t * 1.7 + q.ph) * 0.02 * DPR * dt; q.vy += Math.sin(t * 1.3 + q.ph) * 0.02 * DPR * dt;
+      if (pointer) {                          // repel with quadratic falloff, plus flick from pointer velocity
+        const dx = q.x - px0, dy = q.y - py0, d = Math.hypot(dx, dy);
+        if (d < R) {
+          const w = 1 - d / R, f = w * w * 3.6 * DPR * dt / q.m;
+          q.vx += (dx / (d || 1)) * f + pvx * w * 0.06; q.vy += (dy / (d || 1)) * f + pvy * w * 0.06;
+          q.vx += (-dy / (d || 1)) * w * 0.5 * dt; q.vy += (dx / (d || 1)) * w * 0.5 * dt;   // slight swirl
+        }
       }
-      q.vx *= 0.86; q.vy *= 0.86; q.x += q.vx * dt; q.y += q.vy * dt;
-      const away = Math.hypot(q.x - q.hx, q.y - q.hy);
-      const disp = (0.9 + Math.min(10, away * 0.18)) * DPR;
-      const bi = bucket(q.hue + t * 18), rad = q.r * (1 + Math.min(1, away / (R * 0.8)) * 0.5);
+      for (let r = 0; r < pokes.length; r++) {  // shockwave from a tap
+        const pk = pokes[r], dx = q.x - pk.x, dy = q.y - pk.y, d = Math.hypot(dx, dy) || 1, front = pk.age * Math.max(W, H) * 0.9;
+        const w = Math.exp(-Math.pow((d - front) / (R * 0.45), 2)) * (1 - pk.age) * 2.2 * DPR * dt;
+        q.vx += (dx / d) * w; q.vy += (dy / d) * w;
+      }
+      q.vx *= damp; q.vy *= damp;
+      q.x += q.vx * dt; q.y += q.vy * dt;
+      if (q.x < 0) { q.x = 0; q.vx *= -0.5; } else if (q.x > W) { q.x = W; q.vx *= -0.5; }
+      if (q.y < 0) { q.y = 0; q.vy *= -0.5; } else if (q.y > H) { q.y = H; q.vy *= -0.5; }
+      const away = Math.hypot(q.x - q.tx, q.y - q.ty), speed = Math.abs(q.vx) + Math.abs(q.vy);
+      const disp = (0.7 + Math.min(7, away * 0.1 + speed * 0.5)) * DPR;
+      const bi = bucket(q.hue + t * 22 + HUES[edition] * 0.4);
+      const rad = q.r * (1 + Math.min(0.9, speed * 0.05));
       spr(0, bi, q.x - disp, q.y, rad); spr(1, bi, q.x, q.y, rad); spr(2, bi, q.x + disp, q.y, rad);
     }
     ctx.globalAlpha = 1;
+    pvx *= 0.8; pvy *= 0.8;
+    void sp;
   }
-  const toCanvas = (e) => { const r = canvas.getBoundingClientRect(); return { x: (e.clientX - r.left) * (W / r.width), y: (e.clientY - r.top) * (H / r.height) }; };
-  canvas.addEventListener('pointermove', (e) => { pointer = toCanvas(e); });
-  canvas.addEventListener('pointerleave', () => { pointer = null; });
-  canvas.addEventListener('pointerdown', (e) => { pointer = toCanvas(e); ripples.push({ x: pointer.x, y: pointer.y, age: 0 }); });
 
   new IntersectionObserver((en) => { visible = en[0].isIntersecting; }, { rootMargin: '120px' }).observe(canvas);
   let rz; new ResizeObserver(() => { clearTimeout(rz); rz = setTimeout(resize, 120); }).observe(canvas);

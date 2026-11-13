@@ -1,28 +1,73 @@
-/* mosaicStudios entry: chromatic dot-cube section + iPhone 2G style passcode lock.
-   The passcode is a playful entry gate, not account security. */
+/* mosaicStudioS entry: a compact mirror-chrome collectible near the bottom of the page + an iPhone 2G passcode lock.
+   The passcode is a playful gate, not account security. */
 
-.studio { padding: clamp(32px, 5vw, 64px) var(--gut) clamp(40px, 6vw, 80px); }
-.studio__stage {
-  position: relative; border: 1px solid var(--line); border-radius: 4px; overflow: hidden;
+.studio-dock { display: flex; justify-content: center; padding: clamp(20px, 3vw, 36px) var(--gut) clamp(36px, 5vw, 60px); }
+
+/* ---------- Mirror-chrome neon collectible ---------- */
+.mcard {
+  --cw: min(52vw, 210px); --hue: 0deg; --mx: 50%; --my: 50%;
+  width: var(--cw); font-size: calc(var(--cw) / 21); aspect-ratio: 5 / 7; perspective: 800px; cursor: pointer; outline-offset: 8px;
+  -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+  -webkit-box-reflect: below 0.5em linear-gradient(transparent 58%, rgba(255, 255, 255, 0.3));
+}
+.mcard__in {
+  width: 100%; height: 100%; transform-style: preserve-3d; will-change: transform; border-radius: 1em;
+  box-shadow: 0 0 1.4em rgba(0, 240, 255, 0.5), 0 0 3.2em rgba(255, 43, 214, 0.35);
+  filter: hue-rotate(var(--hue)); transition: filter 1.2s ease;
+  animation: mc-pulse 3.2s ease-in-out infinite alternate;
+}
+@keyframes mc-pulse { from { box-shadow: 0 0 1em rgba(0, 240, 255, 0.4), 0 0 2.4em rgba(255, 43, 214, 0.25); } to { box-shadow: 0 0 1.8em rgba(0, 240, 255, 0.8), 0 0 4.2em rgba(255, 43, 214, 0.55); } }
+.mcard__face {
+  position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 1em; padding: 0.7em; display: flex; flex-direction: column; gap: 0.6em;
+  box-shadow: inset 0 0 0 0.14em #fff, inset 0 0 0 0.3em rgba(0, 0, 0, 0.55), inset 0 0 0 0.42em rgba(255, 255, 255, 0.85);
+}
+.mcard__face > * { position: relative; z-index: 2; }
+/* liquid mirror finish: hard chrome bands that keep sliding, plus the pointer shifts them */
+.mcard__chrome {
+  position: absolute !important; inset: 0; z-index: 0 !important;
+  background: linear-gradient(105deg, #06080d 0%, #c9d3e6 9%, #ffffff 14%, #4a5368 21%, #06080d 28%, #9fb0cf 37%, #ffffff 43%, #2a3347 52%, #7f8fae 61%, #ffffff 68%, #1b2130 78%, #aab8d6 88%, #06080d 100%);
+  background-size: 320% 100%; background-position: calc(var(--mx) * 1) 0; animation: mc-flow 7s ease-in-out infinite alternate;
+}
+@keyframes mc-flow { from { background-position-x: 0%; } to { background-position-x: 100%; } }
+/* neon: a big conic gradient that spins under a colour blend */
+.mcard__neon {
+  position: absolute !important; left: -60%; top: -40%; width: 220%; height: 180%; z-index: 1 !important; mix-blend-mode: color; opacity: 0.85;
+  background: conic-gradient(from 0deg at var(--mx) var(--my), #00f0ff, #2d7dff, #b02dff, #ff2bd6, #ff7a2d, #c6ff3d, #00f0ff);
+  animation: mc-spin 9s linear infinite; pointer-events: none;
+}
+@keyframes mc-spin { to { transform: rotate(360deg); } }
+.mcard__top, .mcard__gear { background: rgba(4, 6, 12, 0.82); border-radius: 0.4em; box-shadow: inset 0 0 0 0.08em rgba(0, 240, 255, 0.55), 0 0 0.6em rgba(0, 240, 255, 0.35); }
+.mcard__top { display: flex; align-items: baseline; justify-content: space-between; padding: 0.45em 0.7em; }
+.mcard__name { font: 900 1.55em/1 var(--f-display); letter-spacing: 0.02em; color: #eaffff; text-shadow: 0 0 0.35em #00f0ff, 0 0 0.9em #2d7dff; }
+.mcard__lv { font: 700 0.7em/1 var(--f-mono); letter-spacing: 0.1em; color: #ff2bd6; text-shadow: 0 0 0.5em #ff2bd6; }
+.mcard__art {
+  flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; border-radius: 0.4em;
+  box-shadow: inset 0 0 0 0.12em rgba(255, 255, 255, 0.9), 0 0 0 0.12em rgba(0, 0, 0, 0.6), 0 0 0.8em rgba(0, 240, 255, 0.5);
   background:
-    radial-gradient(ellipse at 50% 38%, rgba(120, 90, 255, 0.10), transparent 60%),
-    radial-gradient(ellipse at 50% 100%, rgba(236, 42, 28, 0.10), transparent 55%),
-    #070605;
+    radial-gradient(circle at 22% 78%, rgba(236, 42, 28, 0.55), transparent 38%),
+    radial-gradient(circle at 80% 22%, rgba(198, 255, 61, 0.35), transparent 34%),
+    radial-gradient(circle at 70% 85%, rgba(60, 120, 255, 0.55), transparent 40%),
+    linear-gradient(170deg, #0b1230 0%, #1a1f4a 48%, #05060f 100%);
 }
-.studio__canvas {
-  width: 100%; height: clamp(380px, 62vw, 640px); cursor: grab; touch-action: pan-y; user-select: none; -webkit-user-select: none;
+.mcard__art canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+/* a glassy mirror pane that drifts across the art window */
+.mcard__refl {
+  position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.38) 44%, rgba(120, 255, 255, 0.25) 50%, transparent 62%) 0 0 / 260% 100%;
+  animation: mc-refl 4.6s ease-in-out infinite alternate;
 }
-.studio__canvas:active { cursor: grabbing; }
-.studio__hint { margin: 0; padding: 8px 16px 12px; color: var(--dim); pointer-events: none; border-top: 1px solid var(--line); }
-.studio__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 24px; margin-top: 18px; }
-.studio__blurb { margin: 0; max-width: 52ch; color: var(--dim); }
-.studio__btn {
-  display: inline-flex; align-items: center; gap: 12px; cursor: pointer; border: 1px solid var(--paper); background: var(--paper); color: var(--ink);
-  padding: 14px 20px; font: 700 var(--step--1)/1 var(--f-mono); text-transform: uppercase; letter-spacing: 0.06em; border-radius: 2px;
-  transition: transform 0.25s var(--ease), background 0.25s, color 0.25s;
+@keyframes mc-refl { from { background-position-x: 100%; } to { background-position-x: 0%; } }
+.mcard__gear { display: flex; justify-content: space-between; gap: 0.4em; padding: 0.5em 0.6em; font: 700 0.52em/1 var(--f-mono); letter-spacing: 0.08em; color: #bfffff; text-shadow: 0 0 0.5em #00f0ff; white-space: nowrap; }
+.mcard__sweep {
+  position: absolute !important; inset: 0; z-index: 3 !important; pointer-events: none; mix-blend-mode: overlay;
+  background: linear-gradient(100deg, transparent 38%, rgba(255, 255, 255, 0.95) 50%, transparent 62%); transform: translateX(-120%); animation: mc-sweep 3.8s ease-in-out infinite;
 }
-.studio__btn:hover { background: var(--acid); border-color: var(--acid); transform: translateY(-2px); }
-.studio__btn svg { width: 18px; height: 18px; }
+@keyframes mc-sweep { 0%, 35% { transform: translateX(-120%); } 70%, 100% { transform: translateX(120%); } }
+.mcard__glare {
+  position: absolute !important; inset: 0; z-index: 4 !important; pointer-events: none; mix-blend-mode: soft-light;
+  background: radial-gradient(circle at var(--mx) var(--my), rgba(255, 255, 255, 0.85) 0%, transparent 52%);
+}
+@media (prefers-reduced-motion: reduce) { .mcard__in, .mcard__chrome, .mcard__neon, .mcard__refl, .mcard__sweep { animation: none; } }
 
 /* ---------- iPhone 2G ---------- */
 dialog.ip2g { border: 0; padding: 0; background: transparent; color: #fff; max-width: none; max-height: none; overflow: visible; }
@@ -133,112 +178,6 @@ dialog.ip2g::backdrop { background: rgba(4, 3, 3, 0.82); backdrop-filter: blur(6
   .studio__btn { transition: none; }
 }
 
-/* ---------- Shared wallpaper: the stage, the card art and the phone all use the same one ---------- */
-.studio__stage, .mcard__artbg {
-  background:
-    radial-gradient(circle at 22% 78%, rgba(236, 42, 28, 0.55), transparent 38%),
-    radial-gradient(circle at 80% 22%, rgba(198, 255, 61, 0.35), transparent 34%),
-    radial-gradient(circle at 70% 85%, rgba(60, 120, 255, 0.55), transparent 40%),
-    linear-gradient(170deg, #0b1230 0%, #1a1f4a 48%, #05060f 100%);
-}
-.studio__stage { position: relative; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
-.studio__stage::before {
-  content: ""; position: absolute; inset: 0; opacity: 0.35; pointer-events: none;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.55) 1px, transparent 1.4px); background-size: 14px 14px;
-  mask-image: linear-gradient(160deg, transparent 10%, #000 60%, transparent 95%);
-}
-.studio__cardwrap { position: relative; display: flex; flex-direction: column; align-items: center; gap: 16px; padding: clamp(24px, 4vw, 44px) 16px 8px; }
-.studio__canvas { height: clamp(110px, 18vw, 190px); background: transparent; }
-.studio__btn--ghost { background: transparent; color: var(--paper); border-color: var(--line); }
-.studio__btn--ghost:hover { background: var(--paper); color: var(--ink); border-color: var(--paper); }
-.studio__row { gap: 12px; }
-.studio__chips { display: flex; gap: 10px; }
-.studio__chip {
-  width: 26px; height: 26px; border-radius: 50%; cursor: pointer; padding: 0; border: 2px solid rgba(255, 255, 255, 0.35);
-  background: linear-gradient(135deg, var(--a), var(--b)); transition: transform 0.2s;
-}
-.studio__chip:hover { transform: scale(1.15); }
-.studio__chip.is-on { border-color: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25); }
-
-/* ---------- Collectible card (flat, metallic) ---------- */
-.mcard {
-  --cw: min(76vw, 330px);
-  --c1: #f4f6fa; --c2: #8b93a3; --c3: #2a2e38; --holo: 0.55; --hue: 0deg; --mx: 50%; --my: 50%;
-  width: var(--cw); font-size: calc(var(--cw) / 22); aspect-ratio: 5 / 7; perspective: 900px; cursor: pointer; outline-offset: 6px;
-  filter: drop-shadow(0 1.2em 1.6em rgba(0, 0, 0, 0.55)); -webkit-tap-highlight-color: transparent;
-}
-.mcard[data-tone="light"] { --fg: #14161b; --fg2: rgba(20, 22, 27, 0.7); }
-.mcard[data-tone="dark"] { --fg: #fff; --fg2: rgba(255, 255, 255, 0.75); }
-.mcard__in { width: 100%; height: 100%; transform-style: preserve-3d; will-change: transform; }
-.mcard__face {
-  position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 1.1em; padding: 0.9em 1em 0.8em; color: var(--fg);
-  display: flex; flex-direction: column; gap: 0.55em;
-  box-shadow: inset 0 0 0 0.28em var(--c1), inset 0 0 0 0.42em var(--c3), inset 0 0 0 0.55em var(--c1);
-}
-.mcard__metal {
-  position: absolute; inset: 0; z-index: 0;
-  background:
-    linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.55) 45%, transparent 60%) calc(var(--mx) * -1.2) 0 / 220% 100% no-repeat,
-    linear-gradient(145deg, var(--c1) 0%, var(--c2) 45%, var(--c3) 100%);
-}
-.mcard[data-pat="dots"] .mcard__metal::after { background-image: radial-gradient(rgba(0, 0, 0, 0.28) 0.09em, transparent 0.11em); background-size: 0.55em 0.55em; }
-.mcard[data-pat="grid"] .mcard__metal::after { background-image: linear-gradient(rgba(255, 255, 255, 0.14) 0.05em, transparent 0.05em), linear-gradient(90deg, rgba(255, 255, 255, 0.14) 0.05em, transparent 0.05em); background-size: 1.2em 1.2em; }
-.mcard[data-pat="lines"] .mcard__metal::after { background-image: repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.14) 0 0.06em, transparent 0.06em 0.5em); }
-.mcard__metal::after { content: ""; position: absolute; inset: 0; opacity: 0.8; }
-.mcard__face > *:not(.mcard__metal):not(.mcard__glare) { position: relative; z-index: 1; }
-
-.mcard__top { display: flex; align-items: center; gap: 0.5em; padding: 0.3em 0.4em 0 0.4em; }
-.mcard__stage { font: 700 0.55em/1 var(--f-mono); letter-spacing: 0.1em; padding: 0.3em 0.5em; border: 1px solid var(--fg2); border-radius: 0.3em; color: var(--fg2); }
-.mcard__name { flex: 1; font: 900 1.7em/1 var(--f-display); text-transform: none; letter-spacing: 0.01em; }
-.mcard__hp { font: 900 1.3em/1 var(--f-display); display: flex; align-items: baseline; gap: 0.15em; color: #ec2a1c; }
-.mcard__hp small { font: 700 0.45em/1 var(--f-mono); color: var(--fg); }
-
-.mcard__art {
-  position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; border-radius: 0.5em; display: grid; place-items: center;
-  box-shadow: inset 0 0 0 0.18em var(--c1), 0 0 0 0.18em var(--c3), 0 0 0 0.3em var(--c1);
-  margin: 0.2em 0.25em;
-}
-.mcard__artbg { position: absolute; inset: 0; }
-.mcard__artbg::after {
-  content: ""; position: absolute; inset: 0; opacity: 0.4;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.7) 0.07em, transparent 0.1em); background-size: 0.75em 0.75em;
-}
-.mcard__logo { position: relative; width: 54%; color: #eee4d3; filter: drop-shadow(0 0.3em 0.5em rgba(0, 0, 0, 0.55)) drop-shadow(0 0 0.5em rgba(255, 255, 255, 0.25)); }
-.mcard__logo svg { width: 100%; height: auto; display: block; }
-.mcard__holo {
-  position: absolute; inset: 0; mix-blend-mode: color-dodge; opacity: calc(var(--holo) * 0.85); pointer-events: none;
-  background: repeating-linear-gradient(115deg, #ff2d95 0%, #ffb02d 12%, #c6ff3d 24%, #2dffd2 36%, #2d7dff 48%, #b02dff 60%, #ff2d95 72%) calc(var(--mx) * 1.5) calc(var(--my) * 1.5) / 260% 260%;
-  filter: hue-rotate(var(--hue));
-}
-.mcard__glitter {
-  position: absolute; inset: 0; mix-blend-mode: overlay; opacity: 0.9; pointer-events: none;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.95) 0.06em, transparent 0.14em), radial-gradient(rgba(255, 220, 255, 0.8) 0.05em, transparent 0.12em);
-  background-size: 0.7em 0.7em, 1.1em 1.1em; background-position: calc(var(--mx) * 0.4) calc(var(--my) * 0.4), 0.3em 0.4em;
-  mask-image: radial-gradient(circle at var(--mx) var(--my), #000 0%, transparent 60%);
-  -webkit-mask-image: radial-gradient(circle at var(--mx) var(--my), #000 0%, transparent 60%);
-}
-.mcard__strip { display: flex; justify-content: space-between; gap: 0.6em; font: 700 0.5em/1 var(--f-mono); letter-spacing: 0.08em; color: var(--fg2); padding: 0 0.5em; }
-.mcard__strip span:first-child { color: var(--fg); }
-.mcard__moves { display: flex; flex-direction: column; gap: 0.45em; padding: 0 0.4em; }
-.mcard__moves p { margin: 0; display: grid; grid-template-columns: 2.2em auto 1fr auto; align-items: center; gap: 0.4em; font-size: 0.86em; line-height: 1.15; }
-.mcard__moves i { font-style: normal; font-size: 0.7em; letter-spacing: -0.15em; }
-.mcard__moves b { font: 900 1.25em/1 var(--f-display); }
-.mcard__moves span { font: 500 0.88em/1.15 var(--f-body); color: var(--fg2); }
-.mcard__moves em { font: 900 1.4em/1 var(--f-display); font-style: normal; }
-.mcard__foot { display: flex; justify-content: space-between; font: 600 0.5em/1 var(--f-mono); letter-spacing: 0.08em; color: var(--fg2); padding: 0 0.6em; }
-.mcard__foot b { color: var(--fg); }
-.mcard__glare {
-  position: absolute; inset: 0; z-index: 2; pointer-events: none; mix-blend-mode: soft-light;
-  background: radial-gradient(circle at var(--mx) var(--my), rgba(255, 255, 255, 0.75) 0%, transparent 55%);
-}
-.mcard.is-scan .mcard__face { animation: mc-scan 0.75s var(--ease); }
-.mcard.is-scan .mcard__face::after {
-  content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none;
-  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.9) 50%, transparent 65%); animation: mc-sweep 0.75s var(--ease);
-}
-@keyframes mc-scan { 0% { transform: scale(1); } 30% { transform: scale(0.94) rotateY(18deg); } 100% { transform: scale(1); } }
-@keyframes mc-sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
-@media (prefers-reduced-motion: reduce) { .mcard.is-scan .mcard__face, .mcard.is-scan .mcard__face::after { animation: none; } }
 
 /* ---------- iPhone springboard ---------- */
 .ip__homev { justify-content: flex-start; }
