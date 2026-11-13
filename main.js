@@ -1165,7 +1165,7 @@
      The sound button and the little record player then play your picks. */
   var sc = null;
   function initSoundCloud(site) {
-    var url = site.soundcloudUrl;
+    var url = site.soundcloudUrl; try { var own = localStorage.getItem("ms-sc"); if (own && /^https:\/\/(www\.)?soundcloud\.com\/orqc(\/|$|\?)/i.test(own)) url = own; } catch (e) { /* ignore */ }
     var box = $("#sc"), panel = $("#scp");
     if (!url || !box || !panel) return false;
     box.hidden = false;
@@ -1875,6 +1875,7 @@
       var x = r.left + 30 + Math.random() * (r.width - 60), y = r.bottom - 6;
       var top = r.top - 10 - Math.random() * 50;
       kind = kind || Object.keys(KINDS)[(Math.random() * 20) | 0];
+      if (window.MS_FIREWORK) { window.MS_FIREWORK(x, y, top); if (Math.random() < 0.6) setTimeout(function () { window.MS_FIREWORK(x + (Math.random() - 0.5) * 300, y, top); }, 350); return "ms"; }
       KINDS[kind](x, y, top);
       return kind;
     }
@@ -2355,7 +2356,7 @@
       clearTimeout(fwTimer);
       if (!on) return;
       (function next() {
-        fwTimer = setTimeout(function () { if (!raving) return; if (visible) FX.firework(stage); next(); }, 6000 + Math.random() * 6000);
+        fwTimer = setTimeout(function () { if (!raving) return; if (visible) FX.firework(stage); next(); }, 2200 + Math.random() * 3000);
       })();
     }
     function partyFx(on) {

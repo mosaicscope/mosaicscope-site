@@ -26,7 +26,7 @@
   const IG = 'https://www.instagram.com/mosaicscope/';
   const YT = 'https://www.youtube.com/@mosaicscope';
   const TH = 'https://www.threads.net/@mosaicscope';
-  const SC = 'https://soundcloud.com/orqrackcity/sets/mosaicscope';
+  const SC = 'https://soundcloud.com/orqc';
   const MAIL = 'mailto:mosiacscope@gmail.com?subject=' + encodeURIComponent('Shoot enquiry') + '&body=' + encodeURIComponent('Hi Chris,\n\n');
 
   const dlg = document.createElement('dialog');
