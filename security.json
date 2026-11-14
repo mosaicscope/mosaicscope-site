@@ -1,12 +1,47 @@
 {
- "at": 1794638776536,
+ "at": 1794642164849,
  "counts": {
   "critical": 0,
   "high": 0,
   "medium": 0,
-  "low": 109
+  "low": 114
  },
  "findings": [
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "beats/index.html",
+   "line": 144,
+   "fp": "dom:inner-html|beats/index.html|1axdns7"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "beats/index.html",
+   "line": 146,
+   "fp": "dom:inner-html|beats/index.html|12zspi7"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "beats/index.html",
+   "line": 195,
+   "fp": "dom:inner-html|beats/index.html|1rjlcyt"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "beats/index.html",
+   "line": 201,
+   "fp": "dom:inner-html|beats/index.html|1bx4tfu"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "beats/index.html",
+   "line": 208,
+   "fp": "dom:inner-html|beats/index.html|1j2h93b"
+  },
   {
    "kind": "dom:inner-html",
    "severity": "low",
@@ -391,41 +426,6 @@
    "path": "main.js",
    "line": 1213,
    "fp": "dom:inner-html|main.js|3np27g"
-  },
-  {
-   "kind": "dom:inner-html",
-   "severity": "low",
-   "path": "main.js",
-   "line": 1302,
-   "fp": "dom:inner-html|main.js|bo7oui"
-  },
-  {
-   "kind": "dom:inner-html",
-   "severity": "low",
-   "path": "main.js",
-   "line": 1320,
-   "fp": "dom:inner-html|main.js|1migzms"
-  },
-  {
-   "kind": "dom:inner-html",
-   "severity": "low",
-   "path": "main.js",
-   "line": 1341,
-   "fp": "dom:inner-html|main.js|1lhzex1"
-  },
-  {
-   "kind": "dom:inner-html",
-   "severity": "low",
-   "path": "main.js",
-   "line": 1368,
-   "fp": "dom:inner-html|main.js|1sgk127"
-  },
-  {
-   "kind": "dom:inner-html",
-   "severity": "low",
-   "path": "main.js",
-   "line": 1612,
-   "fp": "dom:inner-html|main.js|1mhoi4m"
   }
  ]
 }
