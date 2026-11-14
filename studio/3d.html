@@ -23,6 +23,7 @@
   #info { position: absolute; left: 10px; bottom: 8px; color: var(--dim); font: 11px ui-monospace, monospace; pointer-events: none; } #toast { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: #000c; padding: 6px 12px; border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; }
   @media (max-width: 900px) { body { grid-template-columns: 1fr; grid-template-rows: 44px 52vh auto auto; overflow: auto; } header { grid-column: 1; } aside { border: 0; border-top: 1px solid var(--line); } html, body { overflow: auto; } }
 </style>
+<link rel="stylesheet" href="3d-mobile.css">
 </head>
 <body>
 <header>
@@ -389,6 +390,24 @@ function size() { const w = cv.parentElement.clientWidth, h = cv.parentElement.c
 addEventListener('resize', size); size();
 renderer.setAnimationLoop(() => { orbit.update(); renderer.render(scene, cam); });
 addShape('torus'); frameAll(); target = null; toast('Drop a 3D file, or add shapes and hats');
+</script>
+<script>
+/* 3D studio touch bar: sheets for the tool and material panels, tool modes and render one tap away. */
+(() => {
+  const [left, right] = document.querySelectorAll('aside'); if (!left || !right) return;
+  const bar = document.createElement('nav'); bar.id = 'msbar'; bar.setAttribute('aria-label', '3D tools');
+  bar.innerHTML = [['tools', '▤', 'Tools'], ['mat', '◍', 'Material'], ['translate', '✥', 'Move'], ['rotate', '⟳', 'Rotate'], ['scale', '⤢', 'Scale'], ['render', '◉', 'Render']].map(([k, i, l]) => '<button type="button" data-k="' + k + '" aria-label="' + l + '"><b>' + i + '</b>' + l + '</button>').join('');
+  document.body.append(bar);
+  const sheet = (el, btn) => { const open = !el.classList.contains('is-open'); left.classList.remove('is-open'); right.classList.remove('is-open'); bar.querySelectorAll('[data-k=tools],[data-k=mat]').forEach((b) => b.classList.remove('on')); if (open) { el.classList.add('is-open'); btn.classList.add('on'); } };
+  bar.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return; const k = b.dataset.k;
+    if (k === 'tools') sheet(left, b); else if (k === 'mat') sheet(right, b);
+    else if (k === 'render') document.getElementById('render').click();
+    else { const t = document.querySelector('header [data-m="' + k + '"]'); if (t) t.click(); bar.querySelectorAll('[data-k=translate],[data-k=rotate],[data-k=scale]').forEach((x) => x.classList.toggle('on', x === b)); }
+  });
+  bar.querySelector('[data-k=translate]').classList.add('on');
+  document.getElementById('view').addEventListener('pointerdown', () => { if (matchMedia('(max-width: 900px)').matches) { left.classList.remove('is-open'); right.classList.remove('is-open'); bar.querySelectorAll('[data-k=tools],[data-k=mat]').forEach((b) => b.classList.remove('on')); } });
+})();
 </script>
 </body>
 </html>

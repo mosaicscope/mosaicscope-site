@@ -1,0 +1,18 @@
+/* 3D studio on phones: the model fills the screen (one finger orbits, two pinch and pan), panels are bottom sheets. */
+#msbar { display: none; }
+@media (max-width: 900px) {
+  html, body { height: 100dvh !important; overflow: hidden !important; overscroll-behavior: none; }
+  body { grid-template-columns: 1fr !important; grid-template-rows: 48px minmax(0, 1fr) !important; padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
+  header { overflow-x: auto; white-space: nowrap; flex-wrap: nowrap !important; gap: 6px; scrollbar-width: none; } header::-webkit-scrollbar { display: none; }
+  header > * { flex-shrink: 0; } header button, header .btn, header select, header a { min-height: 40px; }
+  main { min-height: 0; }
+  aside { position: fixed !important; left: 0; right: 0; bottom: calc(56px + env(safe-area-inset-bottom)); width: 100% !important; height: 52dvh; max-height: 52dvh; z-index: 40; transform: translateY(115%); visibility: hidden; transition: transform 0.25s ease; border: 1px solid var(--line) !important; border-radius: 16px 16px 0 0; box-shadow: 0 -14px 34px #000b; overflow-y: auto !important; padding-top: 12px; }
+  aside.is-open { transform: none; visibility: visible; }
+  aside::before { content: ""; display: block; width: 38px; height: 4px; border-radius: 2px; background: #55555f; margin: 0 auto 10px; }
+  #msbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); background: #101013; border-top: 1px solid var(--line); }
+  #msbar button { min-height: 48px; border: 0; border-radius: 10px; background: transparent; color: #c9c9d1; font: 600 11px/1.1 system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  #msbar button b { font-size: 17px; line-height: 1; font-weight: 600; }
+  #msbar button:active, #msbar button.on { background: #2563eb; color: #fff; }
+  aside button, aside select, aside input[type="range"] { min-height: 38px; }
+  #info { font-size: 11px; }
+}
