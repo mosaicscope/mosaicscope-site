@@ -51,7 +51,7 @@
   <button id="tap" title="Tap the tempo">Tap</button><label class="hide">Time <select id="tsig" title="Time signature"><option>2/4</option><option>3/4</option><option selected>4/4</option><option>5/4</option><option>6/8</option><option>7/8</option><option>9/8</option><option>12/8</option></select></label><label class="hide">Swing <input id="swing" type="range" min="0" max="60" value="0" style="width:70px"></label>
   <label>Master <input id="mvol" type="range" min="0" max="120" value="85" style="width:80px"> <span id="mmeter"><i></i></span></label>
   <span class="sp"></span>
-  <button id="helpbtn" title="Shortcuts (?)">?</button><button id="stems" class="hide" title="One WAV per channel">Stems</button><button id="exportmp3" title="Render the song to a 256 kbps MP3">Export MP3</button><button id="export" class="on" title="Render the song to a WAV file">Export WAV</button><button id="save" class="hide">Save</button><button id="load" class="hide">Open</button>
+  <button id="helpbtn" title="Shortcuts (?)">?</button><button id="stems" class="hide" title="One WAV per channel">Stems</button><button id="stemsmp3" class="hide" title="One MP3 per channel">Stems MP3</button><button id="exportmp3" title="Render the song to a 256 kbps MP3">Export MP3</button><button id="export" class="on" title="Render the song to a WAV file">Export WAV</button><button id="save" class="hide">Save</button><button id="load" class="hide">Open</button>
 </header>
 <div id="app">
   <aside id="browser">
@@ -190,19 +190,22 @@ function sampleHitOld(c, out, ch, t, v) { const b = bufs.get(ch.sid); if (!b) re
 const curveCache = new Map();
 const driveCurve = (d) => { const k = Math.round(d || 0); if (!k) return null; const key = 'd' + k; if (curveCache.has(key)) return curveCache.get(key); const n = 1024, a = k / 100 * 40 + 1, c = new Float32Array(n); for (let i = 0; i < n; i++) { const x = i * 2 / (n - 1) - 1; c[i] = Math.tanh(a * x) / Math.tanh(a); } curveCache.set(key, c); return c; };
 const crushCurve = (bits) => { const key = 'c' + bits; if (curveCache.has(key)) return curveCache.get(key); const n = 2048, lv = Math.pow(2, bits), c = new Float32Array(n); for (let i = 0; i < n; i++) { const x = i * 2 / (n - 1) - 1; c[i] = Math.round(x * lv) / lv; } curveCache.set(key, c); return c; };
+function ensureBuses() { if (!S.buses) S.buses = [0, 1, 2, 3].map((i) => ({ name: 'Bus ' + 'ABCD'[i], vol: 100, fx: [null, null, null, null] })); }
+function applyBuses(bus) { ensureBuses(); (bus.buses || []).forEach((b, i) => { const cfg = S.buses[i]; b.out.gain.value = cfg.vol / 100; wireSlots(b.st, cfg); setSlots(b.st, cfg); }); }
 function makeBus(ctx) {
+  ensureBuses();
   const master = ctx.createGain(), lo = ctx.createBiquadFilter(), mid = ctx.createBiquadFilter(), hi = ctx.createBiquadFilter(), comp = ctx.createDynamicsCompressor(), lim = ctx.createDynamicsCompressor(), an = ctx.createAnalyser(), E = S.eq || { lo: 0, mid: 0, hi: 0, glue: 40, lim: 1 }; lo.type = 'lowshelf'; lo.frequency.value = 120; lo.gain.value = E.lo; mid.type = 'peaking'; mid.frequency.value = 1200; mid.Q.value = 0.8; mid.gain.value = E.mid; hi.type = 'highshelf'; hi.frequency.value = 8000; hi.gain.value = E.hi; master.gain.value = S.master / 100; comp.threshold.value = -8 - E.glue * 0.18; comp.ratio.value = 1.5 + E.glue * 0.05; comp.attack.value = 0.01; comp.release.value = 0.15; lim.threshold.value = E.lim ? -2 : 0; lim.ratio.value = E.lim ? 20 : 1; lim.knee.value = 0; lim.attack.value = 0.001; lim.release.value = 0.08; master.connect(lo); lo.connect(mid); mid.connect(hi); hi.connect(comp); comp.connect(lim); lim.connect(an); an.connect(ctx.destination); an.fftSize = 512;
   const rev = ctx.createConvolver(), rg = ctx.createGain(), n = Math.floor(ctx.sampleRate * 1.8), ib = ctx.createBuffer(2, n, ctx.sampleRate); for (let c = 0; c < 2; c++) { const d = ib.getChannelData(c); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3); } rev.buffer = ib; rg.gain.value = 0.8; rev.connect(rg); rg.connect(master);
   const dly = ctx.createDelay(2), fb = ctx.createGain(), dg = ctx.createGain(); dly.delayTime.value = 60 / S.bpm * 0.75; fb.gain.value = 0.38; dg.gain.value = 0.8; dly.connect(fb); fb.connect(dly); dly.connect(dg); dg.connect(master);
-  const strips = {};
+  const strips = {}, buses = S.buses.map(() => { const bi = ctx.createGain(), bo = ctx.createGain(); bo.connect(master); return { in: bi, out: bo, st: { ctx, cr: bi, p: bo, slots: [], fxSig: null } }; });
   for (const ch of S.channels) {                                             // channel strip: drive -> highpass -> lowpass -> chorus -> tremolo -> bitcrush -> pan -> sends
     const g = ctx.createGain(), duck = ctx.createGain(), drv = ctx.createWaveShaper(), hp = ctx.createBiquadFilter(), lp = ctx.createBiquadFilter(), mix = ctx.createGain(), chD = ctx.createDelay(0.1), chW = ctx.createGain(), trem = ctx.createGain(), cr = ctx.createWaveShaper(), p = ctx.createStereoPanner ? ctx.createStereoPanner() : ctx.createGain(), rs = ctx.createGain(), ds = ctx.createGain();
     hp.type = 'highpass'; lp.type = 'lowpass'; chD.delayTime.value = 0.022; g.connect(duck); duck.connect(drv); drv.connect(hp); hp.connect(lp); lp.connect(mix); lp.connect(chD); chD.connect(chW); chW.connect(mix); mix.connect(trem); trem.connect(cr); p.connect(master); p.connect(rs); rs.connect(rev); p.connect(ds); ds.connect(dly);
     const co = ctx.createOscillator(), cg = ctx.createGain(); co.frequency.value = 0.8; cg.gain.value = 0.004; co.connect(cg); cg.connect(chD.delayTime); co.start();
     const to = ctx.createOscillator(), tg = ctx.createGain(); to.frequency.value = S.bpm / 60 * 2; to.connect(tg); tg.connect(trem.gain); to.start();
-    strips[ch.id] = { ctx, cr, g, duck, drv, hp, lp, chW, trem, tg, to, cr, p, rs, ds }; applyStrip(strips[ch.id], ch);
+    strips[ch.id] = { master, buses, route: 0, ctx, cr, g, duck, drv, hp, lp, chW, trem, tg, to, cr, p, rs, ds }; applyStrip(strips[ch.id], ch);
   }
-  return { master, an, rev, dly, strips, eq: { lo, mid, hi, comp, lim } };
+  const busObj = { master, an, rev, dly, strips, buses, eq: { lo, mid, hi, comp, lim } }; applyBuses(busObj); return busObj;
 }
 
 /* ===================== insert slots: 4 effects per channel, wired in series after the strip ===================== */
@@ -236,6 +239,7 @@ function wireSlots(st, ch) {
 function setSlots(st, ch) { (ch.fx || []).forEach((s, i) => { if (s && s.t && st.slots[i]) st.slots[i].set(s.a == null ? 50 : s.a, s.b == null ? 50 : s.b, s.m == null ? 50 : s.m); }); }
 function applyStrip(st, ch) {
   wireSlots(st, ch); setSlots(st, ch);
+  { const key = ch.bus > 0 && st.buses && st.buses[ch.bus - 1] ? ch.bus : 0; if (st.route !== key) { try { st.p.disconnect(st.route ? st.buses[st.route - 1].in : st.master); } catch (e) { /* gone */ } st.p.connect(key ? st.buses[key - 1].in : st.master); st.route = key; } }
   const anySolo = S.channels.some((c) => c.solo); st.g.gain.value = (ch.mute || (anySolo && !ch.solo)) ? 0 : ch.vol / 100; if (st.p.pan) st.p.pan.value = ch.pan / 100; st.rs.gain.value = ch.rev / 100; st.ds.gain.value = ch.dly / 100;
   st.drv.curve = driveCurve(ch.drive); st.lp.frequency.value = 200 * Math.pow(90, (ch.lp == null ? 100 : ch.lp) / 100); st.hp.frequency.value = 20 * Math.pow(60, (ch.hp || 0) / 100);
   st.chW.gain.value = (ch.chor || 0) / 100 * 0.7; const td = (ch.trem || 0) / 100; st.trem.gain.value = 1 - td / 2; st.tg.gain.value = td / 2; st.cr.curve = ch.crush ? crushCurve(Math.round(12 - ch.crush / 100 * 9)) : null;
@@ -249,19 +253,23 @@ function activePatterns(step, mode) {                                           
 }
 
 /* ===================== automation clips: a drawn curve per pattern that rides a knob ===================== */
-const AUP = { vol: 'Channel volume', pan: 'Channel pan', lp: 'Channel lowpass', hp: 'Channel highpass', rev: 'Reverb send', dly: 'Delay send', master: 'Master volume' };
-const autoVal = (p, y) => p === 'vol' || p === 'master' ? y * 1.2 : p === 'pan' ? y * 2 - 1 : p === 'lp' ? 200 * Math.pow(90, y) : p === 'hp' ? 20 * Math.pow(60, y) : y;
+const AUC = { vol: 'Channel volume', pan: 'Channel pan', lp: 'Channel lowpass', hp: 'Channel highpass', rev: 'Reverb send', dly: 'Delay send' };
+function autoOpts(chId) { if (chId === 'master') return [['master', 'Master volume'], ['bpm', 'Tempo']]; const o = Object.entries(AUC), ch = S.channels.find((c) => c.id === chId); ((ch && ch.fx) || []).forEach((s, i) => { if (s) FXL[s.t].forEach((lab, j) => { if (lab) o.push(['fx' + i + ['a', 'b', 'm'][j], 'Insert ' + (i + 1) + ' ' + FXT[s.t] + ' · ' + lab]); }); }); return o; }
+const deferAt = (ctx, t, fn) => { if (ctx === AC) setTimeout(fn, Math.max(0, (t - AC.currentTime) * 1000)); else (ctx.__ev = ctx.__ev || []).push([t, fn]); };
+function flushDefer(off) { const m = new Map(); (off.__ev || []).forEach(([t, f]) => { const q = Math.max(128, Math.ceil(t * SR / 128) * 128) / SR; if (!m.has(q)) m.set(q, []); m.get(q).push(f); }); [...m].sort((a, b) => a[0] - b[0]).forEach(([q, fs]) => { off.suspend(q).then(() => { fs.forEach((f) => f()); off.resume(); }); }); }
+function tempoAt(stp, mode) { for (const { pat, local } of activePatterns(stp, mode)) { const k = (pat.auto || []).find((q) => q.p === 'bpm'); if (k) return autoVal('bpm', autoAt(k.pts, local / (pat.bars * SPB()))); } return S.bpm; }
+const autoVal = (p, y) => p === 'bpm' ? 60 + y * 180 : p === 'vol' || p === 'master' ? y * 1.2 : p === 'pan' ? y * 2 - 1 : p === 'lp' ? 200 * Math.pow(90, y) : p === 'hp' ? 20 * Math.pow(60, y) : y;
 function autoAt(pts, x) { if (x <= pts[0][0]) return pts[0][1]; for (let i = 1; i < pts.length; i++) if (x <= pts[i][0]) { const a = pts[i - 1], b = pts[i], u = b[0] === a[0] ? 0 : (x - a[0]) / (b[0] - a[0]); return a[1] + (b[1] - a[1]) * u; } return pts[pts.length - 1][1]; }
 function autoTarget(bus, k) { if (k.p === 'master') return bus.master.gain; const st = bus.strips[k.ch]; if (!st) return null; return { vol: st.g.gain, pan: st.p.pan, lp: st.lp.frequency, hp: st.hp.frequency, rev: st.rs.gain, dly: st.ds.gain }[k.p]; }
 function runAuto(ctx, bus, pat, local, t, sd) {
   if (!pat.auto || !pat.auto.length) return; const n = pat.bars * SPB();
-  for (const k of pat.auto) { const tg = autoTarget(bus, k); if (!tg) continue; if (k.p === 'vol') { const ch = S.channels.find((c) => c.id === k.ch); if (!ch || ch.mute || (S.channels.some((c) => c.solo) && !ch.solo)) continue; } tg.setValueAtTime(autoVal(k.p, autoAt(k.pts, local / n)), t); tg.linearRampToValueAtTime(autoVal(k.p, autoAt(k.pts, (local + 1) / n)), t + sd); }
+  for (const k of pat.auto) { if (k.p === 'bpm') continue; const fm = /^fx(\d)([abm])$/.exec(k.p); if (fm) { const ch = S.channels.find((c) => c.id === k.ch), st = bus.strips[k.ch], i = +fm[1]; if (ch && st && ch.fx && ch.fx[i] && st.slots && st.slots[i]) { const s = ch.fx[i], v = { a: s.a == null ? 50 : s.a, b: s.b == null ? 50 : s.b, m: s.m == null ? 50 : s.m }, sl = st.slots[i]; v[fm[2]] = autoAt(k.pts, local / n) * 100; deferAt(ctx, t, () => sl.set(v.a, v.b, v.m)); } continue; } const tg = autoTarget(bus, k); if (!tg) continue; if (k.p === 'vol') { const ch = S.channels.find((c) => c.id === k.ch); if (!ch || ch.mute || (S.channels.some((c) => c.solo) && !ch.solo)) continue; } tg.setValueAtTime(autoVal(k.p, autoAt(k.pts, local / n)), t); tg.linearRampToValueAtTime(autoVal(k.p, autoAt(k.pts, (local + 1) / n)), t + sd); }
 }
 const au = { id: null };
 function renderAuto() {
   const pat = patOf(S.cur); pat.auto = pat.auto || []; const cl = $('#aucl'), chs = $('#auch'), pp = $('#aup'), cur = pat.auto.find((k) => k.id === au.id) || pat.auto[0]; au.id = cur ? cur.id : null;
-  cl.innerHTML = pat.auto.map((k) => '<option value="' + k.id + '"' + (cur && k.id === cur.id ? ' selected' : '') + '>' + esc((k.ch === 'master' ? 'Master' : ((S.channels.find((c) => c.id === k.ch) || {}).name || '?')) + ' · ' + AUP[k.p]) + '</option>').join('') || '<option>No clips in ' + esc(pat.name) + '</option>';
-  chs.innerHTML = '<option value="master">Master</option>' + S.channels.map((c) => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join(''); pp.innerHTML = Object.entries(AUP).map(([k, v]) => '<option value="' + k + '">' + v + '</option>').join('');
+  cl.innerHTML = pat.auto.map((k) => '<option value="' + k.id + '"' + (cur && k.id === cur.id ? ' selected' : '') + '>' + esc((k.ch === 'master' ? 'Master' : ((S.channels.find((c) => c.id === k.ch) || {}).name || '?')) + ' · ' + (autoOpts(k.ch).find((o) => o[0] === k.p) || [0, k.p])[1]) + '</option>').join('') || '<option>No clips in ' + esc(pat.name) + '</option>';
+  chs.innerHTML = '<option value="master">Master</option>' + S.channels.map((c) => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join(''); pp.innerHTML = autoOpts(cur ? cur.ch : 'master').map(([k, v]) => '<option value="' + k + '">' + esc(v) + '</option>').join('');
   if (cur) { chs.value = cur.ch; pp.value = cur.p; } chs.disabled = pp.disabled = !cur; drawAuto();
 }
 function drawAuto() {
@@ -281,10 +289,10 @@ function bindAuto() {
   $('#auadd').onclick = () => { const pat = patOf(S.cur); pat.auto = pat.auto || []; const k = { id: uid(), ch: S.sel || 'master', p: 'vol', pts: [[0, 0.7], [1, 0.7]] }; pat.auto.push(k); au.id = k.id; renderAuto(); save(); };
   $('#audel').onclick = () => { const pat = patOf(S.cur); pat.auto = (pat.auto || []).filter((q) => q.id !== au.id); au.id = null; renderAuto(); save(); };
   $('#aucl').onchange = (e) => { au.id = e.target.value; renderAuto(); };
-  $('#auch').onchange = (e) => { const k = cur(); if (k) { k.ch = e.target.value; renderAuto(); save(); } }; $('#aup').onchange = (e) => { const k = cur(); if (k) { k.p = e.target.value; renderAuto(); save(); } };
+  $('#auch').onchange = (e) => { const k = cur(); if (k) { k.ch = e.target.value; if (!autoOpts(k.ch).some((o) => o[0] === k.p)) k.p = autoOpts(k.ch)[0][0]; renderAuto(); save(); } }; $('#aup').onchange = (e) => { const k = cur(); if (k) { k.p = e.target.value; renderAuto(); save(); } };
 }
 function playStep(ctx, bus, step, t, mode) {
-  const sd = 60 / S.bpm / 4;
+  const sd = 60 / tempoAt(step, mode) / 4;
   for (const { pat, local } of activePatterns(step, mode)) { runAuto(ctx, bus, pat, local, t, sd); for (const ch of S.channels) {
     const st = bus.strips[ch.id]; if (!st) continue;
     if (ch.type === 'synth') { for (const n of notesOf(ch, pat.id)) if (n.t === local) synthNote(ctx, st.g, ch, t, n.n, n.len * sd, 0.9); }
@@ -293,7 +301,7 @@ function playStep(ctx, bus, step, t, mode) {
   if (S.metro && ctx === AC && step % BST() === 0) { const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = step % SPB() === 0 ? 1500 : 1000; env(ctx, g, t, 0.001, 0.04, 0.25); o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t + 0.06); }
 }
 let live = null, playing = false, step = 0, nextT = 0, timer = 0, startT = 0; const songSteps = () => { const e = S.list.reduce((m, c) => Math.max(m, c.start + patOf(c.pat).bars), 0); return Math.max(1, e) * SPB(); };
-function tickSched() { while (nextT < AC.currentTime + 0.12) { const sd = 60 / S.bpm / 4, sw = step % 2 ? (S.swing / 100) * sd * 0.5 : 0, mode = S.mode; playStep(AC, live, step, nextT + sw, mode); looperStep(step, nextT + sw); uiSteps.push({ t: nextT, step }); nextT += sd; step++; if (mode === 'song' && step >= songSteps()) step = 0; } }
+function tickSched() { while (nextT < AC.currentTime + 0.12) { const sd = 60 / tempoAt(step, S.mode) / 4, sw = step % 2 ? (S.swing / 100) * sd * 0.5 : 0, mode = S.mode; playStep(AC, live, step, nextT + sw, mode); looperStep(step, nextT + sw); uiSteps.push({ t: nextT, step }); nextT += sd; step++; if (mode === 'song' && step >= songSteps()) step = 0; } }
 let uiSteps = [];
 async function play() { if (playing) return pause(); if (S.channels.some((c) => c.inst === 'salamander')) await loadSal(); if (AC.state === 'suspended') await AC.resume(); live = makeBus(AC); looperConnect(); playing = true; step = 0; nextT = AC.currentTime + 0.06; timer = setInterval(tickSched, 25); tickSched(); $('#play').textContent = '❚❚'; $('#play').classList.add('on'); }
 function pause() { playing = false; clearInterval(timer); uiSteps = []; $('#play').textContent = '▶'; $('#play').classList.remove('on'); try { live.master.disconnect(); } catch (e) { /* gone */ } LOOP.tracks.forEach((t) => { try { if (t.src) t.src.stop(); } catch (e) { /* done */ } }); if (LOOP.rec) { LOOP.rec = null; if (LOOP.cap) LOOP.cap.port.postMessage(false); renderLooper(); } live = null; $$('.st.now').forEach((e) => e.classList.remove('now')); }
@@ -315,7 +323,7 @@ function renderRack() {
   }
 }
 function preview(ch) { if (AC.state === 'suspended') AC.resume(); const t = AC.currentTime + 0.01, g = AC.createGain(); g.gain.value = (ch.vol || 85) / 100; g.connect(liveOut()); if (ch.type === 'sample') sampleHit(AC, g, ch, t, 0.9); else if (ch.type === 'synth') [60, 64, 67].forEach((m, i) => synthNote(AC, g, ch, t + i * 0.16, m, 0.4, 0.9)); else (DR[ch.drum] || DR.kick)(AC, g, t, 0.9, ch.p); }
-function applyAll() { if (live) for (const ch of S.channels) if (live.strips[ch.id]) applyStrip(live.strips[ch.id], ch); if (live) { live.master.gain.value = S.master / 100; live.dly.delayTime.value = 60 / S.bpm * 0.75; if (live.eq) { const E = S.eq; live.eq.lo.gain.value = E.lo; live.eq.mid.gain.value = E.mid; live.eq.hi.gain.value = E.hi; live.eq.comp.threshold.value = -8 - E.glue * 0.18; live.eq.comp.ratio.value = 1.5 + E.glue * 0.05; live.eq.lim.threshold.value = E.lim ? -2 : 0; live.eq.lim.ratio.value = E.lim ? 20 : 1; } } save(); }
+function applyAll() { if (live) for (const ch of S.channels) if (live.strips[ch.id]) applyStrip(live.strips[ch.id], ch); if (live) { applyBuses(live); live.master.gain.value = S.master / 100; live.dly.delayTime.value = 60 / S.bpm * 0.75; if (live.eq) { const E = S.eq; live.eq.lo.gain.value = E.lo; live.eq.mid.gain.value = E.mid; live.eq.hi.gain.value = E.hi; live.eq.comp.threshold.value = -8 - E.glue * 0.18; live.eq.comp.ratio.value = 1.5 + E.glue * 0.05; live.eq.lim.threshold.value = E.lim ? -2 : 0; live.eq.lim.ratio.value = E.lim ? 20 : 1; } } save(); }
 
 /* ===================== piano roll ===================== */
 const NOTE_LO = 36, NOTE_HI = 84, CW = 28, RH = 16;
@@ -352,20 +360,27 @@ function bindList() {
 
 /* ===================== mixer ===================== */
 const FXPRE = { clean: { drive: 0, lp: 100, hp: 0, chor: 0, trem: 0, crush: 0, rev: 0, dly: 0 }, dirty: { drive: 55 }, lofi: { lp: 55, crush: 35, drive: 15 }, wide: { chor: 70, rev: 20 }, telephone: { hp: 55, lp: 60, drive: 25 }, dub: { dly: 60, rev: 30, lp: 70 }, dreamy: { rev: 60, chor: 50, lp: 75 }, radio: { hp: 40, lp: 70, drive: 30, crush: 12 }, wobble: { trem: 70, lp: 80 } };
+function fxUI(obj) {
+  const fxs = document.createElement('div'); fxs.className = 'fxs'; fxs.innerHTML = '<small class="note">Inserts</small>'; if (!obj.fx) obj.fx = [null, null, null, null];
+  for (let i = 0; i < 4; i++) {
+    const sel = document.createElement('select'); sel.innerHTML = '<option value="">— slot ' + (i + 1) + ' —</option>' + Object.entries(FXT).map(([k, v]) => '<option value="' + k + '">' + v + '</option>').join(''); sel.value = obj.fx[i] ? obj.fx[i].t : '';
+    sel.onchange = () => { obj.fx[i] = sel.value ? { t: sel.value, a: sel.value === 'dist' ? 40 : 50, b: sel.value === 'gate' ? 70 : 50, m: sel.value === 'reverb' || sel.value === 'delay' ? 30 : 50 } : null; applyAll(); renderMixer(); }; fxs.append(sel);
+    const s = obj.fx[i]; if (s) FXL[s.t].forEach((lab, j) => { if (!lab) return; const k = ['a', 'b', 'm'][j], w = document.createElement('label'); w.textContent = lab; const r = document.createElement('input'); r.type = 'range'; r.min = 0; r.max = 100; r.value = s[k]; r.oninput = () => { s[k] = +r.value; applyAll(); }; w.append(r); fxs.append(w); });
+  }
+  return fxs;
+}
+function busPanel(m, bus) {
+  const d = document.createElement('div'); d.className = 'mixc'; d.style.borderColor = '#6aa9ff'; const t = document.createElement('b'); t.textContent = bus.name; d.append(t);
+  const w = document.createElement('label'); w.textContent = 'Level'; const r = document.createElement('input'); r.type = 'range'; r.min = 0; r.max = 120; r.value = bus.vol; r.oninput = () => { bus.vol = +r.value; applyAll(); }; w.append(r); d.append(w, fxUI(bus)); m.append(d);
+}
 function renderMixer() {
-  const m = $('#mixer'); m.innerHTML = ''; masterPanel(m);
+  ensureBuses(); const m = $('#mixer'); m.innerHTML = ''; masterPanel(m); S.buses.forEach((bus) => busPanel(m, bus));
   for (const ch of S.channels) {
     const d = document.createElement('div'); d.className = 'mixc'; const t = document.createElement('b'); t.textContent = ch.name; d.append(t);
     const sl = (lab, k, min, max, vert) => { const w = document.createElement('label'); w.textContent = lab; const i = document.createElement('input'); i.type = 'range'; i.min = min; i.max = max; i.value = ch[k] == null ? (k === 'lp' ? 100 : 0) : ch[k]; if (vert) i.className = 'v'; i.oninput = () => { ch[k] = +i.value; applyAll(); }; w.append(i); return w; };
     d.append(sl('Vol', 'vol', 0, 120, true), sl('Pan', 'pan', -100, 100), sl('Reverb', 'rev', 0, 100), sl('Delay', 'dly', 0, 100), sl('Drive', 'drive', 0, 100), sl('Lowpass', 'lp', 0, 100), sl('Highpass', 'hp', 0, 100), sl('Chorus', 'chor', 0, 100), sl('Tremolo', 'trem', 0, 100), sl('Crush', 'crush', 0, 100), sl('Sidechain', 'sc', 0, 100)); if (ch.type === 'sample') d.append(sl('Pitch', 'pitch', -24, 24));
     const ps = document.createElement('select'); ps.innerHTML = '<option value="">FX preset…</option>' + Object.keys(FXPRE).map((k) => '<option>' + k + '</option>').join(''); ps.onchange = () => { Object.assign(ch, FXPRE[ps.value]); applyAll(); renderMixer(); }; d.append(ps);
-    const fxs = document.createElement('div'); fxs.className = 'fxs'; fxs.innerHTML = '<small class="note">Inserts</small>'; if (!ch.fx) ch.fx = [null, null, null, null];
-    for (let i = 0; i < 4; i++) {
-      const sel = document.createElement('select'); sel.innerHTML = '<option value="">— slot ' + (i + 1) + ' —</option>' + Object.entries(FXT).map(([k, v]) => '<option value="' + k + '">' + v + '</option>').join(''); sel.value = ch.fx[i] ? ch.fx[i].t : '';
-      sel.onchange = () => { ch.fx[i] = sel.value ? { t: sel.value, a: sel.value === 'dist' ? 40 : 50, b: sel.value === 'gate' ? 70 : 50, m: sel.value === 'reverb' || sel.value === 'delay' ? 30 : 50 } : null; applyAll(); renderMixer(); }; fxs.append(sel);
-      const s = ch.fx[i]; if (s) FXL[s.t].forEach((lab, j) => { if (!lab) return; const k = ['a', 'b', 'm'][j], w = document.createElement('label'); w.textContent = lab; const r = document.createElement('input'); r.type = 'range'; r.min = 0; r.max = 100; r.value = s[k]; r.oninput = () => { s[k] = +r.value; applyAll(); }; w.append(r); fxs.append(w); });
-    }
-    d.append(fxs); m.append(d);
+    const rt = document.createElement('select'); rt.title = 'Where this channel is sent'; rt.innerHTML = '<option value="0">→ Master</option>' + S.buses.map((q, i) => '<option value="' + (i + 1) + '">→ ' + esc(q.name) + '</option>').join(''); rt.value = ch.bus || 0; rt.onchange = () => { ch.bus = +rt.value; applyAll(); }; d.append(rt, fxUI(ch)); m.append(d);
   }
 }
 /* ===================== browser, samples, files, drag and drop ===================== */
@@ -408,15 +423,15 @@ function loadLame() {
 }
 async function exportWav(opt) {
   if (S.channels.some((c) => c.inst === 'salamander')) await loadSal();
-  const mode = S.mode, total = mode === 'song' ? songSteps() : patOf(S.cur).bars * SPB() * 4, sd = 60 / S.bpm / 4, tail = 3, len = Math.ceil((total * sd + tail) * SR); toast('Rendering…', 60000);
-  const off = new OfflineAudioContext(2, len, SR), bus = makeBus(off); for (let i = 0; i < total; i++) playStep(off, bus, i, i * sd + (i % 2 ? (S.swing / 100) * sd * 0.5 : 0), mode);
-  if (!(opt && opt.stem)) for (const tr of LOOP.tracks) if (tr.buf && !tr.mute) for (let bar = 0; bar * SPB() < total; bar += tr.bars) { const s = off.createBufferSource(), g = off.createGain(); s.buffer = tr.buf; g.gain.value = tr.vol / 100; s.connect(g); g.connect(bus.master); s.start(bar * SPB() * sd); }
+  const mode = S.mode, total = mode === 'song' ? songSteps() : patOf(S.cur).bars * SPB() * 4, sd = 60 / S.bpm / 4, tail = 3, T = [], len0 = (() => { let tt = 0; for (let i = 0; i < total; i++) { T.push(tt); tt += 60 / tempoAt(i, mode) / 4; } return tt; })(), len = Math.ceil((len0 + tail) * SR); toast('Rendering…', 60000);
+  const off = new OfflineAudioContext(2, len, SR), bus = makeBus(off); for (let i = 0; i < total; i++) playStep(off, bus, i, T[i] + (i % 2 ? (S.swing / 100) * sd * 0.5 : 0), mode); flushDefer(off);
+  if (!(opt && opt.stem)) for (const tr of LOOP.tracks) if (tr.buf && !tr.mute) for (let bar = 0; bar * SPB() < total; bar += tr.bars) { const s = off.createBufferSource(), g = off.createGain(); s.buffer = tr.buf; g.gain.value = tr.vol / 100; s.connect(g); g.connect(bus.master); s.start(T[bar * SPB()] != null ? T[bar * SPB()] : bar * SPB() * sd); }
   const out = await off.startRendering(), L = out.getChannelData(0), R = out.getChannelData(1); let end = L.length; while (end > 2000 && Math.abs(L[end - 1]) < 1e-4 && Math.abs(R[end - 1]) < 1e-4) end -= 200;
   if (opt && opt.fmt === 'mp3') {
     const Lm = await loadLame(), kb = 256, enc = new Lm.Mp3Encoder(2, SR, kb), parts = [], bl = 1152, li = new Int16Array(bl), ri = new Int16Array(bl);
     for (let i = 0; i < end; i += bl) { const n = Math.min(bl, end - i); for (let k = 0; k < bl; k++) { li[k] = k < n ? Math.max(-1, Math.min(1, L[i + k])) * 32767 : 0; ri[k] = k < n ? Math.max(-1, Math.min(1, R[i + k])) * 32767 : 0; } const d = enc.encodeBuffer(li, ri); if (d.length) parts.push(new Uint8Array(d)); if ((i / bl) % 150 === 0) await new Promise((r) => setTimeout(r)); }
     const fl = enc.flush(); if (fl.length) parts.push(new Uint8Array(fl));
-    const murl = URL.createObjectURL(new Blob(parts, { type: 'audio/mpeg' })), ma = document.createElement('a'); ma.href = murl; ma.download = 'mosaicBeats-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.mp3'; ma.click(); setTimeout(() => URL.revokeObjectURL(murl), 5000);
+    const murl = URL.createObjectURL(new Blob(parts, { type: 'audio/mpeg' })), ma = document.createElement('a'); ma.href = murl; ma.download = 'mosaicBeats-' + (opt.stem ? opt.stem + '-' : '') + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.mp3'; ma.click(); setTimeout(() => URL.revokeObjectURL(murl), 5000);
     const bytes = parts.reduce((s, p) => s + p.length, 0); toast('Exported ' + (end / SR).toFixed(1) + ' s as MP3 (' + kb + ' kbps, ' + (bytes / 1048576).toFixed(1) + ' MB)', 5000); return { frames: end, mp3: bytes };
   }
   const dv = new DataView(new ArrayBuffer(44 + end * 4)), w4 = (o, t) => { for (let i = 0; i < 4; i++) dv.setUint8(o + i, t.charCodeAt(i)); }; w4(0, 'RIFF'); dv.setUint32(4, 36 + end * 4, true); w4(8, 'WAVE'); w4(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 2, true); dv.setUint32(24, SR, true); dv.setUint32(28, SR * 4, true); dv.setUint16(32, 4, true); dv.setUint16(34, 16, true); w4(36, 'data'); dv.setUint32(40, end * 4, true);
@@ -617,12 +632,12 @@ const HELP = [['Space', 'Play / pause'], ['Ctrl+Z / Ctrl+Shift+Z', 'Undo / redo'
 function showHelp() { const d = $('#helpdlg'); d.querySelector('div').innerHTML = HELP.map(([k, v]) => '<p><kbd>' + esc(k) + '</kbd> ' + esc(v) + '</p>').join(''); d.showModal(); }
 $('#helpbtn').onclick = showHelp; $('#helpclose').onclick = () => $('#helpdlg').close();
 addEventListener('keydown', (e) => { if (e.target.closest && e.target.closest('input,select,textarea')) return; if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); } else if (e.key === '?') showHelp(); });
-async function exportStems() {
+async function exportStems(fmt) {
   const saved = S.channels.map((c) => [c.mute, c.solo]), targets = S.channels.filter((c) => !c.mute); if (!targets.length) return toast('Nothing to export');
-  try { for (const t of targets) { S.channels.forEach((c) => { c.mute = c === t ? 0 : 1; c.solo = 0; }); await exportWav({ stem: t.name.replace(/[^\w-]+/g, '_') }); await new Promise((r) => setTimeout(r, 350)); } } finally { S.channels.forEach((c, i) => { c.mute = saved[i][0]; c.solo = saved[i][1]; }); renderAll(); }
+  try { for (const t of targets) { S.channels.forEach((c) => { c.mute = c === t ? 0 : 1; c.solo = 0; }); await exportWav({ stem: t.name.replace(/[^\w-]+/g, '_'), fmt }); await new Promise((r) => setTimeout(r, 350)); } } finally { S.channels.forEach((c, i) => { c.mute = saved[i][0]; c.solo = saved[i][1]; }); renderAll(); }
   toast('Exported ' + targets.length + ' stems', 5000);
 }
-$('#stems').onclick = () => exportStems().catch((e) => toast('Stems failed: ' + e.message, 7000));
+$('#stemsmp3').onclick = () => exportStems('mp3').catch((e) => toast('Stems failed: ' + e.message, 7000)); $('#stems').onclick = () => exportStems().catch((e) => toast('Stems failed: ' + e.message, 7000));
 function masterPanel(m) {
   const d = document.createElement('div'); d.className = 'mixc'; d.style.borderColor = 'var(--acc)'; const t = document.createElement('b'); t.textContent = 'Master'; d.append(t); const E = S.eq || (S.eq = { lo: 0, mid: 0, hi: 0, glue: 40, lim: 1 });
   const sl = (lab, k, min, max) => { const w = document.createElement('label'); w.textContent = lab; const i = document.createElement('input'); i.type = 'range'; i.min = min; i.max = max; i.value = E[k]; i.oninput = () => { E[k] = +i.value; applyAll(); }; w.append(i); return w; };
@@ -632,7 +647,7 @@ function masterPanel(m) {
 buildKbd(); bindRoll(); bindList(); bindAuto(); renderBrowser();
 try { const saved = localStorage.getItem('beats-proj'); if (saved) loadProject(saved); else seedProject(); } catch (e) { seedProject(); } if (!S.channels.length) seedProject();
 S.sel = S.sel && S.channels.find((c) => c.id === S.sel) ? S.sel : (S.channels[0] && S.channels[0].id); if (!S.eq) S.eq = { lo: 0, mid: 0, hi: 0, glue: 40, lim: 1 }; renderAll(); hist = [snapshot()]; paintUndo(); requestAnimationFrame(frame);
-window.__beats = { mkSlot, runAuto, loadSal, SAL, SPB, S, play, stop, exportWav, addChannel, playStep, makeBus, renderAll, INSTR, synthNote, DR, KITS, LOOP, padHit, pad, loopRec, applyStyle, STYLES };
+window.__beats = { tempoAt, applyBuses, mkSlot, runAuto, loadSal, SAL, SPB, S, play, stop, exportWav, addChannel, playStep, makeBus, renderAll, INSTR, synthNote, DR, KITS, LOOP, padHit, pad, loopRec, applyStyle, STYLES };
 </script>
 </body>
 </html>
