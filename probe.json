@@ -1,7 +1,7 @@
 {
- "at": 1794635397489,
+ "at": 1794638548129,
  "target": "https://mosaicscope.pages.dev",
- "sha": "99e099716a1178318be3206ef0f48b9bdf023345",
+ "sha": "7f5a46b89c02a89c9fd19ec1eff316504ce9435f",
  "results": [
   {
    "page": "/",
@@ -29,19 +29,19 @@
      "why": "net::ERR_ABORTED"
     }
    ],
-   "requests": 135,
-   "bytes": 4040,
+   "requests": 137,
+   "bytes": 4042,
    "ownBytes": 329,
-   "thirdParty": 113,
+   "thirdParty": 115,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 383,
-    "loadMs": 1247,
-    "lcpMs": 724,
-    "cls": 0.155,
-    "tbtMs": 238,
-    "longTasks": 3,
-    "heapMB": 17.4,
+    "domContentLoadedMs": 310,
+    "loadMs": 930,
+    "lcpMs": 648,
+    "cls": 0.152,
+    "tbtMs": 285,
+    "longTasks": 2,
+    "heapMB": 16.3,
     "domNodes": 1525,
     "renderBlocking": 8,
     "resourceEntries": 35,
@@ -163,20 +163,20 @@
      "why": "net::ERR_ABORTED"
     }
    ],
-   "requests": 140,
-   "bytes": 4078,
-   "ownBytes": 330,
-   "thirdParty": 118,
+   "requests": 139,
+   "bytes": 4077,
+   "ownBytes": 329,
+   "thirdParty": 117,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 210,
-    "loadMs": 887,
-    "lcpMs": 216,
+    "domContentLoadedMs": 227,
+    "loadMs": 262,
+    "lcpMs": 240,
     "cls": 0.097,
-    "tbtMs": 300,
-    "longTasks": 3,
-    "heapMB": 22,
-    "domNodes": 1847,
+    "tbtMs": 325,
+    "longTasks": 4,
+    "heapMB": 12.1,
+    "domNodes": 1967,
     "renderBlocking": 8,
     "resourceEntries": 35,
     "screens": 10.1
@@ -302,9 +302,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 193,
-    "loadMs": 193,
-    "lcpMs": 192,
+    "domContentLoadedMs": 80,
+    "loadMs": 80,
+    "lcpMs": 88,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -349,9 +349,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 125,
-    "loadMs": 125,
-    "lcpMs": 88,
+    "domContentLoadedMs": 75,
+    "loadMs": 76,
+    "lcpMs": 60,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -390,10 +390,10 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 159,
-    "loadMs": 261,
-    "lcpMs": 180,
-    "cls": 0.007,
+    "domContentLoadedMs": 109,
+    "loadMs": 131,
+    "lcpMs": 120,
+    "cls": 0.014,
     "tbtMs": 0,
     "longTasks": 0,
     "heapMB": 9.5,
@@ -431,9 +431,9 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 215,
-    "loadMs": 308,
-    "lcpMs": 228,
+    "domContentLoadedMs": 118,
+    "loadMs": 118,
+    "lcpMs": 104,
     "cls": 0.147,
     "tbtMs": 0,
     "longTasks": 0,
@@ -513,84 +513,84 @@
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 390,
-   "ms": 2599,
+   "ms": 2530,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 390,
-   "ms": 2012,
+   "ms": 1851,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 390,
-   "ms": 1995,
+   "ms": 2073,
    "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 390,
-   "ms": 1819,
+   "ms": 1818,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 390,
-   "ms": 2322,
+   "ms": 2370,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 390,
-   "ms": 1079,
+   "ms": 924,
    "status": "pass"
   },
   {
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 1280,
-   "ms": 2625,
+   "ms": 1965,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 1280,
-   "ms": 1931,
+   "ms": 1956,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 1280,
-   "ms": 2145,
+   "ms": 2187,
    "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 1280,
-   "ms": 1944,
+   "ms": 2012,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 1280,
-   "ms": 2586,
+   "ms": 2475,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 1280,
-   "ms": 1089,
+   "ms": 930,
    "status": "pass"
   }
  ]
