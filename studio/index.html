@@ -90,6 +90,7 @@
       background-size: 20px 20px;
     }
   </style>
+  <link rel="stylesheet" href="mobile.css" />
 </head>
 <body class="h-screen w-screen flex flex-col text-xs">
 
@@ -179,7 +180,7 @@
       <div class="grid grid-cols-3 border-b border-studio-border bg-studio-bg/60 shrink-0 text-[11px]">
         <button id="tabFilters" class="py-2.5 text-center font-semibold text-blue-400 border-b-2 border-blue-500 transition flex items-center justify-center gap-1">
           <span>Filters</span>
-          <span class="px-1.5 py-0.2 rounded-full text-[9px] bg-blue-500/20 text-blue-300 font-mono">190</span>
+          <span class="px-1.5 py-0.2 rounded-full text-[9px] bg-blue-500/20 text-blue-300 font-mono">210</span>
         </button>
         <button id="tabLuts" class="py-2.5 text-center font-medium text-zinc-400 hover:text-zinc-200 border-b-2 border-transparent transition">
           LUTs & XMP
@@ -199,7 +200,7 @@
             <span class="flex gap-3"><button id="btnInspire" class="text-[10px] text-lime-300 hover:text-lime-200 font-medium">Inspire me</button><button id="btnClearFilter" class="text-[10px] text-blue-400 hover:text-blue-300 font-medium">Bypass Filter</button></span>
           </div>
           <select id="filterCategorySelect" class="w-full bg-studio-surface border border-studio-border rounded-md px-2.5 py-1.5 text-xs text-white font-medium focus:outline-none focus:border-blue-500">
-            <option value="all">All 190 Filters (8 Collections)</option>
+            <option value="all">All 210 Filters (18 Collections)</option>
             <option value="0">1. Glitch Effects (20)</option>
             <option value="1">2. Morphism (20)</option>
             <option value="2">3. Data Convulsions (20)</option>
@@ -208,10 +209,20 @@
             <option value="5">6. New Leo Da Vinci (20)</option>
             <option value="6">7. High Fashion Editorial (20)</option>
             <option value="7">8. Corruption Studies (50)</option>
+            <option value="8">9. Liquid Metal (2)</option>
+            <option value="9">10. Paper Craft (2)</option>
+            <option value="10">11. Light Painting (2)</option>
+            <option value="11">12. Geometric Abstraction (2)</option>
+            <option value="12">13. Underwater (2)</option>
+            <option value="13">14. Retro Print (2)</option>
+            <option value="14">15. Weather (2)</option>
+            <option value="15">16. Cosmic (2)</option>
+            <option value="16">17. Mirage (2)</option>
+            <option value="17">18. Textile (2)</option>
           </select>
 
           <div class="relative">
-            <input type="text" id="filterSearchInput" placeholder="Search 190 GPU shaders..." class="w-full bg-studio-surface border border-studio-border rounded-md pl-7 pr-2.5 py-1.5 text-[11px] text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-blue-500" />
+            <input type="text" id="filterSearchInput" placeholder="Search 210 GPU shaders..." class="w-full bg-studio-surface border border-studio-border rounded-md pl-7 pr-2.5 py-1.5 text-[11px] text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-blue-500" />
             <svg class="w-3.5 h-3.5 text-zinc-500 absolute left-2 top-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -876,6 +887,76 @@
             'Portra 400 Editorial', 'Cinestill 800T Night Runway', 'Medium Format Hasselblad', 'Bleach Bypass Runway',
             'Silk Skin Retouch Tone', 'Velvet Shadows Luxury', 'Alabaster Porcelain Skin', 'Magazine Cover Punch'
           ]
+        },
+        {
+          id: 8,
+          name: 'Liquid Metal',
+          badgeColor: 'text-slate-300 bg-slate-500/15 border-slate-500/30',
+          param2Label: 'Surface Relief / Sharpness',
+          items: ['Mercury Pool', 'Gold Leaf Flake']
+        },
+        {
+          id: 9,
+          name: 'Paper Craft',
+          badgeColor: 'text-orange-300 bg-orange-500/15 border-orange-500/30',
+          param2Label: 'Layer Depth / Facet Size',
+          items: ['Layered Paper Cut', 'Origami Facets']
+        },
+        {
+          id: 10,
+          name: 'Light Painting',
+          badgeColor: 'text-yellow-300 bg-yellow-500/15 border-yellow-500/30',
+          param2Label: 'Streak Length',
+          items: ['Radial Zoom Burst', 'Sparkler Starburst']
+        },
+        {
+          id: 11,
+          name: 'Geometric Abstraction',
+          badgeColor: 'text-red-300 bg-red-500/15 border-red-500/30',
+          param2Label: 'Tile Size',
+          items: ['Bauhaus Shapes', 'Truchet Arcs']
+        },
+        {
+          id: 12,
+          name: 'Underwater',
+          badgeColor: 'text-cyan-300 bg-cyan-500/15 border-cyan-500/30',
+          param2Label: 'Ripple / Droplet Scale',
+          items: ['Caustic Pool', 'Water Droplets']
+        },
+        {
+          id: 13,
+          name: 'Retro Print',
+          badgeColor: 'text-pink-300 bg-pink-500/15 border-pink-500/30',
+          param2Label: 'Line Density',
+          items: ['Duotone Pop', 'Linocut Carve']
+        },
+        {
+          id: 14,
+          name: 'Weather',
+          badgeColor: 'text-sky-300 bg-sky-500/15 border-sky-500/30',
+          param2Label: 'Streak / Frost Spread',
+          items: ['Rain on Glass', 'Frost Crystals']
+        },
+        {
+          id: 15,
+          name: 'Cosmic',
+          badgeColor: 'text-violet-300 bg-violet-500/15 border-violet-500/30',
+          param2Label: 'Cloud / Star Density',
+          items: ['Nebula Grade', 'Star Field']
+        },
+        {
+          id: 16,
+          name: 'Mirage',
+          badgeColor: 'text-amber-300 bg-amber-500/15 border-amber-500/30',
+          param2Label: 'Horizon / Shimmer',
+          items: ['Heat Haze', 'Desert Mirage']
+        },
+        {
+          id: 17,
+          name: 'Textile',
+          badgeColor: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
+          param2Label: 'Stitch / Thread Size',
+          items: ['Cross-Stitch', 'Basket Weave']
         }
       ];
 
@@ -1545,6 +1626,50 @@
           return clamp(o, 0.0, 1.0);
         }
 
+        /* ===== 10 new families x 2 effects (cat 8..17). Every one uses its own technique. ===== */
+        float fN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(hash12(i), hash12(i + vec2(1.0, 0.0)), f.x), mix(hash12(i + vec2(0.0, 1.0)), hash12(i + vec2(1.0, 1.0)), f.x), f.y); }
+        float fFbm(vec2 p) { float s = 0.0, a = 0.5; for (int k = 0; k < 4; k++) { s += a * fN(p); p *= 2.03; a *= 0.5; } return s; }
+        vec3 famFx(vec2 uv, vec3 baseCol, float amt, float p2, float seed, int cat, int v) {
+          vec3 o = baseCol; vec2 px = u_texelSize, asp = vec2(uv.x * u_aspectRatio, uv.y); float L = getLuma(baseCol);
+          if (cat == 8) {                                   // LIQUID METAL
+            float lx = getLuma(TX(uv + vec2(px.x * 3.0, 0.0))) - getLuma(TX(uv - vec2(px.x * 3.0, 0.0)));
+            float ly = getLuma(TX(uv + vec2(0.0, px.y * 3.0))) - getLuma(TX(uv - vec2(0.0, px.y * 3.0)));
+            vec3 n = normalize(vec3(-lx * mix(6.0, 18.0, p2), -ly * mix(6.0, 18.0, p2), 1.0));
+            if (v == 0) { float e = n.y * 0.5 + 0.5; vec3 ch = mix(vec3(0.05, 0.07, 0.1), vec3(0.95, 0.97, 1.0), smoothstep(0.35, 0.65, e + n.x * 0.3)); ch += pow(max(0.0, dot(n, normalize(vec3(-0.4, 0.6, 0.7)))), 30.0); o = mix(baseCol, ch, amt); }
+            else { float fl = hash12(floor(asp * 140.0) + seed); float sp = pow(max(0.0, dot(n, normalize(vec3(0.5, 0.5, 0.7)))), 12.0); vec3 gd = mix(vec3(0.55, 0.34, 0.06), vec3(1.0, 0.84, 0.4), 0.5 + 0.5 * n.x) * (0.45 + L * 0.9); gd *= 0.8 + 0.4 * fl; gd += sp * vec3(1.0, 0.9, 0.6); o = mix(baseCol, gd, amt); }
+          } else if (cat == 9) {                            // PAPER CRAFT
+            if (v == 0) { float q = floor(L * 4.0) / 4.0; float lo = floor(getLuma(TX(uv + vec2(0.007, -0.009) * (0.5 + p2))) * 4.0) / 4.0; float sh = step(q + 0.01, lo); vec3 lay = floor(baseCol * 6.0 + 0.5) / 6.0 * (0.62 + 0.5 * q); lay *= 1.0 - 0.38 * sh; lay += hash12(uv * 900.0) * 0.03; o = mix(baseCol, lay, amt); }
+            else { float gs = mix(10.0, 34.0, p2); vec2 g2 = asp * gs, id = floor(g2), f = fract(g2); bool up = f.x + f.y < 1.0; vec2 c = (id + (up ? vec2(0.33) : vec2(0.67))) / gs; vec3 col = TX(vec2(c.x / u_aspectRatio, c.y)); float cr = smoothstep(0.0, 0.06, min(min(f.x, f.y), abs(f.x + f.y - 1.0))); o = mix(baseCol, col * (up ? 1.1 : 0.88) * (0.82 + 0.18 * cr), amt); }
+          } else if (cat == 10) {                           // LIGHT PAINTING
+            if (v == 0) { vec2 c = uv - 0.5; vec3 acc = vec3(0.0); for (int k = 0; k < 14; k++) { float s = 1.0 - float(k) * 0.012 * amt * (0.5 + p2); acc += TX(0.5 + c * s); } acc /= 14.0; o = mix(baseCol, acc * 1.15 + max(baseCol - 0.7, 0.0) * 0.5, amt); }
+            else { vec3 s = vec3(0.0); for (int k = 1; k <= 10; k++) { float d = float(k) * 0.012 * (0.5 + p2 * 1.5); vec3 a = max(TX(uv + vec2(d, 0.0)) - 0.72, 0.0) + max(TX(uv - vec2(d, 0.0)) - 0.72, 0.0) + max(TX(uv + vec2(0.0, d * u_aspectRatio)) - 0.72, 0.0) + max(TX(uv - vec2(0.0, d * u_aspectRatio)) - 0.72, 0.0); s += a / float(k); } o = baseCol + s * vec3(1.0, 0.85, 0.6) * amt * 1.4; }
+          } else if (cat == 11) {                           // GEOMETRIC ABSTRACTION
+            float gs = mix(14.0, 48.0, p2); vec2 gp = asp * gs, id = floor(gp), f = fract(gp) - 0.5; vec3 cc = TX(vec2((id.x + 0.5) / gs / u_aspectRatio, (id.y + 0.5) / gs));
+            if (v == 0) { float lc = getLuma(cc), bin = floor(clamp(lc, 0.0, 0.999) * 3.0); float inside = bin < 0.5 ? step(length(f), 0.4) : bin < 1.5 ? step(max(abs(f.x), abs(f.y)), 0.36) : step(abs(f.x), (0.38 - f.y) * 0.55) * step(-0.38, f.y) * step(f.y, 0.38); vec3 pc = bin < 0.5 ? vec3(0.1, 0.2, 0.8) : bin < 1.5 ? vec3(0.9, 0.15, 0.1) : vec3(0.98, 0.8, 0.1); o = mix(baseCol, mix(vec3(0.93, 0.9, 0.82), pc, inside), amt); }
+            else { vec2 ff = fract(gp); bool fl = hash12(id + seed) > 0.5; float d1 = abs(length(ff - vec2(fl ? 1.0 : 0.0, 0.0)) - 0.5), d2 = abs(length(ff - vec2(fl ? 0.0 : 1.0, 1.0)) - 0.5); float ln = smoothstep(0.13, 0.08, min(d1, d2)); o = mix(baseCol, mix(vec3(0.07), cc * 1.15, ln), amt); }
+          } else if (cat == 12) {                           // UNDERWATER
+            if (v == 0) { vec2 q = asp * mix(4.0, 10.0, p2); float t = seed * 1.7; for (int n = 0; n < 3; n++) { q += vec2(sin(q.y * 1.3 + t + float(n) * 1.7), cos(q.x * 1.1 - t * 0.8 + float(n) * 2.3)) * 0.6; } float cau = pow(max(0.0, 1.0 - abs(sin(q.x * 1.2) + sin(q.y * 1.2 + 1.0)) * 0.7), 5.0); o = mix(baseCol, baseCol * vec3(0.55, 0.9, 1.0) * 0.9 + cau * vec3(0.45, 0.85, 1.0) * 0.8, amt); }
+            else { vec2 gs = asp * mix(5.0, 14.0, p2), id = floor(gs), f = fract(gs) - 0.5; vec2 ctr = (hash22(id + seed) - 0.5) * 0.5; float r = 0.18 + 0.2 * hash12(id + 3.0), d = length(f - ctr); float ins = smoothstep(r, r - 0.04, d); vec2 off = -(f - ctr) * 2.2 * ins; vec3 rf = TX(uv + vec2(off.x / u_aspectRatio, off.y) * 0.06 * (0.5 + p2)); float rim = smoothstep(r - 0.06, r, d) * ins; o = mix(baseCol, mix(baseCol * 0.93, rf * 1.08, ins) + rim * 0.25, amt); }
+          } else if (cat == 13) {                           // RETRO PRINT
+            if (v == 0) { vec3 d = mix(vec3(0.07, 0.04, 0.35), vec3(1.0, 0.35, 0.45), smoothstep(0.1, 0.9, L)); d = mix(d, vec3(1.0, 0.95, 0.6), smoothstep(0.82, 1.0, L)); o = mix(baseCol, d, amt); }
+            else { float stripe = fract(dot(asp, vec2(0.7071)) * mix(60.0, 160.0, p2) + (fN(asp * 30.0) - 0.5) * 0.6); float ink = L < 0.25 ? 1.0 : (L < 0.5 ? step(0.35, stripe) : (L < 0.75 ? step(0.7, stripe) : 0.0)); o = mix(baseCol, mix(vec3(0.96, 0.93, 0.84), vec3(0.08, 0.07, 0.07), ink), amt); }
+          } else if (cat == 14) {                           // WEATHER
+            if (v == 0) { float col = floor(uv.x * mix(30.0, 90.0, p2)); float drip = fract(uv.y * 1.5 + hash12(vec2(col, 1.0)) * 4.0 - seed * 0.2); float st = smoothstep(0.0, 0.02, drip) * smoothstep(0.35, 0.02, drip) * step(0.55, hash12(vec2(col, 7.0))); vec3 bl = (TX(uv + vec2(px.x * 6.0, 0.0)) + TX(uv - vec2(px.x * 6.0, 0.0)) + TX(uv + vec2(0.0, px.y * 6.0)) + TX(uv - vec2(0.0, px.y * 6.0))) * 0.25; vec3 fog = mix(baseCol, bl * 0.85 + 0.08, 0.7); o = mix(baseCol, mix(fog, TX(uv + vec2(0.004, -0.02) * st), st) * vec3(0.92, 0.97, 1.05), amt); }
+            else { float de = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y)); float fr = smoothstep(0.35 * mix(0.4, 1.0, p2) + 0.05, 0.0, de + (fFbm(asp * 18.0) - 0.5) * 0.25); vec2 off = (vec2(fFbm(asp * 40.0 + seed), fFbm(asp * 40.0 + 9.0)) - 0.5) * 0.04 * fr; vec3 fro = TX(uv + off); fro = mix(fro, vec3(0.85, 0.94, 1.0) * (0.7 + 0.5 * fFbm(asp * 90.0)), fr * 0.7); o = mix(baseCol, fro, fr * amt); }
+          } else if (cat == 15) {                           // COSMIC
+            if (v == 0) { float n = fFbm(asp * mix(2.0, 6.0, p2) + seed), n2 = fFbm(asp * 5.0 - seed); vec3 neb = mix(vec3(0.12, 0.03, 0.3), vec3(0.0, 0.6, 0.7), n); neb = mix(neb, vec3(1.0, 0.3, 0.6), smoothstep(0.55, 0.85, n2)); o = mix(baseCol, baseCol * 0.55 + neb * (0.25 + L * 0.9 * n), amt); }
+            else { vec2 gs = asp * mix(60.0, 160.0, p2), id = floor(gs), f = fract(gs) - 0.5; float h = hash12(id + seed); float star = step(0.93, h) * smoothstep(0.12 * h + 0.02, 0.0, length(f - (hash22(id) - 0.5) * 0.5)); float tw = 0.6 + 0.4 * sin(seed * 7.0 + h * 30.0); vec3 sc = mix(vec3(0.7, 0.8, 1.0), vec3(1.0, 0.85, 0.7), hash12(id + 5.0)); vec3 g = baseCol * vec3(0.78, 0.84, 1.0) * 0.75 + star * sc * tw * (1.0 - L * 0.8) * 3.0; o = mix(baseCol, g, amt); }
+          } else if (cat == 16) {                           // MIRAGE
+            if (v == 0) { float k = smoothstep(0.1, 1.0, uv.y); vec2 off = vec2(sin(uv.y * 55.0 + seed * 3.0) * 0.006 + sin(uv.y * 17.0 - seed) * 0.004, cos(uv.x * 40.0 + seed) * 0.003) * k * (0.5 + p2 * 1.5); vec3 h = TX(uv + off); h = mix(h, h * vec3(1.12, 1.0, 0.88) + vec3(0.04, 0.01, 0.0), k * 0.6); o = mix(baseCol, h, amt); }
+            else { float y0 = mix(0.4, 0.7, p2); float below = step(y0, uv.y); vec2 ruv = vec2(uv.x + sin(uv.y * 80.0 + seed) * 0.004, 2.0 * y0 - uv.y); vec3 refl = TX(ruv) * vec3(1.1, 1.0, 0.85); float fade = smoothstep(y0, y0 + 0.25, uv.y); vec3 m = mix(baseCol, mix(refl, baseCol, fade * 0.75) + vec3(0.12, 0.07, 0.0) * (1.0 - fade), below); m += vec3(1.0, 0.9, 0.7) * smoothstep(0.012, 0.0, abs(uv.y - y0)) * 0.5; o = mix(baseCol, m, amt); }
+          } else {                                          // TEXTILE (cat 17)
+            float gs = v == 0 ? mix(40.0, 110.0, p2) : mix(24.0, 70.0, p2); vec2 gp = asp * gs, id = floor(gp), f = fract(gp); vec3 c = TX(vec2((id.x + 0.5) / gs / u_aspectRatio, (id.y + 0.5) / gs));
+            if (v == 0) { float x1 = smoothstep(0.17, 0.1, abs(f.x - f.y)), x2 = smoothstep(0.17, 0.1, abs(f.x - (1.0 - f.y))); float stitch = max(x1, x2) * step(0.12, min(f.x, f.y)) * step(max(f.x, f.y), 0.88); vec3 cloth = vec3(0.93, 0.9, 0.82) * (0.92 + 0.08 * hash12(gp * 3.0)); o = mix(baseCol, mix(cloth, c * (0.75 + 0.35 * fract(f.x * f.y * 6.0)), stitch), amt); }
+            else { float over = mod(id.x + id.y, 2.0); float th = over < 1.0 ? f.x : f.y; float shade = 0.65 + 0.45 * sin(th * 3.14159); float gap = smoothstep(0.04, 0.1, min(f.x, f.y)) * smoothstep(0.04, 0.1, min(1.0 - f.x, 1.0 - f.y)); o = mix(baseCol, c * shade * (0.35 + 0.65 * gap), amt); }
+          }
+          return clamp(o, 0.0, 1.0);
+        }
+
         vec3 applyCreativeEngine(vec2 uv, vec3 baseCol) {
           if (u_filterCat < 0 || u_filterAmt <= 0.001) return baseCol;
 
@@ -1975,6 +2100,7 @@
           }
 
           else if (u_filterCat == 7) { outCol = corruptStudy(uv, baseCol, amt, p2, seed, u_filterVar); }
+          else if (u_filterCat >= 8) { outCol = famFx(uv, baseCol, amt, p2, seed, u_filterCat, u_filterVar); }
 
           return clamp(outCol, 0.0, 1.0);
         }
@@ -4039,6 +4165,73 @@
         const sampleImg = createBuiltInSampleImage();
         uploadSourceImage(sampleImg, 'Sample_Editorial.jpg');
       };
+
+      /* -------------------------------------------------------------------
+         TOUCH + MOBILE: pinch zoom, two-finger pan, one-finger pan, double-tap zoom, bottom tool bar, bottom sheets
+      ------------------------------------------------------------------- */
+      (() => {
+        const touches = new Map(); let pinch = null, tapT = 0, tapX = 0, tapY = 0, moved = 0, userZoomed = false;
+        const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y), mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+        function zoomAt(k, fx, fy) {                                          // zoom about a point (relative to the viewport centre) so that point stays under the finger
+          const z0 = state.zoom, z1 = Math.max(0.05, Math.min(8, z0 * k)), kk = z1 / z0;
+          state.panX = fx * (1 - kk) + state.panX * kk; state.panY = fy * (1 - kk) + state.panY * kk; state.zoom = z1;
+          updateCanvasLayout(); render(); if (typeof drawViewportOverlays === 'function') drawViewportOverlays();
+        }
+        const centre = () => { const r = viewportContainer.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
+        const cancelOne = () => { state.isDrawingMask = false; state.activeDragHandle = null; state.draggingSplit = false; state.isPanning = false; };
+        viewportContainer.addEventListener('gesturestart', (e) => e.preventDefault());
+        viewportContainer.addEventListener('pointerdown', (e) => {
+          if (e.pointerType !== 'touch') return;
+          touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          if (touches.size === 1) { moved = 0; if (!state.isDrawingMask && !state.activeDragHandle && !state.draggingSplit) { state.isPanning = true; state.lastPointer = { x: e.clientX, y: e.clientY }; try { viewportContainer.setPointerCapture(e.pointerId); } catch (er) { /* fine */ } } }
+          else if (touches.size === 2) { cancelOne(); const [a, b] = [...touches.values()]; pinch = { d: dist(a, b) || 1, m: mid(a, b) }; userZoomed = true; }
+        });
+        viewportContainer.addEventListener('pointermove', (e) => {
+          if (e.pointerType !== 'touch' || !touches.has(e.pointerId)) return;
+          const p = touches.get(e.pointerId); moved += Math.abs(e.clientX - p.x) + Math.abs(e.clientY - p.y); touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          if (touches.size >= 2 && pinch) {
+            e.stopImmediatePropagation(); const [a, b] = [...touches.values()], d = dist(a, b) || 1, m = mid(a, b), c = centre();
+            state.panX += m.x - pinch.m.x; state.panY += m.y - pinch.m.y; zoomAt(d / pinch.d, m.x - c.x, m.y - c.y); pinch = { d, m };
+          }
+        }, true);
+        const lift = (e) => {
+          if (e.pointerType !== 'touch') return;
+          const was = touches.size; touches.delete(e.pointerId);
+          if (touches.size < 2) pinch = null;
+          if (was === 1 && e.type === 'pointerup' && moved < 10) {            // double tap: toggle fit <-> 250% at the tapped spot
+            const now = performance.now();
+            if (now - tapT < 320 && Math.hypot(e.clientX - tapX, e.clientY - tapY) < 36 && !state.isDrawingMask && !state.activeDragHandle) {
+              const c = centre(); if (state.zoom > 1.2 * fitZoom()) { fitCanvasToScreen(); userZoomed = false; } else { zoomAt(2.5, e.clientX - c.x, e.clientY - c.y); userZoomed = true; } tapT = 0;
+            } else { tapT = now; tapX = e.clientX; tapY = e.clientY; }
+          }
+          if (touches.size === 1) { const [id, q] = [...touches.entries()][0]; state.isPanning = true; state.lastPointer = { x: q.x, y: q.y }; }   // keep panning with the finger that stayed
+        };
+        viewportContainer.addEventListener('pointerup', lift); viewportContainer.addEventListener('pointercancel', lift);
+        const fitZoom = () => Math.max(0.05, Math.min(1, Math.min((viewportContainer.clientWidth - 48) / state.imgWidth, (viewportContainer.clientHeight - 56) / state.imgHeight)));
+
+        /* bottom tool bar + bottom sheets (phones). On desktop the bar is hidden by CSS and nothing here changes anything. */
+        const [left, right] = document.querySelectorAll('aside'), ws = left.parentElement; left.classList.add('ms-aside'); right.classList.add('ms-aside'); ws.classList.add('ms-ws');
+        const bar = document.createElement('nav'); bar.id = 'msbar'; bar.setAttribute('aria-label', 'Photo tools');
+        bar.innerHTML = [['filters', '◧', 'Filters'], ['adjust', '☰', 'Adjust'], ['zout', '−', 'Out'], ['fit', '⤢', 'Fit'], ['zin', '+', 'In'], ['z100', '1:1', '100%'], ['split', '◫', 'Split'], ['hold', '◐', 'Original']].map(([k, i, l]) => '<button type="button" data-k="' + k + '" aria-label="' + l + '"><b>' + i + '</b>' + l + '</button>').join('');
+        document.body.append(bar);
+        const sheet = (which) => {
+          const open = which && !which.classList.contains('is-open'); left.classList.remove('is-open'); right.classList.remove('is-open'); if (open) which.classList.add('is-open');
+          bar.querySelector('[data-k=filters]').classList.toggle('on', open && which === left); bar.querySelector('[data-k=adjust]').classList.toggle('on', open && which === right);
+          ws.classList.toggle('ms-open', !!open); if (!userZoomed) requestAnimationFrame(() => requestAnimationFrame(fitCanvasToScreen));
+        };
+        bar.addEventListener('click', (e) => {
+          const b = e.target.closest('button'); if (!b) return; const k = b.dataset.k, c = centre();
+          if (k === 'filters') sheet(left); else if (k === 'adjust') sheet(right);
+          else if (k === 'zout') { zoomAt(0.8, 0, 0); userZoomed = true; } else if (k === 'zin') { zoomAt(1.25, 0, 0); userZoomed = true; }
+          else if (k === 'fit') { fitCanvasToScreen(); userZoomed = false; } else if (k === 'z100') { document.getElementById('btnZoom100').click(); userZoomed = true; }
+          else if (k === 'split') { document.getElementById('btnSplitCompare').click(); b.classList.toggle('on', state.splitCompare); }
+        });
+        const hold = bar.querySelector('[data-k=hold]');
+        hold.addEventListener('pointerdown', () => { state.holdOriginal = true; render(); }); const unhold = () => { if (state.holdOriginal) { state.holdOriginal = false; render(); } };
+        hold.addEventListener('pointerup', unhold); hold.addEventListener('pointerleave', unhold); hold.addEventListener('pointercancel', unhold);
+        viewportContainer.addEventListener('pointerdown', () => { if (matchMedia('(max-width: 767px)').matches && (left.classList.contains('is-open') || right.classList.contains('is-open'))) sheet(null); }, true);
+        addEventListener('resize', () => { if (!userZoomed && state.image) fitCanvasToScreen(); });
+      })();
     })();
   </script>
 </body>

@@ -49,6 +49,7 @@
   @media (max-width:1100px) { body { grid-template-columns:200px minmax(0,1fr) 260px; } }
   @media (max-width:820px) { body { grid-template-columns:minmax(0,1fr); grid-template-rows:46px 42vh auto 300px; grid-template-areas:"top" "view" "bin" "tl"; overflow:auto; } #insp { display:none; } #bin { max-height:150px; } }
 </style>
+<link rel="stylesheet" href="mobile.css">
 </head>
 <body>
 <header>
@@ -972,5 +973,6 @@ async function recover() {
 undoStack = [snapshot()]; renderTimeline(); requestAnimationFrame(loop); await recover();
 window.__space = { S, files, importFile, startWorker, callW, getWorker: () => worker, segs, peaks, jobs, setPlayhead, playPause, addClip, exportChunk, fxOf, patBytes, aiMasks, loadSeg, loadDet, segFrame, bakeMask, checkHealth, histNow, downloadProject, loadProjectText, getHealth: () => lastHealth, restartEngine };
 </script>
+<script src="mobile.js"></script>
 </body>
 </html>

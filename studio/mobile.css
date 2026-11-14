@@ -1,0 +1,38 @@
+/* mosaicStudios on phones and tablets: full-height canvas, panels as bottom sheets, a thumb-reach tool bar, big touch targets. */
+#msbar { display: none; }
+#viewportContainer { touch-action: none; -webkit-user-select: none; user-select: none; }
+@media (max-width: 767px) {
+  html, body { height: 100dvh !important; overscroll-behavior: none; }
+  body { width: 100vw; }
+  /* header: one compact scrollable row */
+  header { height: auto !important; min-height: 48px; padding: 6px 8px !important; overflow-x: auto; scrollbar-width: none; gap: 8px; flex-wrap: nowrap !important; }
+  header::-webkit-scrollbar { display: none; }
+  header > div { flex-wrap: nowrap !important; gap: 6px !important; flex-shrink: 0; }
+  header .font-bold, header .font-mono.uppercase { display: none !important; }
+  header button, header a { min-height: 40px; padding-left: 8px !important; padding-right: 8px !important; white-space: nowrap; font-size: 12px; }
+  header { gap: 4px !important; } header > div { gap: 4px !important; }
+  /* canvas takes everything; the two sidebars become bottom sheets */
+  .ms-ws { padding-bottom: 56px; flex-direction: column !important; }
+  .ms-ws.ms-open { padding-bottom: calc(56px + 46dvh); }
+  #viewportContainer { flex: 1 1 auto !important; min-height: 0; }
+  #viewportContainer > div.absolute.bottom-3 { display: none !important; }
+  .ms-aside { position: fixed !important; left: 0; right: 0; bottom: 56px; top: auto; width: 100% !important; height: 46dvh !important; max-height: 46dvh !important; z-index: 45 !important; transform: translateY(115%); transition: transform 0.25s ease; border: 1px solid #2b2b33 !important; border-radius: 16px 16px 0 0; box-shadow: 0 -14px 34px #000b; overflow: hidden; visibility: hidden; }
+  .ms-aside.is-open { transform: none; visibility: visible; }
+  .ms-aside::before { content: ""; display: block; width: 38px; height: 4px; border-radius: 2px; background: #55555f; margin: 6px auto 2px; flex-shrink: 0; }
+  /* thumb bar */
+  #msbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); background: #121216; border-top: 1px solid #2b2b33; }
+  #msbar button { min-height: 48px; border-radius: 10px; border: 0; background: transparent; color: #c9c9d1; font: 600 11px/1.1 system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  #msbar button b { font-size: 17px; font-weight: 600; line-height: 1; }
+  #msbar button:active, #msbar button.on { background: #2563eb; color: #fff; }
+  /* touch-sized controls inside the panels */
+  .ms-aside button, .ms-aside select, .ms-aside input[type="text"], .ms-aside input[type="number"] { min-height: 38px; }
+  .ms-aside input[type="range"] { height: 32px; }
+  .ms-aside input[type="range"]::-webkit-slider-thumb { width: 22px !important; height: 22px !important; }
+  .ms-aside input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; }
+  #toastBanner { top: 8px; max-width: 92vw; }
+  #exportModal > div { width: 100% !important; max-width: 96vw !important; max-height: 92dvh; overflow-y: auto; }
+}
+@media (pointer: coarse) {
+  input[type="range"] { touch-action: pan-y; }
+  canvas[id^="wheel-"], #toneCurveCanvas { touch-action: none; }
+}
