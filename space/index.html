@@ -42,6 +42,7 @@
   #fxui details { border-top:1px solid var(--line); padding:6px 0; } #fxui summary { cursor:pointer; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); padding:6px 0; } #fxui summary:hover { color:var(--ink); } #fxui .chk { grid-column:2 / 4; display:flex; gap:8px; align-items:center; color:var(--ink); } #fxui input[type=color] { grid-column:2 / 4; width:46px; height:26px; padding:0; border:1px solid var(--line); background:none; } #fxui .note { margin:4px 0 8px; font-size:12px; color:var(--dim); }
   canvas#ov { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; pointer-events:none; }
   .clip { touch-action:none; user-select:none; } .clip.dragging { cursor:grabbing; box-shadow:0 8px 22px #000a; z-index:6; opacity:.93; } #snapline { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--yel); z-index:9; pointer-events:none; display:none; box-shadow:0 0 8px var(--yel); } button#mag.on { background:var(--acc); color:#fff; border-color:transparent; }
+  #restorebar { position:fixed; top:54px; left:50%; transform:translateX(-50%); z-index:50; display:flex; gap:10px; align-items:center; background:#1f2430; border:1px solid var(--line); padding:8px 12px; border-radius:10px; box-shadow:0 8px 24px #0008; }
   #toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:#000d; padding:8px 14px; border-radius:9px; opacity:0; transition:opacity .2s; z-index:60; pointer-events:none; max-width:80vw; }
   dialog { background:var(--pan); color:var(--ink); border:1px solid var(--line); border-radius:12px; padding:16px; max-width:520px; } dialog::backdrop { background:#000a; } dialog h3 { margin:0 0 10px; }
   kbd { background:#2a2a31; border:1px solid var(--line); border-radius:4px; padding:0 5px; font:11px ui-monospace,monospace; } table.k td { padding:2px 8px 2px 0; }
@@ -52,7 +53,7 @@
 <body>
 <header>
   <b>mosaicSpace</b><span class="dim">video + audio</span>
-  <label class="b">Add media<input id="file" type="file" hidden multiple accept="video/*,audio/*,.mov,.mp4,.m4v,.mkv,.mxf,.avi,.webm,.wav,.mp3,.flac,.aac,.m4a,.ogg,.opus,.aif,.aiff" /></label>
+  <button id="addmedia" type="button" title="Open video or audio files (O)">Add media</button><input id="file" type="file" hidden multiple accept="video/*,audio/*,.mov,.mp4,.m4v,.mkv,.mxf,.avi,.webm,.wav,.mp3,.flac,.aac,.m4a,.ogg,.opus,.aif,.aiff" />
   <label class="b">LUT<input id="lutfile" type="file" hidden accept=".cube" /></label>
   <button id="undo" title="Ctrl+Z">Undo</button><button id="redo" title="Ctrl+Shift+Z">Redo</button>
   <span class="sp"></span><span id="mem" class="dim"></span><span id="saved" class="dim">Not saved yet</span>
@@ -333,7 +334,10 @@ const SEG = 45, WARN_BYTES = 30 * 2 ** 30, MEM_LIMIT = 1 * 2 ** 30;            /
 const EQF = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
 const fmtT = (t, fps = 25) => { const f = Math.floor((t % 1) * fps), s = Math.floor(t) % 60, m = Math.floor(t / 60) % 60, h = Math.floor(t / 3600), p = (n) => String(n).padStart(2, '0'); return p(h) + ':' + p(m) + ':' + p(s) + ':' + p(f); };
 let toastT; const toast = (m, ms = 3200) => { const t = $('#toast'); t.textContent = m; t.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => (t.style.opacity = 0), ms); };
-function ask(title, body, buttons) { return new Promise((res) => { $('#dt').textContent = title; $('#db').innerHTML = body; const b = $('#dbtn'); b.innerHTML = ''; buttons.forEach(([label, val, cls]) => { const x = document.createElement('button'); x.textContent = label; if (cls) x.className = cls; x.onclick = () => { $('#dlg').close(); res(val); }; b.append(x); }); $('#dlg').showModal(); }); }
+function askBar(msg, yes, no) {                                                 // non-blocking question: the editor stays usable (Add media works) while it is shown
+  return new Promise((res) => { const b = document.createElement('div'); b.id = 'restorebar'; b.innerHTML = '<span></span><button class="p"></button><button></button>'; const [s, y, n] = b.children; s.textContent = msg; y.textContent = yes; n.textContent = no; y.onclick = () => { b.remove(); res(true); }; n.onclick = () => { b.remove(); res(false); }; document.body.append(b); });
+}
+function ask(title, body, buttons) { return new Promise((res) => { $('#dlg').oncancel = () => res(buttons[0][1]); $('#dt').textContent = title; $('#db').innerHTML = body; const b = $('#dbtn'); b.innerHTML = ''; buttons.forEach(([label, val, cls]) => { const x = document.createElement('button'); x.textContent = label; if (cls) x.className = cls; x.onclick = () => { $('#dlg').close(); res(val); }; b.append(x); }); $('#dlg').showModal(); }); }
 
 /* ===================== state ===================== */
 const G = 44, NT = 6;                                                                   // V1 V2 A1 A2
@@ -436,6 +440,13 @@ function updateBin(id) {
   const state = !md.dur ? 'reading…' : md.native ? 'plays directly (no proxy needed)' : md.proxy.done >= md.proxy.total && md.proxy.total ? 'proxy ready' : 'building proxy ' + md.proxy.done + ' / ' + md.proxy.total;
   el.innerHTML = '<b>' + md.name + '</b><small>' + (md.size / 2 ** 20 > 1024 ? (md.size / 2 ** 30).toFixed(1) + ' GB' : Math.round(md.size / 2 ** 20) + ' MB') + (md.w ? ' · ' + md.w + '×' + md.h : '') + (md.dur ? ' · ' + fmtT(md.dur, 25).slice(0, 8) : '') + '</small><small>' + state + '</small><div class="bar"><i style="width:' + Math.round((md.native ? 1 : md.proxy.total ? md.proxy.done / md.proxy.total : 0) * 100) + '%"></i></div>' + (files.has(id) ? '' : '<small style="color:var(--yel)">original not linked (only needed to export): drop it again</small>');
 }
+const MEDIA_TYPES = [{ description: 'Video and audio', accept: { 'video/*': ['.mov', '.mp4', '.m4v', '.mkv', '.mxf', '.avi', '.webm'], 'audio/*': ['.wav', '.mp3', '.flac', '.aac', '.m4a', '.ogg', '.opus', '.aif', '.aiff'] } }];
+async function openMedia() {
+  if (self.showOpenFilePicker) { try { const hs = await showOpenFilePicker({ multiple: true, types: MEDIA_TYPES }); for (const hd of hs) await importFile(await hd.getFile(), hd); return; } catch (e) { if (e && e.name === 'AbortError') return; /* blocked or unsupported: fall through to the classic picker */ } }
+  $('#file').click();
+}
+$('#addmedia').onclick = openMedia;
+addEventListener('keydown', (e) => { if (e.target.closest && e.target.closest('input,select,textarea,dialog')) return; if (e.key.toLowerCase() === 'o' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); openMedia(); } });
 $('#file').onchange = async (e) => { for (const f of e.target.files) await importFile(f); e.target.value = ''; };
 addEventListener('dragover', (e) => { e.preventDefault(); $('#drop').style.display = 'grid'; }); addEventListener('dragleave', (e) => { if (!e.relatedTarget) $('#drop').style.display = 'none'; });
 addEventListener('drop', async (e) => { e.preventDefault(); $('#drop').style.display = 'none'; const items = [...e.dataTransfer.items]; for (let i = 0; i < items.length; i++) { const it = items[i]; if (it.kind !== 'file') continue; let h = null; try { h = it.getAsFileSystemHandle ? await it.getAsFileSystemHandle() : null; } catch (er) { /* no handle */ } const f = h && h.getFile ? await h.getFile() : it.getAsFile(); if (f) await importFile(f, h); } });
@@ -938,7 +949,7 @@ function renderAll() { for (const id of Object.keys(S.media)) updateBin(id); ren
 async function recover() {
   let js = null; try { if (opfs) { const h = await opfs.getFileHandle('project.json'); js = await (await h.getFile()).text(); } else js = localStorage.getItem('ms-space'); } catch (e) { /* none */ } js = js || localStorage.getItem('ms-space-last');
   if (!js) return; let o; try { o = JSON.parse(js); } catch (e) { return; } if (!o.clips?.length) return;
-  const yes = await ask('Restore your last session?', 'Found a saved project with ' + o.clips.length + ' clips. Nothing was lost when the page closed.', [['Start fresh', false], ['Restore', true, 'p']]); if (!yes) { undoStack = [snapshot()]; return; }
+  const yes = await askBar('Restore your last session? (' + o.clips.length + ' saved clips)', 'Restore', 'Start fresh'); if (!yes) { undoStack = [snapshot()]; return; }
   restore(js);
   for (const id of Object.keys(S.media)) {                                      // reconnect media: reopen the saved file handle (one click to allow), proxies are already in OPFS
     const md = S.media[id]; md._mounted = false; segs.set(id, new Map()); md.proxy = md.proxy || { done: 0, total: 0, prog: 0 };
@@ -948,7 +959,7 @@ async function recover() {
   }
   renderAll(); toast('Session restored. Re-drop any file marked "needs relinking".', 6000);
 }
-undoStack = [snapshot()]; renderTimeline(); await recover(); requestAnimationFrame(loop);
+undoStack = [snapshot()]; renderTimeline(); requestAnimationFrame(loop); await recover();
 window.__space = { S, files, importFile, startWorker, callW, getWorker: () => worker, segs, peaks, jobs, setPlayhead, playPause, addClip, exportChunk, fxOf, patBytes, aiMasks, loadSeg, loadDet, segFrame, bakeMask, checkHealth, histNow, downloadProject, loadProjectText, getHealth: () => lastHealth, restartEngine };
 </script>
 </body>

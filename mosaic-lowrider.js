@@ -17,13 +17,13 @@
   /* physics (px, seconds): shorter wheelbase, low ride, gentle hydraulics */
   const G = 1800, WB = 100, HL = WB / 2, WR = 13, MASS = 1, INERTIA = 1100;
   const K = 70, C = 3.6, S_BASE = 30, S_MIN = 4, KB = 420;
-  const V_UP = 300, V_DOWN = 260, EXT_MIN = -12, EXT_MAX = 24, BEAT = 0.42, CAR_W = 196;
+  const V_UP = 210, V_DOWN = 200, EXT_MIN = -8, EXT_MAX = 14, BEAT = 0.42, CAR_W = 196;       // low hydraulics: nothing goes too high
   const COLORS = ['#ff7ad9', '#c6ff3d', '#3dd6ff', '#ff9a3d', '#b48cff', '#ec2a1c', '#f6b62c'];
   const INK = '#0e0b0a';
 
   /* 54 pump patterns, each a set of 8 half-beat steps of [front, rear] extension in px (generated, all different) */
   const PATS = (() => {
-    const out = [], amps = [10, 14, 18, 22], f = (x) => clamp(x, EXT_MIN, EXT_MAX);
+    const out = [], amps = [6, 9, 12, 14], f = (x) => clamp(x, EXT_MIN, EXT_MAX);
     const shapes = [
       (i, a, p) => [i % 2 ? a : 0, 0], (i, a, p) => [0, i % 2 ? a : 0], (i, a, p) => [i % 2 ? a : 0, i % 2 ? 0 : a],
       (i, a, p) => [a * Math.max(0, Math.sin((i + p) * 0.8)), a * Math.max(0, Math.sin((i + p) * 0.8 + 3))],
@@ -34,6 +34,8 @@
     for (let k = 0; k < 54; k++) { const s = shapes[k % 9], a = amps[(k / 9 | 0) % 4], p = (k * 5) % 8; out.push(Array.from({ length: 8 }, (_, i) => s(i, a, p).map(f))); }
     return out;
   })();
+  /* 20 dances: each is a different pump pattern plus its own slow side-to-side roll (px, Hz) */
+  const DANCES = Array.from({ length: 20 }, (_, i) => ({ pat: PATS[(i * 11 + 3) % PATS.length], roll: [0, 10, 18, 26][i % 4], hz: [0.35, 0.55, 0.8, 1.1, 0.45][i % 5] }));
 
   /* a real-life style '64 drop-top lowrider, drawn the way the Mosaics are drawn: single-weight neon line, solid ink fill */
   function carSVG(color) {
@@ -70,7 +72,7 @@
       this.x = x; this.vx = 0; this.targetX = x; this.maxV = 70; this.dir = dir || 1;
       this.yc = WR + S_BASE - 12; this.vy = 0; this.th = 0; this.om = 0;
       this.extF = this.extR = EXT_MIN * 0.5; this.tgtF = this.tgtR = EXT_MIN * 0.5;
-      this.mode = 'enter'; this.t = 0; this.stepAt = 0; this.stepN = 0; this.pat = pick(PATS); this.patIdx = PATS.indexOf(this.pat); this.wheelRot = 0; this.landed = 0;
+      this.mode = 'enter'; this.t = 0; this.stepAt = 0; this.stepN = 0; this.dIdx = (Math.random() * DANCES.length) | 0; this.pat = DANCES[this.dIdx].pat; this.baseX = x; this.hold = false; this.wheelRot = 0; this.landed = 0;
     }
     step(dt) {
       const mv = (cur, tgt) => (tgt > cur ? Math.min(tgt, cur + V_UP * dt) : Math.max(tgt, cur - V_DOWN * dt));
@@ -90,7 +92,7 @@
     /* a half-beat tick: follow the current pattern, never repeat the same pattern twice in a row */
     tick() {
       const [f, r] = this.pat[this.stepN % 8]; this.tgtF = f; this.tgtR = r;
-      if (++this.stepN % 8 === 0 && Math.random() < 0.6) { let i; do { i = (Math.random() * PATS.length) | 0; } while (i === this.patIdx); this.patIdx = i; this.pat = PATS[i]; }
+      if (++this.stepN % 8 === 0 && Math.random() < 0.6) { let i; do { i = (Math.random() * DANCES.length) | 0; } while (i === this.dIdx); this.dIdx = i; this.pat = DANCES[i].pat; }
     }
     place() {
       const th = this.th, c = Math.cos(th), s = Math.sin(th);
@@ -106,9 +108,10 @@
 
   let cars = [], raf = 0, last = 0, acc = 0, clock = 0, partyWas = false, nextCruise = performance.now() + rand(25000, 60000), spawnAt = 0;
   const sw = () => stage.clientWidth;
-  const free = (x) => cars.every((c) => Math.abs(c.targetX - x) > CAR_W + 24);       // parking spots never overlap
+  const free = (x) => cars.every((c) => Math.abs((c.baseX == null ? c.targetX : c.baseX) - x) > CAR_W + 80);       // parking spots never overlap, with room to roll
   function spawn(parkX) {
-    const fromLeft = Math.random() < 0.5, car = new Car(COLORS[cars.length % COLORS.length], fromLeft ? -240 : sw() + 30, fromLeft ? 1 : -1);
+    /* a car always enters from the side its spot is on, so two cars never have to pass through each other (no slowing down) */
+    const others = cars.filter((c) => c.mode !== 'leave'), fromLeft = others.length ? parkX < others[0].targetX : Math.random() < 0.5, car = new Car(COLORS[cars.length % COLORS.length], fromLeft ? -240 : sw() + 30, fromLeft ? 1 : -1);
     car.targetX = parkX; car.maxV = 110; cars.push(car);
     if (!raf) { last = performance.now(); raf = requestAnimationFrame(loop); }
     return car;
@@ -125,9 +128,13 @@
     const dtf = Math.min(0.05, (now - last) / 1000); last = now;
     const party = partying();
     if (party && !partyWas) spawnAt = now + 800;
-    if (!party && partyWas) cars.forEach((c) => { c.mode = 'leave'; c.targetX = c.dir > 0 ? sw() + 260 : -260; c.maxV = 140; c.tgtF = c.tgtR = EXT_MIN * 0.5; });
+    if (!party && partyWas) cars.forEach((c) => { c.mode = 'leave'; c.hold = cars.some((o) => o !== c && o.mode !== 'cruise' && (o.x - c.x) * c.dir > 0); c.targetX = c.hold ? c.x : (c.dir > 0 ? sw() + 260 : -260); c.maxV = 120; c.tgtF = c.tgtR = EXT_MIN * 0.5; });
     partyWas = party;
-    if (party && !document.hidden && cars.filter((c) => c.mode !== 'leave').length < 3 && now > spawnAt) { const x = spot(); if (x !== null) spawn(x); spawnAt = now + rand(6000, 9000); }
+    if (party && !document.hidden && cars.filter((c) => c.mode !== 'leave').length < 2 && !cars.some((c) => c.mode === 'cruise') && now > spawnAt) {       // never more than two cars
+      if (!cars.length && Math.random() < 0.3) { const c = spawn(0); c.targetX = c.dir > 0 ? sw() + 300 : -300; c.mode = 'cruise'; c.maxV = 42; }                // sometimes one just rolls slowly through
+      else { const x = spot(); if (x !== null) spawn(x); }
+      spawnAt = now + rand(6000, 9000);
+    }
     else if (!party && !cars.length && now > nextCruise && !document.hidden) { const c = spawn(0); c.targetX = c.dir > 0 ? sw() + 300 : -300; c.mode = 'cruise'; c.maxV = 42; nextCruise = now + rand(60000, 120000); }
 
     acc += dtf; clock += dtf;
@@ -136,9 +143,10 @@
       c.t += dtf;
       const dx = c.targetX - c.x, want = clamp(dx * 1.4, -c.maxV, c.maxV);
       c.vx += clamp(want - c.vx, -240 * dtf, 240 * dtf);
-      for (const o of cars) if (o !== c && Math.sign(o.x - c.x) === Math.sign(c.vx || 1) && Math.abs(o.x - c.x) < CAR_W + 10 + Math.abs(c.vx) * 0.5) c.vx *= 0.5;       // solid: never drive through another car
+      if (c.mode === 'leave' && c.hold && !cars.some((o) => o !== c && o.mode !== 'cruise' && (o.x - c.x) * c.dir > 0)) { c.hold = false; c.targetX = c.dir > 0 ? sw() + 260 : -260; }       // wait until the car ahead has left
+      if (c.mode === 'show' && party) { const d = DANCES[c.dIdx]; c.targetX = c.baseX + Math.sin(clock * d.hz * 6.2832) * d.roll; c.maxV = 40; }       // the dance's slow roll
       c.x += c.vx * dtf; c.wheelRot += (c.vx * dtf / WR) * (c.dir > 0 ? 1 : -1);
-      if (c.mode === 'enter' && Math.abs(dx) < 4 && Math.abs(c.vx) < 6) c.mode = 'show';
+      if (c.mode === 'enter' && Math.abs(dx) < 4 && Math.abs(c.vx) < 6) { c.mode = 'show'; c.baseX = c.targetX; }
       if ((c.mode === 'leave' || c.mode === 'cruise') && (c.x > sw() + 260 || c.x < -260)) c.gone = true;
       if (c.mode === 'cruise' && c.t > 6 && c.t < 6.06) { c.tgtF = c.tgtR = 16; setTimeout(() => { c.tgtF = c.tgtR = EXT_MIN * 0.5; }, 300); }
       if (c.mode === 'show' && party && clock - (c.stepAt || 0) >= BEAT / 2) { c.stepAt = clock; c.tick(); }
