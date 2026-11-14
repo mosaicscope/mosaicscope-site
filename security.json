@@ -1,24 +1,24 @@
 {
- "at": 1794643072142,
+ "at": 1794643776165,
  "counts": {
   "critical": 0,
   "high": 0,
   "medium": 0,
-  "low": 122
+  "low": 126
  },
  "findings": [
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 216,
+   "line": 221,
    "fp": "dom:inner-html|beats/index.html|1axdns7"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 218,
+   "line": 223,
    "fp": "dom:inner-html|beats/index.html|12zspi7"
   },
   {
@@ -26,77 +26,98 @@
    "severity": "low",
    "path": "beats/index.html",
    "line": 273,
-   "fp": "dom:inner-html|beats/index.html|fneqcy"
+   "fp": "dom:inner-html|beats/index.html|1q1g48r"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
    "line": 278,
+   "fp": "dom:inner-html|beats/index.html|fneqcy"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "beats/index.html",
+   "line": 283,
    "fp": "dom:inner-html|beats/index.html|fgrfy4"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 279,
+   "line": 284,
    "fp": "dom:inner-html|beats/index.html|10t0w0x"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 286,
+   "line": 291,
    "fp": "dom:inner-html|beats/index.html|1j2h93b"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 379,
+   "line": 385,
    "fp": "dom:inner-html|beats/index.html|116sfar"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 380,
+   "line": 386,
    "fp": "dom:inner-html|beats/index.html|opa7ui"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 406,
+   "line": 412,
    "fp": "dom:inner-html|beats/index.html|nhs4bt"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 407,
+   "line": 413,
    "fp": "dom:inner-html|beats/index.html|k487d9"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 424,
+   "line": 430,
    "fp": "dom:inner-html|beats/index.html|4zocbs"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 426,
+   "line": 432,
    "fp": "dom:inner-html|beats/index.html|3wxvqg"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 460,
+   "line": 466,
    "fp": "dom:inner-html|beats/index.html|1uznn48"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "beats/index.html",
+   "line": 502,
+   "fp": "dom:inner-html|beats/index.html|nobec2"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "beats/index.html",
+   "line": 512,
+   "fp": "dom:inner-html|beats/index.html|1d91lza"
   },
   {
    "kind": "dom:inner-html",
@@ -405,27 +426,6 @@
    "path": "main.js",
    "line": 314,
    "fp": "dom:inner-html|main.js|nut56m"
-  },
-  {
-   "kind": "dom:inner-html",
-   "severity": "low",
-   "path": "main.js",
-   "line": 331,
-   "fp": "dom:inner-html|main.js|12jjzr4"
-  },
-  {
-   "kind": "dom:inner-html",
-   "severity": "low",
-   "path": "main.js",
-   "line": 351,
-   "fp": "dom:inner-html|main.js|1sdapln"
-  },
-  {
-   "kind": "dom:inner-html",
-   "severity": "low",
-   "path": "main.js",
-   "line": 362,
-   "fp": "dom:inner-html|main.js|622zc"
   }
  ]
 }
