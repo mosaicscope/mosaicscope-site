@@ -127,7 +127,7 @@
       <div class="row"><span>Background</span><select data-fx="ai.bg"><option value="off">Keep</option><option value="transparent">Remove (transparent)</option><option value="blur">Blur</option><option value="color">Solid colour</option></select></div>
       <div class="row"><span>Colour</span><input type="color" data-fx="ai.color" value="#00ff00" /></div>
       <div class="row"><span>Edge softness</span><input type="range" data-fx="ai.edge" min="1" max="45" value="12" /><output></output></div>
-      <div class="row btns"><button id="bakebtn">Bake mask for export</button></div>
+      <div class="row btns"><button id="bakebtn">Bake mask for export</button><button id="greenscreen" class="p">Green screen</button></div>
       <p class="note" id="baketxt">Pick a background mode first.</p>
       <div class="row"><span>People</span><label class="chk"><input type="checkbox" data-fx="det" /> Detect and box</label></div>
       <div class="row btns"><button id="frameperson">Frame on person</button></div>
@@ -811,6 +811,16 @@ async function bakeMask(c) {
   finally { baking = null; freeHidden(st); if (sel() === c) fillFx(c); }
 }
 $('#bakebtn').onclick = () => { const c = sel(); if (c) bakeMask(c); };
+/* Green screen: the selected person clip is cut out frame by frame (AI segmentation tracks them as they move) and sits on a higher layer,
+   so any clip on V1 shows through behind them. Export bakes the cut-out automatically. */
+$('#greenscreen').onclick = () => {
+  const c = sel(); if (!c) return toast('Select the person clip first');
+  if (!S.media[c.media].hasVideo) return toast('Green screen needs a video clip');
+  const F = fxOf(c); F.ai.bg = 'transparent'; F.ai.baked = null; aiMasks.delete(c.id);
+  if (c.track < 1) c.track = 1;
+  commit(); fillFx(c); tick(true);
+  toast('Green screen on. Put your background video on V1 underneath. Export bakes the cut-out automatically.', 7000);
+};
 
 /* ---- frame on person: samples the clip, finds the person, zooms and centres on them (static, so export matches) ---- */
 async function frameOnPerson(c) {
