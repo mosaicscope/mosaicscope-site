@@ -143,4 +143,4 @@ dialog.ip2g::backdrop { background: rgba(4, 3, 3, 0.84); backdrop-filter: blur(8
 .ip__note { margin: 0.4em 0 0; font-size: 0.7em; opacity: 0.75; line-height: 1.3; }
 
 /* dev controls (2372) */
-html.dev-nocrew #stage { display: none !important; } html.dev-nocars .ms-car { display: none !important; } html.dev-nograin .grain, html.dev-nograin #ambient { display: none !important; } html.dev-nohero3d .hero__gl { display: none !important; } html.dev-nosign #studio { display: none !important; } html.dev-nowm .hero .wm__slice, html.dev-nowm .hero .wm::after { animation: none !important; }
+html.dev-nocrew #stage { display: none !important; } html.dev-nocars .ms-car { display: none !important; } html.dev-nograin .grain, html.dev-nograin #ambient { display: none !important; } html.dev-nohero3d .hero__gl { display: none !important; } html.dev-nosign #studio { display: none !important; } html.dev-nowm .hero .wm__slice { animation: none !important; }

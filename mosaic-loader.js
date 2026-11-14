@@ -79,7 +79,7 @@
   function done() { cancelAnimationFrame(raf); root.classList.add('is-out'); setTimeout(() => { root.remove(); css.remove(); }, 800); }
   const go = () => { ready = true; };
   if (document.readyState === 'complete') go(); else addEventListener('load', go);
-  setTimeout(go, 9000);                                            // never trap anyone on a slow connection
+  setTimeout(go, 9000); setTimeout(() => { if (document.getElementById('ms-loader')) done(); }, 12000);                                            // never trap anyone on a slow connection
   raf = requestAnimationFrame(frame);
   if (REDUCED) setTimeout(() => { if (ready) done(); }, 900);
 })();
