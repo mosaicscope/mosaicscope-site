@@ -128,6 +128,11 @@
     busy = true;
     const h = await sha(code);
     const result = h ? CODES[h] : PLAIN[code];
+    if (result === 'dev' && lockTarget === 'beats') {          // 2372 on the CD player's phone opens the music studio
+      ip.classList.add('is-ok');
+      setTimeout(() => { location.assign('/beats/'); }, REDUCED ? 100 : 600);
+      return;
+    }
     if (result === 'dev') {
       ip.classList.add('is-ok');
       setTimeout(() => { showDev(); ip.classList.remove('is-ok'); busy = false; }, REDUCED ? 100 : 600);
@@ -266,7 +271,9 @@
     else if (e.key === 'Backspace') press('⌫');
   });
   let opener = null;
+  let lockTarget = 'default';
   function openLock() {
+    lockTarget = openLock.target || 'default'; openLock.target = null;
     opener = document.activeElement;
     document.documentElement.classList.remove('has-lens');
     code = ''; busy = false; paintDots(); msg.textContent = '';
@@ -278,7 +285,7 @@
     if (!dlg.open) dlg.showModal();
     $('ip-swipe').focus({ preventScroll: true });
   }
-  window.MS_OPEN_LOCK = openLock;
+  window.MS_OPEN_LOCK = (t) => { openLock.target = t; openLock(); };
   dlg.addEventListener('close', () => { clearInterval(eggTimer); if (opener && opener.focus) opener.focus({ preventScroll: true }); });
   setInterval(() => { if (dlg.open) tick(); }, 15000);
 
