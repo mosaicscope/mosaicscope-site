@@ -244,12 +244,12 @@ $('#render').onclick = async () => {
   tc.visible = false; grid.visible = false; toast('Rendering ' + W + '×' + H + '…'); await new Promise((r) => setTimeout(r, 30));
   if (!$('#alpha').checked) { scene.background = new THREE.Color(0x101012); renderer.setClearAlpha(1); } else renderer.setClearAlpha(0);
   if (sm < 4096) { key.shadow.mapSize.set(4096, 4096); if (key.shadow.map) { key.shadow.map.dispose(); key.shadow.map = null; } }
-  renderer.setPixelRatio(1); renderer.setSize(W, H, false); cam.aspect = W / H; cam.updateProjectionMatrix(); renderer.render(scene, cam);
+  renderer.setPixelRatio(1); renderer.setSize(W, H, false); cam.aspect = W / H; setFov(); cam.updateProjectionMatrix(); renderer.render(scene, cam);
   const blob = await new Promise((res) => cv.toBlob(res, 'image/png'));
   const bmp = blob && await createImageBitmap(blob); const ok = bmp && bmp.width === W && bmp.height === H; if (bmp) bmp.close();
   if (blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'mosaicStudioS_render_' + W + 'x' + H + '.png'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1500); }
   toast(blob ? (ok ? 'Rendered ' + W + '×' + H + ' (verified)' : 'Rendered, but the browser changed the size') : 'Render failed: try a smaller size');
-  renderer.setPixelRatio(pr); scene.background = bg; tc.visible = tv; grid.visible = gv; cam.aspect = ca; key.shadow.mapSize.set(sm, sm); if (key.shadow.map) { key.shadow.map.dispose(); key.shadow.map = null; } size();
+  renderer.setPixelRatio(pr); scene.background = bg; tc.visible = tv; grid.visible = gv; cam.aspect = ca; setFov(); cam.updateProjectionMatrix(); key.shadow.mapSize.set(sm, sm); if (key.shadow.map) { key.shadow.map.dispose(); key.shadow.map = null; } size();
   window.__lastRender = { W, H, ok, bytes: blob ? blob.size : 0 };
 };
 
@@ -386,7 +386,8 @@ $('#conv').onchange = async (e) => {
   if (ok) toast('Converted ' + ok + ' file' + (ok > 1 ? 's' : '') + ' to ' + fmt);
 };
 
-function size() { const w = cv.parentElement.clientWidth, h = cv.parentElement.clientHeight; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
+const setFov = () => { cam.fov = cam.aspect < 1 ? 2 * Math.atan(Math.tan(45 * Math.PI / 360) / cam.aspect) * 180 / Math.PI : 45; };
+function size() { const w = cv.parentElement.clientWidth, h = cv.parentElement.clientHeight; renderer.setSize(w, h, false); cam.aspect = w / h; setFov(); cam.updateProjectionMatrix(); }
 addEventListener('resize', size); size();
 renderer.setAnimationLoop(() => { orbit.update(); renderer.render(scene, cam); });
 addShape('torus'); frameAll(); target = null; toast('Drop a 3D file, or add shapes and hats');
