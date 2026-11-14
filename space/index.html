@@ -59,9 +59,9 @@
   <label class="b">LUT<input id="lutfile" type="file" hidden accept=".cube" /></label>
   <button id="undo" title="Ctrl+Z">Undo</button><button id="redo" title="Ctrl+Shift+Z">Redo</button>
   <span class="sp"></span><span id="mem" class="dim"></span><span id="saved" class="dim">Not saved yet</span>
-  <button id="hb" class="hb ok" title="Project health">● Safe</button><button id="bk" title="Backup and recovery">Backup</button><button id="help">Shortcuts ?</button><button id="export" class="p">Export</button>
+  <a href="/beats/" id="beatslink" title="mosaicBeats: the music studio" style="color:var(--ink);text-decoration:none;border:1px solid var(--line);border-radius:7px;padding:6px 11px;background:var(--sur)">Beats</a><button id="hb" class="hb ok" title="Project health">● Safe</button><button id="bk" title="Backup and recovery">Backup</button><button id="help">Shortcuts ?</button><button id="export" class="p">Export</button>
 </header>
-<aside id="bin"><div class="dim" id="binhint">Drop videos or audio here. Huge ProRes / MOV files are fine: they stay on disk and proxies build in the background while you edit.</div></aside>
+<aside id="bin"><div class="dim" id="binhint">Drop videos or audio here: files from your computer, from the browser's downloads bar, or a direct video link dragged or pasted from another tab. Huge ProRes / MOV files are fine: they stay on disk and proxies build in the background while you edit.</div></aside>
 <main id="view">
   <div id="stage"><canvas id="out" width="1280" height="720"></canvas><div id="hud"></div></div>
   <div id="transport">
@@ -504,7 +504,31 @@ $('#addmedia').onclick = openMedia;
 addEventListener('keydown', (e) => { if (e.target.closest && e.target.closest('input,select,textarea,dialog')) return; if (e.key.toLowerCase() === 'o' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); openMedia(); } });
 $('#file').onchange = async (e) => { for (const f of e.target.files) await importFile(f); e.target.value = ''; };
 addEventListener('dragover', (e) => { e.preventDefault(); $('#drop').style.display = 'grid'; }); addEventListener('dragleave', (e) => { if (!e.relatedTarget) $('#drop').style.display = 'none'; });
-addEventListener('drop', async (e) => { e.preventDefault(); $('#drop').style.display = 'none'; const items = [...e.dataTransfer.items]; for (let i = 0; i < items.length; i++) { const it = items[i]; if (it.kind !== 'file') continue; let h = null; try { h = it.getAsFileSystemHandle ? await it.getAsFileSystemHandle() : null; } catch (er) { /* no handle */ } const f = h && h.getFile ? await h.getFile() : it.getAsFile(); if (f) await importFile(f, h); } });
+/* ---- drop anything from anywhere: files from the file explorer, files from the browser's downloads bar, or a direct media link dragged / pasted from another tab ---- */
+const LINK_EXT = /\.(mov|mp4|m4v|mkv|mxf|avi|webm|wav|mp3|flac|aac|m4a|ogg|opus|aif|aiff)$/i;
+async function importLink(raw) {
+  if (!opfs) return toast('Linked imports need browser file storage (not available in a private window)', 6000);
+  let u; try { u = new URL(String(raw).trim()); } catch (e) { return toast('That is not a valid link'); }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') return toast('Only web links can be imported');
+  if (/(^|\.)(youtube\.com|youtu\.be|youtube-nocookie\.com)$/i.test(u.hostname)) return toast('YouTube pages cannot be imported. Download your own file from YouTube Studio and drop that instead.', 8000);
+  let name = 'linked'; try { name = decodeURIComponent(u.pathname.split('/').pop() || 'linked'); } catch (e) { /* keep */ } name = name.replace(/[^\w.\- ]/g, '_');
+  if (!LINK_EXT.test(name)) return toast('That link is a web page, not a video or audio file. Drag the video file itself, or save it and drop the file.', 8000);
+  toast('Downloading ' + name + ' to disk…', 90000);
+  let r; try { r = await fetch(u.href, { mode: 'cors', credentials: 'omit', redirect: 'follow' }); } catch (e) { return toast('The site does not allow its file to be pulled into the editor (CORS). Save the file first, then drop it in.', 9000); }
+  if (!r.ok || !r.body) return toast('The link returned an error (' + r.status + ')', 6000);
+  const id = uid(), d = await dirOf('linked'), key = id + '-' + name, fh = await d.getFileHandle(key, { create: true }), w = await fh.createWritable();
+  try { await r.body.pipeTo(w); } catch (e) { try { await w.abort(); } catch (er) { /* closed */ } try { await d.removeEntry(key); } catch (er) { /* gone */ } return toast('Download stopped: ' + e.message, 7000); }
+  await importFile(await fh.getFile(), fh);
+}
+const urlIn = (dt) => ((dt.getData('text/uri-list') || dt.getData('text/plain') || '').split(/[\r\n]+/).map((l) => l.trim()).find((l) => /^https?:\/\//i.test(l)));
+addEventListener('drop', async (e) => {
+  e.preventDefault(); $('#drop').style.display = 'none'; const dt = e.dataTransfer, url = urlIn(dt);
+  const grabs = [...dt.items].filter((it) => it.kind === 'file').map((it) => ({ hp: it.getAsFileSystemHandle ? it.getAsFileSystemHandle().catch(() => null) : Promise.resolve(null), f: it.getAsFile() }));      // all grabbed now: the list is gone after the first await
+  if (!grabs.length) { if (url) importLink(url); return; }
+  for (const g of grabs) { const hd = await g.hp, f = hd && hd.getFile ? await hd.getFile() : g.f; if (f) await importFile(f, hd && hd.kind === 'file' ? hd : null); }
+});
+addEventListener('paste', (e) => { if (e.target.closest && e.target.closest('input,textarea,select')) return; const cd = e.clipboardData; if (!cd) return; const fl = [...cd.files].filter((f) => /^(video|audio)\//.test(f.type) || LINK_EXT.test(f.name)); if (fl.length) { e.preventDefault(); fl.reduce((p, f) => p.then(() => importFile(f)), Promise.resolve()); return; } const t = (cd.getData('text') || '').trim(); if (/^https?:\/\//i.test(t)) { e.preventDefault(); importLink(t); } });
+
 
 /* ===================== timeline model + UI ===================== */
 function addClip(mediaId, track, start) {
