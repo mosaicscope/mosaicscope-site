@@ -203,7 +203,8 @@ function makeBus(ctx) {
     hp.type = 'highpass'; lp.type = 'lowpass'; chD.delayTime.value = 0.022; g.connect(duck); duck.connect(drv); drv.connect(hp); hp.connect(lp); lp.connect(mix); lp.connect(chD); chD.connect(chW); chW.connect(mix); mix.connect(trem); trem.connect(cr); p.connect(master); p.connect(rs); rs.connect(rev); p.connect(ds); ds.connect(dly);
     const co = ctx.createOscillator(), cg = ctx.createGain(); co.frequency.value = 0.8; cg.gain.value = 0.004; co.connect(cg); cg.connect(chD.delayTime); co.start();
     const to = ctx.createOscillator(), tg = ctx.createGain(); to.frequency.value = S.bpm / 60 * 2; to.connect(tg); tg.connect(trem.gain); to.start();
-    strips[ch.id] = { master, buses, route: 0, ctx, cr, g, duck, drv, hp, lp, chW, trem, tg, to, cr, p, rs, ds }; applyStrip(strips[ch.id], ch);
+    const sg = buses.map((b) => { const g = ctx.createGain(); g.gain.value = 0; p.connect(g); g.connect(b.in); return g; });
+    strips[ch.id] = { sg, master, buses, route: 0, ctx, cr, g, duck, drv, hp, lp, chW, trem, tg, to, cr, p, rs, ds }; applyStrip(strips[ch.id], ch);
   }
   const busObj = { master, an, rev, dly, strips, buses, eq: { lo, mid, hi, comp, lim } }; applyBuses(busObj); return busObj;
 }
@@ -238,6 +239,7 @@ function wireSlots(st, ch) {
 }
 function setSlots(st, ch) { (ch.fx || []).forEach((s, i) => { if (s && s.t && st.slots[i]) st.slots[i].set(s.a == null ? 50 : s.a, s.b == null ? 50 : s.b, s.m == null ? 50 : s.m); }); }
 function applyStrip(st, ch) {
+  (st.sg || []).forEach((g, i) => { g.gain.value = ((ch.sends && ch.sends[i]) || 0) / 100; });
   wireSlots(st, ch); setSlots(st, ch);
   { const key = ch.bus > 0 && st.buses && st.buses[ch.bus - 1] ? ch.bus : 0; if (st.route !== key) { try { st.p.disconnect(st.route ? st.buses[st.route - 1].in : st.master); } catch (e) { /* gone */ } st.p.connect(key ? st.buses[key - 1].in : st.master); st.route = key; } }
   const anySolo = S.channels.some((c) => c.solo); st.g.gain.value = (ch.mute || (anySolo && !ch.solo)) ? 0 : ch.vol / 100; if (st.p.pan) st.p.pan.value = ch.pan / 100; st.rs.gain.value = ch.rev / 100; st.ds.gain.value = ch.dly / 100;
@@ -263,7 +265,7 @@ function autoAt(pts, x) { if (x <= pts[0][0]) return pts[0][1]; for (let i = 1; 
 function autoTarget(bus, k) { if (k.p === 'master') return bus.master.gain; const st = bus.strips[k.ch]; if (!st) return null; return { vol: st.g.gain, pan: st.p.pan, lp: st.lp.frequency, hp: st.hp.frequency, rev: st.rs.gain, dly: st.ds.gain }[k.p]; }
 function runAuto(ctx, bus, pat, local, t, sd) {
   if (!pat.auto || !pat.auto.length) return; const n = pat.bars * SPB();
-  for (const k of pat.auto) { if (k.p === 'bpm') continue; const fm = /^fx(\d)([abm])$/.exec(k.p); if (fm) { const ch = S.channels.find((c) => c.id === k.ch), st = bus.strips[k.ch], i = +fm[1]; if (ch && st && ch.fx && ch.fx[i] && st.slots && st.slots[i]) { const s = ch.fx[i], v = { a: s.a == null ? 50 : s.a, b: s.b == null ? 50 : s.b, m: s.m == null ? 50 : s.m }, sl = st.slots[i]; v[fm[2]] = autoAt(k.pts, local / n) * 100; deferAt(ctx, t, () => sl.set(v.a, v.b, v.m)); } continue; } const tg = autoTarget(bus, k); if (!tg) continue; if (k.p === 'vol') { const ch = S.channels.find((c) => c.id === k.ch); if (!ch || ch.mute || (S.channels.some((c) => c.solo) && !ch.solo)) continue; } tg.setValueAtTime(autoVal(k.p, autoAt(k.pts, local / n)), t); tg.linearRampToValueAtTime(autoVal(k.p, autoAt(k.pts, (local + 1) / n)), t + sd); }
+  for (const k of pat.auto) { if (k.p === 'bpm') continue; const fm = /^fx(\d)([abm])$/.exec(k.p); if (fm) { const ch = S.channels.find((c) => c.id === k.ch), st = bus.strips[k.ch], i = +fm[1]; if (ch && st && ch.fx && ch.fx[i] && st.slots && st.slots[i]) { const s = ch.fx[i], v = { a: s.a == null ? 50 : s.a, b: s.b == null ? 50 : s.b, m: s.m == null ? 50 : s.m }, sl = st.slots[i]; for (let j = 0; j < 8; j++) { const w = Object.assign({}, v); w[fm[2]] = autoAt(k.pts, (local + j / 8) / n) * 100; deferAt(ctx, t + sd * j / 8, () => sl.set(w.a, w.b, w.m)); } } continue; } const tg = autoTarget(bus, k); if (!tg) continue; if (k.p === 'vol') { const ch = S.channels.find((c) => c.id === k.ch); if (!ch || ch.mute || (S.channels.some((c) => c.solo) && !ch.solo)) continue; } tg.setValueAtTime(autoVal(k.p, autoAt(k.pts, local / n)), t); tg.linearRampToValueAtTime(autoVal(k.p, autoAt(k.pts, (local + 1) / n)), t + sd); }
 }
 const au = { id: null };
 function renderAuto() {
@@ -380,7 +382,7 @@ function renderMixer() {
     const sl = (lab, k, min, max, vert) => { const w = document.createElement('label'); w.textContent = lab; const i = document.createElement('input'); i.type = 'range'; i.min = min; i.max = max; i.value = ch[k] == null ? (k === 'lp' ? 100 : 0) : ch[k]; if (vert) i.className = 'v'; i.oninput = () => { ch[k] = +i.value; applyAll(); }; w.append(i); return w; };
     d.append(sl('Vol', 'vol', 0, 120, true), sl('Pan', 'pan', -100, 100), sl('Reverb', 'rev', 0, 100), sl('Delay', 'dly', 0, 100), sl('Drive', 'drive', 0, 100), sl('Lowpass', 'lp', 0, 100), sl('Highpass', 'hp', 0, 100), sl('Chorus', 'chor', 0, 100), sl('Tremolo', 'trem', 0, 100), sl('Crush', 'crush', 0, 100), sl('Sidechain', 'sc', 0, 100)); if (ch.type === 'sample') d.append(sl('Pitch', 'pitch', -24, 24));
     const ps = document.createElement('select'); ps.innerHTML = '<option value="">FX preset…</option>' + Object.keys(FXPRE).map((k) => '<option>' + k + '</option>').join(''); ps.onchange = () => { Object.assign(ch, FXPRE[ps.value]); applyAll(); renderMixer(); }; d.append(ps);
-    const rt = document.createElement('select'); rt.title = 'Where this channel is sent'; rt.innerHTML = '<option value="0">→ Master</option>' + S.buses.map((q, i) => '<option value="' + (i + 1) + '">→ ' + esc(q.name) + '</option>').join(''); rt.value = ch.bus || 0; rt.onchange = () => { ch.bus = +rt.value; applyAll(); }; d.append(rt, fxUI(ch)); m.append(d);
+    const rt = document.createElement('select'); rt.title = 'Where this channel is sent'; rt.innerHTML = '<option value="0">→ Master</option>' + S.buses.map((q, i) => '<option value="' + (i + 1) + '">→ ' + esc(q.name) + '</option>').join(''); rt.value = ch.bus || 0; rt.onchange = () => { ch.bus = +rt.value; applyAll(); }; d.append(rt); S.buses.forEach((q, i) => { const w = document.createElement('label'); w.textContent = 'Send ' + 'ABCD'[i]; const r = document.createElement('input'); r.type = 'range'; r.min = 0; r.max = 100; r.value = (ch.sends && ch.sends[i]) || 0; r.oninput = () => { ch.sends = ch.sends || [0, 0, 0, 0]; ch.sends[i] = +r.value; applyAll(); }; w.append(r); d.append(w); }); d.append(fxUI(ch)); m.append(d);
   }
 }
 /* ===================== browser, samples, files, drag and drop ===================== */
