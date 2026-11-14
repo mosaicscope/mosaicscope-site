@@ -13,7 +13,7 @@
   #bin, #insp { display: block !important; position: fixed; left: 0; right: 0; bottom: calc(56px + env(safe-area-inset-bottom)); top: auto; width: 100%; height: 52dvh; max-height: 52dvh !important; z-index: 40; transform: translateY(115%); visibility: hidden; transition: transform .25s ease; border: 1px solid var(--line); border-radius: 16px 16px 0 0; box-shadow: 0 -14px 34px #000b; padding: 14px 12px 24px !important; overflow-y: auto !important; }
   #bin.is-open, #insp.is-open { transform: none; visibility: visible; }
   #bin::before, #insp::before { content: ""; position: sticky; top: -8px; display: block; width: 38px; height: 4px; border-radius: 2px; background: #55555f; margin: -6px auto 10px; }
-  #msbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); background: #101013; border-top: 1px solid var(--line); }
+  #msbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); background: #101013; border-top: 1px solid var(--line); }
   #msbar button { min-height: 48px; border: 0; border-radius: 10px; background: transparent; color: #c9c9d1; font: 600 11px/1.1 system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   #msbar button b { font-size: 17px; line-height: 1; font-weight: 600; }
   #msbar button:active, #msbar button.on { background: var(--acc); color: #fff; }

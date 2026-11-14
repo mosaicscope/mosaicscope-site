@@ -3,7 +3,7 @@
   'use strict';
   const $ = (s) => document.querySelector(s), bin = $('#bin'), insp = $('#insp'); if (!bin || !insp) return;
   const bar = document.createElement('nav'); bar.id = 'msbar'; bar.setAttribute('aria-label', 'Editor tools');
-  bar.innerHTML = [['media', '▤', 'Media'], ['edit', '☰', 'Edit'], ['add', '＋', 'Add'], ['split', '✂', 'Split'], ['del', '⌫', 'Delete'], ['undo', '↶', 'Undo'], ['play', '▶', 'Play']].map(([k, i, l]) => '<button type="button" data-k="' + k + '" aria-label="' + l + '"><b>' + i + '</b>' + l + '</button>').join('');
+  bar.innerHTML = [['media', '▤', 'Media'], ['edit', '☰', 'Edit'], ['add', '＋', 'Add'], ['split', '✂', 'Split'], ['del', '⌫', 'Delete'], ['undo', '↶', 'Undo'], ['rec', '●', 'Rec'], ['play', '▶', 'Play']].map(([k, i, l]) => '<button type="button" data-k="' + k + '" aria-label="' + l + '"><b>' + i + '</b>' + l + '</button>').join('');
   document.body.append(bar);
   const sheet = (el, btn) => { const open = !el.classList.contains('is-open'); bin.classList.remove('is-open'); insp.classList.remove('is-open'); bar.querySelectorAll('[data-k=media],[data-k=edit]').forEach((b) => b.classList.remove('on')); if (open) { el.classList.add('is-open'); btn.classList.add('on'); } };
   const press = (sel) => { const e = $(sel); if (e) e.click(); };
@@ -11,7 +11,7 @@
     const b = e.target.closest('button'); if (!b) return; const k = b.dataset.k;
     if (k === 'media') sheet(bin, b); else if (k === 'edit') sheet(insp, b);
     else if (k === 'add') { bin.classList.remove('is-open'); insp.classList.remove('is-open'); press('#addmedia'); }
-    else if (k === 'split') press('#split'); else if (k === 'del') press('#del'); else if (k === 'undo') press('#undo'); else if (k === 'play') press('#play');
+    else if (k === 'split') press('#split'); else if (k === 'del') press('#del'); else if (k === 'undo') press('#undo'); else if (k === 'play') press('#play'); else if (k === 'rec') press('#rec');
   });
   /* selecting a clip opens its settings sheet on tap-and-hold (400 ms), so a normal tap or drag still just selects / moves */
   let hold = 0; const lanes = $('#lanes');
