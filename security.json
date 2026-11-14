@@ -1,122 +1,150 @@
 {
- "at": 1794643776165,
+ "at": 1794661376015,
  "counts": {
   "critical": 0,
   "high": 0,
   "medium": 0,
-  "low": 126
+  "low": 130
  },
  "findings": [
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 221,
+   "line": 263,
+   "fp": "dom:inner-html|beats/index.html|1lyg5za"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "beats/index.html",
+   "line": 264,
+   "fp": "dom:inner-html|beats/index.html|4430vv"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "beats/index.html",
+   "line": 304,
    "fp": "dom:inner-html|beats/index.html|1axdns7"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 223,
-   "fp": "dom:inner-html|beats/index.html|12zspi7"
+   "line": 306,
+   "fp": "dom:inner-html|beats/index.html|qrr84c"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 273,
+   "line": 356,
    "fp": "dom:inner-html|beats/index.html|1q1g48r"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 278,
-   "fp": "dom:inner-html|beats/index.html|fneqcy"
+   "line": 361,
+   "fp": "dom:inner-html|beats/index.html|5biwh7"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 283,
+   "line": 362,
+   "fp": "dom:inner-html|beats/index.html|1j3glk8"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "beats/index.html",
+   "line": 364,
+   "fp": "dom:inner-html|beats/index.html|1tnptvg"
+  },
+  {
+   "kind": "dom:inner-html",
+   "severity": "low",
+   "path": "beats/index.html",
+   "line": 373,
    "fp": "dom:inner-html|beats/index.html|fgrfy4"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 284,
+   "line": 374,
    "fp": "dom:inner-html|beats/index.html|10t0w0x"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 291,
+   "line": 381,
    "fp": "dom:inner-html|beats/index.html|1j2h93b"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 385,
+   "line": 489,
    "fp": "dom:inner-html|beats/index.html|116sfar"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 386,
+   "line": 490,
    "fp": "dom:inner-html|beats/index.html|opa7ui"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 412,
+   "line": 516,
    "fp": "dom:inner-html|beats/index.html|nhs4bt"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 413,
+   "line": 517,
    "fp": "dom:inner-html|beats/index.html|k487d9"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 430,
+   "line": 534,
    "fp": "dom:inner-html|beats/index.html|4zocbs"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 432,
+   "line": 536,
    "fp": "dom:inner-html|beats/index.html|3wxvqg"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 466,
+   "line": 570,
    "fp": "dom:inner-html|beats/index.html|1uznn48"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 502,
+   "line": 606,
    "fp": "dom:inner-html|beats/index.html|nobec2"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 512,
+   "line": 617,
    "fp": "dom:inner-html|beats/index.html|1d91lza"
   },
   {
@@ -398,34 +426,6 @@
    "path": "main.js",
    "line": 274,
    "fp": "dom:inner-html|main.js|1gk00rs"
-  },
-  {
-   "kind": "dom:inner-html",
-   "severity": "low",
-   "path": "main.js",
-   "line": 286,
-   "fp": "dom:inner-html|main.js|16q1dhn"
-  },
-  {
-   "kind": "dom:inner-html",
-   "severity": "low",
-   "path": "main.js",
-   "line": 289,
-   "fp": "dom:inner-html|main.js|1c5hhz8"
-  },
-  {
-   "kind": "dom:inner-html",
-   "severity": "low",
-   "path": "main.js",
-   "line": 297,
-   "fp": "dom:inner-html|main.js|a2vs1y"
-  },
-  {
-   "kind": "dom:inner-html",
-   "severity": "low",
-   "path": "main.js",
-   "line": 314,
-   "fp": "dom:inner-html|main.js|nut56m"
   }
  ]
 }
