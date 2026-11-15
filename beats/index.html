@@ -43,11 +43,12 @@
   }
 .fxs { display:grid; gap:3px; margin-top:6px; border-top:1px solid var(--line); padding-top:6px; } .fxs select { font-size:11px; } .fxs label { font-size:10px; } #aucv { width:100%; max-width:900px; height:220px; cursor:crosshair; }
   #cmdd { width:min(560px,92vw); padding:12px; } #cmdq { width:100%; box-sizing:border-box; padding:10px; font-size:15px; } #cmdr { max-height:55vh; overflow:auto; margin-top:8px; } #cmdr button { display:flex; width:100%; justify-content:space-between; gap:10px; text-align:left; margin:2px 0; } #cmdr button.sel { outline:2px solid var(--acc); } #cmdr small { opacity:.6; white-space:nowrap; }
+  #autod { width:min(580px,94vw); } #autost { position:relative; height:190px; border:1px solid var(--line); border-radius:10px; margin-bottom:8px; background:linear-gradient(#0000,#ffffff0d); overflow:hidden; } #autost i { position:absolute; transform:translate(-50%,-50%); font:normal 11px sans-serif; padding:2px 7px; border-radius:9px; background:var(--acc); color:#000; white-space:nowrap; } #autost small { position:absolute; font-size:10px; opacity:.55; } #autolist p { margin:3px 0; font-size:13px; }
 </style>
 </head>
 <body>
 <header>
-  <b>mosaicBeats</b><button id="cmdk" class="tb" title="Search every effect, sound, view and action (Ctrl+K)">🔍</button>
+  <b>mosaicBeats</b><button id="automix" class="hide" title="Auto engineer: listens to every channel, then sets levels, stereo placement, depth and low-cut for you">🎚 Auto-mix</button><button id="autokey" class="hide" title="Finds the key of your melody and moves off-key notes onto it">🎵 Fix notes</button><button id="cmdk" class="tb" title="Search every effect, sound, view and action (Ctrl+K)">🔍</button>
   <button id="undo" class="tb" title="Undo (Ctrl+Z)">↶</button><button id="redo" class="tb" title="Redo (Ctrl+Shift+Z)">↷</button><button id="play" class="tb" title="Space">▶</button><button id="stop" class="tb" title="Stop">■</button><button id="rec" class="tb" title="Record the microphone into a new sample channel (R)">●</button>
   <span id="led">1:1:1</span><button id="hmore" title="More controls">⋯ More</button>
   <label>BPM <input id="bpm" type="number" min="40" max="300" value="140"></label>
@@ -98,6 +99,7 @@
 <nav id="msbar"><button data-v="rack" class="on"><b>▦</b>Rack</button><button data-v="beat"><b>✨</b>Beat</button><button data-v="pads"><b>◼</b>Pads</button><button data-v="loop"><b>⟳</b>Loop</button><button data-v="roll"><b>♬</b>Roll</button><button data-v="auto"><b>∿</b>Auto</button><button data-v="list"><b>≣</b>Playlist</button><button data-v="mix"><b>☰</b>Mixer</button><button data-b="1"><b>▤</b>Browser</button></nav>
 <input id="filein" type="file" accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a,.aac,.aif,.aiff,.opus" multiple hidden /><input id="projin" type="file" accept=".json,application/json" hidden />
 <dialog id="cmdd"><input id="cmdq" placeholder="Search effects, sounds, views, actions…" autocomplete="off"><div id="cmdr"></div></dialog>
+<dialog id="autod"><h3 style="margin:0 0 8px">Auto engineer</h3><div id="autost"></div><div id="autolist"></div><p style="margin:10px 0 0"><button id="autoclose" class="on">Done</button> <small style="opacity:.6">Ctrl+Z undoes all of it.</small></p></dialog>
 <dialog id="helpdlg"><h3 style="margin:0 0 10px">Shortcuts</h3><div></div><p style="text-align:right;margin:12px 0 0"><button id="helpclose" class="on">Close</button></p></dialog>
 <div id="drop">Drop audio to make a sample channel</div><div id="toast"></div>
 <script src="fxlib.js"></script>
@@ -452,6 +454,7 @@ async function exportWav(opt) {
   const off = new OfflineAudioContext(2, len, SR), bus = makeBus(off); for (let i = 0; i < total; i++) playStep(off, bus, i, T[i] + (i % 2 ? (S.swing / 100) * sd * 0.5 : 0), mode); flushDefer(off);
   if (!(opt && opt.stem)) for (const tr of LOOP.tracks) if (tr.buf && !tr.mute) for (let bar = 0; bar * SPB() < total; bar += tr.bars) { const s = off.createBufferSource(), g = off.createGain(); s.buffer = tr.buf; g.gain.value = tr.vol / 100; s.connect(g); g.connect(bus.master); s.start(T[bar * SPB()] != null ? T[bar * SPB()] : bar * SPB() * sd); }
   const out = await off.startRendering(), L = out.getChannelData(0), R = out.getChannelData(1); let end = L.length; while (end > 2000 && Math.abs(L[end - 1]) < 1e-4 && Math.abs(R[end - 1]) < 1e-4) end -= 200;
+  if (opt && opt.analyze) return { L, R, end };
   let note = '';
   if (!(opt && opt.stem)) {
     let pk = 0; for (let i = 0; i < end; i++) { const a = Math.abs(L[i]), b = Math.abs(R[i]); if (a > pk) pk = a; if (b > pk) pk = b; }
@@ -710,7 +713,7 @@ function autoMaster() { S.eq = { lo: 1, mid: 0, hi: 1.5, glue: 45, lim: 1 }; app
   const selCh = () => S.channels.find((c) => c.id === S.sel);
   const build = () => {
     items = []; const act = (n, fn, k) => items.push({ n, k: k || 'Action', fn }), click = (id) => () => $(id).click();
-    act('Make me a beat', () => { showView('beat'); $('#bmmake').click(); }); act('Auto-master my mix', autoMaster); act('Play / pause', click('#play')); act('Undo', click('#undo')); act('Redo', click('#redo'));
+    act('Make me a beat', () => { showView('beat'); $('#bmmake').click(); }); act('Auto-mix: levels, panning, depth', autoEngineer); act('Fix off-key notes', autoKey); act('Auto-master my mix', autoMaster); act('Play / pause', click('#play')); act('Undo', click('#undo')); act('Redo', click('#redo'));
     act('Export WAV', click('#export')); act('Export MP3', click('#exportmp3')); act('Export stems (WAV)', click('#stems')); act('Export stems (MP3)', click('#stemsmp3'));
     act('Save project file', click('#save')); act('Open project file', click('#load')); act('Record microphone', click('#rec')); act('Add synth channel', click('#addsyn')); act('Add drum channel', click('#addkick')); act('Show shortcuts', click('#helpbtn'));
     [['rack', 'Channel rack'], ['beat', 'Beat maker'], ['pads', 'Drum pads'], ['loop', 'Looper'], ['roll', 'Piano roll'], ['auto', 'Automation'], ['list', 'Playlist'], ['mix', 'Mixer']].forEach(([v, n]) => act('Go to ' + n, () => showView(v), 'View'));
@@ -731,6 +734,78 @@ function autoMaster() { S.eq = { lo: 1, mid: 0, hi: 1.5, glue: 45, lim: 1 }; app
   $('#cmdk').onclick = open; addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); open(); } });
   try { if (!localStorage.getItem('beats-tip')) { localStorage.setItem('beats-tip', '1'); setTimeout(() => toast('Tip: press Ctrl+K (or tap 🔍) to search any sound, effect or action', 7000), 2500); } } catch (e) { /* private mode */ }
 })();
+
+/* ===================== Auto engineer: listens to each channel, then balances the mix and the stereo stage ===================== */
+const ROLES = { kick: { l: 0, p: 0, w: 0, r: 0, d: 0, hp: 0, sc: 0 }, bass: { l: -1.5, p: 0, w: 0, r: 0, d: 0, hp: 0, sc: 55 }, snare: { l: -3, p: 0, w: 15, r: 12, d: 0, hp: 15, sc: 0 }, clap: { l: -5, p: 0, w: 20, r: 18, d: 0, hp: 30, sc: 0 }, tom: { l: -6, p: 0, w: 45, r: 12, d: 0, hp: 20, sc: 0 }, hat: { l: -11, p: 25, w: 35, r: 4, d: 0, hp: 50, sc: 0 }, perc: { l: -10, p: -30, w: 45, r: 8, d: 4, hp: 42, sc: 0 }, crash: { l: -12, p: 30, w: 40, r: 22, d: 0, hp: 45, sc: 0 }, fx: { l: -10, p: 0, w: 60, r: 28, d: 18, hp: 35, sc: 0 }, lead: { l: -5, p: 0, w: 25, r: 14, d: 10, hp: 35, sc: 15 }, pad: { l: -9, p: 0, w: 55, r: 34, d: 0, hp: 50, sc: 35, chor: 35 }, vocal: { l: -4, p: 0, w: 0, r: 12, d: 8, hp: 35, sc: 0 }, sample: { l: -6, p: 0, w: 30, r: 8, d: 0, hp: 25, sc: 0 } };
+const ROLE_NAME = { kick: 'Kick', bass: 'Bass', snare: 'Snare', clap: 'Clap', tom: 'Tom', hat: 'Hi-hat', perc: 'Percussion', crash: 'Cymbal', fx: 'Effect', lead: 'Lead', pad: 'Pad', vocal: 'Vocal', sample: 'Sample' };
+function roleOf(c, m) {
+  if (c.type === 'drum') return ({ kick: 'kick', sub: 'bass', snare: 'snare', clap: 'clap', rim: 'perc', hat: 'hat', openhat: 'hat', shaker: 'hat', cowbell: 'perc', tom: 'tom', conga: 'perc', crash: 'crash', zap: 'fx' })[c.drum] || 'perc';
+  const nm = ((c.name || '') + ' ' + (c.type === 'synth' ? (INSTR[c.inst] || '') : '')).toLowerCase();
+  if (/bass|808|\bsub\b/.test(nm) || (c.type === 'synth' && m.bass > 0.75)) return 'bass';
+  if (/pad|string|choir|ambient|atmos|organ/.test(nm)) return 'pad';
+  if (/vox|vocal|voice|mic/.test(nm)) return 'vocal';
+  return c.type === 'sample' ? 'sample' : 'lead';
+}
+function stemStats(r) {
+  const n = r.end, L = r.L, R = r.R, k = 1 - Math.exp(-2 * Math.PI * 250 / SR); let lp = 0, eT = 0, eL = 0, eH = 0, prev = 0, pk = 0;
+  for (let i = 0; i < n; i++) { const x = (L[i] + R[i]) / 2; lp += k * (x - lp); eL += lp * lp; eT += x * x; const d = x - prev; prev = x; eH += d * d; const a = Math.max(Math.abs(L[i]), Math.abs(R[i])); if (a > pk) pk = a; }
+  return { lufs: lufs(L, R, n, SR), peak: pk, bass: eT > 0 ? eL / eT : 0, bright: eT > 0 ? Math.sqrt(eH / eT) : 0 };
+}
+let autoBusy = false;
+async function autoEngineer() {
+  if (autoBusy) return; const live = S.channels.filter((c) => !c.mute); if (!live.length) return toast('Add some channels with a pattern first');
+  autoBusy = true; const saved = S.channels.map((c) => [c.mute, c.solo]), stats = new Map(); toast('Auto engineer is listening to each channel…', 90000);
+  try {
+    for (const c of live) { S.channels.forEach((x) => { x.mute = x === c ? 0 : 1; x.solo = 0; }); const st = stemStats(await exportWav({ stem: 'a', analyze: true })); if (isFinite(st.lufs)) stats.set(c.id, st); }
+    S.channels.forEach((c, i) => { c.mute = saved[i][0]; c.solo = saved[i][1]; });
+    const heard = live.filter((c) => stats.has(c.id)); if (!heard.length) { toast('Nothing to hear yet. Add some notes or steps first.'); return; }
+    const roles = new Map(heard.map((c) => [c.id, roleOf(c, stats.get(c.id))])), hasKick = [...roles.values()].includes('kick');
+    const kickCh = heard.find((c) => roles.get(c.id) === 'kick'), anchor = kickCh ? stats.get(kickCh.id).lufs : Math.max(...heard.map((c) => stats.get(c.id).lufs));
+    const want = heard.map((c) => c.vol * Math.pow(10, (anchor + ROLES[roles.get(c.id)].l - stats.get(c.id).lufs) / 20)), top = Math.max(...want), ref = kickCh ? want[heard.indexOf(kickCh)] : top; let sc = 85 / Math.max(ref, 1); if (top * sc > 100) sc = 100 / top;
+    const groups = {}; heard.forEach((c) => { (groups[roles.get(c.id)] = groups[roles.get(c.id)] || []).push(c); });
+    const rows = [];
+    heard.forEach((c, i) => {
+      const role = roles.get(c.id), R = ROLES[role], g = groups[role], k = g.length, idx = g.indexOf(c), m = stats.get(c.id), oldVol = c.vol;
+      c.vol = Math.max(3, Math.min(100, Math.round(want[i] * sc)));
+      c.pan = Math.round(k === 1 ? R.p : -R.w + 2 * R.w * idx / (k - 1)); c.rev = R.r; c.dly = R.d;
+      let hp = Math.max(c.hp || 0, R.hp); if (role !== 'kick' && role !== 'bass' && m.bass > 0.55) hp = Math.max(hp, 55); c.hp = hp;
+      if (m.bright > 1.1 && role !== 'hat' && role !== 'crash') c.lp = Math.min(c.lp == null ? 100 : c.lp, 82);
+      if (R.chor) c.chor = Math.max(c.chor || 0, R.chor); c.sc = hasKick && role !== 'kick' ? Math.max(c.sc || 0, R.sc) : (c.sc || 0);
+      rows.push({ c, role, db: 20 * Math.log10(c.vol / Math.max(1, oldVol)) });
+    });
+    applyAll(); renderAll();
+    const full = await exportWav({ stem: 'a', analyze: true }); let pk = 0; for (let i = 0; i < full.end; i++) { const a = Math.max(Math.abs(full.L[i]), Math.abs(full.R[i])); if (a > pk) pk = a; }
+    if (pk > 0.9 || pk < 0.5) { S.master = Math.max(30, Math.min(120, Math.round(S.master * 0.85 / Math.max(pk, 0.05)))); $('#mvol').value = S.master; applyAll(); }
+    save(); showStage(rows); toast('Auto-mix done. Ctrl+Z to undo.', 4000);
+  } catch (e) { toast('Auto-mix failed: ' + e.message, 7000); } finally { S.channels.forEach((c, i) => { if (saved[i]) { c.mute = saved[i][0]; c.solo = saved[i][1]; } }); autoBusy = false; }
+}
+function showStage(rows) {
+  const st = $('#autost'), li = $('#autolist'); st.innerHTML = '<small style="left:6px;bottom:4px">◀ left</small><small style="right:6px;bottom:4px">right ▶</small><small style="left:50%;bottom:4px;transform:translateX(-50%)">front</small><small style="left:50%;top:4px;transform:translateX(-50%)">back (more reverb)</small>'; li.innerHTML = '';
+  const placed = [];
+  rows.forEach(({ c, role, db }) => {
+    const x = Math.max(12, Math.min(88, 50 + c.pan / 2)), y0 = 150 - Math.min(60, c.rev + c.dly * 0.5) / 60 * 120; let y = y0;
+    for (const dy of [0, -22, 22, -44, 44, -66, 66, -88, 88]) { const yy = y0 + dy; if (yy >= 14 && yy <= 176 && !placed.some((q) => Math.abs(q.x - x) < 18 && Math.abs(q.y - yy) < 20)) { y = yy; break; } }
+    placed.push({ x, y }); const d = document.createElement('i'); d.style.left = x + '%'; d.style.top = y + 'px'; d.textContent = c.name; st.append(d);
+    const p = document.createElement('p'); p.textContent = c.name + ' (' + ROLE_NAME[role] + '): ' + (db >= 0.5 ? 'raised ' + db.toFixed(1) + ' dB' : db <= -0.5 ? 'lowered ' + (-db).toFixed(1) + ' dB' : 'level kept') + ', ' + (c.pan === 0 ? 'centre' : Math.abs(c.pan) + '% ' + (c.pan < 0 ? 'left' : 'right')) + ', ' + (c.rev >= 20 ? 'far back' : c.rev >= 8 ? 'mid depth' : 'up front') + (c.hp >= 40 ? ', low rumble cut' : '') + (c.sc >= 30 ? ', ducks under the kick' : ''); li.append(p);
+  });
+  $('#autod').showModal();
+}
+$('#autoclose').onclick = () => $('#autod').close(); $('#automix').onclick = () => { autoEngineer(); };
+
+/* ===================== auto-correct notes: detect the key, move off-key notes in ===================== */
+function autoKey() {
+  const syn = S.channels.filter((c) => c.type === 'synth'), hist12 = new Array(12).fill(0); let total = 0;
+  syn.forEach((c) => Object.values(c.notes || {}).forEach((l) => l.forEach((q) => { hist12[((q.n % 12) + 12) % 12] += q.len || 1; total++; })));
+  if (!total) return toast('No melody notes yet. Draw some in the piano roll first.');
+  const MAJ = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88], MIN = [6.33, 2.68, 3.52, 5.38, 2.6, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
+  const corr = (a, b) => { const ma = a.reduce((s, v) => s + v, 0) / 12, mb = b.reduce((s, v) => s + v, 0) / 12; let n = 0, da = 0, db = 0; for (let i = 0; i < 12; i++) { n += (a[i] - ma) * (b[i] - mb); da += (a[i] - ma) ** 2; db += (b[i] - mb) ** 2; } return n / Math.sqrt(da * db || 1); };
+  let best = { s: -2 }; for (let k = 0; k < 12; k++) for (const [sc, prof] of [['major', MAJ], ['minor', MIN]]) { const rot = hist12.map((_, i) => hist12[(i + k) % 12]), s = corr(rot, prof); if (s > best.s) best = { s, k, sc }; }
+  const set = SCL[best.sc], ok = (m) => set.includes((((m - best.k) % 12) + 12) % 12); let fixed = 0;
+  syn.forEach((c) => Object.values(c.notes || {}).forEach((l) => l.forEach((q) => { if (ok(q.n)) return; for (let d = 1; d < 7; d++) { if (ok(q.n - d)) { q.n -= d; break; } if (ok(q.n + d)) { q.n += d; break; } } fixed++; })));
+  RS.key = best.k; RS.scale = best.sc; const nk = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][best.k]; try { $('#rollkey').value = best.k; $('#rollscale').value = best.sc; } catch (e) { /* ui missing */ }
+  if (fixed) { renderAll(); save(); } toast(fixed ? 'Key looks like ' + nk + ' ' + best.sc + '. Moved ' + fixed + ' off-key note' + (fixed > 1 ? 's' : '') + ' into it. Ctrl+Z undoes.' : 'Key looks like ' + nk + ' ' + best.sc + '. Every note already fits, nothing to fix.', 6000);
+}
+$('#autokey').onclick = autoKey;
 </script>
 </body>
 </html>
