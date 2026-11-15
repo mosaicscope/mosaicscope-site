@@ -1,8 +1,8 @@
 {
- "at": 1794710761281,
+ "at": 1794719419726,
  "totals": {
   "duplicate-code": 10,
-  "long-function": 20,
+  "long-function": 21,
   "format": 30,
   "oversized-module": 10,
   "unused-css": 1
@@ -87,6 +87,14 @@
    "detail": "8+ identical lines in 2 places",
    "fix": "extract a shared helper",
    "fp": "duplicate-code|10yri85"
+  },
+  {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "beats/fxlib.js:2",
+   "detail": "171 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|d20dh3"
   },
   {
    "kind": "long-function",
@@ -479,14 +487,6 @@
    "detail": "Windows line endings",
    "fix": "convert to LF",
    "fp": "format|1a9w5ut"
-  },
-  {
-   "kind": "long-function",
-   "severity": "low",
-   "where": "game/tests/chronicles.test.ts:35",
-   "detail": "212 lines",
-   "fix": "split into named steps",
-   "fp": "long-function|5n3or5"
   }
  ]
 }
