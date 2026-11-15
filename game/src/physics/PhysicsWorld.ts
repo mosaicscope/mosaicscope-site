@@ -45,7 +45,7 @@ export class PhysicsWorld {
 
   constructor(world: World, maxImpulse = 9) {
     this.world = world;
-    this.toyHash = new SpatialHash(world.size, world.size, 2, 256);
+    this.toyHash = new SpatialHash(world.size, world.size, 2, 256,!!world.mapped);
     this.maxImpulse = maxImpulse;
     this.springPads = world.pois.filter((p) => p.kind === "springpad").map((p) => ({ x: p.x, y: p.y }));
   }
@@ -128,10 +128,10 @@ export class PhysicsWorld {
       t.spin *= 1 - 1.5 * h;
       // keep inside world
       const S = this.world.size;
-      if (t.x < 0.2) { t.x = 0.2; t.vx = Math.abs(t.vx) * t.restitution; }
+      if(!this.world.mapped){if (t.x < 0.2) { t.x = 0.2; t.vx = Math.abs(t.vx) * t.restitution; }
       if (t.y < 0.2) { t.y = 0.2; t.vy = Math.abs(t.vy) * t.restitution; }
       if (t.x > S - 0.2) { t.x = S - 0.2; t.vx = -Math.abs(t.vx) * t.restitution; }
-      if (t.y > S - 0.2) { t.y = S - 0.2; t.vy = -Math.abs(t.vy) * t.restitution; }
+      if (t.y > S - 0.2) { t.y = S - 0.2; t.vy = -Math.abs(t.vy) * t.restitution; }}
     }
 
     // tether constraint (yo-yo, flail): pull back toward holder

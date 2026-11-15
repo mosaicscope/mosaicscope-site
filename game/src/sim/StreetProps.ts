@@ -1,3 +1,6 @@
+import {vehicleIndex} from './VehicleIndex';
+import type {Vehicle} from '../entities/types';
+const propCars:Vehicle[]=[];
 import {impactComponents} from './VehicleDamage';
 import {vehicleContact} from './VehicleContact';
 import {propPhysics} from '../content/propPhysics';
@@ -42,7 +45,7 @@ export function updateStreetProps(sim:Simulation,dt:number):void{
  for(const p of sim.cityPlay.props){const def=propDef(p.kind);
   if((p.until??0)>sim.tick&&p.user!==undefined){const c=sim.chars[p.user];if(c&&c.phys===0&&c.inCar<0&&c.inside<0&&Math.hypot(c.x-p.x,c.y-p.y)<1.6&&Math.hypot(c.vx,c.vy)<.2){c.anim.pose=def.pose;c.facing=Math.atan2(p.y-c.y,p.x-c.x);}else{if(c&&c.anim.pose===def.pose)c.anim.pose='auto';p.user=undefined;p.until=0;}}else if(p.user!==undefined){const c=sim.chars[p.user];if(c&&c.anim.pose===def.pose)c.anim.pose='auto';p.user=undefined;p.until=0;}
   const physical=propPhysics(def.model),fixed=def.fixed||p.secured;
-  for(const v of sim.vehicles){const reach=VEHICLES[v.cls].length/2+1;if(Math.abs(v.speed)<1.3||v.state==='parked'||sim.tick-p.lastHit<30||Math.abs(p.x-v.x)>reach+Math.abs(v.x-v.px)||Math.abs(p.y-v.y)>reach+Math.abs(v.y-v.py))continue;const hit=vehicleContact(v,p.x,p.y,physical.radius);if(!hit||hit.speed<.5)continue;p.lastHit=sim.tick;const energy=hit.speed**2*VEHICLES[v.cls].mass*.5,force=Math.min(12,Math.sqrt(energy)*1.3);if(!fixed){p.vx=hit.nx*force/Math.sqrt(def.mass);p.vy=hit.ny*force/Math.sqrt(def.mass);p.vz=force*.16;p.spin=(hit.nx-hit.ny)*force*.5;}p.health=Math.max(0,p.health-energy/physical.strength);if(fixed||def.mass>4){impactComponents(v,hit.nx,hit.ny,hit.speed,Math.min(2,def.mass/10),sim.tick,{x:hit.x,y:hit.y});v.damage=Math.min(1,v.damage+energy*.002);}
+  for(const v of sim.world.mapped?vehicleIndex(sim).query(p.x,p.y,6,propCars):sim.vehicles){const reach=VEHICLES[v.cls].length/2+1;if(Math.abs(v.speed)<1.3||v.state==='parked'||sim.tick-p.lastHit<30||Math.abs(p.x-v.x)>reach+Math.abs(v.x-v.px)||Math.abs(p.y-v.y)>reach+Math.abs(v.y-v.py))continue;const hit=vehicleContact(v,p.x,p.y,physical.radius);if(!hit||hit.speed<.5)continue;p.lastHit=sim.tick;const energy=hit.speed**2*VEHICLES[v.cls].mass*.5,force=Math.min(12,Math.sqrt(energy)*1.3);if(!fixed){p.vx=hit.nx*force/Math.sqrt(def.mass);p.vy=hit.ny*force/Math.sqrt(def.mass);p.vz=force*.16;p.spin=(hit.nx-hit.ny)*force*.5;}p.health=Math.max(0,p.health-energy/physical.strength);if(fixed||def.mass>4){impactComponents(v,hit.nx,hit.ny,hit.speed,Math.min(2,def.mass/10),sim.tick,{x:hit.x,y:hit.y});v.damage=Math.min(1,v.damage+energy*.002);}
    v.speed*=def.mass<1?.99:fixed?.8:.94;sim.bus.emit('fx',{kind:physical.material==='metal'?'spark':'dust',x:p.x,y:p.y,z:.3,n:Math.min(14,3+Math.ceil(force)),color:physical.material==='timber'?'#bca477':'#b9a886'});}
   if(def.fixed||p.secured)continue;
   const oldX=p.x,oldY=p.y;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;p.vz-=9.8*dt;p.turn+=p.spin*dt;

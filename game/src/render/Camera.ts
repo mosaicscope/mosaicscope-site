@@ -9,6 +9,7 @@ export class Camera {
   viewW = 800; viewH = 600;
   minZoom = 0.55; maxZoom = 7;
   worldSize = 64;
+  unbounded=false;
   private s: Pt = { x: 0, y: 0 };
   private c: Pt = { x: 0, y: 0 };
 
@@ -20,12 +21,12 @@ export class Camera {
     this.y += (this.targetY - this.y) * k;
     this.zoom += (this.targetZoom - this.zoom) * (reduceMotion ? 1 : 1 - Math.exp(-dt * 10));
     const S = this.worldSize;
-    this.x = clamp(this.x, 0, S); this.y = clamp(this.y, 0, S);
+    if(!this.unbounded){this.x = clamp(this.x, 0, S); this.y = clamp(this.y, 0, S);}
   }
 
   setZoom(z: number): void { this.targetZoom = clamp(z, this.minZoom, this.maxZoom); }
   lookAt(x: number, y: number, snap = false): void {
-    this.targetX = clamp(x, 0, this.worldSize); this.targetY = clamp(y, 0, this.worldSize);
+    this.targetX = this.unbounded?x:clamp(x, 0, this.worldSize); this.targetY = this.unbounded?y:clamp(y, 0, this.worldSize);
     if (snap) { this.x = this.targetX; this.y = this.targetY; }
   }
 

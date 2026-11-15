@@ -15,5 +15,10 @@ it('keeps a 650-car mapped fleet moving without ambient pile-ups or car damage',
   if(tick%60===0)for(const [a,b]of nearbyVehiclePairs(s.vehicles)){const x=s.vehicles[a],y=s.vehicles[b];if(x.state==='parked'&&y.state==='parked')continue;if((chassisContact(x,y)?.depth??0)>.05)overlaps.push({tick,depth:chassisContact(x,y)?.depth,a:[x.id,x.cls,x.state,x.x,x.y,x.heading],b:[y.id,y.cls,y.state,y.x,y.y,y.heading]});}
  }
  expect(overlaps).toEqual([]);expect(s.vehicles.filter(v=>v.damage>0||v.state==='crashed').map(v=>({id:v.id,state:v.state,damage:v.damage,siren:v.siren,driver:v.driver,owner:v.owner}))).toEqual([]);
- expect(s.vehicles.filter(v=>v.state==='drive'&&v.speed>.5).length).toBeGreaterThan(100);
+ const active=s.vehicles.filter(v=>v.state==='drive'&&Math.hypot(v.x-s.focus.x,v.y-s.focus.y)<80);
+ expect(s.vehicles.filter(v=>v.state==='drive'&&v.rescueTarget===undefined)).toHaveLength(650);
+ expect(active.filter(v=>v.speed>.5).length).toBeGreaterThan(10);
+ const far=s.vehicles.find(v=>v.state==='drive'&&Math.hypot(v.x-s.focus.x,v.y-s.focus.y)>120)!;
+ const before={x:far.x,y:far.y};s.tick++;updateVehicles(s,1/60);expect({x:far.x,y:far.y}).toEqual(before);
+ s.focus={x:far.x,y:far.y};for(let i=0;i<60;i++){s.tick++;updateVehicles(s,1/60);}expect(s.vehicles.some(v=>v.state==='drive'&&Math.hypot(v.x-s.focus.x,v.y-s.focus.y)<80&&v.speed>.5)).toBe(true);
 },30000);

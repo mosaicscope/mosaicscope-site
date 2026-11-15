@@ -28,15 +28,16 @@ export class SimulationClock {
    * Feed real elapsed seconds; returns how many fixed steps to run now.
    * `alpha` (0..1) afterwards says how far we are between the last and next step, for interpolation.
    */
-  advance(realDt: number): number {
+  advance(realDt: number, maxSteps = this.maxStepsPerFrame): number {
     if (this.paused) return 0;
     const dt = Math.min(Math.max(realDt, 0), 0.25) * this.speed;
     this.acc += dt;
     let steps = Math.floor(this.acc / this.step);
-    if (steps > this.maxStepsPerFrame) {
-      this.droppedSeconds += (steps - this.maxStepsPerFrame) * this.step;
-      this.acc -= (steps - this.maxStepsPerFrame) * this.step;
-      steps = this.maxStepsPerFrame;
+    const budget=Math.max(1,Math.min(this.maxStepsPerFrame,Math.floor(maxSteps)));
+    if (steps > budget) {
+      this.droppedSeconds += (steps - budget) * this.step;
+      this.acc -= (steps - budget) * this.step;
+      steps = budget;
     }
     this.acc -= steps * this.step;
     this.tick += steps;

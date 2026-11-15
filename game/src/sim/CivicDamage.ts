@@ -11,8 +11,9 @@ import {facadeResponse,type FacadeMaterial} from './FacadeImpact';
 export type {FacadeMaterial} from './FacadeImpact';
 export function facadeMaterial(kind:string,floors=1):FacadeMaterial{return kind==='house'?'timber':kind==='warehouse'||kind==='garage'?'metal':kind==='office'&&floors>4?'glass':kind==='apartments'||kind==='dairy'||kind==='cafe'?'brick':kind==='church'||kind==='museum'?'stone':'concrete';}
 export interface CivicDamage{impactU?:number;material?:FacadeMaterial;building?:number;energy?:number;variant?:number;fixture?:string;key:string;kind:'building'|'furniture';x:number;y:number;tx:number;ty:number;face?:'s'|'e'|'n'|'w';severity:number;at:number;crew?:number;phase:'reported'|'travelling'|'working';workStarted?:number;repairProgress?:number;workUntil?:number;repairBy:number}
-const buckets=new WeakMap<World,Map<number,number[]>>();
-function poiBuckets(w:World){let b=buckets.get(w);if(b)return b;b=new Map();for(const p of w.pois){if(!['busstop','streetsign','roadsign','lamp','billboard','bench','bin'].includes(p.kind))continue;const key=Math.floor(p.y)*w.size+Math.floor(p.x),a=b.get(key)??[];a.push(p.id);b.set(key,a);}buckets.set(w,b);return b;}
+const counts=new WeakMap<World,number>();
+const buckets=new WeakMap<World,Map<string,number[]>>();
+function poiBuckets(w:World){let b=buckets.get(w);if(b&&counts.get(w)===w.pois.length)return b;counts.set(w,w.pois.length);b=new Map();for(const p of w.pois){if(!['busstop','streetsign','roadsign','lamp','billboard','bench','bin'].includes(p.kind))continue;const key=Math.floor(p.x)+','+Math.floor(p.y),a=b.get(key)??[];a.push(p.id);b.set(key,a);}buckets.set(w,b);return b;}
 function record(sim:Simulation,v:Pick<Vehicle,"cls"|"driver"|"damage">,key:string,kind:CivicDamage['kind'],x:number,y:number,speed:number,face?:CivicDamage['face']):void{
  const old=sim.world.civicDamage[key];if(old&&sim.tick-old.at<45)return;
  const building=sim.world.buildingAt(Math.floor(x),Math.floor(y)),material=building?(['timber','brick','glass','concrete','metal','stone'].includes(building.facadeMaterial??'')?building.facadeMaterial:facadeMaterial(building.kind,building.floors)) as FacadeMaterial:undefined;
@@ -40,12 +41,12 @@ export function hitFacade(sim:Simulation,v:Pick<Vehicle,"cls"|"driver"|"damage">
   const key=`b:${b.id}:${tx}:${ty}`,face=edges[0][0];record(sim,v,key,'building',tx+.5,ty+.5,speed,face);const d=sim.world.civicDamage[key];if(d)d.impactU=Math.max(.08,Math.min(.92,face==='s'||face==='n'?x-tx:y-ty));return;}
 }
 export function updateCivicDamage(sim:Simulation):void{
- const w=sim.world,b=poiBuckets(w),decor=decorGrid(w);
+ const w=sim.world,b=poiBuckets(w),decor=w.mapped?null:decorGrid(w);
  for(const v of sim.vehicles){if(v.state==='parked'||Math.abs(v.speed)<1.5)continue;const r=VEHICLES[v.cls].length/2+.6;
   const strike=(key:string,x:number,y:number,radius:number,fixture?:string)=>{const old=w.civicDamage[key];if(old&&sim.tick-old.at<45)return;const hit=vehicleContact(v,x,y,radius);if(!hit||hit.speed<1.3)return;record(sim,v,key,'furniture',x,y,hit.speed);if(fixture&&w.civicDamage[key])w.civicDamage[key].fixture=fixture;impactComponents(v,hit.nx,hit.ny,hit.speed,.6,sim.tick,{x:hit.x,y:hit.y});v.speed*=.8;if(v.vx!==undefined)v.vx*=.8;if(v.vy!==undefined)v.vy*=.8;};
   for(let y=Math.floor(Math.min(v.y,v.py)-r);y<=Math.ceil(Math.max(v.y,v.py)+r);y++)for(let x=Math.floor(Math.min(v.x,v.px)-r);x<=Math.ceil(Math.max(v.x,v.px)+r);x++){
-   if(!w.inBounds(x,y))continue;for(const id of b.get(y*w.size+x)??[]){const p=w.pois[id];strike(`p:${id}`,p.x,p.y,p.kind==='busstop'?.4:.2);}
-   if(decor[y*w.size+x])strike(`d:${y*w.size+x}`,x+.5,y+.5,.22,'decor-'+decor[y*w.size+x]);
+   if(!w.inBounds(x,y))continue;for(const id of b.get(x+','+y)??[]){const p=w.pois[id];strike(`p:${id}`,p.x,p.y,p.kind==='busstop'?.4:.2);}
+   if(decor?.[y*w.size+x])strike(`d:${y*w.size+x}`,x+.5,y+.5,.22,'decor-'+decor[y*w.size+x]);
   }
  }
  const jobs=Object.values(w.civicDamage),reserved=new Set(jobs.map(j=>j.crew).filter(id=>id!==undefined));

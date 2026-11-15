@@ -21,7 +21,7 @@ it('counts unique discoveries, saves progress, and pays a challenge only once',(
  startChallenge(s,'frames');challengeAction(s,'photowalk','Colombo Street');const saved=restoreWorldFun(s.worldFun);expect(saved.challenges?.active?.seen).toEqual(['Colombo Street']);
 });
 it('requires real arrivals on foot for walking checkpoints',()=>{
- const s=small();expect(CITY_CHALLENGES).toHaveLength(10);startChallenge(s,'architecture');const next=nextChallengeStop(s)!;
+ const s=small();expect(CITY_CHALLENGES).toHaveLength(50);startChallenge(s,'architecture');const next=nextChallengeStop(s)!;
  s.tick=30;updateChallenges(s);expect(s.worldFun.challenges?.active?.seen).toHaveLength(0);
  s.player.x=next.x;s.player.y=next.y;s.player.inCar=0;updateChallenges(s);expect(s.worldFun.challenges?.active?.seen).toHaveLength(0);
  s.player.inCar=-1;updateChallenges(s);expect(s.worldFun.challenges?.active?.seen).toHaveLength(1);
@@ -32,9 +32,15 @@ it('refuses missing neighbours without spending cash and records real nearby car
  startChallenge(s,'spotter');expect(streetEffect(s,'carspot')).toContain('Spot a parked');expect(s.worldFun.challenges?.active?.seen).toEqual(['supra']);
  const c=byName(s,'Tiles');c.x=p.x+1;c.y=p.y;c.inside=-1;c.inCar=-1;expect(streetEffect(s,'freestyle')).toContain('Trade bars');expect(c.bubble?.text).toBeTruthy();
 });
-function road(){return {rng:new Rng(17),vehicles:[],tick:0,focus:{x:20,y:20},chars:[],charHash:{query:()=>0},world:{mapped:{streetSegments:[{id:1,name:'Fixture',kind:'residential',x:0,y:20,dx:1,dy:0,length:100,half:2,oneway:1,speed:8}],closedRoads:new Set()},walkable:()=>true,drivable:()=>true}} as unknown as Simulation;}
+function road(){return {rng:new Rng(17),vehicles:[],player:{inCar:-1},tick:0,focus:{x:20,y:20},chars:[],charHash:{query:()=>0},world:{mapped:{streetSegments:[{id:1,name:'Fixture',kind:'residential',x:0,y:20,dx:1,dy:0,length:100,half:2,oneway:1,speed:8}],closedRoads:new Set()},walkable:()=>true,drivable:()=>true}} as unknown as Simulation;}
 it('brakes behind a stopped chassis without overlap, including repeated ticks',()=>{
  const s=road(),follower=makeVehicle(s,'supra',15,19.05,0,'drive'),leader=makeVehicle(s,'sedan',21,19.05,0,'parked');follower.speed=8;
  for(let i=0;i<600;i++){s.tick++;follower.px=follower.x;follower.py=follower.y;driveMappedVehicle(s,follower,1/60);expect(chassisContact(follower,leader)).toBeNull();}
  expect(follower.x).toBeGreaterThan(15);expect(follower.x).toBeLessThan(20);expect(follower.speed).toBeLessThan(.1);
+});
+
+it('pays new street contracts once and restores partial progress',()=>{
+ const s=small(),before=s.player.cash;startChallenge(s,'contract_wave');streetEffect(s,'wave');expect(s.worldFun.challenges?.active?.seen).toHaveLength(1);
+ const restored=restoreWorldFun(s.worldFun);expect(restored.challenges?.active?.seen).toHaveLength(1);s.tick+=1200;streetEffect(s,'wave');
+ const reward=CITY_CHALLENGES.find(d=>d.id==='contract_wave')!.reward;expect(s.player.cash).toBe(before+reward);expect(s.worldFun.challenges?.completed).toContain('contract_wave');expect(startChallenge(s,'contract_wave')).toContain('already');
 });

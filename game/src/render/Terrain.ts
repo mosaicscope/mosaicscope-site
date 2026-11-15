@@ -21,7 +21,7 @@ const MAT_OF: Record<number, [Material, number]> = { 0: ["grass", 0.9], 1: ["pav
 const CH = 16;
 
 export class Terrain {
-  private chunks = new Map<number, { cv: HTMLCanvasElement; ox: number; oy: number }>();
+  private chunks = new Map<string, { cv: HTMLCanvasElement; ox: number; oy: number }>();
   /** Ultra: chunks are baked at 2x so ground stays razor sharp when zoomed in. */
   private sc = 1;
   setUltra(on: boolean): void { const n = on ? 2 : 1; if (n !== this.sc) { this.sc = n; this.chunks.clear(); } }
@@ -55,8 +55,8 @@ export class Terrain {
     // tiles sharing a material get their grain in ONE fill: filling tile by tile double-covers every shared edge (the criss-cross)
     const grit = new Map<string, { m: Material; a: number; at: number[] }>();
     const cell: { sx: number; sy: number; base: number; n: number; tx: number; ty: number }[] = [];
-    for (let ty = y0; ty < Math.min(S, y0 + CH); ty++) for (let tx = x0; tx < Math.min(S, x0 + CH); tx++) {
-      const t = w.tiles[ty * S + tx];
+    for (let ty = y0; ty < (w.mapped?y0+CH:Math.min(S,y0+CH)); ty++) for (let tx = x0; tx < (w.mapped?x0+CH:Math.min(S,x0+CH)); tx++) {
+      const t = w.tile(tx,ty);
       const base = groundOf(w, tx, ty, t);
       const n = this.noise(ty * S + tx);
       const [c1, c2] = GROUND[base] ?? ["#1a1614", "#1e1a17"];
@@ -79,21 +79,27 @@ export class Terrain {
 
   draw(g: CanvasRenderingContext2D, cam: Camera): void {
     const S = this.world.size, n = Math.ceil(S / CH);
-    for (const i of this.world.dirtyTiles) { const tx = i % S, ty = Math.floor(i / S); this.chunks.delete(Math.floor(ty / CH) * n + Math.floor(tx / CH)); }
+    for (const i of this.world.dirtyTiles) { const tx = i % S, ty = Math.floor(i / S); this.chunks.delete(Math.floor(tx / CH)+','+Math.floor(ty / CH)); }
     this.world.dirtyTiles.clear();
+    for(const key of this.world.dirtyChunks)this.chunks.delete(key);this.world.dirtyChunks.clear();
     const z = cam.zoom, pt = { x: 0, y: 0 };
-    for (let cy = 0; cy < n; cy++) for (let cx = 0; cx < n; cx++) {
+    const corners=[cam.toWorld(0,0),cam.toWorld(cam.viewW,0),cam.toWorld(0,cam.viewH),cam.toWorld(cam.viewW,cam.viewH)];
+    const low=this.world.mapped?-Infinity:0,high=this.world.mapped?Infinity:n-1;
+    const minX=Math.max(low,Math.floor(Math.min(...corners.map(p=>p.x))/CH)-1),maxX=Math.min(high,Math.floor(Math.max(...corners.map(p=>p.x))/CH)+1),minY=Math.max(low,Math.floor(Math.min(...corners.map(p=>p.y))/CH)-1),maxY=Math.min(high,Math.floor(Math.max(...corners.map(p=>p.y))/CH)+1);
+    for (let cy = minY; cy <= maxY; cy++) for (let cx = minX; cx <= maxX; cx++) {
       const x0 = cx * CH, y0 = cy * CH;
       cam.toScreen(x0, y0 + CH, 0, pt); const left = pt.x;
       cam.toScreen(x0 + CH, y0, 0, pt); const right = pt.x;
       cam.toScreen(x0, y0, 0, pt); const top = pt.y;
       cam.toScreen(x0 + CH, y0 + CH, 0, pt); const bottom = pt.y;
       if (right < 0 || left > cam.viewW || bottom < 0 || top > cam.viewH) continue;
-      const key = cy * n + cx;
+      const key = cx+','+cy;
       let ch = this.chunks.get(key);
       if (!ch) { ch = this.build(cx, cy); this.chunks.set(key, ch); }
+      else{this.chunks.delete(key);this.chunks.set(key,ch);}
       g.drawImage(ch.cv, left, top, (ch.cv.width / this.sc) * z, (ch.cv.height / this.sc) * z);
     }
+    while(this.chunks.size>80)this.chunks.delete(this.chunks.keys().next().value!);
   }
 }
 
@@ -160,7 +166,7 @@ function waterShade(g: CanvasRenderingContext2D, sx: number, sy: number, w: Worl
 function groundOf(w: World, tx: number, ty: number, t: number): number {
   if (GROUND[t] && t !== T.WATER) return t;
   if (t === T.WATER) return T.WATER;
-  const a = w.areas[w.areaOf[ty * w.size + tx]];
+  const a = w.areaAt(tx,ty);
   switch (a?.kind) { case "studio": return T.FLOOR; case "court": return T.COURT; case "market": return T.PATH; case "park": case "residential": return T.GRASS; default: return T.PAVE; }
 }
 

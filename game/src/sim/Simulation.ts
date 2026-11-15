@@ -66,7 +66,7 @@ export interface SimSignals {
 
 export interface Metrics {
   aiDecisions: number; bgThinks: number; replans: number; failedGoals: number;
-  stepMs: number; aiMs: number; physicsMs: number; moveMs: number; eventsMs: number;
+  vehicleMs:number;cityMs:number;stepMs: number; aiMs: number; physicsMs: number; moveMs: number; eventsMs: number;
   failByGoal: Record<string, number>;
 }
 
@@ -86,6 +86,8 @@ export class Simulation {
   readonly flags: FeatureFlags;
   readonly lifeFlags: LifeSystemFlags;
   readonly step_dt = 1 / 60;
+  /** Nearby full AI/avoidance slots; background residents retain their identity at cheaper LOD. */
+  detailBudget=24;
   rng: Rng;
   world!: World;
   mappedDamage=new MappedFacadeDamage();
@@ -126,7 +128,7 @@ export class Simulation {
   focus = { x: 32, y: 32 };
   stagePoint = { x: 0, y: 0 };
   routines = new Map<number, [number, string][]>();
-  metrics: Metrics = { aiDecisions: 0, bgThinks: 0, replans: 0, failedGoals: 0, stepMs: 0, aiMs: 0, physicsMs: 0, moveMs: 0, eventsMs: 0, failByGoal: {} };
+  metrics: Metrics = {vehicleMs:0,cityMs:0, aiDecisions: 0, bgThinks: 0, replans: 0, failedGoals: 0, stepMs: 0, aiMs: 0, physicsMs: 0, moveMs: 0, eventsMs: 0, failByGoal: {} };
   /** toy id -> intended target (to detect misses that hit someone else) */
   throwIntent = new Map<number, number>();
   hotspots: { x: number; y: number; severity: number; tick: number; ev: number; watchers: number }[] = [];
@@ -159,7 +161,7 @@ export class Simulation {
     else prepareFarmPlot(this.world);
     this.nav = new Navigation(this.world, this.cfg.pathNodeBudget);
     this.physics = new PhysicsWorld(this.world, this.cfg.maxImpulse);
-    this.charHash = new SpatialHash(this.world.size, this.world.size, 2, 1024);
+    this.charHash = new SpatialHash(this.world.size, this.world.size, 2, 1024,!!this.world.mapped);
     const stage = this.world.areas.find((a) => a.kind === "stage")!;
     this.stagePoint = { x: stage.cx + 2, y: stage.cy };
     const plaza = this.world.areas.find((a) => a.kind === "plaza")!;
@@ -169,6 +171,7 @@ export class Simulation {
     spawnAll(this);
     spawnVehicles(this);
     this.litter = new LitterState(this.world, this.cfg.seed);
+    if(this.world.mapped)this.lod.update(this);
     this.rebuildHash();
   }
 
@@ -231,6 +234,7 @@ export class Simulation {
     let aiMs = 0;
     const tm = performance.now();
     for (const c of this.chars) {
+      if(this.world.mapped&&c.lod===Lod.SLEEP&&this.tick<c.nextThink&&this.tick%LOD_INTERVAL[c.lod]!==c.id%LOD_INTERVAL[c.lod])continue;
       advanceDetachedLimbs(this,c,dt);
       if (c.inCar >= 0) continue; // the car carries them (updated in Traffic)
       if (c.inside >= 0) {
@@ -273,10 +277,11 @@ export class Simulation {
     this.metrics.aiMs = aiMs;
 
     updateSubstances(this);
-    updateVehicles(this, dt);
+    const tv=performance.now();updateVehicles(this, dt);this.metrics.vehicleMs=performance.now()-tv;const tc=performance.now();
     if(this.world.mapped)this.mappedDamage.update(this.tick/60);
     updateRockets(this);
     updateCivicDamage(this);updateStreetProps(this,dt);updateCityDrama(this);updateCityRoutine(this);updateWorkshopMotion(this);
+    this.metrics.cityMs=performance.now()-tc;
     const tp = performance.now();
     this.physics.step(dt, this.toys, this.chars, this.charHash, this.tick, this.hooks);
     for (const t of this.toys) if (t.state === "held") this.attachHeld(t);
@@ -295,7 +300,7 @@ export class Simulation {
     if (this.tick % 60 === 0) this.housekeeping();
     // nothing (car exits, knockbacks, doors on the edge) may leave anyone outside the map
     const lim = this.world.size - 0.3;
-    for (const c of this.chars) { if (c.x < 0.3) c.x = 0.3; else if (c.x > lim) c.x = lim; if (c.y < 0.3) c.y = 0.3; else if (c.y > lim) c.y = lim; }
+    if(!this.world.mapped)for (const c of this.chars) { if (c.x < 0.3) c.x = 0.3; else if (c.x > lim) c.x = lim; if (c.y < 0.3) c.y = 0.3; else if (c.y > lim) c.y = lim; }
     this.metrics.stepMs = performance.now() - t0;
   }
 
@@ -321,7 +326,7 @@ export class Simulation {
     }
     // local avoidance: separation from neighbours (full/reduced only)
     if (c.lod <= Lod.REDUCED) {
-      const n = this.charHash.query(c.x, c.y, 0.75, this.tmp);
+      const n = Math.min(this.charHash.query(c.x, c.y, 0.75, this.tmp),this.world.mapped?16:Infinity);
       let sx = 0, sy = 0;
       for (let i = 0; i < n; i++) {
         const o = this.chars[this.tmp[i]];
@@ -362,8 +367,8 @@ export class Simulation {
     this.physics.stepCharacter(c, dt, this.hooks);
     // the map has hard edges: knockbacks and car exits can't push anyone off it
     const lim = this.world.size - 0.3;
-    if (c.x < 0.3) c.x = 0.3; else if (c.x > lim) c.x = lim;
-    if (c.y < 0.3) c.y = 0.3; else if (c.y > lim) c.y = lim;
+    if(!this.world.mapped){if (c.x < 0.3) c.x = 0.3; else if (c.x > lim) c.x = lim;
+    if (c.y < 0.3) c.y = 0.3; else if (c.y > lim) c.y = lim;}
     if (c.lod === Lod.FULL && c.tier !== "background") this.physics.pushHeavies(c, this.toys, this.tick, this.hooks);
     // stuck recovery: no progress while trying to move
     if (this.tick % 30 === c.id % 30) {
@@ -427,7 +432,7 @@ export class Simulation {
     if (vx === 0 && vy === 0) return;
     if (this.trafficAhead(c, vx, vy, Math.max(0.6, Math.hypot(vx, vy) * dt + 0.3))) return;
     const lim = this.world.size - 0.3;
-    const nx = Math.min(lim, Math.max(0.3, c.x + vx * dt)), ny = Math.min(lim, Math.max(0.3, c.y + vy * dt));
+    const nx = this.world.mapped?c.x+vx*dt:Math.min(lim, Math.max(0.3, c.x + vx * dt)), ny = this.world.mapped?c.y+vy*dt:Math.min(lim, Math.max(0.3, c.y + vy * dt));
     if (this.world.walkable(nx, ny)) { c.x = nx; c.y = ny; c.facing = Math.atan2(vy, vx); }
     else { c.vx = 0; c.vy = 0; c.stuck += 1; }
   }

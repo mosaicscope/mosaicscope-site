@@ -17,6 +17,18 @@ export class LodManager {
   update(sim: Simulation): void {
     const cfg = sim.cfg, fx = sim.focus.x, fy = sim.focus.y, tick = sim.tick;
     this.counts.fill(0);
+    if(sim.world.mapped){
+      const ranked=sim.chars.filter(c=>c.tier!=='player'&&c.inCar<0&&c.inside<0).map(c=>({c,d:Math.hypot(c.x-fx,c.y-fy),important:(this.hot.get(c.id)??0)>tick||c.phys!==0||c.talkWith>=0||c.pursuing>=0}));
+      ranked.sort((a,b)=>Number(b.important)-Number(a.important)||a.d-b.d||a.c.id-b.c.id);
+      const detailed=new Set(ranked.filter(c=>c.d<cfg.lodReduced||c.important).slice(0,sim.detailBudget).map(c=>c.c.id));
+      for(const c of sim.chars){const d=Math.hypot(c.x-fx,c.y-fy),urgent=c.phys!==0||c.talkWith>=0||c.pursuing>=0;
+        c.lod=c.tier==='player'?Lod.FULL:urgent||detailed.has(c.id)?d<cfg.lodFull?Lod.FULL:Lod.REDUCED:d<cfg.lodBackground?Lod.BACKGROUND:Lod.SLEEP;
+        if(c.tier==='background'){const promoted=detailed.has(c.id)||urgent;if(c.promoted!==promoted){c.promoted=promoted;c.nextThink=tick+c.id%15;}}
+        this.counts[c.lod]++;
+      }
+      if(tick%600===0)for(const[id,t]of this.hot)if(t<tick)this.hot.delete(id);
+      return;
+    }
     for (const c of sim.chars) {
       const d = Math.hypot(c.x - fx, c.y - fy);
       const hot = (this.hot.get(c.id) ?? 0) > tick;

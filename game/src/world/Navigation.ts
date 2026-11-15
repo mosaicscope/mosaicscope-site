@@ -27,12 +27,12 @@ export class Navigation {
 
   constructor(world: World, nodeBudget = 3000) {
     this.world = world;
-    this.S = world.size;
+    this.S = world.mapped?192:world.size;
     const n = this.S * this.S;
     this.g = new Float32Array(n); this.f = new Float32Array(n);
     this.parent = new Int32Array(n); this.stamp = new Uint32Array(n); this.closed = new Uint32Array(n);
     this.heap = new Int32Array(n * 2);
-    this.nodeBudget = nodeBudget;
+    this.nodeBudget = world.mapped?Math.min(nodeBudget,3500):nodeBudget;
   }
 
   get queueLength(): number { return this.queue.length; }
@@ -79,9 +79,11 @@ export class Navigation {
   findPath(fromX: number, fromY: number, toX: number, toY: number): Float32Array | null {
     this.searchesThisTick++;
     const w = this.world, S = this.S;
-    const goal = w.nearestWalkable(toX, toY);
-    const sx = Math.floor(fromX), sy = Math.floor(fromY), gx = Math.floor(goal.x), gy = Math.floor(goal.y);
-    if (!w.inBounds(sx, sy)) return null;
+    const distance=Math.hypot(toX-fromX,toY-fromY),fraction=w.mapped?Math.min(1,80/Math.max(1,distance)):1;
+    const goal = w.nearestWalkable(fromX+(toX-fromX)*fraction, fromY+(toY-fromY)*fraction);
+    const ox=w.mapped?Math.floor(fromX)-96:0,oy=w.mapped?Math.floor(fromY)-96:0;
+    const sx = Math.floor(fromX)-ox, sy = Math.floor(fromY)-oy, gx = Math.floor(goal.x)-ox, gy = Math.floor(goal.y)-oy;
+    if (!w.inBounds(Math.floor(fromX),Math.floor(fromY))||gx<0||gy<0||gx>=S||gy>=S) return null;
     if (sx === gx && sy === gy) return new Float32Array([goal.x, goal.y]);
     if (this.walkLine(fromX, fromY, goal.x, goal.y)) return new Float32Array([goal.x, goal.y]);
     const run = ++this.run;
@@ -100,11 +102,11 @@ export class Navigation {
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy) continue;
         const nx = cx + dx, ny = cy + dy;
-        if (!w.walkableTile(nx, ny)) continue;
-        if (dx && dy && (!w.walkableTile(cx + dx, cy) || !w.walkableTile(cx, cy + dy))) continue; // no corner cutting
+        if (nx<0||ny<0||nx>=S||ny>=S||!w.walkableTile(nx+ox, ny+oy)) continue;
+        if (dx && dy && (!w.walkableTile(cx + dx+ox, cy+oy) || !w.walkableTile(cx+ox, cy + dy+oy))) continue; // no corner cutting
         const ni = ny * S + nx;
         if (this.closed[ni] === run) continue;
-        const ng = this.g[cur] + (dx && dy ? 1.41421 : 1) * w.walkCost(nx, ny);
+        const ng = this.g[cur] + (dx && dy ? 1.41421 : 1) * w.walkCost(nx+ox, ny+oy);
         if (this.stamp[ni] !== run || ng < this.g[ni]) {
           this.stamp[ni] = run; this.g[ni] = ng; this.parent[ni] = cur;
           this.f[ni] = ng + this.h(nx, ny, gx, gy);
@@ -124,12 +126,12 @@ export class Navigation {
     while (i < cells.length) {
       let j = i;
       while (j + 1 < cells.length) {
-        const c = cells[j + 1], x = (c % S) + 0.5, y = Math.floor(c / S) + 0.5;
+        const c = cells[j + 1], x = (c % S) + 0.5+ox, y = Math.floor(c / S) + 0.5+oy;
         if (!this.walkLine(ax, ay, x, y)) break;
         j++;
       }
       const c = cells[j];
-      ax = j === cells.length - 1 ? goal.x : (c % S) + 0.5; ay = j === cells.length - 1 ? goal.y : Math.floor(c / S) + 0.5;
+      ax = j === cells.length - 1 ? goal.x : (c % S) + 0.5+ox; ay = j === cells.length - 1 ? goal.y : Math.floor(c / S) + 0.5+oy;
       pts.push(ax, ay);
       i = j + 1;
     }

@@ -3,7 +3,7 @@ import "./mobile.css";
 /**
  * Mobile controls: a floating analog stick on the left, a thumb cluster on the right.
  * On foot: analog walking and sprinting, context action, attack, and a More sheet.
- * In a car: separate steering arrows, Gas / Brake / Horn / Exit (+ More).
+ * In a car: analog thumb steering, Gas / Brake / Horn / Exit (+ More).
  */
 export type TouchAction = "use" | "talk" | "throw" | "swing" | "rob" | "bandage" | "horn" | "map" | "view2d" | "pickup" | "drop" | "sprint";
 
@@ -72,7 +72,8 @@ export class TouchControls {
   // car pedals
   private steering = 0;
   private steeringHeld=new Set<number>();
-  private gas = false; private brakeHeld = false;
+  private gas = false; private reverseHeld=false; private brakeHeld = false;
+  private walkHint?:HTMLElement;
   private lastCtx = ""; private lastCar: boolean | null = null;
   private resetInput=()=>{};
   private releaseButtons:(()=>void)[]=[];
@@ -154,7 +155,8 @@ export class TouchControls {
     this.press(gasBtn, () => buzz(10), (on) => { this.gas = on; });
     const exitBtn = small("car t-exit", "exit", "Exit", () => { buzz(18); this.host.action("use"); });
     this.exitLabel = exitBtn.querySelector(".tc-lbl") as HTMLElement;
-    const car = [
+    const reverse=small('car t-reverse','exit','Reverse',()=>buzz(8),on=>{this.reverseHeld=on;});
+    const car = [reverse,
       small("car t-cannon","throw","Fire cannon",()=>this.host.action("throw")),
       arc(small("car t-brake", "brake", "Brake", () => buzz(12), (on) => { this.brakeHeld = on; if (this.host.brake) this.host.brake(on); }), 186, 116),
       arc(small("car t-horn", "horn", "Horn", () => { buzz([30, 20, 30]); this.host.action("horn"); }), 146, 116),
@@ -181,7 +183,8 @@ export class TouchControls {
 
     const attack=small('foot t-attack','swing','Attack / fire',()=>this.host.action('swing'),on=>this.host.fire?.(on));
     this.attackButton=attack;
-    cluster.append(...car, attack, more, this.ctxBtn, gasBtn, this.sheet);
+    const talk=small("foot t-talk","talk","Talk",()=>this.host.action("talk"));
+    cluster.append(...car, talk, attack, more, this.ctxBtn, gasBtn, this.sheet);
     // on-screen zoom buttons: pinch can fail on some phones, these always work
     const zoomBox = el("div", "tc-zoom");
     for (const [txt, dir, label] of [["+", 1, "Zoom in"], ["\u2212", -1, "Zoom out"]] as const) {
@@ -192,11 +195,11 @@ export class TouchControls {
     const steering=el('div','tc-steering car');
     for(const [text,dir]of[['←',-1],['→',1]] as const){const b=el('button','tc-btn tc-steer',text);b.setAttribute('aria-label',dir<0?'Steer left':'Steer right');this.press(b,()=>{},on=>{if(on)this.steeringHeld.add(dir);else this.steeringHeld.delete(dir);this.steering=[...this.steeringHeld].reduce((sum,n)=>sum+n,0);});steering.append(b);}
     this.el.append(this.zone,cluster,zoomBox,steering);
-    const reset=()=>{this.stickUp();this.releaseButtons.forEach(release=>release());this.gas=false;this.brakeHeld=false;this.steering=0;this.host.brake?.(false);this.host.move(0,0);this.host.fire?.(false);};
+    const reset=()=>{this.stickUp();this.releaseButtons.forEach(release=>release());this.gas=false;this.reverseHeld=false;this.brakeHeld=false;this.steering=0;this.host.brake?.(false);this.host.move(0,0);this.host.fire?.(false);};
     this.resetInput=reset;
     window.addEventListener('blur',reset);
     document.addEventListener('visibilitychange',()=>{if(document.hidden)reset();});
-    const hint=el('div','tc-walk-hint','Drag to walk · full push to sprint');this.el.append(hint);
+    const hint=el('div','tc-walk-hint','Drag to walk · full push to sprint');this.walkHint=hint;this.el.append(hint);
 
     // nothing we touch leaks into the canvas / page handlers
     for (const t of ["pointerdown", "pointerup", "pointermove", "click", "dblclick", "contextmenu", "touchstart", "touchend", "touchmove", "wheel"]) {
@@ -219,14 +222,15 @@ export class TouchControls {
       if(this.lastCar!==null)this.resetInput();
       this.lastCar = inCar;
       this.el.classList.toggle("in-car", inCar);
+      if(this.walkHint)this.walkHint.textContent=inCar?"Thumb steer · hold Gas · Brake to stop":"Drag to walk · full push to sprint";
       this.toggleSheet(false);
       if (!inCar) { this.gas = false; this.brakeHeld = false; this.steering=0; }
     }
     // stick / pedals
     if (inCar) {
       const brakeY = this.host.brake ? 0 : 1;
-      const y = this.brakeHeld ? brakeY : this.gas ? -1 : 0;
-      const x = this.steering;
+      const y = this.brakeHeld ? brakeY : this.gas ? -1 : this.reverseHeld ? 1 : 0;
+      const x = this.steering || this.sx;
       if (x || y) { this.host.move(x, y); this.sentZero = false; }
       else if (!this.sentZero) { this.host.move(0, 0); this.sentZero = true; }
     } else if (this.stickId >= 0) {

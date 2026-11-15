@@ -1,3 +1,4 @@
+import {restoreCasinoRecord} from '../casino/CasinoRecord';
 import {canvasStage} from './CanvasStage';
 import {CasinoFloor} from './CasinoFloor';
 import {drawCasinoStation,STATION_W,STATION_H} from './CasinoStations';
@@ -252,7 +253,7 @@ export class Casino {
   }
 
   private render(): void {
-    const tabs = [["floor", "Lobby", "◈"], ["blackjack", "Blackjack", "♠"], ["roulette", "Roulette", "◎"], ["pokies", "Kiwi Gold", "7"], ["poker", "Video poker", "♦"], ["holdem", "Poker tables", "♣"], ["flight", "Crash flight", "✈"], ["cashier", "Cashier", "$"]];
+    const tabs = [["floor", "Lobby", "◈"], ["blackjack", "Blackjack", "♠"], ["roulette", "Roulette", "◎"], ["pokies", "Kiwi Gold", "7"], ["poker", "Video poker", "♦"], ["holdem", "Poker tables", "♣"], ["flight", "Crash flight", "✈"], ["record", "My record", "▤"], ["cashier", "Cashier", "$"]];
     const nav = h("nav.cas-tabs", { role: "tablist", "aria-label": "Casino areas" }, tabs.map(([id, l, icon]) => h("button" + (this.tab === id ? ".on" : ""), { role: "tab", "aria-selected": String(this.tab === id), onclick: () => this.go(id) }, [h("span", { text: icon, "aria-hidden": "true" }), l])));
     if (this.onMoreGames) nav.append(h("button", { text: "More games & racing", onclick: () => { this.close(); if (!this.open) this.onMoreGames?.(); } }));
     const head = h("header.cas-head", null, [
@@ -269,6 +270,7 @@ export class Casino {
       case "holdem": view=this.extra.holdem();break;
       case "flight": view=this.extra.flight();view.append(this.tableServices("Flight",this.extra.locked()));break;
       case "floor": view = this.lobbyView(); break;
+      case "record": view = this.recordView(); break;
       default: view = this.cashierView();
     }
     const pending = this.rBets.reduce((sum, b) => sum + b.amount, 0);
@@ -297,6 +299,13 @@ export class Casino {
     if(this.tab==="cashier")view.append(this.extra.social(this.rSpinning));
     this.body.replaceChildren(h("div.cas-view-title", null, [h("small", { text: this.tab === "floor" ? "WELCOME BACK" : "THE TESSERA / TABLE GAMES" }), h("h2", { text: tabs.find(t => t[0] === this.tab)?.[1] ?? "Cashier" })]), this.msg ? h("p.cas-msg", { role: "status", text: this.msg }) : h("span"), view);
     this.el.replaceChildren(h("div.cas-frame.cx"+(["floor","flight","holdem","roulette","blackjack","pokies","poker"].includes(this.tab)?".cas-table-frame":""), null, [head, h("div.cas-layout", null, [h("aside.cas-sidebar", null, [nav, session]), this.body]), h("footer.cas-foot", { text: "THE TESSERA · Fictional casino · No real money · Finish your round, then leave to cash out automatically." })]));
+  }
+
+  private recordView():HTMLElement{
+    const record=this.social.record??restoreCasinoRecord(undefined),signed=(n:number)=>(n<0?'−':'+')+money(Math.abs(n));
+    const facts:[string,string][]=[['Rounds',String(record.played)],['Wins',String(record.wins)],['Losses',String(record.losses)],['Win rate',record.played?Math.round(record.wins/record.played*100)+'%':'—'],['Net result',signed(record.net)],['Best win',money(record.best)],['Largest loss',money(Math.abs(record.worst))],['Best winning streak',String(record.bestStreak)]];
+    const games=Object.entries(record.games).sort((a,b)=>b[1].played-a[1].played);
+    return h('section.casino-record',null,[h('p',{text:'Your saved casino history uses fictional game chips. Practice flights are excluded.'}),h('div.casino-record-grid',null,facts.map(([label,value])=>h('div.casino-record-stat',null,[h('small',{text:label}),h('strong',{text:value})]))),h('h3',{text:'By game'}),games.length?h('div.casino-record-list',null,games.map(([name,g])=>h('div',null,[h('strong',{text:name}),h('span',{text:g.played+' rounds · '+g.wins+' wins'}),h('b',{text:signed(g.net)})]))):h('p',{text:'Your first chip game will appear here.'}),h('h3',{text:'Recent results'}),record.recent.length?h('ol.casino-record-recent',null,[...record.recent].reverse().slice(0,10).map(r=>h('li',null,[h('span',{text:r.game}),h('b',{text:signed(r.net)})]))):h('p',{text:'No settled rounds yet.'})]);
   }
 
   // ------------------------------------------------------------------ the floor

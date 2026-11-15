@@ -2,6 +2,7 @@ import { hasUpgrade } from "../content/upgrades";
 import type { Simulation } from "../sim/Simulation";
 import { T } from "../world/World";
 import { h } from "./dom";
+import {worldIndex} from '../world/WorldIndex';
 
 /**
  * GTA-style radar in the corner (rotated 45 degrees so "up" matches the iso view) and a full-screen
@@ -58,7 +59,7 @@ export class Minimap {
     if (now - this.last < 100) return;
     this.last = now;
     const sim = this.sim(), w = sim.world, p = sim.player;
-    if (!this.base) this.base = this.buildBase();
+    if (!this.base&&!w.mapped) this.base = this.buildBase();
     const g = this.el.getContext("2d")!, W = this.el.width, R = W / 2;
     const px = p.inCar >= 0 ? sim.vehicles[p.inCar].x : p.x, py = p.inCar >= 0 ? sim.vehicles[p.inCar].y : p.y;
     const scale = 2.6; // px per tile
@@ -68,7 +69,7 @@ export class Minimap {
     g.fillStyle = "#0e0b0a"; g.fillRect(0, 0, W, W);
     g.translate(R, R); g.rotate(Math.PI / 4); g.scale(scale, scale); g.translate(-px, -py);
     g.imageSmoothingEnabled = false;
-    g.drawImage(this.base, 0, 0);
+    if(w.mapped)this.drawSurvey(g,(x,y)=>[x,y],px-50,py-50,px+50,py+50,1);else g.drawImage(this.base!, 0, 0);
     // blips
     const dot = (x: number, y: number, r: number, col: string) => { g.fillStyle = col; g.beginPath(); g.arc(x, y, r, 0, 6.283); g.fill(); };
     for (const b of w.buildings) {
@@ -118,7 +119,13 @@ export class Minimap {
     const g = cv.getContext("2d")!, W = cv.width;
     g.fillStyle = "#0e0b0a"; g.fillRect(0, 0, W, W);
     const foot = this.big.querySelector(".bigmap-foot") as HTMLElement;
-    if (this.osm&&!w.mapped) {
+    if(w.mapped){
+      const radius=300,scale=W/(radius*2),P=(x:number,y:number):[number,number]=>[(x-p.x+radius)*scale,(y-p.y+radius)*scale];
+      this.drawSurvey(g,P,p.x-radius,p.y-radius,p.x+radius,p.y+radius,scale);
+      g.fillStyle='#ec5148';g.beginPath();g.arc(W/2,W/2,7,0,Math.PI*2);g.fill();
+      g.font='12px system-ui';for(const pin of sim.life.markers){const q=P(pin.x,pin.y);g.fillStyle='#86e8bb';g.beginPath();g.arc(...q,4,0,Math.PI*2);g.fill();g.fillText(pin.name,q[0],q[1]-8);}
+      foot.textContent='Christchurch · map follows you · 1.2 km across · © OpenStreetMap contributors, ODbL 1.0 · new districts load as you explore.';
+    }else if (this.osm) {
       // project the real lat/lon box of the Four Avenues onto the canvas
       const lon0 = LON[0] - 0.002, lon1 = LON[LON.length - 1] + 0.003, lat0 = LAT[0] + 0.002, lat1 = LAT[LAT.length - 1] - 0.002;
       const kx = W / (lon1 - lon0), ky = W / (lat1 - lat0) * 0.72;
@@ -143,7 +150,7 @@ export class Minimap {
       const k = W / w.size;
       g.imageSmoothingEnabled = false;
       if (!this.base) this.base = this.buildBase();
-      g.drawImage(this.base, 0, 0, W, W);
+      g.drawImage(this.base!, 0, 0, W, W);
       g.fillStyle = "#eee4d3"; g.font = "700 13px 'IBM Plex Mono', monospace"; g.textAlign = "center";
       w.streetsX.forEach((n, i) => { g.save(); g.translate(i * w.period * k + 2 * k, W / 2); g.rotate(-Math.PI / 2); g.fillText(n, 0, -4); g.restore(); });
       w.streetsY.forEach((n, i) => g.fillText(n, W / 2, i * w.period * k + 2 * k - 4));
@@ -153,5 +160,10 @@ export class Minimap {
       for (const marker of sim.life.markers) { g.fillStyle = "#86e8bb"; g.beginPath(); g.arc(marker.x * k, marker.y * k, 5, 0, Math.PI * 2); g.fill(); g.fillText(marker.name, marker.x * k, marker.y * k - 10); }
       foot.textContent = w.mapped?"The same playable Christchurch world · surveyed OpenStreetMap roads and building footprints · © OpenStreetMap contributors, ODbL 1.0 · missing facade details are estimates.":"Street layout after OpenStreetMap (© OpenStreetMap contributors, ODbL), simplified to the city grid.";
     }
+  }
+  private drawSurvey(g:CanvasRenderingContext2D,P:(x:number,y:number)=>[number,number],x0:number,y0:number,x1:number,y1:number,scale:number){
+    const w=this.sim().world,m=w.mapped!,index=worldIndex(w);
+    for(const i of index.roads.query(x0,y0,x1,y1)){const s=m.streetSegments[i];g.strokeStyle='#88867b';g.lineWidth=(s.half*2+1)*scale;g.beginPath();g.moveTo(...P(s.x,s.y));g.lineTo(...P(s.x+s.dx*s.length,s.y+s.dy*s.length));g.stroke();g.strokeStyle='#333c3a';g.lineWidth=s.half*2*scale;g.stroke();}
+    g.fillStyle='#77776a';for(const id of index.buildings.query(x0,y0,x1,y1)){const b=m.byBuilding.get(id);if(!b)continue;g.beginPath();b.points.forEach((p,i)=>{const q=P(p[0]/2+m.offsetX,p[1]/2+m.offsetY);if(i)g.lineTo(...q);else g.moveTo(...q);});g.closePath();g.fill();}
   }
 }

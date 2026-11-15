@@ -7,7 +7,7 @@ export class VehicleIndex {
   private cells = new Map<string, Vehicle[]>();
   private seen = new Set<Vehicle>();
   rebuild(vehicles: Vehicle[], swept = false): void {
-    for (const bucket of this.cells.values()) bucket.length = 0;
+    if(this.cells.size>2048)this.cells.clear();else for(const bucket of this.cells.values())bucket.length=0;
     for (const v of vehicles) {
       const g = vehicleGeometry(v), r = Math.hypot(g.length, g.width) / 2;
       const x0 = swept ? Math.min(v.px, v.x) : v.x, y0 = swept ? Math.min(v.py, v.y) : v.y;

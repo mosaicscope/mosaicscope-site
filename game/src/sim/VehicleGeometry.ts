@@ -22,6 +22,8 @@ export function vehicleGeometry(v: Vehicle) {
 /** Separating-axis contact: penetration and outward normal from a toward b. */
 export function chassisContact(a: Vehicle, b: Vehicle): { nx: number; ny: number; depth: number; x: number; y: number } | null {
   const ga = vehicleGeometry(a), gb = vehicleGeometry(b);
+  const broad=(Math.hypot(ga.length,ga.width)+Math.hypot(gb.length,gb.width))/2;
+  if((b.x-a.x)**2+(b.y-a.y)**2>broad*broad)return null;
   const ac = Math.cos(a.heading), as = Math.sin(a.heading), bc = Math.cos(b.heading), bs = Math.sin(b.heading);
   const dx = b.x-a.x, dy = b.y-a.y;
   let depth = Infinity, nx = 0, ny = 0;
@@ -43,6 +45,8 @@ export function chassisContact(a: Vehicle, b: Vehicle): { nx: number; ny: number
 
 /** Continuous separating axes for translation during one small physics step. */
 export function sweptChassisContact(a:Vehicle,b:Vehicle,stationaryB=false):{nx:number;ny:number;t:number}|null {
+  const A=vehicleGeometry(a),B=vehicleGeometry(b),radius=(Math.hypot(A.length,A.width)+Math.hypot(B.length,B.width))/2+Math.hypot(a.x-a.px,a.y-a.py)+(stationaryB?0:Math.hypot(b.x-b.px,b.y-b.py));
+  if((b.x-a.x)**2+(b.y-a.y)**2>radius*radius)return null;
   const ga=vehicleGeometry(a),gb=vehicleGeometry(b),ac=Math.cos(a.heading),as=Math.sin(a.heading),bc=Math.cos(b.heading),bs=Math.sin(b.heading);
   const dx=(stationaryB?b.x:b.px)-a.px,dy=(stationaryB?b.y:b.py)-a.py,vx=(stationaryB?0:b.x-b.px)-(a.x-a.px),vy=(stationaryB?0:b.y-b.py)-(a.y-a.py);
   let enter=0,leave=1,nx=0,ny=0;
