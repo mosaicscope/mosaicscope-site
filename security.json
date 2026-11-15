@@ -1,5 +1,5 @@
 {
- "at": 1794725507731,
+ "at": 1794749605628,
  "counts": {
   "critical": 0,
   "high": 0,
@@ -11,154 +11,154 @@
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 293,
+   "line": 295,
    "fp": "dom:inner-html|beats/index.html|cdtxky"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 294,
+   "line": 296,
    "fp": "dom:inner-html|beats/index.html|17i0mvz"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 334,
+   "line": 336,
    "fp": "dom:inner-html|beats/index.html|1axdns7"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 336,
+   "line": 338,
    "fp": "dom:inner-html|beats/index.html|qrr84c"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 386,
+   "line": 388,
    "fp": "dom:inner-html|beats/index.html|1lfxstg"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 387,
+   "line": 389,
    "fp": "dom:inner-html|beats/index.html|175utlg"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 389,
+   "line": 391,
    "fp": "dom:inner-html|beats/index.html|1hcugmq"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 400,
+   "line": 402,
    "fp": "dom:inner-html|beats/index.html|1ueh9t2"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 405,
+   "line": 407,
    "fp": "dom:inner-html|beats/index.html|5biwh7"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 406,
+   "line": 408,
    "fp": "dom:inner-html|beats/index.html|1fktloy"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 411,
+   "line": 413,
    "fp": "dom:inner-html|beats/index.html|fgrfy4"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 412,
+   "line": 414,
    "fp": "dom:inner-html|beats/index.html|10t0w0x"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 419,
+   "line": 421,
    "fp": "dom:inner-html|beats/index.html|1j2h93b"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 527,
+   "line": 538,
    "fp": "dom:inner-html|beats/index.html|116sfar"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 528,
+   "line": 539,
    "fp": "dom:inner-html|beats/index.html|opa7ui"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 554,
+   "line": 565,
    "fp": "dom:inner-html|beats/index.html|nhs4bt"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 555,
+   "line": 566,
    "fp": "dom:inner-html|beats/index.html|k487d9"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 572,
+   "line": 583,
    "fp": "dom:inner-html|beats/index.html|4zocbs"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 574,
+   "line": 585,
    "fp": "dom:inner-html|beats/index.html|3wxvqg"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 608,
+   "line": 619,
    "fp": "dom:inner-html|beats/index.html|1uznn48"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 644,
+   "line": 655,
    "fp": "dom:inner-html|beats/index.html|nobec2"
   },
   {
    "kind": "dom:inner-html",
    "severity": "low",
    "path": "beats/index.html",
-   "line": 656,
+   "line": 667,
    "fp": "dom:inner-html|beats/index.html|1d91lza"
   },
   {
