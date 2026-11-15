@@ -42,11 +42,12 @@
     header.more .hide { display:inline-flex; align-items:center; gap:4px; } header.more button.hide { display:inline-block; } #msbar { grid-auto-columns:minmax(58px,1fr); }
   }
 .fxs { display:grid; gap:3px; margin-top:6px; border-top:1px solid var(--line); padding-top:6px; } .fxs select { font-size:11px; } .fxs label { font-size:10px; } #aucv { width:100%; max-width:900px; height:220px; cursor:crosshair; }
+  #cmdd { width:min(560px,92vw); padding:12px; } #cmdq { width:100%; box-sizing:border-box; padding:10px; font-size:15px; } #cmdr { max-height:55vh; overflow:auto; margin-top:8px; } #cmdr button { display:flex; width:100%; justify-content:space-between; gap:10px; text-align:left; margin:2px 0; } #cmdr button.sel { outline:2px solid var(--acc); } #cmdr small { opacity:.6; white-space:nowrap; }
 </style>
 </head>
 <body>
 <header>
-  <b>mosaicBeats</b>
+  <b>mosaicBeats</b><button id="cmdk" class="tb" title="Search every effect, sound, view and action (Ctrl+K)">🔍</button>
   <button id="undo" class="tb" title="Undo (Ctrl+Z)">↶</button><button id="redo" class="tb" title="Redo (Ctrl+Shift+Z)">↷</button><button id="play" class="tb" title="Space">▶</button><button id="stop" class="tb" title="Stop">■</button><button id="rec" class="tb" title="Record the microphone into a new sample channel (R)">●</button>
   <span id="led">1:1:1</span><button id="hmore" title="More controls">⋯ More</button>
   <label>BPM <input id="bpm" type="number" min="40" max="300" value="140"></label>
@@ -55,7 +56,7 @@
   <button id="tap" class="hide" title="Tap the tempo">Tap</button><label class="hide">Time <select id="tsig" title="Time signature"><option>2/4</option><option>3/4</option><option selected>4/4</option><option>5/4</option><option>6/8</option><option>7/8</option><option>9/8</option><option>12/8</option></select></label><label class="hide">Swing <input id="swing" type="range" min="0" max="60" value="0" style="width:70px"></label>
   <label>Master <input id="mvol" type="range" min="0" max="120" value="85" style="width:80px"> <span id="mmeter"><i></i></span></label>
   <span class="sp"></span>
-  <button id="helpbtn" class="hide" title="Shortcuts (?)">?</button><button id="stems" class="hide" title="One WAV per channel">Stems</button><button id="stemsmp3" class="hide" title="One MP3 per channel">Stems MP3</button><button id="exportmp3" class="hide" title="Render the song to a 256 kbps MP3">Export MP3</button><button id="export" class="on" title="Render the song to a WAV file">Export WAV</button><button id="save" class="hide">Save</button><button id="load" class="hide">Open</button>
+  <label class="hide" title="Export loudness. Streaming services play music at about -14 LUFS">Loudness <select id="loud"><option value="-14">Streaming −14</option><option value="-9">Loud −9</option><option value="0">Off</option></select></label><button id="helpbtn" class="hide" title="Shortcuts (?)">?</button><button id="stems" class="hide" title="One WAV per channel">Stems</button><button id="stemsmp3" class="hide" title="One MP3 per channel">Stems MP3</button><button id="exportmp3" class="hide" title="Render the song to a 256 kbps MP3">Export MP3</button><button id="export" class="on" title="Render the song to a WAV file">Export WAV</button><button id="save" class="hide">Save</button><button id="load" class="hide">Open</button>
 </header>
 <div id="app">
   <aside id="browser">
@@ -96,6 +97,7 @@
 </div>
 <nav id="msbar"><button data-v="rack" class="on"><b>▦</b>Rack</button><button data-v="beat"><b>✨</b>Beat</button><button data-v="pads"><b>◼</b>Pads</button><button data-v="loop"><b>⟳</b>Loop</button><button data-v="roll"><b>♬</b>Roll</button><button data-v="auto"><b>∿</b>Auto</button><button data-v="list"><b>≣</b>Playlist</button><button data-v="mix"><b>☰</b>Mixer</button><button data-b="1"><b>▤</b>Browser</button></nav>
 <input id="filein" type="file" accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a,.aac,.aif,.aiff,.opus" multiple hidden /><input id="projin" type="file" accept=".json,application/json" hidden />
+<dialog id="cmdd"><input id="cmdq" placeholder="Search effects, sounds, views, actions…" autocomplete="off"><div id="cmdr"></div></dialog>
 <dialog id="helpdlg"><h3 style="margin:0 0 10px">Shortcuts</h3><div></div><p style="text-align:right;margin:12px 0 0"><button id="helpclose" class="on">Close</button></p></dialog>
 <div id="drop">Drop audio to make a sample channel</div><div id="toast"></div>
 <script src="fxlib.js"></script>
@@ -450,16 +452,25 @@ async function exportWav(opt) {
   const off = new OfflineAudioContext(2, len, SR), bus = makeBus(off); for (let i = 0; i < total; i++) playStep(off, bus, i, T[i] + (i % 2 ? (S.swing / 100) * sd * 0.5 : 0), mode); flushDefer(off);
   if (!(opt && opt.stem)) for (const tr of LOOP.tracks) if (tr.buf && !tr.mute) for (let bar = 0; bar * SPB() < total; bar += tr.bars) { const s = off.createBufferSource(), g = off.createGain(); s.buffer = tr.buf; g.gain.value = tr.vol / 100; s.connect(g); g.connect(bus.master); s.start(T[bar * SPB()] != null ? T[bar * SPB()] : bar * SPB() * sd); }
   const out = await off.startRendering(), L = out.getChannelData(0), R = out.getChannelData(1); let end = L.length; while (end > 2000 && Math.abs(L[end - 1]) < 1e-4 && Math.abs(R[end - 1]) < 1e-4) end -= 200;
+  let note = '';
+  if (!(opt && opt.stem)) {
+    let pk = 0; for (let i = 0; i < end; i++) { const a = Math.abs(L[i]), b = Math.abs(R[i]); if (a > pk) pk = a; if (b > pk) pk = b; }
+    const tgt = +(($('#loud') || {}).value || 0); let g = 1, lu = null;
+    if (tgt) { lu = lufs(L, R, end, SR); if (isFinite(lu)) g = Math.pow(10, (tgt - lu) / 20); }
+    const ceil = 0.891; if (pk * g > ceil) { g = ceil / Math.max(pk, 1e-6); note = ' · peak-limited'; }
+    if (g !== 1 && pk > 0) { for (let i = 0; i < end; i++) { L[i] *= g; R[i] *= g; } }
+    if (lu != null && isFinite(lu)) note = ' · ' + (lu + 20 * Math.log10(g)).toFixed(1) + ' LUFS' + note; else if (pk * g >= 0.999) note = ' · clipping';
+  }
   if (opt && opt.fmt === 'mp3') {
     const Lm = await loadLame(), kb = 256, enc = new Lm.Mp3Encoder(2, SR, kb), parts = [], bl = 1152, li = new Int16Array(bl), ri = new Int16Array(bl);
     for (let i = 0; i < end; i += bl) { const n = Math.min(bl, end - i); for (let k = 0; k < bl; k++) { li[k] = k < n ? Math.max(-1, Math.min(1, L[i + k])) * 32767 : 0; ri[k] = k < n ? Math.max(-1, Math.min(1, R[i + k])) * 32767 : 0; } const d = enc.encodeBuffer(li, ri); if (d.length) parts.push(new Uint8Array(d)); if ((i / bl) % 150 === 0) await new Promise((r) => setTimeout(r)); }
     const fl = enc.flush(); if (fl.length) parts.push(new Uint8Array(fl));
     const murl = URL.createObjectURL(new Blob(parts, { type: 'audio/mpeg' })), ma = document.createElement('a'); ma.href = murl; ma.download = 'mosaicBeats-' + (opt.stem ? opt.stem + '-' : '') + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.mp3'; ma.click(); setTimeout(() => URL.revokeObjectURL(murl), 5000);
-    const bytes = parts.reduce((s, p) => s + p.length, 0); toast('Exported ' + (end / SR).toFixed(1) + ' s as MP3 (' + kb + ' kbps, ' + (bytes / 1048576).toFixed(1) + ' MB)', 5000); return { frames: end, mp3: bytes };
+    const bytes = parts.reduce((s, p) => s + p.length, 0); toast('Exported ' + (end / SR).toFixed(1) + ' s as MP3 (' + kb + ' kbps, ' + (bytes / 1048576).toFixed(1) + ' MB)' + note, 6000); return { frames: end, mp3: bytes };
   }
   const dv = new DataView(new ArrayBuffer(44 + end * 4)), w4 = (o, t) => { for (let i = 0; i < 4; i++) dv.setUint8(o + i, t.charCodeAt(i)); }; w4(0, 'RIFF'); dv.setUint32(4, 36 + end * 4, true); w4(8, 'WAVE'); w4(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 2, true); dv.setUint32(24, SR, true); dv.setUint32(28, SR * 4, true); dv.setUint16(32, 4, true); dv.setUint16(34, 16, true); w4(36, 'data'); dv.setUint32(40, end * 4, true);
   for (let i = 0; i < end; i++) { dv.setInt16(44 + i * 4, Math.max(-1, Math.min(1, L[i])) * 32767, true); dv.setInt16(46 + i * 4, Math.max(-1, Math.min(1, R[i])) * 32767, true); }
-  const url = URL.createObjectURL(new Blob([dv.buffer], { type: 'audio/wav' })), a = document.createElement('a'); a.href = url; a.download = 'mosaicBeats-' + (opt && opt.stem ? opt.stem + '-' : '') + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.wav'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 5000); toast('Exported ' + (end / SR).toFixed(1) + ' s of audio', 5000); return { frames: end, peak: Math.max(...[L, R].map((c) => { let m = 0; for (let i = 0; i < end; i += 17) m = Math.max(m, Math.abs(c[i])); return m; })) };
+  const url = URL.createObjectURL(new Blob([dv.buffer], { type: 'audio/wav' })), a = document.createElement('a'); a.href = url; a.download = 'mosaicBeats-' + (opt && opt.stem ? opt.stem + '-' : '') + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.wav'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 5000); toast('Exported ' + (end / SR).toFixed(1) + ' s of audio' + note, 6000); return { frames: end, peak: Math.max(...[L, R].map((c) => { let m = 0; for (let i = 0; i < end; i += 17) m = Math.max(m, Math.abs(c[i])); return m; })) };
 }
 
 /* ===================== save / load / autosave ===================== */
@@ -652,7 +663,7 @@ const TSPB = { '2/4': 8, '3/4': 12, '4/4': 16, '5/4': 20, '6/8': 12, '7/8': 14, 
 $('#hmore').onclick = () => $('header').classList.toggle('more');
 let taps = []; $('#tap').onclick = () => { const n = performance.now(); taps = taps.filter((t) => n - t < 2500); taps.push(n); if (taps.length > 1) { const avg = (taps[taps.length - 1] - taps[0]) / (taps.length - 1); S.bpm = Math.max(40, Math.min(300, Math.round(60000 / avg))); $('#bpm').value = S.bpm; applyAll(); } };
 $('#undo').onclick = undo; $('#redo').onclick = redo; paintUndo();
-const HELP = [['Space', 'Play / pause'], ['Ctrl+Z / Ctrl+Shift+Z', 'Undo / redo'], ['R', 'Record the microphone'], ['Right-click or long-press a step', 'Accent or soft step'], ['Right-click or long-press a channel', 'Rename, clone, move, delete'], ['A W S E D F T G Y H U J K', 'Play the selected instrument'], ['Z / X (piano roll)', 'Octave down / up'], ['1-4 Q-R A-F Z-V (pads)', 'Play drum pads'], ['?', 'This list']];
+const HELP = [['Ctrl+K', 'Search every effect, sound, view and action'], ['Space', 'Play / pause'], ['Ctrl+Z / Ctrl+Shift+Z', 'Undo / redo'], ['R', 'Record the microphone'], ['Right-click or long-press a step', 'Accent or soft step'], ['Right-click or long-press a channel', 'Rename, clone, move, delete'], ['A W S E D F T G Y H U J K', 'Play the selected instrument'], ['Z / X (piano roll)', 'Octave down / up'], ['1-4 Q-R A-F Z-V (pads)', 'Play drum pads'], ['?', 'This list']];
 function showHelp() { const d = $('#helpdlg'); d.querySelector('div').innerHTML = HELP.map(([k, v]) => '<p><kbd>' + esc(k) + '</kbd> ' + esc(v) + '</p>').join(''); d.showModal(); }
 $('#helpbtn').onclick = showHelp; $('#helpclose').onclick = () => $('#helpdlg').close();
 addEventListener('keydown', (e) => { if (e.target.closest && e.target.closest('input,select,textarea')) return; if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); } else if (e.key === '?') showHelp(); });
@@ -665,13 +676,61 @@ $('#stemsmp3').onclick = () => exportStems('mp3').catch((e) => toast('Stems fail
 function masterPanel(m) {
   const d = document.createElement('div'); d.className = 'mixc'; d.style.borderColor = 'var(--acc)'; const t = document.createElement('b'); t.textContent = 'Master'; d.append(t); const E = S.eq || (S.eq = { lo: 0, mid: 0, hi: 0, glue: 40, lim: 1 });
   const sl = (lab, k, min, max) => { const w = document.createElement('label'); w.textContent = lab; const i = document.createElement('input'); i.type = 'range'; i.min = min; i.max = max; i.value = E[k]; i.oninput = () => { E[k] = +i.value; applyAll(); }; w.append(i); return w; };
-  d.append(sl('Low', 'lo', -12, 12), sl('Mid', 'mid', -12, 12), sl('High', 'hi', -12, 12), sl('Glue comp', 'glue', 0, 100)); const lb = document.createElement('label'), cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!E.lim; cb.onchange = () => { E.lim = cb.checked ? 1 : 0; applyAll(); }; lb.append(cb, ' Limiter'); d.append(lb); m.append(d);
+  d.append(sl('Low', 'lo', -12, 12), sl('Mid', 'mid', -12, 12), sl('High', 'hi', -12, 12), sl('Glue comp', 'glue', 0, 100)); const lb = document.createElement('label'), cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!E.lim; cb.onchange = () => { E.lim = cb.checked ? 1 : 0; applyAll(); }; lb.append(cb, ' Limiter'); const am = document.createElement('button'); am.textContent = '✨ Auto-master'; am.title = 'One click: gentle tilt EQ, glue compression and the limiter'; am.onclick = autoMaster; d.append(lb, am); m.append(d);
 }
 
 buildKbd(); bindRoll(); bindList(); bindAuto(); renderBrowser();
 try { const saved = localStorage.getItem('beats-proj'); if (saved) loadProject(saved); else seedProject(); } catch (e) { seedProject(); } if (!S.channels.length) seedProject();
 S.sel = S.sel && S.channels.find((c) => c.id === S.sel) ? S.sel : (S.channels[0] && S.channels[0].id); if (!S.eq) S.eq = { lo: 0, mid: 0, hi: 0, glue: 40, lim: 1 }; renderAll(); hist = [snapshot()]; paintUndo(); requestAnimationFrame(frame);
 window.__beats = { tempoAt, applyBuses, mkSlot, runAuto, loadSal, SAL, SPB, S, play, stop, exportWav, addChannel, playStep, makeBus, renderAll, INSTR, synthNote, DR, KITS, LOOP, padHit, pad, loopRec, applyStyle, STYLES };
+
+/* ===================== loudness (ITU-R BS.1770 K-weighted, gated) ===================== */
+function lufs(L, R, n, sr) {
+  const kw = (x) => {
+    const y = new Float32Array(n), f0 = 1681.974450955533, G = 3.999843853973347, Q = 0.7071752369554196, K = Math.tan(Math.PI * f0 / sr), Vh = Math.pow(10, G / 20), Vb = Math.pow(Vh, 0.4996667741545416), a0 = 1 + K / Q + K * K;
+    const s0 = (Vh + Vb * K / Q + K * K) / a0, s1 = 2 * (K * K - Vh) / a0, s2 = (Vh - Vb * K / Q + K * K) / a0, s3 = 2 * (K * K - 1) / a0, s4 = (1 - K / Q + K * K) / a0;
+    const K2 = Math.tan(Math.PI * 38.13547087602444 / sr), Q2 = 0.5003270373238773, c0 = 1 + K2 / Q2 + K2 * K2, h3 = 2 * (K2 * K2 - 1) / c0, h4 = (1 - K2 / Q2 + K2 * K2) / c0;
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0, u1 = 0, u2 = 0, v1 = 0, v2 = 0;
+    for (let i = 0; i < n; i++) { const s = x[i], a = s0 * s + s1 * x1 + s2 * x2 - s3 * y1 - s4 * y2; x2 = x1; x1 = s; y2 = y1; y1 = a; const b = a - 2 * u1 + u2 - h3 * v1 - h4 * v2; u2 = u1; u1 = a; v2 = v1; v1 = b; y[i] = b; }
+    return y;
+  };
+  const fl = kw(L), fr = kw(R), cs = new Float64Array(n + 1); for (let i = 0; i < n; i++) cs[i + 1] = cs[i] + fl[i] * fl[i] + fr[i] * fr[i];
+  const bl = Math.min(n, Math.round(sr * 0.4)), hop = Math.max(1, Math.round(sr * 0.1)), zs = []; for (let i = 0; i + bl <= n; i += hop) zs.push((cs[i + bl] - cs[i]) / bl);
+  const db = (z) => -0.691 + 10 * Math.log10(z), a1 = zs.filter((z) => z > 0 && db(z) > -70); if (!a1.length) return -Infinity;
+  const gam = db(a1.reduce((s, z) => s + z, 0) / a1.length) - 10, a2 = a1.filter((z) => db(z) > gam); if (!a2.length) return -Infinity;
+  return db(a2.reduce((s, z) => s + z, 0) / a2.length);
+}
+
+/* ===================== one-click auto-master ===================== */
+function autoMaster() { S.eq = { lo: 1, mid: 0, hi: 1.5, glue: 45, lim: 1 }; applyAll(); renderMixer(); toast('Auto-master on: gentle tilt EQ, glue compression and limiter'); }
+
+/* ===================== search palette (Ctrl+K): effects, instruments, views, actions ===================== */
+(() => {
+  const dlg = $('#cmdd'), q = $('#cmdq'), box = $('#cmdr'); let items = [], shown = [], idx = 0;
+  const selCh = () => S.channels.find((c) => c.id === S.sel);
+  const build = () => {
+    items = []; const act = (n, fn, k) => items.push({ n, k: k || 'Action', fn }), click = (id) => () => $(id).click();
+    act('Make me a beat', () => { showView('beat'); $('#bmmake').click(); }); act('Auto-master my mix', autoMaster); act('Play / pause', click('#play')); act('Undo', click('#undo')); act('Redo', click('#redo'));
+    act('Export WAV', click('#export')); act('Export MP3', click('#exportmp3')); act('Export stems (WAV)', click('#stems')); act('Export stems (MP3)', click('#stemsmp3'));
+    act('Save project file', click('#save')); act('Open project file', click('#load')); act('Record microphone', click('#rec')); act('Add synth channel', click('#addsyn')); act('Add drum channel', click('#addkick')); act('Show shortcuts', click('#helpbtn'));
+    [['rack', 'Channel rack'], ['beat', 'Beat maker'], ['pads', 'Drum pads'], ['loop', 'Looper'], ['roll', 'Piano roll'], ['auto', 'Automation'], ['list', 'Playlist'], ['mix', 'Mixer']].forEach(([v, n]) => act('Go to ' + n, () => showView(v), 'View'));
+    Object.entries(INSTR).forEach(([k, v]) => items.push({ n: v, k: 'Instrument for the selected channel', fn: () => { const ch = selCh(); if (!ch || ch.type !== 'synth') return toast('Select a synth channel first'); ch.inst = k; ch.name = v === 'Classic synth' ? ch.name : v; renderAll(); preview(ch); } }));
+    (window.FXLIB || []).forEach((p) => items.push({ n: p.n, k: 'Effect · ' + p.c, fn: () => { const ch = selCh(); if (!ch) return toast('Select a channel first'); ch.fx = [0, 1, 2, 3].map((i) => (p.fx[i] ? { t: p.fx[i][0], a: p.fx[i][1], b: p.fx[i][2], m: p.fx[i][3], d: p.fx[i][4] } : null)); applyAll(); renderMixer(); toast(p.n + ' → ' + ch.name); } }));
+  };
+  const render = () => {
+    const t = q.value.toLowerCase().split(/\s+/).filter(Boolean);
+    shown = (t.length ? items.filter((it) => { const s = (it.n + ' ' + it.k).toLowerCase(); return t.every((w) => s.includes(w)); }).sort((a, b) => (b.n.toLowerCase().startsWith(t[0]) ? 1 : 0) - (a.n.toLowerCase().startsWith(t[0]) ? 1 : 0)) : items.filter((it) => /^(Action|View)$/.test(it.k))).slice(0, 60);
+    idx = Math.min(idx, Math.max(0, shown.length - 1)); box.innerHTML = '';
+    if (!shown.length) { box.textContent = 'Nothing found'; return; }
+    shown.forEach((it, i) => { const b = document.createElement('button'); b.className = i === idx ? 'sel' : ''; const s = document.createElement('span'); s.textContent = it.n; const k = document.createElement('small'); k.textContent = it.k; b.append(s, k); b.onclick = () => run(it); box.append(b); });
+  };
+  const run = (it) => { dlg.close(); it.fn(); };
+  const open = () => { build(); q.value = ''; idx = 0; render(); if (!dlg.open) dlg.showModal(); q.focus(); };
+  q.oninput = () => { idx = 0; render(); };
+  q.onkeydown = (e) => { if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); idx = Math.max(0, Math.min(shown.length - 1, idx + (e.key === 'ArrowDown' ? 1 : -1))); render(); const s = box.querySelector('.sel'); if (s) s.scrollIntoView({ block: 'nearest' }); } else if (e.key === 'Enter' && shown[idx]) run(shown[idx]); };
+  $('#cmdk').onclick = open; addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); open(); } });
+  try { if (!localStorage.getItem('beats-tip')) { localStorage.setItem('beats-tip', '1'); setTimeout(() => toast('Tip: press Ctrl+K (or tap 🔍) to search any sound, effect or action', 7000), 2500); } } catch (e) { /* private mode */ }
+})();
 </script>
 </body>
 </html>
