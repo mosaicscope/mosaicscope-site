@@ -3449,13 +3449,7 @@
       /* -------------------------------------------------------------------
          13. VIEWPORT POINTER INTERACTIONS (ZOOM, PAN, BRUSH, GRADIENTS, SPLIT)
       ------------------------------------------------------------------- */
-      viewportContainer.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89;
-        state.zoom = Math.max(0.05, Math.min(8.0, state.zoom * zoomFactor));
-        updateCanvasLayout();
-        render();
-      }, { passive: false });
+      /* wheel / pinch zoom lives in the touch + zoom block near the end of this script (zooms toward the cursor) */
 
       window.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
@@ -4208,6 +4202,20 @@
         };
         viewportContainer.addEventListener('pointerup', lift); viewportContainer.addEventListener('pointercancel', lift);
         const fitZoom = () => Math.max(0.05, Math.min(1, Math.min((viewportContainer.clientWidth - 48) / state.imgWidth, (viewportContainer.clientHeight - 56) / state.imgHeight)));
+
+        /* desktop zoom: wheel / trackpad pinch zoom toward the cursor, on-image +/- buttons, keys + - 0 */
+        viewportContainer.addEventListener('wheel', (e) => {
+          e.preventDefault(); e.stopImmediatePropagation(); const c = centre();
+          const k = e.ctrlKey ? Math.exp(-e.deltaY * 0.012) : (e.deltaY < 0 ? 1.12 : 1 / 1.12);        // ctrl+wheel is how browsers report a trackpad pinch: smooth and proportional
+          zoomAt(k, e.clientX - c.x, e.clientY - c.y); userZoomed = true;
+        }, { capture: true, passive: false });
+        const zc = document.createElement('div'); zc.id = 'ms-zoomcl'; zc.setAttribute('aria-label', 'Zoom');
+        zc.innerHTML = '<button type="button" data-z="out" title="Zoom out (-)">−</button><button type="button" data-z="fit" title="Fit (0)">Fit</button><button type="button" data-z="in" title="Zoom in (+)">+</button>';
+        const zs = document.createElement('style'); zs.textContent = '#ms-zoomcl{position:absolute;right:12px;bottom:12px;z-index:30;display:flex;gap:4px;background:#000a;border:1px solid #3f3f46;border-radius:10px;padding:4px;backdrop-filter:blur(6px)}#ms-zoomcl button{min-width:36px;height:32px;border:0;border-radius:7px;background:#27272a;color:#e4e4e7;font:600 14px system-ui,sans-serif;cursor:pointer}#ms-zoomcl button:hover{background:#3f3f46}@media(max-width:767px){#ms-zoomcl{display:none}}';
+        document.head.append(zs); viewportContainer.append(zc);
+        zc.addEventListener('pointerdown', (e) => e.stopPropagation());
+        zc.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.z === 'fit') { fitCanvasToScreen(); userZoomed = false; } else { zoomAt(b.dataset.z === 'in' ? 1.25 : 0.8, 0, 0); userZoomed = true; } });
+        addEventListener('keydown', (e) => { if (e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '')) return; if (e.key === '+' || e.key === '=') { zoomAt(1.25, 0, 0); userZoomed = true; } else if (e.key === '-' || e.key === '_') { zoomAt(0.8, 0, 0); userZoomed = true; } else if (e.key === '0') { fitCanvasToScreen(); userZoomed = false; } });
 
         /* bottom tool bar + bottom sheets (phones). On desktop the bar is hidden by CSS and nothing here changes anything. */
         const [left, right] = document.querySelectorAll('aside'), ws = left.parentElement; left.classList.add('ms-aside'); right.classList.add('ms-aside'); ws.classList.add('ms-ws');
