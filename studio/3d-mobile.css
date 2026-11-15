@@ -2,8 +2,8 @@
 #msbar { display: none; }
 @media (max-width: 900px) {
   html, body { height: 100dvh !important; overflow: hidden !important; overscroll-behavior: none; }
-  body { grid-template-columns: 1fr !important; grid-template-rows: 48px minmax(0, 1fr) !important; padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
-  header { overflow-x: auto; white-space: nowrap; flex-wrap: nowrap !important; gap: 6px; scrollbar-width: none; } header::-webkit-scrollbar { display: none; }
+  body { grid-template-columns: 1fr !important; grid-template-rows: auto minmax(0, 1fr) !important; padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
+  header { overflow: visible !important; white-space: normal; flex-wrap: wrap !important; gap: 6px; padding: 6px 8px !important; }
   header > * { flex-shrink: 0; } header button, header .btn, header select, header a { min-height: 40px; }
   main { min-height: 0; }
   aside { position: fixed !important; left: 0; right: 0; bottom: calc(56px + env(safe-area-inset-bottom)); width: 100% !important; height: 52dvh; max-height: 52dvh; z-index: 40; transform: translateY(115%); visibility: hidden; transition: transform 0.25s ease; border: 1px solid var(--line) !important; border-radius: 16px 16px 0 0; box-shadow: 0 -14px 34px #000b; overflow-y: auto !important; padding-top: 12px; }
