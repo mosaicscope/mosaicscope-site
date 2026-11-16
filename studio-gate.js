@@ -128,7 +128,7 @@
     busy = true;
     const h = await sha(code);
     const result = h ? CODES[h] : PLAIN[code];
-    if (result === 'dev' && lockTarget === 'beats') {          // 2372 on the CD player's phone opens the music studio
+    if (result === 'space' && lockTarget === 'beats') {        // 0000 on the CD player's phone opens the music studio
       ip.classList.add('is-ok');
       setTimeout(() => { location.assign('/beats/'); }, REDUCED ? 100 : 600);
       return;
@@ -576,7 +576,7 @@ void main() {
     if (!held) return;
     const quick = performance.now() - hold0 < 260;
     held = false;
-    if (e.type === 'pointerup' && quick && !moved) openLock();
+    if (e.type === 'pointerup' && quick && !moved) { const cd = document.querySelector('.cdp'), r = cd && cd.getBoundingClientRect(); if (r && e.clientX > r.left - 16 && e.clientX < r.right + 16 && e.clientY > r.top - 16 && e.clientY < r.bottom + 16) cd.click(); else openLock(); }
   };
   canvas.addEventListener('pointerup', release);
   canvas.addEventListener('pointercancel', () => { held = false; });
