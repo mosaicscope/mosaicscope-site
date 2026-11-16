@@ -1,7 +1,7 @@
 {
- "at": 1794774385679,
+ "at": 1794802261146,
  "target": "https://mosaicscope.pages.dev",
- "sha": "bf88912bf8b46cbb5ac1b4bba2202a35586c4a20",
+ "sha": "7d176c54f2ba8820417e8fa2d7969836f09e99e4",
  "results": [
   {
    "page": "/",
@@ -9,6 +9,10 @@
    "width": 390,
    "errors": [],
    "consoleErrors": [
+    {
+     "text": "Failed to load resource: the server responded with a status of 402 ()",
+     "own": false
+    },
     {
      "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
      "own": false
@@ -22,47 +26,43 @@
      "own": false
     }
    ],
-   "failed": [],
-   "requests": 106,
-   "bytes": 3862,
+   "failed": [
+    {
+     "url": "https://feeds.behold.so/BTTwoWiBb9xHhr96wOcE",
+     "own": false,
+     "why": "HTTP 402"
+    },
+    {
+     "url": "https://www.youtube-nocookie.com/embed/cZFXA3scOC4",
+     "own": false,
+     "why": "net::ERR_ABORTED"
+    }
+   ],
+   "requests": 133,
+   "bytes": 3474,
    "ownBytes": 332,
-   "thirdParty": 83,
+   "thirdParty": 110,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 314,
-    "loadMs": 379,
-    "lcpMs": 860,
-    "cls": 0.152,
-    "tbtMs": 449,
-    "longTasks": 3,
-    "heapMB": 26.3,
-    "domNodes": 1629,
+    "domContentLoadedMs": 561,
+    "loadMs": 570,
+    "lcpMs": 1076,
+    "cls": 0.123,
+    "tbtMs": 530,
+    "longTasks": 4,
+    "heapMB": 9.5,
+    "domNodes": 1441,
     "renderBlocking": 8,
-    "resourceEntries": 36,
-    "screens": 10.9
+    "resourceEntries": 29,
+    "screens": 10.4
    },
    "ui": {
     "overflowPx": 0,
     "smallTargets": [
      {
-      "el": "#hero-plate",
-      "w": 127,
-      "h": 20
-     },
-     {
       "el": "a.follow",
       "w": 119,
       "h": 23
-     },
-     {
-      "el": "a.tag-link",
-      "w": 98,
-      "h": 14
-     },
-     {
-      "el": "a.tag-link",
-      "w": 84,
-      "h": 14
      }
     ],
     "smallText": [
@@ -81,14 +81,6 @@
      {
       "el": "span.slide__label > span",
       "px": 11
-     },
-     {
-      "el": "a.tag-link",
-      "px": 11
-     },
-     {
-      "el": "span.reel-tag",
-      "px": 10
      },
      {
       "el": "button.cdp > svg > text",
@@ -118,7 +110,7 @@
      },
      {
       "component": "link",
-      "variants": 7,
+      "variants": 6,
       "examples": [
        "\"IBM Plex Mono\"|13px|400|0px|uppercase",
        "Archivo|16.8px|400|0px|none",
@@ -130,7 +122,7 @@
     "hierarchyInverted": true
    },
    "interactions": {
-    "clicked": 6,
+    "clicked": 10,
     "broken": [],
     "newErrors": 0
    }
@@ -141,6 +133,10 @@
    "width": 1280,
    "errors": [],
    "consoleErrors": [
+    {
+     "text": "Failed to load resource: the server responded with a status of 402 ()",
+     "own": false
+    },
     {
      "text": "Permissions policy violation: encrypted-media is not allowed in this document.",
      "own": false
@@ -154,47 +150,43 @@
      "own": false
     }
    ],
-   "failed": [],
-   "requests": 134,
-   "bytes": 4078,
+   "failed": [
+    {
+     "url": "https://feeds.behold.so/BTTwoWiBb9xHhr96wOcE",
+     "own": false,
+     "why": "HTTP 402"
+    },
+    {
+     "url": "https://www.youtube-nocookie.com/s/player/fad7e4e9/player_embed.vflset/en_US/base.js",
+     "own": false,
+     "why": "net::ERR_ABORTED"
+    }
+   ],
+   "requests": 140,
+   "bytes": 3854,
    "ownBytes": 332,
-   "thirdParty": 111,
+   "thirdParty": 117,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 266,
-    "loadMs": 326,
-    "lcpMs": 284,
-    "cls": 0.097,
-    "tbtMs": 555,
-    "longTasks": 4,
-    "heapMB": 12.1,
-    "domNodes": 1951,
+    "domContentLoadedMs": 360,
+    "loadMs": 1264,
+    "lcpMs": 344,
+    "cls": 0.096,
+    "tbtMs": 532,
+    "longTasks": 3,
+    "heapMB": 15.4,
+    "domNodes": 1823,
     "renderBlocking": 8,
-    "resourceEntries": 36,
-    "screens": 10.1
+    "resourceEntries": 29,
+    "screens": 9.4
    },
    "ui": {
     "overflowPx": 0,
     "smallTargets": [
      {
-      "el": "#hero-plate",
-      "w": 127,
-      "h": 20
-     },
-     {
       "el": "a.follow",
       "w": 119,
       "h": 23
-     },
-     {
-      "el": "a.tag-link",
-      "w": 98,
-      "h": 14
-     },
-     {
-      "el": "a.tag-link",
-      "w": 84,
-      "h": 14
      }
     ],
     "smallText": [
@@ -204,10 +196,6 @@
      },
      {
       "el": "span.slate > span",
-      "px": 11
-     },
-     {
-      "el": "span.cat-photo",
       "px": 11
      },
      {
@@ -221,14 +209,6 @@
      {
       "el": "span.slide__label > span",
       "px": 11
-     },
-     {
-      "el": "a.tag-link",
-      "px": 11
-     },
-     {
-      "el": "span.reel-tag",
-      "px": 10
      },
      {
       "el": "button.cdp > svg > text",
@@ -262,7 +242,7 @@
      },
      {
       "component": "link",
-      "variants": 7,
+      "variants": 6,
       "examples": [
        "\"IBM Plex Mono\"|13px|400|0px|uppercase",
        "Archivo|16.8px|400|0px|none",
@@ -274,7 +254,7 @@
     "hierarchyInverted": true
    },
    "interactions": {
-    "clicked": 7,
+    "clicked": 11,
     "broken": [],
     "newErrors": 0
    }
@@ -298,9 +278,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 105,
-    "loadMs": 106,
-    "lcpMs": 100,
+    "domContentLoadedMs": 586,
+    "loadMs": 586,
+    "lcpMs": 584,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -345,9 +325,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 127,
-    "loadMs": 127,
-    "lcpMs": 92,
+    "domContentLoadedMs": 101,
+    "loadMs": 101,
+    "lcpMs": 68,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -386,9 +366,9 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 119,
-    "loadMs": 161,
-    "lcpMs": 132,
+    "domContentLoadedMs": 97,
+    "loadMs": 123,
+    "lcpMs": 108,
     "cls": 0.013,
     "tbtMs": 0,
     "longTasks": 0,
@@ -427,10 +407,10 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 127,
-    "loadMs": 166,
-    "lcpMs": 140,
-    "cls": 0.15,
+    "domContentLoadedMs": 101,
+    "loadMs": 131,
+    "lcpMs": 116,
+    "cls": 0.147,
     "tbtMs": 0,
     "longTasks": 0,
     "heapMB": 9.5,
@@ -509,84 +489,86 @@
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 390,
-   "ms": 2336,
+   "ms": 2219,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 390,
-   "ms": 1552,
+   "ms": 1490,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 390,
-   "ms": 2303,
-   "status": "pass"
+   "ms": 1687,
+   "status": "fail",
+   "why": "no validation shown"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 390,
-   "ms": 2109,
+   "ms": 2181,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 390,
-   "ms": 1875,
+   "ms": 1929,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 390,
-   "ms": 955,
+   "ms": 928,
    "status": "pass"
   },
   {
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 1280,
-   "ms": 2954,
+   "ms": 3000,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 1280,
-   "ms": 1539,
+   "ms": 1554,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 1280,
-   "ms": 2551,
-   "status": "pass"
+   "ms": 1753,
+   "status": "fail",
+   "why": "an empty form was sent"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 1280,
-   "ms": 2267,
+   "ms": 1513,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 1280,
-   "ms": 2799,
+   "ms": 2084,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 1280,
-   "ms": 953,
+   "ms": 987,
    "status": "pass"
   }
  ]
