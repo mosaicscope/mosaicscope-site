@@ -469,6 +469,7 @@ export class Game {
     this.sim.detailBudget=[8,16,24,40][this.quality];
     if (this.settings.quality !== "auto") return;
     const ms = dt * 1000;
+    this.sim.detailBudget=[8,16,24,40][this.quality];
     // aim for 60fps: anything slower than ~55fps for a second steps quality down; recover slowly
     if (ms > 18.5) { this.slowFor += dt; this.fastFor = 0; } else if (ms < 17.5) { this.fastFor += dt; this.slowFor = Math.max(0, this.slowFor - dt); } else { this.fastFor = 0; }
     if (this.slowFor > .4 && this.quality > 0) { this.quality = (this.quality - 1) as Quality; this.slowFor = 0; this.renderer.resize(this.quality); }
@@ -1479,6 +1480,7 @@ export class Game {
       h("button.btn.menu-toggle", { text: "☰ Menu", "aria-label": "Menu", "aria-expanded": "false", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar")!; const open = bar.classList.toggle("open"); if (open) this.dev.toggle(false); (e.currentTarget as HTMLElement).setAttribute("aria-expanded", String(open)); } }),
       h("nav.game-menu", { "aria-label": "More game options", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar"); bar?.classList.remove("open"); bar?.querySelector(".menu-toggle")?.setAttribute("aria-expanded", "false"); } }, [
         h('button.btn.acid',{text:'Resume game',onclick:()=>this.resumeGame()}),
+        h('h3.menu-group',{text:'Quick access'}),
         h('button.btn.acid',{text:'Address search & teleport',onclick:()=>this.addressPanel.show()}),
         h('button.btn',{text:'Nearby street activity',onclick:()=>this.openStreetLife()}),
         h('button.btn',{text:'Life & upgrades',onclick:()=>this.lifePhone.show()}),
@@ -1488,6 +1490,7 @@ export class Game {
         h('button.btn',{text:'City missions',onclick:()=>this.openMissions()}),
         h('button.btn',{text:'Photo',onclick:()=>this.photos.open()}),
         h('button.btn',{text:'Save game',onclick:()=>this.openSaves()}),
+        h('h3.menu-group',{text:'Life & city'}),
         h('button.btn',{text:'Mobile phone',onclick:()=>this.phone.home()}),
         h('button.btn',{text:'Live mapped city',onclick:()=>this.openLiveCity()}),
         h('button.btn',{text:'Street play · games, walks & discoveries',onclick:()=>{void import('../ui/WorldPlay').then(m=>m.showWorldPlay(this.modal,this.sim,text=>this.toast(text),(x,y)=>{this.modal.close();this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);}));}}),
@@ -1495,12 +1498,15 @@ export class Game {
         h('button.btn',{text:'Vehicle & street workshop',onclick:()=>{void import('../ui/VehicleWorkshop').then(m=>m.showVehicleWorkshop(this.modal,this.sim));}}),
         h('button.btn',{text:'Inventory & condition',onclick:()=>{void import('../ui/InventoryCondition').then(m=>m.showInventoryCondition(this.modal,this.sim,()=>{this.setSpeed(1);this.canvas.focus();}));}}),
         h('button.btn',{text:'Appearance',onclick:()=>showHairStudio(this.modal,this.sim.player)}),
-        ...(["Betting", "Racing", "Farm", "UC"] as const).map(tab => h("button.btn", { text: tab === "Betting" ? "Sports & more games" : tab, onclick: () => this.activities.show(tab) })),
+        h('h3.menu-group',{text:'Activities'}),
+        h('button.btn',{text:'All activities · betting, racing, farm, UC',onclick:()=>this.activities.show('Hub')}),
         h("button.btn", { text: "SALT story", onclick: () => { void this.openSaltStory(); } }),
+        h('h3.menu-group',{text:'Street & action'}),
         h("button.btn", { text: "Return to player", onclick: () => this.returnToPlayer() }),
         h("button.btn", { text: "Fight / gun controls", onclick: () => this.openCombatControls() }),
         h("button.btn", { text: "Armory & gun store", onclick: () => this.armory.show() }),
         h("button.btn", { text: "Online market", onclick: () => this.market.show() }), h("button.btn", { text: "Heist", onclick: () => this.heist.open() }),
+        h('h3.menu-group',{text:'Records & settings'}),
         h("button.btn", { text: "Event log", onclick: () => this.log.toggle() }), h("button.btn", { text: "Event replay", onclick: () => this.replay.show() }),
         h("button.btn", { text: "Me", onclick: () => this.select(this.sim.playerId) }), h("button.btn", { text: "AI brains", onclick: () => this.openBrains() }),
         h("button.btn", { text: "Settings", onclick: () => this.openSettings() }), h("button.btn", { text: "Help", onclick: () => this.openHelp() }), h("button.btn",{text:"Developer console",onclick:()=>this.dev.toggle()}),

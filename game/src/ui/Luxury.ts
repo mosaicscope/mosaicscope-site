@@ -263,12 +263,12 @@ export class Luxury {
     g.clearRect(0, 0, PV_W, PV_H);
     const gy = hab === "water" ? PV_H * 0.72 : PV_H - 14;
     if (hab === "water") {
-      g.fillStyle = "rgba(30,140,200,.28)"; g.fillRect(0, gy, PV_W, PV_H - gy);
-      g.strokeStyle = "rgba(61,214,255,.7)"; g.lineWidth = 1.2; g.beginPath();
+      g.fillStyle = "rgba(175,55,65,.28)"; g.fillRect(0, gy, PV_W, PV_H - gy);
+      g.strokeStyle = "rgba(199,77,87,.7)"; g.lineWidth = 1.2; g.beginPath();
       for (let x = 0; x <= PV_W; x += 8) { const y = gy + Math.sin(x * 0.08 + t * 2) * 1.5; if (x) g.lineTo(x, y); else g.moveTo(x, y); }
       g.stroke();
     } else {
-      g.strokeStyle = "rgba(246,182,44,.35)"; g.lineWidth = 1; g.beginPath(); g.moveTo(14, gy); g.lineTo(PV_W - 14, gy); g.stroke();
+      g.strokeStyle = "rgba(199,77,87,.35)"; g.lineWidth = 1; g.beginPath(); g.moveTo(14, gy); g.lineTo(PV_W - 14, gy); g.stroke();
     }
     // stroll: walk a few seconds, pause, turn around
     const cyc = (t * 0.25 + ph) % 2, moving = hab === "water" ? 0.4 : (cyc % 1) < 0.5 ? 1 : 0, dir = cyc < 1 ? 1 : -1;

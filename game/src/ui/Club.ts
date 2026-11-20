@@ -28,8 +28,8 @@ const UPGRADES = [
   { id: "smoke", name: "Smoke machine", cost: 20_000, inc: 3, blurb: "Mysterious. Atmospheric. Sets off the Fire Service every Thursday." },
   { id: "dj", name: "Celebrity DJ", cost: 90_000, inc: 10, blurb: "DJ Hokey Pokey, who once remixed the haka and got a stern email." },
 ];
-const NOTES = [{ v: 5, c: "#f08a24" }, { v: 20, c: "#2fa35a" }, { v: 100, c: "#e0405a" }];
-const NEON = ["#ff4fa3", "#3dd6ff", "#c6ff3d", "#f6b62c", "#b48cff", "#ff7a3d"];
+const NOTES = [{ v: 5, c: "#c74d57" }, { v: 20, c: "#a0323b" }, { v: 100, c: "#d34d58" }];
+const NEON = ["#c74d57", "#c74d57", "#c74d57", "#c74d57", "#cbc5c0", "#c74d57"];
 
 const money = (n: number) => "$" + Math.round(n).toLocaleString("en-NZ");
 const reducedMotion = () => !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -228,11 +228,11 @@ export class Club {
   private bills: Bill[] = [];
   private floaties: Floaty[] = [];
   private dancers: Dancer[] = [
-    { name: "Velocity", x: 480, col: "#ff4fa3", seq: [6, 7], speed: 0.7, pole: true, sequins: true, hit: 0, tips: 0 },
-    { name: "Crystal", x: 380, col: "#3dd6ff", seq: [0, 1, 4, 2], speed: 0.9, sequins: true, hit: 0, tips: 0 },
-    { name: "Shazza", x: 585, col: "#f6b62c", seq: [3, 1, 3, 5], speed: 0.8, hat: true, hit: 0, tips: 0 },
-    { name: "Destiny", x: 300, col: "#b48cff", seq: [1, 2, 4, 0], speed: 1, boa: true, hit: 0, tips: 0, needsStage: true },
-    { name: "Pearl", x: 665, col: "#c6ff3d", seq: [5, 4, 0, 1], speed: 1.1, boa: true, hat: true, hit: 0, tips: 0, needsStage: true },
+    { name: "Velocity", x: 480, col: "#c74d57", seq: [6, 7], speed: 0.7, pole: true, sequins: true, hit: 0, tips: 0 },
+    { name: "Crystal", x: 380, col: "#c74d57", seq: [0, 1, 4, 2], speed: 0.9, sequins: true, hit: 0, tips: 0 },
+    { name: "Shazza", x: 585, col: "#c74d57", seq: [3, 1, 3, 5], speed: 0.8, hat: true, hit: 0, tips: 0 },
+    { name: "Destiny", x: 300, col: "#cbc5c0", seq: [1, 2, 4, 0], speed: 1, boa: true, hit: 0, tips: 0, needsStage: true },
+    { name: "Pearl", x: 665, col: "#c74d57", seq: [5, 4, 0, 1], speed: 1.1, boa: true, hat: true, hit: 0, tips: 0, needsStage: true },
   ];
   private dancerPos: { d: Dancer; x: number; y: number }[] = [];
   private patrons = Array.from({ length: 9 }, (_, i) => ({ x: 290 + i * 62, col: NEON[i % NEON.length], ph: i * 1.7 }));
@@ -592,7 +592,7 @@ export class Club {
 
   /** A neon stick figure in a pose, feet at (x, y). */
   private fig(x: number, y: number, pose: number[], col: string, o: { hat?: boolean; boa?: boolean; sequins?: boolean; fedora?: boolean; tophat?: boolean; shades?: boolean; headphones?: boolean; monocle?: boolean; skirt?: boolean; s?: number; t?: number; mic?: boolean } = {}): void {
-    const g = this.g, s = o.s ?? 1, t = o.t ?? 0;const cast=this.host.people?.()??[];if(cast.length){const pool=o.skirt?cast.filter(c=>c.look.kind==='girl'):cast;const base=pool[Math.abs([...col+(o.skirt?'dancer':o.fedora?'patron':o.mic?'mc':'staff')].reduce((a,c)=>a+c.charCodeAt(0),0))%Math.max(1,pool.length)]??cast[0];const c={...base,look:{...base.look,main:true,glam:!!o.skirt,color:col,top:o.skirt?'dress' as const:base.look.top,build:o.skirt?1.15:base.look.build}};const k=s*.62,dir=x<480?1:-1;solve(nativePose(o.skirt?'dance':o.fedora?'sit':o.mic?'talk':'idle','normal',this.reduce?0:t,t,0,0),x,y,k,dir);drawFigure(g,c,x,y,k,dir,t,0,1);if(o.sequins&&!this.reduce){g.fillStyle='#f2d6a9';for(let i=0;i<6;i++)g.fillRect(x+Math.sin(t*2+i*2)*8,y-39+i*3,1.5,1.5);}return;}
+    const g = this.g, s = o.s ?? 1, t = o.t ?? 0;const cast=this.host.people?.()??[];if(cast.length){const pool=o.skirt?cast.filter(c=>c.look.kind==='girl'):cast;const base=pool[Math.abs([...col+(o.skirt?'dancer':o.fedora?'patron':o.mic?'mc':'staff')].reduce((a,c)=>a+c.charCodeAt(0),0))%Math.max(1,pool.length)]??cast[0];const c={...base,look:{...base.look,main:true,glam:!!o.skirt,color:col,top:o.skirt?'dress' as const:base.look.top,build:o.skirt?1.15:base.look.build}};const k=s*.62,dir=x<480?1:-1;solve(nativePose(o.skirt?'dance':o.fedora?'sit':o.mic?'talk':'idle','normal',this.reduce?0:t,t,0,0),x,y,k,dir);drawFigure(g,c,x,y,k,dir,t,0,1);if(o.sequins&&!this.reduce){g.fillStyle='#d2cdc9';for(let i=0;i<6;i++)g.fillRect(x+Math.sin(t*2+i*2)*8,y-39+i*3,1.5,1.5);}return;}
     const [lsa, lea, rsa, rea, lha, lka, rha, rka, lean, hop] = pose;
     const hip = { x, y: y - 26 * s - hop };
     const up = { x: Math.sin(lean), y: -Math.cos(lean) };
@@ -610,16 +610,16 @@ export class Club {
     limb(hip, lha, lka, 13, 13); limb(hip, rha, rka, 13, 13); g.stroke(); g.shadowBlur = 0;
     if (o.sequins || o.skirt) { // a sparkly cartoon dress/leotard
       g.fillStyle = col + "66"; g.beginPath(); g.moveTo(sh.x - 5 * s, sh.y + 3 * s); g.lineTo(sh.x + 5 * s, sh.y + 3 * s); g.lineTo(hip.x + 9 * s, hip.y + 5 * s); g.lineTo(hip.x - 9 * s, hip.y + 5 * s); g.closePath(); g.fill();
-      if (o.sequins) for (let k = 0; k < 7; k++) { const f = k / 7; g.fillStyle = ((Math.floor(t * 8) + k) % 3) ? "#fff7ea" : col; g.fillRect(sh.x + (hip.x - sh.x) * f + Math.sin(k * 2.3) * 5 * s - 1, sh.y + (hip.y - sh.y) * f + 2, 2, 2); }
+      if (o.sequins) for (let k = 0; k < 7; k++) { const f = k / 7; g.fillStyle = ((Math.floor(t * 8) + k) % 3) ? "#f6f4f3" : col; g.fillRect(sh.x + (hip.x - sh.x) * f + Math.sin(k * 2.3) * 5 * s - 1, sh.y + (hip.y - sh.y) * f + 2, 2, 2); }
     }
-    if (o.boa) { g.fillStyle = "#ff9ad5"; for (let k = 0; k <= 12; k++) { const f = k / 12, a = -1.2 + f * 2.4; g.beginPath(); g.arc(sh.x + Math.sin(a) * 9 * s + Math.sin(t * 4 + k) * 1.5, sh.y + Math.cos(a) * 6 * s + (Math.abs(f - 0.5) * 18 * s), 2.6 * s, 0, 6.283); g.fill(); } }
-    if (o.hat) { g.fillStyle = "#c98a3a"; g.beginPath(); g.ellipse(head.x, head.y - 6 * s, 13 * s, 3 * s, 0, 0, 6.283); g.fill(); g.fillRect(head.x - 6 * s, head.y - 14 * s, 12 * s, 8 * s); }
-    if (o.fedora) { g.fillStyle = "#2b2b33"; g.strokeStyle = "#eee4d3"; g.lineWidth = 1; g.beginPath(); g.ellipse(head.x, head.y - 6 * s, 11 * s, 2.5 * s, 0, 0, 6.283); g.fill(); g.fillRect(head.x - 6 * s, head.y - 13 * s, 12 * s, 7 * s); g.strokeRect(head.x - 6 * s, head.y - 8 * s, 12 * s, 1.5); }
-    if (o.tophat) { g.fillStyle = "#111"; g.strokeStyle = "#e7c46a"; g.lineWidth = 1; g.fillRect(head.x - 10 * s, head.y - 8 * s, 20 * s, 2.5 * s); g.fillRect(head.x - 6 * s, head.y - 22 * s, 12 * s, 14 * s); g.strokeRect(head.x - 6 * s, head.y - 12 * s, 12 * s, 2); }
+    if (o.boa) { g.fillStyle = "#d2ccc7"; for (let k = 0; k <= 12; k++) { const f = k / 12, a = -1.2 + f * 2.4; g.beginPath(); g.arc(sh.x + Math.sin(a) * 9 * s + Math.sin(t * 4 + k) * 1.5, sh.y + Math.cos(a) * 6 * s + (Math.abs(f - 0.5) * 18 * s), 2.6 * s, 0, 6.283); g.fill(); } }
+    if (o.hat) { g.fillStyle = "#c3404b"; g.beginPath(); g.ellipse(head.x, head.y - 6 * s, 13 * s, 3 * s, 0, 0, 6.283); g.fill(); g.fillRect(head.x - 6 * s, head.y - 14 * s, 12 * s, 8 * s); }
+    if (o.fedora) { g.fillStyle = "#2b2b33"; g.strokeStyle = "#e4e0dd"; g.lineWidth = 1; g.beginPath(); g.ellipse(head.x, head.y - 6 * s, 11 * s, 2.5 * s, 0, 0, 6.283); g.fill(); g.fillRect(head.x - 6 * s, head.y - 13 * s, 12 * s, 7 * s); g.strokeRect(head.x - 6 * s, head.y - 8 * s, 12 * s, 1.5); }
+    if (o.tophat) { g.fillStyle = "#111"; g.strokeStyle = "#c74d57"; g.lineWidth = 1; g.fillRect(head.x - 10 * s, head.y - 8 * s, 20 * s, 2.5 * s); g.fillRect(head.x - 6 * s, head.y - 22 * s, 12 * s, 14 * s); g.strokeRect(head.x - 6 * s, head.y - 12 * s, 12 * s, 2); }
     if (o.shades) { g.fillStyle = "#0b0b0b"; g.fillRect(head.x - 6 * s, head.y - 2 * s, 12 * s, 3.5 * s); }
-    if (o.headphones) { g.strokeStyle = "#3dd6ff"; g.lineWidth = 2.5; g.beginPath(); g.arc(head.x, head.y, 10 * s, Math.PI, 0); g.stroke(); g.fillStyle = "#3dd6ff"; g.fillRect(head.x - 11 * s, head.y - 2, 4, 7); g.fillRect(head.x + 7 * s, head.y - 2, 4, 7); }
-    if (o.monocle) { g.strokeStyle = "#f6d77c"; g.lineWidth = 1.5; g.beginPath(); g.arc(head.x + 3 * s, head.y - 1, 3.2 * s, 0, 6.283); g.stroke(); g.beginPath(); g.moveTo(head.x + 3 * s, head.y + 2.5 * s); g.quadraticCurveTo(head.x + 8 * s, head.y + 10 * s, sh.x + 4, sh.y + 8); g.stroke(); }
-    if (o.mic) { g.fillStyle = "#eee4d3"; g.beginPath(); g.arc(rh.x, rh.y - 4, 3, 0, 6.283); g.fill(); }
+    if (o.headphones) { g.strokeStyle = "#c74d57"; g.lineWidth = 2.5; g.beginPath(); g.arc(head.x, head.y, 10 * s, Math.PI, 0); g.stroke(); g.fillStyle = "#c74d57"; g.fillRect(head.x - 11 * s, head.y - 2, 4, 7); g.fillRect(head.x + 7 * s, head.y - 2, 4, 7); }
+    if (o.monocle) { g.strokeStyle = "#c74d57"; g.lineWidth = 1.5; g.beginPath(); g.arc(head.x + 3 * s, head.y - 1, 3.2 * s, 0, 6.283); g.stroke(); g.beginPath(); g.moveTo(head.x + 3 * s, head.y + 2.5 * s); g.quadraticCurveTo(head.x + 8 * s, head.y + 10 * s, sh.x + 4, sh.y + 8); g.stroke(); }
+    if (o.mic) { g.fillStyle = "#e4e0dd"; g.beginPath(); g.arc(rh.x, rh.y - 4, 3, 0, 6.283); g.fill(); }
   }
 
   private poseOf(d: Dancer, t: number): number[] {
@@ -632,18 +632,18 @@ export class Club {
   private drawStrip(t: number): void {
     const g = this.begin(), big = this.hasUp("stage"), smoke = this.hasUp("smoke"), hype = this.hype;
     // walls & floor
-    const wall = g.createLinearGradient(0, 0, 0, 120); wall.addColorStop(0, "#1f0719"); wall.addColorStop(1, "#0d0410");
-    g.fillStyle = wall; g.fillRect(0, 0, W, 120); g.fillStyle = "#120812"; g.fillRect(0, 120, W, H - 120);
-    g.strokeStyle = "rgba(255,79,163,.06)"; g.lineWidth = 1;
+    const wall = g.createLinearGradient(0, 0, 0, 120); wall.addColorStop(0, "#110f0f"); wall.addColorStop(1, "#090808");
+    g.fillStyle = wall; g.fillRect(0, 0, W, 120); g.fillStyle = "#0c0a0a"; g.fillRect(0, 120, W, H - 120);
+    g.strokeStyle = "rgba(199,77,87,.06)"; g.lineWidth = 1;
     for (let x = -H; x < W; x += 34) { g.beginPath(); g.moveTo(x, 120); g.lineTo(x + H, H + 120); g.moveTo(x + H, 120); g.lineTo(x, H + 120); g.stroke(); }
     // sign + pukeko
-    this.neonText("THE PINK PUKEKO", W / 2 + 20, 60, 42, "#ff4fa3", t);
-    g.save(); g.translate(W / 2 - 205, 46); g.shadowBlur = 10; g.shadowColor = "#3d7bff"; g.strokeStyle = "#3d7bff"; g.lineWidth = 3;
+    this.neonText("THE PINK PUKEKO", W / 2 + 20, 60, 42, "#c74d57", t);
+    g.save(); g.translate(W / 2 - 205, 46); g.shadowBlur = 10; g.shadowColor = "#c74d57"; g.strokeStyle = "#c74d57"; g.lineWidth = 3;
     g.beginPath(); g.ellipse(0, 0, 16, 11, -0.3, 0, 6.283); g.stroke(); g.beginPath(); g.arc(14, -14, 6, 0, 6.283); g.stroke();
-    g.strokeStyle = "#ff2d3d"; g.shadowColor = "#ff2d3d"; g.beginPath(); g.moveTo(19, -16); g.lineTo(29, -12); g.lineTo(19, -10); g.stroke();
-    g.strokeStyle = "#ff7a3d"; g.shadowColor = "#ff7a3d"; g.beginPath(); g.moveTo(-2, 10); g.lineTo(-4, 24); g.moveTo(5, 10); g.lineTo(7, 24); g.stroke(); g.restore();
+    g.strokeStyle = "#d55761"; g.shadowColor = "#d55761"; g.beginPath(); g.moveTo(19, -16); g.lineTo(29, -12); g.lineTo(19, -10); g.stroke();
+    g.strokeStyle = "#c74d57"; g.shadowColor = "#c74d57"; g.beginPath(); g.moveTo(-2, 10); g.lineTo(-4, 24); g.moveTo(5, 10); g.lineTo(7, 24); g.stroke(); g.restore();
     g.shadowBlur = 0;
-    this.neonText(this.ownsClub() ? `UNDER NEW MANAGEMENT: ${this.host.playerName().toUpperCase()}` : "EST. BY SIR PONSONBY VELVET · NO JANDALS", W / 2, 96, 15, this.ownsClub() ? "#3dd6ff" : "#f6b62c", t + 1, "'IBM Plex Mono', monospace");
+    this.neonText(this.ownsClub() ? `UNDER NEW MANAGEMENT: ${this.host.playerName().toUpperCase()}` : "EST. BY SIR PONSONBY VELVET · NO JANDALS", W / 2, 96, 15, this.ownsClub() ? "#c74d57" : "#c74d57", t + 1, "'IBM Plex Mono', monospace");
     // light beams
     const sx0 = big ? 250 : 300, sx1 = big ? 710 : 660;
     for (let k = 0; k < 4; k++) {
@@ -651,10 +651,10 @@ export class Club {
       g.fillStyle = NEON[k] + (hype > 0.5 ? "2a" : "16"); g.beginPath(); g.moveTo(ox, 110); g.lineTo(ox + Math.sin(a) * 300 - 60, 330); g.lineTo(ox + Math.sin(a) * 300 + 60, 330); g.closePath(); g.fill();
     }
     // stage
-    const st = g.createLinearGradient(0, 230, 0, 330); st.addColorStop(0, "#3a0f3a"); st.addColorStop(1, "#7a1f6a");
+    const st = g.createLinearGradient(0, 230, 0, 330); st.addColorStop(0, "#211d1d"); st.addColorStop(1, "#932f37");
     g.fillStyle = st; g.beginPath(); g.moveTo(sx0 + 40, 235); g.lineTo(sx1 - 40, 235); g.lineTo(sx1 + 20, 330); g.lineTo(sx0 - 20, 330); g.closePath(); g.fill();
-    g.fillStyle = "#24071f"; g.fillRect(sx0 - 20, 330, sx1 - sx0 + 40, 18);
-    for (let x = sx0 - 14; x < sx1 + 20; x += 14) { const on = this.reduce ? (x % 28 === 0) : (Math.floor(t * 8 - x / 14) % 4 === 0); g.fillStyle = on ? "#ff4fa3" : "#5a1a4a"; g.beginPath(); g.arc(x, 339, 2.5, 0, 6.283); g.fill(); }
+    g.fillStyle = "#141111"; g.fillRect(sx0 - 20, 330, sx1 - sx0 + 40, 18);
+    for (let x = sx0 - 14; x < sx1 + 20; x += 14) { const on = this.reduce ? (x % 28 === 0) : (Math.floor(t * 8 - x / 14) % 4 === 0); g.fillStyle = on ? "#c74d57" : "#352e2e"; g.beginPath(); g.arc(x, 339, 2.5, 0, 6.283); g.fill(); }
     const poleG = g.createLinearGradient(476, 0, 484, 0); poleG.addColorStop(0, "#777"); poleG.addColorStop(0.5, "#fff"); poleG.addColorStop(1, "#888");
     g.fillStyle = poleG; g.fillRect(477, 110, 6, 190);
     // dancers
@@ -667,36 +667,36 @@ export class Club {
       const pose = d.pole ? this.poseOf(d, t).map((v, j) => (j === 2 ? (x < 480 ? 2.6 : 3.4) : v)) : this.poseOf(d, t);
       if (d.hit > 0) { pose[9] += d.hit * 8; pose[0] = -2.6; }
       this.fig(x, y, pose, d.col, { hat: d.hat, boa: d.boa, sequins: d.sequins, skirt: true, t });
-      if (d.hit > 0 && !this.reduce) for (let k = 0; k < 4; k++) { const a = t * 6 + k * 1.6; g.fillStyle = "#fff7ea"; g.fillRect(x + Math.cos(a) * 22, y - 50 + Math.sin(a) * 22, 2, 2); }
+      if (d.hit > 0 && !this.reduce) for (let k = 0; k < 4; k++) { const a = t * 6 + k * 1.6; g.fillStyle = "#f6f4f3"; g.fillRect(x + Math.cos(a) * 22, y - 50 + Math.sin(a) * 22, 2, 2); }
       this.dancerPos.push({ d, x, y });
     }
-    if (smoke) for (let k = 0; k < 7; k++) { const sx = sx0 + ((k * 83 + (this.reduce ? 0 : t * 18)) % (sx1 - sx0)); const gr = g.createRadialGradient(sx, 318, 0, sx, 318, 60); gr.addColorStop(0, "rgba(220,200,255,.16)"); gr.addColorStop(1, "rgba(220,200,255,0)"); g.fillStyle = gr; g.fillRect(sx - 60, 258, 120, 120); }
+    if (smoke) for (let k = 0; k < 7; k++) { const sx = sx0 + ((k * 83 + (this.reduce ? 0 : t * 18)) % (sx1 - sx0)); const gr = g.createRadialGradient(sx, 318, 0, sx, 318, 60); gr.addColorStop(0, "rgba(230,227,225,.16)"); gr.addColorStop(1, "rgba(230,227,225,0)"); g.fillStyle = gr; g.fillRect(sx - 60, 258, 120, 120); }
     // MC
-    this.fig(250, 330, POSES[2].map((v, j) => (j === 2 ? 2.2 : v)), "#eee4d3", { mic: true, t });
+    this.fig(250, 330, POSES[2].map((v, j) => (j === 2 ? 2.2 : v)), "#e4e0dd", { mic: true, t });
     // DJ booth
-    g.fillStyle = "#1c0c24"; g.fillRect(30, 210, 170, 42); g.strokeStyle = "#3dd6ff"; g.lineWidth = 2; g.strokeRect(30, 210, 170, 42);
+    g.fillStyle = "#161313"; g.fillRect(30, 210, 170, 42); g.strokeStyle = "#c74d57"; g.lineWidth = 2; g.strokeRect(30, 210, 170, 42);
     const djPose = this.reduce ? POSES[0] : POSES[Math.floor(t * 2) % 2 ? 0 : 4];
-    this.fig(115, 236, djPose, "#c6ff3d", { headphones: true, shades: this.hasUp("dj"), t });
-    g.fillStyle = "#1c0c24"; g.fillRect(30, 214, 170, 38); g.strokeStyle = "#3dd6ff"; g.strokeRect(30, 214, 170, 38);
-    for (const cx of [70, 160]) { g.fillStyle = "#0b0b0b"; g.beginPath(); g.arc(cx, 224, 13, 0, 6.283); g.fill(); g.strokeStyle = "#3dd6ff"; g.lineWidth = 1; g.beginPath(); g.arc(cx, 224, 13, t * 4, t * 4 + 1.2); g.stroke(); }
-    g.fillStyle = "#3dd6ff"; g.font = "800 13px 'Big Shoulders Display', Impact, sans-serif"; g.fillText(this.djName(), 115, 246);
+    this.fig(115, 236, djPose, "#c74d57", { headphones: true, shades: this.hasUp("dj"), t });
+    g.fillStyle = "#161313"; g.fillRect(30, 214, 170, 38); g.strokeStyle = "#c74d57"; g.strokeRect(30, 214, 170, 38);
+    for (const cx of [70, 160]) { g.fillStyle = "#0b0b0b"; g.beginPath(); g.arc(cx, 224, 13, 0, 6.283); g.fill(); g.strokeStyle = "#c74d57"; g.lineWidth = 1; g.beginPath(); g.arc(cx, 224, 13, t * 4, t * 4 + 1.2); g.stroke(); }
+    g.fillStyle = "#c74d57"; g.font = "800 13px 'Big Shoulders Display', Impact, sans-serif"; g.fillText(this.djName(), 115, 246);
     // VIP booth with the Famiglia
-    g.fillStyle = "#2a0f36"; g.beginPath(); g.roundRect(770, 175, 165, 70, 30); g.fill();
-    this.fig(800, 236, POSES[8], "#eee4d3", { fedora: true, s: 0.9 }); this.fig(850, 236, POSES[1], "#ffd27a", { fedora: true, s: 0.9 }); this.fig(900, 236, POSES[8], "#eee4d3", { fedora: true, s: 0.9 });
-    g.fillStyle = "#4a1650"; g.beginPath(); g.roundRect(770, 222, 165, 24, 10); g.fill();
-    g.strokeStyle = "#e7c46a"; g.lineWidth = 3; g.beginPath(); g.moveTo(762, 262); g.quadraticCurveTo(850, 285, 942, 262); g.stroke();
-    g.fillStyle = "#e7c46a"; g.fillRect(758, 240, 6, 30); g.fillRect(940, 240, 6, 30);
+    g.fillStyle = "#1f1b1b"; g.beginPath(); g.roundRect(770, 175, 165, 70, 30); g.fill();
+    this.fig(800, 236, POSES[8], "#e4e0dd", { fedora: true, s: 0.9 }); this.fig(850, 236, POSES[1], "#c74d57", { fedora: true, s: 0.9 }); this.fig(900, 236, POSES[8], "#e4e0dd", { fedora: true, s: 0.9 });
+    g.fillStyle = "#2e2828"; g.beginPath(); g.roundRect(770, 222, 165, 24, 10); g.fill();
+    g.strokeStyle = "#c74d57"; g.lineWidth = 3; g.beginPath(); g.moveTo(762, 262); g.quadraticCurveTo(850, 285, 942, 262); g.stroke();
+    g.fillStyle = "#c74d57"; g.fillRect(758, 240, 6, 30); g.fillRect(940, 240, 6, 30);
     g.font = "700 11px 'IBM Plex Mono', monospace"; g.fillText("VIP · FAMIGLIA (AND FRIENDS)", 852, 160);
     // bar
-    g.fillStyle = "#24101a"; g.fillRect(20, 360, 230, 20);
+    g.fillStyle = "#181515"; g.fillRect(20, 360, 230, 20);
     for (let k = 0; k < 9; k++) { g.fillStyle = NEON[k % NEON.length] + "aa"; g.fillRect(30 + k * 24, 344 - (k % 3) * 4, 8, 16 + (k % 3) * 4); }
-    this.fig(135, 438, this.reduce ? POSES[1] : POSES[Math.floor(t) % 2 ? 1 : 4], "#ff7a3d", { t });
-    g.fillStyle = "#3a1a10"; g.fillRect(20, 400, 230, 70); g.fillStyle = "#6b3a12"; g.fillRect(14, 396, 242, 8);
-    g.fillStyle = "#ff4fa3"; g.font = "800 14px 'Big Shoulders Display', Impact, sans-serif"; g.fillText("BAR · L&P $14", 135, 440);
+    this.fig(135, 438, this.reduce ? POSES[1] : POSES[Math.floor(t) % 2 ? 1 : 4], "#c74d57", { t });
+    g.fillStyle = "#3a1013"; g.fillRect(20, 400, 230, 70); g.fillStyle = "#393131"; g.fillRect(14, 396, 242, 8);
+    g.fillStyle = "#c74d57"; g.font = "800 14px 'Big Shoulders Display', Impact, sans-serif"; g.fillText("BAR · L&P $14", 135, 440);
     // door & bouncer
-    g.fillStyle = "#1a0a14"; g.fillRect(880, 300, 66, 170); g.strokeStyle = "#c6ff3d"; g.lineWidth = 2; g.strokeRect(880, 300, 66, 170);
-    g.fillStyle = "#3dd6a0"; g.font = "800 12px monospace"; g.fillText("EXIT", 913, 292);
-    this.fig(842, 472, POSES[8], "#eee4d3", { shades: true, s: 1.45 });
+    g.fillStyle = "#100e0e"; g.fillRect(880, 300, 66, 170); g.strokeStyle = "#c74d57"; g.lineWidth = 2; g.strokeRect(880, 300, 66, 170);
+    g.fillStyle = "#c74c56"; g.font = "800 12px monospace"; g.fillText("EXIT", 913, 292);
+    this.fig(842, 472, POSES[8], "#e4e0dd", { shades: true, s: 1.45 });
     // crowd, cheering with hype
     for (const p of this.patrons) {
       const bounce = this.reduce ? 0 : Math.abs(Math.sin(t * 5 + p.ph)) * hype * 6;
@@ -704,7 +704,7 @@ export class Club {
       this.fig(p.x, 498 - bounce, pose, p.col, { s: 0.95 });
     }
     // the player with the money gun
-    if (this.host.owned(KEY.gun)) { g.fillStyle = "#ff4fa3"; g.beginPath(); g.roundRect(W / 2 - 9, H - 30, 18, 12, 3); g.fill(); g.fillRect(W / 2 - 3, H - 20, 6, 10); }
+    if (this.host.owned(KEY.gun)) { g.fillStyle = "#c74d57"; g.beginPath(); g.roundRect(W / 2 - 9, H - 30, 18, 12, 3); g.fill(); g.fillRect(W / 2 - 3, H - 20, 6, 10); }
     // bills
     for (const b of this.bills) {
       g.save(); g.translate(b.x, b.y); g.rotate(b.r); g.globalAlpha = b.age > 7 ? Math.max(0, 9 - b.age) / 2 : 1;
@@ -719,42 +719,42 @@ export class Club {
 
   private drawVelvet(t: number): void {
     const g = this.begin(), member = this.isMember();
-    g.fillStyle = "#4a0d1c"; g.fillRect(0, 0, W, 360);
-    g.fillStyle = "rgba(231,196,106,.07)";
+    g.fillStyle = "#461116"; g.fillRect(0, 0, W, 360);
+    g.fillStyle = "rgba(199,77,87,.07)";
     for (let y = 30; y < 330; y += 36) for (let x = (y / 36) % 2 ? 18 : 0; x < W; x += 36) { g.beginPath(); g.moveTo(x, y - 8); g.lineTo(x + 6, y); g.lineTo(x, y + 8); g.lineTo(x - 6, y); g.closePath(); g.fill(); }
-    g.fillStyle = "#e7c46a"; g.fillRect(0, 18, W, 3); g.fillStyle = "#2a130b"; g.fillRect(0, 300, W, 80);
-    g.strokeStyle = "rgba(231,196,106,.35)"; g.lineWidth = 1; for (let x = 10; x < W; x += 80) g.strokeRect(x, 312, 64, 56);
-    const carpet = g.createLinearGradient(0, 380, 0, H); carpet.addColorStop(0, "#5a0f1a"); carpet.addColorStop(1, "#2c050c");
-    g.fillStyle = carpet; g.fillRect(0, 380, W, H - 380); g.strokeStyle = "#e7c46a"; g.lineWidth = 2; g.beginPath(); g.moveTo(0, 410); g.lineTo(W, 410); g.moveTo(0, 480); g.lineTo(W, 480); g.stroke();
+    g.fillStyle = "#c74d57"; g.fillRect(0, 18, W, 3); g.fillStyle = "#2a0b0e"; g.fillRect(0, 300, W, 80);
+    g.strokeStyle = "rgba(199,77,87,.35)"; g.lineWidth = 1; for (let x = 10; x < W; x += 80) g.strokeRect(x, 312, 64, 56);
+    const carpet = g.createLinearGradient(0, 380, 0, H); carpet.addColorStop(0, "#54151a"); carpet.addColorStop(1, "#270a0c");
+    g.fillStyle = carpet; g.fillRect(0, 380, W, H - 380); g.strokeStyle = "#c74d57"; g.lineWidth = 2; g.beginPath(); g.moveTo(0, 410); g.lineTo(W, 410); g.moveTo(0, 480); g.lineTo(W, 480); g.stroke();
     for (const cx of [260, 520, 780]) {
-      g.strokeStyle = "rgba(231,196,106,.5)"; g.beginPath(); g.moveTo(cx, 0); g.lineTo(cx, 40); g.stroke();
+      g.strokeStyle = "rgba(199,77,87,.5)"; g.beginPath(); g.moveTo(cx, 0); g.lineTo(cx, 40); g.stroke();
       for (let k = 0; k < 9; k++) { const a = (k / 9) * 6.283 + t * 0.15; g.fillStyle = `rgba(255,236,170,${0.6 + 0.4 * Math.sin(t * 2 + k)})`; g.beginPath(); g.arc(cx + Math.cos(a) * 30, 50 + Math.sin(a) * 8, 3, 0, 6.283); g.fill(); }
-      const gr = g.createRadialGradient(cx, 55, 0, cx, 55, 190); gr.addColorStop(0, "rgba(255,220,150,.15)"); gr.addColorStop(1, "rgba(255,220,150,0)"); g.fillStyle = gr; g.fillRect(cx - 190, 0, 380, 300);
+      const gr = g.createRadialGradient(cx, 55, 0, cx, 55, 190); gr.addColorStop(0, "rgba(208,202,197,.15)"); gr.addColorStop(1, "rgba(208,202,197,0)"); g.fillStyle = gr; g.fillRect(cx - 190, 0, 380, 300);
     }
-    this.neonText("THE VELVET ROOMS", W / 2, 110, 34, "#f6d77c", t * 0.3, "'Instrument Serif', Georgia, serif");
-    g.font = "italic 14px 'Instrument Serif', Georgia, serif"; g.fillStyle = "rgba(246,215,124,.7)"; g.fillText("Discretion · Decorum · Doilies", W / 2, 130);
+    this.neonText("THE VELVET ROOMS", W / 2, 110, 34, "#c74d57", t * 0.3, "'Instrument Serif', Georgia, serif");
+    g.font = "italic 14px 'Instrument Serif', Georgia, serif"; g.fillStyle = "rgba(199,77,87,.7)"; g.fillText("Discretion · Decorum · Doilies", W / 2, 130);
     this.doors.forEach((r, i) => {
       const x = 190 + i * 125, y = 150, w = 84, hh = 180;
-      g.fillStyle = "#e7c46a"; g.fillRect(x - 5, y - 5, w + 10, hh + 5);
+      g.fillStyle = "#c74d57"; g.fillRect(x - 5, y - 5, w + 10, hh + 5);
       g.fillStyle = "#0a0204"; g.fillRect(x, y, w, hh);
       let p = 0;
       if (this.opening === i) p = clamp((this.now - this.openT) / 0.45, 0, 1);
       if (this.card?.door === i) p = 1;
-      if (p > 0) { const gl = g.createRadialGradient(x + w / 2, y + hh / 2, 0, x + w / 2, y + hh / 2, 70); gl.addColorStop(0, `rgba(255,190,120,${0.35 * p})`); gl.addColorStop(1, "rgba(255,190,120,0)"); g.fillStyle = gl; g.fillRect(x, y, w, hh); }
+      if (p > 0) { const gl = g.createRadialGradient(x + w / 2, y + hh / 2, 0, x + w / 2, y + hh / 2, 70); gl.addColorStop(0, `rgba(255,190,120,${0.35 * p})`); gl.addColorStop(1, "rgba(199,77,87,0)"); g.fillStyle = gl; g.fillRect(x, y, w, hh); }
       const dw = w * (1 - p * 0.85);
-      g.fillStyle = "#4a2512"; g.fillRect(x, y, dw, hh);
-      if (dw > 20) { g.strokeStyle = "rgba(231,196,106,.4)"; g.strokeRect(x + dw * 0.15, y + 14, dw * 0.7, 66); g.strokeRect(x + dw * 0.15, y + 96, dw * 0.7, 70); g.fillStyle = "#f6d77c"; g.beginPath(); g.arc(x + dw - 10, y + 92, 4, 0, 6.283); g.fill(); }
-      g.fillStyle = "#e7c46a"; g.fillRect(x + w / 2 - 20, y - 26, 40, 16); g.fillStyle = "#2a130b"; g.font = "700 11px 'IBM Plex Mono', monospace"; g.fillText(`No. ${i + 1}`, x + w / 2, y - 14);
-      g.fillStyle = this.hover === "door" + i ? "#c6ff3d" : "rgba(251,243,223,.85)"; g.font = "italic 14px 'Instrument Serif', Georgia, serif";
+      g.fillStyle = "#2a2424"; g.fillRect(x, y, dw, hh);
+      if (dw > 20) { g.strokeStyle = "rgba(199,77,87,.4)"; g.strokeRect(x + dw * 0.15, y + 14, dw * 0.7, 66); g.strokeRect(x + dw * 0.15, y + 96, dw * 0.7, 70); g.fillStyle = "#c74d57"; g.beginPath(); g.arc(x + dw - 10, y + 92, 4, 0, 6.283); g.fill(); }
+      g.fillStyle = "#c74d57"; g.fillRect(x + w / 2 - 20, y - 26, 40, 16); g.fillStyle = "#2a0b0e"; g.font = "700 11px 'IBM Plex Mono', monospace"; g.fillText(`No. ${i + 1}`, x + w / 2, y - 14);
+      g.fillStyle = this.hover === "door" + i ? "#c74d57" : "rgba(239,237,235,.85)"; g.font = "italic 14px 'Instrument Serif', Georgia, serif";
       this.wrap(r.name, 118).slice(0, 2).forEach((ln, k) => g.fillText(ln, x + w / 2, 350 + k * 15));
     });
     if (!member) {
-      g.strokeStyle = "#b0182c"; g.lineWidth = 5; g.beginPath(); g.moveTo(430, 395); for (let k = 0; k < 4; k++) { const a = 430 + k * 125; g.quadraticCurveTo(a + 62, 420, a + 125, 395); } g.stroke();
-      g.fillStyle = "#e7c46a"; for (let k = 0; k <= 4; k++) g.fillRect(426 + k * 125, 385, 8, 60);
+      g.strokeStyle = "#a02832"; g.lineWidth = 5; g.beginPath(); g.moveTo(430, 395); for (let k = 0; k < 4; k++) { const a = 430 + k * 125; g.quadraticCurveTo(a + 62, 420, a + 125, 395); } g.stroke();
+      g.fillStyle = "#c74d57"; for (let k = 0; k <= 4; k++) g.fillRect(426 + k * 125, 385, 8, 60);
       g.font = "700 11px 'IBM Plex Mono', monospace"; g.fillText("MEMBERS ONLY", 680, 462);
     }
-    this.fig(80, 450, POSES[8], "#eee4d3", { tophat: true, s: 1.2 });
-    this.fig(140, 460, POSES[1], "#c6ff3d", { monocle: member, s: 1.1 });
+    this.fig(80, 450, POSES[8], "#e4e0dd", { tophat: true, s: 1.2 });
+    this.fig(140, 460, POSES[1], "#c74d57", { monocle: member, s: 1.1 });
     if (this.opening >= 0) {
       const e = this.now - this.openT;
       if (e > 0.45) { g.fillStyle = `rgba(0,0,0,${clamp((e - 0.45) / 0.5, 0, 1)})`; g.fillRect(0, 0, W, H); }
@@ -768,7 +768,7 @@ export class Club {
     for (const s of this.spots()) {
       const on = s.id === this.hover;
       if (!on && s.id.startsWith("door")) continue;
-      g.strokeStyle = on ? "#c6ff3d" : "rgba(238,228,211,.14)"; g.lineWidth = on ? 2 + Math.sin(t * 6) * 0.5 : 1; g.setLineDash(on ? [] : [5, 6]);
+      g.strokeStyle = on ? "#c74d57" : "rgba(228,224,221,.14)"; g.lineWidth = on ? 2 + Math.sin(t * 6) * 0.5 : 1; g.setLineDash(on ? [] : [5, 6]);
       g.strokeRect(s.x, s.y, s.w, s.h); g.setLineDash([]);
     }
   }
@@ -787,10 +787,10 @@ export class Club {
       const lines = this.wrap(b.text, 230), lw = Math.max(...lines.map((l) => g.measureText(l).width));
       const bw = lw + 18, bh = lines.length * 15 + 12, bx = clamp(b.x - bw / 2, 6, W - bw - 6), by = clamp(b.y - bh - 18, 6, H - bh - 6);
       const velvet = this.venue === "velvet";
-      g.fillStyle = velvet ? "#fbf3df" : "#fff0fa"; g.strokeStyle = velvet ? "#e7c46a" : "#ff4fa3"; g.lineWidth = 2;
+      g.fillStyle = velvet ? "#efedeb" : "#fff0fa"; g.strokeStyle = velvet ? "#c74d57" : "#c74d57"; g.lineWidth = 2;
       g.beginPath(); g.roundRect(bx, by, bw, bh, 9); g.fill(); g.stroke();
       g.beginPath(); g.moveTo(clamp(b.x - 6, bx + 8, bx + bw - 20), by + bh - 1); g.lineTo(clamp(b.x, bx + 10, bx + bw - 10), Math.min(b.y - 4, by + bh + 10)); g.lineTo(clamp(b.x + 6, bx + 20, bx + bw - 8), by + bh - 1); g.fill();
-      g.fillStyle = "#1a0a14"; g.textAlign = "left";
+      g.fillStyle = "#100e0e"; g.textAlign = "left";
       lines.forEach((l, i) => g.fillText(l, bx + 9, by + 18 + i * 15));
       g.textAlign = "center";
     }

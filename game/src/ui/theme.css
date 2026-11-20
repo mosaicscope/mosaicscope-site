@@ -1,0 +1,348 @@
+/* ============================================================================
+   NOIR TESSERA — the one theme every screen shares.
+   Black-to-charcoal gradients, muted red for the thing you should press,
+   white type that reads first time. Three layers on top:
+     · casino showmanship — red glow + a sheen that sweeps primary buttons
+     · game HUD           — bevelled panels with a thin metallic edge
+     · worn signage       — faint grain on backgrounds, stamped headings
+   Loaded last (see main.ts) so it settles every older stylesheet.
+   ========================================================================== */
+
+:root {
+  --ink: #0b0a0a; --ink2: #151313; --ink3: #211e1e; --paper: #f2efeb; --dim: #a8a29d;
+  --red: #b3343c; --red-hi: #cf4a52; --red-lo: #7d2229; --red-glow: rgba(207, 74, 82, .38);
+  --acid: var(--red); --gold: #d8d3cc; --pink: #c9707a; --cyan: #c2c6cc;
+  --steel-hi: #e9e6e1; --steel: #9b9690; --steel-lo: #4a4644;
+  --line: rgba(242, 239, 235, .12);
+  --mono: "Barlow", system-ui, sans-serif;
+  --display: "Barlow Condensed", "Big Shoulders Display", Impact, sans-serif;
+  --serif: "Barlow Condensed", Georgia, serif;
+  --ui-bg: #121111; --ui-panel: #1a1818; --ui-raised: #242121; --ui-border: rgba(242, 239, 235, .12);
+  --ui-text: #f2efeb; --ui-muted: #aaa49e; --ui-gold: var(--red-hi); --ui-mint: var(--red-hi);
+  --bg-grad: radial-gradient(120% 90% at 50% 0%, #252121 0%, #141212 48%, #080707 100%);
+  --panel-grad: linear-gradient(180deg, #211e1e 0%, #171515 55%, #121010 100%);
+  --bevel: inset 0 1px 0 rgba(255, 255, 255, .07), inset 0 -1px 0 rgba(0, 0, 0, .6), 0 0 0 1px rgba(0, 0, 0, .55);
+  --metal-edge: linear-gradient(135deg, #6d6864, #2c2928 30%, #8e8984 50%, #2c2928 70%, #5d5855);
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --r: 10px;
+}
+
+html, body { background: var(--ink); color: var(--paper); font-family: var(--mono); font-weight: 400; letter-spacing: .005em; }
+body { font-size: calc(14px * var(--ts, 1)); }
+:focus-visible { outline: 2px solid var(--red-hi) !important; outline-offset: 2px; }
+::selection { background: var(--red); color: #fff; }
+
+/* ---- Type: legible white, medium weight, stamped display headings ------- */
+h1, h2, .panel h2, .modal-header h2, .welcome h1, .welcome-custom h2 {
+  font-family: var(--display) !important; font-weight: 600 !important; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--paper);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, .8), 0 0 1px rgba(255, 255, 255, .15);
+}
+h3, .panel h3 { font-family: var(--display); font-weight: 600; letter-spacing: .08em; color: var(--steel-hi); }
+p, li, label { color: #e4e0db; }
+small, .dim, .welcome small { color: var(--dim) !important; letter-spacing: .14em; }
+
+/* ---- Surfaces: gradient black, grain, bevel + metallic edge -------------- */
+.panel, .modal, .welcome-card, .welcome-custom, .cas-frame, .cx {
+  background: var(--grain), var(--panel-grad) !important;
+  border: 1px solid transparent !important;
+  border-image: none;
+  box-shadow: var(--bevel), 0 18px 50px rgba(0, 0, 0, .55) !important;
+}
+.welcome-card, .welcome-custom { position: relative; }
+.panel::before, .modal::before, .welcome-card::before, .welcome-custom::before {
+  content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; pointer-events: none;
+  background: var(--metal-edge);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; opacity: .7;
+}
+.modal-header { background: linear-gradient(180deg, #262222, #1a1717) !important; border-bottom: 1px solid #000 !important; box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .05); }
+.modal-wrap { background: radial-gradient(circle at 50% 30%, rgba(20, 18, 18, .7), rgba(5, 4, 4, .9)) !important; display: grid !important; place-items: center; }
+.modal-wrap.hidden { display: none !important; }
+.modal-wrap > .modal { margin: auto; }
+.bar { background: linear-gradient(#0b0a0a 30%, rgba(11, 10, 10, 0)) !important; }
+
+/* stamped-sign title: a worn, slightly uneven print look on headers only */
+.modal-header h2, .welcome h1, .ax-hub h2, .cas-head h2 {
+  color: #f4f1ec !important; background: none !important;
+  text-shadow: 0 2px 0 #000, 0 1px 0 rgba(255, 255, 255, .08) !important;
+}
+.welcome h1 em { color: var(--red-hi) !important; }
+
+/* ---- Buttons ------------------------------------------------------------- */
+body .btn, body .cx-btn, .welcome-actions button, .ax-hub-tile {
+  font-family: var(--mono); font-weight: 500; letter-spacing: .03em;
+  color: var(--paper); background: linear-gradient(180deg, #252222, #181616) !important;
+  border: 1px solid rgba(242, 239, 235, .2) !important; border-radius: 8px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 1px 2px rgba(0, 0, 0, .6);
+  transition: border-color .18s, transform .12s, box-shadow .18s, background .18s;
+  position: relative; overflow: hidden;
+}
+body .btn:hover, body .cx-btn:hover:not(:disabled) { border-color: rgba(242, 239, 235, .5) !important; }
+body .btn:active:not(:disabled), body .cx-btn:active:not(:disabled) { transform: translateY(1px) scale(.985); }
+body .btn:disabled, body .cx-btn:disabled { opacity: .42; cursor: default; }
+
+/* Primary — the one red thing on screen, with a glow and a sweeping sheen */
+body .btn.acid, body .btn.red, body .btn.on, body .cx-btn.gold, body .cx-btn[aria-pressed="true"], .welcome-actions .btn.acid, .ax-hub-tile:hover {
+  background: linear-gradient(180deg, var(--red-hi), var(--red) 55%, var(--red-lo)) !important;
+  border-color: #e0767c !important; color: #fff !important; font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), inset 0 -2px 0 rgba(0, 0, 0, .3), 0 0 18px var(--red-glow), 0 2px 6px rgba(0, 0, 0, .6);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, .35);
+}
+body .btn.acid::after, body .btn.red::after, body .cx-btn.gold::after, .welcome-actions .btn.acid::after, .ax-hub-tile::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: -60%; width: 40%; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .35), transparent);
+  transform: skewX(-18deg); opacity: 0;
+}
+body .btn.acid:hover::after, body .btn.red:hover::after, body .cx-btn.gold:hover:not(:disabled)::after, .welcome-actions .btn.acid:hover::after, .ax-hub-tile:hover::after {
+  opacity: 1; animation: nt-sheen .75s ease-out;
+}
+@keyframes nt-sheen { from { left: -60%; } to { left: 130%; } }
+
+/* ---- Inputs, selects and sliders ---------------------------------------- */
+body input:not([type=range]):not([type=checkbox]):not([type=radio]), body select, body textarea {
+  background: #0f0e0e !important; color: var(--paper) !important; border: 1px solid rgba(242, 239, 235, .18) !important;
+  border-radius: 7px; box-shadow: inset 0 2px 4px rgba(0, 0, 0, .6);
+}
+body input:focus, body select:focus { border-color: var(--red-hi) !important; }
+input[type=checkbox], input[type=radio] { accent-color: var(--red); }
+input[type=range] { -webkit-appearance: none; appearance: none; height: 22px; background: transparent; accent-color: var(--red); }
+input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 4px; background: linear-gradient(180deg, #080707, #2a2626); box-shadow: inset 0 1px 2px #000, 0 1px 0 rgba(255, 255, 255, .06); }
+input[type=range]::-moz-range-track { height: 6px; border-radius: 4px; background: linear-gradient(180deg, #080707, #2a2626); box-shadow: inset 0 1px 2px #000; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -6px; border-radius: 50%; border: 1px solid #1a1717;
+  background: radial-gradient(circle at 35% 30%, #fff, #c9c4be 35%, #6e6964 75%, #3b3735); box-shadow: 0 2px 4px #000, 0 0 0 2px rgba(179, 52, 60, .45); }
+input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; border: 1px solid #1a1717;
+  background: radial-gradient(circle at 35% 30%, #fff, #c9c4be 35%, #6e6964 75%, #3b3735); box-shadow: 0 2px 4px #000, 0 0 0 2px rgba(179, 52, 60, .45); }
+
+/* ---- Start screen -------------------------------------------------------- */
+.welcome { background: var(--grain), var(--bg-grad) !important; font-family: var(--mono) !important; }
+.welcome-card { width: min(520px, 100%); text-align: center; padding: 48px 40px !important; border-radius: 16px !important; }
+.welcome h1 { font-size: clamp(52px, 11vw, 84px) !important; margin: 14px 0 10px !important; line-height: .95; }
+.welcome h1 em { font-style: normal; color: inherit !important; }
+.welcome-card p { color: #d8d3cd; }
+.welcome-actions { justify-content: center; }
+.welcome-actions button { min-height: 50px; font-size: 15px; }
+.welcome-save { color: var(--dim) !important; font-size: 12px; }
+.welcome-editor { margin: auto; justify-content: center; }
+.welcome-custom { border-radius: 14px !important; }
+.welcome-custom label { color: #e4e0db; }
+.welcome-swatches legend { color: var(--dim) !important; }
+.welcome-swatches button[aria-pressed=true] { outline-color: var(--red-hi) !important; }
+.welcome .play-stage canvas { border-radius: 14px; box-shadow: var(--bevel), 0 20px 50px rgba(0, 0, 0, .6); }
+@media (max-width: 650px) { .welcome-actions { background: #151313 !important; } .welcome-card { padding: 34px 22px !important; } }
+
+/* ---- Activities hub ------------------------------------------------------ */
+.activities { width: min(820px, 94vw) !important; }
+.ax-hub { display: grid; gap: 18px; justify-items: center; text-align: center; padding: 6px 0 4px; }
+.ax-hub > p { margin: 0; color: var(--dim); max-width: 46ch; }
+.ax-hub-grid { display: grid; width: 100%; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 14px; }
+.ax-hub-tile { display: grid; gap: 6px; align-content: center; justify-items: center; min-height: 132px; padding: 18px 16px; text-align: center; cursor: pointer; border-radius: 12px !important; }
+.ax-hub-tile b { font: 600 22px/1 var(--display); letter-spacing: .08em; text-transform: uppercase; }
+.ax-hub-tile span { font-size: 13px; color: #cfc9c3; line-height: 1.4; }
+.ax-hub-tile i { font-style: normal; font-size: 26px; opacity: .85; }
+.ax-hub-tile:hover span { color: #fff; }
+.ax-hub-tile:hover { transform: translateY(-2px); }
+.ax-back { display: flex; align-items: center; justify-content: space-between; gap: 10px; position: sticky; top: 0; z-index: 2; padding: 8px 0; background: linear-gradient(#171515 70%, transparent); }
+.ax-nav { background: transparent !important; justify-content: center; }
+.ax-card, .ax-race { background: linear-gradient(180deg, #1f1c1c, #161414) !important; border: 1px solid rgba(242, 239, 235, .12) !important; border-radius: 12px !important; box-shadow: var(--bevel); }
+.ax-card h3 { color: var(--paper) !important; }
+.ax-status { border-left-color: var(--red) !important; background: rgba(179, 52, 60, .07); border-radius: 0 6px 6px 0; text-align: left; }
+.ax-grid, .ax-deck { margin-inline: auto; }
+.ax-pages { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 10px; }
+
+/* ---- Main menu: one centred panel, grouped, never a wall of buttons ------ */
+#ui .bar.open > .game-menu {
+  position: fixed !important; inset: auto !important; left: 50% !important; top: 50% !important; right: auto !important;
+  transform: translate(-50%, -50%); width: min(900px, calc(100vw - 24px)) !important; max-height: calc(100dvh - 24px) !important; overflow: hidden !important; height: auto !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 6px !important; padding: 14px 16px 16px !important;
+  background: var(--grain), var(--panel-grad) !important; border: 1px solid rgba(242, 239, 235, .14) !important; border-radius: 16px !important;
+  box-shadow: var(--bevel), 0 0 0 100vmax rgba(5, 4, 4, .72), 0 30px 80px rgba(0, 0, 0, .7) !important; z-index: 90;
+}
+#ui .game-menu .menu-group { grid-column: 1 / -1; margin: 6px 0 0; padding-bottom: 6px; font: 600 13px/1 var(--display); letter-spacing: .2em; text-transform: uppercase; color: var(--dim); border-bottom: 1px solid rgba(242, 239, 235, .1); }
+#ui .game-menu button { text-align: center !important; min-height: 36px !important; padding: 4px 8px !important; font-size: 13px; line-height: 1.2; }
+#ui .game-menu .acid { grid-column: 1 / -1; min-height: 42px !important; font-size: 15px; }
+@media (max-width: 640px) { #ui .bar.open > .game-menu { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; padding: 14px !important; } }
+
+/* Bottom dock: a centred HUD strip */
+#ui .game-dock { background: var(--grain), linear-gradient(180deg, #221f1f, #121010) !important; border: 1px solid rgba(242, 239, 235, .14) !important; box-shadow: var(--bevel), 0 10px 40px rgba(0, 0, 0, .6) !important; }
+#ui .dock-command { color: var(--paper); border-radius: 10px; transition: background .15s, color .15s; }
+#ui .dock-command:hover { background: rgba(179, 52, 60, .18); }
+#ui .dock-command span { color: var(--red-hi); }
+
+/* ---- Casino: shared frame ------------------------------------------------ */
+.cx .cas-tabs button.on, .cx .cas-tabs button[aria-pressed="true"] { background: linear-gradient(90deg, rgba(179, 52, 60, .28), rgba(179, 52, 60, .06)) !important; border-color: rgba(207, 74, 82, .55) !important; color: #fff !important; box-shadow: inset 3px 0 0 var(--red-hi); }
+.cas-foot { color: var(--dim) !important; letter-spacing: .08em; }
+
+/* ---- Roulette: 3D wheel + felt ------------------------------------------ */
+.rw3d-stage { display: grid; gap: 12px; width: 100%; max-width: 980px; margin: 0 auto; }
+.rw3d { position: relative; height: clamp(300px, 52vh, 560px); border-radius: 14px; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 38%, #3a1d20 0%, #1a0f10 45%, #070505 100%);
+  box-shadow: var(--bevel), inset 0 0 80px rgba(0, 0, 0, .8); }
+.rw3d::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: var(--grain); opacity: .6; mix-blend-mode: overlay; }
+.rw3d-canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.rw3d-canvas:active { cursor: grabbing; }
+.rw3d-hist { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: center; flex-wrap: wrap; gap: 4px; pointer-events: none; z-index: 1; }
+.rw3d-dot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font: 600 12px var(--display); color: #fff; border: 1.5px solid rgba(235, 230, 224, .55); box-shadow: 0 2px 4px #000; }
+.rw3d-dot.red, .rw3d-res.red { background: radial-gradient(circle at 35% 30%, #c43a43, #7d1f26); }
+.rw3d-dot.black, .rw3d-res.black { background: radial-gradient(circle at 35% 30%, #3a3434, #0b0909); }
+.rw3d-dot.green, .rw3d-res.green { background: radial-gradient(circle at 35% 30%, #8d8882, #3a3634); }
+.rw3d-dot:first-child { transform: scale(1.15); box-shadow: 0 0 0 2px var(--red-hi), 0 2px 6px #000; }
+.rw3d-banner { position: absolute; left: 0; right: 0; bottom: 14px; display: grid; justify-items: center; gap: 6px; pointer-events: none; z-index: 1; }
+.rw3d-res { display: none; width: 68px; height: 68px; border-radius: 50%; place-items: center; font: 700 32px var(--display); color: #fff;
+  border: 3px solid #d9d5cf; box-shadow: 0 0 0 1px #000, 0 0 26px rgba(207, 74, 82, .55); animation: rw3d-pop .5s cubic-bezier(.3, 1.7, .5, 1); }
+.rw3d-msg { font: 600 clamp(20px, 3.4vw, 28px) var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--paper); text-shadow: 0 2px 10px #000, 0 0 2px #000; }
+.rw3d-msg.win { font-size: clamp(26px, 4.6vw, 38px); color: #fff; text-shadow: 0 0 18px rgba(207, 74, 82, .9), 0 2px 8px #000; animation: rw3d-pop .6s cubic-bezier(.3, 1.7, .5, 1); }
+.rw3d-msg.big { font-size: clamp(34px, 6.4vw, 52px); color: #fff; text-shadow: 0 0 24px #cf4a52, 0 0 48px #8a1d25, 0 2px 8px #000; animation: rw3d-pop .6s cubic-bezier(.3, 1.7, .5, 1); }
+@keyframes rw3d-pop { from { transform: scale(.3); opacity: 0; } }
+
+.rf-wrap { overflow-x: auto; padding: 14px; border-radius: 14px;
+  background: var(--grain), radial-gradient(ellipse at 50% 0%, #4a1a1f, #2a0e12 60%, #1a080b); box-shadow: var(--bevel), inset 0 0 40px rgba(0, 0, 0, .55); }
+.rf-table { display: grid; grid-template-columns: 48px repeat(12, minmax(36px, 1fr)) 50px; grid-auto-rows: minmax(42px, auto); gap: 3px; min-width: 600px; margin: 0 auto; max-width: 940px; }
+.rf-cell { position: relative; display: grid; place-items: center; padding: 0; border: 1px solid rgba(236, 231, 225, .32); border-radius: 4px; color: #fff;
+  font: 600 18px var(--display); background: rgba(0, 0, 0, .12); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06); cursor: pointer; transition: filter .12s, box-shadow .15s, transform .1s; }
+.rf-cell b { font-weight: 600; text-shadow: 0 1px 2px #000; }
+.rf-cell.red { background: linear-gradient(180deg, #9a2730, #74191f); }
+.rf-cell.black { background: linear-gradient(180deg, #221d1d, #0d0b0b); }
+.rf-cell.green { background: linear-gradient(180deg, #57524e, #2d2a28); }
+.rf-cell.out { font-size: 15px; letter-spacing: .06em; text-transform: uppercase; }
+.rf-cell:hover:not(:disabled) { filter: brightness(1.25); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .5), 0 0 12px rgba(207, 74, 82, .35); }
+.rf-cell:active:not(:disabled) { transform: scale(.97); }
+.rf-cell:disabled { cursor: default; }
+.rf-cell.covered { box-shadow: inset 0 0 0 2px rgba(216, 211, 204, .55); }
+.rf-cell.pending { box-shadow: inset 0 0 0 3px var(--red-hi), 0 0 14px var(--red-glow); }
+.rf-cell.win { animation: rf-win .45s ease-in-out 6 alternate; }
+@keyframes rf-win { to { box-shadow: inset 0 0 0 3px #f2efeb, 0 0 16px rgba(242, 239, 235, .7); } }
+.rf-chip { position: absolute; right: -6px; top: -6px; z-index: 1; min-width: 22px; height: 22px; padding: 0 3px; border-radius: 50%; display: grid; place-items: center;
+  font: 700 10px var(--mono); color: #fff; border: 3px dashed rgba(255, 255, 255, .7); box-shadow: 0 2px 4px #000a, inset 0 0 0 2px rgba(0, 0, 0, .25); pointer-events: none; }
+.rf-chip.c1 { background: #ece8e2; color: #161313; border-color: rgba(0, 0, 0, .35); }
+.rf-chip.c5 { background: #a92a33; }
+.rf-chip.c25 { background: #4c4744; }
+.rf-chip.c100 { background: #111; border-color: rgba(216, 211, 204, .8); }
+.rf-chip.c500 { background: #5c1a3a; }
+.rf-chip.drop { animation: rf-drop .28s cubic-bezier(.3, 1.6, .5, 1); }
+.rf-chip.lose { animation: rf-sweep .9s forwards; }
+.rf-chip.pay { animation: rf-pay 1.4s forwards; }
+@keyframes rf-drop { from { transform: translateY(-34px) scale(1.6); opacity: 0; } }
+@keyframes rf-sweep { to { transform: translateY(-70px) scale(.3); opacity: 0; } }
+@keyframes rf-pay { 30% { transform: scale(1.5); box-shadow: 0 0 18px #fff, 0 0 30px var(--red-hi); } to { transform: scale(1.2); } }
+.rw3d-mode .iso-table-console { max-width: 980px; width: 100%; margin-inline: auto; }
+/* The 3D view fits one screen: wheel takes what is left, cloth and console sit under it. No scrolling. */
+.iso-roulette.rw3d-mode { display: grid !important; grid-template-rows: minmax(140px, 1fr) auto auto; gap: 8px; height: 100% !important; max-height: 100%; overflow: hidden !important; }
+.iso-roulette.rw3d-mode .rw3d-stage { display: contents; }
+.iso-roulette.rw3d-mode .rw3d { height: auto; min-height: 0; }
+
+.iso-roulette.rw3d-mode .rf-wrap { padding: 8px; overflow: hidden; }
+.iso-roulette.rw3d-mode .rf-table { grid-auto-rows: minmax(30px, 4.6vh); min-width: 0; grid-template-columns: 40px repeat(12, minmax(0, 1fr)) 42px; }
+.iso-roulette.rw3d-mode .rf-cell { font-size: 15px; }
+.iso-roulette.rw3d-mode .rf-cell.out { font-size: 12px; }
+.iso-roulette.rw3d-mode .iso-table-console { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 10px; padding: 8px 10px !important; overflow: hidden; }
+.iso-roulette.rw3d-mode .iso-table-console > * { margin: 0 !important; }
+.iso-roulette.rw3d-mode .iso-chip-actions, .iso-roulette.rw3d-mode .iso-chip-actions .cx-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; }
+.iso-roulette.rw3d-mode .cx-btn { min-height: 38px; padding: 6px 14px; }
+.iso-roulette.rw3d-mode .iso-round-status { flex-basis: 100%; text-align: center; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.iso-roulette.rw3d-mode .iso-last-results, .iso-roulette.rw3d-mode .iso-bet-slip { display: none; }
+.cas-layout, .cas-body, .cas-sidebar, .cx .cas-head { background: transparent !important; }
+.cas-frame { background: var(--grain), var(--bg-grad) !important; }
+@media (prefers-reduced-motion: reduce) { .rf-chip, .rw3d-res, .rw3d-msg, .rf-cell.win { animation: none !important; } }
+
+/* Status chips and badges get the HUD tick-mark treatment */
+.tag, .badge, .pill { border-radius: 4px !important; background: linear-gradient(180deg, #2a2626, #1a1717) !important; border: 1px solid rgba(242, 239, 235, .18) !important; color: var(--paper) !important; }
+
+@media (prefers-reduced-motion: reduce) { body .btn::after, body .cx-btn::after, .ax-hub-tile::after { animation: none !important; } }
+
+/* No scrolling anywhere: panels size to the screen and clip rather than scroll. */
+.modal, .activities, .welcome, .welcome-custom { overscroll-behavior: none; }
+.activities { max-height: calc(100dvh - 24px) !important; overflow: hidden !important; }
+.ax-hub-tile { min-height: 104px; }
+
+/* A blur on the bar would trap the fixed menu inside it; drop it while the menu is open. */
+#ui .bar.open { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+
+
+/* ---- In-game HUD: nothing sits on the dock ---- */
+#ui .hint { left: 50% !important; right: auto !important; bottom: calc(max(18px, env(safe-area-inset-bottom)) + 92px) !important; top: auto !important;
+  transform: translateX(-50%); width: max-content; max-width: min(640px, calc(100vw - 32px)); text-align: center; white-space: normal;
+  padding: 6px 14px; border-radius: 999px; background: rgba(12, 11, 11, .78); border: 1px solid rgba(242, 239, 235, .1); color: #ddd8d2; pointer-events: none; }
+#ui .areaname { left: 50% !important; right: auto !important; top: calc(max(10px, env(safe-area-inset-top)) + 64px) !important; bottom: auto !important; transform: translateX(-50%); text-align: center; }
+/* Machines need the whole height: drop the decorative room strip above them. */
+.casino-station:has(.cx-cab, .cx-vp) > .play-stage { display: none !important; }
+
+/* "Players, bar & credit" lives in the empty right side of the title row, never on top of a game. */
+.cas-body { position: relative; }
+.cas-body > .cas-view-title { min-height: 40px; padding-right: 240px; display: flex; flex-direction: column; justify-content: center; }
+.cas-body > .iso-game, .cas-body > section { position: static !important; }
+.cas-body details.iso-table-popover { position: absolute !important; top: 0 !important; right: 0 !important; left: auto !important; bottom: auto !important; z-index: 6; width: 228px; max-height: none; }
+.cas-body details.iso-table-popover[open] { width: min(360px, 90%); max-height: calc(100% - 8px); overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,.7); }
+
+/* Every casino screen is one fixed frame: header, sidebar + game, footer. Nothing scrolls. */
+.cas-frame { display: flex !important; flex-direction: column; overflow: hidden !important; }
+.cas-frame > .cas-head, .cas-frame > .cas-foot { flex: none; }
+.cas-frame > .cas-layout { flex: 1 1 auto; min-height: 0; height: auto !important; overflow: hidden !important; }
+.cas-layout > .cas-body, .cas-layout > .cas-sidebar { min-height: 0; height: 100% !important; max-height: 100%; overflow: hidden !important; }
+.cas-sidebar { display: flex; flex-direction: column; gap: 8px; }
+.cas-sidebar > * { flex: none !important; position: static !important; }
+.cas-session { margin-top: 12px !important; padding-top: 12px !important; }
+/* Machine parts keep their natural height; fit-to-screen zoom does the shrinking, never squashing. */
+.cx-cab > *, .cx-vp > *, .cx-wrap > *, .cx-cage > * { flex-shrink: 0 !important; }
+.cx-topper { min-height: max-content !important; }
+.cx-cab, .cx-vp { height: auto !important; max-height: none !important; grid-template-rows: none !important; grid-auto-rows: max-content !important; }
+.cx-cab > *, .cx-vp > * { min-height: max-content; }
+/* Cashier: chip rack on the left, rules and credit on the right, one screen. */
+@media (min-width: 760px) {
+  .cx-cage { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) !important; align-items: start; column-gap: 16px; }
+  .cx-cage > .cx-window { grid-column: 1; grid-row: 1 / span 3; }
+  .cx-cage > :not(.cx-window) { grid-column: 2; }
+}
+.cx-tray-cage { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; }
+.cx-tray-cage > .cx-groove { height: 92px !important; min-height: 0 !important; }
+.cx-topper p { margin-top: 10px !important; }
+
+/* ---- Pop-up panels: sized to the screen, never scroll ---- */
+.modal-wrap { padding: 16px; z-index: 120 !important; }
+#ui .modal { max-height: calc(100dvh - 32px) !important; overflow: hidden !important; }
+#ui .modal > .modal-body { overflow: hidden !important; }
+
+/* Life & upgrades: wrapped tabs, three-column cards, compact upgrade grid */
+.lifephone { width: min(1180px, calc(100vw - 32px)) !important; }
+.lp-nav { display: flex !important; flex-wrap: wrap !important; justify-content: center; gap: 6px !important; overflow: visible !important; }
+.lp-nav button { min-height: 34px !important; padding: 4px 12px !important; }
+.lp-content { grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)) !important; align-items: start; grid-auto-flow: dense; gap: 10px !important; }
+.lp-content > .lp-overview { grid-column: 1 / -1; }
+.lp-card .lp-actions { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px !important; }
+.lp-card .lp-actions .btn { min-height: 34px !important; padding: 5px 8px !important; font-size: 12px; line-height: 1.2; white-space: normal; text-align: center; }
+.fit-pager { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 8px 0 2px; flex: none; }
+.fit-pager .btn { min-width: 48px; min-height: 36px; font-size: 18px; }
+.fit-pager span { color: var(--dim); font-variant-numeric: tabular-nums; }
+[hidden] { display: none !important; }
+
+/* ---- Life & upgrades: a black side drawer, the city stays in view ---- */
+.modal-wrap:has(> .lifephone) { background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  display: flex !important; justify-content: flex-end; align-items: stretch; padding: 0 !important; pointer-events: none; }
+#ui .modal.lifephone { pointer-events: auto; margin: 0 !important; width: min(440px, 100vw) !important; max-width: 100vw; height: 100dvh; max-height: 100dvh !important;
+  border-radius: 0 !important; background: linear-gradient(180deg, #0a0909, #050404) !important; border: 0 !important; border-left: 1px solid rgba(242, 239, 235, .1) !important;
+  box-shadow: -24px 0 60px rgba(0, 0, 0, .75) !important; display: flex; flex-direction: column; }
+.modal.lifephone::before { display: none; }
+.lifephone > .modal-header { background: #050404 !important; min-height: 56px !important; padding: 10px 16px !important; }
+.lifephone > .modal-header h2 { font-size: 20px !important; }
+.lifephone > .modal-body { flex: 1 1 auto; min-height: 0; padding: 12px 14px !important; }
+.lifephone .lp-nav { justify-content: flex-start; background: transparent !important; padding: 0 !important; border: 0 !important; }
+.lifephone .lp-nav button { min-height: 30px !important; padding: 3px 10px !important; font-size: 12px; }
+.lifephone .lp-status { background: transparent !important; border: 0 !important; border-left: 2px solid var(--red) !important; padding: 4px 10px !important; color: var(--dim); }
+.lifephone .lp-content { grid-template-columns: 1fr !important; }
+.lifephone .lp-overview { grid-template-columns: 1fr !important; gap: 8px !important; }
+.lifephone .lp-card, .lifephone .lp-overview { background: #0f0d0d !important; border: 1px solid rgba(242, 239, 235, .08) !important; box-shadow: none !important; border-radius: 10px !important; padding: 12px !important; }
+.lifephone .lp-card h3 { margin: 0 0 4px; font-size: 12px; letter-spacing: .14em; color: var(--dim); }
+.lifephone .lp-card .lp-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 640px) { #ui .modal.lifephone { width: 100vw !important; } }
+.lifephone .up-layout { display: grid !important; grid-template-columns: 1fr !important; gap: 8px; }
+.lifephone .up-categories { display: flex !important; flex-wrap: wrap; gap: 6px; flex-direction: row !important; }
+.lifephone .up-categories > * { width: auto !important; min-height: 30px; padding: 4px 10px; font-size: 12px; }
+/* Calmer Life drawer: one tidy tab row, fewer labels */
+.lifephone .lp-nav { flex-wrap: nowrap !important; gap: 4px !important; }
+.lifephone .lp-nav > .btn { flex: 1 1 0; min-width: 0; background: transparent !important; border-color: transparent !important; box-shadow: none !important; color: var(--dim); }
+.lifephone .lp-nav > .btn[aria-current="page"] { color: #fff; border-color: transparent !important; box-shadow: inset 0 -2px 0 var(--red-hi) !important; }
+.lifephone .lp-nav > .btn::after { display: none; }
+.lifephone .lp-more { flex: 0 0 auto; min-height: 30px !important; padding: 2px 8px !important; font-size: 12px; background: transparent !important; box-shadow: none !important; border-color: rgba(242,239,235,.14) !important; }
+.lifephone .lp-status { font-size: 12px; }
+.lifephone .lp-overview small, .lifephone .lp-overview > .btn { display: none !important; }
+.lifephone .lp-card > p { font-size: 12px; color: var(--dim); }

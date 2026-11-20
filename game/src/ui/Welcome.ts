@@ -39,10 +39,10 @@ export class Welcome {
     this.draft.look.accessories??=[];
     this.name='You';
     const preview=canvasStage((g,t,reduced)=>{
-      const bg=g.createRadialGradient(250,180,20,240,250,340);bg.addColorStop(0,'#2a4844');bg.addColorStop(1,'#101f29');g.fillStyle=bg;g.fillRect(0,0,480,540);
+      const bg=g.createRadialGradient(250,180,20,240,250,340);bg.addColorStop(0,'#2b2626');bg.addColorStop(1,'#0b0a0a');g.fillStyle=bg;g.fillRect(0,0,480,540);
       g.fillStyle='#0005';g.beginPath();g.ellipse(240,440,75,20,0,0,Math.PI*2);g.fill();
       const k=2.5*this.draft.look.scale;solve(pose('idle','normal',reduced?0:t,0,0,0),240,440,k,1);drawFigure(g,this.draft,240,440,k,1,reduced?0:t,0,1);
-      sceneText(g,this.name||'You',240,490,21,'#eed8a4');roundBox(g,135,505,210,3,1,'#77998b');
+      sceneText(g,this.name||'You',240,490,21,'#f2efeb');roundBox(g,135,505,210,3,1,'#b3343c');
     },{width:480,height:540,label:'Live character preview using the same model as the city'});
     const update=<K extends keyof Look>(key:K,value:Look[K])=>{this.draft.look[key]=value;};
     const select=(label:string,values:string[],value:string,change:(v:string)=>void)=>h('label',null,[label,h('select',{'aria-label':label,onchange:(e:Event)=>change((e.target as HTMLSelectElement).value)},values.map(v=>h('option',{value:v,selected:v===value,text:v[0].toUpperCase()+v.slice(1)})))]);

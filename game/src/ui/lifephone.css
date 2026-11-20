@@ -28,7 +28,7 @@
   min-height: 44px;
 }
 .lp-status {
-  border-left: 3px solid #c6ff3d;
+  border-left: 3px solid #c74d57;
   padding: 9px;
   overflow-wrap: anywhere;
 }
@@ -37,7 +37,7 @@
   gap: 10px;
 }
 .lp-card {
-  border: 1px solid #655c49;
+  border: 1px solid #5b5653;
   border-radius: 10px;
   padding: 12px;
   background: #171512;
@@ -70,20 +70,20 @@
 }
 .lp-field {
   min-height: 66px;
-  border: 1px solid #8c9460;
+  border: 1px solid #807974;
   border-radius: 7px;
-  background: #27412b;
+  background: #2f2929;
   color: #fff;
   white-space: pre-line;
 }
 .lp-field.ploughed {
-  background: #65452b;
+  background: #413939;
 }
 .lp-field.sown {
-  background: #45632f;
+  background: #423a3a;
 }
 .lp-field.ready {
-  background: #8b7835;
+  background: #655f5b;
 }
 .lp-dpad {
   display: flex;
@@ -103,7 +103,7 @@
   min-height: 95px;
   border: 1px solid #75846c;
   border-radius: 8px;
-  background: #202d31;
+  background: #252020;
   color: #fff;
 }
 .lp-town-map {
@@ -111,26 +111,26 @@
   position: relative;
   background:
     repeating-linear-gradient(0deg, transparent 0 36px, #9a8d8044 36px 40px),
-    repeating-linear-gradient(90deg, #16252a 0 36px, #9a8d8044 36px 40px);
-  border: 1px solid #746750;
+    repeating-linear-gradient(90deg, #1d1919 0 36px, #9a8d8044 36px 40px);
+  border: 1px solid #67615d;
   border-radius: 8px;
 }
 .lp-pin {
   position: absolute;
   border: 0;
   color: #fff;
-  background: #402b28;
+  background: #40282a;
   min-width: 18px;
   min-height: 18px;
   border-radius: 50%;
 }
 .lp-event {
   color: #111;
-  background: #f6b62c;
+  background: #c74d57;
   padding: 3px;
 }
 .lp-you {
-  color: #3dd6ff;
+  color: #c74d57;
 }
 .lp-training {
   display: grid;

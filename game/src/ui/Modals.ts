@@ -7,11 +7,12 @@ export class ModalHost {
   el: HTMLElement;
   beforeOpen: () => boolean | void = () => {};
   private prevFocus: Element | null = null;
-  constructor() { this.el = h("div.modal-wrap.hidden", { onclick: (e: MouseEvent) => { if (e.target === this.el) this.close(); } }); }
+  constructor() { this.el = h("div.modal-wrap.hidden", { onclick: (e: MouseEvent) => { if (e.target === this.el) this.close(); } }); addEventListener("resize", () => { if (this.open) this.fit(); }); }
   get open(): boolean { return !this.el.classList.contains("hidden"); }
   show(title: string, body: (HTMLElement | null)[], cls = ""): void {
     if (this.beforeOpen() === false) return;
     if (!this.open) this.prevFocus = document.activeElement;
+    if (title !== this.lastTitle) { this.page = 0; this.lastTitle = title; }
     const box = h("section.panel.modal" + (cls ? "." + cls : ""), { role: "dialog", "aria-modal": "true", "aria-label": title }, [
       h("header.modal-header",null,[h("h2", { text: title }),h("button.x", { "aria-label": "Close", onclick: () => this.close(), text: "×" })]),
       h("div.modal-body",null,body.filter(Boolean) as HTMLElement[]),
@@ -27,7 +28,59 @@ export class ModalHost {
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
     });
     (box.querySelector("button:not(.x), input, select") as HTMLElement | null)?.focus();
+    requestAnimationFrame(() => this.fit()); setTimeout(() => this.fit(), 250);
   }
+  /**
+   * No scrolling. If a panel's content is taller than the screen, first scale it down a little
+   * (never below 85%, so text stays readable); if it still does not fit, split its card list into
+   * pages with ‹ › buttons. Each page is exactly what fits.
+   */
+  fit(): void {
+    const box = this.el.querySelector<HTMLElement>(":scope > .modal"), body = box?.querySelector<HTMLElement>(":scope > .modal-body");
+    if (!box || !body) return;
+    body.style.zoom = ""; body.querySelector(":scope > .fit-pager")?.remove();
+    for (const el of body.querySelectorAll<HTMLElement>("[data-fit-hidden]")) { el.hidden = false; delete el.dataset.fitHidden; }
+    const limit = () => box.getBoundingClientRect().bottom - 10;
+    const bottom = () => Math.max(...[...body.querySelectorAll<HTMLElement>("*")].filter(e => e.getClientRects().length).map(e => e.getBoundingClientRect().bottom), 0);
+    const top = body.getBoundingClientRect().top;
+    if (bottom() <= limit()) return;
+    const base = Math.max(.85, (limit() - top) / (bottom() - top)); body.style.zoom = String(base);
+    if (bottom() <= limit()) return;
+    // Page the largest list of cards in the panel.
+    const lists = [...body.querySelectorAll<HTMLElement>("*")].filter(e => e.children.length >= 3 && !e.closest(".fit-pager"));
+    const roomH = (limit() - top) * .8, fits = (l: HTMLElement) => Math.max(...[...l.children].map(k => k.getBoundingClientRect().height)) <= roomH;
+    const byHeight = (a: HTMLElement, b: HTMLElement) => b.getBoundingClientRect().height - a.getBoundingClientRect().height;
+    const list = lists.filter(fits).sort(byHeight)[0] ?? lists.sort(byHeight)[0] ?? body;
+    if (!list) return;
+    const pager = h("nav.fit-pager", { "aria-label": "Pages" });
+    body.append(pager); pager.append(h("button.btn", { text: "‹" }), h("span", { text: "1 / 1" }), h("button.btn", { text: "›" }));
+    const kids = [...list.children].filter(k => !k.classList.contains("fit-pager")) as HTMLElement[];
+    const pages: HTMLElement[][] = []; let rest = kids;
+    while (rest.length && pages.length < 40) {
+      kids.forEach(k => { k.hidden = !rest.includes(k); });
+      const lim = limit() - pager.getBoundingClientRect().height - 8;
+      let page = rest.filter(k => k.getBoundingClientRect().bottom <= lim);
+      if (!page.length) page = [rest[0]];
+      // keep reading order: a page is a leading run of the remaining cards
+      const cut = rest.findIndex(k => !page.includes(k)); page = cut < 0 ? rest : rest.slice(0, Math.max(1, cut));
+      pages.push(page); rest = rest.slice(page.length);
+    }
+    this.page = Math.min(this.page, pages.length - 1);
+    const show = () => {
+      kids.forEach(k => { const on = pages[this.page].includes(k); k.hidden = !on; if (!on) k.dataset.fitHidden = "1"; else delete k.dataset.fitHidden; });
+      const [prev, label, next] = pager.children as unknown as HTMLElement[];
+      label.textContent = `${this.page + 1} / ${pages.length}`;
+      body.style.zoom = String(base); if (bottom() > limit()) body.style.zoom = String(Math.max(.7, base * (limit() - top) / (bottom() - top)));
+      (prev as HTMLButtonElement).disabled = this.page === 0; (next as HTMLButtonElement).disabled = this.page >= pages.length - 1;
+    };
+    const [prev, , next] = pager.children as unknown as HTMLElement[];
+    prev.onclick = () => { this.page = Math.max(0, this.page - 1); show(); };
+    next.onclick = () => { this.page = Math.min(pages.length - 1, this.page + 1); show(); };
+    if (pages.length < 2) { pager.remove(); kids.forEach(k => { k.hidden = false; delete k.dataset.fitHidden; }); return; }
+    show();
+  }
+  private page = 0;
+  private lastTitle = "";
   close(): void { this.el.classList.add("hidden"); this.el.classList.remove("touch-tut"); this.el.closest('#ui')?.classList.remove('modal-open'); this.el.replaceChildren(); if (this.prevFocus?.isConnected) (this.prevFocus as HTMLElement).focus?.(); this.prevFocus = null; }
 }
 

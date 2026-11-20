@@ -152,11 +152,18 @@ export class LifePhone {
         h(
           "nav.lp-nav",
           { "aria-label": "Phone apps" },
-          screens.map((t) => {
-            const button = this.button(t === "Home" ? "Overview" : t, () => { this.screen = t; this.message = ""; });
-            button.setAttribute("aria-current", t === screen ? "page" : "false");
-            return button;
-          }),
+          [
+            // Four everyday tabs up front; everything else lives in one "More" menu so the bar never turns into a wall.
+            ...(["Home", "Upgrades", "Map", "People"] as Screen[]).filter(t => screens.includes(t)).map((t) => {
+              const button = this.button(t === "Home" ? "Overview" : t, () => { this.screen = t; this.message = ""; });
+              button.setAttribute("aria-current", t === screen ? "page" : "false");
+              return button;
+            }),
+            h("select.lp-more", { "aria-label": "More apps", onchange: (e: Event) => { this.screen = (e.target as HTMLSelectElement).value as Screen; this.message = ""; this.show(this.screen); } }, [
+              h("option", { value: "", text: "More ▾", selected: ["Home", "Upgrades", "Map", "People"].includes(screen), disabled: true }),
+              ...screens.filter(t => !["Home", "Upgrades", "Map", "People"].includes(t)).map(t => h("option", { value: t, text: t, selected: t === screen })),
+            ]),
+          ],
         ),
         h("p.lp-status", {
           role: "status",
@@ -517,7 +524,7 @@ export class LifePhone {
       stockSelect,
     ];
     if (a) {
-      out.push(canvasStage((g,t,reduced)=>{g.fillStyle='#315d46';g.fillRect(0,0,960,480);sceneText(g,a.name.toUpperCase(),480,72,29,'#efd699');creature(g,480,310,a.species,reduced||a.health<35?0:t,2.5,a.health<35?'#8f8975':'#b78359');sceneText(g,`HEALTH ${a.health}% · TRAINING ${a.trained} · AGE ${a.age} DAYS`,480,413,18);},{label:`${a.name}, ${a.species}, health ${a.health}, training ${a.trained}`}));
+      out.push(canvasStage((g,t,reduced)=>{g.fillStyle='#413838';g.fillRect(0,0,960,480);sceneText(g,a.name.toUpperCase(),480,72,29,'#cac4be');creature(g,480,310,a.species,reduced||a.health<35?0:t,2.5,a.health<35?'#8f8975':'#8e8782');sceneText(g,`HEALTH ${a.health}% · TRAINING ${a.trained} · AGE ${a.age} DAYS`,480,413,18);},{label:`${a.name}, ${a.species}, health ${a.health}, training ${a.trained}`}));
       out.push(
         h("label", null, [
           "Animal name",
@@ -755,7 +762,7 @@ export class LifePhone {
         ),
       ];
     const camera=new Camera();camera.resize(960,540);camera.x=camera.y=0;camera.zoom=2.7;
-    out.unshift(canvasStage((g,t,reduced)=>{g.fillStyle="#152b31";g.fillRect(0,0,960,480);g.strokeStyle="#88afa22a";for(let y=230;y<480;y+=30){g.beginPath();g.moveTo(0,y);g.lineTo(960,y);g.stroke();}sceneText(g,"YOUR GARAGE · LIVE VEHICLE INSPECTION",480,65,22,"#e6ce93");drawCar(g,camera,{...v,x:0,y:0,px:0,py:0,dir:reduced?v.dir:v.dir+Math.sin(t*.3)*.3},1,t,.15,false);sceneText(g,`BODY DAMAGE ${Math.round(v.damage*100)}%  ·  ${(v.lifeMods??[]).join(" + ")||"FACTORY STOCK"}`,480,424,16);},{label:"Your actual car, showing damage, tyres and installed modifications"}));
+    out.unshift(canvasStage((g,t,reduced)=>{g.fillStyle="#201c1c";g.fillRect(0,0,960,480);g.strokeStyle="#a09b972a";for(let y=230;y<480;y+=30){g.beginPath();g.moveTo(0,y);g.lineTo(960,y);g.stroke();}sceneText(g,"YOUR GARAGE · LIVE VEHICLE INSPECTION",480,65,22,"#c74d57");drawCar(g,camera,{...v,x:0,y:0,px:0,py:0,dir:reduced?v.dir:v.dir+Math.sin(t*.3)*.3},1,t,.15,false);sceneText(g,`BODY DAMAGE ${Math.round(v.damage*100)}%  ·  ${(v.lifeMods??[]).join(" + ")||"FACTORY STOCK"}`,480,424,16);},{label:"Your actual car, showing damage, tyres and installed modifications"}));
     out.push(
       this.panel(
         "Vehicle diagnostics",

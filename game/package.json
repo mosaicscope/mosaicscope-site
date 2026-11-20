@@ -23,7 +23,7 @@
   "devDependencies": {
     "@types/node": "^26.6.5",
     "@types/rbush": "^4.0.0",
-    "@types/three": "^0.187.0",
+    "@types/three": "0.170.0",
     "playwright-core": "^1.56.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
@@ -32,6 +32,6 @@
   },
   "dependencies": {
     "rbush": "^4.0.1",
-    "three": "^0.187.0"
+    "three": "0.170.0"
   }
 }
