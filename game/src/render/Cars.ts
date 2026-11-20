@@ -695,3 +695,66 @@ export function drawVehicleFragment(g:CanvasRenderingContext2D,cam:Camera,v:Vehi
 }
 
 function strokePoly(k:Ctx,points:V3[],color:string,width:number,closed=false):void{k.g.strokeStyle=color;k.g.lineWidth=width;k.g.beginPath();points.forEach((p,i)=>{const q=W3(k,p);if(i)k.g.lineTo(q[0],q[1]);else k.g.moveTo(q[0],q[1]);});if(closed)k.g.closePath();k.g.stroke();}
+
+/**
+ * Helicopters (police and news) drawn with the same panel-and-light model as the cars: lofted fuselage
+ * rings, shaded faces from the key light, glass canopy, livery band, boom, fin, skids and spinning blades.
+ * Works in the city view and the 3D driving view because it only goes through cam.toScreen.
+ */
+export interface HeliLike { kind: "police" | "news"; x: number; y: number; alt: number; heading: number }
+export function drawHeli(g: CanvasRenderingContext2D, cam: Camera, h: HeliLike, time: number, dark: number): void {
+  const k: Ctx = { g, cam, x: h.x, y: h.y, c: Math.cos(h.heading), s: Math.sin(h.heading) };
+  const police = h.kind === "police", A = h.alt;
+  const body = rgb(police ? "#1f2328" : "#f2efeb"), band = rgb(police ? "#1c4fd6" : "#b3343c"), glass = rgb("#5d7489"), metal = rgb("#2a2826");
+  const day = 1 - Math.min(0.55, dark * 0.6);
+  // screen-space winding: a face is visible when it winds the same way as the (always visible) roof
+  const area = (pts: V3[]) => { let s = 0; const q = pts.map((p) => W3(k, p)); for (let i = 0; i < q.length; i++) { const a = q[i], b = q[(i + 1) % q.length]; s += a[0] * b[1] - b[0] * a[1]; } return s; };
+  const face = (pts: V3[], col: [number, number, number], ref: number) => {
+    if (Math.sign(area(pts)) !== ref) return;
+    const a = pts[0], b = pts[1], c = pts[2], n = cross([b[0] - a[0], b[1] - a[1], b[2] - a[2]], [c[0] - a[0], c[1] - a[1], c[2] - a[2]]);
+    fillPoly(k, pts, lit(col, shadeFor(WN(k, n)) * day));
+  };
+  const ring2 = (x0: number, x1: number, hw: number, cf: number, cr: number, z: number) => ring(x0, x1, hw, cf, cr, () => z);
+  const roofRef = Math.sign(area(ring2(-0.5, 0.4, 0.3, 0.3, 0.2, A + 0.4))) || 1;
+  /** a closed prism between two rings (both counter-clockwise from above) */
+  const prism = (lo: V3[], hi: V3[], colOf: (i: number, mid: V3) => [number, number, number]) => {
+    for (let i = 0; i < lo.length; i++) { const j = (i + 1) % lo.length, mid: V3 = [(lo[i][0] + lo[j][0]) / 2, (lo[i][1] + lo[j][1]) / 2, 0]; face([lo[i], lo[j], hi[j], hi[i]], colOf(i, mid), -roofRef); }
+    face(hi, colOf(-1, [0, 0, 0]), roofRef);
+  };
+  // skids under everything
+  for (const sy of [-0.48, 0.48]) {
+    strokePoly(k, [[-0.75, sy, A - 0.78], [0.95, sy, A - 0.78], [1.1, sy, A - 0.68]], "#151413", Math.max(1, 2.2 * cam.zoom));
+    for (const sx of [-0.4, 0.5]) strokePoly(k, [[sx, sy, A - 0.78], [sx, sy * 0.7, A - 0.45]], "#151413", Math.max(1, 1.6 * cam.zoom));
+  }
+  // tail boom and fin
+  const bLo = ring2(-2.7, -0.7, 0.11, 0.2, 0.2, A - 0.08), bHi = ring2(-2.7, -0.7, 0.08, 0.2, 0.2, A + 0.16);
+  prism(bLo, bHi, () => body);
+  face([[-2.55, 0, A + 0.1], [-2.8, 0, A + 0.1], [-2.85, 0, A + 0.72], [-2.65, 0, A + 0.62]], body, -roofRef);
+  face([[-2.65, 0, A + 0.62], [-2.85, 0, A + 0.72], [-2.8, 0, A + 0.1], [-2.55, 0, A + 0.1]], body, -roofRef);
+  // fuselage: belly → livery band → cabin with a glass nose
+  const r0 = ring2(-0.95, 1.05, 0.5, 0.45, 0.3, A - 0.5), r1 = ring2(-1.0, 1.15, 0.56, 0.4, 0.3, A - 0.2), r2 = ring2(-1.0, 1.15, 0.56, 0.4, 0.3, A - 0.08), r3 = ring2(-0.85, 0.75, 0.44, 0.55, 0.3, A + 0.42);
+  prism(r0, r1, () => body);
+  prism(r1, r2, () => band);
+  prism(r2, r3, (i, mid) => (i >= 0 && mid[0] > 0.45 ? glass : i === -1 ? body : mid[0] > -0.2 && i >= 0 ? glass : body));
+  // mast and rotor head
+  const mLo = ring2(-0.18, 0.12, 0.1, 0.3, 0.3, A + 0.42), mHi = ring2(-0.15, 0.1, 0.07, 0.3, 0.3, A + 0.6);
+  prism(mLo, mHi, () => metal);
+  // police: belly lightbar flashing red/blue; both: a red anti-collision beacon on the fin
+  if (police) {
+    const on = Math.floor(time * 6) % 2 === 0;
+    fillPoly(k, [[-0.2, -0.3, A - 0.52], [0.2, -0.3, A - 0.52], [0.2, 0, A - 0.52], [-0.2, 0, A - 0.52]], on ? "#ff3b2f" : "#5a1410");
+    fillPoly(k, [[-0.2, 0, A - 0.52], [0.2, 0, A - 0.52], [0.2, 0.3, A - 0.52], [-0.2, 0.3, A - 0.52]], !on ? "#3d7bff" : "#10204a");
+  }
+  if (Math.floor(time * 2) % 2 === 0) { const q = W3(k, [-2.82, 0, A + 0.74]); g.fillStyle = "#ff3b2f"; g.beginPath(); g.arc(q[0], q[1], Math.max(1.5, 2.2 * cam.zoom), 0, 6.283); g.fill(); }
+  // tail rotor
+  const tr = time * 40; strokePoly(k, [[-2.72, 0.14, A + 0.35 + Math.sin(tr) * 0.32], [-2.72, 0.14, A + 0.35 - Math.sin(tr) * 0.32]], "#1b1a19", Math.max(1, 1.8 * cam.zoom));
+  // main rotor: a faint disc plus two blades
+  const disc: V3[] = []; for (let i = 0; i < 20; i++) { const a = (i / 20) * Math.PI * 2; disc.push([Math.cos(a) * 2.3, Math.sin(a) * 2.3, A + 0.64]); }
+  fillPoly(k, disc, "rgba(30,30,30,.16)");
+  const spin = time * 14;
+  for (let b = 0; b < 2; b++) {
+    const a = spin + b * Math.PI / 2, c = Math.cos(a), s = Math.sin(a), w = 0.07;
+    fillPoly(k, [[c * 2.3 - s * w, s * 2.3 + c * w, A + 0.64], [c * 2.3 + s * w, s * 2.3 - c * w, A + 0.64], [-c * 2.3 + s * w, -s * 2.3 - c * w, A + 0.64], [-c * 2.3 - s * w, -s * 2.3 + c * w, A + 0.64]], "#141312");
+  }
+  if (!police) { const q = W3(k, [0.1, 0.6, A - 0.12]); g.fillStyle = "#fff"; g.font = `800 ${Math.max(6, Math.round(7 * cam.zoom))}px "Barlow Condensed", sans-serif`; g.textAlign = "center"; g.fillText("7 NEWS", q[0], q[1]); g.textAlign = "start"; }
+}

@@ -42,7 +42,7 @@ export interface PursuitState {
 }
 
 export function pursuitState(): PursuitState {
-  return { helis: [{ kind: "police", x: 0, y: 0, alt: 9, heading: 0, on: false, orbit: 0 }, { kind: "news", x: 0, y: 0, alt: 12, heading: 0, on: false, orbit: 2 }], blockAt: null, newsVan: -1, phase: "calm", seenX: 0, seenY: 0, lastSeen: 0, searchUntil: 0, searchTotal: 1, radius: 0, spikes: [], blocks: [], blockUntil: 0,
+  return { helis: [{ kind: "police", x: 0, y: 0, alt: 4.5, heading: 0, on: false, orbit: 0 }, { kind: "news", x: 0, y: 0, alt: 6, heading: 0, on: false, orbit: 2 }], blockAt: null, newsVan: -1, phase: "calm", seenX: 0, seenY: 0, lastSeen: 0, searchUntil: 0, searchTotal: 1, radius: 0, spikes: [], blocks: [], blockUntil: 0,
     nextSpikeAt: 0, nextBlockAt: 0, nextReinforceAt: 0, stalkSince: 0, lastPit: 0, boxed: 0, stopped: 0, tactic: "", cues: [], seq: 0 };
 }
 

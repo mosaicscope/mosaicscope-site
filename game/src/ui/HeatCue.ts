@@ -85,7 +85,7 @@ export class HeatCue {
   }
 
   /** A helicopter at altitude: ground shadow, spotlight (police), body, tail and a spinning rotor. */
-  private drawHeli(g: CanvasRenderingContext2D, hl: { kind: string; x: number; y: number; alt: number; heading: number }, tick: number): void {
+  private drawHeli(g: CanvasRenderingContext2D, hl: { kind: string; x: number; y: number; alt: number; heading: number }, _tick: number): void {
     const P = this.opts.project, at = P(hl.x, hl.y, hl.alt), ground = P(hl.x, hl.y, 0), unit = Math.max(4, Math.hypot(P(hl.x + 1, hl.y, hl.alt).x - at.x, P(hl.x + 1, hl.y, hl.alt).y - at.y));
     if (at.x < -200 || at.y < -200 || at.x > innerWidth + 200 || at.y > innerHeight + 200) return;
     g.fillStyle = "rgba(0,0,0,.28)"; g.beginPath(); g.ellipse(ground.x, ground.y, unit * 1.6, unit * 0.8, 0, 0, 6.283); g.fill();
@@ -95,16 +95,6 @@ export class HeatCue {
       g.fillStyle = "rgba(255,255,255,.07)"; g.beginPath(); g.moveTo(at.x - unit * 0.3, at.y); g.lineTo(ground.x - spot, ground.y); g.lineTo(ground.x + spot, ground.y); g.closePath(); g.fill();
       g.fillStyle = grd; g.beginPath(); g.ellipse(ground.x, ground.y, spot, spot * 0.55, 0, 0, 6.283); g.fill();
     }
-    const ca = Math.cos(hl.heading), sa = Math.sin(hl.heading), dirx = P(hl.x + ca, hl.y + sa, hl.alt), hx = (dirx.x - at.x) / unit, hy = (dirx.y - at.y) / unit;
-    const body = hl.kind === "police" ? "#1f2328" : "#f2efeb", stripe = hl.kind === "police" ? "#1c4fd6" : "#b3343c";
-    g.lineCap = "round"; g.strokeStyle = body; g.lineWidth = unit * 0.28; g.beginPath(); g.moveTo(at.x, at.y); g.lineTo(at.x - hx * unit * 2.1, at.y - hy * unit * 2.1); g.stroke();
-    g.fillStyle = body; g.strokeStyle = "#0b0a0a"; g.lineWidth = 1.5; g.beginPath(); g.ellipse(at.x, at.y, unit * 1.05, unit * 0.62, Math.atan2(hy, hx), 0, 6.283); g.fill(); g.stroke();
-    g.fillStyle = stripe; g.beginPath(); g.ellipse(at.x, at.y, unit * 0.95, unit * 0.18, Math.atan2(hy, hx), 0, 6.283); g.fill();
-    g.fillStyle = "rgba(160,190,215,.9)"; g.beginPath(); g.ellipse(at.x + hx * unit * 0.55, at.y + hy * unit * 0.55, unit * 0.35, unit * 0.3, 0, 0, 6.283); g.fill();
-    const spin = tick * 0.9; g.strokeStyle = "rgba(20,20,20,.55)"; g.lineWidth = Math.max(1.5, unit * 0.09);
-    for (let i = 0; i < 2; i++) { const a = spin + i * Math.PI / 2, rx = Math.cos(a) * unit * 2.2, ry = Math.sin(a) * unit * 1.1; g.beginPath(); g.moveTo(at.x - rx, at.y - unit * 0.5 - ry); g.lineTo(at.x + rx, at.y - unit * 0.5 + ry); g.stroke(); }
-    g.fillStyle = "rgba(255,255,255,.08)"; g.beginPath(); g.ellipse(at.x, at.y - unit * 0.5, unit * 2.2, unit * 1.1, 0, 0, 6.283); g.fill();
-    if (hl.kind === "news") { g.fillStyle = "#b3343c"; g.font = `800 ${Math.round(unit * 0.55)}px "Barlow Condensed", sans-serif`; g.textAlign = "center"; g.fillText("7 NEWS", at.x, at.y + unit * 1.35); g.textAlign = "start"; }
-    if (hl.kind === "police" && Math.floor(tick / 8) % 2) { g.fillStyle = "#ff3b2f"; g.beginPath(); g.arc(at.x - hx * unit * 2.1, at.y - hy * unit * 2.1, Math.max(2, unit * 0.16), 0, 6.283); g.fill(); }
+    // the body itself is drawn by Cars.drawHeli with the same 3D panels as the cars
   }
 }

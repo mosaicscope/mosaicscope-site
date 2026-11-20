@@ -9,7 +9,7 @@ import {DrivingCamera} from './DrivingCamera';
 import {PerspectiveGroundGPU} from './PerspectiveGroundGPU';
 import {PerspectivePrepared} from './PerspectivePrepared';
 import {mappedRails,railSpan} from '../world/MappedRails';
-import {drawCar,drawVehicleFragment} from './Cars';
+import {drawCar,drawHeli,drawVehicleFragment} from './Cars';
 import {drawStreetProp} from './StreetProps';
 import {decorGrid,drawDecor,mappedStreetDecor,D} from './StreetDecor';
 import {GLOW} from './Buildings';
@@ -177,6 +177,7 @@ export class DrivingView {
   }
   this.cam.viewW=w;this.cam.viewH=h;this.cam.toScreen=(x,y,z,out)=>{const p=local(x,y,z),s=screen({...p,z:Math.max(near,p.z)});out.x=s.x;out.y=s.y;return out;};
   for(const v of sim.vehicles){const p=local(v.x,v.y,0);if(p.z<(v.id===car?.id?2:4)||p.z>64||Math.abs(p.x)>p.z+3)continue;items.push({depth:p.z,draw:()=>{this.cam.zoom=Math.max(.08,focal/p.z/25);this.cam.viewVector=[ex-v.x,ey-v.y,eye];drawCar(g,this.cam,v,alpha,time,1-daylight,false,sim.chars[v.driver]);}});}
+  for(const hl of sim.pursuit.helis){if(!hl.on)continue;const p=local(hl.x,hl.y,hl.alt);if(p.z<3||p.z>90||Math.abs(p.x)>p.z+4)continue;items.push({depth:p.z,draw:()=>{this.cam.zoom=Math.max(.08,focal/p.z/25);this.cam.viewVector=[ex-hl.x,ey-hl.y,eye-hl.alt];drawHeli(g,this.cam,hl,time,1-daylight);}});}
   for(const v of sim.vehicles)for(let i=0;i<(v.components?.debris.length??0);i++){const d=v.components!.debris[i],p=local(d.x,d.y,d.z);if(p.z<1||p.z>38||Math.abs(p.x)>p.z+3)continue;items.push({depth:p.z,draw:()=>{this.cam.zoom=Math.max(.08,focal/p.z/25);drawVehicleFragment(g,this.cam,v,i);}});}
   for(const prop of sim.cityPlay.props){const p=local(prop.x,prop.y,prop.z);if(p.z<1||p.z>32||Math.abs(p.x)>p.z+3)continue;items.push({depth:p.z,draw:()=>{this.cam.zoom=Math.max(.08,focal/p.z/25);drawStreetProp(g,this.cam,prop,time);}});}
   for(const id of worldIndex(sim.world).pois.query(cx-radius,cy-radius,cx+radius,cy+radius)){

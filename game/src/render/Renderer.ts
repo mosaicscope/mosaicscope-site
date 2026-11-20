@@ -44,7 +44,7 @@ import { resetHdBudget } from "./StickFigure";
 import { hurtOf } from "../sim/Life";
 import { setTextureTier } from "./Textures";
 import { AD_BOXES, AdBox } from "./Ads";
-import { drawCar, drawVehicleFragment, headlights } from "./Cars";
+import { drawCar, drawHeli, drawVehicleFragment, headlights } from "./Cars";
 import { lightGreenFor, Light } from "../sim/Traffic";
 import type { Graffiti } from "../world/World";
 import type { DebugFlags } from "../debug/flags";
@@ -529,6 +529,8 @@ export class Renderer {
       }
     }
     flush();
+    // pursuit helicopters fly above everything else
+    for (const hl of sim.pursuit.helis) if (hl.on) drawHeli(g, cam, hl, time, 1 - sim.daylight);
     const activeMission=sim.worldFun.missions?.active,mission=missionTarget(sim);
     if(activeMission&&activeMission.id!=='city-drive'&&mission){const carrying=activeMission.stage>0,at=carrying?sim.player:mission;if(!carrying||sim.player.inCar<0){const q=cam.toScreen(at.x,at.y,.22,{x:0,y:0}),size=Math.max(5,Math.min(18,cam.zoom*7));g.fillStyle='#b58b55';g.fillRect(q.x+7,q.y-size,size,size*.7);g.strokeStyle='#6d4c2a';g.lineWidth=1;g.strokeRect(q.x+7,q.y-size,size,size*.7);g.fillStyle='#f1d89d';g.fillRect(q.x+7+size*.4,q.y-size,size*.2,size*.7);}}
 
