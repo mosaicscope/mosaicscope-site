@@ -1,4 +1,5 @@
 import {mappedLanes,mappedSpeed,roadOneWay} from '../content/roadLayout';
+import {measureRoadClearances} from './RoadClearance';
 import {World,T,type Building} from './World';
 import {mappedPoint,polygonContains} from './MappedWorld';
 import {roadHalfWidth} from '../content/destinationTerrain';
@@ -30,6 +31,7 @@ export function* bakeCityDistrict(w:World,d:DistrictData):Generator<void>{
   for(let y=Math.max(y0,Math.floor(centre.y-radius));y<=Math.min(y1,centre.y+radius);y++)for(let x=Math.max(x0,Math.floor(centre.x-radius));x<=Math.min(x1,centre.x+radius);x++){if(polygonContains(x+.5,y+.5,xy)&&!hh.some(h=>polygonContains(x+.5,y+.5,h)))put(x,y,t,id);if(++operations%256===0)yield;}
  }
  for(const terrain of d.terrain??[])if(['green','water','sand'].includes(terrain.kind))yield*polygon(terrain.points,terrain.kind==='water'?T.WATER:terrain.kind==='sand'?T.SAND:T.GRASS,terrain.holes??[]);
+ measureRoadClearances(d.roads,[...m.buildings,...d.buildings,...(d.barriers??[])]);
  for(const road of d.roads){const walk=['path','footway','pedestrian','cycleway','steps','corridor','platform'].includes(road.kind),half=roadHalfWidth(road)/2;
   for(let i=1;i<road.points.length;i++){const a=mappedPoint(m,road.points[i-1][0],road.points[i-1][1]),b=mappedPoint(m,road.points[i][0],road.points[i][1]),dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);if(!len)continue;
    const centre=mappedPoint(m,d.cx*400,-d.cy*400);
