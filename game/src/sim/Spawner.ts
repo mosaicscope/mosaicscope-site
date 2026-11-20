@@ -1,5 +1,6 @@
 import type { Simulation } from "./Simulation";
 import { CAST, MID_STYLES } from "../content/cast";
+import { dressCop } from "./Pursuit";
 import { TOYS } from "../content/toys";
 import { makeCharacter } from "../entities/factory";
 import { Character, Look, Personality, Tier } from "../entities/types";
@@ -144,6 +145,7 @@ export function spawnAll(sim: Simulation): void {
     const p = world.randomPointIn(area, rng);
     const c = addChar(sim, names.next(kind), "mid", p.x, p.y, look, pers);
     c.role = role; c.homeArea = area.id; c.style = rng.pick(MID_STYLES);
+    if (role === "cop") dressCop(c);
     c.workplace = workFor(role)?.id ?? -1; c.home = rng.pick(homes).id;
     enculture(sim, c, area.kind);
     c.cash = role === "thief" ? rng.int(0, 25) : role === "gambler" ? rng.int(200, 900) : role === "tourist" ? rng.int(150, 600) : rng.int(30, 260);

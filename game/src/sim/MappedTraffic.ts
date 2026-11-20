@@ -1,5 +1,6 @@
 import type {Simulation} from './Simulation';
 import type {Vehicle} from '../entities/types';
+import { isPolice } from "../content/policeFleet";
 import { chaseTarget } from "./Pursuit";
 import {VEHICLES,type VehicleClass} from '../content/vehicles';
 import type {CitySegment} from '../world/MappedWorld';
@@ -56,7 +57,7 @@ export function refreshCityPopulation(sim:Simulation):void{
  for(const v of sim.vehicles){if(buses>=2)break;if(v.state!=='drive'||v.owner>=0||v.driver<0||v.siren||Math.hypot(v.x-p.x,v.y-p.y)<40||sim.vehicles.some(o=>o!==v&&Math.hypot(o.x-v.x,o.y-v.y)<5))continue;v.cls='bus';buses++;}
  const mode=m.trafficMode??'city',capacity=Math.max(20,Math.floor(local.reduce((sum,{e})=>sum+e.length,0)/9)),target=Math.min(capacity,mode==='rush'?135:mode==='cruise'?55:95),localCount=sim.vehicles.filter(v=>v.state==='drive'&&Math.hypot(v.x-p.x,v.y-p.y)<80).length,budget=Math.min(10,Math.max(0,target-localCount));
  let moved=0;
- for(const v of sim.vehicles){if(moved>=budget)break;if(v.owner>=0||v.state!=='drive'||v.siren||v.rescueTarget!==undefined||v.cls==='police'||Math.hypot(v.x-p.x,v.y-p.y)<110)continue;
+ for(const v of sim.vehicles){if(moved>=budget)break;if(v.owner>=0||v.state!=='drive'||v.siren||v.rescueTarget!==undefined||isPolice(v.cls)||Math.hypot(v.x-p.x,v.y-p.y)<110)continue;
   for(let attempt=0;attempt<6;attempt++){const {e,i}=sim.rng.pick(local),at=sim.rng.range(4,e.length-4),q=position(e,at),distance=Math.hypot(q.x-p.x,q.y-p.y);
    if(distance<32||distance>70||!sim.world.drivable(q.x,q.y)||sim.vehicles.some(o=>Math.hypot(o.x-q.x,o.y-q.y)<7)||sim.chars.some(c=>c.inCar<0&&Math.hypot(c.x-q.x,c.y-q.y)<3))continue;
    v.x=v.px=q.x;v.y=v.py=q.y;v.heading=Math.atan2(e.dy,e.dx);v.speed=0;n.routes.set(v,{edge:i,at,wait:0});n.tick=-1;if(v.driver>=0){const c=sim.chars[v.driver];c.x=c.px=q.x;c.y=c.py=q.y;}moved++;break;
@@ -80,7 +81,7 @@ export function spawnMappedVehicles(sim:Simulation,make:Factory):void{
  // Kerb parking follows the same road geometry. Keep junctions, entrances and river banks clear.
  let parked=sim.vehicles.filter(v=>v.state==='parked').length;for(const {e}of [...candidates].sort((a,b)=>Math.hypot(a.e.x-sim.player.x,a.e.y-sim.player.y)-Math.hypot(b.e.x-sim.player.x,b.e.y-sim.player.y))){if(parked>=240)break;if(e.sign<0||e.length<9||['primary','trunk','motorway','service'].includes(e.segment.kind))continue;for(let at=5;at<e.length-4&&parked<240;at+=5.5){const off=e.segment.half+.75,x=e.x+e.dx*at+e.dy*off,y=e.y+e.dy*at-e.dx*off;if(!sim.world.walkable(x,y)||sim.world.carriageway(x,y)||sim.vehicles.some(v=>Math.hypot(v.x-x,v.y-y)<3.2)||sim.world.pois.some(p=>p.kind==='door'&&Math.hypot(p.x-x,p.y-y)<2.2))continue;make(sim,model(),x,y,0,'parked').heading=Math.atan2(e.dy,e.dx);parked++;}}
  // Police patrols and a nearby unowned car remain available to the full game systems.
- if(!sim.vehicles.slice(0,firstNew).some(v=>v.cls==='police')){const cops=sim.chars.filter(c=>c.role==='cop'&&c.inCar<0);for(let i=0;i<Math.min(2,cops.length);i++){const v=sim.vehicles[firstNew+i];if(!v||v.state!=='drive')continue;v.cls='police';v.siren=false;if(v.driver>=0){const old=sim.chars[v.driver],point=sim.world.nearestFoot(v.x,v.y,20);old.inCar=-1;old.x=old.px=point.x;old.y=old.py=point.y;}v.driver=cops[i].id;cops[i].inCar=v.id;cops[i].x=cops[i].px=v.x;cops[i].y=cops[i].py=v.y;}}
+ if(!sim.vehicles.slice(0,firstNew).some(v=>isPolice(v.cls))){const cops=sim.chars.filter(c=>c.role==='cop'&&c.inCar<0);for(let i=0;i<Math.min(2,cops.length);i++){const v=sim.vehicles[firstNew+i];if(!v||v.state!=='drive')continue;v.cls='police';v.siren=false;if(v.driver>=0){const old=sim.chars[v.driver],point=sim.world.nearestFoot(v.x,v.y,20);old.inCar=-1;old.x=old.px=point.x;old.y=old.py=point.y;}v.driver=cops[i].id;cops[i].inCar=v.id;cops[i].x=cops[i].px=v.x;cops[i].y=cops[i].py=v.y;}}
 }
 /** Local broad phase shared by following, yielding and chassis clearance checks. */
 function buckets(sim:Simulation,n:Network):void{if(n.tick===sim.tick)return;n.tick=sim.tick;if(n.buckets.size>2048)n.buckets.clear();else for(const a of n.buckets.values())a.length=0;for(const v of sim.vehicles){const k=Math.floor(v.x/8)+','+Math.floor(v.y/8),a=n.buckets.get(k)??[];a.push(v);n.buckets.set(k,a);}}

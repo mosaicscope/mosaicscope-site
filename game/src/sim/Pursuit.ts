@@ -6,6 +6,7 @@ import { components, impactComponents } from "./VehicleDamage";
 import { VEHICLES } from "../content/vehicles";
 import { unseat } from "./Traffic";
 import { forceGoal } from "../ai/brain";
+import { policeClassFor } from "../content/policeFleet";
 
 /**
  * GTA-style police pursuit layered on the existing police (Society.reportCrime / Simulation.policeTick),
@@ -18,10 +19,16 @@ import { forceGoal } from "../ai/brain";
  * On foot, officers bail out of their cars and run you down (existing "pursue" goal) and cuff you.
  */
 export type Phase = "calm" | "stalk" | "chase" | "search";
-export type CueKind = "wanted" | "crash" | "busted" | "evaded" | "spotted" | "lost" | "pit" | "ram" | "spikes" | "roadblock" | "boxed" | "tailed" | "foot";
+export type CueKind = "wanted" | "crash" | "busted" | "evaded" | "spotted" | "lost" | "pit" | "ram" | "spikes" | "roadblock" | "boxed" | "tailed" | "foot" | "chopper" | "news";
 export interface Cue { kind: CueKind; title: string; sub: string; tick: number }
 export interface Spike { id: number; x: number; y: number; ax: number; ay: number; len: number; until: number; hit: boolean }
+/** A helicopter over the chase: the police one hunts you with a spotlight, the news one circles for the cameras. */
+export interface Heli { kind: "police" | "news"; x: number; y: number; alt: number; heading: number; on: boolean; orbit: number }
 export interface PursuitState {
+  helis: Heli[];
+  /** where the roadblock sits, for the cones and barrier drawn beside it */
+  blockAt: { x: number; y: number; ax: number; ay: number } | null;
+  newsVan: number;
   phase: Phase;
   seenX: number; seenY: number; lastSeen: number;
   searchUntil: number; searchTotal: number; radius: number;
@@ -35,7 +42,7 @@ export interface PursuitState {
 }
 
 export function pursuitState(): PursuitState {
-  return { phase: "calm", seenX: 0, seenY: 0, lastSeen: 0, searchUntil: 0, searchTotal: 1, radius: 0, spikes: [], blocks: [], blockUntil: 0,
+  return { helis: [{ kind: "police", x: 0, y: 0, alt: 9, heading: 0, on: false, orbit: 0 }, { kind: "news", x: 0, y: 0, alt: 12, heading: 0, on: false, orbit: 2 }], blockAt: null, newsVan: -1, phase: "calm", seenX: 0, seenY: 0, lastSeen: 0, searchUntil: 0, searchTotal: 1, radius: 0, spikes: [], blocks: [], blockUntil: 0,
     nextSpikeAt: 0, nextBlockAt: 0, nextReinforceAt: 0, stalkSince: 0, lastPit: 0, boxed: 0, stopped: 0, tactic: "", cues: [], seq: 0 };
 }
 
@@ -97,6 +104,9 @@ export function pursuitStep(sim: Simulation): void {
     const r = c.inCar >= 0 ? 18 : 14, d = Math.hypot(c.x - p.x, c.y - p.y);
     if (d < r && (d < 3 || sim.world.lineOfSight(c.x, c.y, p.x, p.y))) { seen = true; break; }
   }
+  tickHelis(sim);
+  const chopper = ps.helis[0];
+  if (chopper.on && Math.hypot(chopper.x - p.x, chopper.y - p.y) < 9) seen = true;
   if (p.inside >= 0) seen = false;
   if (seen) {
     if (ps.phase === "search") cue(sim, "spotted", "Spotted", "They have eyes on you again");
@@ -119,6 +129,7 @@ export function pursuitStep(sim: Simulation): void {
   }
 
   reinforce(sim, cars.length);
+  if (p.wanted >= 3 && ps.newsVan < 0) parkNewsVan(sim);
   const stalking = ps.phase === "stalk", searching = ps.phase === "search";
   for (const v of cars) {
     v.silent = stalking;
@@ -158,6 +169,8 @@ function endPursuit(sim: Simulation, escaped = false): void {
     sim.emit({ type: "wanted", x: p.x, y: p.y, actors: [p.id], data: { stars: 0 }, summary: "The police lost you. Wanted level cleared." });
     cue(sim, "evaded", "Evaded", "The police lost you");
   }
+  for (const h of ps.helis) h.on = false;
+  ps.newsVan = -1;
   ps.phase = "calm"; ps.tactic = ""; ps.boxed = ps.stopped = 0;
   ps.spikes.length = 0; clearBlocks(sim);
 }
@@ -171,7 +184,8 @@ function reinforce(sim: Simulation, have: number): void {
     && sim.chars[v.driver]?.tier === "background" && Math.hypot(v.x - p.x, v.y - p.y) > 30 && Math.hypot(v.x - p.x, v.y - p.y) < 90);
   if (!v) return;
   const c = sim.chars[v.driver];
-  v.cls = "police"; v.siren = true; c.role = "cop"; c.pursuing = p.id; c.goal = null;
+  v.cls = policeClassFor(p.wanted, sim.rng.next()); v.siren = true; c.role = "cop"; c.pursuing = p.id; c.goal = null;
+  dressCop(c);
 }
 
 // ------------------------------------------------------------------ tactics against a car
@@ -243,15 +257,16 @@ function placeBlock(sim: Simulation, at: { x: number; y: number; hx: number; hy:
     const off = (i === 0 ? -1 : 1) * 1.15;
     v.x = v.px = at.x + ax * off; v.y = v.py = at.y + ay * off;
     v.heading = Math.atan2(ay, ax) + (i ? 0.35 : -0.35); v.speed = 0; v.vx = v.vy = 0;
-    v.cls = "police"; v.siren = true; v.state = "parked"; v.roadblock = true;
+    v.cls = i ? (p.wanted >= 4 ? "pol_truck" : "pol_van") : "pol_suv"; v.siren = true; v.state = "parked"; v.roadblock = true;
   });
+  ps.blockAt = { x: at.x, y: at.y, ax, ay };
   ps.blocks = spare.map((v) => v.id); ps.blockUntil = sim.tick + SEC * 30;
   cue(sim, "roadblock", "Roadblock", "Cruisers across the road ahead");
 }
 
 function clearBlocks(sim: Simulation): void {
   for (const id of sim.pursuit.blocks) { const v = sim.vehicles[id]; if (v) { v.siren = false; v.roadblock = false; } }
-  sim.pursuit.blocks.length = 0;
+  sim.pursuit.blocks.length = 0; sim.pursuit.blockAt = null;
 }
 
 function tickSpikes(sim: Simulation, car: Vehicle | undefined): void {
@@ -270,4 +285,40 @@ function tickSpikes(sim: Simulation, car: Vehicle | undefined): void {
     sim.emit({ type: "car_crash", x: car.x, y: car.y, actors: [sim.playerId], severity: 2, data: { police: 1 }, summary: "You hit a stinger. All four tyres are shredded." });
     cue(sim, "spikes", "Tyres blown", "You drove over the stinger");
   }
+}
+
+/** Uniform for an officer: police cap and, more often than not, aviators. */
+export function dressCop(c: Character): void {
+  c.look.hat = "police"; c.look.accent = "#1c6bd6";
+  if (c.look.face && (c.id % 5) < 3) c.look.face.eyes = "aviator";
+}
+
+const HELI_SPEED = { police: 11, news: 8 };
+function tickHelis(sim: Simulation): void {
+  const ps = sim.pursuit, p = sim.player, dt = STEP / SEC;
+  for (const h of ps.helis) {
+    const want = h.kind === "police" ? p.wanted >= 3 : p.wanted >= 4;
+    if (want && !h.on) { // fly in from well off-screen
+      const a = sim.rng.next() * Math.PI * 2; h.x = p.x + Math.cos(a) * 70; h.y = p.y + Math.sin(a) * 70; h.on = true;
+      if (h.kind === "news") cue(sim, "news", "Live on air", "News chopper overhead");
+      else cue(sim, "chopper", "Air support", "Police chopper inbound");
+    }
+    if (!want) { h.on = false; continue; }
+    // the police chopper sweeps the last sighting while searching; the news one just circles you for the shot
+    const searching = ps.phase === "search" && h.kind === "police";
+    const cx = searching ? ps.seenX : p.x, cy = searching ? ps.seenY : p.y;
+    h.orbit += dt * (h.kind === "police" ? (searching ? 0.5 : 0.9) : 0.35);
+    const r = h.kind === "police" ? (searching ? ps.radius * 0.6 : 3) : 20;
+    const tx = cx + Math.cos(h.orbit) * r, ty = cy + Math.sin(h.orbit) * r, dx = tx - h.x, dy = ty - h.y, d = Math.hypot(dx, dy);
+    const step = Math.min(d, HELI_SPEED[h.kind] * dt);
+    if (d > 0.01) { h.x += dx / d * step; h.y += dy / d * step; h.heading = Math.atan2(dy, dx); }
+  }
+}
+
+/** A news van turns up at the scene once things get properly loud. */
+function parkNewsVan(sim: Simulation): void {
+  const p = sim.player;
+  const v = sim.vehicles.find((v) => v.driver < 0 && v.owner < 0 && !v.forSale && v.state === "parked" && !v.burnt && !v.siren && p.inCar !== v.id && Math.hypot(v.x - p.x, v.y - p.y) > 14 && Math.hypot(v.x - p.x, v.y - p.y) < 40);
+  sim.pursuit.newsVan = v ? v.id : -2;
+  if (v) v.cls = "news_van";
 }

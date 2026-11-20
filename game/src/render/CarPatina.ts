@@ -46,7 +46,7 @@ const AGE: Partial<Record<VehicleClass, number>> = {
 const STICKERS = ["#ff7ad9", "#3dd6ff", "#c6ff3d", "#f6b62c", "#ec2a1c", "#eee4d3"];
 const DOORS = ["#c9d1d6", "#7a8f4a", "#b04a3a", "#3a6aa0", "#e8c42c", "#6a4a8a"];
 const ROOFS = ["#eee4d3", "#1c1816", "#7a6f68", "#c9892a"];
-const SERVICE = new Set<VehicleClass>(["police", "ambulance", "fire", "post", "bus", "taxi"]);
+const SERVICE = new Set<VehicleClass>(["police", "pol_interceptor", "pol_suv", "pol_ute", "pol_van", "pol_truck", "news_van", "ambulance", "fire", "post", "bus", "taxi"]);
 
 export function patinaOf(cls: VehicleClass, plate: string, price = 0, damage = 0): Patina {
   const s = plateSeed(plate), r = (n: number): number => hash(s + n * 977);

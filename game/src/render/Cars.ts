@@ -1,5 +1,6 @@
 import {fireVisualProfile} from './FireVisuals';
 import {ackermannAngle} from '../sim/WheelContact';
+import { isPolice } from "../content/policeFleet";
 import {damageStage} from '../sim/ProgressiveDamage';
 import {damageBloodEnabled} from './DamageArt';
 import {lampFixture,surfacePoint,surfacePatch} from './SurfaceFixtures';
@@ -195,7 +196,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   const night = dark > 0.35;
   const ST:Style = {...STYLE[d.design?.base??v.cls],...(d.design?.trim==='rack'?{roof:'rack' as const}:d.design?.trim==='spare'?{spare:true}:d.design?.trim==='work'?{roof:'ladder' as const}:d.design?.trim==='stripe'?{bands:[{u0:.36,u1:.45,cols:['#e1dac2']}]}:{}),...(mods.includes("Neon kit")?{neon:true}:{}),...(mods.includes("Tractor engine")?{roof:"cone" as const}:{}),...(mods.includes("Hearse body")?{paint:"#171420"}:{})};
   const rawPatina=patinaOf(v.cls,v.plate,d.price,v.damage),PT=v.resprayed?{...rawPatina,dirt:0,fade:0,bleach:0,marks:[],topRust:[],roof:null,stripe:null}:v.cleaned?{...rawPatina,dirt:.02,marks:rawPatina.marks.filter(m=>m.kind!=='mud')}:rawPatina;   // this car's own story: age, rust, dents, stickers (CarPatina.ts)
-  const paint = weather(rgb(v.cls === "police" ? "#f2f2ee" : v.cls === "ambulance" ? "#f4f1e6" : ST.paint ?? v.color), PT);
+  const paint = weather(rgb(v.cls === "pol_truck" ? "#1f2328" : isPolice(v.cls) || v.cls === "news_van" ? "#f2f2ee" : v.cls === "ambulance" ? "#f4f1e6" : ST.paint ?? v.color), PT);
   const roofPaint = PT.roof ? rgb(PT.roof) : paint;
   const dmg = 1 - v.damage * 0.35;
   const spin = (v.wheelTravel ?? time*v.speed) / (S.wheel * H);
@@ -216,7 +217,7 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   // which side faces the camera
   const nearSign = dot(WN(k, [0, 1, 0]), k.cam.viewVector??VIEW) > 0 ? 1 : -1;
   const wr = S.wheel * H, wx = geometry.wheelbase/2, wy = hw - 0.02;
-  const rimCol = d.design?.rim ?? ST.rim ?? (v.cls === "police" || v.cls === "ambulance" || v.cls === "van" ? "#8a8580" : v.cls === "super" || v.cls === "sports" ? "#2a2a2a" : "#cfc8c0");
+  const rimCol = d.design?.rim ?? ST.rim ?? (isPolice(v.cls) || v.cls === "ambulance" || v.cls === "van" ? "#8a8580" : v.cls === "super" || v.cls === "sports" ? "#2a2a2a" : "#cfc8c0");
   const axles = M.axles === 1 ? [0] : M.axles === 2 ? [wx, -wx] : [wx, 0, -wx];
   for (const lx of axles) roadWheel(k,v,lx,-nearSign*wy,wr,false,spin,rimCol);
 
@@ -265,8 +266,11 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   }
   // liveries on the long sides
   const longSides = sides.filter((f) => Math.abs(f.a0[0] - f.b0[0]) > L * 0.4);
-  if (v.cls === "police" || v.cls === "ambulance" || v.cls === "taxi") {
-    const cols = v.cls === "police" ? ["#1c4fd6", "#f6d32c"] : v.cls === "ambulance" ? ["#2d8a3a", "#f6d32c"] : ["#0e0b0a", "#f6d32c"];
+  if (v.cls === "news_van") {
+    // a broadcast band along each side
+    for (const f of longSides) fillPoly(k, [onFace(f, 0.06, 0.42), onFace(f, 0.94, 0.42), onFace(f, 0.94, 0.7), onFace(f, 0.06, 0.7)], "#b3343c");
+  } else if (isPolice(v.cls) || v.cls === "ambulance" || v.cls === "taxi") {
+    const cols = v.cls === "pol_truck" ? ["#1c4fd6", "#1f2328"] : isPolice(v.cls) ? ["#1c4fd6", "#f6d32c"] : v.cls === "ambulance" ? ["#2d8a3a", "#f6d32c"] : ["#0e0b0a", "#f6d32c"];
     const n = v.cls === "taxi" ? 14 : 8, u0 = v.cls === "taxi" ? 0.55 : 0.18, u1 = v.cls === "taxi" ? 0.72 : 0.78;
     for (const f of longSides) for (let i = 0; i < n; i++) {
       const t0 = 0.06 + (i / n) * 0.88, t1 = 0.06 + ((i + 1) / n) * 0.88;
@@ -417,7 +421,15 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   for(const f of glassFaces){if(Math.abs(f.b0[0]-f.a0[0])<L*.2)continue;const side=(f.a0[1]+f.b0[1])>0?1:-1,index=side<0?0:1;if((v.components?.mirrors?.[index]??(v.mirrorLost?1:0))>.85)continue;const u=Math.max(.1,Math.min(.9,(cb1-.05-f.a0[0])/(f.b0[0]-f.a0[0]))),anchor=onFace(f,u,.1),outer:V3=[anchor[0]+.01,anchor[1]+side*.12,anchor[2]+.015];strokePoly(k,[anchor,outer],'#6d7c6d',1.1*z,false);fillPoly(k,[[outer[0]-.04,outer[1],outer[2]-.025],[outer[0]+.055,outer[1],outer[2]-.025],[outer[0]+.055,outer[1],outer[2]+.04],[outer[0]-.04,outer[1],outer[2]+.04]],'#90aaa3');}
   // ---- roof furniture ----
   const roofMid = (rf0 + rf1) / 2;
-  if (v.cls === "police" || v.cls === "ambulance") {
+  if (v.cls === "news_van") {
+    // satellite dish on a mast and a NEWS roof board
+    cam.toScreen(x + k.c * (roofMid - 0.25), y + k.s * (roofMid - 0.25), H + 0.32, pt);
+    g.fillStyle = "#d9d5cf"; g.strokeStyle = "#2c2928"; g.lineWidth = Math.max(1, z); g.beginPath(); g.ellipse(pt.x, pt.y, 9 * z, 5 * z, -0.5, 0, 6.283); g.fill(); g.stroke();
+    cam.toScreen(x + k.c * (roofMid + 0.2), y + k.s * (roofMid + 0.2), H + 0.1, pt);
+    g.fillStyle = "#b3343c"; g.fillRect(pt.x - 9 * z, pt.y - 5 * z, 18 * z, 5 * z);
+    g.fillStyle = "#fff"; g.font = `800 ${Math.max(5, Math.round(4.5 * z))}px "Barlow Condensed", sans-serif`; g.textAlign = "center"; g.fillText("NEWS", pt.x, pt.y - 1.2 * z); g.textAlign = "start";
+  }
+  if (isPolice(v.cls) || v.cls === "ambulance") {
     const lit = v.siren && !v.silent, on = lit && Math.floor(time * 6) % 2 === 0;
     const bar = (lx0: number, lx1: number, w: number, col: string) => fillPoly(k, [[lx0, -w, H + 0.07], [lx1, -w, H + 0.07], [lx1, w, H + 0.07], [lx0, w, H + 0.07]], col);
     bar(roofMid - 0.06, roofMid + 0.06, hw * 0.7, "#222");

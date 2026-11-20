@@ -231,7 +231,7 @@ export class Game {
     this.radio = new Radio(MOSAIC.soundcloud);
     this.hudEl = h("div.hud", { "aria-live": "polite" });
     this.bustedEl = h("div.busted.hidden", { role: "alert" });
-    this.heat = new HeatCue({ reduceMotion: () => this.reduceMotionOS || !!this.settings.gentle, setSlow: (on) => { if (on && this.clock.speed === 1) this.clock.speed = 0.3; else if (!on && this.clock.speed === 0.3) this.clock.speed = 1; }, project: (x, y) => this.renderer.worldToScreen(x, y) });
+    this.heat = new HeatCue({ reduceMotion: () => this.reduceMotionOS || !!this.settings.gentle, setSlow: (on) => { if (on && this.clock.speed === 1) this.clock.speed = 0.3; else if (!on && this.clock.speed === 0.3) this.clock.speed = 1; }, project: (x, y, h = 0) => this.renderer.worldToScreen(x, y, h) });
     this.heat.mountOverlay(this.canvas);
     root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.marina.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.terrance.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.interior.el, this.modal.el, this.casino.el, this.bustedEl, this.heat.el);
     // browsers only allow sound after a gesture: the first click/key starts the playlist
