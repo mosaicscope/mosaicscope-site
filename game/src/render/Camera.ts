@@ -5,6 +5,8 @@ import { clamp } from "../core/math";
 export class Camera {
   x = 32; y = 32; zoom = 1.1;
   targetX = 32; targetY = 32; targetZoom = 1.1;
+  /** Optional direction from scene toward the viewer for perspective model faces. */
+  viewVector?: [number,number,number];
   follow = -1;           // character id to follow (-1 = free)
   viewW = 800; viewH = 600;
   minZoom = 0.55; maxZoom = 7;
@@ -13,7 +15,11 @@ export class Camera {
   private s: Pt = { x: 0, y: 0 };
   private c: Pt = { x: 0, y: 0 };
 
-  resize(w: number, h: number): void { this.viewW = w; this.viewH = h; }
+  private automaticFraming=true;
+  resize(w: number, h: number): void { this.viewW = w; this.viewH = h;if(this.automaticFraming)this.frameStreet(); }
+  /** Readable starting scale. Manual zoom survives viewport changes. */
+  frameStreet():void {this.automaticFraming=true;this.zoom=this.targetZoom=clamp(Math.min(this.viewW,this.viewH)/330,2.2,2.4);}
+
 
   update(dt: number, reduceMotion: boolean): void {
     const k = reduceMotion ? 1 : 1 - Math.exp(-dt * 8);
@@ -24,7 +30,7 @@ export class Camera {
     if(!this.unbounded){this.x = clamp(this.x, 0, S); this.y = clamp(this.y, 0, S);}
   }
 
-  setZoom(z: number): void { this.targetZoom = clamp(z, this.minZoom, this.maxZoom); }
+  setZoom(z: number): void { this.automaticFraming=false;this.targetZoom = clamp(z, this.minZoom, this.maxZoom); }
   lookAt(x: number, y: number, snap = false): void {
     this.targetX = this.unbounded?x:clamp(x, 0, this.worldSize); this.targetY = this.unbounded?y:clamp(y, 0, this.worldSize);
     if (snap) { this.x = this.targetX; this.y = this.targetY; }

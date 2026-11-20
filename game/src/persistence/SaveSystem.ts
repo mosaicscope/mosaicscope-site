@@ -1,3 +1,4 @@
+import {upgradeLattice} from '../sim/CrashLattice';
 import {bakeCityDistrict,registerCityBuilding,validDistrict} from '../world/CitySurvey';
 import type {DistrictData,MappedBuilding} from '../ui/DestinationDistrict';
 import {restoreCityPlay} from '../sim/CityPlay';
@@ -47,7 +48,6 @@ export const unpackMem = (a: MemTuple): Memory => { const m: Memory = { t: a[0],
 export const packRel = (id: number, r: Rel): RelTuple => [id, r.fam, r.trust, r.aff, r.respect, r.fear, r.rivalry, r.grudge, r.shared, r.favours, r.last];
 export const unpackRel = (a: RelTuple): [number, Rel] => [a[0], { fam: a[1], trust: a[2], aff: a[3], respect: a[4], fear: a[5], rivalry: a[6], grudge: a[7], shared: a[8], favours: a[9], last: a[10] }];
 export interface SaveData {
-  continuum?: import('../physics/ContinuumField').FieldSnapshot;
   citySurvey?:{buildings:MappedBuilding[];districts:DistrictData[]};
   mappedDamage?:import('../sim/MappedFacadeDamage').MappedFacadeRecord[];
   ambientFleetVersion?:number;
@@ -108,7 +108,7 @@ export function serialize(sim: Simulation, label = "Save"): SaveData {
   return {
     citySurvey:sim.world.mapped?{buildings:[...(sim.world.mapped.streamedBuildingIds??[])].map(id=>sim.world.mapped!.byBuilding.get(id)!),districts:sim.world.mapped.streamedData??[]}:undefined,
     mappedDamage:sim.mappedDamage.snapshot(),
-    ambientFleetVersion:3,
+    ambientFleetVersion:4,
     trafficMode:sim.world.mapped?.trafficMode,
     saltStory: { ...sim.saltStory },
     cityPlay:structuredClone(sim.cityPlay),streetLife: structuredClone(sim.streetLife),worldFun:structuredClone(sim.worldFun),
@@ -127,7 +127,6 @@ export function serialize(sim: Simulation, label = "Save"): SaveData {
     routines: [...sim.routines.entries()],
     lamps: sim.world.pois.map((p) => !!p.on),
     civicDamage:structuredClone(sim.world.civicDamage),
-    continuum:sim.world.continuum.snapshot(),
     pendingAmbulance:[...sim.pendingAmbulance],
     vehicles: sim.vehicles.map((v) => structuredClone(v)),
     graffiti: sim.world.graffiti.map((g) => ({ ...g })),
@@ -159,7 +158,7 @@ export function parseSave(json: string): SaveData {
 /** Build a fresh simulation from a save. */
 export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemFlags(),mapped=false): Simulation {
   const migrate=mapped&&!d.cfg.cityMap;
-  const sim = new Simulation({...d.cfg,...(mapped?{cityMap:'christchurch' as const,trafficCars:650,pathsPerTick:2,backgroundCount:(d.ambientFleetVersion??0)<3?Math.min((d.cfg.backgroundCount??150)*3,900):d.cfg.backgroundCount}:{})}, {}, lifeFlags);
+  const sim = new Simulation({...d.cfg,...(mapped?{cityMap:'christchurch' as const,trafficCars:750,pathsPerTick:2,backgroundCount:(d.ambientFleetVersion??0)<3?Math.min((d.cfg.backgroundCount??150)*3,900):d.cfg.backgroundCount}:{})}, {}, lifeFlags);
   if(sim.world.mapped&&d.citySurvey){const survey=d.citySurvey;
     if(Array.isArray(survey.buildings)&&survey.buildings.length<50000&&Array.isArray(survey.districts)&&survey.districts.length<=32){
       for(const b of survey.buildings)if(validDistrict({code:'CHC',cx:0,cy:0,centre:{name:''},buildings:[b],roads:[],venues:[]}))registerCityBuilding(sim.world,b);
@@ -175,9 +174,9 @@ export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemF
   const street=d.streetLife;
   sim.streetLife=street&&Number.isSafeInteger(street.serial)&&Number.isFinite(street.nextAt)&&Array.isArray(street.history)?structuredClone(street):newStreetLife();
   sim.streetLife.history=sim.streetLife.history.filter(e=>Number.isFinite(e.x+e.y)&&Array.isArray(e.actors)&&typeof e.line==='string'&&typeof e.title==='string').slice(-24);
-  sim.expansion = { ...newExpansion(), ...structuredClone(d.expansion ?? {}) };
+  sim.expansion = { ...newExpansion(), ...structuredClone(d.expansion ?? {}), pending:null };
   sim.expansion.casino = { ...newCasino(), ...sim.expansion.casino };
-  sim.life = { ...newLife(), ...structuredClone(d.life ?? {}) };
+  sim.life = { ...newLife(), ...structuredClone(d.life ?? {}),scene:null };
   sim.life.upgrades = { ...newLife().upgrades, ...sim.life.upgrades };
   sim.life.body = { ...newLife().body, ...sim.life.body };
   sim.life.systems = { ...newLife().systems, ...sim.life.systems };
@@ -199,7 +198,7 @@ export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemF
   sim.groups.restore(d.groups);
   sim.routines = new Map(d.routines);
   d.lamps.forEach((on, i) => { if (sim.world.pois[i]) sim.world.pois[i].on = on; });
-  if (d.vehicles) {sim.vehicles = d.vehicles.map((v) => structuredClone(v));if((d.ambientFleetVersion??0)<2)refreshAmbientFleet(sim);}
+  if (d.vehicles) {sim.vehicles = d.vehicles.map((v) => {const copy=structuredClone(v);if(copy.components?.lattice)copy.components.lattice=upgradeLattice(copy.components.lattice);return copy;});if((d.ambientFleetVersion??0)<2)refreshAmbientFleet(sim);}
   else for (const v of sim.vehicles) if (v.driver >= 0 && sim.chars[v.driver]?.inCar !== v.id) { v.driver = -1; v.state = "parked"; v.speed = 0; } // old save: fresh traffic, nobody behind the wheel
   sim.world.graffiti = d.graffiti.map((g) => ({ ...g }));
   sim.tills = { ...d.tills };
@@ -207,7 +206,6 @@ export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemF
   sim.bookings = d.bookings.map((b) => ({ ...b }));
   if (d.litter) restoreLitter(sim.litter, d.litter);
   sim.world.civicDamage=structuredClone(d.civicDamage??{});
-  sim.world.continuum.restore(d.continuum);
   sim.mappedDamage.restore(d.mappedDamage??[]);
   sim.pendingAmbulance=new Map(d.pendingAmbulance??[]);
   if(migrate){migrateMappedPositions(sim);const plates=new Set(sim.vehicles.map(v=>v.plate));for(const fresh of freshFleet){if(sim.vehicles.length>=360)break;if(sim.vehicles.some(v=>Math.hypot(v.x-fresh.x,v.y-fresh.y)<3))continue;const v=structuredClone(fresh);v.id=sim.vehicles.length;v.driver=-1;if(plates.has(v.plate))v.plate='MAP'+(100+v.id);plates.add(v.plate);sim.vehicles.push(v);}}
@@ -216,7 +214,9 @@ export function restore(d: SaveData, lifeFlags: LifeSystemFlags = newLifeSystemF
     const c=structuredClone(fresh),spot=sim.world.nearestFoot(sim.player.x+sim.chars.length%12-6,sim.player.y+8,16);
     c.id=sim.chars.length;c.x=c.px=spot.x;c.y=c.py=spot.y;c.rel=new Map();c.memories=[];c.hand=-1;c.bag=[];c.inCar=-1;sim.chars.push(c);
   }
-  if(sim.world.mapped&&(d.ambientFleetVersion??0)<3)spawnVehicles(sim);
+  if(sim.world.mapped&&(d.ambientFleetVersion??0)<4)spawnVehicles(sim);
+  // Repair idle background pedestrians left in lanes by older patrol initialization.
+  if(sim.world.mapped)for(const c of sim.chars){if(c.tier!=='background'||c.inCar>=0||c.inside>=0||c.phys!==0||Math.hypot(c.vx,c.vy)>.05||!sim.world.carriageway(c.x,c.y))continue;const p=sim.world.nearestFoot(c.x,c.y,20);if(!sim.world.carriageway(p.x,p.y)){c.x=c.px=p.x;c.y=c.py=p.y;c.pathGoalX=p.x;c.pathGoalY=p.y;}}
   sim.rebuildHash();
   sim.lod.update(sim);
   return sim;

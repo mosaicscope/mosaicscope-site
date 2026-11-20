@@ -133,6 +133,7 @@ export function exitBuilding(sim: Simulation, c: Character): void {
   const b = sim.world.buildings[c.inside];
   c.inside = -1; c.insideUntil = 0;
   if (b) { const p = buildingExit(sim.world,b); c.x = c.px = p.x; c.y = c.py = p.y; }
+  c.z=sim.world.groundZ(c.x,c.y);c.vz=c.vx=c.vy=c.kx=c.ky=0;c.path=null;c.pathReq=0;
   c.nextThink = sim.tick + 1;
 }
 

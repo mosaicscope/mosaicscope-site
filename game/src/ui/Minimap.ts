@@ -1,3 +1,4 @@
+import {missionTarget} from '../sim/CityMissions';
 import { hasUpgrade } from "../content/upgrades";
 import type { Simulation } from "../sim/Simulation";
 import { T } from "../world/World";
@@ -35,7 +36,7 @@ export class Minimap {
   target: { x: number; y: number } | null = null;
   /** story contacts with a job for you (purple blips) */
   contacts: { x: number; y: number }[] = [];
-  constructor(private sim: () => Simulation) {
+  constructor(private sim: () => Simulation,private findAddress?:()=>void) {
     this.el = h("canvas.minimap", { width: 168, height: 168, "aria-label": "Minimap" }) as HTMLCanvasElement;
     this.el.addEventListener("click", () => this.toggle());
     this.big = h("div.bigmap.hidden", { role: "dialog", "aria-label": "Map of central Christchurch" });
@@ -79,6 +80,7 @@ export class Minimap {
     if (p.wanted > 0) for (const c of sim.chars) if (c.role === "cop" && c.inside < 0) dot(c.x, c.y, 1.1, Math.floor(now / 250) % 2 ? "#ec2a1c" : "#3d7bff");
     for (const v of sim.vehicles) if (v.owner === p.id) dot(v.x, v.y, 1.3, "#c6ff3d");
     for (const marker of sim.life.markers) dot(marker.x, marker.y, 1.8, "#86e8bb");
+    const mission=missionTarget(sim);if(mission)dot(mission.x,mission.y,3,"#f6b62c");
     if (hasUpgrade(sim.life.upgrades, "nova")) for (const id of sim.life.upgrades.crew) { const c = sim.chars[id]; if (c) dot(c.x, c.y, 1.8, "#bca5ff"); }
     for (const c of this.contacts) dot(c.x, c.y, 2.2, "#b48cff");
     if (this.target) { dot(this.target.x, this.target.y, 2.6, Math.floor(now / 300) % 2 ? "#f6b62c" : "#fff0c0"); }
@@ -113,6 +115,7 @@ export class Minimap {
     if (!cv) {
       cv = h("canvas", { width: 900, height: 900 }) as HTMLCanvasElement;
       this.big.append(h("div.bigmap-head", null, [h("b", { text: "Central Christchurch" }),
+        h("button.btn",{text:"Address / teleport",onclick:()=>this.findAddress?.()}),
         h("button.btn", { text: "Pin my location", onclick: () => { if (sim.life.markers.filter(m => m.icon === "●").length >= 20) return; sim.life.markers.push({ x: p.x, y: p.y, name: sim.world.streetName(p.x, p.y) || "My pin", icon: "●" }); this.drawBig(); } }),
         h("button.btn", { text: "Clear my pins", onclick: () => { sim.life.markers = sim.life.markers.filter(m => m.icon !== "●"); this.drawBig(); } }), h("button.x", { "aria-label": "Close map", onclick: () => this.toggle(false), text: "×" })]), cv, h("p.bigmap-foot"));
     }
@@ -123,7 +126,7 @@ export class Minimap {
       const radius=300,scale=W/(radius*2),P=(x:number,y:number):[number,number]=>[(x-p.x+radius)*scale,(y-p.y+radius)*scale];
       this.drawSurvey(g,P,p.x-radius,p.y-radius,p.x+radius,p.y+radius,scale);
       g.fillStyle='#ec5148';g.beginPath();g.arc(W/2,W/2,7,0,Math.PI*2);g.fill();
-      g.font='12px system-ui';for(const pin of sim.life.markers){const q=P(pin.x,pin.y);g.fillStyle='#86e8bb';g.beginPath();g.arc(...q,4,0,Math.PI*2);g.fill();g.fillText(pin.name,q[0],q[1]-8);}
+      g.font='12px system-ui';for(const pin of [...sim.life.markers,...(missionTarget(sim)?[missionTarget(sim)!]:[])]){const q=P(pin.x,pin.y);g.fillStyle='#86e8bb';g.beginPath();g.arc(...q,4,0,Math.PI*2);g.fill();g.fillText(pin.name,q[0],q[1]-8);}
       foot.textContent='Christchurch · map follows you · 1.2 km across · © OpenStreetMap contributors, ODbL 1.0 · new districts load as you explore.';
     }else if (this.osm) {
       // project the real lat/lon box of the Four Avenues onto the canvas
@@ -140,7 +143,7 @@ export class Minimap {
       const me = toLatLon(p.x, p.y), q = P(me.lat, me.lon);
       g.fillStyle = "#ec2a1c"; g.beginPath(); g.arc(q[0], q[1], 8, 0, 6.283); g.fill();
       g.strokeStyle = "#eee4d3"; g.lineWidth = 2; g.stroke();
-      for (const marker of sim.life.markers) {
+      for (const marker of [...sim.life.markers,...(missionTarget(sim)?[missionTarget(sim)!]:[])]) {
         const location = toLatLon(marker.x, marker.y), xy = P(location.lat, location.lon);
         g.fillStyle = "#86e8bb"; g.beginPath(); g.arc(xy[0], xy[1], 5, 0, Math.PI * 2); g.fill(); g.font = "11px monospace"; g.fillText(marker.name, xy[0], xy[1] - 10);
       }

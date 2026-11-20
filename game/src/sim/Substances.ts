@@ -11,6 +11,7 @@ export interface SubstanceState {
   updatedAt: number;
   crashUntil: number;
   crisis: boolean;
+  vomitAt?: number;
 }
 export const emptyLevels = () => ({ alcohol: 0, stimulant: 0, cannabis: 0, sedative: 0 });
 export function restoreSubstances(value: unknown, tick: number): SubstanceState | undefined {
@@ -18,7 +19,7 @@ export function restoreSubstances(value: unknown, tick: number): SubstanceState 
   const raw=value as SubstanceState,levels=emptyLevels();
   for(const kind of Object.keys(levels) as SubstanceKind[]){const n=raw.levels?.[kind];levels[kind]=typeof n==='number'&&Number.isFinite(n)?Math.max(0,Math.min(3,n)):0;}
   const at=(n:unknown)=>typeof n==='number'&&Number.isFinite(n)?Math.max(0,Math.min(tick+60*600,n)):tick;
-  return {levels,last:Object.prototype.hasOwnProperty.call(levels,raw.last)?raw.last:'alcohol',usedAt:Math.min(tick,at(raw.usedAt)),updatedAt:tick,actionUntil:at(raw.actionUntil),crashUntil:at(raw.crashUntil),crisis:raw.crisis===true};
+  return {levels,last:Object.prototype.hasOwnProperty.call(levels,raw.last)?raw.last:'alcohol',usedAt:Math.min(tick,at(raw.usedAt)),updatedAt:tick,actionUntil:at(raw.actionUntil),crashUntil:at(raw.crashUntil),crisis:raw.crisis===true,vomitAt:at(raw.vomitAt)};
 }
 export function impairment(c: Character): number {
   const l = c.substances?.levels; return l ? Math.min(.88, l.alcohol*.32+l.sedative*.4+l.cannabis*.18+l.stimulant*.07) : 0;
@@ -51,6 +52,7 @@ export function updateSubstances(sim: Simulation): void {
     const elapsed=Math.max(0,Math.min(30,(sim.tick-s.updatedAt)/60));s.updatedAt=sim.tick;
     for(const kind of Object.keys(s.levels) as SubstanceKind[])s.levels[kind]=Math.max(0,s.levels[kind]-elapsed*(kind==='stimulant'?.004:.003));
     const level=impairment(c);
+    if(s.levels.alcohol>1&&c.inCar<0&&c.inside<0&&c.phys===Phys.OK&&sim.tick>=(s.vomitAt??0)){s.vomitAt=sim.tick+60*(45+c.id%30);c.anim.pose='stumble';c.anim.poseT=0;sim.liquids.spray('vomit',c.x,c.y,1,Math.cos(c.facing)*1.5,Math.sin(c.facing)*1.5,10);}
     if(level>.1){c.needs.energy=Math.max(.04,c.needs.energy-elapsed*.0008);c.emo.composure=Math.max(.25,c.emo.composure-elapsed*.0004);}
     else if(sim.tick<s.crashUntil)c.needs.energy=Math.max(.04,c.needs.energy-elapsed*.0005);
     if(s.levels.stimulant>1){c.emo.frustration=Math.min(.75,c.emo.frustration+elapsed*.001);c.emo.fear=Math.min(.65,c.emo.fear+elapsed*.0007);}

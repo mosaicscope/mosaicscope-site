@@ -1,3 +1,4 @@
+import {CITY_RESIDENTS} from '../content/cityLife';
 import type { Simulation } from "../sim/Simulation";
 import type { PlayerReply } from "../dialogue/DialogueEngine";
 import { getLlm, llmPoolSize } from "../ai/llm";
@@ -14,6 +15,7 @@ const CHAT_TIMEOUT_MS = 15000;
 export class DialogueUI {
   el: HTMLElement;
   npc = -1;
+  onCityLife:(npcId:number)=>void=()=>{};
   onStory: (npcId: number) => void = () => {};
   onTrade: (npcId: number) => void = () => {};
   /** the typed back-and-forth with the current person (both sides), for the model and the on-screen log */
@@ -73,6 +75,7 @@ export class DialogueUI {
       h("button.x", { "aria-label": "End conversation", onclick: () => this.close(), text: "×" }),
       h("div.who", { text: r.speaker }), h("p.line", { text: `“${r.text}”` }),
     ];
+    if(CITY_RESIDENTS.some(d=>d.name===this.sim().chars[id0]?.name))parts.push(h("button.btn",{text:CITY_RESIDENTS.some(d=>d.name===this.sim().chars[id0]?.name&&"companion"in d)?"Adult companionship · fictional character":"Daily life · local activities",onclick:()=>{this.close();this.onCityLife(id0);}}));
     if (r.img) parts.push(h("div.post", null, [h("img", { src: r.img, alt: "Instagram post" }), h("span", { text: "From @mosaicscope" })]));
     if (r.links?.length) parts.push(h("div.links", null, r.links.map((l) => h("a.btn" + (l.label.startsWith("Book") ? ".red" : ""), { href: l.href, target: l.href.startsWith("/") ? "_top" : "_blank", rel: "noopener", text: l.label }))));
     parts.push(r.options.length ? h("div.opts", null, opts) : h("button.btn", { onclick: () => this.close(), text: "Close" }));

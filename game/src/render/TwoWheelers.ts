@@ -58,8 +58,8 @@ export function drawTwoWheeler(g:CanvasRenderingContext2D,cam:Camera,v:Vehicle,a
   // Swingarm, paired suspension, radiator and finned engine live between two independent wheels.
   for(const side of[-1,1]){tube([[rear,side*.06,radius],[.02,side*.065,.32],[-.16,side*.075,.46]],'#6f7f74',2);tube([[rear,side*.075,radius],[-.19,side*.075,.44]],cruiser?'#bfc5b2':'#979f8b',1.6);tube([[front,side*.045,radius],[bar[0]+.015,side*.045,bar[2]-.05]],'#bac3af',2.4);}
   tube([[rear,0,radius],seat,[.2,0,.44],[front,0,radius]],'#34453b',3);
-  box(-.19,.13,.12,.22,.4,'#52615a');for(let i=0;i<7;i++)line([[-.18,.125,.24+i*.023],[.1,.125,.24+i*.023]],'#b0b8a6',.7);
-  box(.12,.18,.105,.25,.43,'#374942');for(let i=0;i<5;i++)line([[.182,-.09+i*.045,.27],[.182,-.09+i*.045,.4]],'#8e9e8c',.6);
+  const motorHurt=v.components?.parts?.engine_block??0;box(-.19,.13,.12,.22,.4,motorHurt>.6?'#66594d':'#52615a');for(let i=0;i<7;i++)line([[-.18,.125,.24+i*.023],[.1,.125,.24+i*.023]],motorHurt>.6?'#a18a72':'#b0b8a6',.7);
+  if(!v.components?.engineMounts?.radiator_core?.detached){const loose=(v.components?.engineMounts?.radiator_core?.angle??0)*.025;box(.12+loose,.18+loose,.105,.25,.43,(v.components?.parts?.radiator_core??0)>.6?'#6b5a4e':'#374942');for(let i=0;i<5;i++)line([[.182+loose,-.09+i*.045,.27],[.182+loose,-.09+i*.045,.4]],'#8e9e8c',.6);}
   const tankLo:Point[]=[[-.17,-.11,.43],[.16,-.105,.43],[.27,0,.45],[.16,.105,.43],[-.17,.11,.43]],tankHi:Point[]=[[-.13,-.08,.55],[.12,-.065,.57],[.21,0,.54],[.12,.065,.57],[-.13,.08,.55]];
   for(let i=0;i<5;i++)face([tankLo[i],tankLo[(i+1)%5],tankHi[(i+1)%5],tankHi[i]],v.color,'#1f312b');face(tankHi,v.color,'#b6bea066');
   const cap=P([.015,0,.575]);g.fillStyle='#b8c1ad';g.beginPath();g.ellipse(cap[0],cap[1],2*z,z,0,0,6.3);g.fill();

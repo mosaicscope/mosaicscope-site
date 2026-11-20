@@ -1,3 +1,4 @@
+import {drawWoundEffects} from './WoundEffects';
 import type {Character,Wound,Vehicle} from "../entities/types";
 import {bodyDamageModel,faceDamageModel,CAR_DAMAGE_MODELS,carZoneDamage} from "../content/damageModels";
 let bloodEnabled=false;
@@ -8,6 +9,7 @@ function mark(g:CanvasRenderingContext2D,w:Wound,x:number,y:number,k:number,patt
  g.save();g.translate(x,y);g.rotate(((seed%7)-3)*.12);g.lineCap='round';
  const size=(w.part==='head'?3+w.severity*.8:1.8+w.severity*.7)*k;
  if(w.bandaged){g.fillStyle='#e9dfc8';g.strokeStyle='#a79f8d';g.lineWidth=.7*k;g.fillRect(-size*1.5,-size*.7,size*3,size*1.4);g.strokeRect(-size*1.5,-size*.7,size*3,size*1.4);g.strokeStyle='#a6a191';for(let i=-1;i<=1;i++){g.beginPath();g.moveTo(i*size,-size*.5);g.lineTo(i*size,size*.5);g.stroke();}g.restore();return;}
+ if(w.ballistics?.length){for(let i=0;i<w.ballistics.length;i++){const hole=w.ballistics[i],hx=((i%3)-1)*size*.6,hy=(Math.floor(i/3)-1)*k;g.fillStyle=bloodEnabled?'#b85b61':'#887d77';g.beginPath();g.ellipse(hx,hy,1.5*k,1.2*k,0,0,7);g.fill();g.fillStyle='#32252a';g.beginPath();g.arc(hx,hy,Math.max(.55,k*.8),0,7);g.fill();if(bloodEnabled){g.strokeStyle='#8f202d';g.lineWidth=k;g.beginPath();g.moveTo(hx,hy);g.quadraticCurveTo(hx+k,hy+size,hx-k,hy+size*1.8);g.stroke();if(hole.exit){g.beginPath();g.arc(hx+Math.cos(hole.angle)*size,hy+Math.sin(hole.angle)*size,1.2*k,0,7);g.fill();}}}g.restore();return;}
  if(pattern===0||pattern===4||pattern===3&&w.part==='head'){g.fillStyle=pattern===4?'#c88f85':'#73516e';g.globalAlpha=.6;g.beginPath();g.ellipse(0,0,size*1.45,size*.8,0,0,Math.PI*2);g.fill();g.globalAlpha=.35;g.fillStyle='#c37083';g.beginPath();g.ellipse(size*.3,-size*.2,size,size*.6,0,0,Math.PI*2);g.fill();}
  else if(pattern===3){g.fillStyle='#3e3636';g.beginPath();g.moveTo(-size*1.5,-size);g.lineTo(size*.2,-size*.3);g.lineTo(size*1.4,-size*.8);g.lineTo(size*.5,size);g.lineTo(-size*.7,size*.4);g.fill();g.strokeStyle='#d2c5a8';g.lineWidth=.8*k;for(let i=0;i<3;i++){g.beginPath();g.moveTo((i-1)*size*.6,-size*.6);g.lineTo((i-1)*size*.6-size*.4,-size*1.2);g.stroke();}}
  else {g.strokeStyle=bloodEnabled?'#a62e3a':'#937a76';g.lineWidth=Math.max(.8,1.1*k);for(let i=0;i<(pattern===1?4:1);i++){g.beginPath();g.moveTo(-size,(i-1)*k);g.lineTo(size*.2,(i-.4)*k);g.lineTo(size,(i-1.5)*k);g.stroke();}}
@@ -39,7 +41,9 @@ export function drawDetachedLimb(g:CanvasRenderingContext2D,c:Character,w:Wound,
  bone(g,0,0,k,!bloodEnabled||w.bandaged);g.restore();
 }
 export function drawFaceDamage(g:CanvasRenderingContext2D,c:Character,x:number,y:number,rx:number,ry:number,k:number):void{
+ if(c.blood<.6){g.save();g.globalAlpha=Math.min(.5,(.6-c.blood)*1.2);g.fillStyle='#e4dfc2';g.beginPath();g.ellipse(x,y,rx,ry,0,0,7);g.fill();g.restore();}
  for(const w of c.wounds??[]){if(w.part!=='head')continue;
+  drawWoundEffects(g,w,c,x,y,k*.7,bloodEnabled);
   for(const art of w.bandaged?[w.art]:w.marks?.length?w.marks:[w.art]){const m=faceDamageModel({...w,art}),p=[[-.45,-.08],[.45,-.08],[.5,.46],[0,.25],[-.25,-.52]][m.zone];mark(g,w,x+p[0]*rx,y+p[1]*ry,k,m.pattern,w.tick);
    if(!w.bandaged&&(m.zone===0||m.zone===1)){g.save();g.strokeStyle='#413039';g.lineWidth=(1+w.severity*.35)*k;g.lineCap='round';g.beginPath();g.moveTo(x+p[0]*rx-3*k,y+p[1]*ry);g.quadraticCurveTo(x+p[0]*rx,y+p[1]*ry+2*k,x+p[0]*rx+3*k,y+p[1]*ry);g.stroke();g.restore();}
   }
@@ -53,9 +57,9 @@ export function drawBodyDamage(g:CanvasRenderingContext2D,c:Character,J:Float32A
    const a=w.part==='leg'?((w.art??0)%2?16:20):((w.art??0)%2?8:12),b=a+2,x=(J[a]+J[b])*.5,y=(J[a+1]+J[b+1])*.5;
    g.save();g.translate(x,y);g.rotate(Math.atan2(J[b+1]-J[a+1],J[b]-J[a])-Math.PI/2);g.fillStyle='#ded6bf';g.strokeStyle='#8c8878';g.lineWidth=.45*k;g.beginPath();g.roundRect(-1.8*k,-3*k,3.6*k,6*k,.7*k);g.fill();g.stroke();for(const yy of[-1.5,0,1.5]){g.beginPath();g.moveTo(-1.7*k,yy*k);g.lineTo(1.7*k,(yy+.4)*k);g.stroke();}g.restore();continue;
   }
-  mark(g,w,p[0],p[1],k,m.pattern,w.tick);
+  mark(g,w,p[0],p[1],k,m.pattern,w.tick);drawWoundEffects(g,w,c,p[0],p[1],k,bloodEnabled);
   if(w.compound&&!w.bandaged&&bloodEnabled)bone(g,p[0],p[1],k);
-  if(w.part==='torso'&&w.kind==='stab'&&w.severity===3&&!w.bandaged&&bloodEnabled){g.save();g.translate(p[0],p[1]);g.fillStyle='#532b32';g.beginPath();g.ellipse(0,0,4*k,6*k,.2,0,7);g.fill();g.strokeStyle='#bf747a';g.lineWidth=1.4*k;g.lineCap='round';for(let i=0;i<3;i++){g.beginPath();g.moveTo(-2*k,(i*3-3)*k);g.bezierCurveTo(5*k,(i*3-6)*k,-5*k,(i*3+2)*k,3*k,(i*3)*k);g.stroke();}g.restore();}
+  if(w.part==='torso'&&!w.tissue&&w.kind==='stab'&&w.severity===3&&!w.bandaged&&bloodEnabled){g.save();g.translate(p[0],p[1]);g.fillStyle='#532b32';g.beginPath();g.ellipse(0,0,4*k,6*k,.2,0,7);g.fill();g.strokeStyle='#bf747a';g.lineWidth=1.4*k;g.lineCap='round';for(let i=0;i<3;i++){g.beginPath();g.moveTo(-2*k,(i*3-3)*k);g.bezierCurveTo(5*k,(i*3-6)*k,-5*k,(i*3+2)*k,3*k,(i*3)*k);g.stroke();}g.restore();}
  }
 }
 type Point=number[];

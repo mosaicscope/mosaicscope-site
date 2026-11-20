@@ -1,8 +1,11 @@
+import {moveTo} from '../src/ai/steps';
 import {beforeAll,describe,it,expect} from 'vitest';
 import {Simulation} from '../src/sim/Simulation';
 import {bakeCityDistrict,validDistrict} from '../src/world/CitySurvey';
 import {mappedPoint} from '../src/world/MappedWorld';
 import {CityTiles} from '../src/world/CityTiles';
+import {worldIndex} from '../src/world/WorldIndex';
+import {cityDistrictQueue} from '../src/world/CityStreamer';
 import {SpatialHash} from '../src/world/SpatialHash';
 import {Navigation} from '../src/world/Navigation';
 import {Camera} from '../src/render/Camera';
@@ -32,6 +35,10 @@ describe('continuous surveyed city',()=>{
   const p=sim.player;p.x=p.px=-230;p.y=p.py=sim.world.size+120;sim.focus={x:p.x,y:p.y};sim.step();expect(p.x).toBeLessThan(0);expect(p.y).toBeGreaterThan(sim.world.size);
   const hash=new SpatialHash(20,20,2,8,true),out:number[]=[];hash.insert(1,-200,500);hash.insert(2,900,500);expect(hash.query(-200,500,3,out)).toBe(1);expect(out[0]).toBe(1);
  });
+ it('continues walking after reaching an intermediate streamed-city path leg',()=>{
+  const p=sim.player;p.x=p.px=-300;p.y=p.py=-300;p.path=new Float32Array([-300,-300]);p.pathReq=0;p.repathAt=sim.tick+10000;
+  expect(moveTo(p,-100,-300,sim)).toBe(false);expect(p.pathReq).toBeGreaterThan(0);
+ });
  it('restores the surveyed continuation and player position from saves',()=>{
   const saved=serialize(sim),loaded=restore(saved);expect(loaded.player.x).toBe(sim.player.x);expect(loaded.player.y).toBe(sim.player.y);
   const p=mappedPoint(loaded.world.mapped!,-1600,-20);expect(loaded.world.buildingAt(p.x,p.y)?.name).toBe('Survey workshop');expect(loaded.world.mapped!.buildingIds.get(999999991)).toBe(sim.world.mapped!.buildingIds.get(999999991));
@@ -40,6 +47,9 @@ describe('continuous surveyed city',()=>{
   const tiles=new CityTiles(()=>{});tiles.set(-1,-1,T.ROAD,42);tiles.set(31,31,T.WATER);expect(tiles.tile(-1,-1)).toBe(T.ROAD);expect(tiles.building(-1,-1)).toBe(42);
   for(let x=0;x<1000;x++)tiles.set(x*32,0,T.PATH);tiles.trim(0,0,40);expect(tiles.count).toBe(40);expect(tiles.tile(0,0)).toBe(T.PATH);
  });
+ it('prioritizes nearby districts and requests coverage out to a kilometre in perspective',()=>{const near=cityDistrictQueue(0,0,false),far=cityDistrictQueue(0,0,true);expect(near).toHaveLength(9);expect(far.length).toBeGreaterThan(near.length);expect(far[0]).toMatchObject({x:0,y:0});expect(far.some(d=>d.x===3&&d.y===0)).toBe(true);expect(far.some(d=>d.x===3&&d.y===3)).toBe(false);});
+ it('indexes streamed buildings and road widths for rendering and collisions',()=>{const w=sim.world,m=w.mapped!,index=worldIndex(w),building=mappedPoint(m,-1600,-20);expect([...index.buildings.query(building.x,building.y,building.x,building.y)].some(id=>w.buildings[id]?.name==='Survey workshop')).toBe(true);const i=m.streetSegments.findIndex(r=>r.id===999999992),road=m.streetSegments[i],x=road.x+road.dx*road.length/2-road.dy*road.half*.95,y=road.y+road.dy*road.length/2+road.dx*road.half*.95;expect(index.roads.query(x,y,x,y).has(i)).toBe(true);});
+ it('omits the non-working mapped kiosk while keeping other food trucks usable',()=>{const kiosks=sim.world.pois.filter(p=>p.name==='Zoo Kiosk');expect(kiosks).toHaveLength(0);for(const truck of sim.world.pois.filter(p=>p.kind==='foodtruck'))expect(truck.menu?.length).toBeGreaterThan(0);});
  it('rejects malformed district geometry before allocating raster/index data',()=>{
   expect(validDistrict(district)).toBe(true);expect(validDistrict({...district,buildings:[{...district.buildings[0],height:Infinity}]})).toBe(false);expect(validDistrict({...district,roads:[{...district.roads[0],points:[[NaN,0],[1,2]]}]})).toBe(false);
  });

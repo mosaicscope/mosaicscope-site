@@ -129,11 +129,11 @@ describe("crash energy and feedback",()=>{
     expect(chassisContact(v,b)?.y).toBeCloseTo(v.y,6);b.y+=g.width*.7;
     expect(chassisContact(v,b)!.y).toBeGreaterThan(v.y+g.width*.2);
   });
-  it("transfers momentum and damages a parked target without releasing its brake",()=>{
+  it("transfers momentum and damages a parked target instead of treating it as an immovable wall",()=>{
     const {sim,v}=rig("muscle"),b=makeVehicle(sim,"sedan",32,42,0,"parked");velocity(v,14);
     for(let i=0;i<12;i++){sim.tick++;updateVehicles(sim,1/60);}
     expect(v.damage).toBeGreaterThan(0);expect(b.components!.panels.some(n=>n>0)).toBe(true);
-    expect(b.state).toBe("parked");expect(b.x).toBe(32);expect(Math.abs(v.vx!)).toBeLessThan(14);
+    expect(b.state).toBe("crashed");expect(b.x).toBeGreaterThan(32.1);expect(Math.abs(v.vx!)).toBeLessThan(14);
   });
   it("makes a glancing side hit spin and keeps velocities finite",()=>{
     const {sim,v}=rig("muscle"),b=makeVehicle(sim,"hatch",32,42.5,1,"free");velocity(v,12);

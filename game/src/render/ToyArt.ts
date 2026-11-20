@@ -4,6 +4,9 @@ export function drawToy(g: CanvasRenderingContext2D, def: string, x: number, y: 
   g.globalAlpha = alpha;
   g.lineCap = "round"; g.lineJoin = "round";
   const u = k * 10; // ~ one "toy unit"
+  // Fleet weapons use the existing hand-mounted gun and mace artwork.
+  if (def.startsWith('machine_cannon_')) def = 'rifle';
+  else if (def.startsWith('machine_mace_')) def = 'mace';
   switch (def) {
     case "ball": {
       g.fillStyle = color; g.beginPath(); g.arc(x, y, 0.55 * u, 0, 6.283); g.fill();
@@ -145,6 +148,9 @@ function drawGun(g: CanvasRenderingContext2D, def: string, x: number, y: number,
     if (stroke) { g.strokeStyle = stroke; g.lineWidth = lw * u; g.stroke(); }
   };
   const guard = (cx: number, cy: number, r: number, col: string) => { g.strokeStyle = col; g.lineWidth = 0.07 * u; g.beginPath(); g.arc(X(cx), Y(cy), r * u, 0, Math.PI); g.stroke(); };
+  // Fleet weapons use the existing hand-mounted gun and mace artwork.
+  if (def.startsWith('machine_cannon_')) def = 'rifle';
+  else if (def.startsWith('machine_mace_')) def = 'mace';
   switch (def) {
     case "pistol": case "golden_pistol": {
       const gold = def === "golden_pistol";

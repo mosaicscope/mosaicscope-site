@@ -1,3 +1,13 @@
+import {updateNearbyQuips,interruptNearbyQuip} from './NearbyQuips';
+import {updateFireResponse} from './FireResponse';
+import {waterDepth,waterCurrent} from './WaterPhysics';
+import {LiquidSystem} from './Liquid';
+import {updateBusWaiting} from './BusService';
+import {stepImpactRagdoll,clearImpactRagdoll} from '../physics/ImpactRagdoll';
+import {vehicleIndex} from './VehicleIndex';
+import {injuryResponse} from './InjuryResponse';
+import {transferBlood} from './VehicleBlood';
+import {updateCityLife} from './CityLife';
 import {updateWorkshopMotion} from './VehicleWorkshop';
 import {updateCityRoutine} from './CityRoutine';
 import {updateStreetProps} from './StreetProps';
@@ -17,7 +27,7 @@ import { unarmedMove } from "../content/combat";
 import { hasUpgrade } from "../content/upgrades";
 import { hasBody } from "./life/body";
 import { newLife, tickLife } from "./Chronicles";
-import { newExpansion, wageBoost, farmDay, encounterAt } from "./Expansion";
+import { newExpansion, wageBoost, farmDay } from "./Expansion";
 import { DEFAULT_CONFIG, DEFAULT_FLAGS, FeatureFlags, SimConfig } from "../core/config";
 import { Rng } from "../core/rng";
 import { EventBus } from "../core/eventBus";
@@ -43,6 +53,7 @@ import { LodManager } from "../crowd/LodManager";
 import { EnvState, newEnv, updateEnvironment, TICKS_PER_HOUR, daylight } from "./Environment";
 import { spawnAll, streetSpot, spawnBackground } from "./Spawner";
 import { installRules } from "./Rules";
+import { registerTurfEvents } from "./Turf";
 import { pickUp, drop, transfer, craftable, detach, PickupResult, carried } from "../inventory/Inventory";
 import { Vehicle } from "../entities/types";
 import { spawnVehicles, updateVehicles, unseat, laneCoord, clearLaneState, walkSignal, carVel, bump } from "./Traffic";
@@ -79,6 +90,8 @@ export interface Metrics {
  * to a spot (goto, wander, dance, pose, watch...) are not here: their spot is moved to the kerb instead, because
  * nudging them while the step walks them back makes them flip back and forth on the spot.
  */
+const crossingCache=new WeakMap<World,{revision:number;tiles:Map<string,boolean>}>();
+function nearCrossing(w:World,x:number,y:number):boolean{const revision=w.mapped?.revision??0;let entry=crossingCache.get(w);if(!entry||entry.revision!==revision){entry={revision,tiles:new Map()};crossingCache.set(w,entry);}const key=x+','+y,known=entry.tiles.get(key);if(known!==undefined)return known;let found=false;for(let yy=y-8;yy<=y+8&&!found;yy++)for(let xx=x-8;xx<=x+8;xx++)if(w.tile(xx,yy)===18){found=true;break;}if(entry.tiles.size>4096)entry.tiles.clear();entry.tiles.set(key,found);return found;}
 const ROAD_LOITER = new Set(["wait", "talk", "sit", "music", "craft", "eat", "book", "trade", "buy", "flirt", "kiss", "date"]);
 
 export class Simulation {
@@ -88,6 +101,7 @@ export class Simulation {
   readonly step_dt = 1 / 60;
   /** Nearby full AI/avoidance slots; background residents retain their identity at cheaper LOD. */
   detailBudget=24;
+  trafficRadius=80;
   rng: Rng;
   world!: World;
   mappedDamage=new MappedFacadeDamage();
@@ -97,6 +111,7 @@ export class Simulation {
   groups = new GroupSystem();
   dialogue: DialogueEngine;
   lod = new LodManager();
+  liquids = new LiquidSystem();
   bus = new EventBus<SimSignals>();
   chars: Character[] = [];
   toys: Toy[] = [];
@@ -122,7 +137,6 @@ export class Simulation {
   commerce = newCommerce();
   saltStory:import('../content/salt-story/progress').SaltProgress = { position: 0, furthest: 0 };
   life = newLife();
-  private exploredFrom: { x: number; y: number } | null = null;
   tick = 0;
   env: EnvState = newEnv();
   focus = { x: 32, y: 32 };
@@ -150,6 +164,8 @@ export class Simulation {
     this.rng = new Rng(this.cfg.seed);
     this.events = new WorldEventSystem(this.cfg.eventsPerTick, this.cfg.eventQueueCap, this.cfg.maxCausalDepth);
     for (const d of EVENT_DEFS) this.events.register(d);
+    // Vehicle spawning can emit substance events before the rule handlers are installed.
+    registerTurfEvents(this);
     this.dialogue = new DialogueEngine(this);
     this.build();
     installRules(this);
@@ -194,7 +210,9 @@ export class Simulation {
   step(): void {
     const t0 = performance.now();
     const dt = this.step_dt;
-    this.tick++;updateWorldFun(this);
+    this.tick++;this.liquids.step(this.step_dt,this.world,waterCurrent(this,this.focus.x,this.focus.y));
+    if(this.env.rain>.15&&this.tick%30===0){const x=this.focus.x+Math.sin(this.tick*.093)*4,y=this.focus.y+Math.cos(this.tick*.071)*4;if(waterDepth(this.world,x,y)>0)this.liquids.disturb(x,y,.5,0,0,false);}
+    updateWorldFun(this);
     const horseRace=this.expansion.casino.race?.physics;if(horseRace&&!horseRace.finished)advanceHorseRace(horseRace,this.tick);
     if (hasUpgrade(this.life.upgrades, "bando")) {
       const u = this.life.upgrades, p = this.player, home = this.world.buildings[p.home];
@@ -219,9 +237,6 @@ export class Simulation {
         }
       }
       const p = this.player;
-      const from = this.exploredFrom;
-      this.exploredFrom = { x: p.x, y: p.y };
-      if (from && p.inCar < 0 && p.inside < 0) encounterAt(this.expansion, this.tick, Math.min(8, Math.hypot(p.x - from.x, p.y - from.y)), this.rng.next());
       const settlement = farmDay(this.expansion, this.tick, this.env.raining);
       if (settlement) { p.cash = Math.max(0, p.cash + settlement.net); this.toasts.push({ text: `Farm day: sales $${settlement.gross}, costs $${settlement.costs}, net $${settlement.net}`, tick: this.tick, kind: "" }); }
     }
@@ -234,6 +249,7 @@ export class Simulation {
     let aiMs = 0;
     const tm = performance.now();
     for (const c of this.chars) {
+      if(c.anim.flash>0)c.anim.flash=Math.max(0,c.anim.flash-dt);
       if(this.world.mapped&&c.lod===Lod.SLEEP&&this.tick<c.nextThink&&this.tick%LOD_INTERVAL[c.lod]!==c.id%LOD_INTERVAL[c.lod])continue;
       advanceDetachedLimbs(this,c,dt);
       if (c.inCar >= 0) continue; // the car carries them (updated in Traffic)
@@ -278,17 +294,24 @@ export class Simulation {
 
     updateSubstances(this);
     const tv=performance.now();updateVehicles(this, dt);this.metrics.vehicleMs=performance.now()-tv;const tc=performance.now();
-    if(this.world.mapped)this.mappedDamage.update(this.tick/60);
+    if(this.world.mapped)this.mappedDamage.update(this.tick/60,this.vehicles);
     updateRockets(this);
-    updateCivicDamage(this);updateStreetProps(this,dt);updateCityDrama(this);updateCityRoutine(this);updateWorkshopMotion(this);
+    updateCivicDamage(this);updateStreetProps(this,dt);updateBusWaiting(this);updateCityDrama(this);updateCityRoutine(this);updateWorkshopMotion(this);updateCityLife(this);
     this.metrics.cityMs=performance.now()-tc;
     const tp = performance.now();
     this.physics.step(dt, this.toys, this.chars, this.charHash, this.tick, this.hooks);
+    // Update active ragdolls on the simulation clock, independent of camera and motion settings.
+    const nearbyRagdollVehicles:Vehicle[]=[];
+    for(const c of this.chars){
+      if(c.phys===Phys.DOWN&&c.inCar<0&&c.inside<0&&c.lod!==Lod.SLEEP)stepImpactRagdoll(c,this.world,dt,vehicleIndex(this).query(c.x,c.y,3,nearbyRagdollVehicles));
+      else clearImpactRagdoll(c);
+    }
     for (const t of this.toys) if (t.state === "held") this.attachHeld(t);
     this.metrics.physicsMs = performance.now() - tp;
 
     this.nav.process(this.cfg.pathsPerTick);
     this.dialogue.update();
+    updateNearbyQuips(this);
     const te = performance.now();
     this.events.process(this.tick);
     this.metrics.eventsMs = performance.now() - te;
@@ -297,6 +320,7 @@ export class Simulation {
     if (this.tick % 120 === 0) { this.groups.update(this.chars, this.tick); updateLitter(this); }
     if (this.tick % 30 === 0) this.policeTick();
     if(this.tick%60===0)updateMedicalResponses(this);
+    if(this.tick%15===0)updateFireResponse(this);
     if (this.tick % 60 === 0) this.housekeeping();
     // nothing (car exits, knockbacks, doors on the edge) may leave anyone outside the map
     const lim = this.world.size - 0.3;
@@ -315,7 +339,7 @@ export class Simulation {
     if (c.phys === Phys.STUMBLE) { vx *= 0.2; vy *= 0.2; }
     // a hurt body moves like one: a bad leg limps and slows, a hurt torso hunches and slows, a knock to the head weaves
     if (c.wounds.length && (vx !== 0 || vy !== 0)) {
-      const h = hurtOf(c), slow = Math.max(0.4, 1 - h.leg * 0.14 - h.torso * 0.06);
+      const h = hurtOf(c), slow = injuryResponse(c).pace;
       vx *= slow; vy *= slow;
       if (h.head >= 2) { const w = Math.sin(this.tick * 0.06 + c.id) * 0.35 * Math.min(1, h.head / 4), sp = Math.hypot(vx, vy) || 1; const ox = -vy / sp, oy = vx / sp; vx += ox * w * sp; vy += oy * w * sp; }
     }
@@ -358,9 +382,10 @@ export class Simulation {
     // nobody stands about in the road: someone stopped in a lane (chatting, waiting, idling, getting up after a fall)
     // steps up onto the footpath. Not people on a job there: cops on a chase, medics, anyone fighting or fleeing.
     if (this.kerbStep(c)) { vx = this.kerb.x; vy = this.kerb.y; }
+    const water=waterDepth(this.world,c.x,c.y);if(c.tier==="player"&&water>0){const flow=waterCurrent(this,c.x,c.y),immersion=Math.max(0,Math.min(1,water/.55)),pace=1-.48*immersion;vx=vx*pace+flow.x*immersion;vy=vy*pace+flow.y*immersion;if((this.tick+c.id)%60===0)this.liquids.disturb(c.x,c.y,Math.max(1,Math.hypot(vx,vy)),vx,vy);}
     if ((vx !== 0 || vy !== 0) && c.tier !== "player" && this.trafficAhead(c, vx, vy)) { vx = 0; vy = 0; c.vx = 0; c.vy = 0; }
     if (vx !== 0 || vy !== 0) {
-      const blocked = this.physics.moveCircle(c, vx * dt, vy * dt);
+      const blocked = this.physics.moveCircle(c, vx * dt, vy * dt, c.tier==="player");
       if (c.vx !== 0 || c.vy !== 0) c.facing = Math.atan2(c.vy, c.vx);
       if (blocked) c.stuck += dt;
     }
@@ -391,7 +416,7 @@ export class Simulation {
   private kerb = { x: 0, y: 0 };
   /** Someone standing still in a lane who has no business there: the velocity that takes them onto the footpath. */
   private kerbStep(c: Character): boolean {
-    if (c.vx !== 0 || c.vy !== 0 || c.tier === "player" || c.phys !== Phys.OK || c.pursuing >= 0 || c.wanted > 0) return false;
+    if ((!this.world.mapped&&(c.vx !== 0 || c.vy !== 0)) || c.tier === "player" || c.phys !== Phys.OK || c.pursuing >= 0 || c.wanted > 0) return false;
     if (!this.world.carriageway(c.x, c.y) || !this.loiteringInRoad(c)) return false;
     const p = this.world.nearestFoot(c.x, c.y), d = Math.hypot(p.x - c.x, p.y - c.y) || 1, sp = c.speed * 1.15;
     this.kerb.x = ((p.x - c.x) / d) * sp; this.kerb.y = ((p.y - c.y) / d) * sp; c.facing = Math.atan2(this.kerb.y, this.kerb.x);
@@ -413,6 +438,8 @@ export class Simulation {
     if (t !== 16 && t !== 18) return false; // road or crossing
     const onRoad = this.world.tile(Math.floor(c.x), Math.floor(c.y));
     if (onRoad === 16 || onRoad === 18) return false; // already crossing: keep going
+    // Prefer a nearby marked crossing; a small minority still cross informally.
+    if(this.world.mapped&&t===16&&c.id%37!==0&&c.pursuing<0&&!(c.wanted>0)&&nearCrossing(this.world,ntx,nty))return true;
     if (t === 18 && c.pursuing < 0 && !(c.wanted > 0) && walkSignal(this.world, ntx, nty, this.tick) !== "walk") return true;
     // nerves: someone scared, or who was hit by a car not long ago, leaves a much bigger gap before stepping out
     const hitByCar = c.lastHitBy <= -100 && this.tick - c.lastHitTick < 60 * 60 * 3;
@@ -427,6 +454,7 @@ export class Simulation {
   }
 
   private moveSimple(c: Character, dt: number): void {
+    if(c.phys===Phys.DOWN){this.physics.stepCharacter(c,Math.min(dt,.1),this.hooks);return;}
     let vx = c.vx, vy = c.vy;
     if (this.kerbStep(c)) { vx = this.kerb.x; vy = this.kerb.y; }
     if (vx === 0 && vy === 0) return;
@@ -509,7 +537,7 @@ export class Simulation {
     if (c.lastHitTick > this.tick - 30 && c.lastHitBy === -100 - v.id) return;
     c.lastHitTick = this.tick; c.lastHitBy = -100 - v.id;
     const d = VEHICLES[v.cls];
-    const nx = Math.cos(v.heading), ny = Math.sin(v.heading);
+    const velocity=carVel(this,v),magnitude=Math.hypot(velocity.x,velocity.y),nx=magnitude>.05?velocity.x/magnitude:Math.cos(v.heading),ny=magnitude>.05?velocity.y/magnitude:Math.sin(v.heading);
     const res = applyImpact(c, Math.min(this.cfg.maxImpulse * 1.5, speed * d.mass * 1.1), nx, ny, false, this.cfg.maxImpulse * 1.5);
     // a real pedestrian strike: past a jog the person is carried off at most of the car's speed and thrown up in an
     // arc (they fly, land and slide; PhysicsWorld.stepCharacter does the rest). The car barely notices the mass.
@@ -523,7 +551,7 @@ export class Simulation {
     v.damage = Math.min(1, v.damage + 0.03);
     bump(v, Math.cos(v.heading), Math.sin(v.heading), Math.min(0.08, speed * 0.008));
     this.bus.emit("sound", { kind: "carhit", x: c.x, y: c.y, vol: Math.min(1, speed / 8) });
-    if (speed > 3.5) { const part = speed > 7 && this.rng.chance(0.4) ? "head" : this.rng.chance(0.5) ? "leg" : "torso"; wound(this, c, part, speed > 7 ? 3 : 2, part === "head" ? "gash" : "cut", v.driver, v.x, v.y); }
+    if (speed > 3.5) { if(this.fakeBlood)transferBlood(v,c.x,c.y,speed);const part = speed > 7 && this.rng.chance(0.4) ? "head" : this.rng.chance(0.5) ? "leg" : "torso"; wound(this, c, part, speed > 7 ? 3 : 2, part === "head" ? "gash" : "cut", v.driver, v.x, v.y); }
     const driver = v.driver >= 0 ? this.chars[v.driver] : null;
     remember(c, { t: this.tick, kind: "car_hit", subj: driver?.id ?? -1, obj: c.id, toy: null, area: this.world.areaAt(c.x, c.y)?.id ?? 0, val: -0.8, ev: -1, src: "did" });
     const e = this.emit({ type: "car_hit", x: c.x, y: c.y, actors: driver ? [driver.id, c.id] : [c.id], severity: res.down ? 4 : 3, summary: `${driver ? driver.name : "A car"} hit ${c.name} with a ${d.name.toLowerCase()}${res.down ? " and knocked them flat" : ""}` });
@@ -535,12 +563,11 @@ export class Simulation {
     }
   }
 
-  onCarCrash(a: Vehicle, b: Vehicle, rel: number): void {
-    if (a.state === "crashed" && b.state === "crashed") return;
-    for (const v of [a, b]) { v.damage = Math.min(1, v.damage + rel * 0.03); if (v.state !== "parked") { v.state = "crashed"; v.crashedUntil = this.tick + 60 * (v.driver === this.playerId ? Math.min(.85,.15+rel*.045) : Math.min(6,1+rel*.3)); } }
+  onCarCrash(a: Vehicle, b: Vehicle, rel: number,contact?:{x:number;y:number}): void {
+    for (const v of [a, b]) { const hits=v.components?.impacts,last=hits?.[hits.length-1],damageSpeed=last?.tick===this.tick?Math.min(rel,last.deltaV):rel;v.damage = Math.min(1, v.damage + damageSpeed * 0.03); if (v.state !== "parked") { v.state = "crashed"; v.crashedUntil = this.tick + 60 * (v.driver === this.playerId ? Math.min(.55,.08+damageSpeed*.023) : Math.min(6,1+rel*.3)); } }
     this.bus.emit("sound", { kind: "crash", x: a.x, y: a.y, vol: Math.min(1, rel / 8) });
-    this.bus.emit("fx", { kind: "break", x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: 0.5, n: Math.min(28,6+Math.floor(rel*1.5)), color: "#9a8d80" });
-    if(rel>5)this.bus.emit("fx",{kind:"spark",x:(a.x+b.x)/2,y:(a.y+b.y)/2,z:.3,n:Math.min(18,Math.floor(rel)),color:"#f6b62c"});
+    this.bus.emit("fx", { kind: "break", x: contact?.x??(a.x + b.x) / 2, y: contact?.y??(a.y + b.y) / 2, z: 0.5, n: Math.min(28,6+Math.floor(rel*1.5)), color: "#9a8d80" });
+    if(rel>5)this.bus.emit("fx",{kind:"spark",x:contact?.x??(a.x+b.x)/2,y:contact?.y??(a.y+b.y)/2,z:.3,n:Math.min(18,Math.floor(rel)),color:"#f6b62c"});
     const da = a.driver >= 0 ? this.chars[a.driver] : null, db = b.driver >= 0 ? this.chars[b.driver] : null;
     const e = this.emit({ type: "car_crash", x: a.x, y: a.y, actors: [da?.id ?? -1, db?.id ?? -1].filter((x) => x >= 0), severity: 3, summary: `Crash: ${da ? da.name : "a parked car"}'s ${VEHICLES[a.cls].name} and ${db ? db.name : "a parked car"}'s ${VEHICLES[b.cls].name}` });
     // both drivers get out and have words (road rage chain)
@@ -664,7 +691,7 @@ export class Simulation {
       Object.assign(pooled, fresh);
       return pooled;
     }
-    if (this.toys.length >= this.cfg.maxToys) return null;
+    if (this.toys.length >= this.cfg.maxToys + (["bullet", "buckshot"].includes(def) ? 64 : 0)) return null;
     const t = makeToy(this.toys.length, def, x, y, z);
     this.toys.push(t);
     return t;
@@ -926,6 +953,7 @@ export class Simulation {
 
   say(c: Character, text: string, kind: "say" | "think" | "shout" = "say", secs = 2): void {
     if (!text || text === "...") return;
+    interruptNearbyQuip(this,c);
     c.bubble = { text, until: this.tick + Math.round(secs * 60), kind };
     this.bus.emit("say", { id: c.id, text });
   }
@@ -959,13 +987,13 @@ export class Simulation {
     n=Math.max(0,Math.min(1000,Math.floor(Number.isFinite(n)?n:0)));
     spawnBackground(this, n);
     const occupied=new Set(this.chars.slice(0,before).map(c=>`${Math.floor(c.x*2)}:${Math.floor(c.y*2)}`));
-    const span=this.world.size-4,wrap=(v:number)=>2+((v-2)%span+span)%span;
+    const span=this.world.size-4,wrap=(v:number)=>this.world.mapped?v:2+((v-2)%span+span)%span;
     for(let i=before;i<this.chars.length;i++){
       const c=this.chars[i];let p={x:c.x,y:c.y};
       for(let retry=0;retry<10;retry++){
         const angle=(i-before)*2.399963+retry*.73,radius=Math.min(this.world.size*.6,Math.sqrt(i-before+1)*1.6)+retry*.7;
-        const candidate=this.world.nearestWalkable(wrap(x+Math.cos(angle)*radius),wrap(y+Math.sin(angle)*radius));
-        if(!occupied.has(`${Math.floor(candidate.x*2)}:${Math.floor(candidate.y*2)}`)){p=candidate;break;}
+        const tx=wrap(x+Math.cos(angle)*radius),ty=wrap(y+Math.sin(angle)*radius),candidate=this.world.mapped?this.world.nearestFoot(tx,ty,20):this.world.nearestWalkable(tx,ty);
+        if(!this.world.carriageway(candidate.x,candidate.y)&&!occupied.has(`${Math.floor(candidate.x*2)}:${Math.floor(candidate.y*2)}`)){p=candidate;break;}
       }
       occupied.add(`${Math.floor(p.x*2)}:${Math.floor(p.y*2)}`);c.x=c.px=p.x;c.y=c.py=p.y;c.pathGoalX=p.x;c.pathGoalY=p.y;c.homeArea=this.world.areaAt(p.x,p.y)?.id??0;
     }

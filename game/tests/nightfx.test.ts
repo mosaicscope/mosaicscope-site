@@ -15,6 +15,11 @@ describe("night weather look", () => {
     for(const mood of [-1,0,1]) {sim.player.emo.mood = mood; fx.draw(g,sim,cam,1,2,false,0,10,0,10);}
     expect(styles.some(s => typeof s === 'string' && s.startsWith('hsla('))).toBe(false);
   });
+  it("does not draw floating lanterns over water", () => {
+    const sim=small(),cam=new Camera();sim.world.tiles.fill(5);sim.env.power=false;sim.env.startHour=0;let arcs=0;
+    const g=new Proxy({}, {get:(_t,k)=>k==='createRadialGradient'?()=>({addColorStop(){}}):k==='arc'?()=>{arcs++;}:()=>{},set:()=>true}) as unknown as CanvasRenderingContext2D;
+    new NightFX().draw(g,sim,cam,1,2,false,0,10,0,10);expect(arcs).toBe(0);
+  });
   it("hash is deterministic and in range", () => {
     for (let i = 0; i < 200; i++) { const v = h2(i, i * 3); expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThan(1); expect(h2(i, i * 3)).toBe(v); }
   });

@@ -1,3 +1,13 @@
+import {vehicleCondition,vehicleInspection} from '../sim/VehicleCondition';
+import {resetDrivingTelemetry} from '../sim/DrivingTelemetry';
+import {mappedDrivingLimit} from '../sim/MappedTraffic';
+import {arcadeDriving,drivingTopSpeed} from '../sim/ArcadeDriving';
+import {drivingSetup} from '../sim/DrivingExperience';
+import {showMissions} from '../ui/MissionBoard';
+import {missionStatus} from '../sim/CityMissions';
+import {AddressPanel} from '../ui/AddressPanel';
+import {Running} from '../sim/Running';
+import {CityLifePanel} from '../ui/CityLifePanel';
 import {CityStreamer} from '../world/CityStreamer';
 import {challengeStatus} from '../sim/CityChallenges';
 import {nudgeStreetProp} from '../sim/StreetProps';
@@ -75,7 +85,7 @@ import { Casino } from "../ui/Casino";
 import { Places, Radio } from "../ui/Places";
 import { InteriorOverlay } from "../ui/InteriorOverlay";
 import { nearestCar, playerInput, seat, unseat } from "../sim/Traffic";
-import { cycleDriveMode, DRIVE_MODE_LABELS } from "../sim/DrivingExperience";
+import { cycleDriveMode, DRIVE_MODE_LABELS, supportsManual, setManualTransmission, shiftManual, cycleDriverAssists, ASSIST_LABELS } from "../sim/DrivingExperience";
 import { handlingProfile } from "../sim/VehicleHandling";
 import { wound,useBandage } from "../sim/Life";
 import { commitCrime, fmtCash, exitBuilding, consume } from "../sim/Society";
@@ -132,8 +142,9 @@ export class Game {
     canvas.tabIndex=0;
     this.rootEl = root;
     this.settings = loadSettings(this.store);
-    this.sim = new Simulation({ cityMap:'christchurch',trafficCars:650,pathsPerTick:2,backgroundCount: Math.min(this.settings.density * 3, 900) }, {}, this.lifeFlags);
+    this.sim = new Simulation({ cityMap:'christchurch',trafficCars:750,pathsPerTick:2,backgroundCount: Math.min(this.settings.density * 4, 900) }, {}, this.lifeFlags);
     this.renderer = new Renderer(canvas, this.sim);
+    if(this.settings.streetZoom!==undefined){this.renderer.cam.setZoom(this.settings.streetZoom);this.renderer.cam.zoom=this.settings.streetZoom;}
     void this.cityPanel.refresh(true);
     this.audio = new AudioSystem(() => this.renderer.cam);
     this.audio.attach(this.sim);
@@ -145,10 +156,10 @@ export class Game {
     this.terrance = new TerranceUI(S);
     this.terrance.onSpeak = (t) => this.audio?.speak(t);
     this.dev = new DevPanel(S, this.renderer, this.debug, this.lifeFlags, {
-      selected:()=>this.selected,setSpeed:n=>this.setSpeed(n),step:()=>{this.setSpeed(0);this.sim.step();this.clock.tick=this.sim.tick;},setQuality:q=>{if(['auto','low','medium','high','ultra'].includes(q)){this.settings.quality=q as typeof this.settings.quality;this.applySettings();this.persistSettings();}},
-      quality: () => (this.settings.quality === "auto" ? "auto→" : "") + ["low", "medium", "high", "ultra"][this.quality], speed: () => (this.clock.paused ? 0 : this.clock.speed),
+      selected:()=>this.selected,setSpeed:n=>this.setSpeed(n),step:()=>{this.setSpeed(0);this.sim.step();this.clock.tick=this.sim.tick;},setQuality:q=>{if(['auto','low','medium','high','ultra','ultra-ultra'].includes(q)){this.settings.quality=q as typeof this.settings.quality;this.applySettings();this.persistSettings();}},
+      quality: () => this.settings.quality === "ultra-ultra" ? "ultra-ultra" : (this.settings.quality === "auto" ? "auto→" : "") + ["low", "medium", "high", "ultra"][this.quality], speed: () => (this.clock.paused ? 0 : this.clock.speed),
       fps: () => this.fpsAvg, tickRate: () => this.tickRate, reset: (seed) => this.reset(seed), toast: (t) => this.toast(t),
-      teleport: () => { const p = this.renderer.cam.toWorld(this.mouse.x, this.mouse.y); const w = this.sim.world.nearestWalkable(p.x, p.y); this.sim.player.x = w.x; this.sim.player.y = w.y; },
+      teleport: () => { const p = this.renderer.screenToWorld(this.mouse.x, this.mouse.y); const w = this.sim.world.nearestWalkable(p.x, p.y); this.sim.player.x = w.x; this.sim.player.y = w.y; },
     });
     // debug console: type mosaics.help() in the browser console
     (window as unknown as { mosaics: object }).mosaics = {
@@ -183,6 +194,10 @@ export class Game {
       patrons: () => this.sim.chars.filter((c) => c.inside >= 0 && this.sim.world.buildings[c.inside]?.kind === "casino").length + 3,
     }, () => { this.clock.paused = this.pausedBefore; });
     this.activities.onVisitFarm=()=>{const plot=farmPlot(this.sim.world);if(!plot){this.toast('No clear farm plot on this map');return;}this.returnToPlayer(false);this.moveTarget={...plot.gate};this.renderer.cam.lookAt(plot.gate.x,plot.gate.y,true);this.toast('Your farm gate · walk or tap to explore');};
+    this.activities.onMissions=()=>this.openMissions();
+    this.activities.onCityLife=()=>this.cityLifePanel.show();
+    this.dialogue.onCityLife=id=>this.cityLifePanel.showForResident(id);
+    this.rootEl.append(this.cityLifePanel.route);
     this.activities.onFun=kind=>{if(kind==="roast")this.roast.start();else this.burger.start();};
     this.casino.onMoreGames = () => this.activities.show("Betting");
     this.places = new Places(() => this.sim, (t, b, cls) => this.modal.show(t, b, cls), () => this.modal.close(), (t, k) => this.toast(t, k));
@@ -202,7 +217,7 @@ export class Game {
         const seen: { c: Character; d: number }[] = [];
         for (const c of this.sim.chars) {
           if (c.tier !== "principal" || c === this.sim.player) continue;
-          this.renderer.cam.toScreen(c.x, c.y, c.z, pt);
+          Object.assign(pt,this.renderer.worldToScreen(c.x,c.y,c.z));
           if (pt.x < 0 || pt.y < 0 || pt.x > w || pt.y > hh) continue;
           seen.push({ c, d: Math.hypot(pt.x - w / 2, pt.y - hh / 2) });
         }
@@ -271,7 +286,7 @@ export class Game {
       player:()=>this.sim.player,
       latest:()=>this.latestSave(),
       continue:slot=>{try{this.swapSim(this.saves.load(slot,this.lifeFlags));this.starting=false;this.clock.paused=false;this.lastAutoSave=performance.now();return null;}catch{return "That save could not be loaded. Your other slots are still available.";}},
-      create:(name,look)=>{this.reset(Math.floor(Math.random()*1e9));this.sim.player.name=name;this.sim.player.look=look;this.starting=false;this.clock.paused=false;this.autoSave();if(!this.settings.tutorialDone)this.tutorial(0);return null;},
+      create:(name,look)=>{this.reset(Math.floor(Math.random()*1e9));this.sim.player.name=name;this.sim.player.look=look;this.starting=false;this.clock.paused=false;this.autoSave();return null;},
     });
     this.rootEl.append(this.welcome.el);this.clock.paused=true;this.welcome.show();
     window.addEventListener("pagehide",()=>this.autoSave());
@@ -345,7 +360,7 @@ export class Game {
     const ad = this.hovered < 0 && !this.mouse.dragging ? this.renderer.pickAd(this.mouse.x, this.mouse.y) : null;
     this.canvas.style.cursor = ad || this.hovered >= 0 ? "pointer" : "";
     this.canvas.title = ad ? `${ad.label} (opens in a new tab)` : "";
-    if (!this.interior.open&&!this.travel.open&&!this.club.open&&!this.casino.open&&!this.modal.open) this.guard("render", () => this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames,quietInterface:this.dialogue.open||this.modal.open||this.casino.open||this.dev.visible }));
+    if (!this.interior.open&&!this.travel.open&&!this.club.open&&!this.casino.open&&(!this.modal.open||this.modal.el.classList.contains("touch-tut"))) this.guard("render", () => this.renderer.render(this.clock.paused ? 1 : this.clock.alpha, dt, { selected: this.selected, hovered: this.hovered, debug: this.debug, reduceMotion: this.reduceMotion, quality: this.quality, showNames: this.settings.showNames,quietInterface:this.dialogue.open||this.modal.open||this.casino.open||this.dev.visible }));
     this.updateAimUI();
     this.guard("audio", () => {
       const f = this.interior.footing;
@@ -363,6 +378,8 @@ export class Game {
   private lastUi = 0;
   private pausedBefore = false;
 
+  private showDriveData=false;
+  private cameraButton?:HTMLButtonElement;
   private updateHud(): void {
     const sim = this.sim, p = sim.player;
     const stars = "★".repeat(p.wanted) + "☆".repeat(5 - p.wanted);
@@ -371,22 +388,23 @@ export class Game {
       h("div.bars", null, [...bar("health", p.blood * p.emo.composure ** 0.3, p.bleed > 0 ? "#c56d64" : "#b2b49a"), ...bar("hunger", p.hunger, "#bea56e"), ...bar("energy", p.needs.energy, "#8b9fa7"), ...bar("mood", (p.emo.mood + 1) / 2, "#a29aac")])];
     if (titleOf(sim.expansion)) kids.push(h("div.car", { text: titleOf(sim.expansion) + " · " + (sim.expansion.graduated[sim.expansion.graduated.length - 1] ?? "") }));
     if (p.inCar >= 0) {
-      const v=sim.vehicles[p.inCar],speed=Math.hypot(v.vx??Math.cos(v.heading)*v.speed,v.vy??Math.sin(v.heading)*v.speed),pt=v.powertrain,drift=v.drift;
-      kids.push(h("div.car",null,[h("b",{text:String(Math.round(speed*7.2))})," km/h · "+VEHICLES[v.cls].name,
-        h("div",{text:`${handlingProfile(v.cls).drive.toUpperCase()} · ${pt?(pt.gear<0?'R':'D'+pt.gear)+' · '+Math.round(pt.rpm)+' rpm':'Automatic'}`}),
-        h("button.btn.drive-mode",{type:"button",text:DRIVE_MODE_LABELS[v.driveMode??"road"]+" mode ↻","aria-label":"Change driving mode",onclick:()=>{cycleDriveMode(v);this.updateHud();}}),
-        h("div",{text:`Tyres ${Math.round((v.tyreHeat??0)*100)}% warm${(v.wheelspin??0)>.3?' · WHEELSPIN':''}${(v.slip??0)>1|| (v.slip??0)<-1?' · SLIDING':''}`}),
-        ...(drift&&drift.points>1?[h("div",{text:`DRIFT ${Math.round(drift.points)} · ×${1+Math.min(3,Math.floor(drift.chain/2))} · ${Math.round(drift.angle)}°`})]:drift&&drift.best>0?[h("div",{text:`Best drift ${drift.best}`})]:[]),
-        (v.flatLeft||v.flatRight?" · FLAT TYRE":"")+((v.heat??0)>.5?" · ENGINE HOT: pull over":"")
+      const v=sim.vehicles[p.inCar],speed=Math.hypot(v.vx??Math.cos(v.heading)*v.speed,v.vy??Math.sin(v.heading)*v.speed),pt=v.powertrain;
+      kids.push(h("div.car",null,[h("div.drive-speed",null,[h("b",{text:String(Math.round(speed*7.2))})," km/h"]),h("div.drive-name",{text:VEHICLES[v.cls].name}),
+        h("div.drive-meta",{text:`${handlingProfile(v.cls).drive.toUpperCase()} · ${pt?(pt.gear<0?'R':(v.manualTransmission?'M':'D')+pt.gear)+' · '+Math.round(pt.rpm)+' rpm':'Automatic'}`}),
+        ...(v.manualTransmission?[h("button.btn.drive-gear",{type:"button",text:"− Gear","aria-label":"Shift down",onclick:()=>{this.shiftDriver(v,-1);}}),h("button.btn.drive-gear",{type:"button",text:"+ Gear","aria-label":"Shift up",onclick:()=>{this.shiftDriver(v,1);}})]:[]),
+        ...(v.parkingBrake?[h("button.btn",{type:"button",text:"Parking brake ON · release","aria-label":"Release parking brake",onclick:()=>{v.parkingBrake=false;this.updateHud();}})]:[]),
+        this.conditionButton(v),
+        h("div.drive-alert",{text:v.water?.locked?"ENGINE HYDROLOCKED · exit and recover":v.components?.wheels.some(w=>!w.missing&&(w.attachment??1)<.65)?"WHEEL HANGING · stop and repair":v.components?.wheels.some(w=>w.missing)?"WHEEL MISSING · stop and repair":(v.components?.structure?.temperature??0)>.6?"ENGINE OVERHEATING · pull over":(v.components?.structure?.brakeHeat??0)>.8?"BRAKES HOT · allow cooling":(v.components?.structure?.oil??1)<.25?"LOW OIL · service needed":(v.components?.structure?.coolant??1)<.25?"LOW COOLANT · service needed":(v.flatLeft||v.flatRight?"FLAT TYRE":"")+((v.heat??0)>.5?" · ENGINE HOT: pull over":"")})
       ]));
     }
+    this.cameraButton??=h('button.btn.camera-toggle',{type:'button','aria-label':'Toggle driving camera',onclick:()=>{this.renderer.cycleCamera();this.updateHud();}}) as HTMLButtonElement;this.cameraButton.textContent=this.renderer.drivingViewEnabled?'Camera: third person':'Camera: city view';kids.push(this.cameraButton);
     if(sim.pendingAmbulance.has(p.id))kids.push(h('div.car.medical-status',{text:p.phys===Phys.DOWN?'Ambulance on the way · stay still for treatment':'Ambulance on the way · move clear of traffic'}));
     if(p.substances)kids.push(h('div.car',{text:substancePhase(p,sim.tick)}));
     if (p.bleed > 0) kids.push(h("div.car", { text: "You're bleeding. B to bandage." }));
     if(p.hand>=0){const d=sim.toys[p.hand].def,w=TOYS[d].weapon;if(w?.gun){const base=d==='golden_pistol'?'pistol':d,load=p.combat?.load??'standard',key=load==='standard'?base:base+':'+load;kids.push(h('div.combat-status',{text:`${TOYS[d].name} · ${p.combat?.ammo[key]??'∞'} rounds · ${w.mode??'semi'}`}));}}
     this.combatHelpButton??=h("button.btn.combat-help",{text:"Fight / gun controls",onclick:()=>this.openCombatControls()}) as HTMLButtonElement;kids.push(this.combatHelpButton);
-    const challenge=challengeStatus(sim);if(challenge)kids.push(h("div.car.obj",{text:challenge}));const obj = this.objective(); if (obj) kids.push(h("div.car.obj", { text: obj }));
-    this.hudEl.replaceChildren(...kids);
+    const mission=missionStatus(sim);if(mission)kids.push(h("div.car.obj",{text:mission}));const challenge=challengeStatus(sim);if(challenge)kids.push(h("div.car.obj",{text:challenge}));const obj = this.objective(); if (obj) kids.push(h("div.car.obj", { text: obj }));
+    const hudScroll=this.hudEl.scrollTop,keep=new Set(kids);for(const child of [...this.hudEl.children])if(!keep.has(child as HTMLElement))child.remove();for(let i=0;i<kids.length;i++)if(this.hudEl.children[i]!==kids[i])this.hudEl.insertBefore(kids[i],this.hudEl.children[i]??null);this.hudEl.scrollTop=hudScroll;
     this.hudEl.classList.toggle("beside-log", !this.log.el.classList.contains("hidden"));
     if (sim.bustedAt !== this.lastBusted && sim.bustedAt >= 0) {
       this.lastBusted = sim.bustedAt;
@@ -398,21 +416,22 @@ export class Game {
 
   private cityStreamer=new CityStreamer();
   private uiTick(now: number): void {
-    this.cityStreamer.update(this.sim,now);
+    this.cityStreamer.update(this.sim,now,this.renderer.perspectiveActive);
     if(this.starting)return;
     if(now-this.lastAutoSave>30000)this.autoSave();void this.cityPanel.refresh();
     const miniGameOpen=!this.roast.el.classList.contains("hidden")||!this.burger.el.classList.contains("hidden");
     if(miniGameOpen)return;
+    this.elevationCredit.hidden=!(this.sim.world.mapped?.elevation?.size);
+    const aerial=this.renderer.aerialStatus;this.aerialCredit.hidden=!aerial.loaded||this.sim.world.mapped?.visibility.aerialRoofs===false;this.aerialCredit.textContent='Aerial: '+(aerial.owners.join(', ')||'Canterbury Maps')+' · CC BY 4.0';this.aerialCredit.title=aerial.surveys.join('; ')+' · Reprojected and clipped to mapped roofs. Facades estimated.';
     this.tickFocus(now);
     this.rootEl.classList.toggle("panel-open", this.modal.open || this.casino.open || this.club.open || this.luxury.open);
-    if (this.sim.expansion.pending && this.notifiedEncounter !== this.sim.expansion.pending && !this.modal.open && !this.casino.open && !this.interior.open && !this.dialogue.open && !this.phone.open) { this.notifiedEncounter = this.sim.expansion.pending; this.toast("A nearby street story: open Explore to choose what happens.", "acid"); this.activities.encounter(); }
-    this.touch.update();
+    this.touch.update();this.cityLifePanel.update();
     if (now - this.clubTickAt > 1000) { const earned = this.club.tick(Math.min(5, (now - (this.clubTickAt || now)) / 1000)); this.clubTickAt = now; if (earned > 0) this.sim.player.cash += earned; }
     this.renderer.zooAnimals = this.luxury.empire.animals; zooState.animals = this.luxury.empire.animals.length;
     this.rootEl.classList.toggle('conversation-open',this.dialogue.open);
     this.rootEl.classList.toggle('activity-open',this.modal.open||this.casino.open);
     if(this.keys.has("escape"))this.remoteLauncher=null;
-    this.touch.el.classList.toggle("hidden", this.casino.open || this.interior.open || (this.modal.open && !this.modal.el.classList.contains("touch-tut")) || this.dialogue.open || this.terrance.open || this.travel.open || this.marina.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
+    this.touch.el.classList.toggle("hidden", !!this.rootEl.querySelector(".bar.open") || this.phone.open || this.casino.open || this.interior.open || (this.modal.open && !this.modal.el.classList.contains("touch-tut")) || this.dialogue.open || this.terrance.open || this.travel.open || this.marina.open || this.minimap.bigOpen || this.luxury.open || this.club.open);
     this.tickStory(now);
     this.minimap.update(now);
     if (now - this.lastUi < 250) return;
@@ -447,6 +466,7 @@ export class Game {
   private zoneId = -1;
 
   private adaptQuality(dt: number): void {
+    this.sim.detailBudget=[8,16,24,40][this.quality];
     if (this.settings.quality !== "auto") return;
     const ms = dt * 1000;
     this.sim.detailBudget=[8,16,24,40][this.quality];
@@ -457,23 +477,26 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ player
+  private running=new Running();
   private controlPlayer(): void {
     const sim = this.sim, p = sim.player, k = this.settings.keys;
-    if (this.phone.open || this.travel.open || this.interior.open || this.modal.open || this.dev.visible || this.casino.open || this.club.open || this.luxury.open) { p.vx = p.vy = 0; playerInput.throttle = 0; playerInput.steer = 0; playerInput.brake = true; return; } // you're indoors; the street body waits at the door
+    if (this.phone.open || this.travel.open || this.interior.open || (this.modal.open&&!this.modal.el.classList.contains("touch-tut")) || this.dev.visible || this.casino.open || this.club.open || this.luxury.open) { this.running.reset();p.vx = p.vy = 0; playerInput.throttle = 0; playerInput.steer = 0; playerInput.brake = true; playerInput.serviceBrake=0; return; } // you're indoors; the street body waits at the door
     if (p.inCar >= 0) {
+      this.running.reset();
       const up = this.keys.has(k.up) || this.keys.has("arrowup"), down = this.keys.has(k.down) || this.keys.has("arrowdown");
       const left = this.keys.has(k.left) || this.keys.has("arrowleft"), right = this.keys.has(k.right) || this.keys.has("arrowright");
       playerInput.throttle = up ? 1 : down ? -1 : 0;
       playerInput.steer = (right ? 1 : 0) - (left ? 1 : 0);
       playerInput.throttle *= 1-impairment(p)*.4;
-      playerInput.brake = this.keys.has(" ") || this.touchBrake;
+      playerInput.brake = this.keys.has(" ") || this.touchHandbrake;
+      playerInput.serviceBrake = this.touchBrake?1:0;
       // touch: stick x steers, y is gas (up) / reverse (down)
       if (this.touchMove.x || this.touchMove.y) { playerInput.steer = this.touchMove.x; playerInput.throttle = -this.touchMove.y; }
       if (this.padMove.x || this.padMove.y) { playerInput.steer = this.padMove.x; playerInput.throttle = -this.padMove.y; }
       this.renderer.cam.follow = p.id;
       return;
     }
-    if (p.phys !== Phys.OK || sim.tick < p.stunUntil) { stop(p); return; }
+    if (p.phys !== Phys.OK || sim.tick < p.stunUntil) { this.running.reset();stop(p); return; }
     let ix = 0, iy = 0;
     if (this.keys.has(k.up) || this.keys.has("arrowup")) iy -= 1;
     if (this.keys.has(k.down) || this.keys.has("arrowdown")) iy += 1;
@@ -486,28 +509,33 @@ export class Game {
       // moving yourself brings the camera back to you (tapping someone to inspect had left it on them)
       if (this.renderer.cam.follow !== p.id) this.renderer.cam.follow = p.id;
       // screen directions -> world: screen up = (-1,-1), screen right = (1,-1)
-      const wx = ix + iy, wy = iy - ix, l = Math.hypot(wx, wy);
-      const sprint = (this.keys.has("shift") || Math.hypot(this.touchMove.x, this.touchMove.y) > 0.94) && p.needs.energy > 0.1;
+      const a=this.renderer.perspectiveHeading,wx=this.renderer.perspectiveActive?ix*-Math.sin(a)-iy*Math.cos(a):ix+iy,wy=this.renderer.perspectiveActive?ix*Math.cos(a)-iy*Math.sin(a):iy-ix,l=Math.hypot(wx,wy);
+      const sprint = (this.keys.has("shift") || this.touch.sprintHeld || Math.hypot(this.padMove.x,this.padMove.y) > .94) && p.needs.energy > 0.1;
       const bike = sim.life.upgrades.bike && hasUpgrade(sim.life.upgrades, "ruby");
-      const speed = p.speed * equipmentPace(p,sim.toys) * bodyPace(sim.life.body, sim.env.raining, sim.daylight) * (sprint && !bike ? 1.35 : 1) * (bike ? 1.65 * (hasUpgrade(sim.life.upgrades, "bikelanes") ? 1.2 : 1) : 1);
-      if (sprint && !bike) p.needs.energy = Math.max(0, p.needs.energy - sim.step_dt * 0.012 * (hasBody(sim.life.body, "shoes") ? 0.6 : 1));
+      const pace=p.speed*equipmentPace(p,sim.toys)*bodyPace(sim.life.body,sim.env.raining,sim.daylight),effort=Math.min(1,Math.hypot(ix,iy));
+      const run=this.running.step(pace,sprint&&!bike,p.needs.energy,effort,sim.step_dt);
+      const speed=bike?pace*effort*1.65*(hasUpgrade(sim.life.upgrades,"bikelanes")?1.2:1):run.speed;
+      if(bike)this.running.reset();
+      p.needs.energy=Math.max(0,p.needs.energy-run.energyCost*(hasBody(sim.life.body,"shoes")?.6:1));
       p.vx = (wx / l) * speed; p.vy = (wy / l) * speed;
       this.moveTarget = null; this.pendingTalk = -1;
       if (this.dialogue.open) this.dialogue.close();
       if (this.terrance.open) this.terrance.close();
       this.renderer.cam.follow = p.id;
     } else if (this.moveTarget) {
+      this.running.reset();
       if (moveTo(p, this.moveTarget.x, this.moveTarget.y, sim, 0.3)) {
         this.moveTarget = null; stop(p);
         // walked to a door you clicked: go in
         if (this.pendingEnter) { const d = this.pendingEnter; this.pendingEnter = null; this.enterPlace(d); }
       }
     } else if (this.pendingTalk >= 0) {
+      this.running.reset();
       const t = sim.chars[this.pendingTalk];
       if (!t) this.pendingTalk = -1;
       else if (Math.hypot(t.x - p.x, t.y - p.y) < 1.8) { stop(p); const id = this.pendingTalk; this.pendingTalk = -1; this.openTalk(id); }
       else moveTo(p, t.x, t.y, sim, 1.4);
-    } else stop(p);
+    } else {this.running.reset();stop(p);}
     if (p.anim.pose !== "auto" && !(sim.worldFun.poseUntil&&sim.tick<sim.worldFun.poseUntil) && sim.tick % 30 === 0) p.anim.pose = "auto";
   }
 
@@ -671,7 +699,7 @@ export class Game {
       if(sim.tick<this.cannonAt)return;const v=sim.vehicles[p.inCar];if((v.cannonRounds??12)<=0){this.toast('Out of shells · restock at the armory');return;}v.cannonRounds=(v.cannonRounds??12)-1;this.cannonAt=sim.tick+120;const dx=Math.cos(v.heading),dy=Math.sin(v.heading),shell=sim.spawnToy('cannonball',v.x+dx*2.9,v.y+dy*2.9);if(shell){shell.state='flying';shell.z=1.1;shell.vx=dx*24;shell.vy=dy*24;shell.vz=1;shell.thrower=p.id;shell.throwTick=sim.tick;sim.bus.emit('fx',{kind:'spark',x:shell.x,y:shell.y,z:1.1,n:18});sim.bus.emit('sound',{kind:'bang_shotgun',x:v.x,y:v.y,vol:1});commitCrime(sim,p,'assault',null);}return;
     }
     if (p.phys !== Phys.OK || p.inCar >= 0) {if((kind==='throw'||kind==='swing')&&performance.now()>this.ammoAlertAt){this.ammoAlertAt=performance.now()+2500;this.toast('Recover your footing before attacking');}return;}
-    const cursor = this.renderer.cam.toWorld(this.mouse.x, this.mouse.y);
+    const cursor = this.renderer.screenToWorld(this.mouse.x, this.mouse.y);
     switch (kind) {
       case "pickup": {
         const t = this.nearestToy();
@@ -685,6 +713,8 @@ export class Game {
       case "throw": {
         if(p.hand>=0&&TOYS[sim.toys[p.hand].def]?.uses.includes('ranged')){
           const aim = this.aimPoint ?? this.aimAt(this.mouse.x, this.mouse.y);
+          const tracked=aim.id>=0?sim.chars[aim.id]:undefined;
+          if(tracked&&tracked.inCar<0&&tracked.inside<0){aim.x=tracked.x;aim.y=tracked.y;}
           const id = aim.id;
           if(this.clock.paused)this.setSpeed(1);
           const fired=sim.shootAt(p,aim.x,aim.y,id),def=sim.toys[p.hand].def,base=def==='golden_pistol'?'pistol':def,key=(p.combat?.load??'standard')==='standard'?base:base+':'+p.combat?.load;if(!fired&&p.combat&&(p.combat.ammo[key]??0)<=0&&performance.now()>this.ammoAlertAt){this.ammoAlertAt=performance.now()+2500;this.toast('Out of ammunition · visit the armory');}return;
@@ -740,7 +770,7 @@ export class Game {
 
   private aimAt(x: number, y: number): { x: number; y: number; id: number } {
     const id = this.renderer.pickCharacter(x, y), target = id >= 0 && id !== this.sim.playerId ? this.sim.chars[id] : null;
-    const point = target ? { x: target.x, y: target.y } : this.renderer.cam.toWorldAtHeight(x, y, 1.05);
+    const point = target ? { x: target.x, y: target.y } : this.renderer.screenToWorld(x, y, 1.05);
     return { ...point, id: target?.id ?? -1 };
   }
 
@@ -751,7 +781,8 @@ export class Game {
     this.crosshair.classList.toggle('hidden', !armed || !this.aimPoint);
     this.returnButton.classList.toggle('hidden', blocked || this.renderer.cam.follow === this.sim.playerId);
     if (armed && this.aimPoint) {
-      const pt = this.renderer.cam.toScreen(this.aimPoint.x, this.aimPoint.y, 1.05, { x: 0, y: 0 });
+      const target=this.aimPoint.id>=0?this.sim.chars[this.aimPoint.id]:undefined;if(target&&target.inCar<0&&target.inside<0){this.aimPoint.x=target.x;this.aimPoint.y=target.y;}
+      const pt = this.renderer.worldToScreen(this.aimPoint.x, this.aimPoint.y, 1.05);
       this.crosshair.style.transform = `translate(${pt.x}px,${pt.y}px)`;
     }
   }
@@ -823,6 +854,48 @@ export class Game {
     }
   }
 
+  private conditionDiagram(v:import('../entities/types').Vehicle):HTMLElement {
+    const c=vehicleCondition(v),colour=(n:number)=>n>=.7?'#df7065':n>=.25?'#d7ad5c':'#7db995';
+    const block=(name:string,n:number)=>h('span.condition-'+name,{style:{background:colour(n)},title:`${name} ${Math.round(n*100)}% damaged`});
+    return h('span.condition-map',{'aria-hidden':'true'},[block('front',c.zones[0]),block('left',c.zones[1]),block('right',c.zones[2]),block('rear',c.zones[3]),...c.wheels.map((n,i)=>block('wheel'+i,n))]);
+  }
+  private conditionButton(v:import('../entities/types').Vehicle):HTMLElement {
+    const c=vehicleCondition(v),status=c.worst>=.7?'Critical':c.worst>=.25?'Damaged':'Healthy';
+    return h('button.btn.drive-settings',{type:'button','aria-label':'Drive settings',onclick:()=>this.openDriveSettings(v)},[this.conditionDiagram(v),h('span.condition-caption',{text:status+' · Damage & drive'})]);
+  }
+  private openDriveSettings(v:import('../entities/types').Vehicle):void {
+    const partGroup=(name:string)=>/wheel|tyre|suspension|knuckle|strut|ball joint|tie rod|axle|caliper|bearing|damper|control arm|brake/i.test(name)?'Wheels & brakes':/radiator|coolant|water pump|fan|thermostat/i.test(name)?'Cooling':/door|sill|pillar|body|rail|brace|crash|bonnet|boot|roof|bulkhead|apron|quarter|frame/i.test(name)?'Body & frame':/gear|clutch|transmission|differential|drive shaft|driveshaft|coupling/i.test(name)?'Drivetrain':/steering|rack|pinion/i.test(name)?'Steering':'Engine & electrical';
+    const partRow=(part:{name:string;damage:number})=>h('div.damage-part',null,[h('span',{text:part.name}),h('span.damage-value',{text:Math.round(part.damage*100)+'%'}),h('span.damage-meter',null,[h('i',{style:{width:Math.round(part.damage*100)+'%'}})])]);
+    const partSummary=(parts:{name:string;damage:number}[])=>{
+      if(!parts.length)return h('div.damage-overview',null,[h('strong',{text:'No damaged parts'})]);
+      const groups=new Map<string,typeof parts>();for(const part of parts){const key=partGroup(part.name),list=groups.get(key)??[];list.push(part);groups.set(key,list);}
+      return h('div.damage-overview',null,[h('div.damage-heading',null,[h('strong',{text:'Most damaged'}),h('span',{text:parts.length+' affected'})]),...parts.slice(0,4).map(partRow),
+        h('details.condition-section.damage-all',null,[h('summary',{text:'All damaged parts by system'}),...Array.from(groups,([name,items])=>h('details.damage-group',null,[h('summary',{text:name+' · '+items.length}),h('div.damage-list',null,items.map(partRow))]))])]);
+    };
+    const render=()=>{const report=vehicleInspection(v);const section=(title:string,lines:string[])=>h('details.condition-section',null,[h('summary',{text:title}),...lines.map(text=>h('p',{text}))]);this.modal.show('Car damage & drive',[
+      h('div.condition-detail',null,[this.conditionDiagram(v),h('div',null,[h('strong',{text:'Vehicle condition'}),h('p',{text:vehicleCondition(v).forecast})])]),
+      h('p',{text:`Engine ${Math.round(vehicleCondition(v).engine*100)}% damaged · gearbox ${Math.round(vehicleCondition(v).gearbox*100)}% · oil ${Math.round(vehicleCondition(v).oil*100)}% · coolant ${Math.round(vehicleCondition(v).coolant*100)}%`}),
+      ...report.warnings.map(text=>h('p.condition-warning',{text})),
+      ...report.effects.map(text=>h('p',{text})),
+      partSummary(report.condition.issues),
+      section('Body and glass',report.body),section('Wheels and brakes',report.wheels),
+      section('Mechanical systems',report.mechanical.length?report.mechanical:['No structural mechanical damage recorded.']),
+      section('Recent impacts',report.impacts.length?report.impacts:['No impacts recorded.']),
+      h('p',{text:'Choose your transmission and driver aids. Gear buttons stay available while driving.'}),
+      h('p',{text:`${handlingProfile(v.cls).drive.toUpperCase()} · tyres ${Math.round((v.tyreHeat??0)*100)}% warm${v.dynamics?.wheels.some(w=>w.pressure<.65)?' · LOW TYRE':''}${(v.dynamics?.brakeFade??0)>.1?' · BRAKE FADE':''}${(v.dynamics?.aquaplaning??0)>.2?' · WET GRIP':''}`}),
+      ...(supportsManual(v)?[h('button.btn',{type:'button',text:v.manualTransmission?'Manual gears · switch to auto':'Automatic · switch to manual','aria-label':'Toggle manual transmission',onclick:()=>{setManualTransmission(v,!v.manualTransmission);this.updateHud();render();}})]:[]),
+      h('button.btn',{type:'button',text:DRIVE_MODE_LABELS[v.driveMode??'road']+' mode ↻','aria-label':'Change driving mode',onclick:()=>{cycleDriveMode(v);this.updateHud();render();}}),
+      h('button.btn',{type:'button',text:'Driver aids: '+ASSIST_LABELS[v.assistMode??'auto']+' ↻','aria-label':'Change driver aids',onclick:()=>{cycleDriverAssists(v);this.updateHud();render();}}),
+      h('button.btn',{type:'button',text:this.showDriveData?'Hide drive data':'Show drive data','aria-label':'Toggle driving data',onclick:()=>{this.showDriveData=!this.showDriveData;render();}}),
+      ...(this.showDriveData&&v.telemetry?[h('p',{text:`Trip ${(v.telemetry.distance/1000).toFixed(2)} km · peak ${Math.round(v.telemetry.topKmh)} km/h`}),h('p',{text:`0–100 ${v.telemetry.best0100?.toFixed(1)??'—'} s · 80–0 ${v.telemetry.lastBrakeDistance?.toFixed(0)??'—'} m`}),h('button.btn',{text:'Reset trip',onclick:()=>{resetDrivingTelemetry(v);render();}})]:[]),
+      h('button.btn',{text:'Done',onclick:()=>this.modal.close()})
+    ],'drive-settings-panel');};render();
+  }
+  private shiftDriver(v:import('../entities/types').Vehicle,direction:1|-1):void {
+    const limit=mappedDrivingLimit(this.sim,v),top=drivingTopSpeed(v,arcadeDriving(v,limit).top,drivingSetup(v).range);
+    if(!shiftManual(v,direction,v.speed,top))this.toast('Shift unavailable at this speed', '');
+    this.updateHud();
+  }
   private bindInput(): void {
     const cv = this.canvas;
     window.addEventListener("keydown", (e) => {
@@ -851,6 +924,8 @@ export class Game {
       if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(key)) e.preventDefault();
       if (e.repeat) return;
       if (this.casino.open) return;
+      if (key === 'v') { e.preventDefault(); this.renderer.cycleCamera(); this.updateHud(); return; }
+      if (this.sim.player.inCar >= 0 && (key === '[' || key === ']')) { e.preventDefault(); this.shiftDriver(this.sim.vehicles[this.sim.player.inCar],key===']'?1:-1); return; }
       if (this.sim.player.inCar >= 0 && key === k.horn) { const v = this.sim.vehicles[this.sim.player.inCar]; this.sim.bus.emit("sound", { kind: "horn", x: v.x, y: v.y, vol: 0.8 }); return; }
       if (key === k.pickup) this.interact();
       else if (key === k.rob) this.rob();
@@ -868,11 +943,11 @@ export class Game {
       else if (key === k.dev || key === "~") this.dev.toggle();
       else if (key === "c") this.returnToPlayer();
       else if (key === "o") this.photos.open();
-      else if (key === "=" || key === "+") this.renderer.cam.setZoom(this.renderer.cam.targetZoom * 1.2);
-      else if (key === "-") this.renderer.cam.setZoom(this.renderer.cam.targetZoom / 1.2);
+      else if (key === "=" || key === "+") this.setStreetZoom(this.renderer.cam.targetZoom * 1.2);
+      else if (key === "-") this.setStreetZoom(this.renderer.cam.targetZoom / 1.2);
     });
     window.addEventListener("keyup", (e) => this.keys.delete(e.key.toLowerCase()));
-    window.addEventListener("blur",()=>{this.keys.clear();this.mouse.down=false;this.mouse.dragging=false;this.touches.clear();this.touchFire=false;this.touchMove={x:0,y:0};this.touchBrake=false;});
+    window.addEventListener("blur",()=>{this.keys.clear();this.mouse.down=false;this.mouse.dragging=false;this.touches.clear();this.touchFire=false;this.touchMove={x:0,y:0};this.touchBrake=false;this.touchHandbrake=false;});
     cv.addEventListener("contextmenu", (e) => e.preventDefault());
     cv.addEventListener("pointerdown", (e) => {
       this.rootEl.querySelector('.bar')?.classList.remove('open'); this.rootEl.querySelector('.menu-toggle')?.setAttribute('aria-expanded','false');
@@ -889,12 +964,12 @@ export class Game {
       if (this.touches.size === 2) {
         if(e.pointerType==='touch'){this.mouse.dragging=true;return;}
         const [a, b] = [...this.touches.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
-        if (this.pinchDist > 0) this.renderer.cam.setZoom(this.renderer.cam.targetZoom * (d / this.pinchDist));
+        if (this.pinchDist > 0) this.setStreetZoom(this.renderer.cam.targetZoom * (d / this.pinchDist));
         this.pinchDist = d; this.mouse.dragging = true; return;
       }
       if (this.mouse.down && this.mouse.button!==2 && (this.mouse.dragging || Math.hypot(e.clientX - this.mouse.sx, e.clientY - this.mouse.sy) > 8)) {
         this.mouse.dragging = true;
-        this.renderer.cam.panBy(e.clientX - this.mouse.x, e.clientY - this.mouse.y);
+        if(!this.renderer.perspectiveActive)this.renderer.cam.panBy(e.clientX - this.mouse.x, e.clientY - this.mouse.y);
       }
       this.mouse.x = e.clientX; this.mouse.y = e.clientY;
       if (this.mouse.down && this.mouse.button === 2 && this.hasGun()) this.aimPoint = this.aimAt(e.clientX, e.clientY);
@@ -910,12 +985,12 @@ export class Game {
     cv.addEventListener("pointerup", up);
     cv.addEventListener("lostpointercapture",()=>{this.mouse.down=false;this.mouse.dragging=false;this.touchFire=false;});
     cv.addEventListener("pointercancel",()=>{this.mouse.down=false;this.mouse.dragging=false;this.touches.clear();this.touchFire=false;this.touchMove={x:0,y:0};});
-    cv.addEventListener("wheel", (e) => { e.preventDefault(); this.renderer.cam.setZoom(this.renderer.cam.targetZoom * Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
+    cv.addEventListener("wheel", (e) => { e.preventDefault(); this.setStreetZoom(this.renderer.cam.targetZoom * Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
   }
 
   private click(x: number, y: number, button: number): void {
     const sim = this.sim, p = sim.player;
-    if(this.remoteLauncher!==null){const id=this.remoteLauncher;this.remoteLauncher=null;const point=this.renderer.cam.toWorld(x,y);this.toast(launchRocket(sim,id,point.x,point.y));return;}
+    if(this.remoteLauncher!==null){const id=this.remoteLauncher;this.remoteLauncher=null;const point=this.renderer.screenToWorld(x,y);this.toast(launchRocket(sim,id,point.x,point.y));return;}
     if (button === 2) { this.mouse.x = x; this.mouse.y = y; this.act("throw"); return; }
     if (this.hasGun()) {
       this.aimPoint = this.aimAt(x, y); this.moveTarget = null; this.pendingTalk = -1; this.pendingEnter = null;
@@ -932,7 +1007,7 @@ export class Game {
       if (Math.hypot(t.x - p.x, t.y - p.y) < 1.4 && TOYS[t.def].portable) { sim.pickupToy(p, t); return; }
       this.moveTarget = { x: t.x, y: t.y }; this.renderer.cam.follow = p.id; return;
     }
-    const w = this.renderer.cam.toWorld(x, y);
+    const w = this.renderer.screenToWorld(x, y);
     // clicked a building you can go into: walk to its door and step inside
     const b = this.buildingAtScreen(w.x, w.y);
     if (b) {
@@ -966,7 +1041,7 @@ export class Game {
     const sim = this.sim, p = sim.player, k = this.settings.keys;
     const parts: (HTMLElement | string)[] = [];
     const kb = (s: string) => h("kbd", { text: s === " " ? "Space" : s.toUpperCase() });
-    if (p.inCar >= 0) { this.hintEl.replaceChildren(kb("W"), "/", kb("S"), " drive · ", kb("A"), "/", kb("D"), " steer · ", kb(" "), " brake · ", kb("H"), " horn · ", kb(k.pickup), " get out"); return; }
+    if (p.inCar >= 0) { this.hintEl.replaceChildren(kb("W"), "/", kb("S"), " accelerate / brake / reverse · ", kb("A"), "/", kb("D"), " steer · ", kb(" "), " handbrake · ", kb("H"), " horn · ", kb(k.pickup), " get out"); return; }
     if(p.hand<0)parts.push(kb(k.swing),` ${unarmedMove(p.combat?.style,p.combat?.xp).name.toLowerCase()} nearby person · `);
     const door = this.nearDoor();
     if (door) parts.push(kb(k.pickup), " go into ", h("b", { text: door.studio ? "MosaicScope Studio" : sim.world.buildings[door.building].name }), " · ");
@@ -1021,7 +1096,7 @@ export class Game {
           injury: () => (+e.data.level >= 2 ? ["Hurt", "That's going to need a bandage (B)"] : null),
         };
         const f = F[e.type]?.();
-        if (f) this.focus(f[0], f[1], 3.6);
+        if(f){if(['car_crash','car_hit','injury','collapse'].includes(e.type))this.toast(f[0]+' · '+f[1],'red');else this.focus(f[0],f[1],3.6);}
         if (e.type in MOMENTS && (e.type !== "crime" || e.actors[0] === p.id)) this.photos.moment(e.type, street, on ? on.name.split(" ")[0] : "");
       }
     });
@@ -1218,14 +1293,16 @@ export class Game {
   private clubTickAt = 0;
 
   // ------------------------------------------------------------------ touch controls
-  private touchMove = { x: 0, y: 0 }; private touchBrake = false; private touchFire=false; private ammoAlertAt=0;
+  private touchMove = { x: 0, y: 0 }; private touchBrake = false;
+  private touchHandbrake=false; private touchFire=false; private ammoAlertAt=0;
   private touch = new TouchControls({
     attackLabel:()=>{const p=this.sim.player,d=p.hand>=0?TOYS[this.sim.toys[p.hand].def]:undefined;return d?.weapon?.gun?'Fire':d&&p.hand>=0&&isMelee(this.sim.toys[p.hand].def)?'Strike':unarmedMove(p.combat?.style,p.combat?.xp).name;},
     fire: held=>{this.touchFire=held;},
     armedVehicle:()=>this.sim.player.inCar>=0&&this.sim.vehicles[this.sim.player.inCar].cls==='tank',
-    move: (x, y) => { this.touchMove.x = x; this.touchMove.y = y; },
+    move: (x, y) => { this.touchMove.x=x;this.touchMove.y=y;if((x||y)&&this.clock?.paused&&(!this.modal.open||this.modal.el.classList.contains("touch-tut"))&&!this.phone.open&&!this.casino.open&&!this.interior.open)this.setSpeed(1); },
     brake: (held: boolean) => { this.touchBrake = held; },
-    zoom: (dir: number) => { const c = this.renderer.cam; c.setZoom(c.targetZoom * (dir > 0 ? 1.4 : 1 / 1.4)); },
+    handbrake: (held:boolean)=>{this.touchHandbrake=held;},
+    zoom: (dir: number) => { const c = this.renderer.cam; this.setStreetZoom(c.targetZoom * (dir > 0 ? 1.4 : 1 / 1.4)); },
     inCar: () => this.sim.player.inCar >= 0,
     action: (n) => {
       const sim = this.sim, p = sim.player;
@@ -1237,6 +1314,8 @@ export class Game {
       else if (n === "bandage") this.bandage();
       else if (n === "horn") sim.bus.emit("sound", { kind: "horn", x: p.x, y: p.y, vol: 0.8 });
       else if (n === "map") this.minimap.toggle();
+      else if(n === "zoomIn"||n === "zoomOut")this.setStreetZoom(this.renderer.cam.targetZoom*(n === "zoomIn"?1.4:1/1.4));
+      else if(n === "combatHelp")this.openCombatControls();
       else if (n === "pickup") this.act("pickup");
       else if (n === "drop") this.act("drop");
       // Sprint comes from analog stick pressure in controlPlayer; never mutate base speed.
@@ -1306,7 +1385,7 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ focus mode
-  private minimap = new Minimap(() => this.sim);
+  private minimap = new Minimap(() => this.sim,()=>{this.minimap.toggle(false);this.addressPanel.show();});
   private roast = new RoastBattle((r) => { if (r.won) { this.sim.player.cash += 150; this.focus("You won the roast", `Crowd ${Math.round(r.crowd)}% · +$150 · Roastie respects you now`, 3.5); } else this.focus("Roasted", "Roastie Malone wins this one. Run it back.", 3); });
   private burger = new BurgerShift((r) => { this.sim.player.cash += r.pay; this.toast(`Shift done: ${r.orders} orders, ${r.perfect} perfect. Paid ${fmtCash(r.pay)}`, "acid"); this.focus("Shift over", `Lyttelton Diner paid you ${fmtCash(r.pay)}`, 3); });
   private heist = new HeistUI(this.modal);
@@ -1368,31 +1447,49 @@ export class Game {
   private armory = new Armory(()=>this.sim,this.modal,t=>this.toast(t));
   private cannonAt=0;
   private lifePhone = new LifePhone(() => this.sim, this.modal, tab => this.activities.show(tab), (x,y) => { this.moveTarget = {x,y}; this.pendingTalk = -1; this.renderer.cam.follow = this.sim.playerId; });
+  private cityLifePanel=new CityLifePanel({sim:()=>this.sim,modal:this.modal,sources:()=>this.openLiveCity(),walk:p=>{this.moveTarget={x:p.x,y:p.y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);this.toast("Walking to "+p.name);},toast:t=>this.toast(t)});
+  private addressPanel=new AddressPanel({sim:()=>this.sim,modal:this.modal,camera:()=>this.renderer.cam,arrive:(x,y)=>{this.moveTarget=null;this.pendingTalk=-1;this.pendingEnter=null;this.keys.clear();this.touchMove={x:0,y:0};this.renderer.cam.lookAt(x,y,true);this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);},walk:(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);},toast:t=>this.toast(t),worldCities:()=>this.travel.worldCities()});
   private cityPanel=new WorldCityPanel({sim:()=>this.sim,camera:()=>this.renderer.cam,close:()=>this.modal.close(),walk:(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);},talk:id=>this.talkTo(id),vehicle:()=>this.interact(),stop:()=>{this.moveTarget=null;this.pendingTalk=-1;},toast:t=>this.toast(t)});
+  private openStreetLife():void{void import('../ui/StreetLifePanel').then(m=>m.showStreetLife(this.modal,this.sim,(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);}));}
   private openLiveCity():void{this.modal.show('Christchurch · live city',[this.cityPanel.render()]);}
-  private notifiedEncounter: string | null = null;
+  private elevationCredit=h('a.aerial-credit.elevation-credit',{href:'https://open-meteo.com/en/docs/elevation-api',target:'_blank',rel:'noopener',text:'Elevation: Copernicus DEM · Open-Meteo'});
+  private aerialCredit=h('a.aerial-credit',{href:'https://gisimagery.ecan.govt.nz/arcgis/rest/services/Imagery/Latest_Imagery/ImageServer',target:'_blank',rel:'noopener',text:'Aerial: Canterbury Maps · CC BY 4.0'});
+  private openMissions():void{showMissions(this.sim,this.modal,()=>this.resumeGame(),text=>this.toast(text));}
 
   private buildBar(): HTMLElement {
     this.clockEl = h("div.clock");
-    this.speedEls = [[0, "Ⅱ"], [1, "▶"], [2, "▶▶"], [4, "4×"]].map(([v, label]) => h("button", { "data-speed": v, "aria-label": v === 0 ? "Pause" : `Speed ${v}x`, "aria-pressed": "false", onclick: () => this.setSpeed(+v), text: label }) as HTMLButtonElement);
+    this.speedEls = [[0, "Ⅱ"], [1, "▶"]].map(([v, label]) => h("button", { "data-speed": v, "aria-label": v === 0 ? "Pause" : `Speed ${v}x`, "aria-pressed": "false", onclick: () => this.setSpeed(+v), text: label }) as HTMLButtonElement);
     this.soundBtn = h("button.btn.iconbtn", { "aria-label": "Sound on/off", onclick: () => { this.settings.sound = !this.settings.sound; this.applySettings(); this.persistSettings(); } }) as HTMLButtonElement;
     const command = (label: string, icon: string, fn: () => void, cls = "") => h("button.dock-command" + cls, { onclick: fn }, [h("span", { text: icon, "aria-hidden": "true" }), h("b", { text: label })]);
     const dock = h("nav.game-dock", { "aria-label": "Game actions" }, [
+      command("Address / teleport", "⌖",()=>this.addressPanel.show(), ".travel-launch"),
+      command("Nearby", "◉",()=>this.openStreetLife()),
       command("Life & upgrades", "◆", () => this.lifePhone.show()),
       command("City map", "▦", () => this.minimap.toggle()),
-      command('Live city','◉',()=>this.openLiveCity()),
-      command("Casino", "♠", () => { this.pausedBefore = this.clock.paused; this.casino.show(); }, ".casino-launch"),
-      command("Activities", "◎", () => this.activities.show("Hub")),
-      command("Photo", "▣", () => this.photos.open()),
-      command("Save", "↓", () => this.openSaves()),
+      command('Live city','◉',()=>this.openLiveCity(), '.dock-secondary'),
+      command("Casino", "♠", () => { this.pausedBefore = this.clock.paused; this.casino.show(); }, ".casino-launch.dock-secondary"),
+      command("Daily life", "☀", () => this.cityLifePanel.show()),
+      command("Missions", "◎", () => this.openMissions()),
+      command("Photo", "▣", () => this.photos.open(), ".dock-secondary"),
+      command("Save", "↓", () => this.openSaves(), ".dock-secondary"),
     ]);
-    this.rootEl.append(dock);
+    this.rootEl.append(dock,this.aerialCredit,this.elevationCredit);
     return h("header.bar", null, [
       h("a.brand", { href: "/", title: "Back to MosaicScope" }, [h("span.brand-gem", { text: "◆" }), h("b", { text: "The Mosaics" }), h("i", { text: "Ōtautahi / After Hours" })]),
       this.clockEl, h("div.spacer"), h("div.seg", { role: "group", "aria-label": "Simulation speed" }, this.speedEls), this.soundBtn,
       h("button.btn.menu-toggle", { text: "☰ Menu", "aria-label": "Menu", "aria-expanded": "false", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar")!; const open = bar.classList.toggle("open"); if (open) this.dev.toggle(false); (e.currentTarget as HTMLElement).setAttribute("aria-expanded", String(open)); } }),
       h("nav.game-menu", { "aria-label": "More game options", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar"); bar?.classList.remove("open"); bar?.querySelector(".menu-toggle")?.setAttribute("aria-expanded", "false"); } }, [
         h('button.btn.acid',{text:'Resume game',onclick:()=>this.resumeGame()}),
+        h('h3.menu-group',{text:'Quick access'}),
+        h('button.btn.acid',{text:'Address search & teleport',onclick:()=>this.addressPanel.show()}),
+        h('button.btn',{text:'Nearby street activity',onclick:()=>this.openStreetLife()}),
+        h('button.btn',{text:'Life & upgrades',onclick:()=>this.lifePhone.show()}),
+        h('button.btn',{text:'City map',onclick:()=>this.minimap.toggle()}),
+        h('button.btn',{text:'Daily life',onclick:()=>this.cityLifePanel.show()}),
+        h('button.btn',{text:'Casino',onclick:()=>this.casino.show()}),
+        h('button.btn',{text:'City missions',onclick:()=>this.openMissions()}),
+        h('button.btn',{text:'Photo',onclick:()=>this.photos.open()}),
+        h('button.btn',{text:'Save game',onclick:()=>this.openSaves()}),
         h('h3.menu-group',{text:'Life & city'}),
         h('button.btn',{text:'Mobile phone',onclick:()=>this.phone.home()}),
         h('button.btn',{text:'Live mapped city',onclick:()=>this.openLiveCity()}),
@@ -1429,13 +1526,13 @@ export class Game {
   private throwAtSelected(): void {
     const sim = this.sim, p = sim.player;
     const t = this.selected >= 0 && this.selected !== p.id ? sim.chars[this.selected] : null;
-    if (t) { const s = this.renderer.cam; const pt = { x: 0, y: 0 }; s.toScreen(t.x, t.y, 0, pt); this.mouse.x = pt.x; this.mouse.y = pt.y; this.hovered = t.id; }
-    else { const a = p.facing; const pt = { x: 0, y: 0 }; this.renderer.cam.toScreen(p.x + Math.cos(a) * 4, p.y + Math.sin(a) * 4, 0, pt); this.mouse.x = pt.x; this.mouse.y = pt.y; }
+    if (t) { const pt = this.renderer.worldToScreen(t.x,t.y,0); this.mouse.x = pt.x; this.mouse.y = pt.y; this.hovered = t.id; }
+    else { const a = p.facing; const pt = this.renderer.worldToScreen(p.x+Math.cos(a)*4,p.y+Math.sin(a)*4,0); this.mouse.x = pt.x; this.mouse.y = pt.y; }
     this.act("throw");
   }
 
   setSpeed(v: number): void {
-    if (v === 0) this.clock.paused = true; else { this.clock.paused = false; this.clock.speed = v; }
+    this.clock.speed=1;this.clock.paused=v<=0;
   }
 
   private padMove = { x: 0, y: 0 };
@@ -1491,10 +1588,13 @@ export class Game {
     this.soundBtn.textContent = s.sound ? "🔊" : "🔇";
     this.soundBtn.classList.toggle("on", s.sound);
     setImpactIntensity(s.gentle ? 0.55 : 1);
-    const q = s.quality === "low" ? 0 : s.quality === "medium" ? 1 : s.quality === "high" ? 2 : s.quality === "ultra" ? 3 : this.quality;
+    this.renderer.setGpuPreference(s.quality === "ultra-ultra");
+    const q = s.quality === "low" ? 0 : s.quality === "medium" ? 1 : s.quality === "high" ? 2 : (s.quality === "ultra" || s.quality === "ultra-ultra") ? 3 : this.quality;
     if (q !== this.quality || s.quality !== "auto") { this.quality = q as Quality; this.renderer.resize(this.quality); }
   }
 
+  private zoomSaveTimer=0;
+  private setStreetZoom(z:number):void {this.renderer.cam.setZoom(z);if(this.focusEl.classList.contains('on'))this.focusZoom=this.renderer.cam.targetZoom;this.settings.streetZoom=this.renderer.cam.targetZoom;clearTimeout(this.zoomSaveTimer);this.zoomSaveTimer=window.setTimeout(()=>this.persistSettings(),350);}
   private persistSettings(): void { saveSettings(this.store, this.settings); }
 
   // ---- optional model brains (the 🧠 tab) ----
@@ -1636,7 +1736,7 @@ export class Game {
   }
 
   reset(seed?: number): void {
-    const sim = new Simulation({ cityMap:'christchurch',trafficCars:650,pathsPerTick:2,seed: seed ?? this.sim.cfg.seed, backgroundCount: Math.min(this.settings.density * 3, 900) }, {}, this.lifeFlags);
+    const sim = new Simulation({ cityMap:'christchurch',trafficCars:750,pathsPerTick:2,seed: seed ?? this.sim.cfg.seed, backgroundCount: Math.min(this.settings.density * 4, 900) }, {}, this.lifeFlags);
     this.swapSim(sim);
     this.toast(seed !== undefined ? `New world · seed ${seed}` : "World restarted");
   }
@@ -1657,8 +1757,8 @@ export class Game {
   private openEquippedWeapon():void{
     this.modal.show('Equipped gun · live action',[liveWeaponMechanism({
       state:()=>{const p=this.sim.player,def=p.hand>=0?this.sim.toys[p.hand]?.def??'':'',base=def==='golden_pistol'?'pistol':def,load=p.combat?.load??'standard',key=load==='standard'?base:base+':'+load;return{def,action:p.weaponAction,tick:this.sim.tick,rounds:p.combat?.ammo[key]??0,status:(p.combat?.reloadUntil??0)>this.sim.tick?'Reloading':p.phys!==Phys.OK?'Recovering':'Ready'};},
-      fire:()=>{const p=this.sim.player,old=this.mouse;const aim=this.renderer.cam.toScreen(p.x+Math.cos(p.facing)*8,p.y+Math.sin(p.facing)*8,0,{x:0,y:0});this.mouse={...old,x:aim.x,y:aim.y};this.act('throw');this.mouse=old;},
-      focus:()=>{this.modal.close();this.renderer.cam.follow=this.sim.playerId;this.renderer.cam.setZoom(Math.min(6,this.renderer.cam.viewH/145));},
+      fire:()=>{const p=this.sim.player,old=this.mouse;const aim=this.renderer.worldToScreen(p.x+Math.cos(p.facing)*8,p.y+Math.sin(p.facing)*8,0);this.mouse={...old,x:aim.x,y:aim.y};this.act('throw');this.mouse=old;},
+      focus:()=>{this.modal.close();this.renderer.cam.follow=this.sim.playerId;this.renderer.cam.frameStreet();},
     })],'activities');
   }
 
@@ -1669,18 +1769,17 @@ export class Game {
     const row=(title:string,text:string)=>h('article.ax-card',null,[h('h3',{text:title}),h('p',{text})]);
     this.modal.show('Fight / gun controls',[
       h('p.ax-status',{text:'Tap or click to place the crosshair, then fire. Get close for melee. Close this panel to resume play.'}),
+      h('div.combat-actions',null,[h('button.btn.acid',{text:'Open armory / equip weapons',onclick:()=>this.armory.show()}),h('button.btn',{text:'Inspect equipped gun',onclick:()=>this.openEquippedWeapon()})]),
+      h('h3',{text:'Choose your unarmed style'}),styles,
       h('div.ax-grid',null,[
         row('Fighting',`${key(k.swing)} attacks with your selected style or held melee weapon. On mobile, tap the named attack button (Jab, Slap, Shove or Strike). Empty your hands to use unarmed moves.`),
         row('Guns',`${key(k.throw)} or right-click fires your equipped gun. Space also fires a held gun. Hold it for automatic fire with an SMG; tap for semi-auto guns. On mobile, tap Fire; hold Fire with an SMG. Tap or left-click a person or position to place the crosshair, then fire. Right-click aims and fires immediately; hold and move it to track. WASD moves; C returns the camera to you.`),
         row('Tank cannon',`While driving a tank, ${key(k.throw)} fires the cannon. On mobile, tap Cannon. The cannon needs shells and has a cooldown between shots.`),
         row('Equipment and ammunition',`${key(k.pickup)} picks up nearby equipment. ${key(k.drop)} drops the held item. Use Armory & gun store to buy or equip a weapon, choose an ammunition load and refill its reserve. Magazines reload automatically; an empty reserve needs ammunition.`),
         row('Injuries and protection',`${key('b')} bandages bleeding. Armour protects covered areas and wears down. Moving, repeated shots and arm injuries reduce aim. Heavy gear slows walking. Attacks can cause injuries, witnesses and police pursuit.`),
-      ]),h('h3',{text:'Choose your unarmed style'}),styles,
-      h('button.btn',{text:'Browse 500 reaction animations',onclick:()=>this.modal.show('Reaction catalogue',[reactionCatalogue(this.sim.player)],'activities reaction-modal')}),
-      accessoryControls(p),
-      h('button.btn',{text:'Inspect equipped gun · live firing',onclick:()=>this.openEquippedWeapon()}),
-      weaponMechanism(p.hand>=0?this.sim.toys[p.hand]?.def:'pistol'),
-      h('button.btn',{text:'Open armory / equip weapons',onclick:()=>this.armory.show()}),
+      ]),
+      h('details.combat-extra',null,[h('summary',{text:'Weapon mechanism and accessories'}),weaponMechanism(p.hand>=0?this.sim.toys[p.hand]?.def:'pistol'),accessoryControls(p)]),
+      h('button.btn',{text:'Browse reaction animations',onclick:()=>this.modal.show('Reaction catalogue',[reactionCatalogue(this.sim.player)],'activities reaction-modal')}),
     ],'activities combat-controls');
   }
 

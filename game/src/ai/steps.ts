@@ -11,6 +11,10 @@ export type StepStatus = 0 | 1 | 2;
 export function moveTo(c: Character, x: number, y: number, sim: Simulation, arrive = 0.4, speedMul = 1): boolean {
   const dx = x - c.x, dy = y - c.y, d = Math.sqrt(dx * dx + dy * dy);
   if (d < arrive) { c.vx = 0; c.vy = 0; return true; }
+  // A bounded streamed-city path is a leg of the journey; request the next leg at its end.
+  if(sim.world.mapped&&c.path&&c.pathReq===0&&c.path.length>=2){const end=c.path.length-2;
+    if(Math.hypot(c.x-c.path[end],c.y-c.path[end+1])<.5&&Math.hypot(x-c.path[end],y-c.path[end+1])>2){c.path=null;c.repathAt=sim.tick;}
+  }
   const goalMoved = Math.abs(x - c.pathGoalX) + Math.abs(y - c.pathGoalY) > 1.2;
   if ((goalMoved || (!c.path && c.pathReq === 0)) && sim.tick >= c.repathAt) {
     c.pathGoalX = x; c.pathGoalY = y; c.repathAt = sim.tick + 20;

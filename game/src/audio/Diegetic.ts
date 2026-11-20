@@ -111,18 +111,18 @@ cruiser:E(55,180,850,.16,.5),
 bicycle:E(0,0,100,0,0),
 ebike:E(25,210,1000,0,.1),
 escooter:E(25,210,1000,0,.1),
-kei_coupe:E(55,180,850,.16,.5),
-retro_micro:E(55,180,850,.16,.5),
-euro_hatch:E(55,180,850,.16,.5),
-fast_sedan:E(55,180,850,.16,.5),
-box_suv:E(55,180,850,.16,.5),
-offroad_wagon:E(55,180,850,.16,.5),
-rally_sedan:E(55,180,850,.16,.5),
-retro_ute:E(55,180,850,.16,.5),
-lift_suv:E(55,180,850,.16,.5),
-compact_ev:E(25,210,1000,0,.1),
-estate_ev:E(25,210,1000,0,.1),
-super_wedge:E(55,180,850,.16,.5),
+kei_coupe:E(78,235,1150,0.07,0.32),
+retro_micro:E(96,175,720,0.13,0.25),
+euro_hatch:E(75,220,1050,0.06,0.38),
+fast_sedan:E(58,235,1250,0.12,0.55),
+box_suv:E(47,140,620,0.17,0.72),
+offroad_wagon:E(43,135,570,0.22,0.78),
+rally_sedan:E(80,280,1750,0.15,0.38),
+retro_ute:E(41,125,560,0.25,0.85),
+lift_suv:E(42,128,580,0.2,0.8),
+compact_ev:E(170,380,2300,0,0.08),
+estate_ev:E(145,340,2000,0,0.12),
+super_wedge:E(84,335,2200,0.08,0.3),
   tank:E(28,95,450,.35,1),
   hatch: E(72, 200, 950),                 // buzzy little three-pot
   sedan: E(62, 170, 850),
@@ -984,7 +984,8 @@ export class Diegetic {
       const f = revs * dopplerRate(c.rad) * M.pitch;
       e.a.frequency.setTargetAtTime(f, t, 0.06); e.b.frequency.setTargetAtTime(f * 0.5, t, 0.06);
       e.filt.frequency.setTargetAtTime(p.cut * (0.55 + s * 0.65 + load * 0.5) * (mine ? 0.55 : 1), t, 0.1);
-      e.lfo.frequency.setTargetAtTime(7 + s * 12, t, 0.1); e.lfoDepth.gain.setTargetAtTime(p.burble, t, 0.1);
+      const engineWear = Math.max(0, Math.min(1, v.engineDamage ?? 0));
+      e.lfo.frequency.setTargetAtTime(7 + s * 12 - engineWear * 2, t, 0.1); e.lfoDepth.gain.setTargetAtTime(Math.min(.65, p.burble + engineWear * .22), t, 0.1);
       const idle = c.spd < 0.4;
       e.amp.gain.setTargetAtTime(c.sp.gain * (mine ? 0.2 : 0.14) * (idle ? 0.55 + load * 0.25 : 0.55 + s * 0.4 + load * 0.3) * M.rumble, t, 0.07);
       e.road.gain.setTargetAtTime(c.sp.gain * clamp01(c.spd / 7) ** 1.4 * (0.04 + wet * 0.07), t, 0.08);

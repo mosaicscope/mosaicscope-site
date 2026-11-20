@@ -1,3 +1,4 @@
+import {mappedLanes,mappedSpeed,roadOneWay} from '../content/roadLayout';
 import snapshot from './christchurch.json';
 import {World,T,type Building,type Area} from './World';
 import {BUILDINGS,GROUND_H,FLOOR_H,type BuildingKind} from '../content/buildings';
@@ -5,17 +6,18 @@ import {mappedBuildingStyle,regionalArchitecture} from '../content/mappedBuildin
 import {roadHalfWidth,type MappedRoad,type MappedTerrain} from '../content/destinationTerrain';
 import type {DistrictData,MappedBuilding,MappedVenue} from '../ui/DestinationDistrict';
 
-export interface CitySegment {id:number;name:string;kind:string;x:number;y:number;dx:number;dy:number;length:number;half:number;oneway:number;speed:number}
+export interface CitySegment {id:number;name:string;kind:string;x:number;y:number;dx:number;dy:number;length:number;half:number;oneway:number;speed:number;surface?:string;lanes?:{sign:number;offset:number}[]}
 export interface MappedCity {
  version:number;metresPerTile:number;offsetX:number;offsetY:number;data:DistrictData[];
  buildings:MappedBuilding[];byBuilding:Map<number,MappedBuilding>;buildingIds:Map<number,number>;
  roads:MappedRoad[];terrain:MappedTerrain[];venues:MappedVenue[];streetSegments:CitySegment[];
  origin:{lat:number;lon:number};coverage:typeof snapshot.coverage;
  damageFootprints:import('../sim/MappedFacadeDamage').DamageFootprint[];
- visibility:{labels:boolean;traffic:boolean;people:boolean;fixtures:boolean;weather:boolean};
+ visibility:{aerialRoofs?:boolean;labels:boolean;traffic:boolean;people:boolean;fixtures:boolean;weather:boolean};
  liveConditions?:import('../ui/LiveCity').LiveCityData;
  closedRoads?:Set<number>;
  trafficMode?:'cruise'|'city'|'rush';
+ elevation?:Map<string,import('./Elevation').ElevationTile>;
  revision?:number;
  streaming?:{loading:number;error:string|null;loaded:string[]};
  streamedData?:DistrictData[];streamedKeys?:Set<string>;streamedBuildingIds?:Set<number>;
@@ -45,8 +47,8 @@ export function mappedChristchurch(legacy:World):World{
  for(const t of m.terrain)if(t.kind==='water')raster(t.points,T.WATER,t.holes);
  const roadStroke=(r:MappedRoad,extra:number,pavement:boolean)=>{const walk=['path','footway','pedestrian','steps','cycleway','corridor'].includes(r.kind),half=roadHalfWidth(r)/2+extra;
   for(let i=1;i<r.points.length;i++){const a=mappedPoint(m,...r.points[i-1] as [number,number]),b=mappedPoint(m,...r.points[i] as [number,number]),dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);if(!len)continue;
-   for(let y=Math.max(pad,Math.floor(Math.min(a.y,b.y)-half));y<=Math.min(size-pad-1,Math.ceil(Math.max(a.y,b.y)+half));y++)for(let x=Math.max(pad,Math.floor(Math.min(a.x,b.x)-half));x<=Math.min(size-pad-1,Math.ceil(Math.max(a.x,b.x)+half));x++){const u=Math.max(0,Math.min(1,((x+.5-a.x)*dx+(y+.5-a.y)*dy)/(len*len)));if(Math.hypot(x+.5-a.x-dx*u,y+.5-a.y-dy*u)>half)continue;const old=w.tile(x,y);if(old===T.WATER&&r.tags?.bridge!=='yes')continue;if(pavement){if(old!==T.ROAD)put(x,y,walk?T.PATH:T.SIDEWALK);}else put(x,y,walk?T.PATH:T.ROAD);}
-   if(!pavement&&!walk&&r.tags?.access!=='no')m.streetSegments.push({id:r.id,name:r.name,kind:r.kind,x:a.x,y:a.y,dx:dx/len,dy:dy/len,length:len,half:roadHalfWidth(r)/2,oneway:r.tags?.oneway==='-1'?-1:['yes','true','1'].includes(r.tags?.oneway??'')?1:0,speed:Math.min(8.3,Math.max(2.5,(Number.parseFloat(r.tags?.maxspeed??'50')||50)/7.2))});
+   for(let y=Math.max(pad,Math.floor(Math.min(a.y,b.y)-half));y<=Math.min(size-pad-1,Math.ceil(Math.max(a.y,b.y)+half));y++)for(let x=Math.max(pad,Math.floor(Math.min(a.x,b.x)-half));x<=Math.min(size-pad-1,Math.ceil(Math.max(a.x,b.x)+half));x++){const u=Math.max(0,Math.min(1,((x+.5-a.x)*dx+(y+.5-a.y)*dy)/(len*len)));if(Math.hypot(x+.5-a.x-dx*u,y+.5-a.y-dy*u)>half)continue;const old=w.tile(x,y);if(old===T.WATER&&!(r.tags?.bridge && r.tags.bridge!=='no'))continue;if(pavement){if(old!==T.ROAD)put(x,y,walk?T.PATH:T.SIDEWALK);}else put(x,y,walk?T.PATH:T.ROAD);}
+   if(!pavement&&!walk&&r.tags?.access!=='no')m.streetSegments.push({id:r.id,name:r.name,kind:r.kind,x:a.x,y:a.y,dx:dx/len,dy:dy/len,length:len,half:roadHalfWidth(r)/2,surface:r.tags?.surface,oneway:roadOneWay(r),lanes:mappedLanes(r,roadHalfWidth(r)),speed:mappedSpeed(r)});
   }
  };
  for(const r of m.roads)roadStroke(r,1.3,true);for(const r of m.roads)roadStroke(r,0,false);
@@ -80,8 +82,8 @@ export function mappedChristchurch(legacy:World):World{
  const po=(kind:import('./World').PoiKind,x:number,y:number,area=0,extra:Partial<import('./World').Poi>={})=>w.pois.push({id:w.pois.length,kind,x,y,area,on:kind==='lamp',...extra});
  for(const b of w.buildings){po('door',b.door.x+.5,b.door.y+.5,b.area,{building:b.kind==='studio'?-2:b.id,name:b.name,menu:BUILDINGS[b.kind].menu});if(b.kind==='bank')po('atm',b.door.x+1.2,b.door.y+.5,b.area);}
  // Furniture follows real road tangents; no signs, trees or benches are placed in carriageways.
- let ordinal=0;for(const s of m.streetSegments){if(s.length<8)continue;for(let at=8;at<s.length;at+=22){ordinal++;for(const side of[-1,1]){const x=s.x+s.dx*at-s.dy*(s.half+1)*side,y=s.y+s.dy*at+s.dx*(s.half+1)*side;if(!w.walkable(x,y)||w.carriageway(x,y))continue;const close=w.pois.some(p=>Math.hypot(p.x-x,p.y-y)<2.2);if(close)continue;po(ordinal%7===0?'busstop':ordinal%5===0?'bin':'lamp',x,y,0,{dir:Math.abs(s.dx)>.5?0:1});if(side===1&&ordinal%9===0)po('bench',x+s.dx*3,y+s.dy*3);}}}
- for(const p of legacy.pois){if(!['boombox','toychest','hoop','springpad','fountain','foodtruck','mural','billboard','hydrant','streetsign','roadsign'].includes(p.kind))continue;const a=w.areas[p.area]??plaza,foot=w.nearestFoot(a.cx+(p.id%5-2)*2,a.cy+(p.id%7-3)*2,12);if(!w.walkable(foot.x,foot.y)||w.carriageway(foot.x,foot.y)||w.pois.some(q=>Math.hypot(q.x-foot.x,q.y-foot.y)<1.7))continue;po(p.kind,foot.x,foot.y,a.id,{name:['streetsign','roadsign'].includes(p.kind)?w.streetName(foot.x,foot.y):p.name,dir:p.dir});}
+ let ordinal=0;for(const s of m.streetSegments){if(s.length<8)continue;for(let at=8;at<s.length;at+=22){ordinal++;for(const side of[-1,1]){const x=s.x+s.dx*at-s.dy*(s.half+1)*side,y=s.y+s.dy*at+s.dx*(s.half+1)*side;const angle=Math.atan2(s.dy,s.dx);if(!w.fixtureClear(x,y,angle,ordinal%7===0?1:.2,ordinal%7===0?.4:.2))continue;const close=w.pois.some(p=>Math.hypot(p.x-x,p.y-y)<2.2);if(close)continue;po(ordinal%5===0?'bin':'lamp',x,y,0,{dir:Math.abs(s.dx)>.5?0:1,angle});if(side===1&&ordinal%5===0){const bx=x+s.dx*3,by=y+s.dy*3;if(w.walkable(bx,by)&&!w.carriageway(bx,by)&&!w.pois.some(p=>Math.hypot(p.x-bx,p.y-by)<2))po('bench',bx,by,0,{dir:Math.abs(s.dx)>.5?0:1});}}}}
+ for(const p of legacy.pois){if(!['boombox','toychest','hoop','springpad','fountain','foodtruck','mural','billboard','hydrant','streetsign','roadsign'].includes(p.kind))continue;const a=w.areas[p.area]??plaza,foot=w.nearestFoot(a.cx+(p.id%5-2)*2,a.cy+(p.id%7-3)*2,12);if(!w.walkable(foot.x,foot.y)||w.carriageway(foot.x,foot.y)||w.pois.some(q=>Math.hypot(q.x-foot.x,q.y-foot.y)<1.7))continue;po((p.name==='Zoo Kiosk'||p.name==='Kebab Kingz')?'bench':p.kind,foot.x,foot.y,a.id,{name:(p.name==='Zoo Kiosk'||p.name==='Kebab Kingz')?undefined:['streetsign','roadsign'].includes(p.kind)?w.streetName(foot.x,foot.y):p.name,dir:p.dir,...(p.name!=='Zoo Kiosk'&&p.name!=='Kebab Kingz'&&p.menu?{menu:p.menu}:{})});}
  const stage=w.areas.find(a=>a.kind==='stage')!;const clear=w.nearestFoot(stage.cx,stage.cy);stage.cx=clear.x;stage.cy=clear.y;
  // Survey coverage is a streaming boundary, not a physical wall.
  w.dirtyTiles.clear();return w;

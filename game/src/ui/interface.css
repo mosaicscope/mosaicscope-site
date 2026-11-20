@@ -83,3 +83,97 @@
 #ui .retro-softkeys{margin:7px 0;gap:20px}#ui .retro-softkeys button,#ui .retro-dpad button{min-height:28px}#ui .retro-dpad{max-width:112px}#ui .retro-keypad{gap:3px;margin-top:6px}#ui .retro-keypad button{min-height:24px}
 @media(pointer:coarse){#ui .retro-softkeys button,#ui .retro-dpad button{min-height:40px}#ui .retro-keypad{display:none}#ui .retro-screen button{min-height:40px}}
 .city-tools{position:absolute;left:110px;top:8px;z-index:3;max-width:calc(100% - 280px);margin:0;padding:.65rem .8rem;border:1px solid #aba6a266;border-radius:8px;background:#2c2626f5}.city-tools summary{cursor:pointer;font-weight:650;font-size:13px}.city-tools[open]{left:12px;top:60px;max-width:min(560px,calc(100% - 24px));max-height:calc(100% - 76px);overflow:auto;overscroll-behavior:contain}.live-city-readout{display:grid;gap:.35rem;padding:.65rem 0;font-size:13px;line-height:1.45}.live-city-readout a{color:#cbc5bf}.city-tools .opts{display:flex;flex-wrap:wrap;gap:.5rem}.city-tools select{min-width:0;max-width:100%;flex:1 1 240px;min-height:42px}.live-city .tv-title{font-size:clamp(15px,2vw,24px)}@media(max-width:640px){.city-tools{left:90px;max-width:calc(100% - 215px);padding:7px}.city-tools summary{font-size:11px}.city-tools[open]{left:7px;max-width:calc(100% - 14px)}.city-tools .tv-btn{min-height:44px}}
+
+#ui .travel-launch{background:#ada8a522;color:#e0ddda}#ui .address-panel form{display:flex;flex-wrap:wrap;gap:8px}#ui .address-panel form input{flex:1 1 220px;min-width:0}#ui .address-panel .opts{display:flex;gap:8px;flex-wrap:wrap}#ui .address-panel .opts button{min-height:44px}#ui .address-panel article{margin:12px 0;padding:12px;border:1px solid #ada8a555;border-radius:8px}
+@media(pointer:coarse),(max-width:650px){#ui .game-dock .dock-secondary{display:none}#ui .game-dock .dock-command{min-width:44px;flex:1;min-height:56px}#ui .game-dock .dock-command b{font-size:10px}#ui .address-panel .opts button{flex:1 1 100%;font-size:15px}}
+
+#ui .aerial-credit{position:fixed;left:12px;top:80px;max-width:250px;padding:5px 8px;border-radius:5px;background:#262323e8;color:#d1ccc7;font-size:10px;z-index:3}#ui .aerial-credit[hidden]{display:none}#ui.modal-open .aerial-credit{visibility:hidden}@media(pointer:coarse),(max-width:650px){#ui .aerial-credit{top:182px;left:12px;max-width:165px;font-size:9px}}
+/* Mobile play: only movement, context and driving pedals stay on the canvas. */
+#ui .hud .drive-settings{display:inline-flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:46px;padding:7px;background:#343030;border:1px solid #b0aba770;text-align:left}
+#ui .condition-caption{font-weight:700;line-height:1.2}
+#ui .hud .drive-alert:empty{display:none}
+@media (pointer:coarse),(max-width:650px){
+ #ui .game-dock{display:none!important}
+ #ui .hud{width:130px;max-width:130px;padding:8px;right:max(8px,env(safe-area-inset-right))!important;top:76px;max-height:calc(100dvh - 270px);overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;pointer-events:auto!important}
+ #ui .hud .drive-detail,#ui .hud .combat-help,#ui .areaname{display:none!important}
+ #ui .hud .bars{display:flex;gap:4px;width:100%}#ui .hud .bars span{display:none}#ui .hud .gauge{flex:1;min-width:0;height:5px}
+ #ui .toasts{top:190px;left:8px;right:auto;transform:none;max-width:min(180px,calc(100vw - 158px))}
+ #ui .hud .drive-settings{display:inline-flex;justify-content:center;width:100%;min-height:44px;margin-top:5px;font-size:11px}
+ #ui .hud .drive-gear{position:fixed;left:calc(50% - 23px);display:inline-flex;justify-content:center;width:46px;height:46px;min-height:44px;margin:0;padding:4px;z-index:6}
+ #ui .hud .drive-gear[aria-label="Shift up"]{bottom:max(12px,env(safe-area-inset-bottom))}
+ #ui .hud .drive-gear[aria-label="Shift down"]{bottom:calc(max(12px,env(safe-area-inset-bottom)) + 52px)}
+ #ui .hud .drive-alert{font-size:10px;line-height:1.25;overflow-wrap:anywhere}
+ #ui .hud .drive-alert:empty{display:none}
+ #ui .tc-zone{bottom:max(12px,env(safe-area-inset-bottom));left:max(8px,env(safe-area-inset-left));width:136px;height:136px;max-width:42vw}
+ #ui .tc-cluster,#ui .tc.in-car .tc-cluster{right:max(8px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));width:auto;height:auto;grid-template-columns:repeat(2,54px);gap:7px}
+ #ui .tc-cluster>.tc-btn,#ui .tc.in-car .tc-cluster>.tc-btn{width:54px;height:54px;min-height:44px;position:static;transform:none}
+ #ui .tc-cluster>.tc-ctx{width:115px;grid-column:1 / -1}
+ #ui .tc.in-car .tc-cluster>.tc-gas{grid-column:2;grid-row:1 / 3;height:115px;width:54px}
+ #ui .tc.in-car .t-reverse{grid-column:1;grid-row:1}
+ #ui .tc.in-car .t-brake{grid-column:1;grid-row:2}
+ #ui .tc.in-car .t-more{grid-column:1;grid-row:3}
+ #ui .tc.in-car .t-cannon{grid-column:2;grid-row:3}
+ #ui .tc-walk-hint,#ui .tc-zoom{display:none!important}
+ #ui .tc-sheet{right:0;bottom:calc(100% + 8px);width:min(232px,calc(100vw - 20px));grid-template-columns:repeat(3,minmax(0,1fr));max-height:min(230px,max(80px,calc(100dvh - 260px)));overflow-y:auto;touch-action:pan-y}
+ #ui .tc-sheet:not(.open){visibility:hidden}
+ #ui .tc-sheet.open{visibility:visible}
+ #ui .tc-sheet .tc-item,#ui .tc-sheet .tc-sheet-hold{width:100%;height:58px;min-height:44px;position:static;transform:none;border-radius:10px;touch-action:manipulation}
+ #ui .tc-sheet .tc-sheet-hold{background:#353030ee;box-shadow:none}
+ #ui:has(.tc.sheet-open) :is(.hud,.minimap,.aerial-credit){visibility:hidden}
+ #ui:has(.bar.open) :is(.hud,.minimap,.aerial-credit){visibility:hidden}
+ #ui .drive-settings-panel .modal-body{display:grid;gap:8px}
+ #ui .drive-settings-panel .modal-body .btn{min-height:44px;width:100%}
+}
+@media (pointer:coarse) and (max-height:500px), (max-width:650px) and (max-height:500px){
+ #ui .hud{left:max(8px,env(safe-area-inset-left))!important;right:auto!important;top:78px;padding:6px;width:130px;max-width:130px;max-height:calc(100dvh - 212px)}
+ #ui .hud .bars,#ui .hud .stars,#ui .hud .cash,#ui .hud .drive-name,#ui .hud .drive-meta,#ui .minimap{display:none!important}
+ #ui .toasts{top:82px;left:auto;right:150px;max-width:180px}
+ #ui .hud .cash{font-size:16px}#ui .hud .car b{font-size:20px}
+ #ui .tc-zone,#ui .tc-cluster{bottom:max(8px,env(safe-area-inset-bottom))}
+ #ui .tc-sheet{max-height:max(72px,calc(100dvh - 250px))}
+}
+
+#ui .condition-map{display:grid;grid-template-columns:5px 8px 17px 8px 5px;grid-template-rows:7px 9px 9px 7px;gap:2px;width:51px;flex:none}
+#ui .condition-map span{border-radius:2px;min-width:0}
+#ui .condition-front{grid-area:1/2/2/5}#ui .condition-left{grid-area:2/2/4/3}#ui .condition-right{grid-area:2/4/4/5}#ui .condition-rear{grid-area:4/2/5/5}
+#ui .condition-wheel0{grid-area:2/1}#ui .condition-wheel1{grid-area:2/5}#ui .condition-wheel2{grid-area:3/1}#ui .condition-wheel3{grid-area:3/5}
+#ui .condition-detail{display:flex;align-items:center;gap:14px}#ui .condition-detail .condition-map{transform:scale(1.25);transform-origin:left center;margin-right:14px}#ui .condition-detail p{margin:4px 0}
+@media (pointer:coarse),(max-width:650px){#ui .hud .drive-settings{gap:5px;align-items:center;padding:4px;line-height:1.1}#ui .condition-caption{font-size:10px;text-align:left}}
+@media (pointer:coarse) and (max-height:500px),(max-width:650px) and (max-height:500px){#ui .hud .drive-settings{min-height:42px;margin-top:2px}}
+
+#ui .condition-section{border:1px solid #ada8a544;border-radius:7px;padding:8px 10px}#ui .condition-section summary{cursor:pointer;font-weight:700;min-height:32px}#ui .condition-section p{margin:5px 0;line-height:1.4}
+
+#ui .condition-warning{color:#c6bfb9;font-weight:700}
+
+/* Combat help is a scrollable reference, not an activity-stage layout. */
+#ui .panel.activities.combat-controls{height:min(820px,94dvh);overflow:hidden}
+#ui .panel.activities.combat-controls>.modal-header{flex:none}
+#ui .panel.activities.combat-controls>.modal-body{display:block;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
+#ui .panel.activities.combat-controls .ax-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));grid-template-rows:none;gap:10px;min-height:0}
+#ui .combat-controls .combat-actions{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+#ui .combat-controls .combat-actions .btn{min-height:44px;flex:1 1 190px;white-space:normal}
+#ui .combat-controls .combat-styles{margin:8px 0 16px}
+#ui .combat-controls .combat-styles .btn{min-height:44px}
+#ui .combat-controls .combat-extra{margin:16px 0;padding:12px;border:1px solid var(--ui-border);border-radius:8px}
+#ui .combat-controls .combat-extra summary{cursor:pointer;min-height:44px;display:flex;align-items:center;color:var(--ui-gold)}
+#ui .combat-controls .weapon-study .play-stage{max-height:none;height:auto}
+#ui .combat-controls .weapon-study .play-scene{height:auto;max-height:none}
+@media(max-width:680px){#ui .panel.activities.combat-controls{height:min(820px,96dvh)}#ui .panel.activities.combat-controls .ax-grid{grid-template-columns:1fr;grid-template-rows:none}#ui .combat-controls .combat-actions .btn{flex-basis:100%}}
+
+/* The armory catalogue scrolls independently of the header. */
+#ui .panel.activities.armory-controls{height:min(820px,94dvh);overflow:hidden}
+#ui .panel.activities.armory-controls>.modal-header{flex:none}
+#ui .panel.activities.armory-controls>.modal-body{display:block;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
+#ui .panel.activities.armory-controls .ax-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));grid-template-rows:none;gap:10px}
+#ui .armory-controls .ax-card .btn{min-height:44px;margin:4px 4px 0 0;white-space:normal}
+#ui .panel.activities.armory-controls .play-stage{grid-column:1/-1;height:auto;max-height:none}
+@media(max-width:680px){#ui .panel.activities.armory-controls{height:min(820px,96dvh)}#ui .panel.activities.armory-controls .ax-grid{grid-template-columns:1fr;grid-template-rows:none}}
+
+/* Compact damage summary: bounded lists keep other controls within reach. */
+#ui .damage-overview{display:grid;gap:7px;border:1px solid #ada8a544;border-radius:8px;padding:10px}
+#ui .damage-heading{display:flex;justify-content:space-between;gap:12px;align-items:baseline}#ui .damage-heading span{color:#aaa99d;font-size:12px}
+#ui .damage-part{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;align-items:center;font-size:12px;line-height:1.25}#ui .damage-part>span:first-child{overflow-wrap:anywhere}#ui .damage-value{font-variant-numeric:tabular-nums;color:#c74d59}
+#ui .damage-meter{grid-column:1/-1;height:4px;background:#ffffff16;border-radius:4px;overflow:hidden}#ui .damage-meter i{display:block;height:100%;background:#c74d59;border-radius:4px}
+#ui .damage-all{margin-top:3px}#ui .damage-group{border-top:1px solid #ffffff1a;padding:5px 0}#ui .damage-group summary{cursor:pointer;min-height:32px;font-size:13px}#ui .damage-list{display:grid;gap:8px;max-height:180px;overflow-y:auto;overscroll-behavior:contain;padding:6px 2px}
+
+#ui .elevation-credit{top:110px} @media(pointer:coarse),(max-width:650px){#ui .elevation-credit{top:212px}}

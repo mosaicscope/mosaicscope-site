@@ -5,7 +5,7 @@ import "./mobile.css";
  * On foot: analog walking and sprinting, context action, attack, and a More sheet.
  * In a car: analog thumb steering, Gas / Brake / Horn / Exit (+ More).
  */
-export type TouchAction = "use" | "talk" | "throw" | "swing" | "rob" | "bandage" | "horn" | "map" | "view2d" | "pickup" | "drop" | "sprint";
+export type TouchAction = "use" | "talk" | "throw" | "swing" | "rob" | "bandage" | "horn" | "map" | "view2d" | "pickup" | "drop" | "sprint" | "zoomIn" | "zoomOut" | "combatHelp";
 
 export interface TouchHost {
   /** Analog stick, screen space -1..1 (up = -1). Called every frame while held, (0,0) once on release.
@@ -15,8 +15,9 @@ export interface TouchHost {
   /** What the big context button does right now (e.g. "Enter Casino", "Talk to Ruby", "Get in car"). */
   context(): { label: string; icon: string } | null;
   inCar(): boolean;
-  /** Optional: Brake button held state in a car (Space on PC). Without it, Brake maps to move y = +1. */
+  /** Optional: Service-brake button held state in a car; Space on PC remains the handbrake. Without it, Brake maps to move y = +1. */
   brake?(held: boolean): void;
+  handbrake?(held:boolean):void;
   /** Zoom the camera in (+1) or out (-1); used by the on-screen zoom buttons. */
   zoom?(dir: number): void;
   fire?(held:boolean):void;
@@ -57,16 +58,15 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: s
   return e;
 }
 
-const DEADZONE = 0.14, SPRINT_ON = 0.94, SPRINT_OFF = 0.8;
+const DEADZONE = 0.14, SPRINT_ON = 0.86, SPRINT_OFF = 0.7;
 
 export class TouchControls {
   el: HTMLElement;
   private host: TouchHost;
   private zone: HTMLElement; private base: HTMLElement; private knob: HTMLElement;
   private ctxBtn: HTMLButtonElement; private ctxIcon: HTMLElement; private ctxLabel: HTMLElement;
-  private exitLabel: HTMLElement;
   private attackButton:HTMLButtonElement;
-  private sheet: HTMLElement;
+  private sheet: HTMLElement; private moreButton:HTMLButtonElement;
   // stick state
   private stickId = -1; private ox = 0; private oy = 0; private sx = 0; private sy = 0; private sprinting = false; private sentZero = true;
   // car pedals
@@ -75,9 +75,11 @@ export class TouchControls {
   private gas = false; private reverseHeld=false; private brakeHeld = false;
   private walkHint?:HTMLElement;
   private lastCtx = ""; private lastCar: boolean | null = null;
-  private resetInput=()=>{};
+  private resetInput=()=>{}; private releaseSheet=()=>{}; private sheetHeld=false;
   private releaseButtons:(()=>void)[]=[];
   private suspended=false;
+
+  get sprintHeld():boolean{return this.sprinting&&this.stickId>=0&&!this.host.inCar();}
 
   static wanted(): boolean {
     try {
@@ -99,9 +101,10 @@ export class TouchControls {
     this.base = el("div", "tc-base"); this.knob = el("div", "tc-knob");
     this.base.append(this.knob);
     this.zone.append(this.base);
+    this.zone.setAttribute("role","group");this.zone.setAttribute("aria-label","Movement joystick");this.zone.addEventListener("lostpointercapture",e=>{if(e.pointerId===this.stickId)this.stickUp();});
     // the stick starts from a touch anywhere on the left half that isn't a button, so it works wherever the thumb lands
     window.addEventListener("pointerdown", (e) => {
-      if (!STICK_ON || e.pointerType !== "touch" || this.stickId >= 0 || e.clientX > innerWidth * 0.5) return;
+      if (!STICK_ON || !this.el.classList.contains("on") || this.stickId >= 0 || e.clientX > innerWidth * 0.5) return;
       const t = e.target;
       if (!(t instanceof Element) || !this.zone.contains(t) || t.closest("button, .tc-btn, .tc-sheet, .tc-cluster, .tc-sheet *")) return;
       if (this.el.classList.contains("hidden") || !this.el.classList.contains("on")) return;
@@ -153,20 +156,17 @@ export class TouchControls {
     gasBtn.append(gi, el("span", "tc-lbl", "Gas"));
     gasBtn.setAttribute("aria-label", "Gas");
     this.press(gasBtn, () => buzz(10), (on) => { this.gas = on; });
-    const exitBtn = small("car t-exit", "exit", "Exit", () => { buzz(18); this.host.action("use"); });
-    this.exitLabel = exitBtn.querySelector(".tc-lbl") as HTMLElement;
     const reverse=small('car t-reverse','exit','Reverse',()=>buzz(8),on=>{this.reverseHeld=on;});
-    const car = [reverse,
-      small("car t-cannon","throw","Fire cannon",()=>this.host.action("throw")),
-      arc(small("car t-brake", "brake", "Brake", () => buzz(12), (on) => { this.brakeHeld = on; if (this.host.brake) this.host.brake(on); }), 186, 116),
-      arc(small("car t-horn", "horn", "Horn", () => { buzz([30, 20, 30]); this.host.action("horn"); }), 146, 116),
-      arc(exitBtn, 106, 116),
-    ];
-    const more = arc(small("t-more", "more", "More", () => { buzz(8); this.toggleSheet(); }), 72);
+    const handbrake=small("car t-handbrake","brake","Handbrake",()=>buzz(12),on=>{this.sheetHeld=on;this.host.handbrake?.(on);});
+    this.releaseSheet=this.releaseButtons[this.releaseButtons.length-1];
+    const car = [reverse, small("car t-cannon","throw","Fire cannon",()=>this.host.action("throw")),
+      arc(small("car t-brake", "brake", "Brake", () => buzz(12), (on) => { this.brakeHeld = on; if (this.host.brake) this.host.brake(on); }), 186, 116)];
+    const more = arc(small("t-more", "more", "More", () => { buzz(8); this.toggleSheet(); }), 72) as HTMLButtonElement;
+    this.moreButton=more;more.setAttribute("aria-expanded","false");more.setAttribute("aria-controls","touch-actions-sheet");
 
     // ---- More sheet
     this.sheet = el("div", "tc-sheet");
-    this.sheet.setAttribute("role", "menu");
+    this.sheet.setAttribute("role", "menu");this.sheet.id="touch-actions-sheet";this.sheet.setAttribute("aria-label","More touch actions");
     const item = (icon: string, label: string, name: TouchAction, cls = "") => {
       const b = el("button", "tc-item " + cls);
       b.setAttribute("role", "menuitem");
@@ -178,40 +178,35 @@ export class TouchControls {
     this.sheet.append(
       item("swing","Attack","swing","foot"),item("throw","Fire / throw","throw","foot"),item("talk","Talk","talk","foot"),item("rob","Rob","rob","foot"),
       item("pickup", "Pick up", "pickup", "foot"), item("drop", "Drop", "drop", "foot"), item("bandage", "Bandage", "bandage", "foot"),
-      item("horn", "Horn", "horn"), item("map", "Map", "map"),
+      item("horn", "Horn", "horn", "car"), item("exit", "Get out", "use", "car"), item("map", "Map", "map"),
+      item("use", "Zoom in", "zoomIn"), item("use", "Zoom out", "zoomOut"), item("use", "Fight controls", "combatHelp", "foot"),
     );
 
+    handbrake.classList.add("tc-sheet-hold");this.sheet.append(handbrake);
     const attack=small('foot t-attack','swing','Attack / fire',()=>this.host.action('swing'),on=>this.host.fire?.(on));
     this.attackButton=attack;
-    const talk=small("foot t-talk","talk","Talk",()=>this.host.action("talk"));
-    cluster.append(...car, talk, attack, more, this.ctxBtn, gasBtn, this.sheet);
-    // on-screen zoom buttons: pinch can fail on some phones, these always work
-    const zoomBox = el("div", "tc-zoom");
-    for (const [txt, dir, label] of [["+", 1, "Zoom in"], ["\u2212", -1, "Zoom out"]] as const) {
-      const b = el("button", "tc-zbtn", txt); b.setAttribute("aria-label", label);
-      b.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); this.host.zoom?.(dir); });
-      zoomBox.append(b);
-    }
+    cluster.append(...car, attack, more, this.ctxBtn, gasBtn, this.sheet);
     const steering=el('div','tc-steering car');
     for(const [text,dir]of[['←',-1],['→',1]] as const){const b=el('button','tc-btn tc-steer',text);b.setAttribute('aria-label',dir<0?'Steer left':'Steer right');this.press(b,()=>{},on=>{if(on)this.steeringHeld.add(dir);else this.steeringHeld.delete(dir);this.steering=[...this.steeringHeld].reduce((sum,n)=>sum+n,0);});steering.append(b);}
-    this.el.append(this.zone,cluster,zoomBox,steering);
-    const reset=()=>{this.stickUp();this.releaseButtons.forEach(release=>release());this.gas=false;this.reverseHeld=false;this.brakeHeld=false;this.steering=0;this.host.brake?.(false);this.host.move(0,0);this.host.fire?.(false);};
+    this.el.append(this.zone,cluster,steering);
+    const reset=()=>{this.stickUp();this.releaseButtons.forEach(release=>release());this.gas=false;this.reverseHeld=false;this.brakeHeld=false;this.steering=0;this.host.brake?.(false);this.host.handbrake?.(false);this.host.move(0,0);this.host.fire?.(false);};
     this.resetInput=reset;
     window.addEventListener('blur',reset);
+    window.addEventListener('orientationchange',()=>{reset();this.toggleSheet(false);});
     document.addEventListener('visibilitychange',()=>{if(document.hidden)reset();});
-    const hint=el('div','tc-walk-hint','Drag to walk · full push to sprint');this.walkHint=hint;this.el.append(hint);
+    const hint=el('div','tc-walk-hint','Drag to walk · full push builds sprint');this.walkHint=hint;this.el.append(hint);
 
     // nothing we touch leaks into the canvas / page handlers
     for (const t of ["pointerdown", "pointerup", "pointermove", "click", "dblclick", "contextmenu", "touchstart", "touchend", "touchmove", "wheel"]) {
       this.el.addEventListener(t, (e) => { e.stopPropagation(); if (t === "contextmenu" || t === "dblclick") e.preventDefault(); });
     }
     // tapping anywhere else closes the sheet
-    document.addEventListener("pointerdown", (e) => { if (this.sheet.classList.contains("open") && !(e.target instanceof Node && cluster.contains(e.target))) this.toggleSheet(false); }, { capture: true });
+    document.addEventListener("pointerdown", (e) => { if (this.sheet.classList.contains("open") && !this.sheetHeld && !(e.target instanceof Node && cluster.contains(e.target))) this.toggleSheet(false); }, { capture: true });
   }
 
   /** Call every frame: feeds the stick/pedals to the host and refreshes the context button. */
   update(): void {
-    if (!this.el.classList.contains("on")||this.el.classList.contains('hidden')) {if(!this.suspended)this.resetInput();this.suspended=true;return;}
+    if (!this.el.classList.contains("on")||this.el.classList.contains('hidden')) {if(!this.suspended){this.resetInput();this.toggleSheet(false);}this.suspended=true;return;}
     this.suspended=false;
     const inCar = this.host.inCar();
     const attack=this.host.attackLabel?.()??'Attack',label=this.attackButton.querySelector('.tc-lbl');
@@ -222,7 +217,7 @@ export class TouchControls {
       if(this.lastCar!==null)this.resetInput();
       this.lastCar = inCar;
       this.el.classList.toggle("in-car", inCar);
-      if(this.walkHint)this.walkHint.textContent=inCar?"Thumb steer · hold Gas · Brake to stop":"Drag to walk · full push to sprint";
+      if(this.walkHint)this.walkHint.textContent=inCar?"Thumb steer · hold Gas · Brake to stop":"Drag to walk · full push builds sprint";
       this.toggleSheet(false);
       if (!inCar) { this.gas = false; this.brakeHeld = false; this.steering=0; }
     }
@@ -243,7 +238,6 @@ export class TouchControls {
     if (key === this.lastCtx) return;
     this.lastCtx = key;
     if (inCar) {
-      this.exitLabel.textContent = c?.label || "Exit";
       return;
     }
     this.ctxBtn.classList.toggle("idle", !c);
@@ -278,7 +272,9 @@ export class TouchControls {
 
   private toggleSheet(open?: boolean): void {
     const on = open ?? !this.sheet.classList.contains("open");
+    if(!on)this.releaseSheet();
     this.sheet.classList.toggle("open", on);
+    this.moreButton.setAttribute("aria-expanded",String(on));
     this.el.classList.toggle("sheet-open", on);
   }
 
@@ -286,18 +282,18 @@ export class TouchControls {
     if (this.stickId >= 0) return;
     e.preventDefault(); e.stopPropagation();
     this.stickId = e.pointerId;
-    try { (e.target as Element).setPointerCapture?.(e.pointerId); } catch { /* fine */ }
+    try { this.zone.setPointerCapture?.(e.pointerId); } catch { /* fine */ }
     const r = this.radius();
     // keep the whole base on screen
-    this.ox = Math.max(r + 8, Math.min(innerWidth - r - 8, e.clientX));
-    this.oy = Math.max(r + 8, Math.min(innerHeight - r - 8, e.clientY));
+    const rest=this.base.getBoundingClientRect(),cx=rest.left+rest.width/2,cy=rest.top+rest.height/2,near=Math.hypot(e.clientX-cx,e.clientY-cy)<=r*1.25;
+    this.ox=near?cx:e.clientX;this.oy=near?cy:e.clientY;
     const zr = this.zone.getBoundingClientRect();
     this.base.style.left = `${this.ox - zr.left}px`;
     this.base.style.top = `${this.oy - zr.top}px`;
     this.base.classList.add("live");
     this.sx = this.sy = 0; this.sprinting = false;
     this.setKnob(0, 0);
-    this.toggleSheet(false);
+    if(!this.sheetHeld)this.toggleSheet(false);
     buzz(6);
     this.stickMove(e);
   }

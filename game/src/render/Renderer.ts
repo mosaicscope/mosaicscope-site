@@ -1,3 +1,12 @@
+import {DrivingView} from './DrivingView';
+import {waterCurrent,waterDepth} from '../sim/WaterPhysics';
+import {VehicleIndex} from '../sim/VehicleIndex';
+import type {MappedBuilding} from '../ui/DestinationDistrict';
+import {impactRagdollPose} from '../physics/ImpactRagdoll';
+import {missionTarget} from '../sim/CityMissions';
+import {injuryResponse} from '../sim/InjuryResponse';
+import {mappedMoverDepth} from './MappedDepth';
+import {trafficRadiusForView} from '../sim/TrafficBudget';
 import {MAPPED_FIGURE_SCALE} from '../world/WorldScale';
 import {drawStreetProp} from './StreetProps';
 import {worldIndex} from '../world/WorldIndex';
@@ -7,7 +16,7 @@ import {farmObjects,drawFarmObject} from './Farm';
 import {drawCommerceArt,drawCommerceObject} from './CommerceArt';
 import {applySubstanceMotion,drawSubstanceProps} from './SubstanceMotion';
 import {gunGrips} from './GunRig';
-import {detailedCrowd} from './CrowdDetail';
+import {detailedCrowd,CrowdArtworkBudget} from './CrowdDetail';
 import {visibleWeaponMotion} from './WeaponMotion';
 import {drawDetachedLimb} from './DamageArt';
 import {applyNegativeReaction} from './NegativeReactions';
@@ -23,11 +32,11 @@ import { drawLitter } from "./LitterArt";
 import { T, TILE_HEIGHT, ROAD_W } from "../world/World";
 import { Camera } from "./Camera";
 import { Terrain, drawTallTile, drawPoi } from "./Terrain";
-import { decorGrid, drawDecor } from "./StreetDecor";
+import { decorGrid, drawDecor, mappedStreetDecor } from "./StreetDecor";
 import { Particles } from "./Particles";
 import { Lighting, Rain } from "./Lighting";
 import { NightFX } from "./NightFX";
-import { pose, solve, drawFigure, pathSilhouette, J, gaitOf, applyGait, reachArm, Angles } from "./StickFigure";
+import { pose, solve, drawFigure, pathSilhouette, J, gaitOf, applyGait, applyLegVariation, reachArm, Angles } from "./StickFigure";
 import { drawToy, drawIsoBox } from "./ToyArt";
 import { INK } from "./palette";
 import { drawBuildingTile, GLOW } from "./Buildings";
@@ -50,7 +59,7 @@ import {drawMappedFacadeDamage} from './MappedFacadeArt';
 const STREET_2D = false;
 
 export type Quality = 0 | 1 | 2 | 3; // low, medium, high, ultra
-interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14; ref: number; sx: number; sy: number } // 14 exact mapped building
+interface Item { d: number; kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15; ref: number; sx: number; sy: number } // 14 exact mapped building
 interface Decal { x: number; y: number; r: number; color: string; born: number; life: number; rot: number; blood?:boolean; fall?:number }
 
 export interface RenderOptions { selected: number; hovered: number; debug: DebugFlags; reduceMotion: boolean; quality: Quality; showNames: boolean; quietInterface?:boolean }
@@ -62,9 +71,20 @@ export interface RenderOptions { selected: number; hovered: number; debug: Debug
  * particles -> lighting -> rain -> bubbles/labels -> debug.
  */
 export class Renderer {
+  private artworkBudget=new CrowdArtworkBudget();
   readonly cam = new Camera();
+  drivingViewEnabled = false;
+  cycleCamera():void{this.drivingViewEnabled=!this.drivingViewEnabled;}
+  private lastPerspective?:boolean;
+  get perspectiveActive():boolean{return this.drivingViewEnabled&&this.sim.player.inside<0;}
+  get perspectiveHeading():number{return this.drivingView.heading;}
+  screenToWorld(x:number,y:number,height=0):{x:number;y:number}{return this.perspectiveActive?this.drivingView.unproject(x,y,height):this.cam.toWorldAtHeight(x,y,height);}
+  worldToScreen(x:number,y:number,height=0):{x:number;y:number}{return this.perspectiveActive?this.drivingView.project(x,y,height):this.cam.toScreen(x,y,height,{x:0,y:0});}
+  private drivingView = new DrivingView();
+  setGpuPreference(highPerformance:boolean):void{this.drivingView.setGpuPreference(highPerformance);}
   readonly g: CanvasRenderingContext2D;
   terrain: Terrain;
+  get aerialStatus(){return this.mappedArt.aerialStatus;}
   private mappedArt=new MappedArchitecture();private mappedGround=new MappedGround();
   particles: Particles;
   private lighting = new Lighting();
@@ -81,6 +101,7 @@ export class Renderer {
   private motion = new Map<number,{x:number;y:number;speed:number}>();
   private lastPose = new Map<number, string>();
   private gaits=new WeakMap<Character,ReturnType<typeof gaitOf>>();
+
   /** screen boxes of drawn figures for picking: id, x0, y0, x1, y1 */
   private pickBoxes: number[] = [];
   stats = { items: 0, figures: 0, silhouettes: 0, batches: 0, frameMs: 0 };
@@ -168,7 +189,9 @@ export class Renderer {
     this.time += o.reduceMotion ? dt * 0.4 : dt;
     const time = this.time;
     // camera follow
-    if (cam.follow >= 0 && sim.chars[cam.follow]) { const f = sim.chars[cam.follow]; cam.lookAt(f.x, f.y); }
+    if (cam.follow >= 0 && sim.chars[cam.follow]) { const f = sim.chars[cam.follow],car=f.inCar>=0?sim.vehicles[f.inCar]:undefined;const vx=car?.vx??0,vy=car?.vy??0,speed=Math.hypot(vx,vy),ahead=car?Math.min(.32,4/Math.max(1,speed)):0;cam.lookAt(f.x+vx*ahead,f.y+vy*ahead); }
+    const perspective=this.perspectiveActive;if(this.lastPerspective!==undefined&&this.lastPerspective!==perspective&&!o.reduceMotion)this.crossfade();this.lastPerspective=perspective;
+    if(perspective) { cam.update(dt,o.reduceMotion); sim.focus.x=sim.player.x; sim.focus.y=sim.player.y; sim.trafficRadius=64; this.drivingView.draw(g,sim,cam.viewW,cam.viewH,this.dpr,time,alpha,dt,this.particles,this.rain,o.quality,o.reduceMotion); if(!o.quietInterface)this.drawPerspectiveBubbles(); this.stats.frameMs=performance.now()-t0; return; }
     // zoomed right in: the camera drops to street level for a flat 2D side view; zoom out to go back to 3D
     // (hysteresis stops it flickering at the boundary mid-pinch; a quick crossfade hides the switch)
     const want2D = STREET_2D && (this.in2D ? cam.zoom > 2.8 : cam.zoom > 3.4);
@@ -176,7 +199,7 @@ export class Renderer {
     if (want2D) { cam.update(dt, o.reduceMotion); this.render2D(alpha, dt, o); if (o.quality === 3) this.cinematic(sim); this.stats.frameMs = performance.now() - t0; return; }
     cam.update(dt, o.reduceMotion);
     const z=cam.zoom;
-    sim.focus.x = cam.x; sim.focus.y = cam.y;
+    sim.focus.x = cam.x; sim.focus.y = cam.y;sim.trafficRadius=trafficRadiusForView(cam.viewW,cam.viewH,cam.zoom);
     for(const id of new Set([sim.playerId,cam.follow])){const c=sim.chars[id];if(!c||c.inside>=0)continue;const at=cam.toScreen(c.x,c.y,0,{x:0,y:0}),left=Math.max(2,at.x-20*z),top=Math.max(2,at.y-80*z),right=Math.min(cam.viewW-2,at.x+20*z),bottom=Math.min(cam.viewH-2,at.y+12*z);if(right>left&&bottom>top)reserveSign('body:'+id,{x:left,y:top,w:right-left,h:bottom-top});}
 
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
@@ -215,7 +238,10 @@ export class Renderer {
     const inView = (sx: number, sy: number, m: number) => sx > -m && sy > -m && sx < cam.viewW + m && sy < cam.viewH + m * 0.3;
 
     this.nItems = 0;
-    this.viewB.clear();
+    this.viewB.clear();this.viewMapped.length=0;
+    if(1-sim.daylight>.3)this.lightIndex.rebuild(sim.vehicles);
+    const lightCandidates:import('../entities/types').Vehicle[]=[];
+    const openingByBuilding=new Map<number|string,import('../sim/MappedFacadeDamage').MappedFacadeRecord[]>();for(const record of sim.mappedDamage.values())if(record.opening||record.collapsed){const group=openingByBuilding.get(record.buildingId)??[];group.push(record);openingByBuilding.set(record.buildingId,group);}
     resetHdBudget(Math.abs(cam.targetZoom-z)>.025?12:o.quality === 3 ? 400 : o.quality === 2 ? 40 : o.quality === 1 ? 20 : 0);
     const pt = this.pt;
     for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
@@ -229,7 +255,7 @@ export class Renderer {
       this.push(tx + ty + 1, 2, ty * S + tx, pt.x, pt.y);
       if (t === T.BUILDING) this.viewB.add(sim.world.buildingOf[ty * S + tx]);
     }
-    if(mapped){this.mappedArt.beginFrame(o.quality);for(const id of worldIndex(sim.world).buildings.query(minX-20,minY-20,maxX+20,maxY+20)){const b=sim.world.buildings[id];if(b.x1<minX-20||b.y1<minY-20||b.x0>maxX+20||b.y0>maxY+20)continue;cam.toScreen(b.x0,b.y0,0,pt);const footprint=mapped.byBuilding.get(b.id);if(!footprint)continue;const depth=Math.max(...footprint.points.map(p=>(p[0]+p[1])/2+mapped.offsetX+mapped.offsetY));this.push(depth,14,b.id,pt.x,pt.y);this.viewB.add(b.id);}}
+    if(mapped){this.mappedArt.aerialEnabled=mapped.visibility.aerialRoofs!==false;this.mappedArt.beginFrame(o.quality,Math.abs(cam.zoom-cam.targetZoom)>.015);for(const id of worldIndex(sim.world).buildings.query(minX-20,minY-20,maxX+20,maxY+20)){const b=sim.world.buildings[id];if(b.x1<minX-20||b.y1<minY-20||b.x0>maxX+20||b.y0>maxY+20)continue;cam.toScreen(b.x0,b.y0,0,pt);const footprint=mapped.byBuilding.get(b.id);if(!footprint)continue;const depth=Math.max(...footprint.points.map(p=>(p[0]+p[1])/2+mapped.offsetX+mapped.offsetY));this.push(depth,14,b.id,pt.x,pt.y);this.viewB.add(b.id);this.viewMapped.push(footprint);}}
     for (const p of mapped?[...worldIndex(sim.world).pois.query(minX-4,minY-4,maxX+4,maxY+4)].map(id=>sim.world.pois[id]):sim.world.pois) {
       if(mapped&&!mapped.visibility.fixtures&&p.kind!=='door')continue;
       cam.toScreen(p.x, p.y, 0, pt);
@@ -249,8 +275,33 @@ export class Renderer {
         if (inView(pt.x, pt.y, 70 * z)) this.push(tx + ty + 1, 7, ty * S + tx, pt.x, pt.y);
       }
     }
+    if (z >= 0.5 && mapped && mapped.visibility.fixtures) {
+      for (let ty=minY;ty<=maxY;ty++) for(let tx=minX;tx<=maxX;tx++) {
+        const kind=mappedStreetDecor(sim.world,tx,ty);if(!kind)continue;
+        cam.toScreen(tx+.5,ty+.5,0,pt);if(inView(pt.x,pt.y,70*z))this.push(tx+ty+1,15,kind*1000+Math.abs(Math.imul(tx,73856093)^Math.imul(ty,19349663))%1000,pt.x,pt.y);
+      }
+    }
+    // Water effects must never paint over a mapped road deck, even where the
+    // underlying terrain tile is water. Clip all surface effects together.
+    g.save();g.beginPath();
+    for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){
+      if(sim.world.tile(x,y)!==T.WATER||waterDepth(sim.world,x+.5,y+.5)<=0)continue;
+      const a=cam.toScreen(x,y,0,{x:0,y:0}),b=cam.toScreen(x+1,y,0,{x:0,y:0}),c=cam.toScreen(x+1,y+1,0,{x:0,y:0}),d=cam.toScreen(x,y+1,0,{x:0,y:0});
+      g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.lineTo(c.x,c.y);g.lineTo(d.x,d.y);g.closePath();
+    }g.clip();
     // water: drifting ripple crests (continuous across tiles, driven by world position) and sun glints
     this.drawWater(g, sim, o, minX, maxX, minY, maxY, time);
+    // Live wave fronts and foam share the same physical surface state.
+    g.save();for(const wave of sim.liquids.water){if(Math.hypot(wave.x-cam.x,wave.y-cam.y)>45/Math.max(.5,z))continue;
+      g.strokeStyle='rgba(174,220,218,.38)';g.lineWidth=Math.max(.5,z*.65);g.beginPath();
+      for(let row=1;row<6;row++)for(let col=1;col<9;col++){const i=row*10+col,wx=wave.x+(col-4.5)*.35,wy=wave.y+(row-3)*.35;if(sim.world.tile(Math.floor(wx),Math.floor(wy))!==T.WATER)continue;
+        const gx=wave.height[i+1]-wave.height[i-1],gy=wave.height[i+10]-wave.height[i-10],strength=Math.hypot(gx,gy);if(strength<.009)continue;
+        const len=Math.hypot(gx,gy)||1,tx=-gy/len*.13,ty=gx/len*.13,a=cam.toScreen(wx-tx,wy-ty,wave.height[i],{x:0,y:0}),b=cam.toScreen(wx+tx,wy+ty,wave.height[i],{x:0,y:0});g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);
+      }g.stroke();
+      for(let i=0;i<70;i++){const f=wave.foam[i];if(f<.12)continue;const wx=wave.x+(i%10-4.5)*.35,wy=wave.y+(Math.floor(i/10)-3)*.35;if(sim.world.tile(Math.floor(wx),Math.floor(wy))!==T.WATER)continue;const q=cam.toScreen(wx,wy,wave.height[i],{x:0,y:0});g.fillStyle='rgba(212,232,221,'+Math.min(.45,f*.42).toFixed(3)+')';g.beginPath();g.ellipse(q.x,q.y,Math.max(.7,z*(1+f*2)),Math.max(.4,z*(.4+f)),0,0,Math.PI*2);g.fill();}
+    }
+    g.restore();g.restore();g.save();
+    for(const drop of sim.liquids.drops){if(drop.kind==='blood'&&!this.fakeBlood)continue;if(Math.hypot(drop.x-cam.x,drop.y-cam.y)>45/Math.max(.5,z))continue;const q=cam.toScreen(drop.x,drop.y,drop.z,{x:0,y:0});g.fillStyle=drop.kind==='blood'?'#8c2229':drop.kind==='vomit'?'#b0a849':'rgba(152,207,221,.7)';g.beginPath();g.ellipse(q.x,q.y,Math.max(1,drop.size*18*z),Math.max(.7,drop.size*(drop.ground?8:14)*z),0,0,Math.PI*2);g.fill();}g.restore();
 
     // real street names painted on the road between intersections
     if(!mapped)this.streetLabels(g, sim, z, inView);
@@ -325,7 +376,8 @@ export class Renderer {
     // depth sort
     const items = this.items, n = this.nItems;
     const view = items.slice(0, n).sort((a, b) => a.d - b.d);
-    const detail=detailedCrowd(view.filter(i=>i.kind===0).map(i=>sim.chars[i.ref]),cam.x,cam.y,[8,16,24,40][o.quality],o.selected,o.hovered,cam.follow);
+    const artworkBudget=this.artworkBudget.choose(o.quality,this.stats.frameMs);
+    const detail=detailedCrowd(view.filter(i=>i.kind===0).map(i=>sim.chars[i.ref]),cam.x,cam.y,artworkBudget,o.selected,o.hovered,cam.follow);
     const workingCrews=new Set(Object.values(sim.world.civicDamage).map(d=>d.crew));
     this.stats.items = n;
 
@@ -336,7 +388,7 @@ export class Renderer {
     for (const it of view) {
       if (it.kind === 0) {
         const c = sim.chars[it.ref];
-        const bg = !detail.has(c.id);
+        const bg = (c.fireUntil??0)<=sim.tick&&!detail.has(c.id)&&(artworkBudget<8||c.goal?.id!=='nearby_scene'&&c.goal?.id!=='street_life');
         const k = (mapped?MAPPED_FIGURE_SCALE:.44) * z * c.look.scale;
         const wx=c.px+(c.x-c.px)*alpha,wy=c.py+(c.y-c.py)*alpha;
         const previous=this.motion.get(c.id),distance=previous?Math.hypot(wx-previous.x,wy-previous.y):0;
@@ -348,13 +400,14 @@ export class Renderer {
         c.anim.phase += Math.min(distance,.18)*Math.PI*2/1.65*G.cadence;
         const name = this.poseName(c, moving, spd);
         if (this.lastPose.get(c.id) !== name) { this.lastPose.set(c.id, name); c.anim.poseT = 0; } else c.anim.poseT += dt;
-        if (c.anim.flash > 0) c.anim.flash -= dt;
         const dir = this.screenDir(c);
-        const zOff = c.z * 26 * z;
+        const swimDepth=c.tier==="player"?waterDepth(sim.world,c.x,c.y):0;
+        const zOff = (c.z-Math.min(.55,swimDepth*.55)) * 26 * z;
         if (bg) {
           // background: cheap animation (sine idle, simple walk), batched strokes
-          const a = pose(moving ? "walk" : c.anim.pose === "dance" ? "dance" : c.anim.pose === "panic" ? "panic" : "idle", "loose", time + c.seedPhase, c.anim.phase, spd, 0);
-          applyGait(a, G);
+          const a = pose(c.phys===Phys.DOWN ? name : moving ? "walk" : c.anim.pose === "dance" ? "dance" : c.anim.pose === "panic" ? "panic" : "idle", "loose", time + c.seedPhase, c.anim.phase, spd, 0);
+          if(c.phys===Phys.DOWN&&!o.reduceMotion){const limbs=impactRagdollPose(c);a.armL+=limbs[0];a.armR+=limbs[1];a.thighL+=limbs[2];a.thighR+=limbs[3];a.foreL+=limbs[4]*.5;a.foreR+=limbs[5]*.5;a.bendL+=limbs[6]*.5;a.bendR+=limbs[7]*.5;a.tilt+=limbs[8]*.35;a.lean+=limbs[9]*.25;}
+          applyGait(a, G);applyLegVariation(a,c.id,name,c.anim.phase);
           if (moving) this.foreshorten(a, c);
           solve(a, it.sx, it.sy - zOff, k, dir);
           const col = c.look.color;
@@ -366,15 +419,18 @@ export class Renderer {
         }
         flush();
         const a = pose(name, c.style, time + c.seedPhase, c.anim.phase, spd, c.anim.poseT);
-        applyGait(a, G);
+        applyGait(a, G);applyLegVariation(a,c.id,name,c.anim.phase);
+        if(!a.lying&&!o.reduceMotion){const breath=Math.sin(time*(.8+(c.id%9)*.07)+c.seedPhase);a.bob+=breath*.7;a.lean+=breath*.012;}
         if (c.wounds.length && !a.lying) {
           // a bad leg barely swings and the body drops onto the good one; a hurt torso hunches; a head knock lolls
-          const h = hurtOf(c);
+          const h = hurtOf(c),response=injuryResponse(c);
+          a.bob+=response.buckle*9;a.lean+=response.guard*.3;a.tilt+=Math.sin(time*17+c.id)*response.tremor;a.foreR+=Math.sin(time*21+c.id)*response.tremor*2;a.bob+=Math.sin(time*5)*response.breathe*3;
           if (h.leg > 0 && moving) { const k = Math.min(0.7, h.leg * 0.25); a.thighR *= 1 - k; a.bendR *= 1 - k; a.bob += Math.max(0, Math.sin(c.anim.phase)) * 3 * k; }
           if (h.torso > 0) { a.lean += Math.min(0.35, h.torso * 0.1); a.armL = Math.max(a.armL, 0.6); a.foreL = Math.max(a.foreL, 1.6); }
           if (h.head >= 2) a.tilt += Math.sin(time * 1.3 + c.id) * Math.min(0.3, h.head * 0.08);
           if (h.arm > 0 && name !== "throw" && name !== "swing") { a.armR *= 0.3; a.foreR = Math.max(a.foreR, 1.4); }
         }
+        if(c.phys===Phys.DOWN&&!o.reduceMotion){const limbs=impactRagdollPose(c);a.armL+=limbs[0];a.armR+=limbs[1];a.thighL+=limbs[2];a.thighR+=limbs[3];a.foreL+=limbs[4]*.5;a.foreR+=limbs[5]*.5;a.bendL+=limbs[6]*.5;a.bendR+=limbs[7]*.5;a.tilt+=limbs[8]*.35;a.lean+=limbs[9]*.25;a.tilt+=(limbs[0]-limbs[1])*.1;}
         applyNegativeReaction(a,c,time,spd,name,o.reduceMotion);
         if (moving && (name === "walk" || name === "run" || name === "panic")) this.foreshorten(a, c);
         else if(["talk","give","wave","inspect","press"].includes(name)){const f=.5+.5*Math.abs(Math.cos(c.facing)-Math.sin(c.facing))/Math.SQRT2;a.armL*=f;a.armR*=f;a.foreL*=.85;a.foreR*=.85;}
@@ -391,7 +447,14 @@ export class Renderer {
         }
         solve(a, it.sx, it.sy - zOff, k, dir);
         // held toy behind or in front depending on hand
+        if(swimDepth>.1){g.save();g.beginPath();g.rect(-10000,-10000,20000,10000+it.sy);g.clip();}
         drawFigure(g, c, it.sx, it.sy - zOff, k, dir, time, c.anim.flash, 1, undefined, !!gun || (c.substances?.actionUntil??0)>sim.tick);
+        if(swimDepth>.1)g.restore();
+        if((c.fireUntil??0)>sim.tick){
+          g.save();for(let i=0;i<7;i++){const joint=[0,6,8,12,16,20,4][i],x=J[joint],y=J[joint+1],f=Math.sin(time*9+i*2+c.id),r=Math.max(1.5,5*k),h=(13+i%3*4+f*2)*k;
+            const grad=g.createLinearGradient(x,y,x,y-h);grad.addColorStop(0,'rgba(255,229,151,.9)');grad.addColorStop(.4,'rgba(255,119,20,.8)');grad.addColorStop(1,'rgba(220,35,7,0)');g.fillStyle=grad;g.beginPath();g.moveTo(x-r,y);g.quadraticCurveTo(x-r,y-h*.55,x+f*2*k,y-h);g.quadraticCurveTo(x+r,y-h*.4,x+r,y);g.closePath();g.fill();
+          }g.restore();
+        }
         drawSubstanceProps(g,c,sim.tick,time,J,k);
         if(workingCrews.has(c.id)){g.fillStyle='#d4a04e';g.strokeStyle='#555d4b';g.lineWidth=k;g.beginPath();g.moveTo(J[6]-5*k,J[7]+3*k);g.lineTo(J[6]+5*k,J[7]+3*k);g.lineTo(J[0]+5*k,J[1]);g.lineTo(J[0]-5*k,J[1]);g.closePath();g.fill();g.stroke();g.strokeStyle='#e4ddbb';g.lineWidth=2*k;g.beginPath();g.moveTo(J[6]-4*k,J[7]+12*k);g.lineTo(J[6]+4*k,J[7]+12*k);g.stroke();}
         if (c.bleed > 0 && Math.random() < c.bleed * dt * 5) this.drip(c.x, c.y);
@@ -421,21 +484,27 @@ export class Renderer {
           drawBuildingTile(g, sim.world, b, tx, ty, it.sx, it.sy, z, time, 1 - sim.daylight + (sim.env.power ? 0 : -0.5), a, this.graffitiMap);
           drawFacadeDamage(g,sim.world,b.id,tx,ty,it.sx,it.sy,z);
         } else drawTallTile(g, t, it.sx, it.sy, z, time, (it.ref * 0.618) % 1);
+      } else if(it.kind===15){
+        flush();drawDecor(g,Math.floor(it.ref/1000),it.sx,it.sy,z,time,1-sim.daylight,(it.ref%1000)/1000);
       } else if(it.kind===14){
         flush();const source=mapped!.byBuilding.get(it.ref)!;
-        const P=(x:number,y:number,height=0):[number,number]=>{const p=cam.toScreen(x/2+mapped!.offsetX,y/2+mapped!.offsetY,height/1.625,{x:0,y:0});return[p.x,p.y];};
-        this.mappedArt.draw(g,source,P,16*z,[focusSX,focusSY]);
-        const damageP=(x:number,y:number,height=0):[number,number]=>{const p=cam.toScreen(x,y,height/0.8125,{x:0,y:0});return[p.x,p.y];};
-        drawMappedFacadeDamage(g,sim.mappedDamage,damageP,32*z,sim.tick/60,source.id);
-        if(o.quality>=2&&1-sim.daylight>.3)GLOW.push(layer=>{this.mappedArt.glow(layer,source,P,16*z,1-sim.daylight);drawMappedFacadeDamage(layer,sim.mappedDamage,damageP,32*z,sim.tick/60,source.id,true);});
+        const P=(x:number,y:number,height=0):[number,number]=>{const p=cam.toScreen(x/2+mapped!.offsetX,y/2+mapped!.offsetY,height/2,{x:0,y:0});return[p.x,p.y];};
+        const damageP=(x:number,y:number,height=0):[number,number]=>{const p=cam.toScreen(x,y,height,{x:0,y:0});return[p.x,p.y];};
+        const openings=openingByBuilding.get(source.id)??[];
+        this.mappedArt.draw(g,source,P,16*z,[focusSX,focusSY],openings,damageP);
+        if(!openings.some(d=>d.collapsed))drawMappedFacadeDamage(g,sim.mappedDamage,damageP,32*z,sim.tick/60,source.id);
+        if(!openings.some(d=>d.collapsed)&&o.quality>=2&&1-sim.daylight>.3)GLOW.push(layer=>{this.mappedArt.glow(layer,source,P,16*z,1-sim.daylight,openings,damageP);drawMappedFacadeDamage(layer,sim.mappedDamage,damageP,32*z,sim.tick/60,source.id,true);});
       } else if (it.kind === 4) {
         flush();
         // Share painter order with the car. Nearer building silhouettes erase these lights too.
         if (1 - sim.daylight > 0.3) {
           const vehicle = sim.vehicles[it.ref], strength = Math.min(1 - sim.daylight, sim.env.power ? 0.65 : 0.35);
-          GLOW.push(layer => headlights(layer, cam, vehicle, strength, sim.world, sim.vehicles));
+          GLOW.push(layer => headlights(layer, cam, vehicle, strength, sim.world, this.lightIndex.query(vehicle.x,vehicle.y,12,lightCandidates)));
         }
-        drawCar(g, cam, sim.vehicles[it.ref], alpha, time, 1 - sim.daylight, it.ref === this.selectedCar,sim.chars[sim.vehicles[it.ref].driver]);
+        const vehicle=sim.vehicles[it.ref];if((vehicle.water?.submersion??0)>0){g.save();const surface=cam.toScreen(vehicle.x,vehicle.y,0,{x:0,y:0});g.beginPath();g.rect(-10000,-10000,20000,10000+surface.y);g.clip();}
+        const weather=sim.world.mapped?.liveConditions,wind=weather?.weather&&Date.now()-Date.parse(weather.fetchedAt)<1800000?weather.weather:null,dir=wind?.windDirection,angle=(dir??0)*Math.PI/180,strength=Math.min(1,(wind?.wind??0)/12);
+        drawCar(g, cam, vehicle, alpha, time, 1 - sim.daylight, it.ref === this.selectedCar,sim.chars[vehicle.driver],dir==null?0:-Math.sin(angle)*strength,dir==null?0:Math.cos(angle)*strength);
+        if((vehicle.water?.submersion??0)>0)g.restore();
       } else if (it.kind === 5) {
         flush();
         this.drawLight(it.ref % 64, Math.floor(it.ref / 64), it.sx, it.sy, z);
@@ -460,6 +529,10 @@ export class Renderer {
       }
     }
     flush();
+    const activeMission=sim.worldFun.missions?.active,mission=missionTarget(sim);
+    if(activeMission&&activeMission.id!=='city-drive'&&mission){const carrying=activeMission.stage>0,at=carrying?sim.player:mission;if(!carrying||sim.player.inCar<0){const q=cam.toScreen(at.x,at.y,.22,{x:0,y:0}),size=Math.max(5,Math.min(18,cam.zoom*7));g.fillStyle='#b58b55';g.fillRect(q.x+7,q.y-size,size,size*.7);g.strokeStyle='#6d4c2a';g.lineWidth=1;g.strokeRect(q.x+7,q.y-size,size,size*.7);g.fillStyle='#f1d89d';g.fillRect(q.x+7+size*.4,q.y-size,size*.2,size*.7);}}
+
+    for(const pin of [...sim.life.markers,...(mission?[{...mission,name:'Mission · '+mission.name,icon:'⌖'}]:[])]){if(pin.icon!=='⌖')continue;const p=cam.toScreen(pin.x,pin.y,.12,{x:0,y:0});if(p.x<0||p.y<0||p.x>cam.viewW||p.y>cam.viewH)continue;g.strokeStyle='#8df0ce';g.lineWidth=2;g.beginPath();g.moveTo(p.x,p.y);g.lineTo(p.x,p.y-38);g.stroke();g.fillStyle='#8df0ce';g.beginPath();g.arc(p.x,p.y-42,7,0,Math.PI*2);g.fill();g.fillStyle='#102d2a';g.fillRect(p.x-3,p.y-45,6,6);const label=pin.name.slice(0,35),box={x:p.x-120,y:p.y-72,w:240,h:22};if(reserveSign('address:'+pin.name,box)){g.fillStyle='#132e2dea';g.fillRect(box.x,box.y,box.w,box.h);g.fillStyle='#c0f0dc';g.font='600 12px system-ui';g.textAlign='center';g.fillText(label,p.x,p.y-56);g.textAlign='start';}}
     this.stats.figures = figs; this.stats.silhouettes = sils; this.stats.batches = batches;
 
     this.particles.update(dt);
@@ -483,7 +556,7 @@ export class Renderer {
 
     drawUpgradeEffects(g, sim, cam, time, o.reduceMotion, o.quality);
     drawCommerceArt(g,sim,cam,o.reduceMotion);
-    if(mapped?.visibility.labels&&!o.quietInterface){g.font='600 11px system-ui';g.textAlign='center';for(const id of this.viewB){const b=sim.world.buildings[id],source=mapped.byBuilding.get(id)!;const text=source.name||source.tags.address||(['casino','studio','hospital','police','airport'].includes(b.kind)?b.name:'');if(!text)continue;const p=cam.toScreen((b.x0+b.x1+1)/2,(b.y0+b.y1+1)/2,source.height/1.625+.25,{x:0,y:0}),name=text.length>36?text.slice(0,35)+'…':text,w=Math.min(250,g.measureText(name).width+14),box={x:p.x-w/2,y:p.y-18,w,h:20};if(!reserveSign('mapped:'+id,box))continue;g.fillStyle='#142c30e6';g.fillRect(box.x,box.y,box.w,box.h);g.fillStyle='#ded4ad';g.fillText(name,p.x,p.y-4,w-8);}g.textAlign='start';}
+    if(mapped?.visibility.labels&&!o.quietInterface){g.font='600 11px system-ui';g.textAlign='center';for(const id of this.viewB){const b=sim.world.buildings[id],source=mapped.byBuilding.get(id)!;const text=source.name||source.tags.address||(['casino','studio','hospital','police','airport'].includes(b.kind)?b.name:'');if(!text)continue;const p=cam.toScreen((b.x0+b.x1+1)/2,(b.y0+b.y1+1)/2,source.height/2+.25,{x:0,y:0}),name=text.length>36?text.slice(0,35)+'…':text,w=Math.min(250,g.measureText(name).width+14),box={x:p.x-w/2,y:p.y-18,w,h:20};if(!reserveSign('mapped:'+id,box))continue;g.fillStyle='#142c30e6';g.fillRect(box.x,box.y,box.w,box.h);g.fillStyle='#ded4ad';g.fillText(name,p.x,p.y-4,w-8);}g.textAlign='start';}
     if(!o.quietInterface)this.drawBubbles(view, o);
     this.drawDebug(o.debug, alpha);
     if (o.quality === 3) this.cinematic(sim);
@@ -492,15 +565,27 @@ export class Renderer {
 
   /** Animated water. Low: the old soft shimmer. Higher tiers: two ripple layers, travelling glints, more on Ultra. */
   private drawWater(g: CanvasRenderingContext2D, sim: Simulation, o: RenderOptions, minX: number, maxX: number, minY: number, maxY: number, time: number): void {
-    const cam = this.cam, z = cam.zoom, pt = this.pt, q = o.quality, t = o.reduceMotion ? 0 : time;
-    if (q === 0) {
-      g.fillStyle = "rgba(61,214,255,.06)";
-      for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
-        if (sim.world.tile(tx,ty) !== T.WATER || ((tx * 7 + ty * 3 + Math.floor(t * 1.5)) % 5) !== 0) continue;
-        cam.toScreen(tx + 0.5, ty + 0.5, 0, pt);
-        g.beginPath(); g.ellipse(pt.x, pt.y, 14 * z, 4 * z, 0, 0, 6.283); g.fill();
+    const cam = this.cam, z = cam.zoom, pt = this.pt, q = o.quality, t = o.reduceMotion ? 0 : time,roughness=waterCurrent(sim).roughness;
+    // Clip flowing highlights to the water footprint, keeping the surface off bridges and land.
+    g.save();g.beginPath();let count=0;
+    for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){
+      if(sim.world.tile(x,y)!==T.WATER)continue;count++;
+      const a=cam.toScreen(x,y,.01,{x:0,y:0}),b=cam.toScreen(x+1,y,.01,{x:0,y:0}),c=cam.toScreen(x+1,y+1,.01,{x:0,y:0}),d=cam.toScreen(x,y+1,.01,{x:0,y:0});
+      g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.lineTo(c.x,c.y);g.lineTo(d.x,d.y);g.closePath();
+    }
+    if(count){g.clip();const stride=q>=2?2:3;g.lineCap='round';
+      for(let layer=0;layer<2;layer++){g.beginPath();g.strokeStyle=layer?'rgba(174,220,218,.09)':'rgba(75,153,166,.13)';g.lineWidth=Math.max(.7,z*(layer?1.1:3));
+        for(let y=minY-2;y<=maxY+2;y+=stride)for(let x=minX-3;x<=maxX+2;x+=5){
+          const phase=t*(.45+roughness*.3)+x*.33+y*.46+layer*1.7,dy=Math.sin(phase)*(.16+roughness*.1);
+          const a=cam.toScreen(x,y+dy,.015,{x:0,y:0}),b=cam.toScreen(x+2.5,y+dy+Math.sin(phase+1)*.25,.015,{x:0,y:0}),c=cam.toScreen(x+5,y+dy,.015,{x:0,y:0});
+          g.moveTo(a.x,a.y);g.quadraticCurveTo(b.x,b.y,c.x,c.y);
+        }g.stroke();
       }
-      return;
+    }g.restore();
+    if(sim.env.rain>.1&&!o.reduceMotion){g.save();g.strokeStyle='rgba(194,221,217,'+Math.min(.3,sim.env.rain*.25).toFixed(3)+')';g.lineWidth=Math.max(.5,z*.45);g.beginPath();for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){if(sim.world.tile(x,y)!==T.WATER)continue;const seed=((x*37+y*71+Math.floor(t*3)*13)%23+23)%23;if(seed>1)continue;const phase=(t*2+(x*7+y*11)*.13)%1,p=cam.toScreen(x+.35,y+.55,.02,{x:0,y:0}),r=(1+phase*3)*z;g.moveTo(p.x+r,p.y);g.ellipse(p.x,p.y,r,r*.45,0,0,Math.PI*2);}g.stroke();g.restore();}
+    if (q === 0) {
+      g.strokeStyle='rgba(190,218,210,.12)';g.lineWidth=Math.max(.5,z*.45);g.beginPath();
+      for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){if(sim.world.tile(x,y)!==T.WATER||((x*7+y*3)%5+5)%5!==0)continue;const drift=Math.sin(t*.8+x*1.3+y*.7)*.08,a=cam.toScreen(x+.15,y+.45+drift,.01,{x:0,y:0}),b=cam.toScreen(x+.65,y+.45+drift,.01,{x:0,y:0});g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);}g.stroke();return;
     }
     const seg = q >= 3 ? 6 : q === 2 ? 4 : 3;
     g.lineCap = "round";
@@ -508,11 +593,11 @@ export class Renderer {
       g.strokeStyle = layer ? "rgba(150,235,255,.2)" : "rgba(255,255,255,.14)"; g.lineWidth = Math.max(1, (layer ? 1 : 1.4) * z);
       g.beginPath();
       for (let ty = minY; ty <= maxY; ty++) for (let tx = minX; tx <= maxX; tx++) {
-        if (sim.world.tile(tx,ty) !== T.WATER) continue;
+        if (sim.world.tile(tx,ty) !== T.WATER || ((tx * 7 + ty * 3 + layer * 5) % 4 + 4) % 4 !== 0) continue;
         // each tile carries one wavy crest running along the iso x axis; phase comes from world position so crests line up neighbour to neighbour
-        const v = 0.5 + 0.28 * Math.sin((tx + ty * 0.7) * 1.7 + layer * 2.1 + t * (0.9 + layer * 0.35));
+        const v = 0.5 + (0.18+roughness*.18) * Math.sin((tx + ty * 0.7) * 1.7 + layer * 2.1 + t * (0.9 + layer * 0.35));
         for (let i = 0; i <= seg; i++) {
-          const u = i / seg, wob = Math.sin((tx + u) * 2.3 + t * 1.3 + layer * 1.7 + ty * 0.9) * 0.07;
+          const u = i / seg, wob = Math.sin((tx + u) * 2.3 + t * 1.3 + layer * 1.7 + ty * 0.9) * (0.035+roughness*.09);
           cam.toScreen(tx + u, ty + v + wob + layer * 0.18, 0, pt);
           if (i) g.lineTo(pt.x, pt.y); else g.moveTo(pt.x, pt.y);
         }
@@ -675,6 +760,15 @@ export class Renderer {
       const c = this.sim.chars[t.tether];
       if (c) { this.cam.toScreen(c.x, c.y, c.z + 1, this.pt2); g.strokeStyle = "rgba(238,228,211,.6)"; g.lineWidth = 1; g.beginPath(); g.moveTo(this.pt2.x, this.pt2.y); g.lineTo(sx, y - 4 * z); g.stroke(); }
     }
+  }
+
+  /** The street camera uses the same nearby speech as the city view. */
+  private drawPerspectiveBubbles():void {
+    const sim=this.sim,g=this.g,p=sim.player,vehicle=p.inCar>=0?sim.vehicles[p.inCar]:undefined,x=vehicle?.x??p.x,y=vehicle?.y??p.y,w=this.cam.viewW,h=this.cam.viewH,bounds=new ScreenBounds(w,h,8);
+    const ids:number[]=[];sim.charHash.query(x,y,7.2,ids);const nearby=ids.map(id=>sim.chars[id]).filter(c=>c&&c.bubble&&c.bubble.until>sim.tick&&c.inside<0&&c.inCar<0&&(c.id===p.id||Math.hypot(c.x-x,c.y-y)<(c.talkWith>=0?4.2:2.4)+(c.bubble.kind==='shout'?3:0))).sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y));
+    g.save();g.setTransform(this.dpr,0,0,this.dpr,0,0);g.font='600 13px ui-rounded, system-ui, sans-serif';g.textBaseline='alphabetic';let shown=0;
+    for(const c of nearby){if(shown>=2||!c.bubble)break;const at=this.drivingView.project(c.x,c.y,1.6*c.look.scale+c.z);if(at.x<0||at.x>w||at.y<0||at.y>h)continue;const lines=wrap(g,c.bubble.text,w<520?124:168),bw=Math.min(w<520?150:196,Math.max(...lines.map(t=>g.measureText(t).width)))+20,bh=lines.length*16+12,box=bounds.place(at.x-bw/2,at.y-bh-14,bw,bh);if(!box)continue;shown++;g.globalAlpha=Math.min(1,Math.max(0,(c.bubble.until-sim.tick)/20));g.fillStyle=c.bubble.kind==='shout'?'#914f45':'#fff8ee';g.strokeStyle=c.look.color;g.lineWidth=2;roundRect(g,box.x,box.y,bw,bh,12);g.fill();g.stroke();g.fillStyle=c.bubble.kind==='shout'?'#fff':'#2a2430';lines.forEach((line,i)=>g.fillText(line,box.x+10,box.y+19+i*16,bw-20));}
+    g.restore();
   }
 
   private drawBubbles(view: Item[], o: RenderOptions): void {
@@ -962,6 +1056,8 @@ export class Renderer {
 
   /** Buildings on screen this frame, and how much each is cut away (0..1, eased). */
   private viewB = new Set<number>();
+  private viewMapped:MappedBuilding[]=[];
+  private lightIndex=new VehicleIndex();
   /** story contacts with a job: a bobbing marker and name above their head */
   markers = new Set<number>();
   private cut = new Map<number, number>();
@@ -978,6 +1074,7 @@ export class Renderer {
    */
   private behind(x: number, y: number, d: number): number {
     const w = this.sim.world;
+    if(w.mapped)return mappedMoverDepth(w.mapped,this.viewMapped,x,y,d);
     let out = d;
     for (const id of this.viewB) {
       const b = w.buildings[id];
@@ -1049,6 +1146,7 @@ export class Renderer {
   }
 
   pickCharacter(sx: number, sy: number): number {
+    if(this.perspectiveActive)return this.drivingView.pickCharacter(sx,sy);
     const b = this.pickBoxes;
     let best = -1, bd = Infinity;
     for (let i = 0; i < b.length; i += 5) {
@@ -1064,8 +1162,8 @@ export class Renderer {
     let best = -1, bd = 22 * Math.max(0.6, this.cam.zoom);
     for (const t of this.sim.toys) {
       if (t.state === "broken" || t.state === "held") continue;
-      this.cam.toScreen(t.x, t.y, t.z, this.pt);
-      const d = Math.hypot(this.pt.x - sx, this.pt.y - 4 - sy);
+      const q=this.worldToScreen(t.x,t.y,t.z);
+      const d = Math.hypot(q.x - sx, q.y - 4 - sy);
       if (d < bd) { bd = d; best = t.id; }
     }
     return best;

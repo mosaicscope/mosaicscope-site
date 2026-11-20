@@ -288,6 +288,7 @@ export function streetSpot(sim: Simulation): { x: number; y: number } {
 }
 
 export function addChar(sim: Simulation, name: string, tier: Tier, x: number, y: number, look: Look, pers: Personality, rng: Rng = sim.rng): Character {
+  if(sim.world.mapped&&sim.world.carriageway(x,y)){let spot=sim.world.nearestFoot(x,y,20);if(sim.world.carriageway(spot.x,spot.y)){const player=sim.chars[sim.playerId];if(player)spot=sim.world.nearestFoot(player.x+Math.cos(sim.chars.length)*3,player.y+Math.sin(sim.chars.length)*3,20);}x=spot.x;y=spot.y;}
   const c = makeCharacter(sim.chars.length, name, tier, x, y, look, pers, rng);
   sim.chars.push(c);
   return c;

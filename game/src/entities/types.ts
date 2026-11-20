@@ -155,9 +155,10 @@ export interface Anim {
 export type WoundPart = "head" | "torso" | "arm" | "leg";
 export type WoundKind = "bruise" | "graze" | "cut" | "gash" | "stab" | "fracture";
 /** severity: 1 bruise/graze (no bleeding), 2 cut/gash (bleeds), 3 deep stab or bad gash (bleeds fast) */
-export interface Wound { detached?:import("../sim/Trauma").DetachedLimb;compound?:boolean;weapon?:string; art?:number; marks?:number[]; hits?:number; part: WoundPart; kind: WoundKind; severity: 1 | 2 | 3; bandaged: boolean; tick: number }
+export interface Wound { tissue?:import("../sim/InjuryResponse").TissueState;reactionAge?:number; ballistics?:{angle:number;exit:boolean;age:number}[]; detached?:import("../sim/Trauma").DetachedLimb;compound?:boolean;weapon?:string; art?:number; marks?:number[]; hits?:number; part: WoundPart; kind: WoundKind; severity: 1 | 2 | 3; bandaged: boolean; tick: number }
 
 export interface Character {
+  fireUntil?:number; fireWoundAt?:number;
   substances?: import('../sim/Substances').SubstanceState;
   id: number;
   name: string;
@@ -284,7 +285,7 @@ export interface Toy {
 
 export type VehicleState = "drive" | "parked" | "crashed" | "free";
 export interface Vehicle {
-  continuum?: import('../sim/VehicleContinuum').ContinuumVehicle;
+  water?:import("../sim/WaterPhysics").VehicleWaterState;
   evadingUntil?:number;evadingFrom?:number;lights?:boolean;hazards?:boolean;indicator?:'left'|'right'|'off';parkingBrake?:boolean;cleaned?:boolean;resprayed?:boolean;engineRepaired?:boolean;
   id: number;
   cls: import("../content/vehicles").VehicleClass;
@@ -315,14 +316,21 @@ export interface Vehicle {
   wheelTravel?: number; bodyRoll?: number; bodyPitch?: number;
   wheelSteer?: number;
   wheelSpinTravel?: number;
+  braking?: boolean;
+  dynamics?: import("../sim/VehicleDynamics").DrivingDynamics;
+  contactControl?: import("../sim/WheelContact").ContactControl;
   driveMode?: import("../sim/DrivingExperience").DriveMode;
+  manualTransmission?: boolean;
+  assistMode?: import("../sim/DrivingExperience").AssistMode;
+  stabilityActive?: boolean;
+  telemetry?: import("../sim/DrivingTelemetry").DrivingTelemetry;
   powertrain?: import("../sim/DrivingExperience").PowertrainState;
   drift?: import("../sim/DrivingExperience").DriftState;
   /** Working load and mechanical feedback, persisted with this individual vehicle. */
   utility?: import("../sim/VehicleUtility").UtilityState;
   /** Where the car has been hit, 0..1 each: front, rear, left, right (the body crumples there; see Traffic.bump). */
   dmgF?: number; dmgR?: number; dmgL?: number; dmgS?: number;
-  rescueTarget?:number; rescueAt?:number; rescueMedic?:number;
+  rescueTarget?:number; rescueAt?:number; rescueMedic?:number; fireTarget?:number; fireHoseAt?:number;
   cannonRounds?:number;
   lifeMods?: string[];
   components?: import("../sim/VehicleDamage").VehicleComponents; steerAngle?:number;

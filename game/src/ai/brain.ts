@@ -159,6 +159,9 @@ function finish(c: Character, sim: Simulation, ok: boolean): void {
  */
 export function thinkBackground(c: Character, sim: Simulation, dt: number): void {
   sim.metrics.bgThinks++;
+  if(c.talkWith>=0&&c.phys===Phys.OK){stop(c);c.anim.pose='talk';return;}
+  if(c.anim.pose==='talk'&&c.talkWith<0)c.anim.pose='auto';
+  if(c.goal&&(c.goal.id==='nearby_scene'||c.goal.id==='street_life')&&c.phys===Phys.OK&&c.talkWith<0&&c.emo.fear<.6){execute(c,sim,dt);return;}
   if (c.phys !== Phys.OK) { stop(c); return; }
   if (sim.env.party && Math.hypot(c.x - sim.stagePoint.x, c.y - sim.stagePoint.y) < 12 && !sim.world.carriageway(c.x, c.y)) { stop(c); c.anim.pose = "dance"; return; }
   if (c.emo.fear > 0.5) { c.anim.pose = "panic"; } else if (c.anim.pose === "panic" || c.anim.pose === "dance") c.anim.pose = "auto";
@@ -182,7 +185,7 @@ export function thinkBackground(c: Character, sim: Simulation, dt: number): void
   if (d < 0.6 || c.stuck > 1.5) {
     c.stuck = 0;
     const tileNow = sim.world.tile(Math.floor(c.x), Math.floor(c.y));
-    const onRoad = !sim.world.walkable(c.x, c.y) || tileNow === 16 || tileNow === 18;
+    const onRoad = !sim.world.walkable(c.x, c.y) || tileNow === 16 || tileNow === 18 || sim.world.carriageway(c.x,c.y);
     if (!onRoad && sim.rng.chance(0.35)) { stop(c); c.pathGoalX = c.x; c.pathGoalY = c.y; c.anim.pose = sim.rng.chance(0.3) ? "phone" : "auto"; return; }
     const area = sim.world.areas[c.homeArea] ?? sim.world.areas[0];
     let p = area.kind === "street" ? sim.streetPoint(c) : sim.world.randomPointIn(area, sim.rng);

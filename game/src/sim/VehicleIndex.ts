@@ -9,7 +9,7 @@ export class VehicleIndex {
   rebuild(vehicles: Vehicle[], swept = false): void {
     if(this.cells.size>2048)this.cells.clear();else for(const bucket of this.cells.values())bucket.length=0;
     for (const v of vehicles) {
-      const g = vehicleGeometry(v), r = Math.hypot(g.length, g.width) / 2;
+      const g = vehicleGeometry(v), r = g.radius;
       const x0 = swept ? Math.min(v.px, v.x) : v.x, y0 = swept ? Math.min(v.py, v.y) : v.y;
       const x1 = swept ? Math.max(v.px, v.x) : v.x, y1 = swept ? Math.max(v.py, v.y) : v.y;
       for (let x = Math.floor((x0-r)/8); x <= Math.floor((x1+r)/8); x++) {

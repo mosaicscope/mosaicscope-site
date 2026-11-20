@@ -224,7 +224,7 @@ export const GOALS: GoalDef[] = [
     build: (c, sim) => {
       let best = -1, bd = 15 * 15;
       for (const p of sim.world.pois) if (p.kind === "bench") { const d = (p.x - c.x) ** 2 + (p.y - c.y) ** 2; if (d < bd) { bd = d; best = p.id; } }
-      return best >= 0 ? [{ kind: "sit", poi: best, time: sim.rng.range(8, 16) }] : [{ kind: "wait", time: 8, text: "sit" }];
+      return best >= 0 ? [{ kind: "sit", poi: best, time: sim.rng.range(8, 16) }] : [{ kind: "wait", time: 8, text: "sitfloor" }];
     },
   },
   {

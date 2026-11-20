@@ -43,8 +43,10 @@ function paintStory(g: CanvasRenderingContext2D, w: Win, story: Story, time: num
   if (story === "none") return;
   g.save();g.beginPath();quadPath(g,w,0,1,0,1);g.clip();g.beginPath();
   if (story === "walking" || story === "dancing" || story === "working" || story === "figure" || story === "couple") {
-    paintActivity(g,(u,v)=>at(w,u,v),w.seed,time);
-    if(story==='couple')paintActivity(g,(u,v)=>at(w,.52+u*.45,v*.82),w.seed+101,time);
+    const width=Math.hypot(w.B[0]-w.A[0],w.B[1]-w.A[1]),height=Math.hypot(w.D[0]-w.A[0],w.D[1]-w.A[1]);
+    const scale=Math.min(1,height/Math.max(1,width)*.8);
+    paintActivity(g,(u,v)=>at(w,.5+(u-.5)*scale,v),w.seed,time);
+    if(story==='couple')paintActivity(g,(u,v)=>at(w,.5+(u-.25)*scale*.55,v*.82),w.seed+101,time);
   } else if (story === "tv") {
     // a screen throwing blue-grey light, changing a few times a second
     const f = Math.floor(time * 3 + w.seed) % 3, cols = ["rgba(120,170,255,.55)", "rgba(190,150,255,.45)", "rgba(160,220,255,.5)"];

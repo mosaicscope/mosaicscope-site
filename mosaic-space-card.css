@@ -1,0 +1,10 @@
+/* The tiny D750 toy on the light table (see mosaic-space-card.js). No labels on purpose. */
+.lightbox { position: relative; }
+.d750 { position: absolute; z-index: 6; width: clamp(54px, 5.2vw, 84px); aspect-ratio: 4 / 3; display: block; padding: 0; border: 0; background: none; cursor: grab; perspective: 420px; touch-action: none; -webkit-tap-highlight-color: transparent; transform: rotate(-4deg); --mx: 0; --my: 0; }
+.d750:active { cursor: grabbing; }
+.d750:focus-visible { outline: 1px dashed rgba(14, 11, 10, 0.5); outline-offset: 4px; }
+.d750__3d { position: absolute; inset: 0; display: block; transform-style: preserve-3d; will-change: transform; }
+.d750 .dl { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; user-select: none; -webkit-user-drag: none; transform: translateZ(var(--z)); filter: drop-shadow(0 4px 4px rgba(14, 11, 10, 0.35)); }
+.d750__glass { position: absolute; left: 49%; top: 61.6%; width: 33%; aspect-ratio: 1; transform: translate(-50%, -50%) translateZ(21px); border-radius: 50%; overflow: hidden; pointer-events: none; mix-blend-mode: screen; opacity: 0.9; }
+.d750__glass i { position: absolute; inset: -30%; background: radial-gradient(circle at calc(50% + var(--mx) * 22%) calc(50% + var(--my) * 22%), rgba(255, 255, 255, 0.55), rgba(180, 210, 255, 0.16) 18%, transparent 36%), radial-gradient(circle at calc(50% - var(--mx) * 30%) calc(50% - var(--my) * 30%), rgba(255, 190, 120, 0.22), transparent 24%); }
+@media (max-width: 720px) { .d750 { width: 56px; } }

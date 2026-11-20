@@ -2,7 +2,7 @@ import type { Vehicle } from "../entities/types";
 import { VEHICLES } from "../content/vehicles";
 import { carMutationOf } from "../render/CarMutation";
 
-interface Geometry { length:number; width:number; height:number; wheelbase:number }
+interface Geometry { length:number; width:number; height:number; wheelbase:number; radius:number }
 const geometries=new WeakMap<Vehicle,{cls:Vehicle["cls"];plate:string;limo:boolean;deck:boolean;geometry:Geometry}>();
 
 /** One chassis envelope for rendering, contact patches, steering and collision tests. */
@@ -15,14 +15,14 @@ export function vehicleGeometry(v: Vehicle) {
   const height = d.height * 1.08 * scale * (v.lifeMods?.includes("Double deck") ? 1.6 : 1);
   const base=d.design?.base??v.cls,twoWheeler=["motorcycle","sportbike","cruiser","bicycle","ebike","escooter"].includes(base);
   const axle = twoWheeler ? base === "cruiser" ? 0.38 : 0.36 : d.design?.wb ?? (v.cls === "van" || v.cls === "ambulance" ? 0.33 : 0.31);
-  const geometry={ length, width, height, wheelbase: length * axle * 2 };
+  const geometry={ length, width, height, wheelbase: length * axle * 2,radius:Math.hypot(length,width)/2 };
   geometries.set(v,{cls:v.cls,plate:v.plate,limo,deck,geometry});return geometry;
 }
 
 /** Separating-axis contact: penetration and outward normal from a toward b. */
 export function chassisContact(a: Vehicle, b: Vehicle): { nx: number; ny: number; depth: number; x: number; y: number } | null {
   const ga = vehicleGeometry(a), gb = vehicleGeometry(b);
-  const broad=(Math.hypot(ga.length,ga.width)+Math.hypot(gb.length,gb.width))/2;
+  const broad=ga.radius+gb.radius;
   if((b.x-a.x)**2+(b.y-a.y)**2>broad*broad)return null;
   const ac = Math.cos(a.heading), as = Math.sin(a.heading), bc = Math.cos(b.heading), bs = Math.sin(b.heading);
   const dx = b.x-a.x, dy = b.y-a.y;
@@ -45,7 +45,7 @@ export function chassisContact(a: Vehicle, b: Vehicle): { nx: number; ny: number
 
 /** Continuous separating axes for translation during one small physics step. */
 export function sweptChassisContact(a:Vehicle,b:Vehicle,stationaryB=false):{nx:number;ny:number;t:number}|null {
-  const A=vehicleGeometry(a),B=vehicleGeometry(b),radius=(Math.hypot(A.length,A.width)+Math.hypot(B.length,B.width))/2+Math.hypot(a.x-a.px,a.y-a.py)+(stationaryB?0:Math.hypot(b.x-b.px,b.y-b.py));
+  const A=vehicleGeometry(a),B=vehicleGeometry(b),radius=A.radius+B.radius+Math.hypot(a.x-a.px,a.y-a.py)+(stationaryB?0:Math.hypot(b.x-b.px,b.y-b.py));
   if((b.x-a.x)**2+(b.y-a.y)**2>radius*radius)return null;
   const ga=vehicleGeometry(a),gb=vehicleGeometry(b),ac=Math.cos(a.heading),as=Math.sin(a.heading),bc=Math.cos(b.heading),bs=Math.sin(b.heading);
   const dx=(stationaryB?b.x:b.px)-a.px,dy=(stationaryB?b.y:b.py)-a.py,vx=(stationaryB?0:b.x-b.px)-(a.x-a.px),vy=(stationaryB?0:b.y-b.py)-(a.y-a.py);

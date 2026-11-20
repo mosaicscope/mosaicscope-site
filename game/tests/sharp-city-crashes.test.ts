@@ -1,0 +1,20 @@
+import {describe,it,expect} from 'vitest';
+import {architectureRaster} from '../src/render/ArchitectureRaster';
+import {mappedBuildingStyle,regionalArchitecture} from '../src/content/mappedBuildingStyle';
+import {small} from './helpers';
+import {makeVehicle,updateVehicles,playerInput,seat} from '../src/sim/Traffic';
+import {impactComponents,components,repairVehicle} from '../src/sim/VehicleDamage';
+import {vehicleGeometry} from '../src/sim/VehicleGeometry';
+import {T} from '../src/world/World';
+function rig(){const sim=small(42,{trafficCars:0,midCount:0,backgroundCount:0});sim.vehicles=[];sim.world.tiles.fill(T.ROAD);sim.world.blocked.fill(0);sim.chars.forEach(c=>{c.x=c.px=2;c.y=c.py=2;});sim.rebuildHash();const v=makeVehicle(sim,'sedan',30,42,0,'free');return{sim,v};}
+describe('sharp mapped architecture',()=>{
+ it('matches display density and upgrades when zooming without exceeding raster limits',()=>{expect(architectureRaster(20,16,1,0)).toBe(16);expect(architectureRaster(20,16,2,0)).toBe(32);expect(architectureRaster(20,32,2,0)).toBe(48);expect(architectureRaster(1000,32,2,0)*1000).toBeLessThanOrEqual(1024);expect(architectureRaster(20,16.01,1,0)).toBe(architectureRaster(20,16.2,1,0));});
+ it('uses surveyed floors, roof shape, material and colours',()=>{expect(mappedBuildingStyle({kind:'commercial',height:9.6,heightEstimated:true,tags:{'building:levels':'5'}}).floors).toBe(5);expect(regionalArchitecture({'roof:shape':'gabled','building:material':'brick','building:colour':'#faeedd','roof:colour':'#364856'})).toMatchObject({wall:'#faeedd',roof:'#364856',material:'brick',shape:'gabled',estimated:false});});
+});
+describe('localized crash damage',()=>{
+ it('protects tyres behind a central bumper impact but damages the wheel actually struck',()=>{const {v}=rig(),g=vehicleGeometry(v);impactComponents(v,1,0,10,1.5,1,{x:v.x+g.length*.5,y:v.y});const centre=components(v);expect(centre.wheels.every(w=>!w.puncture&&!w.missing)).toBe(true);expect(centre.panels[0]).toBeGreaterThan(.5);repairVehicle(v);impactComponents(v,0,-1,12,2,2,{x:v.x+g.wheelbase/2,y:v.y-g.width*.44});const p=components(v);expect(p.wheels[0].puncture).toBe(true);expect(p.wheels[0].missing).toBe(true);expect(p.wheels[3].missing).toBe(false);expect(p.wheels[0].suspension).toBeGreaterThan(p.wheels[3].suspension);});
+ it('keeps deformation and history bounded and merges duplicate contact reports',()=>{const {v}=rig();impactComponents(v,1,0,5,1,1);impactComponents(v,1,0,5,1,2);expect(components(v).impacts).toHaveLength(1);for(let i=0;i<40;i++)impactComponents(v,1,0,5,1,10+i*10,{x:v.x+1,y:v.y+(i%5)*.1});expect(components(v).impacts!.length).toBeLessThanOrEqual(8);expect(components(v).dents!.length).toBeLessThanOrEqual(12);expect(components(v).debris.length).toBeLessThanOrEqual(24);repairVehicle(v);expect(v.components).toBeUndefined();});
+ it('uses each vehicle impact severity and emits feedback at the real contact',()=>{const {sim,v}=rig(),b=makeVehicle(sim,'sedan',32,42,0,'parked');v.damage=b.damage=0;impactComponents(v,1,0,3,1,sim.tick);const bursts:{x:number;y:number}[]=[];sim.bus.on('fx',e=>{if(e.kind==='break'||e.kind==='spark')bursts.push(e);});sim.onCarCrash(v,b,10,{x:31,y:42.4});expect(v.damage).toBeCloseTo(.09);expect(b.damage).toBeCloseTo(.3);expect(bursts.length).toBe(2);expect(bursts.every(e=>e.x===31&&e.y===42.4)).toBe(true);});
+ it('ignores invalid impact inputs without allocating damage state',()=>{const {v}=rig();impactComponents(v,NaN,0,12,1,1);expect(v.components).toBeUndefined();});
+ it('still hits parked cars with lower IDs after skipping parked-only pair queries',()=>{const {sim,v}=rig();v.state='parked';const moving=makeVehicle(sim,'muscle',27.8,42,0,'free');seat(sim,sim.player,moving);moving.speed=10;moving.vx=10;moving.vy=0;moving.dynT=sim.tick;Object.assign(playerInput,{throttle:0,steer:0,brake:false,serviceBrake:0});for(let i=0;i<12;i++){sim.tick++;updateVehicles(sim,1/60);}expect(v.damage).toBeGreaterThan(0);expect(v.components?.panels.some(n=>n>0)).toBe(true);expect(v.state).toBe('parked');expect(moving.damage).toBeGreaterThan(0);});
+});

@@ -167,7 +167,7 @@ export interface TexAnchor { x: number; y: number; zoom: number }
  * With an anchor the pattern is pinned to the world (moves and scales with the camera instead of staying
  * glued to the screen, which made building textures swim as you walked).
  */
-export function fillTextured(g: CanvasRenderingContext2D, m: Material, alpha: number, anchor?: TexAnchor): void {
+export function fillTextured(g: CanvasRenderingContext2D, m: Material, alpha: number, anchor?: TexAnchor, path?:Path2D): void {
   const p = pattern(g, m);
   if (!p) return;
   const base = ultra ? 0.5 : 1; // ultra is 2x pixel density, same on-screen size
@@ -175,6 +175,6 @@ export function fillTextured(g: CanvasRenderingContext2D, m: Material, alpha: nu
   p.setTransform(new DOMMatrix([k, 0, 0, k, anchor ? anchor.x : 0, anchor ? anchor.y : 0]));
   const a = g.globalAlpha, op = g.globalCompositeOperation;
   g.globalCompositeOperation = "overlay"; // neutral grey leaves the colour alone; speckles add grain
-  g.globalAlpha = a * alpha; g.fillStyle = p; g.fill();
+  g.globalAlpha = a * alpha; g.fillStyle = p; if(path)g.fill(path);else g.fill();
   g.globalCompositeOperation = op; g.globalAlpha = a;
 }

@@ -30,7 +30,7 @@ export class Welcome {
         h('button.btn.acid',{text:'Continue',disabled:!latest,onclick:()=>{if(!latest)return;const message=this.host.continue(latest.slot);if(message)error.textContent=message;else this.close();}}),
         h('button.btn',{text:'Start new game',onclick:()=>this.creator()}),
       ]),h('p.welcome-save',{text:latest?`Last saved ${new Date(latest.savedAt).toLocaleString()} · ${latest.label}`:'Your story will save automatically in this browser.'}),
-      h('p.welcome-save',{text:'A cookie remembers which save to continue. Full progress stays in this browser; manual slots are kept.'}),error,
+      error,
     ]));
     (this.el.querySelector('button:not(:disabled)') as HTMLElement)?.focus();
   }

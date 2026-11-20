@@ -57,7 +57,7 @@ export class Terrain {
     const cell: { sx: number; sy: number; base: number; n: number; tx: number; ty: number }[] = [];
     for (let ty = y0; ty < (w.mapped?y0+CH:Math.min(S,y0+CH)); ty++) for (let tx = x0; tx < (w.mapped?x0+CH:Math.min(S,x0+CH)); tx++) {
       const t = w.tile(tx,ty);
-      const base = groundOf(w, tx, ty, t);
+      const base = w.mapped && t === T.WATER ? T.GRASS : groundOf(w, tx, ty, t);
       const n = this.noise(ty * S + tx);
       const [c1, c2] = GROUND[base] ?? ["#1a1614", "#1e1a17"];
       const sx = (tx - ty) * hw - ox, sy = (tx + ty) * hh - oy;
@@ -183,23 +183,7 @@ function detail(g: CanvasRenderingContext2D, t: number, sx: number, sy: number, 
       // (no per-tile chevrons: repeated every tile they formed a diagonal criss-cross lattice)
       break;
     }
-    case T.WATER: {
-      // shore: a wide soft turquoise wash, then a thin bright foam line, along any edge that meets land
-      const land = (dx: number, dy: number) => w.tile(tx + dx, ty + dy) !== T.WATER;
-      const edges = (inset: number) => {
-        g.beginPath();
-        if (land(0, -1)) { g.moveTo(sx, sy + inset); g.lineTo(sx + hw - inset, sy + hh); }
-        if (land(1, 0)) { g.moveTo(sx + hw - inset, sy + hh); g.lineTo(sx, sy + TILE_H - inset); }
-        if (land(0, 1)) { g.moveTo(sx, sy + TILE_H - inset); g.lineTo(sx - hw + inset, sy + hh); }
-        if (land(-1, 0)) { g.moveTo(sx - hw + inset, sy + hh); g.lineTo(sx, sy + inset); }
-      };
-      g.lineCap = "round";
-      g.strokeStyle = "rgba(85,112,105,.12)"; g.lineWidth = 7; edges(4); g.stroke();
-      g.strokeStyle = "rgba(128,155,145,.16)"; g.lineWidth = 3.2; edges(2.5); g.stroke();
-      g.strokeStyle = "rgba(172,185,170,.22)"; g.lineWidth = 1.1; edges(1.2); g.stroke();
-      g.stroke(); g.lineCap = "butt";
-      break;
-    }
+    case T.WATER: break; // The animated surface supplies soft shore detail.
     case T.FLOOR: break;
     case T.COURT: {
       const edge = (dx: number, dy: number) => w.tile(tx + dx, ty + dy) !== T.COURT && w.tile(tx + dx, ty + dy) !== T.FENCE;

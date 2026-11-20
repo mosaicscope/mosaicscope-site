@@ -1,14 +1,25 @@
+import {elevationAt} from '../world/Elevation';
+import {sweptRailContact} from './RailCollision';
+import {fireVisualProfile} from '../render/FireVisuals';
+import {stepWaterVehicle,waterDepth} from './WaterPhysics';
+import {releaseBusPassengers} from './BusService';
+import {stepDrivingTelemetry} from './DrivingTelemetry';
+import {aerodynamicForces} from './VehicleAero';
+import {drivingDynamics,wheelGrip,dynamicsEffects,stepDrivingDynamics} from './VehicleDynamics';
+import {wheelContactControl} from './WheelContact';
+import {partsEffects} from './VehicleParts';
+import {arcadeDriving,powerEnvelope,damagePull,drivingTopSpeed} from './ArcadeDriving';
+import {structuralDynamics,brakeThermals} from './VehicleStructure';
 import {worldIndex} from '../world/WorldIndex';
 import {hitFacade} from "./CivicDamage";
-import {spawnMappedVehicles,driveMappedVehicle,snapMappedVehicle} from './MappedTraffic';
-import { handlingProfile, roadSurface, slipGrip, followingSpeed, temperatureGrip } from "./VehicleHandling";
-import {terrainResistance, contactStep, aerodynamicStep, structuralImpact, metresPerTile} from './VehicleContinuum';
+import {mappedDrivingLimit,advanceDistantTraffic,spawnMappedVehicles,driveMappedVehicle,snapMappedVehicle} from './MappedTraffic';
+import { handlingProfile, roadSurfaceAt, slipGrip, corneringBudget, followingSpeed, temperatureGrip } from "./VehicleHandling";
 import { vehicleIndex } from "./VehicleIndex";
 import { vehicleGeometry, chassisContact, sweptChassisContact } from "./VehicleGeometry";
-import { drivingSetup, stepPowertrain, stepDrift } from "./DrivingExperience";
+import { drivingSetup, stepPowertrain, stepDrift, coastResistance, manualGearLimit, driverAssists } from "./DrivingExperience";
 import { utilityDynamics, stepUtility } from "./VehicleUtility";
 import {junctionAvailable} from "./TrafficControl";
-import { impactComponents, damageTick, damageParts, repairVehicle } from "./VehicleDamage";
+import { components, impactComponents,blastVehicle, damageTick, damageParts, repairVehicle } from "./VehicleDamage";
 import type { Simulation } from "./Simulation";
 import { Character, Vehicle, Phys } from "../entities/types";
 import { VEHICLES, VehicleClass, FOR_SALE } from "../content/vehicles";
@@ -108,9 +119,12 @@ export function unseat(sim: Simulation, v: Vehicle): Character | null {
   v.driver = -1;
   if (!c) return null;
   c.inCar = -1;
-  const side = v.heading + Math.PI / 2;
-  const p = sim.world.nearestWalkable(v.x + Math.cos(side) * 1.1, v.y + Math.sin(side) * 1.1);
-  c.x = c.px = p.x; c.y = c.py = p.y; c.vx = c.vy = 0; c.facing = v.heading;
+  const doors=v.components?.structure?.doors,partDoors=partsEffects(v).door;
+  // A jammed door sends the driver out the other side; both jammed uses a rear escape.
+  const right=Math.max(doors?.[1]??0,partDoors[1]),left=Math.max(doors?.[0]??0,partDoors[0]);
+  const side = v.heading + (right>.6?(left>.6?Math.PI:-Math.PI/2):Math.PI/2);
+  const p = waterDepth(sim.world,v.x,v.y)>0?{x:v.x+Math.cos(side)*.6,y:v.y+Math.sin(side)*.6}:sim.world.nearestWalkable(v.x + Math.cos(side) * 1.1, v.y + Math.sin(side) * 1.1);
+  c.x = c.px = p.x; c.y = c.py = p.y; c.vx = c.vy = c.vz = c.kx = c.ky = c.z = 0; c.facing = v.heading;
   c.nextThink = sim.tick + 1;
   return c;
 }
@@ -174,18 +188,26 @@ export function refreshAmbientFleet(sim:Simulation):void{
  for(const v of sim.vehicles){if(v.state!=='parked'||v.driver>=0||v.owner>=0||v.forSale||v.components||v.damage>0||v.lifeMods?.length||VEHICLES[v.cls].design||['police','ambulance','fire','tow','bus','bin'].includes(v.cls))continue;const hash=[...v.plate].reduce((n,c)=>(n*31+c.charCodeAt(0))>>>0,v.id),d=pool[hash%pool.length];v.cls=d.cls;v.color=d.colors[hash%d.colors.length];}
 }
 
+const frameScratch=new WeakMap<Simulation,{previous:Float64Array;fleet:Vehicle[]}>();
 export function updateVehicles(sim: Simulation, dt: number): void {
   if (!Number.isFinite(dt) || dt <= 0) return;
-    const fleet=sim.world.mapped?sim.vehicles.filter(v=>v.driver===sim.playerId||v.state==='free'||v.state==='crashed'||v.rescueTarget!==undefined||(v.x-sim.focus.x)**2+(v.y-sim.focus.y)**2<80*80):sim.vehicles;
-    if(sim.world.mapped){const active=new Set(fleet);for(const v of sim.vehicles)if(!active.has(v)){v.px=v.x;v.py=v.y;v.speed=0;v.vx=v.vy=0;}}
+  if(sim.world.mapped)advanceDistantTraffic(sim);
+  const count=sim.vehicles.length;let scratch=frameScratch.get(sim);
+  if(!scratch){scratch={previous:new Float64Array(Math.max(32,count*2)),fleet:[]};frameScratch.set(sim,scratch);}
+  if(scratch.previous.length<count*2)scratch.previous=new Float64Array(Math.max(count*2,scratch.previous.length*2));
+  const previous=scratch.previous,fleet=sim.world.mapped?scratch.fleet:sim.vehicles;if(sim.world.mapped)fleet.length=0;
+  for(let i=0;i<count;i++){const v=sim.vehicles[i];previous[i*2]=v.x;previous[i*2+1]=v.y;
+    if(!sim.world.mapped)continue;
+    if(v.driver===sim.playerId||v.state==='free'||v.state==='crashed'||v.rescueTarget!==undefined||v.fireTarget!==undefined||(v.x-sim.focus.x)**2+(v.y-sim.focus.y)**2<sim.trafficRadius*sim.trafficRadius)fleet.push(v);
+    else{v.px=v.x;v.py=v.y;v.speed=0;v.vx=v.vy=0;}
+  }
   // Bound hitch catch-up work and resolve fast contacts at 120 Hz, independently of rendering.
   const hz=sim.vehicles.some(v=>v.state==='free'||v.state==='crashed')?120:60;
   const elapsed = Math.min(dt, 0.25), steps = Math.ceil(elapsed * hz), step = elapsed / steps;
-  const previous = sim.vehicles.map(v => [v.x, v.y]);
   for (let i = 0; i < steps; i++) stepVehicles(sim, step,fleet);
   // Other systems (props, interpolation) need the full frame sweep, not only the last substep.
   sim.vehicles.forEach((v, i) => {
-    if (previous[i]) { v.px = previous[i][0]; v.py = previous[i][1]; }
+    if (i<count) { v.px = previous[i*2]; v.py = previous[i*2+1]; }
     const driver=sim.chars[v.driver];
     if(driver){driver.x=v.x;driver.y=v.y;driver.px=v.px;driver.py=v.py;driver.facing=v.heading;}
   });
@@ -193,7 +215,6 @@ export function updateVehicles(sim: Simulation, dt: number): void {
 
 const nearby: Vehicle[] = [], collisionCandidates: Vehicle[] = [], recoveryCandidates: Vehicle[] = [];
 function stepVehicles(sim: Simulation, dt: number,fleet=sim.vehicles): void {
-  sim.world.continuum.advance(dt);
   vehicleIndex(sim).rebuild(fleet);
   for (const v of fleet) {
     v.px = v.x; v.py = v.y;
@@ -202,21 +223,31 @@ function stepVehicles(sim: Simulation, dt: number,fleet=sim.vehicles): void {
       v.bodyRoll=(v.bodyRoll??0)*Math.exp(-dt*7);v.bodyPitch=(v.bodyPitch??0)*Math.exp(-dt*7);
       v.tyreHeat=Math.max(0,(v.tyreHeat??0)-dt*.22);
     }
-    damageTick(v, dt);
+    const priorBurn=v.burnTime??0;damageTick(v, dt);stepWaterVehicle(sim,v,dt);
+    if(v.burning&&v.damage>=.9&&priorBurn<5&&(v.burnTime??0)>=5){
+      blastVehicle(v,Math.cos(v.heading),Math.sin(v.heading),3.5,sim.tick);blastVehicle(v,-Math.cos(v.heading),-Math.sin(v.heading),2.8,sim.tick);
+      sim.bus.emit('fx',{kind:'flash',x:v.x,y:v.y,z:1,n:12});sim.bus.emit('fx',{kind:'spark',x:v.x,y:v.y,z:1,n:18,color:'#ff9a3d'});sim.bus.emit('fx',{kind:'dust',x:v.x,y:v.y,z:.5,n:20});sim.bus.emit('sound',{kind:'crash',x:v.x,y:v.y,vol:1});
+      for(const other of sim.vehicles){if(other===v||other.burnt)continue;const dx=other.x-v.x,dy=other.y-v.y,distance=Math.hypot(dx,dy);if(distance>=3.5||distance<.01)continue;const impulse=(1-distance/3.5)*3;other.vx=(other.vx??0)+dx/distance*impulse;other.vy=(other.vy??0)+dy/distance*impulse;blastVehicle(other,-dx/distance,-dy/distance,impulse,sim.tick);}
+    }
+    if(v.burning&&(sim.tick+v.id)%8===0)sim.bus.emit('fx',{kind:'tyre_smoke',x:v.x,y:v.y,z:.8,n:3,color:fireVisualProfile(v.id).smoke});
+    // Burning vehicles can heat nearby vehicles, biased downwind; work is staggered and bounded.
+    if(v.burning&&(sim.tick+v.id)%60===0){const live=sim.world.mapped?.liveConditions,weather=live?.weather&&Date.now()-Date.parse(live.fetchedAt)<1800000?live.weather:null,dir=weather?.windDirection,wind=Math.min(1,(weather?.wind??0)/12),angle=dir==null?0:dir*Math.PI/180,wx=dir==null?0:-Math.sin(angle),wy=dir==null?0:Math.cos(angle);let checked=0;
+      for(const other of sim.vehicles){if(other===v||other.burning||other.burnt)continue;const dx=other.x-v.x,dy=other.y-v.y,distance=Math.hypot(dx,dy);if(distance>4||distance<.01)continue;if(++checked>8)break;const downwind=dir==null?0:Math.max(0,(dx*wx+dy*wy)/distance)*wind;other.heat=Math.min(1,(other.heat??0)+Math.max(0,1-distance/4)*(.12+downwind*.16)*(1-sim.env.rain*.3));}
+    }
     if (v.burning || v.burnt || ((v.engineDamage ?? 0) > 0.8 || v.flatLeft || v.flatRight) && v.driver !== sim.playerId) {
-      if (v.driver >= 0) unseat(sim, v);
+      releaseBusPassengers(sim,v);if (v.driver >= 0) unseat(sim, v);
       v.state = "parked"; v.speed = 0; v.vx = 0; v.vy = 0;
       if (!v.towAt) v.towAt = sim.tick + 3600;
       if (sim.tick >= v.towAt && v.owner !== sim.playerId) { const park = sim.world.buildings.find(b => b.kind === "garage"); if (park) { v.x = park.door.x + 1; v.y = park.door.y + 1; } repairVehicle(v); v.towAt = undefined; }
       continue;
     }
-    if (v.state === "parked") continue;
+    if (v.state === "parked") {releaseBusPassengers(sim,v);v.braking=false;if(waterDepth(sim.world,v.x,v.y)>0){const x=v.x+(v.vx??0)*dt,y=v.y+(v.vy??0)*dt;if(waterDepth(sim.world,x,y)>0){v.x=x;v.y=y;}}continue;}
     if (v.state === "crashed") {
       slide(sim, v, dt);
       if (sim.tick > v.crashedUntil) v.state = v.driver === sim.playerId ? "free" : v.driver >= 0 ? (snapToLane(sim, v) ? "drive" : "free") : "parked";
       continue;
     }
-    if (v.state === "drive") {if(sim.world.mapped)driveMappedVehicle(sim,v,dt);else laneDrive(sim, v, dt);}
+    if (v.state === "drive") {const before=v.speed;if(sim.world.mapped)driveMappedVehicle(sim,v,dt);else laneDrive(sim, v, dt);v.braking=v.speed<before-.01;}
     else freeDrive(sim, v, dt);
     if(v.state==='drive'){v.vx=(v.x-v.px)/dt;v.vy=(v.y-v.py)/dt;v.dynT=sim.tick;}
     // keep the driver with the car
@@ -227,7 +258,7 @@ function stepVehicles(sim: Simulation, dt: number,fleet=sim.vehicles): void {
 }
 
 /** Inputs for free-driving cars (player or joyrider). */
-export interface DriveInput { throttle: number; steer: number; brake: boolean }
+export interface DriveInput { throttle: number; steer: number; brake: boolean; serviceBrake?: number }
 export const playerInput: DriveInput = { throttle: 0, steer: 0, brake: false };
 
 /** World velocity of a car: its free-body velocity when that is live, else straight along the heading. */
@@ -237,7 +268,7 @@ export function carVel(sim: Simulation, v: Vehicle): { x: number; y: number } {
 }
 
 /** Tyre grip in tiles/s² of sideways acceleration before the car starts to slide. */
-function tyreGrip(sim: Simulation, v: Vehicle): number {
+function tyreGrip(sim: Simulation, v: Vehicle, surfaces?:number[], roughness?:number[]): number {
   const d = VEHICLES[v.cls];
   const profile = handlingProfile(v.cls), geometry = vehicleGeometry(v), c = Math.cos(v.heading), s = Math.sin(v.heading);
   let surfaceGrip = 0;
@@ -246,11 +277,13 @@ function tyreGrip(sim: Simulation, v: Vehicle): number {
     if(profile.twoWheeler && i%2) continue;
     const x = (i < 2 ? 1 : -1) * geometry.wheelbase / 2, y = profile.twoWheeler ? 0 : (i % 2 ? 1 : -1) * (geometry.width/2-0.02);
     const wheel = v.components?.wheels[i];
-    const condition = wheel ? wheel.missing ? 0 : (wheel.puncture ? 0.55 : 1)*(1-wheel.suspension*0.25-wheel.rim*0.1) : (i%2 === 0 ? v.flatLeft : v.flatRight) ? 0.55 : 1;
-    const wx=v.x+x*c-y*s,wy=v.y+x*s+y*c;
-    surfaceGrip += roadSurface(sim.world.tile(Math.floor(wx), Math.floor(wy)), sim.env.rain, profile.offroad).grip * sim.world.continuum.grip(wx,wy) * condition / (profile.twoWheeler?2:4);
+    const condition = wheel ? wheel.missing ? 0 : (wheel.puncture ? 0.55 : 1)*(1-wheel.suspension*0.25-wheel.rim*0.1)*(0.45+0.55*(wheel.attachment??1)) : (i%2 === 0 ? v.flatLeft : v.flatRight) ? 0.55 : 1;
+    const contactSurface=roadSurfaceAt(sim.world,v.x+x*c-y*s,v.y+x*s+y*c,sim.env.rain,profile.offroad,sim.daylight),surface=contactSurface.grip;
+    if(surfaces)surfaces[i]=surface;if(roughness)roughness[i]=contactSurface.loose?1:0;
+    const footprint=contactSurface.loose?1+.45*(1-(v.dynamics?.wheels[i]?.pressure??1)):1;
+    surfaceGrip += surface * condition * wheelGrip(v,i) * footprint * (v.dynamics?.wheels[i]?.load??.25) * (profile.twoWheeler?2:1);
   }
-  return d.grip * 2.5 * surfaceGrip * utilityDynamics(v).grip * temperatureGrip(v.tyreHeat ?? 0) * (v.lifeMods?.includes("Racing tyres") ? 1.3 : 1) / (v.lifeMods?.includes("Double deck") ? 1.2 : 1) * (1 - v.damage * 0.3);
+  return d.grip * 2.5 * surfaceGrip * utilityDynamics(v).grip * temperatureGrip(v.tyreHeat ?? 0) * (v.lifeMods?.includes("Racing tyres") ? 1.3 : 1) / (v.lifeMods?.includes("Double deck") ? 1.2 : 1) * (1 - Math.max(0,v.damage-.35) * 0.16);
 }
 
 /**
@@ -263,24 +296,30 @@ function tyreGrip(sim: Simulation, v: Vehicle): number {
 function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const d = VEHICLES[v.cls];
   const inp = v.parkingBrake?{throttle:0,steer:0,brake:true}:v.driver === sim.playerId ? playerInput : { throttle: 0, steer: 0, brake: true };
-  const mods = v.lifeMods ?? [];
-  const setup=drivingSetup(v);
-  const working=utilityDynamics(v);
-  const top = Math.max(0.1, d.topSpeed * setup.range * (mods.includes("Tractor engine") ? 1.2 : 1) / (1 + mods.length * 0.06) * (1 - v.damage * 0.5) * (1 - (v.engineDamage ?? 0) * 0.45) * (v.flatLeft || v.flatRight ? 0.65 : 1)*Math.max(.22,1-(v.components?.wheels.filter(w=>w.missing).length??0)*.35));
+  const setup=drivingSetup(v),aids=driverAssists(v);
+  drivingDynamics(v);
+  const working=utilityDynamics(v),structural=structuralDynamics(v),parts=partsEffects(v),dynamic=dynamicsEffects(v);
+  const roadLimit=mappedDrivingLimit(sim,v);
+  const arcade=arcadeDriving(v,roadLimit);
+  const top=drivingTopSpeed(v,arcade.top,setup.range);
   const vel = carVel(sim, v);
   const fx = Math.cos(v.heading), fy = Math.sin(v.heading);
   let lon = vel.x * fx + vel.y * fy, lat = -vel.x * fy + vel.y * fx;
   const s = Math.abs(lon);
-  const grip = tyreGrip(sim, v);
+  const surfaces=[1,1,1,1],roughness=[0,0,0,0],aero=aerodynamicForces(v,lon,top);
+  const grip = tyreGrip(sim, v,surfaces,roughness)*structural.grip*parts.grip*aero.load;
   const profile = handlingProfile(v.cls);
   const geometry = vehicleGeometry(v);
+  const surface = roadSurfaceAt(sim.world,v.x,v.y,sim.env.rain,profile.offroad,sim.daylight);
   // Pedal response builds torque smoothly; braking always responds immediately.
-  const pedal = clamp(inp.throttle, -1, 1);
-  const braking = inp.brake || pedal < 0 && lon > 0.05 || pedal > 0 && lon < -0.05;
+  const pedal = v.water?.locked?0:clamp(inp.throttle, -1, 1);
+  const serviceBrake=clamp(inp.serviceBrake??0,0,1);
+  const braking = inp.brake || serviceBrake>0 || pedal < 0 && lon > 0.05 || pedal > 0 && lon < -0.05;
+  v.braking=braking;
   const previousThrottle = v.dynT !== undefined && sim.tick - v.dynT <= 1 && (v.driveThrottle ?? 0) * pedal >= 0 ? v.driveThrottle ?? 0 : 0;
   const targetThrottle = braking ? 0 : pedal;
   v.driveThrottle = previousThrottle + (targetThrottle - previousThrottle) * (1 - Math.exp(-dt * (targetThrottle === 0 ? 16 : setup.response)));
-  const throttle = braking ? pedal : v.driveThrottle;
+  const throttle = inp.brake||serviceBrake>0?0:braking?pedal:v.driveThrottle;
   const transmission=stepPowertrain(v,lon,top,throttle,dt);
   if (v.flatLeft !== v.flatRight) v.heading += (v.flatLeft ? -1 : 1) * Math.min(s, 5) * dt * 0.025;
 
@@ -288,20 +327,33 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   let a = 0;
   // Space is the handbrake: it locks the rear wheels, so it slows you less than full brakes but lets the tail go
   if (inp.brake) a = -Math.sign(lon) * d.brake * (s > 2 ? 0.5 : 1);
-  else if (throttle > 0) a = lon < -0.05 ? d.brake * throttle : d.accel * throttle * Math.max(0, 1 - (lon / top) ** 2);
-  else if (throttle < 0) a = lon > 0.05 ? -d.brake * -throttle : -d.accel * 0.6 * -throttle * Math.max(0, 1 - (lon / (top * 0.35)) ** 2);
-  if(braking) a*=working.braking;
-  const engineForce = a * (1 - (v.engineDamage ?? 0) * 0.55) * transmission * setup.torque * working.acceleration;
+  else if(serviceBrake>0)a=-Math.sign(lon)*d.brake*serviceBrake;
+  else if (throttle > 0) a = lon < -0.05 ? d.brake * throttle : d.accel * arcade.launch * throttle * powerEnvelope(lon,manualGearLimit(v,top));
+  else if (throttle < 0) a = lon > 0.05 ? -d.brake * -throttle : -d.accel * .75 * -throttle * powerEnvelope(lon,Math.min(4.2,top*.35));
+  if(braking&&s>2&&!v.components)components(v);
+  brakeThermals(v,s,braking?Math.max(serviceBrake,Math.abs(pedal),inp.brake?.5:0):0,dt);
+  if(braking) a*=working.braking*structural.braking*parts.braking*dynamic.braking;
+  const engineForce = a * Math.max(.18,1-Math.max(0,(v.engineDamage??0)-.15)*1.05) * transmission * setup.torque * working.acceleration * structural.power * parts.power;
   // Acceleration shifts load rearward; AWD can use both axles, FWD unloads its driven tyres.
   const transfer = clamp(engineForce * geometry.height * 0.45 / (4.905 * geometry.wheelbase), -0.22, 0.22);
-  const drivenLoad = profile.drive === "awd" ? 1 : profile.drive === "rwd" ? 0.64 + transfer : 0.7 - transfer;
-  const traction = grip * Math.max(0.25, drivenLoad);
-  const spin = (!braking ? Math.max(0, Math.abs(engineForce) - traction) : 0)*(setup.tractionControl?0.08:1);
+  const drivenLoad = profile.drive === "awd" ? 1 : profile.drive === "rwd" ? 0.64 + transfer : Math.max(arcade.frontLoad,0.7 - transfer);
+  const demand=braking?Math.max(serviceBrake,Math.abs(pedal),inp.brake?.5:0):0;
+  const contacts=wheelContactControl(v,surfaces,lon,v.yaw??0,braking?0:engineForce/Math.max(.25,grip),demand,!!inp.brake,aids.abs,geometry.width,dt,roughness,aids.traction);
+  const surfaceMean=Math.max(.15,profile.twoWheeler?(surfaces[0]+surfaces[2])*.5:(surfaces[0]+surfaces[1]+surfaces[2]+surfaces[3])*.25);
+  const axleFactor=clamp(contacts.driveGrip/surfaceMean,.7,1.05);
+  const traction = grip * Math.max(0.25, drivenLoad) * dynamic.differential * axleFactor;
+  const spin = (!braking ? Math.max(0, Math.abs(engineForce) - traction) : 0)*(aids.traction?0.08:1);
   v.wheelspin = spin;
-  if (!braking) a = clamp(engineForce, -traction, traction);
-  else a = clamp(a, -grip, grip);
-  const wheelDrag = (v.components?.wheels.reduce((n,w)=>n+(w.missing?0.9:w.puncture?0.3:0)+w.rim*0.12,0) ?? (v.flatLeft?0.3:0)+(v.flatRight?0.3:0));
-  const resist = 0.35 + wheelDrag + (pedal===0?working.engineDrag:0) + terrainResistance(sim,v,lon,dt);
+  if (!braking) a = clamp(engineForce*(1-(aids.traction?contacts.traction*.1:0)), -traction, traction);
+  else {
+    // Leave front-tyre capacity for steering under ordinary braking (ABS/ESC in Road mode).
+    const locked=profile.twoWheeler?(contacts.wheels[0].lock+contacts.wheels[2].lock)/2:contacts.wheels.reduce((n,w)=>n+w.lock,0)/4;
+    const brakeGrip=grip*(1-locked*.18)*clamp(contacts.brakeGrip/surfaceMean,.7,1.05)*(aids.abs&&!inp.brake?1-.18*Math.min(1,Math.abs(inp.steer)):1);
+    a=clamp(a*contacts.brakeEffect,-brakeGrip,brakeGrip);
+  }
+  const wheelDrag = (v.components?.wheels.reduce((n,w)=>n+(w.missing?0.9:w.puncture?0.3:0)+w.rim*0.12+Math.max(0,.65-(w.attachment??1))*.6,0) ?? (v.flatLeft?0.3:0)+(v.flatRight?0.3:0));
+  const regen=coastResistance(v,lon,pedal,braking);
+  const resist = 0.25 + regen + surface.drag + wheelDrag + structural.drag + parts.drag + dynamic.drag + (pedal===0?working.engineDrag:0) + aero.drag;
   if (braking || a === 0) {
     // brakes and drag can stop the car but never push it backwards
     const dec = Math.abs(a) + resist;
@@ -311,27 +363,38 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
     lon = Math.sign(lon) * Math.max(0, Math.abs(lon) - resist * dt);
   }
 
+  // Coarse mapped grade contributes gravity while driving; no grid means flat fallback.
+  if(sim.world.mapped&&!braking&&!v.parkingBrake&&Math.abs(lon)>.05){const ahead=elevationAt(sim.world.mapped,v.x+fx,v.y+fy),behind=elevationAt(sim.world.mapped,v.x-fx,v.y-fy);if(ahead!==null&&behind!==null){const grade=clamp((ahead-behind)/2,-.18,.18);lon-=grade*4.905*dt;}}
+
   // ---- turning: yaw toward what the steering asks, capped by what the tyres can hold ----
   // how loose the rear is: a locked handbrake, or (tail-happy cars) too much throttle while turning
   const powerOver = profile.drive !== "fwd" && throttle > 0 && lon > 1 ? throttle * Math.min(1, s / 5) * Math.min(1, Math.abs(v.steerAngle ?? 0) / 0.3) * setup.rearSlip * (profile.drive==='awd'?0.4:1) : 0;
-  const rearLoose = inp.brake ? clamp((s - 1) / 2, 0, 1) : powerOver;
-  const wheelDamage=v.components?.wheels??[],loss=wheelDamage.reduce((n,w)=>n+(w.missing?.35:w.puncture?.1:0)+w.suspension*.05,0);
+  const rearSurfaceLoss=Math.max(0,contacts.frontGrip/1.08-contacts.rearGrip/.92);
+  const rearLoose = clamp((inp.brake ? clamp((s - 1) / 2, 0, 1) : powerOver)+rearSurfaceLoss*.3,0,1.3);
+  const wheelDamage=v.components?.wheels??[],loss=wheelDamage.reduce((n,w)=>n+(w.missing?.35:w.puncture?.1:0)+w.suspension*.05+Math.max(0,.65-(w.attachment??1))*.12,0);
   const steering=clamp(inp.steer,-1,1);
   const countersteering = steering * (v.steerAngle ?? 0) < 0;
-  const steerResponse = (countersteering ? 13 : steering === 0 ? 10 : 8) * working.turnResponse / (1 + s / top * 0.35);
+  const steerResponse = (countersteering ? 16 : steering === 0 ? 13 : 11) * arcade.steerResponse * working.turnResponse * parts.steering * dynamic.steering / (1 + s / top * 0.35);
   v.steerAngle=(v.steerAngle??0)+(steering*.55-(v.steerAngle??0))*(1-Math.exp(-dt*steerResponse));
-  const wheelbase = geometry.wheelbase, lock = 0.6 * setup.steer * working.steering * (1 - 0.55 * Math.min(1, s / top));
+  const wheelbase = geometry.wheelbase;
+  let lock = 0.68 * setup.steer * working.steering * structural.steer * (1 - 0.55 * Math.min(1, s / top));
+  // Road/Trail assist scales steering lock to the available tyre force at speed.
+  if(aids.stability&&!inp.brake)lock=Math.min(lock,Math.atan(grip*wheelbase*.95/Math.max(1,s*s)));
   // a bent side (wheel knocked out of line) drags the car toward it
-  const bent = ((v.dmgS ?? 0) - (v.dmgL ?? 0)) * 0.12;
+  const bent=damagePull(v,s,structural.pull)+dynamic.pull+parts.steeringPull+aero.pull+(braking?structural.brakePull+dynamic.brakePull+parts.brakePull+contacts.splitPull:0);
   v.wheelSteer = (v.steerAngle??0)/.55 * lock;
-  const want = lon * Math.tan(v.wheelSteer + bent+(wheelDamage[0]?.alignment??0)*.3+(wheelDamage[1]?.alignment??0)*.3) / wheelbase;
+  const want = lon * Math.tan(v.wheelSteer + bent) / wheelbase;
   const cap = (grip * (1 + 1.2 * rearLoose)) / Math.max(s, 1);   // a loose rear lets the nose swing past the grip line
-  const frontPush = profile.drive === "fwd" ? 1 / (1 + spin * 0.15) : 1;
+  const axleBalance=clamp(contacts.frontGrip/Math.max(.2,contacts.rearGrip),.65,1.25);
+  const frontPush = (profile.drive === "fwd" ? 1 / (1 + spin * 0.15) : 1)*Math.min(1,axleBalance);
   // Road mode catches a developing spin; Drift mode retains the full rear-slip envelope.
-  const stability = setup.tractionControl && !inp.brake ? clamp(Math.atan2(lat, Math.max(1,s)) * Math.sign(lon), -.35, .35) * 1.4 : 0;
-  const yawWant = clamp(want * frontPush + stability, -cap, cap);
+  const stability = aids.stability && !inp.brake ? clamp(Math.atan2(lat, Math.max(1,s)) * Math.sign(lon), -.35, .35) * 1.4 : 0;
+  const yawError=(v.yaw??0)-want,stabilityActive=aids.stability&&!inp.brake&&s>3&&Math.abs(yawError)>Math.max(.2,cap*.8);
+  v.stabilityActive=stabilityActive;
+  const yawWant = clamp(want * frontPush + stability-(stabilityActive?clamp(yawError,-cap,cap)*.15:0), -cap, cap);
   const inertiaResponse = clamp(2 / geometry.wheelbase, .6, 1.5);
-  v.yaw = (v.yaw ?? 0) + (yawWant - (v.yaw ?? 0)) * (1 - Math.exp(-dt * (3 + grip * 0.6) * inertiaResponse * working.turnResponse));
+  v.yaw = (v.yaw ?? 0) + (yawWant - (v.yaw ?? 0)) * (1 - Math.exp(-dt * (4.5 + grip * 0.8) * inertiaResponse * working.turnResponse));
+  if(Math.hypot(lon,lat)<.04)v.yaw=0;
   v.heading += v.yaw * dt;
   // the body turned under the velocity: re-express it in the new frame, then let the tyres fight the sideways part
   const nfx = Math.cos(v.heading), nfy = Math.sin(v.heading);
@@ -340,35 +403,27 @@ function freeDrive(sim: Simulation, v: Vehicle, dt: number): void {
   // Acceleration and cornering share the tyre's traction budget.
   const slipAngle = Math.atan2(lat, Math.max(0.8, Math.abs(lon)));
   const loadSensitivity = 1 - Math.min(0.18, Math.abs(v.yaw * lon) * profile.cg / Math.max(1, d.width) * 0.025);
-  const latGrip = grip * slipGrip(slipAngle) * loadSensitivity * (1 - 0.55 * rearLoose)*Math.max(.18,1-loss);
-  const contactForces = contactStep(sim,v,lon,lat,a,latGrip,dt);
-  // Engine demand was integrated above. Correct it to the force transmitted by the patches.
-  const correction=(contactForces.longitudinal-a)*dt;
-  if(braking) lon=Math.sign(lon)*Math.min(s,Math.max(0,Math.abs(lon)+Math.sign(lon)*correction));
-  else lon+=correction;
-  const pull = -contactForces.lateral;
+  const latGrip = corneringBudget(grip, inp.brake ? a * 0.35 : a) * slipGrip(slipAngle) * loadSensitivity * (1 - 0.55 * rearLoose)*Math.max(.18,1-loss);
+  const pull = clamp(lat * 14, -latGrip, latGrip);
   lat = Math.abs(lat) <= Math.abs(pull) * dt ? 0 : lat - pull * dt;
   if (Math.abs(lat) > 0.8) lon -= Math.sign(lon) * Math.min(Math.abs(lon), Math.abs(pull) * 0.18 * dt);     // sliding scrubs speed
   // Engine power fades at its speed limit; damage cannot instantly delete existing momentum.
 
-  const air = aerodynamicStep(sim,v,nfx*lon-nfy*lat,nfy*lon+nfx*lat,dt);
-  v.vx = air.x; v.vy = air.y; v.dynT = sim.tick;
-  lon=v.vx*nfx+v.vy*nfy;lat=-v.vx*nfy+v.vy*nfx;
-  // Implicit drag decays exponentially and never reaches zero; settle imperceptible residual motion so a coasting car truly stops.
-  if(Math.abs(lon)<1e-4&&Math.abs(lat)<1e-4){lon=lat=0;v.vx=v.vy=0;}
+  v.vx = nfx * lon - nfy * lat; v.vy = nfy * lon + nfx * lat; v.dynT = sim.tick;
   v.speed = lon; v.slip = lat;
   v.wheelTravel = (v.wheelTravel ?? 0) + lon * dt;
   v.wheelSpinTravel = (v.wheelSpinTravel ?? 0) + Math.sign(throttle)*spin*0.35*dt;
   const settle = 1-Math.exp(-dt*7);
-  v.bodyRoll = (v.bodyRoll ?? 0) + (clamp(v.yaw*lon*geometry.height*0.018*working.roll/geometry.width,-0.12,0.12)-(v.bodyRoll ?? 0))*settle;
-  v.bodyPitch = (v.bodyPitch ?? 0) + (clamp(a*geometry.height*0.025/geometry.wheelbase,-0.08,0.08)-(v.bodyPitch ?? 0))*settle;
+  v.bodyRoll = (v.bodyRoll ?? 0) + (clamp(v.yaw*lon*geometry.height*0.018*working.roll/geometry.width+dynamic.roll,-0.12,0.12)-(v.bodyRoll ?? 0))*settle;
+  v.bodyPitch = (v.bodyPitch ?? 0) + (clamp(a*geometry.height*0.025/geometry.wheelbase+dynamic.pitch,-0.08,0.08)-(v.bodyPitch ?? 0))*settle;
   const scrub = Math.abs(lat) * Math.min(1, s / 3) + spin * 0.5 + (inp.brake && s > 2 ? s * 0.25 : 0);
   v.tyreHeat = clamp((v.tyreHeat ?? 0) + (scrub * 0.16 - 0.22) * dt, 0, 1);
+  stepDrivingDynamics(v,lon,lat,a,sim.env.rain,braking?Math.max(serviceBrake,Math.abs(pedal)):0,!!inp.brake,dt);
   if(working.active)stepUtility(v,a,(v.yaw??0)*lon,lon,braking,dt);
   skidMarks(sim, v, lat, inp.brake && s > 2 ? s : 0);
   const oldX=v.x,oldY=v.y;
   moveBlocked(sim, v, dt);
-  if(v.driver===sim.playerId)stepDrift(v,Math.hypot(v.x-oldX,v.y-oldY),dt);
+  if(v.driver===sim.playerId){const distance=Math.hypot(v.x-oldX,v.y-oldY);stepDrift(v,distance,dt);stepDrivingTelemetry(v,v.speed,distance,pedal,braking,dt);}
 }
 
 /**
@@ -453,9 +508,10 @@ function skidMarks(sim: Simulation, v: Vehicle, lat: number, lock: number): void
     if (v.components?.wheels[i]?.missing) continue;
     const lx = (i < 2 ? 1 : -1)*geometry.wheelbase/2, ly = profile.twoWheeler ? 0 : (i%2 ? 1 : -1)*(geometry.width/2-0.02);
     const x=v.x+lx*c-ly*s, y=v.y+lx*s+ly*c;
-    const surface = roadSurface(sim.world.tile(Math.floor(x),Math.floor(y)),sim.env.rain,profile.offroad);
+    const surface = roadSurfaceAt(sim.world,x,y,sim.env.rain,profile.offroad,sim.daylight);
     const powered = profile.drive === "awd" || (profile.drive === "fwd" ? i<2 : i>=2);
-    const scrub = Math.max(Math.abs(lat)-0.65, i>=2 && lock>0 ? 0.6 : 0, powered ? (v.wheelspin ?? 0)*0.5 : 0);
+    const patchLock=v.contactControl?.wheels[i]?.lock??0;
+    const scrub = Math.max(Math.abs(lat)-0.65, i>=2 && lock>0 ? 0.6 : 0, patchLock>.25?patchLock*.8:0, powered ? (v.wheelspin ?? 0)*0.5 : 0);
     if (surface.loose && Math.abs(v.speed)>1.5) {
       sim.bus.emit("fx",{kind:"dust",x,y,z:0.06,n:Math.min(3,1+Math.floor(scrub)),color:"#a59a83"});
     } else {
@@ -472,10 +528,16 @@ function moveBlocked(sim: Simulation, v: Vehicle, dt: number): void {
   const d = { ...VEHICLES[v.cls], ...vehicleGeometry(v),mass:utilityDynamics(v).mass };
   const vel = carVel(sim, v);
   const nx = v.x + vel.x * dt, ny = v.y + vel.y * dt;
-  if(sim.world.mapped){const ox=v.x,oy=v.y,px=v.px,py=v.py;v.px=ox;v.py=oy;v.x=nx;v.y=ny;const hit=sim.mappedDamage.contact([...worldIndex(sim.world).buildings.query(nx-8,ny-8,nx+8,ny+8)].flatMap(id=>{const b=worldIndex(sim.world).damage.get(id);return b?[b]:[];}),v,sim.tick/60,1);v.px=px;v.py=py;if(hit){if(hit.speed>1){sim.bus.emit('sound',{kind:'crash',x:v.x,y:v.y,vol:Math.min(1,hit.speed/10)});sim.bus.emit('fx',{kind:'dust',x:hit.x,y:hit.y,z:.3,n:Math.min(16,Math.ceil(hit.speed*2))});}return;}v.x=ox;v.y=oy;}
+  if(sim.world.mapped){const ox=v.x,oy=v.y,px=v.px,py=v.py;v.px=ox;v.py=oy;v.x=nx;v.y=ny;const hit=sim.mappedDamage.contact([...worldIndex(sim.world).buildings.query(Math.min(ox,nx)-d.length-2,Math.min(oy,ny)-d.length-2,Math.max(ox,nx)+d.length+2,Math.max(oy,ny)+d.length+2)].flatMap(id=>{const b=worldIndex(sim.world).damage.get(id);return b?[b]:[];}),v,sim.tick/60,1);v.px=px;v.py=py;if(hit){if(hit.speed>1){sim.bus.emit('sound',{kind:'crash',x:v.x,y:v.y,vol:Math.min(1,hit.speed/10)});sim.bus.emit('fx',{kind:'dust',x:hit.x,y:hit.y,z:.3,n:Math.min(16,Math.ceil(hit.speed*2))});if(hit.damage?.opening&&hit.damage.at===sim.tick/60)sim.bus.emit('fx',{kind:'break',x:hit.x,y:hit.y,z:.7,n:Math.min(20,Math.ceil(hit.speed*1.5)),color:hit.damage.material==='brick'?'#a87962':hit.damage.material==='glass'?'#b7d5d2':'#aaa99b'});}return;}v.x=ox;v.y=oy;}
+  if(sim.world.mapped){const rail=sweptRailContact(sim.world.mapped,v,nx,ny);if(rail){const hit=Math.max(0,vel.x*rail.nx+vel.y*rail.ny),t=Math.max(0,rail.t-.001);v.x+=vel.x*dt*t;v.y+=vel.y*dt*t;
+   if(hit>1.2){impactComponents(v,rail.nx,rail.ny,hit,d.mass,sim.tick,{x:rail.x,y:rail.y});v.damage=Math.min(1,v.damage+hit*.012);bump(v,rail.nx,rail.ny,hit*.012);sim.bus.emit('sound',{kind:'crash',x:rail.x,y:rail.y,vol:Math.min(1,hit/10)});sim.bus.emit('fx',{kind:'spark',x:rail.x,y:rail.y,z:.35,n:Math.min(12,Math.ceil(hit)),color:'#e2c578'});}
+   if(v.vx!==undefined&&v.vy!==undefined){v.vx-=rail.nx*hit*1.1;v.vy-=rail.ny*hit*1.1;v.speed=v.vx*Math.cos(v.heading)+v.vy*Math.sin(v.heading);}else v.speed=-v.speed*.1;v.stuck+=dt;return;
+  }}
+  const nowWater=waterDepth(sim.world,nx,ny)>0,wasWater=waterDepth(sim.world,v.x,v.y)>0;
+  if(nowWater){const speed=Math.hypot(vel.x,vel.y);if(!wasWater||(sim.tick+v.id)%30===0&&speed>1)sim.liquids.disturb(nx,ny,speed,vel.x,vel.y);}
   const fx = nx + Math.cos(v.heading) * (d.length / 2) * Math.sign(v.speed || 1), fy = ny + Math.sin(v.heading) * (d.length / 2) * Math.sign(v.speed || 1);
   const side = v.heading + Math.PI / 2, hw = d.width / 2 * 0.9;
-  const blocked = (x: number, y: number) => !sim.world.walkable(x, y) && sim.world.tile(Math.floor(x), Math.floor(y)) !== T.CRATE && !(sim.world.mapped&&sim.world.tile(Math.floor(x),Math.floor(y))===T.BUILDING) || !sim.world.inBounds(Math.floor(x), Math.floor(y));
+  const blocked = (x: number, y: number) => !sim.world.walkable(x, y) && sim.world.tile(Math.floor(x), Math.floor(y)) !== T.CRATE && sim.world.tile(Math.floor(x), Math.floor(y)) !== T.WATER && !(sim.world.mapped&&sim.world.tile(Math.floor(x),Math.floor(y))===T.BUILDING) || !sim.world.inBounds(Math.floor(x), Math.floor(y));
   // also probe the way the car is actually moving: a drifting or spinning car slides sideways into things too
   const ms = Math.hypot(vel.x, vel.y), mx = ms > 1e-3 ? vel.x / ms : 0, my = ms > 1e-3 ? vel.y / ms : 0;
   const contact=[[nx+mx*hw,ny+my*hw],[fx+Math.cos(side)*hw,fy+Math.sin(side)*hw],[fx-Math.cos(side)*hw,fy-Math.sin(side)*hw],[nx,ny]].find(([x,y])=>blocked(x,y));
@@ -492,8 +554,6 @@ function moveBlocked(sim: Simulation, v: Vehicle, dt: number): void {
       sim.bus.emit("fx", { kind: "spark", x: fx, y: fy, z: 0.4, n: 8, color: "#f6b62c" });
     }
     if (v.vx !== undefined && v.vy !== undefined) { const inward=Math.max(0,normalSpeed);v.vx-=cx*inward*1.22;v.vy-=cy*inward*1.22;v.speed=v.vx*Math.cos(v.heading)+v.vy*Math.sin(v.heading);const torque=(contact[0]-nx)*cy-(contact[1]-ny)*cx;v.yaw=(v.yaw??0)*.4+torque*inward/Math.max(1,d.mass*10); }else v.speed=-v.speed*.22;
-    const impulse=d.mass*1000*Math.max(0,normalSpeed)*metresPerTile(sim)*1.22;
-    structuralImpact(sim,contact[0],contact[1],cx*impulse,cy*impulse,.5*d.mass*1000*(Math.max(0,normalSpeed)*metresPerTile(sim))**2*(1-.22**2),dt);
     const inward=Math.max(0,normalSpeed),slideX=v.x+(vel.x-cx*inward)*dt,slideY=v.y+(vel.y-cy*inward)*dt;if(!blocked(slideX,slideY)){v.x=slideX;v.y=slideY;}
     v.stuck += dt;
     return;
@@ -810,14 +870,16 @@ function collisions(sim: Simulation,fleet=sim.vehicles): void {
       sim.onCarHit(v, c, sp);
     }
   }
+  const crashContacts=new Set<Vehicle>();
   const vs = fleet;
-  for (let i = 0; i < vs.length; i++) for (const b of vehicleIndex(sim).query(vs[i].x,vs[i].y,Math.hypot(vehicleGeometry(vs[i]).length,vehicleGeometry(vs[i]).width)/2+Math.hypot(vs[i].x-vs[i].px,vs[i].y-vs[i].py)+.5,collisionCandidates)) {
+  for (let i = 0; i < vs.length; i++) {
+    if(vs[i].state==="parked")continue;
+    for (const b of vehicleIndex(sim).query(vs[i].x,vs[i].y,vehicleGeometry(vs[i]).radius+Math.hypot(vs[i].x-vs[i].px,vs[i].y-vs[i].py)+.5,collisionCandidates)) {
     const a = vs[i];
-    if(a.id>=b.id)continue;
-    if (a.state === "parked" && b.state === "parked") continue;
+    if(a===b||b.state!=="parked"&&a.id>=b.id)continue;
     const dx = b.x - a.x, dy = b.y - a.y, dd = dx * dx + dy * dy;
     const ga=vehicleGeometry(a),gb=vehicleGeometry(b);
-    const r = (Math.hypot(ga.length,ga.width)+Math.hypot(gb.length,gb.width))/2+Math.hypot(a.x-a.px,a.y-a.py)+Math.hypot(b.x-b.px,b.y-b.py);
+    const r = (ga.radius+gb.radius)+Math.hypot(a.x-a.px,a.y-a.py)+Math.hypot(b.x-b.px,b.y-b.py);
     if (dd > r * r) continue;
     let contact = chassisContact(a,b);
     if(!contact){
@@ -839,7 +901,7 @@ function collisions(sim: Simulation,fleet=sim.vehicles): void {
       // Recover overlapping lane cars from older saves without shoving them sideways into other lanes.
       if(bodiesTouch(a,b)){
         const bx=yieldCar.x,by=yieldCar.y,g=vehicleGeometry(yieldCar);
-        vehicleIndex(sim).query(bx,by,6+Math.hypot(g.length,g.width)/2,recoveryCandidates);
+        vehicleIndex(sim).query(bx,by,6+g.radius,recoveryCandidates);
         for(let back=.25;back<=6;back+=.25){
           const x=bx-Math.cos(yieldCar.heading)*back,y=by-Math.sin(yieldCar.heading)*back;
           if(!sim.world.drivable(x,y))break;
@@ -851,7 +913,10 @@ function collisions(sim: Simulation,fleet=sim.vehicles): void {
       continue;
     }
     const va = carVel(sim, a), vb = carVel(sim, b);
-    const invA=a.state==='parked'?0:1/VEHICLES[a.cls].mass,invB=b.state==='parked'?0:1/VEHICLES[b.cls].mass;
+    crashContacts.add(a);crashContacts.add(b);
+    // A handbrake supplies tyre friction, not infinite mass. Hard impacts release parked bodies into the crash solver.
+    if((va.x-vb.x)*contact.nx+(va.y-vb.y)*contact.ny>2.5)for(const v of [a,b])if(v.state==='parked'){v.state='crashed';v.crashedUntil=sim.tick+180;v.vx=0;v.vy=0;v.dynT=sim.tick;}
+    const invA=a.state==='parked'?0:1/crashMass(a),invB=b.state==='parked'?0:1/crashMass(b);
     const push=contact.depth/(invA+invB);
     if (invA) { a.x -= contact.nx * push*invA; a.y -= contact.ny * push*invA; }
     if (invB) { b.x += contact.nx * push*invB; b.y += contact.ny * push*invB; }
@@ -861,16 +926,29 @@ function collisions(sim: Simulation,fleet=sim.vehicles): void {
     if (contact.depth>0.2 && Math.abs((va.x-vb.x)*nx+(va.y-vb.y)*ny)<0.01 && separation>0.01 && (va.x-vb.x)*dx+(va.y-vb.y)*dy>0) { nx=dx/separation;ny=dy/separation; }
     const closing = (va.x-vb.x)*nx+(va.y-vb.y)*ny;
     if (closing > 0) crashImpulse(sim, a, b, va, vb, nx, ny,contact.x,contact.y);
-    if (closing > 2.5) sim.onCarCrash(a, b, closing);
+    if (closing > 2.5) sim.onCarCrash(a, b, closing,{x:contact.x,y:contact.y});
   }
+  }
+  settleCrashIsland(sim,crashContacts);
+}
+
+/** Bounded position iterations prevent a resolved pair being pushed into another wreck. No extra impact damage. */
+export function settleCrashIsland(sim:Simulation,seeds:ReadonlySet<Vehicle>):void{
+ if(!seeds.size)return;const island:Vehicle[]=[];const seen=new Set<Vehicle>();for(const seed of seeds){if(!seen.has(seed)){seen.add(seed);island.push(seed);}for(const v of vehicleIndex(sim).query(seed.x,seed.y,vehicleGeometry(seed).radius+4,recoveryCandidates)){if(!seen.has(v)&&island.length<32){seen.add(v);island.push(v);}}if(island.length>=32)break;}
+ for(let pass=0;pass<8;pass++){let moved=false;for(let i=0;i<island.length;i++)for(let j=i+1;j<island.length;j++){const a=island[i],b=island[j],oldWrecks=a.state==='parked'&&b.state==='parked'&&(a.damage>0||b.damage>0||!!a.components?.dents?.length||!!b.components?.dents?.length);if(!oldWrecks&&!['free','crashed'].includes(a.state)&&!['free','crashed'].includes(b.state))continue;const contact=chassisContact(a,b);if(!contact||contact.depth<.001)continue;const ia=a.state==='parked'&&!oldWrecks?0:1/crashMass(a),ib=b.state==='parked'&&!oldWrecks?0:1/crashMass(b),total=ia+ib;if(!total)continue;const shift=(contact.depth+.001)/total*.9;a.x-=contact.nx*shift*ia;a.y-=contact.ny*shift*ia;b.x+=contact.nx*shift*ib;b.y+=contact.ny*shift*ib;moved=true;
+ const va=carVel(sim,a),vb=carVel(sim,b),closing=(va.x-vb.x)*contact.nx+(va.y-vb.y)*contact.ny;if(closing>0){const impulse=closing/total;for(const [v,vel,inv,sign] of [[a,va,ia,-1],[b,vb,ib,1]] as const){if(!inv)continue;v.vx=vel.x+sign*contact.nx*impulse*inv;v.vy=vel.y+sign*contact.ny*impulse*inv;v.speed=v.vx*Math.cos(v.heading)+v.vy*Math.sin(v.heading);v.dynT=sim.tick;}}
+ }if(!moved)break;}
+ // Keep seated drivers at the corrected chassis position during this substep.
+ for(const v of island){const c=sim.chars[v.driver];if(c){c.x=v.x;c.y=v.y;}}
 }
 
 /**
  * Momentum exchange in a crash: an impulse along the line between the cars, shared by mass (a parked car has its
  * handbrake on, so it counts as much heavier), and an off-centre hit spins the car round.
  */
+function crashMass(v:Vehicle):number{return utilityDynamics(v).mass*(1+(v.lifeMods?.length??0)*.08);}
 function crashImpulse(sim: Simulation, a: Vehicle, b: Vehicle, va: { x: number; y: number }, vb: { x: number; y: number }, nx: number, ny: number, cx: number, cy: number): void {
-  const ma = utilityDynamics(a).mass * (1+(a.lifeMods?.length??0)*0.08) * (a.state === "parked" ? 3 : 1), mb = utilityDynamics(b).mass * (1+(b.lifeMods?.length??0)*0.08) * (b.state === "parked" ? 3 : 1);
+  const ma = crashMass(a) * (a.state === "parked" ? 3 : 1), mb = crashMass(b) * (b.state === "parked" ? 3 : 1);
   const ga=vehicleGeometry(a),gb=vehicleGeometry(b);
   const avx=va.x-(a.yaw??0)*(cy-a.y),avy=va.y+(a.yaw??0)*(cx-a.x);
   const bvx=vb.x-(b.yaw??0)*(cy-b.y),bvy=vb.y+(b.yaw??0)*(cx-b.x);
@@ -890,7 +968,7 @@ function crashImpulse(sim: Simulation, a: Vehicle, b: Vehicle, va: { x: number; 
   for (const [v, vel, m, sgn] of [[a, va, ma, -1], [b, vb, mb, 1]] as [Vehicle, { x: number; y: number }, number, number][]) {
     // The handbrake resists motion, not deformation: parked targets take component damage too.
     bump(v,-sgn*nx,-sgn*ny,Math.min(.4,j*.03/m));
-    impactComponents(v,-sgn*nx,-sgn*ny,Math.min(Math.abs(vn),j/VEHICLES[v.cls].mass),VEHICLES[v.cls].mass,sim.tick,{x:cx,y:cy});
+    impactComponents(v,-sgn*nx,-sgn*ny,Math.min(Math.abs(vn),j/m),m,sim.tick,{x:cx,y:cy});
     if(v.state==='parked')continue;
     v.vx=vel.x+sgn*impulseX/m;v.vy=vel.y+sgn*impulseY/m;v.dynT=sim.tick;
     // the hit lands off the car's centre line: that lever arm turns into spin

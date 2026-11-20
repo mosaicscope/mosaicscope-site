@@ -2,10 +2,15 @@ import type {CivicDamage} from '../sim/CivicDamage';
 import {facadeBreached} from '../sim/FacadeImpact';
 
 type Point=[number,number];
+/** Shared outline for both the visible breach and the clipped facade. */
+export function openingOutline(d:CivicDamage):Point[]{const o=d as CivicDamage&{openingHeight?:number;openingContour?:number[][]},height=Math.max(.3,Math.min(10,o.openingHeight??1)),shape=o.openingContour&&o.openingContour.length>=3&&o.openingContour.length<=64&&o.openingContour.every(p=>Array.isArray(p)&&p.length>=2&&Number.isFinite(p[0])&&Number.isFinite(p[1]))?o.openingContour:[[.04,0],[.04,.78],[.12,1],[.5,1],[.88,1],[.96,.78],[.96,0]];return shape.map(([x,y])=>[Math.max(0,Math.min(1,x)),Math.max(0,Math.min(1,y))*height]);}
+
 export type DamageProjection=(u:number,h:number,out?:number)=>Point;
 const outline=[[.21,.1],[.16,.51],[.28,.89],[.49,1.01],[.78,.83],[.84,.45],[.74,.11]];
 /** The exact same opening clips the facade paint and its emissive light. */
 export function facadeDamagePath(g:CanvasRenderingContext2D,d:CivicDamage,P:DamageProjection):void {
+  const opening=d as CivicDamage&{opening?:boolean;openingHeight?:number};
+  if(opening.opening){g.beginPath();openingOutline(d).forEach(([u,h],i)=>{const p=P(u,h);if(i)g.lineTo(...p);else g.moveTo(...p)});g.closePath();return;}
   const size=.45+d.severity*.55,centre=d.impactU??.5;
   g.beginPath();outline.forEach(([u,h],i)=>{const p=P(Math.max(.025,Math.min(.975,centre+(u-.5)*size)),.06+h*size);if(i)g.lineTo(...p);else g.moveTo(...p);});g.closePath();
 }
@@ -18,12 +23,23 @@ export function eraseFacadeGlow(g:CanvasRenderingContext2D,d:CivicDamage,P:Damag
  * Even severe concrete damage stays at bumper height; the structural volume never disappears. */
 export function paintFacadeDamage(g:CanvasRenderingContext2D,d:CivicDamage,P:DamageProjection,z:number,time=0):void {
   if(d.severity<.004)return;
-  const material=d.material??'brick',breached=facadeBreached(material,d.severity),working=d.phase==='working',progress=d.repairProgress??0,centre=d.impactU??.5;
+  const material=d.material??'brick',breached=(d as CivicDamage&{opening?:boolean}).opening||facadeBreached(material,d.severity),working=d.phase==='working',progress=d.repairProgress??0,centre=d.impactU??.5;
   const line=(points:Point[],color:string,width=1)=>{g.beginPath();points.forEach((p,i)=>i?g.lineTo(...p):g.moveTo(...p));g.strokeStyle=color;g.lineWidth=Math.max(.45,width*z);g.stroke();};
   const box=(u:number,h:number,w:number,height:number,col:string,out=0)=>{g.beginPath();for(const [i,p]of [P(u,h,out),P(u+w,h,out),P(u+w,h+height,out),P(u,h+height,out)].entries())i?g.lineTo(...p):g.moveTo(...p);g.closePath();g.fillStyle=col;g.fill();};
   g.save();g.lineCap='round';
-  facadeDamagePath(g,d,P);g.fillStyle=working?'#a98b60':breached?'#171f22':material==='concrete'||material==='stone'?'#a6a59a':'#6e7068';g.fill();
+  facadeDamagePath(g,d,P);g.fillStyle=working?'#a98b60':breached?'#171f22':material==='concrete'||material==='stone'?'#a6a59a':'#6e7068';if(!(d as CivicDamage&{opening?:boolean}).opening)g.fill();
   g.strokeStyle=working?'#6b573f':material==='glass'?'#c2e1e3':'#5a5d54';g.lineWidth=Math.max(.6,z*.8);g.stroke();
+  if((d as CivicDamage&{opening?:boolean}).opening){
+    // Keep the aperture transparent: broken edges, exposed rods and rubble sit
+    // outside it so a car behind the wall remains visible.
+    const shape=openingOutline(d),edge=material==='glass'?'#b9dce0':material==='brick'?'#d0a18a':'#d4d1c3';
+    for(let i=1;i<shape.length-1;i++){const [u,h]=shape[i],direction=u<.5?-1:1;
+      line([P(u,h),P(u+direction*(.035+(i%2)*.015),h+.04),P(u+direction*.07,h+.09)],edge,1.1);
+      if(material==='concrete'||material==='brick'||material==='stone')line([P(u,h),P(u+direction*.035,h-.06)],'#67544a',.7);
+    }
+    for(let i=0;i<12;i++){const u=.03+((i*37+(d.variant??0)*11)%94)/100,out=.12+(i%4)*.15,a=P(u,.015,out),b=P(u+.035,.015,out+.05),c=P(u+.018,.06+(i%3)*.025,out+.04);g.fillStyle=material==='glass'?'#b4d9dcad':material==='brick'?'#a87962':'#aaa99b';g.beginPath();g.moveTo(...a);g.lineTo(...b);g.lineTo(...c);g.closePath();g.fill();}
+    g.restore();return;
+  }
   if(working){
     // Replacement panels cover only the struck bay, with studs and attached scaffold frames.
     const masonry=material==='concrete'||material==='stone',metal=material==='metal';
@@ -33,12 +49,14 @@ export function paintFacadeDamage(g:CanvasRenderingContext2D,d:CivicDamage,P:Dam
     for(const u of[centre-width,centre+width])line([P(u,0,.18),P(u,height,.18)],'#a7b0a6',1.4);
     line([P(centre-width,.12,.18),P(centre+width,height,.18)],'#788981',.7);
     for(const h of[.48,1.1]){line([P(centre-width,h,.18),P(centre+width,h,.18)],'#b4bbb0',1.2);box(centre-width,h-.04,width*2,.055,'#9c8764',.2);}
-    // A maintenance worker and the work lamp move while the recorded job makes progress.
-    const worker=centre+.36,arm=.65+Math.sin(time*3.7+(d.variant??0))*.08;
-    box(worker-.045,.23,.09,.25,'#d3b455',.32);
-    const head=P(worker,.59,.32);g.fillStyle='#e4c69a';g.beginPath();g.arc(...head,Math.max(1,2*z),0,Math.PI*2);g.fill();
-    line([P(worker,.25,.32),P(worker-.06,.02,.32)],'#303b40',1.1);line([P(worker,.25,.32),P(worker+.06,.02,.32)],'#303b40',1.1);
-    line([P(worker,.45,.32),P(worker-.15,arm,.28)],'#e4c69a',1.1);
+    // Worker uses the same slender stick-figure proportions as street Mosaics.
+    const worker=centre+.36,arm=.48+Math.sin(time*3.7+(d.variant??0))*.06;
+    const head=P(worker,.68,.32);g.fillStyle='#e4c69a';g.beginPath();g.arc(...head,Math.max(.8,1.35*z),0,Math.PI*2);g.fill();
+    line([P(worker,.59,.32),P(worker,.29,.32)],'#d3b455',1.2);
+    line([P(worker,.51,.32),P(worker-.13,arm,.28)],'#d3b455',.9);
+    line([P(worker,.51,.32),P(worker+.1,.35,.32)],'#d3b455',.9);
+    line([P(worker,.29,.32),P(worker-.055,.02,.32)],'#303b40',.9);
+    line([P(worker,.29,.32),P(worker+.055,.02,.32)],'#303b40',.9);
     box(centre-.24,.98,.48,.055,'#354449');box(centre-.24,.98,.48*progress,.055,'#b2c995');
   }else{
     const seed=d.variant??0;

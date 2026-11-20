@@ -1,5 +1,4 @@
 import { advanceHorseRace, type HorseRace } from "./HorseRace";
-import { ENCOUNTERS } from "../content/encounters";
 export const HOUR = 3600, DAY = HOUR * 24;
 export interface CasinoState {
  scratch?: import("./Arcade").ScratchTicket; result?: import("./Arcade").ArcadeResult; tournamentCards?: number[];
@@ -51,15 +50,8 @@ export const QUESTIONS: Record<string, [string, string[], number][]> = {
 };
 export function titleOf(s: ExpansionState): string { return s.level >= 3 ? "Dr" : s.level === 2 ? "Master" : s.level === 1 ? "Graduate" : ""; }
 export function wageBoost(s: ExpansionState): number { return 1 + s.level * 0.2; }
-export function encounterAt(s: ExpansionState, tick: number, travelled: number, random: number): string | null {
-  s.distance += Math.max(0, travelled);
-  if (s.pending || tick < s.nextEncounter || s.distance < 20) return null;
-  const remaining = ENCOUNTERS.filter(e => !s.seen.includes(e.id));
-  if (!remaining.length) return null;
-  s.pending = remaining[Math.min(remaining.length - 1, Math.floor(Math.max(0, random) * remaining.length))].id;
-  s.nextEncounter = tick + HOUR; s.distance = 0;
-  return s.pending;
-}
+/** Retired random choice events. Keep compatibility for older integrations and saves. */
+export function encounterAt(s:ExpansionState,_tick:number,_travelled:number,_random:number):null{s.pending=null;s.distance=0;return null;}
 export function farmCapacity(s: ExpansionState): number { return s.farm * 20 + (s.machines.includes("Yards") ? 20 : 0) + (s.machines.includes("Fencing rig") ? 20 : 0); }
 export function farmDay(s: ExpansionState, tick: number, rainy: boolean): { gross: number; costs: number; net: number } | null {
   if (!s.farm || tick - s.lastFarm < DAY) return null;
