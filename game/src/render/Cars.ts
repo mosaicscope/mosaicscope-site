@@ -418,12 +418,12 @@ export function drawCar(g: CanvasRenderingContext2D, cam: Camera, v: Vehicle, al
   // ---- roof furniture ----
   const roofMid = (rf0 + rf1) / 2;
   if (v.cls === "police" || v.cls === "ambulance") {
-    const on = v.siren && Math.floor(time * 6) % 2 === 0;
+    const lit = v.siren && !v.silent, on = lit && Math.floor(time * 6) % 2 === 0;
     const bar = (lx0: number, lx1: number, w: number, col: string) => fillPoly(k, [[lx0, -w, H + 0.07], [lx1, -w, H + 0.07], [lx1, w, H + 0.07], [lx0, w, H + 0.07]], col);
     bar(roofMid - 0.06, roofMid + 0.06, hw * 0.7, "#222");
-    fillPoly(k, [[roofMid - 0.05, -hw * 0.66, H + 0.08], [roofMid + 0.05, -hw * 0.66, H + 0.08], [roofMid + 0.05, 0, H + 0.08], [roofMid - 0.05, 0, H + 0.08]], v.siren ? (on ? "#ff3b2f" : "#5a1410") : "#6a2a26");
-    fillPoly(k, [[roofMid - 0.05, 0, H + 0.08], [roofMid + 0.05, 0, H + 0.08], [roofMid + 0.05, hw * 0.66, H + 0.08], [roofMid - 0.05, hw * 0.66, H + 0.08]], v.siren ? (!on ? "#3d7bff" : "#10204a") : "#26386a");
-    if (v.siren) {
+    fillPoly(k, [[roofMid - 0.05, -hw * 0.66, H + 0.08], [roofMid + 0.05, -hw * 0.66, H + 0.08], [roofMid + 0.05, 0, H + 0.08], [roofMid - 0.05, 0, H + 0.08]], lit ? (on ? "#ff3b2f" : "#5a1410") : "#6a2a26");
+    fillPoly(k, [[roofMid - 0.05, 0, H + 0.08], [roofMid + 0.05, 0, H + 0.08], [roofMid + 0.05, hw * 0.66, H + 0.08], [roofMid - 0.05, hw * 0.66, H + 0.08]], lit ? (!on ? "#3d7bff" : "#10204a") : "#26386a");
+    if (lit) {
       cam.toScreen(x + k.c * roofMid, y + k.s * roofMid, H + 0.1, pt);
       const sx = pt.x, sy = pt.y, col = on ? "236,42,28" : "28,107,214";
       GLOW.push((g) => { g.globalCompositeOperation = "lighter"; const grd = g.createRadialGradient(sx, sy, 0, sx, sy, 34 * z); grd.addColorStop(0, `rgba(${col},.55)`); grd.addColorStop(1, `rgba(${col},0)`); g.fillStyle = grd; g.beginPath(); g.arc(sx, sy, 34 * z, 0, 6.283); g.fill(); g.globalCompositeOperation = "source-over"; });

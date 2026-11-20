@@ -1,5 +1,6 @@
 import type {Simulation} from './Simulation';
 import type {Vehicle} from '../entities/types';
+import { chaseTarget } from "./Pursuit";
 import {VEHICLES,type VehicleClass} from '../content/vehicles';
 import type {CitySegment} from '../world/MappedWorld';
 import {vehicleGeometry,chassisContact,sweptChassisContact} from './VehicleGeometry';
@@ -86,7 +87,7 @@ function buckets(sim:Simulation,n:Network):void{if(n.tick===sim.tick)return;n.ti
 /** Follow the suspect through the mapped street graph while retaining junction clearance. */
 function chooseNext(sim:Simulation,n:Network,e:Edge,options:number[],v:Vehicle):number{
  const cop=v.siren&&v.driver>=0?sim.chars[v.driver]:undefined;
- const suspect=(cop&&cop.pursuing>=0?sim.chars[cop.pursuing]:undefined)??(v.fireTarget!==undefined?sim.vehicles[v.fireTarget]:undefined)??busDestination(sim,v);
+ const suspect=chaseTarget(sim,cop)??(v.fireTarget!==undefined?sim.vehicles[v.fireTarget]:undefined)??busDestination(sim,v);
  if(suspect){
   const score=(i:number)=>{const q=n.edges[i],x=q.x+q.dx*q.length,y=q.y+q.dy*q.length;
    const direct=Math.hypot(x-suspect.x,y-suspect.y);
@@ -100,7 +101,7 @@ function eForBusRefresh(route:Route,n:Network):boolean{const edge=n.edges[route.
 export function driveMappedVehicle(sim:Simulation,v:Vehicle,dt:number):void{
  const n=network(sim);let route=n.routes.get(v);if(!route){if(!snapMappedVehicle(sim,v)){v.speed=0;v.state='parked';return;}route=n.routes.get(v)!;}
  buckets(sim,n);if(serviceBus(sim,v))return;if((busDestination(sim,v)||v.fireTarget!==undefined)&&eForBusRefresh(route,n))route.next=undefined;if((route.wait>10||route.wait>5&&Math.hypot(v.x-sim.focus.x,v.y-sim.focus.y)>35)&&recoverDistant(sim,n,v,route,true))return;let e=n.edges[route.edge];if(!e){v.state='parked';return;}const d=VEHICLES[v.cls],utility=utilityDynamics(v),geometry=vehicleGeometry(v),oldSpeed=v.speed;let target=mappedCruiseSpeed(v.cls,e.segment.speed,sim.world.mapped?.trafficMode);
- const driver=v.driver>=0?sim.chars[v.driver]:undefined,impaired=driver?impairment(driver):0;if(v.siren&&driver?.pursuing!==undefined&&driver.pursuing>=0){target=Math.min(d.topSpeed,e.segment.speed*1.25);if(e.length-route.at>8)route.next=undefined;}else if(impaired>.1)target=Math.min(d.topSpeed,target*(1+impaired*.35));
+ const driver=v.driver>=0?sim.chars[v.driver]:undefined,impaired=driver?impairment(driver):0;if(v.siren&&driver?.pursuing!==undefined&&driver.pursuing>=0){target=Math.min(d.topSpeed,e.segment.speed*1.25,v.pursuitCap??Infinity);if(e.length-route.at>8)route.next=undefined;}else if(impaired>.1)target=Math.min(d.topSpeed,target*(1+impaired*.35));
  const mode=sim.world.mapped?.trafficMode??'city',headway=(mode==='cruise'?1.8:mode==='rush'?1.15:1.45)*(1-impaired*.4);
  const cx=Math.floor(v.x/8),cy=Math.floor(v.y/8),obstacles=nearbyObstacles;obstacles.length=0;for(let y=cy-2;y<=cy+2;y++)for(let x=cx-2;x<=cx+2;x++)for(const o of n.buckets.get(x+','+y)??[]){if(o===v)continue;obstacles.push(o);const dx=o.x-v.x,dy=o.y-v.y,along=dx*e.dx+dy*e.dy,cross=Math.abs(-dx*e.dy+dy*e.dx),gap=along-(geometry.length+vehicleGeometry(o).length)/2;if((o.state==='parked'||Math.cos(o.heading)*e.dx+Math.sin(o.heading)*e.dy>.25)&&along>0&&along<15&&cross<(geometry.width+vehicleGeometry(o).width)/2+.25)target=Math.min(target,followingSpeed(Math.max(0,gap-1),Math.max(0,o.speed),d.brake,headway));}
  // Yield to a rapidly approaching player by moving to a clear same-direction lane.

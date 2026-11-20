@@ -181,13 +181,13 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .rw3d::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: var(--grain); opacity: .6; mix-blend-mode: overlay; }
 .rw3d-canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
 .rw3d-canvas:active { cursor: grabbing; }
-.rw3d-hist { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: center; flex-wrap: wrap; gap: 4px; pointer-events: none; z-index: 1; }
+.rw3d-hist { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: center; flex-wrap: wrap; gap: 4px; pointer-events: none; z-index: 0; }
 .rw3d-dot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font: 600 12px var(--display); color: #fff; border: 1.5px solid rgba(235, 230, 224, .55); box-shadow: 0 2px 4px #000; }
 .rw3d-dot.red, .rw3d-res.red { background: radial-gradient(circle at 35% 30%, #c43a43, #7d1f26); }
 .rw3d-dot.black, .rw3d-res.black { background: radial-gradient(circle at 35% 30%, #3a3434, #0b0909); }
 .rw3d-dot.green, .rw3d-res.green { background: radial-gradient(circle at 35% 30%, #8d8882, #3a3634); }
 .rw3d-dot:first-child { transform: scale(1.15); box-shadow: 0 0 0 2px var(--red-hi), 0 2px 6px #000; }
-.rw3d-banner { position: absolute; left: 0; right: 0; bottom: 14px; display: grid; justify-items: center; gap: 6px; pointer-events: none; z-index: 1; }
+.rw3d-banner { position: absolute; left: 0; right: 0; bottom: 14px; display: grid; justify-items: center; gap: 6px; pointer-events: none; z-index: 0; }
 .rw3d-res { display: none; width: 68px; height: 68px; border-radius: 50%; place-items: center; font: 700 32px var(--display); color: #fff;
   border: 3px solid #d9d5cf; box-shadow: 0 0 0 1px #000, 0 0 26px rgba(207, 74, 82, .55); animation: rw3d-pop .5s cubic-bezier(.3, 1.7, .5, 1); }
 .rw3d-msg { font: 600 clamp(20px, 3.4vw, 28px) var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--paper); text-shadow: 0 2px 10px #000, 0 0 2px #000; }
@@ -346,3 +346,33 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 .lifephone .lp-status { font-size: 12px; }
 .lifephone .lp-overview small, .lifephone .lp-overview > .btn { display: none !important; }
 .lifephone .lp-card > p { font-size: 12px; color: var(--dim); }
+
+/* ---- Heat: wanted stars, crime/crash stamp, search zone ------------------ */
+#ui .hud .stars b { color: var(--red-hi) !important; text-shadow: 0 0 8px var(--red-glow); }
+#ui .hud .stars.searching b { animation: heatblink 1s steps(2) infinite; }
+@keyframes heatblink { 50% { color: var(--steel); text-shadow: none; } }
+#ui .hud .heat-line { display: grid; gap: 4px; margin: -4px 0 10px; font: 600 11px/1.3 var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--paper); overflow: hidden; }
+#ui .hud .heat-line span, #ui .hud .heat-line small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#ui .hud .heat-line small { font-size: 10px; letter-spacing: .1em; color: var(--dim) !important; }
+#ui .hud .heat-gauge { height: 4px; background: #000a; border-radius: 2px; overflow: hidden; }
+#ui .hud .heat-gauge i { display: block; height: 100%; background: linear-gradient(90deg, var(--red-lo), var(--red-hi)); }
+.heat-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+.heat-cue { position: absolute; inset: 0; pointer-events: none; z-index: 40; display: none; overflow: hidden; }
+.heat-cue.on { display: block; }
+.heat-flash { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(125, 34, 41, .55) 85%, rgba(60, 10, 14, .85) 100%); opacity: 0; }
+.heat-cue.big .heat-flash { background: radial-gradient(ellipse at center, rgba(255, 255, 255, .18) 0%, transparent 40%, rgba(125, 34, 41, .6) 85%, rgba(40, 6, 9, .9) 100%); }
+.heat-cue.go .heat-flash { animation: heatflash 1.6s ease-out forwards; }
+@keyframes heatflash { 0% { opacity: 0; } 8% { opacity: 1; } 100% { opacity: 0; } }
+.heat-stamp { position: absolute; left: 50%; top: 22%; transform: translate(-50%, -50%) rotate(-3deg); display: grid; justify-items: center; gap: 4px; max-width: min(88vw, 640px); text-align: center; opacity: 0; }
+.heat-stamp b { font: 800 clamp(40px, 9vw, 96px)/.9 var(--display); text-transform: uppercase; letter-spacing: .06em; color: #fff; padding: 6px 22px 4px; white-space: nowrap;
+  background: linear-gradient(180deg, var(--red-hi), var(--red-lo)); border: 2px solid rgba(255, 255, 255, .85); box-shadow: 0 0 0 4px rgba(0, 0, 0, .65), 0 0 40px var(--red-glow); text-shadow: 0 3px 0 rgba(0, 0, 0, .55); }
+.heat-stamp span { font: 600 clamp(12px, 2vw, 16px)/1.25 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--paper); background: rgba(8, 7, 7, .82); padding: 4px 12px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.heat-cue.small .heat-stamp { top: 17%; }
+.heat-cue.small .heat-stamp b { font-size: clamp(22px, 4.5vw, 40px); padding: 4px 14px 2px; border-width: 1px; }
+.heat-cue.k-evaded .heat-stamp b { background: linear-gradient(180deg, #2c2928, #0b0a0a); }
+.heat-cue.go .heat-stamp { animation: heatstamp 2s cubic-bezier(.2, 1.4, .4, 1) forwards; }
+.heat-cue.small.go .heat-stamp { animation-duration: 1.45s; }
+@keyframes heatstamp { 0% { opacity: 0; transform: translate(-50%, -50%) rotate(-3deg) scale(2.4); } 12% { opacity: 1; transform: translate(-50%, -50%) rotate(-3deg) scale(1); }
+  80% { opacity: 1; transform: translate(-50%, -50%) rotate(-3deg) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) rotate(-3deg) scale(.96); } }
+@media (prefers-reduced-motion: reduce) { .heat-cue.go .heat-stamp { animation: heatfade 1.8s linear forwards; } .heat-cue.go .heat-flash { animation: none; } #ui .hud .stars.searching b { animation: none; } }
+@keyframes heatfade { 0%, 85% { opacity: 1; transform: translate(-50%, -50%) rotate(-3deg); } 100% { opacity: 0; transform: translate(-50%, -50%) rotate(-3deg); } }

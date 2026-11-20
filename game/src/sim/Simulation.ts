@@ -57,6 +57,7 @@ import { registerTurfEvents } from "./Turf";
 import { pickUp, drop, transfer, craftable, detach, PickupResult, carried } from "../inventory/Inventory";
 import { Vehicle } from "../entities/types";
 import { spawnVehicles, updateVehicles, unseat, laneCoord, clearLaneState, walkSignal, carVel, bump } from "./Traffic";
+import { pursuitState, pursuitStep, type PursuitState } from "./Pursuit";
 import { Crime, Booking, exitBuilding, insideOutcome, updateCustody, commitCrime, evaluateTrade, executeTrade, fmtCash } from "./Society";
 import { NameBook } from "./Spawner";
 import { VEHICLES } from "../content/vehicles";
@@ -126,6 +127,8 @@ export class Simulation {
   bookings: Booking[] = [];
   /** tick a cop last had eyes on the wanted player */
   lastSeenByCops = 0;
+  /** GTA-style pursuit: phase, search zone, stingers, roadblocks and the cue queue the UI reads */
+  pursuit: PursuitState = pursuitState();
   /** set when the player gets arrested (the UI shows the "busted" screen) */
   bustedAt = -1;
   bustedFine = 0;
@@ -319,6 +322,7 @@ export class Simulation {
 
     if (this.tick % 120 === 0) { this.groups.update(this.chars, this.tick); updateLitter(this); }
     if (this.tick % 30 === 0) this.policeTick();
+    pursuitStep(this);
     if(this.tick%60===0)updateMedicalResponses(this);
     if(this.tick%15===0)updateFireResponse(this);
     if (this.tick % 60 === 0) this.housekeeping();
@@ -640,7 +644,7 @@ export class Simulation {
     if (p.wanted > 0) {
       // keep enough officers on the case
       const on = this.chars.filter((c) => c.role === "cop" && c.pursuing === p.id).length;
-      if (on < Math.min(4, p.wanted)) {
+      if (on < Math.min(6, p.wanted + 1)) {
         const free = this.chars.filter((c) => c.role === "cop" && c.pursuing < 0 && c.jailUntil === 0 && c.phys === Phys.OK).sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0];
         if (free) {
           free.pursuing = p.id;
@@ -648,13 +652,7 @@ export class Simulation {
           if (free.inCar >= 0) this.vehicles[free.inCar].siren = true; else forceGoal(free, this, "pursue", { u: 1, target: p.id });
         }
       }
-      // seen?
-      for (const c of this.chars) if (c.role === "cop" && c.inside < 0 && Math.hypot(c.x - p.x, c.y - p.y) < 10 && this.world.lineOfSight(c.x, c.y, p.x, p.y)) { this.lastSeenByCops = this.tick; break; }
-      if (this.tick - this.lastSeenByCops > 60 * 12) {
-        p.wanted = Math.max(0, p.wanted - 1); this.lastSeenByCops = this.tick;
-        this.emit({ type: "wanted", x: p.x, y: p.y, actors: [p.id], data: { stars: p.wanted }, summary: p.wanted ? `The police are losing your trail (${p.wanted}★)` : "The police lost you. Wanted level cleared." });
-        if (!p.wanted) for (const c of this.chars) if (c.pursuing === p.id) { c.pursuing = -1; c.goal = null; }
-      }
+      // sightings, the search zone and losing the stars live in Pursuit.pursuitStep
     }
   }
 

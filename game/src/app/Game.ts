@@ -96,6 +96,8 @@ import { BUILDINGS } from "../content/buildings";
 import { billAbsence, collect } from "../sim/Arrears";
 import { Photos } from "../ui/Photos";
 import { MOMENTS } from "../content/photos";
+import { HeatCue } from "../ui/HeatCue";
+import { raiseCue } from "../sim/Pursuit";
 
 /** Wires simulation, renderer, input, audio, UI and persistence together and runs the loop. */
 export class Game {
@@ -129,7 +131,7 @@ export class Game {
   photos!: Photos; casino: Casino; places: Places; radio: Radio; interior: InteriorOverlay;
   private hudEl: HTMLElement;
   private combatHelpButton:HTMLButtonElement|null=null;
-  private areaEl: HTMLElement = h("div.areaname", { "aria-live": "polite" }); private lastArea = ""; private bustedEl: HTMLElement; private lastBusted = -1;
+  private areaEl: HTMLElement = h("div.areaname", { "aria-live": "polite" }); private lastArea = ""; private bustedEl: HTMLElement; private lastBusted = -1; private heat!: HeatCue;
   private gestured = false;
   private pinchDist = 0;
 
@@ -229,7 +231,9 @@ export class Game {
     this.radio = new Radio(MOSAIC.soundcloud);
     this.hudEl = h("div.hud", { "aria-live": "polite" });
     this.bustedEl = h("div.busted.hidden", { role: "alert" });
-    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.marina.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.terrance.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.interior.el, this.modal.el, this.casino.el, this.bustedEl);
+    this.heat = new HeatCue({ reduceMotion: () => this.reduceMotionOS || !!this.settings.gentle, setSlow: (on) => { if (on && this.clock.speed === 1) this.clock.speed = 0.3; else if (!on && this.clock.speed === 0.3) this.clock.speed = 1; }, project: (x, y) => this.renderer.worldToScreen(x, y) });
+    this.heat.mountOverlay(this.canvas);
+    root.append(this.club.el, this.luxury.el, this.touch.el, this.roast.el, this.burger.el, this.travel.el, this.marina.el, this.minimap.el, this.minimap.big, this.focusEl, this.phone.el, this.buildBar(), this.hudEl, this.areaEl, this.inspector.el, this.log.el, this.dialogue.el, this.terrance.el, this.dev.el, this.hintEl, this.toastEl, this.radio.el, this.buildTouch(), this.interior.el, this.modal.el, this.casino.el, this.bustedEl, this.heat.el);
     // browsers only allow sound after a gesture: the first click/key starts the playlist
     const firstGesture = () => { if (this.gestured) return; this.gestured = true; if (this.settings.sound) this.audio.setEnabled(true); }; // the radio only plays when you press ▶
     window.addEventListener("pointerdown", firstGesture, { once: false, capture: true });
@@ -372,6 +376,7 @@ export class Game {
     this.adaptQuality(dt);
     this.guard("dev", () => this.dev.update(dt));
     this.guard("ui", () => this.uiTick(now));
+    this.guard("heat", () => this.heat.frame(this.sim, now, !this.starting && !this.interior.open && !this.casino.open && !this.travel.open));
   }
 
   private upgradeAmbience = new UpgradeAmbience();
@@ -384,7 +389,8 @@ export class Game {
     const sim = this.sim, p = sim.player;
     const stars = "★".repeat(p.wanted) + "☆".repeat(5 - p.wanted);
     const bar = (label: string, v: number, col: string) => [h("span", { text: label }), h("div.gauge", null, [h("i", { style: { width: Math.round(v * 100) + "%", background: col } })])];
-    const kids: HTMLElement[] = [h("div.cash", { text: fmtCash(p.cash) }), h("div.stars" + (p.wanted ? ".flash" : ""), { "aria-label": `Wanted level ${p.wanted}` }, [h("b", { text: stars.slice(0, p.wanted) }), stars.slice(p.wanted)]),
+    const kids: HTMLElement[] = [h("div.cash", { text: fmtCash(p.cash) }), h("div.stars" + (p.wanted ? ".flash" : "") + (sim.pursuit.phase === "search" ? ".searching" : ""), { "aria-label": `Wanted level ${p.wanted}` }, [h("b", { text: stars.slice(0, p.wanted) }), stars.slice(p.wanted)]),
+      ...(p.wanted > 0 && sim.pursuit.tactic ? [h("div.heat-line", null, [h("span", { text: sim.pursuit.tactic }), ...(sim.pursuit.phase === "search" ? [h("div.gauge.heat-gauge", null, [h("i", { style: { width: Math.round(Math.max(0, sim.pursuit.searchUntil - sim.tick) / sim.pursuit.searchTotal * 100) + "%" } })]), h("small", { text: Math.hypot(p.x - sim.pursuit.seenX, p.y - sim.pursuit.seenY) > sim.pursuit.radius ? "Out of the zone · stay hidden" : "Leave the red zone" })] : [])])] : []),
       h("div.bars", null, [...bar("health", p.blood * p.emo.composure ** 0.3, p.bleed > 0 ? "#c56d64" : "#b2b49a"), ...bar("hunger", p.hunger, "#bea56e"), ...bar("energy", p.needs.energy, "#8b9fa7"), ...bar("mood", (p.emo.mood + 1) / 2, "#a29aac")])];
     if (titleOf(sim.expansion)) kids.push(h("div.car", { text: titleOf(sim.expansion) + " · " + (sim.expansion.graduated[sim.expansion.graduated.length - 1] ?? "") }));
     if (p.inCar >= 0) {
@@ -408,9 +414,7 @@ export class Game {
     this.hudEl.classList.toggle("beside-log", !this.log.el.classList.contains("hidden"));
     if (sim.bustedAt !== this.lastBusted && sim.bustedAt >= 0) {
       this.lastBusted = sim.bustedAt;
-      this.bustedEl.replaceChildren(h("div", null, [h("h1", { text: "Busted" }), h("p", { text: `Fined ${fmtCash(sim.bustedFine)}. Your weapons were confiscated.` })]));
-      this.bustedEl.classList.remove("hidden");
-      setTimeout(() => this.bustedEl.classList.add("hidden"), 3200);
+      raiseCue(sim, "busted", "Busted", `Fined ${fmtCash(sim.bustedFine)} · weapons confiscated`);
     }
   }
 
@@ -1087,17 +1091,19 @@ export class Game {
         const street = sim.world.streetName(e.x, e.y) || "the street";
         const other = e.actors.find((id) => id !== p.id), on = other !== undefined && other >= 0 ? sim.chars[other] : null;
         const F: Record<string, () => [string, string] | null> = {
-          crime: () => (e.actors[0] === p.id ? ["Caught in the act", `${street}. Someone saw that.`] : ["Mugged", `${street}. ${on ? on.name.split(" ")[0] + " got you." : ""}`]),
-          arrest: () => ["Busted", `${street}`], busted: () => ["Busted", "Hands where we can see them"],
-          car_crash: () => ["Crash", `${street}`], car_hit: () => (e.actors[0] === p.id ? ["Hit and run?", street] : ["Hit by a car", street]),
+          crime: () => (e.actors[0] === p.id ? null : ["Mugged", `${street}. ${on ? on.name.split(" ")[0] + " got you." : ""}`]),
+          car_hit: () => (e.actors[0] === p.id ? ["Hit and run?", street] : ["Hit by a car", street]),
           kiss: () => ["A moment", on ? `You and ${on.name.split(" ")[0]}` : ""], date: () => ["Date night", on ? `With ${on.name.split(" ")[0]}` : ""],
           collapse: () => ["Down", "Someone call an ambulance"], hospital: () => ["Patched up", "Christchurch Hospital"],
           caught_cheating: () => ["Caught", "This is going to be a conversation"], breakup: () => ["It's over", on ? on.name.split(" ")[0] : ""],
           injury: () => (+e.data.level >= 2 ? ["Hurt", "That's going to need a bandage (B)"] : null),
         };
         const f = F[e.type]?.();
-        if(f){if(['car_crash','car_hit','injury','collapse'].includes(e.type))this.toast(f[0]+' · '+f[1],'red');else this.focus(f[0],f[1],3.6);}
-        if (e.type in MOMENTS && (e.type !== "crime" || e.actors[0] === p.id)) this.photos.moment(e.type, street, on ? on.name.split(" ")[0] : "");
+        if(f){if(['car_hit','injury','collapse'].includes(e.type))this.toast(f[0]+' · '+f[1],'red');else this.focus(f[0],f[1],3.6);}
+        // crime and crash get the heat cue instead of a snapshot
+        if (e.type === "crime" && e.actors[0] === p.id && +(e.data?.noticed ?? 0)) raiseCue(sim, "wanted", "Wanted", `${String(e.data?.kind ?? "crime").replace(/_/g, " ")} · ${street} · ${"★".repeat(p.wanted)}`);
+        if (e.type === "car_crash" && !+(e.data?.police ?? 0)) raiseCue(sim, "crash", "Wrecked", street);
+        if (e.type in MOMENTS && !["crime", "car_crash", "car_hit", "arrest", "busted"].includes(e.type)) this.photos.moment(e.type, street, on ? on.name.split(" ")[0] : "");
       }
     });
   }

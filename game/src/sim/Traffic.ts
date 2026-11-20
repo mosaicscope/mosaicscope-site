@@ -1,5 +1,6 @@
 import {elevationAt} from '../world/Elevation';
 import {sweptRailContact} from './RailCollision';
+import { chaseTarget } from "./Pursuit";
 import {fireVisualProfile} from '../render/FireVisuals';
 import {stepWaterVehicle,waterDepth} from './WaterPhysics';
 import {releaseBusPassengers} from './BusService';
@@ -658,6 +659,7 @@ function laneDrive(sim: Simulation, v: Vehicle, dt: number): void {
   const inX = w.isRoadLine(tx) && w.isRoadLine(ty);
   const pursuing = v.siren,fleeing=(v.evadingUntil??0)>sim.tick;
   let target = v.parkingBrake?0:Math.min(d.topSpeed, pursuing||fleeing ? d.topSpeed : CITY_SPEED) * (1 - v.damage * 0.5);
+  if (v.pursuitCap !== undefined) target = Math.min(target, v.pursuitCap);
   /** fastest speed that still stops within `gap` tiles at a comfortable deceleration */
   const stopFor = (gap: number) => (gap <= 0.05 ? 0 : Math.sqrt(2 * availableBrake * 0.55 * gap));
 
@@ -686,7 +688,7 @@ function laneDrive(sim: Simulation, v: Vehicle, dt: number): void {
       else if(fleeing){const patrol=sim.vehicles[v.evadingFrom??-1];v.nextDir=opts.sort((a,b)=>{const A=DIRS[a],B=DIRS[b];return patrol?Math.hypot(v.x+B[0]*8-patrol.x,v.y+B[1]*8-patrol.y)-Math.hypot(v.x+A[0]*8-patrol.x,v.y+A[1]*8-patrol.y):0;})[0]??v.dir;}
       else if (pursuing && (v.driver >= 0 || v.rescueTarget!==undefined)) {
         // head toward the suspect
-        const cop = sim.chars[v.driver], s = v.rescueTarget!==undefined?sim.chars[v.rescueTarget]:cop ? sim.chars[cop.pursuing] : undefined;
+        const cop = sim.chars[v.driver], s = v.rescueTarget!==undefined?sim.chars[v.rescueTarget]:chaseTarget(sim, cop);
         if (s) { const want = Math.abs(s.x - v.x) > Math.abs(s.y - v.y) ? (s.x > v.x ? 0 : 2) : (s.y > v.y ? 1 : 3); v.nextDir = opts.includes(want) ? want : opts.includes(v.dir) ? v.dir : opts[0]; }
         else v.nextDir = opts.includes(v.dir) ? v.dir : opts[0];
       } else {

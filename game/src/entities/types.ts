@@ -286,7 +286,9 @@ export interface Toy {
 export type VehicleState = "drive" | "parked" | "crashed" | "free";
 export interface Vehicle {
   water?:import("../sim/WaterPhysics").VehicleWaterState;
-  evadingUntil?:number;evadingFrom?:number;lights?:boolean;hazards?:boolean;indicator?:'left'|'right'|'off';parkingBrake?:boolean;cleaned?:boolean;resprayed?:boolean;engineRepaired?:boolean;
+  evadingUntil?:number;evadingFrom?:number;
+  /** pursuit: speed cap while stalking or searching, lights dark while stalking, parked cruiser in a roadblock */
+  pursuitCap?:number;silent?:boolean;roadblock?:boolean;lights?:boolean;hazards?:boolean;indicator?:'left'|'right'|'off';parkingBrake?:boolean;cleaned?:boolean;resprayed?:boolean;engineRepaired?:boolean;
   id: number;
   cls: import("../content/vehicles").VehicleClass;
   x: number; y: number; px: number; py: number;
