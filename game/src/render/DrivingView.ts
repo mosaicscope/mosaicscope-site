@@ -28,6 +28,10 @@ import {paintWindowStories,type Win} from './NightGlow';
 import {pose,solve,drawFigure,J,gaitOf,applyGait,applyLegVariation} from './StickFigure';
 import {Phys} from '../entities/types';
 import {impactRagdollPose} from '../physics/ImpactRagdoll';
+import {vehicleGeometry} from '../sim/VehicleGeometry';
+
+/** Monotone-chain convex hull of screen points, for distant building silhouettes. */
+function convexHull(points:[number,number][]):[number,number][]{if(points.length<3)return points;const p=points.sort((a,b)=>a[0]-b[0]||a[1]-b[1]),cross=(o:[number,number],a:[number,number],b:[number,number])=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]),lower:[number,number][]=[],upper:[number,number][]=[];for(const q of p){while(lower.length>=2&&cross(lower[lower.length-2],lower[lower.length-1],q)<=0)lower.pop();lower.push(q);}for(let i=p.length-1;i>=0;i--){const q=p[i];while(upper.length>=2&&cross(upper[upper.length-2],upper[upper.length-1],q)<=0)upper.pop();upper.push(q);}lower.pop();upper.pop();return lower.concat(upper);}
 
 /** Third-person projection of the same simulation. Geometry is clipped at the near plane. */
 export class DrivingView {
@@ -62,19 +66,31 @@ export class DrivingView {
   const quad=(points:[number,number,number][],fill:string,stroke?:string)=>polygon(points.map(p=>local(...p)),fill,stroke);
   g.setTransform(dpr,0,0,dpr,0,0);const daylight=sim.daylight;const sky=g.createLinearGradient(0,0,0,horizon);sky.addColorStop(0,daylight>.3?'#607f93':'#10192a');sky.addColorStop(1,daylight>.3?'#c3c5b7':'#30394a');g.fillStyle=sky;g.fillRect(0,0,w,h);g.fillStyle=daylight>.3?'#51564b':'#20282d';g.fillRect(0,horizon,w,h-horizon);
   // Coarse distance terrain extends the horizon without drawing thousands of full-detail tiles.
+  // LOD: distant flat ground and road ribbons join the near ground in one GPU batch (or one canvas fill per colour).
+  this.gpuGround??=new PerspectiveGroundGPU(false,this.highPerformanceGpu);const gpu=this.gpuGround.begin(w*dpr,h*dpr),flatPaths=new Map<string,Path2D>();
+  const flat=(pts:[number,number,number][],color:string)=>{const ps=pts.map(q=>local(q[0],q[1],q[2]));if(ps.some(q=>q.z<near))return quad(pts,color);const sc=ps.map(screen);if(sc.every(q=>q.x<0)||sc.every(q=>q.x>w)||sc.every(q=>q.y<0)||sc.every(q=>q.y>h))return;if(gpu){this.gpuGround!.polygon(sc,color,w,h,0);return;}let path=flatPaths.get(color);if(!path){path=new Path2D();flatPaths.set(color,path);}for(let i=0;i<sc.length;i++)if(i)path.lineTo(sc[i].x,sc[i].y);else path.moveTo(sc[i].x,sc[i].y);path.closePath();};
+  const flushFlat=()=>{for(const [color,path] of flatPaths){g.fillStyle=color;g.fill(path);}flatPaths.clear();};
   const farRadius=500,farStep=quality===0?40:32,far:{x:number;y:number;d:number;t:number}[]=[];
   const centreX=Math.floor(focus.x/farStep)*farStep,centreY=Math.floor(focus.y/farStep)*farStep;
   for(let y=centreY-farRadius;y<=centreY+farRadius;y+=farStep)for(let x=centreX-farRadius;x<=centreX+farRadius;x+=farStep){const mx=x+farStep*.5,my=y+farStep*.5,d=(mx-ex)*fx+(my-ey)*fy,side=Math.abs((mx-ex)*rx+(my-ey)*ry);if(d<33||d>farRadius||side>d*.9+farStep)continue;far.push({x,y,d,t:sim.world.tile(Math.floor(mx),Math.floor(my))});}
-  far.sort((a,b)=>b.d-a.d);for(const q of far){const color=(GROUND[q.t===T.TREE?T.GRASS:q.t]??GROUND[T.PAVE])[0];quad([[q.x,q.y,0],[q.x+farStep,q.y,0],[q.x+farStep,q.y+farStep,0],[q.x,q.y+farStep,0]],color);}
+  far.sort((a,b)=>b.d-a.d);for(const q of far){const color=(GROUND[q.t===T.TREE?T.GRASS:q.t]??GROUND[T.PAVE])[0];flat([[q.x,q.y,0],[q.x+farStep,q.y,0],[q.x+farStep,q.y+farStep,0],[q.x,q.y+farStep,0]],color);}flushFlat();
   // Distant surveyed streets remain visible even where a coarse ground sample misses a narrow road.
-  const distantMap=sim.world.mapped;if(distantMap)for(const id of worldIndex(sim.world).roads.query(focus.x-farRadius,focus.y-farRadius,focus.x+farRadius,focus.y+farRadius)){const r=distantMap.streetSegments[id];if(!r)continue;const nearest=(focus.x-r.x)*r.dx+(focus.y-r.y)*r.dy,start=Math.max(0,nearest-farRadius),end=Math.min(r.length,nearest+farRadius);for(const piece of this.prepared.road(r,start,end)){const {x,y,u,v}=piece,p=local((x+u)/2,(y+v)/2,0);if(p.z<38||p.z>farRadius||Math.abs(p.x)>p.z+10)continue;if(sim.world.tile(Math.floor((x+u)/2),Math.floor((y+v)/2))===T.WATER)continue;quad(piece.points,GROUND[T.ROAD][0]);}}
+  const distantMap=sim.world.mapped;if(distantMap)for(const id of worldIndex(sim.world).roads.query(focus.x-farRadius,focus.y-farRadius,focus.x+farRadius,focus.y+farRadius)){const r=distantMap.streetSegments[id];if(!r)continue;const nearest=(focus.x-r.x)*r.dx+(focus.y-r.y)*r.dy,start=Math.max(0,nearest-farRadius),end=Math.min(r.length,nearest+farRadius);const ox=r.dy*r.half,oy=r.dx*r.half;
+   // LOD: ribbon pieces lengthen with distance (12 tiles near, up to 96 far), so far streets cost a handful of quads.
+   for(let at=start;at<end;){const mx=r.x+r.dx*(at+6),my=r.y+r.dy*(at+6),depth=(mx-ex)*fx+(my-ey)*fy,step=depth<90?12:Math.min(96,Math.floor(depth/90)*24),to=Math.min(end,at+step),cx2=r.x+r.dx*(at+to)/2,cy2=r.y+r.dy*(at+to)/2,p=local(cx2,cy2,0);const from=at;at=to;if(p.z<38||p.z>farRadius||Math.abs(p.x)>p.z+10+step)continue;if(sim.world.tile(Math.floor(cx2),Math.floor(cy2))===T.WATER)continue;const x=r.x+r.dx*from,y=r.y+r.dy*from,u=r.x+r.dx*to,v=r.y+r.dy*to;flat([[x-ox,y+oy,.01],[u-ox,v+oy,.01],[u+ox,v-oy,.01],[x+ox,y-oy,.01]],GROUND[T.ROAD][0]);}}flushFlat();
   // Ground remains tied to the world's collision tiles, including bridge and water tiles.
   const ground:{x:number;y:number;d:number;t:number;z:number}[]=[];const cx=Math.floor(focus.x),cy=Math.floor(focus.y),radius=36;
   for(let y=cy-radius;y<=cy+radius;y++)for(let x=cx-radius;x<=cx+radius;x++){const d=(x+.5-ex)*fx+(y+.5-ey)*fy,side=Math.abs((x+.5-ex)*rx+(y+.5-ey)*ry);if(d<near||d>38||side>d*.9+3)continue;const t=sim.world.tile(x,y);ground.push({x,y,d,t,z:sim.world.groundZ(x+.5,y+.5)+(t===T.SIDEWALK?.1:0)});}
   // Elevation can overlap neighbouring tiles in projection; paint distant tiles first.
   ground.sort((a,b)=>b.d-a.d);
-  this.gpuGround??=new PerspectiveGroundGPU(false,this.highPerformanceGpu);const gpu=this.gpuGround.begin(w*dpr,h*dpr);
-  if(gpu){for(const q of ground){const prepared=this.prepared.tile(q.x,q.y,q.t),baseX=Math.floor(q.x/3)*3,baseY=Math.floor(q.y/3)*3,coords=[[q.x,q.y],[q.x+1,q.y],[q.x+1,q.y+1],[q.x,q.y+1]],ps=coords.map(([x,y])=>({...local(x,y,q.z),u:(x-baseX)/3,v:(y-baseY)/3})),clip:(P&{u:number;v:number})[]=[];for(let i=0;i<ps.length;i++){const a=ps[i],b=ps[(i+1)%ps.length],ai=a.z>=near,bi=b.z>=near;if(ai)clip.push(a);if(ai!==bi){const t=(near-a.z)/(b.z-a.z);clip.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:near,u:a.u+(b.u-a.u)*t,v:a.v+(b.v-a.v)*t});}}if(clip.length>=3)this.gpuGround.polygon(clip.map(p=>({...screen(p),depth:p.z,u:p.u,v:p.v})),prepared.color,w,h,q.t===T.ROAD||q.t===T.CROSSWALK?1:q.t===T.SIDEWALK?2:q.t===T.GRASS?3:0);}this.gpuGround.finish(g,w,h);}
+    if(gpu){
+   // LOD: beyond 16 tiles, 2x2 runs of identical ground merge into one GPU quad.
+   type G=typeof ground[number];const cell=new Map<number,G>(),done=new Set<number>(),key=(x:number,y:number)=>y*65536+x;for(const q of ground)cell.set(key(q.x,q.y),q);
+   const emit=(x0:number,y0:number,size:number,q:G)=>{const prepared=this.prepared.tile(x0,y0,q.t),baseX=Math.floor(x0/3)*3,baseY=Math.floor(y0/3)*3,ps=[[x0,y0],[x0+size,y0],[x0+size,y0+size],[x0,y0+size]].map(([x,y])=>({...local(x,y,q.z),u:(x-baseX)/3,v:(y-baseY)/3})),clip:(P&{u:number;v:number})[]=[];for(let i=0;i<ps.length;i++){const a=ps[i],b=ps[(i+1)%ps.length],ai=a.z>=near,bi=b.z>=near;if(ai)clip.push(a);if(ai!==bi){const t=(near-a.z)/(b.z-a.z);clip.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:near,u:a.u+(b.u-a.u)*t,v:a.v+(b.v-a.v)*t});}}if(clip.length>=3)this.gpuGround!.polygon(clip.map(p=>({...screen(p),depth:p.z,u:p.u,v:p.v})),prepared.color,w,h,q.t===T.ROAD||q.t===T.CROSSWALK?1:q.t===T.SIDEWALK?2:q.t===T.GRASS?3:0);};
+   for(const q of ground){const k=key(q.x,q.y);if(done.has(k))continue;done.add(k);
+    if(q.d>16){const bx=q.x&~1,by=q.y&~1,block=[key(bx,by),key(bx+1,by),key(bx,by+1),key(bx+1,by+1)];if(block.every(n=>{const o=cell.get(n);return !!o&&(n===k||!done.has(n))&&o.t===q.t&&o.z===q.z;})){for(const n of block)done.add(n);emit(bx,by,2,q);continue;}}
+    emit(q.x,q.y,1,q);}
+   this.gpuGround.finish(g,w,h);}
 
   // Accumulate road surfaces into a single asphalt texture pass, using the same texture as the isometric map.
   const roadGrain=new Map<string,{x:number;y:number;material:'asphalt'|'pavers'|'grass';path:Path2D}>();
@@ -103,14 +119,14 @@ export class DrivingView {
   // Crossings are painted only on existing crossing tiles, using the nearby road direction.
   if(map)for(const q of ground){if(q.t!==T.CROSSWALK||q.d>32)continue;const x=q.x+.5,y=q.y+.5;let closest=Infinity,road:typeof map.streetSegments[number]|undefined;for(const id of worldIndex(sim.world).roads.query(x-3,y-3,x+3,y+3)){const r=map.streetSegments[id];if(!r)continue;const u=Math.max(0,Math.min(r.length,(x-r.x)*r.dx+(y-r.y)*r.dy)),dist=Math.hypot(x-r.x-r.dx*u,y-r.y-r.dy*u);if(dist<closest){closest=dist;road=r;}}if(!road)continue;const dx=road.dx,dy=road.dy,nx=-dy,ny=dx,z=q.z+.035;quad([[x-dx*.43-nx*.19,y-dy*.43-ny*.19,z],[x+dx*.43-nx*.19,y+dy*.43-ny*.19,z],[x+dx*.43+nx*.19,y+dy*.43+ny*.19,z],[x-dx*.43+nx*.19,y-dy*.43+ny*.19,z]],ROAD_PAINT.zebra);}
 
-  const items:{depth:number;draw:()=>void}[]=[];let windowBudget=quality===0?0:quality===1?18:36,windowGeometryBudget=quality===0?100:quality===1?260:500;
+  const items:{k?:string;depth:number;draw:()=>void}[]=[];let windowBudget=quality===0?0:quality===1?18:36,windowGeometryBudget=quality===0?100:quality===1?260:500;
   // Draw the same street greenery and tree tiles as the overhead view, depth-sorted with traffic.
   const decor=map?null:decorGrid(sim.world);
   for(const tile of ground){
    const kind=tile.t===T.TREE?D.TREE:map&&map.visibility.fixtures?mappedStreetDecor(sim.world,tile.x,tile.y):decor&&tile.x>=0&&tile.y>=0&&tile.x<sim.world.size&&tile.y<sim.world.size?decor[tile.y*sim.world.size+tile.x]:D.NONE;
    if(!kind)continue;const x=tile.x+.5,y=tile.y+.5,p=local(x,y,tile.z);if(p.z<2||p.z>38||Math.abs(p.x)>p.z+3)continue;
    const seed=Math.abs(Math.imul(tile.x,73856093)^Math.imul(tile.y,19349663));
-   items.push({depth:p.z,draw:()=>{const at=screen(p),scale=Math.min(2.5,focal/p.z/26);drawDecor(g,kind,at.x,at.y,scale,time,1-daylight,(seed%1000)/1000);}});
+   items.push({k:"decor",depth:p.z,draw:()=>{const at=screen(p),scale=Math.min(2.5,focal/p.z/26);drawDecor(g,kind,at.x,at.y,scale,time,1-daylight,(seed%1000)/1000);}});
   }
   if(map)for(const rail of mappedRails(map,focus.x,focus.y,38)){
    const [start,end]=railSpan(rail,focus.x,focus.y,38);if(end<=start)continue;
@@ -122,13 +138,17 @@ export class DrivingView {
     }});
    }
   }
+  const screenHull=(pts:[number,number][],height:number):[number,number][]=>{const out:[number,number][]=[];for(const [x,y] of pts)for(const z of[0,height]){const q=screen(local(x,y,z));out.push([q.x,q.y]);}return convexHull(out);};
   const damageByBuilding=new Map<number|string,import('../sim/MappedFacadeDamage').MappedFacadeRecord[]>();for(const d of sim.mappedDamage.values()){const list=damageByBuilding.get(d.buildingId)??[];list.push(d);damageByBuilding.set(d.buildingId,list);}
   for(const id of worldIndex(sim.world).buildings.query(cx-farRadius,cy-farRadius,cx+farRadius,cy+farRadius)){
    const b=sim.world.buildings[id];if(!b)continue;const bx=(b.x0+b.x1+1)/2,by=(b.y0+b.y1+1)/2,extent=Math.hypot(b.x1-b.x0+1,b.y1-b.y0+1)/2,forward=(bx-ex)*fx+(by-ey)*fy,side=(bx-ex)*rx+(by-ey)*ry;if(forward+extent<near||forward-extent>farRadius||Math.abs(side)>Math.max(0,forward)*1.05+extent*2+8)continue;const source=map?.byBuilding.get(id),cached=source&&map?this.footprint(source,map):null,pts=cached?.points??[[b.x0,b.y0],[b.x1+1,b.y0],[b.x1+1,b.y1+1],[b.x0,b.y1+1]] as [number,number][];
    if(pts.length<3)continue;const depths=pts.map(point=>(point[0]-ex)*fx+(point[1]-ey)*fy),depth=Math.max(near,Math.min(...depths));if(Math.max(...depths)<near||depth>farRadius)continue;
    // Far buildings retain their surveyed footprint and facade rhythm with fewer canvas operations.
-   if(depth>45){const height=Math.max(1,Math.min(120,source&&map?source.height/map.metresPerTile:b.height)),arch=source?this.facadeStyle(source):null,wall=arch?.wall??b.color,roof=arch?.roof??b.roof;
-    items.push({depth,draw:()=>{const winding=cached?.winding??1;
+   if(depth>45){const height=Math.max(1,Math.min(120,source&&map?source.height/map.metresPerTile:b.height)),arch=source?this.facadeStyle(source):null,wall=arch?.wall??b.color,roof=arch?.roof??b.roof,pixels=Math.max(height,extent)*focal/depth;
+    // LOD: under ~1.5 px the building cannot be seen; past 150 tiles (or under 14 px) one hull fill replaces faces, roof and windows.
+    if(pixels<1.5)continue;
+    if(depth>150||pixels<14){items.push({k:"bHull",depth,draw:()=>{const hull=screenHull(pts,height);if(hull.length<3)return;g.fillStyle=wall;g.beginPath();g.moveTo(hull[0][0],hull[0][1]);for(let i=1;i<hull.length;i++)g.lineTo(hull[i][0],hull[i][1]);g.closePath();g.fill();}});continue;}
+    items.push({k:"bFar",depth,draw:()=>{const winding=cached?.winding??1;
      for(let i=0;i<pts.length;i++){const a=pts[i],z=pts[(i+1)%pts.length];if(((z[0]-a[0])*(ey-a[1])-(z[1]-a[1])*(ex-a[0]))*winding>=0)continue;
       const corners:[[number,number,number],[number,number,number],[number,number,number],[number,number,number]]=[[a[0],a[1],0],[z[0],z[1],0],[z[0],z[1],height],[a[0],a[1],height]],projected=corners.map(q=>local(...q));
       if(projected.some(q=>q.z<=near)){quad(corners,wall);continue;}
@@ -175,8 +195,15 @@ export class DrivingView {
     if(!obscures)for(const d of damage){const mid=local((d.a[0]+d.b[0])/2,(d.a[1]+d.b[1])/2,0);if(mid.z<near)continue;paintFacadeDamage(g,d,(u,z,out)=>projectDamage(d,u,z,out),Math.max(.2,focal/mid.z/16),time);}
    }});
   }
+  const farCar=(v:import("../entities/types").Vehicle)=>{const gm=vehicleGeometry(v),c=Math.cos(v.heading),si=Math.sin(v.heading),ground=sim.world.groundZ(v.x,v.y);
+   const box=(l0:number,l1:number,hw:number,z0:number,z1:number,side:string,top:string)=>{const at=(a:number,b:number,z:number):[number,number,number]=>[v.x+a*c-b*si,v.y+a*si+b*c,ground+z],faces:[number,number,number,number][]=[[l1,-hw,l1,hw],[l0,hw,l0,-hw],[l0,-hw,l1,-hw],[l1,hw,l0,hw]];
+    for(const [a0,b0,a1,b1] of faces){const mx=(a0+a1)/2,my=(b0+b1)/2,nx=a0===a1?Math.sign(a0):0,ny=a0===a1?0:Math.sign(b0),wx=v.x+mx*c-my*si,wy=v.y+mx*si+my*c;if((ex-wx)*(nx*c-ny*si)+(ey-wy)*(nx*si+ny*c)<=0)continue;quad([at(a0,b0,z0),at(a1,b1,z0),at(a1,b1,z1),at(a0,b0,z1)],side);}
+    quad([at(l0,-hw,z1),at(l1,-hw,z1),at(l1,hw,z1),at(l0,hw,z1)],top);};
+   const L=gm.length/2,hw=gm.width/2,H=gm.height;box(-L,L,hw,.08,H*.55,v.color,v.color);box(-L*.45,L*.3,hw*.86,H*.55,H,"#2c3a40",v.color);};
   this.cam.viewW=w;this.cam.viewH=h;this.cam.toScreen=(x,y,z,out)=>{const p=local(x,y,z),s=screen({...p,z:Math.max(near,p.z)});out.x=s.x;out.y=s.y;return out;};
-  for(const v of sim.vehicles){const p=local(v.x,v.y,0);if(p.z<(v.id===car?.id?2:4)||p.z>64||Math.abs(p.x)>p.z+3)continue;items.push({depth:p.z,draw:()=>{this.cam.zoom=Math.max(.08,focal/p.z/25);this.cam.viewVector=[ex-v.x,ey-v.y,eye];drawCar(g,this.cam,v,alpha,time,1-daylight,false,sim.chars[v.driver]);}});}
+  for(const v of sim.vehicles){const p=local(v.x,v.y,0);if(p.z<(v.id===car?.id?2:4)||p.z>64||Math.abs(p.x)>p.z+3)continue;
+   // LOD: past 30 tiles a car is two shaded boxes (body and cabin) instead of the full lofted model.
+   if(p.z>30&&v.id!==car?.id){items.push({k:"carLod",depth:p.z,draw:()=>farCar(v)});continue;}items.push({k:"car",depth:p.z,draw:()=>{this.cam.zoom=Math.max(.08,focal/p.z/25);this.cam.viewVector=[ex-v.x,ey-v.y,eye];drawCar(g,this.cam,v,alpha,time,1-daylight,false,sim.chars[v.driver]);}});}
   for(const v of sim.vehicles)for(let i=0;i<(v.components?.debris.length??0);i++){const d=v.components!.debris[i],p=local(d.x,d.y,d.z);if(p.z<1||p.z>38||Math.abs(p.x)>p.z+3)continue;items.push({depth:p.z,draw:()=>{this.cam.zoom=Math.max(.08,focal/p.z/25);drawVehicleFragment(g,this.cam,v,i);}});}
   for(const prop of sim.cityPlay.props){const p=local(prop.x,prop.y,prop.z);if(p.z<1||p.z>32||Math.abs(p.x)>p.z+3)continue;items.push({depth:p.z,draw:()=>{this.cam.zoom=Math.max(.08,focal/p.z/25);drawStreetProp(g,this.cam,prop,time);}});}
   for(const id of worldIndex(sim.world).pois.query(cx-radius,cy-radius,cx+radius,cy+radius)){
@@ -208,7 +235,7 @@ export class DrivingView {
     const at=screen(p);drawPoi(g,prop,at.x,at.y,focal/p.z/26,time,false,daylight<.3);
    }});
   }
-  for(const c of sim.chars){if(c.inCar>=0||c.inside>=0)continue;const p=local(c.x,c.y,c.z);if(p.z<1||p.z>48||Math.abs(p.x)>p.z+2)continue;items.push({depth:p.z,draw:()=>{const at=screen(p),k=Math.max(.025,focal/p.z/110)*c.look.scale,dir=Math.cos(c.facing-angle)>=0?1:-1;this.picks.push({id:c.id,x:at.x,y:at.y,size:105*k,depth:p.z});if(c.tier==='background'&&p.z>(quality===0?18:quality===1?28:40)){const h=105*k;g.save();g.lineCap='round';g.strokeStyle=c.look.color;g.lineWidth=Math.max(1,h*.045);g.beginPath();g.moveTo(at.x,at.y-h*.24);g.lineTo(at.x,at.y-h*.7);g.moveTo(at.x,at.y-h*.24);g.lineTo(at.x-h*.1,at.y);g.moveTo(at.x,at.y-h*.24);g.lineTo(at.x+h*.1,at.y);g.moveTo(at.x,at.y-h*.6);g.lineTo(at.x-h*.12,at.y-h*.38);g.moveTo(at.x,at.y-h*.6);g.lineTo(at.x+h*.12,at.y-h*.38);g.stroke();g.fillStyle=c.look.color;g.beginPath();g.arc(at.x,at.y-h*.82,Math.max(1,h*.09),0,6.283);g.fill();if((c.fireUntil??0)>sim.tick){g.strokeStyle='#ff982e';g.lineWidth=Math.max(2,h*.07);g.beginPath();g.moveTo(at.x,at.y-h*.25);g.lineTo(at.x+Math.sin(time*8)*h*.08,at.y-h);g.stroke();}g.restore();return;}const a=pose(Math.hypot(c.vx,c.vy)>.12?"walk":c.anim.pose,c.style,time,time*5+c.seedPhase,Math.hypot(c.vx,c.vy),c.anim.poseT);applyGait(a,gaitOf(c.id));applyLegVariation(a,c.id,c.anim.pose,time*5+c.seedPhase);if(c.phys===Phys.DOWN){const limbs=impactRagdollPose(c);a.armL+=limbs[0];a.armR+=limbs[1];a.thighL+=limbs[2];a.thighR+=limbs[3];a.foreL+=limbs[4]*.5;a.foreR+=limbs[5]*.5;a.bendL+=limbs[6]*.5;a.bendR+=limbs[7]*.5;a.tilt+=limbs[8]*.35;}solve(a,at.x,at.y,k,dir);drawFigure(g,c,at.x,at.y,k,dir,time,c.anim.flash,1,false);if(c.hand>=0){const toy=sim.toys[c.hand],def=toy&&TOYS[toy.def];if(def)drawToy(g,toy.def,J[14],J[15],k,def.uses.includes("melee")?Math.atan2(J[15]-J[13],J[14]-J[12]):0,toy.color,1,dir);}if((c.fireUntil??0)>sim.tick){g.fillStyle="rgba(255,120,25,.8)";for(let j=0;j<4;j++){const x=J[j*4],y=J[j*4+1],size=Math.max(2,k*6);g.beginPath();g.moveTo(x-size,y);g.quadraticCurveTo(x-size,y-size*2,x+Math.sin(time*8+j)*size,y-size*4);g.quadraticCurveTo(x+size,y-size*2,x+size,y);g.fill();}}}});}
+  for(const c of sim.chars){if(c.inCar>=0||c.inside>=0)continue;const p=local(c.x,c.y,c.z);if(p.z<1||p.z>(c.tier==="background"?40:48)||Math.abs(p.x)>p.z+2)continue;items.push({k:"char",depth:p.z,draw:()=>{const at=screen(p),k=Math.max(.025,focal/p.z/110)*c.look.scale,dir=Math.cos(c.facing-angle)>=0?1:-1;this.picks.push({id:c.id,x:at.x,y:at.y,size:105*k,depth:p.z});if(c!==player&&(c.tier==='background'||p.z>30)&&p.z>(quality===0?14:quality===1?18:22)){const h=105*k;g.save();g.lineCap='round';g.strokeStyle=c.look.color;g.lineWidth=Math.max(1,h*.045);g.beginPath();g.moveTo(at.x,at.y-h*.24);g.lineTo(at.x,at.y-h*.7);g.moveTo(at.x,at.y-h*.24);g.lineTo(at.x-h*.1,at.y);g.moveTo(at.x,at.y-h*.24);g.lineTo(at.x+h*.1,at.y);g.moveTo(at.x,at.y-h*.6);g.lineTo(at.x-h*.12,at.y-h*.38);g.moveTo(at.x,at.y-h*.6);g.lineTo(at.x+h*.12,at.y-h*.38);g.stroke();g.fillStyle=c.look.color;g.beginPath();g.arc(at.x,at.y-h*.82,Math.max(1,h*.09),0,6.283);g.fill();if((c.fireUntil??0)>sim.tick){g.strokeStyle='#ff982e';g.lineWidth=Math.max(2,h*.07);g.beginPath();g.moveTo(at.x,at.y-h*.25);g.lineTo(at.x+Math.sin(time*8)*h*.08,at.y-h);g.stroke();}g.restore();return;}const a=pose(Math.hypot(c.vx,c.vy)>.12?"walk":c.anim.pose,c.style,time,time*5+c.seedPhase,Math.hypot(c.vx,c.vy),c.anim.poseT);applyGait(a,gaitOf(c.id));applyLegVariation(a,c.id,c.anim.pose,time*5+c.seedPhase);if(c.phys===Phys.DOWN){const limbs=impactRagdollPose(c);a.armL+=limbs[0];a.armR+=limbs[1];a.thighL+=limbs[2];a.thighR+=limbs[3];a.foreL+=limbs[4]*.5;a.foreR+=limbs[5]*.5;a.bendL+=limbs[6]*.5;a.bendR+=limbs[7]*.5;a.tilt+=limbs[8]*.35;}solve(a,at.x,at.y,k,dir);drawFigure(g,c,at.x,at.y,k,dir,time,c.anim.flash,1,false);if(c.hand>=0){const toy=sim.toys[c.hand],def=toy&&TOYS[toy.def];if(def)drawToy(g,toy.def,J[14],J[15],k,def.uses.includes("melee")?Math.atan2(J[15]-J[13],J[14]-J[12]):0,toy.color,1,dir);}if((c.fireUntil??0)>sim.tick){g.fillStyle="rgba(255,120,25,.8)";for(let j=0;j<4;j++){const x=J[j*4],y=J[j*4+1],size=Math.max(2,k*6);g.beginPath();g.moveTo(x-size,y);g.quadraticCurveTo(x-size,y-size*2,x+Math.sin(time*8+j)*size,y-size*4);g.quadraticCurveTo(x+size,y-size*2,x+size,y);g.fill();}}}});}
   items.sort((a,b)=>b.depth-a.depth);for(const item of items)item.draw();
   g.save();for(const glow of GLOW)glow(g);g.restore();GLOW.length=0;
   particles.update(dt);particles.draw(g,this.cam,(x,y)=>{const p=local(x,y,0);return p.z>near?Math.min(4,focal/p.z/26):0;});

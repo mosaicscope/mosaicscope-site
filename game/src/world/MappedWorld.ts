@@ -1,4 +1,5 @@
 import {mappedLanes,mappedSpeed,roadOneWay} from '../content/roadLayout';
+import {measureRoadClearances} from './RoadClearance';
 import snapshot from './christchurch.json';
 import {World,T,type Building,type Area} from './World';
 import {BUILDINGS,GROUND_H,FLOOR_H,type BuildingKind} from '../content/buildings';
@@ -51,6 +52,8 @@ export function mappedChristchurch(legacy:World):World{
    if(!pavement&&!walk&&r.tags?.access!=='no')m.streetSegments.push({id:r.id,name:r.name,kind:r.kind,x:a.x,y:a.y,dx:dx/len,dy:dy/len,length:len,half:roadHalfWidth(r)/2,surface:r.tags?.surface,oneway:roadOneWay(r),lanes:mappedLanes(r,roadHalfWidth(r)),speed:mappedSpeed(r)});
   }
  };
+ // Widen carriageways for chases, only into space measured clear of the surveyed buildings and barriers.
+ measureRoadClearances(m.roads,[...buildings,...data.flatMap(d=>d.barriers??[])]);
  for(const r of m.roads)roadStroke(r,1.3,true);for(const r of m.roads)roadStroke(r,0,false);
  // Match the painted crossing strips to pedestrian navigation and collision tiles.
  const junctions=new Map<string,number>();for(const s of m.streetSegments)for(const p of[[s.x,s.y],[s.x+s.dx*s.length,s.y+s.dy*s.length]]){const key=p[0].toFixed(2)+','+p[1].toFixed(2);junctions.set(key,(junctions.get(key)??0)+1);}
