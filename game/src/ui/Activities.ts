@@ -16,7 +16,14 @@ import "./activities.css";
 
 const cash = (n: number) => "$" + n.toLocaleString("en-NZ", { maximumFractionDigits: 2 });
 const pick = (n: number) => Math.floor(Math.random() * n);
-type Tab = "Farm" | "UC" | "Racing" | "Betting" | "Explore";
+type Tab = "Hub" | "Farm" | "UC" | "Racing" | "Betting" | "Explore";
+const HUB: [Exclude<Tab,"Hub">, string, string, string][] = [
+  ["Explore", "◎", "Around town", "Encounters, choices and what the street throws at you."],
+  ["Betting", "♠", "Betting", "Pocket Tessera: keno, scratchies, race book and crash."],
+  ["Racing", "⚑", "Racing", "Own, train and race your horse at Horncastle."],
+  ["Farm", "❦", "Farm", "Animals, machines and harvests out on the plains."],
+  ["UC", "✎", "University", "Study, sit mock tests and graduate for a wage boost."],
+];
 /** All transactions use the current simulation, including after loading another slot. */
 export class Activities {
   onFun?: (kind:"roast"|"burger")=>void;
@@ -49,6 +56,7 @@ export class Activities {
   private btn(text: string, fn: () => void, disabled = false): HTMLElement { return h("button.btn", { text, disabled, onclick: () => { fn(); this.show(this.home); } }); }
   private card(title: string, text: string, buttons: HTMLElement[] = []): HTMLElement { return h("article.ax-card", null, [h("h3", { text: title }), h("p", { text }), h("div.ax-actions", null, buttons)]); }
   show(tab: Tab): void {
+    if (tab === "Hub") { this.hub(); return; }
     document.querySelector("header.bar.open")?.classList.remove("open");
     document.querySelector("header.bar .menu-toggle")?.setAttribute("aria-expanded", "false");
     this.home = tab;
@@ -60,12 +68,19 @@ export class Activities {
       body=[...(stage?[stage]:[]),h('section.ax-deck',null,[options[this.page],h('nav.ax-pages',{'aria-label':'Activity pages'},[this.btn('← Previous',()=>{this.page--;},this.page===0),h('span',{text:`${this.page+1} / ${pages}`}),this.btn('Next →',()=>{this.page++;},this.page>=pages-1)])])];
     }
     this.modal.show(tab === "UC" ? "University of Canterbury · game campus" : tab === "Betting" ? "Pocket Tessera · play-money betting" : tab === "Racing" ? "Horncastle Arena · racing club" : tab === "Farm" ? "Canterbury farming" : "Around town", [
-      h("nav.ax-nav", { "aria-label": "Activities" }, nav),
+      h("nav.ax-back", { "aria-label": "Activities" }, [h("button.btn", { text: "← All activities", onclick: () => this.hub() }), h("div.ax-nav", null, nav)]),
       h("p.ax-status", { role: "status", text: `${cash(this.sim().player.cash)} · ${this.message || "Choose your next chapter."}` }),
       h("div.ax-grid", null, body),
     ], "activities");
     const panel = this.modal.el.querySelector<HTMLElement>(".activities");
     if (panel) panel.scrollTop = 0;
+  }
+  private hub(): void {
+    document.querySelector("header.bar.open")?.classList.remove("open");
+    this.modal.show("Activities", [h("div.ax-hub", null, [
+      h("p", { text: cash(this.sim().player.cash) + " in your pocket · pick where to spend the evening." }),
+      h("div.ax-hub-grid", null, HUB.map(([tab, icon, title, line]) => h("button.ax-hub-tile", { "aria-label": title + ". " + line, onclick: () => { this.page = 0; this.message = ""; this.show(tab); } }, [h("i", { text: icon, "aria-hidden": "true" }), h("b", { text: title }), h("span", { text: line })]))),
+    ])], "activities");
   }
   encounter(): void { this.show("Explore"); }
   private explore(): HTMLElement[] {

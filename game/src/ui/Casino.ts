@@ -4,6 +4,7 @@ import {CasinoFloor} from './CasinoFloor';
 import {drawCasinoStation,STATION_W,STATION_H} from './CasinoStations';
 import {drawRouletteTable,rouletteCells,cellQuad,rouletteSurroundingGuests,ROULETTE_W,ROULETTE_H} from './RouletteTableArt';
 import {CasinoExtras} from './CasinoExtras';
+import {RouletteWheel3D} from './RouletteWheel3D';
 import {newCityPlay,type CasinoSocial} from '../sim/CityPlay';
 import {hospitality,type HospitalityHost} from './VenueHospitality';
 import type { Character } from "../entities/types";
@@ -24,17 +25,17 @@ export interface CasinoWallet extends HospitalityHost { socialState?():CasinoSoc
 
 interface Chip { v: number; c: string; t: string; e: string }
 const CHIPS: Chip[] = [
-  { v: 1, c: "#efe6d4", t: "#14213d", e: "#2b5fb3" },
-  { v: 5, c: "#c8231a", t: "#fff7ea", e: "#fff7ea" },
-  { v: 25, c: "#1f7a3a", t: "#fff7ea", e: "#fff7ea" },
-  { v: 100, c: "#16110f", t: "#fff7ea", e: "#e9e2d2" },
-  { v: 1_000, c: "#b49b68", t: "#111", e: "#eee4d3" },
-  { v: 5_000, c: "#854d59", t: "#fff", e: "#d1b986" },
-  { v: 25_000, c: "#425968", t: "#fff", e: "#c8b27d" },
-  { v: 100_000, c: "#d6c6a6", t: "#151515", e: "#715b35" },
-  { v: 500_000, c: "#2e3939", t: "#eee4d3", e: "#c7ae7b" },
-  { v: 1_000_000, c: "#8d7760", t: "#fff", e: "#eee4d3" },
-  { v: 500, c: "#6b2bc4", t: "#fff7ea", e: "#f6c94c" },
+  { v: 1, c: "#e4e1df", t: "#252020", e: "#a9353f" },
+  { v: 5, c: "#b52d38", t: "#f6f4f3", e: "#f6f4f3" },
+  { v: 25, c: "#932f37", t: "#f6f4f3", e: "#f6f4f3" },
+  { v: 100, c: "#181112", t: "#f6f4f3", e: "#e1ddda" },
+  { v: 1_000, c: "#948d88", t: "#111", e: "#e4e0dd" },
+  { v: 5_000, c: "#854d52", t: "#fff", e: "#b0aba7" },
+  { v: 25_000, c: "#595451", t: "#fff", e: "#a7a29e" },
+  { v: 100_000, c: "#c5beb8", t: "#151515", e: "#57524f" },
+  { v: 500_000, c: "#363131", t: "#e4e0dd", e: "#a6a09c" },
+  { v: 1_000_000, c: "#7c7671", t: "#fff", e: "#e4e0dd" },
+  { v: 500, c: "#b63943", t: "#f6f4f3", e: "#c74d57" },
 ].sort((a,b)=>a.v-b.v);
 const rnd = () => Math.random();
 const money = (n: number) => "$" + n.toLocaleString("en-NZ", { maximumFractionDigits: 2 });
@@ -107,7 +108,7 @@ function stackEl(amount: number, size = "", label = true): HTMLElement {
 
 /** Seven-segment LED meter drawn on an HD canvas. */
 const SEG: Record<string, string> = { "0": "abcdef", "1": "bc", "2": "abged", "3": "abgcd", "4": "fgbc", "5": "afgcd", "6": "afgedc", "7": "abc", "8": "abcdefg", "9": "abcdfg", "-": "g" };
-function ledEl(label: string, value: number, color = "#ff4a2e", cells = 8): HTMLElement {
+function ledEl(label: string, value: number, color = "#d55862", cells = 8): HTMLElement {
   const cw = 17, chh = 28, pad = 7, W = cells * cw + pad * 2, H = chh + pad * 2;
   const { cv, g } = hdCanvas(W, H, "cx-led", `${label} ${money(value)}`);
   const glyphs: { c: string; dot: boolean }[] = [];
@@ -121,10 +122,10 @@ function ledEl(label: string, value: number, color = "#ff4a2e", cells = 8): HTML
     const segs: Record<string, number[]> = { a: [x + 2, y, x + w - 2, y], b: [x + w, y + 2, x + w, m - 2], c: [x + w, m + 2, x + w, y + hh - 2], d: [x + 2, y + hh, x + w - 2, y + hh], e: [x, m + 2, x, y + hh - 2], f: [x, y + 2, x, m - 2], g: [x + 2, m, x + w - 2, m] };
     for (const [k, [x1, y1, x2, y2]] of Object.entries(segs)) {
       const on = (SEG[gl.c] ?? "").includes(k);
-      g.strokeStyle = on ? color : "rgba(255,80,50,.09)"; g.shadowColor = color; g.shadowBlur = on ? 7 : 0;
+      g.strokeStyle = on ? color : "rgba(214,91,101,.09)"; g.shadowColor = color; g.shadowBlur = on ? 7 : 0;
       g.beginPath(); g.moveTo(...sk(x1, y1)); g.lineTo(...sk(x2, y2)); g.stroke();
     }
-    g.shadowBlur = gl.dot ? 6 : 0; g.fillStyle = gl.dot ? color : "rgba(255,80,50,.09)";
+    g.shadowBlur = gl.dot ? 6 : 0; g.fillStyle = gl.dot ? color : "rgba(214,91,101,.09)";
     g.beginPath(); g.arc(x + w + 3.2, y + hh, 1.6, 0, 6.283); g.fill();
   });
   return h("div.cx-meter", null, [h("span", { text: label }), cv]);
@@ -147,30 +148,30 @@ function wheelLayers(): { bowl: HTMLCanvasElement; rotor: HTMLCanvasElement } {
   const mk = () => { const c = document.createElement("canvas"); c.width = c.height = Math.round(WHEEL_PX * d); const g = c.getContext("2d")!; g.setTransform(d, 0, 0, d, 0, 0); g.translate(WHEEL_PX / 2, WHEEL_PX / 2); return { c, g }; };
   const ring = (g: CanvasRenderingContext2D, r: number, fill: string | CanvasGradient) => { g.fillStyle = fill; g.beginPath(); g.arc(0, 0, r, 0, 6.2832); g.fill(); };
   const B = mk(), b = B.g;
-  const wood = b.createRadialGradient(0, 0, 120, 0, 0, 150); wood.addColorStop(0, "#3a1d0c"); wood.addColorStop(0.55, "#7a4019"); wood.addColorStop(0.8, "#a8612a"); wood.addColorStop(1, "#4a240e");
+  const wood = b.createRadialGradient(0, 0, 120, 0, 0, 150); wood.addColorStop(0, "#201c1c"); wood.addColorStop(0.55, "#433a3a"); wood.addColorStop(0.8, "#a0323b"); wood.addColorStop(1, "#282323");
   ring(b, 150, wood);
-  const track = b.createRadialGradient(0, -30, 90, 0, 0, 142); track.addColorStop(0, "#1a0e07"); track.addColorStop(0.85, "#4b2a15"); track.addColorStop(1, "#2a160a");
+  const track = b.createRadialGradient(0, -30, 90, 0, 0, 142); track.addColorStop(0, "#0f0d0d"); track.addColorStop(0.85, "#2c2626"); track.addColorStop(1, "#181515");
   ring(b, 141, track);
-  b.strokeStyle = "rgba(255,226,160,.5)"; b.lineWidth = 1; b.beginPath(); b.arc(0, 0, 141, 0, 6.2832); b.stroke();
-  b.strokeStyle = "rgba(255,236,190,.12)"; b.lineWidth = 6; b.beginPath(); b.arc(0, 0, 133, 3.6, 5.4); b.stroke(); // polish highlight
-  for (let k = 0; k < 8; k++) { const a = (k / 8) * 6.2832; b.fillStyle = "#d9b35a"; b.beginPath(); b.ellipse(Math.cos(a) * 122, Math.sin(a) * 122, 3, 6, a, 0, 6.2832); b.fill(); } // deflectors
+  b.strokeStyle = "rgba(212,207,203,.5)"; b.lineWidth = 1; b.beginPath(); b.arc(0, 0, 141, 0, 6.2832); b.stroke();
+  b.strokeStyle = "rgba(226,222,219,.12)"; b.lineWidth = 6; b.beginPath(); b.arc(0, 0, 133, 3.6, 5.4); b.stroke(); // polish highlight
+  for (let k = 0; k < 8; k++) { const a = (k / 8) * 6.2832; b.fillStyle = "#c74d57"; b.beginPath(); b.ellipse(Math.cos(a) * 122, Math.sin(a) * 122, 3, 6, a, 0, 6.2832); b.fill(); } // deflectors
   const R = mk(), g = R.g, n = WHEEL_ORDER.length, step = (Math.PI * 2) / n;
-  ring(g, 118, "#c99b3f");
+  ring(g, 118, "#c4444f");
   for (let i = 0; i < n; i++) {
     const num = WHEEL_ORDER[i], a0 = i * step - Math.PI / 2, col = colorOf(num);
-    const base = col === "green" ? "#1d7a37" : col === "red" ? "#b5141c" : "#141012";
-    for (const [r0, r1, f] of [[96, 116, base], [76, 96, col === "green" ? "#145a28" : col === "red" ? "#8e0f15" : "#0b090a"]] as [number, number, string][]) {
+    const base = col === "green" ? "#453c3c" : col === "red" ? "#a12832" : "#141012";
+    for (const [r0, r1, f] of [[96, 116, base], [76, 96, col === "green" ? "#322b2b" : col === "red" ? "#7e1f27" : "#0b090a"]] as [number, number, string][]) {
       g.fillStyle = f; g.beginPath(); g.arc(0, 0, r1, a0, a0 + step); g.arc(0, 0, r0, a0 + step, a0, true); g.closePath(); g.fill();
     }
     g.save(); g.rotate(a0 + step / 2); g.translate(106, 0); g.rotate(Math.PI / 2);
-    g.fillStyle = "#fff7ea"; g.font = "700 10.5px 'IBM Plex Mono', ui-monospace, monospace"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(num), 0, 0.5); g.restore();
-    g.strokeStyle = "#e7c46a"; g.lineWidth = 1.2; g.beginPath(); g.moveTo(Math.cos(a0) * 76, Math.sin(a0) * 76); g.lineTo(Math.cos(a0) * 116, Math.sin(a0) * 116); g.stroke();
+    g.fillStyle = "#f6f4f3"; g.font = "700 10.5px 'IBM Plex Mono', ui-monospace, monospace"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(String(num), 0, 0.5); g.restore();
+    g.strokeStyle = "#c74d57"; g.lineWidth = 1.2; g.beginPath(); g.moveTo(Math.cos(a0) * 76, Math.sin(a0) * 76); g.lineTo(Math.cos(a0) * 116, Math.sin(a0) * 116); g.stroke();
   }
-  g.strokeStyle = "#e7c46a"; g.lineWidth = 1.5; for (const r of [76, 96, 116]) { g.beginPath(); g.arc(0, 0, r, 0, 6.2832); g.stroke(); }
-  const cone = g.createRadialGradient(-18, -22, 4, 0, 0, 76); cone.addColorStop(0, "#c98a4a"); cone.addColorStop(0.5, "#7a4019"); cone.addColorStop(1, "#3a1d0c");
+  g.strokeStyle = "#c74d57"; g.lineWidth = 1.5; for (const r of [76, 96, 116]) { g.beginPath(); g.arc(0, 0, r, 0, 6.2832); g.stroke(); }
+  const cone = g.createRadialGradient(-18, -22, 4, 0, 0, 76); cone.addColorStop(0, "#c74c56"); cone.addColorStop(0.5, "#433a3a"); cone.addColorStop(1, "#201c1c");
   ring(g, 75, cone);
-  g.strokeStyle = "rgba(255,226,160,.35)"; g.lineWidth = 1; g.beginPath(); g.arc(0, 0, 52, 0, 6.2832); g.stroke();
-  const gold = g.createLinearGradient(-40, -40, 40, 40); gold.addColorStop(0, "#fff0b8"); gold.addColorStop(0.5, "#d4a640"); gold.addColorStop(1, "#7a5a18");
+  g.strokeStyle = "rgba(212,207,203,.35)"; g.lineWidth = 1; g.beginPath(); g.arc(0, 0, 52, 0, 6.2832); g.stroke();
+  const gold = g.createLinearGradient(-40, -40, 40, 40); gold.addColorStop(0, "#dfdbd8"); gold.addColorStop(0.5, "#c74d57"); gold.addColorStop(1, "#423a3a");
   g.strokeStyle = gold; g.lineWidth = 5; g.lineCap = "round";
   for (let k = 0; k < 4; k++) { const a = (k * Math.PI) / 2; g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a) * 44, Math.sin(a) * 44); g.stroke(); g.fillStyle = gold; g.beginPath(); g.arc(Math.cos(a) * 46, Math.sin(a) * 46, 5, 0, 6.2832); g.fill(); }
   ring(g, 11, gold);
@@ -206,7 +207,7 @@ export class Casino {
   private rPending = -1;
   private rHistory: number[] = [];
   private rSpinning = false;
-  private rLast = -1;private rHovered='';private rNumber=7;private rOutside='red';private rServicesOpen=false;private rBetView=false;private rPage=0;private rZoom=1;private rFocus:'cloth'|'wheel'='cloth';
+  private rLast = -1;private rHovered='';private rNumber=7;private rOutside='red';private rServicesOpen=false;private rBetView=true;private fitBound=false;private wheel3d?:RouletteWheel3D|null;private rLastBets:RouletteBet[]=[];private rJust='';private rSettled:{bets:RouletteBet[];result:number;at:number}|null=null;private rPage=0;private rZoom=1;private rFocus:'cloth'|'wheel'='cloth';
   private rRot = 0; private rBall = -Math.PI / 2; private rBallR = TRACK_R;
   private vp = new VideoPoker(rnd);
   private vpCoins = 5; private vpValue = 1; private vpWin = 0; private vpFresh = [false, false, false, false, false];
@@ -299,6 +300,24 @@ export class Casino {
     if(this.tab==="cashier")view.append(this.extra.social(this.rSpinning));
     this.body.replaceChildren(h("div.cas-view-title", null, [h("small", { text: this.tab === "floor" ? "WELCOME BACK" : "THE TESSERA / TABLE GAMES" }), h("h2", { text: tabs.find(t => t[0] === this.tab)?.[1] ?? "Cashier" })]), this.msg ? h("p.cas-msg", { role: "status", text: this.msg }) : h("span"), view);
     this.el.replaceChildren(h("div.cas-frame.cx"+(["floor","flight","holdem","roulette","blackjack","pokies","poker"].includes(this.tab)?".cas-table-frame":""), null, [head, h("div.cas-layout", null, [h("aside.cas-sidebar", null, [nav, session]), this.body]), h("footer.cas-foot", { text: "THE TESSERA · Fictional casino · No real money · Finish your round, then leave to cash out automatically." })]));
+    requestAnimationFrame(()=>this.fitView());setTimeout(()=>this.fitView(),300);
+  }
+
+  /** No scrolling: shrink a game view that is taller than the space it has, so every control stays on screen. */
+  private fitView(): void {
+    if(!this.fitBound){this.fitBound=true;addEventListener("resize",()=>this.fitView());}
+    const shrink=(box:HTMLElement|null,kids:HTMLElement[])=>{
+      if(!box)return;kids.forEach(k=>k.style.zoom="");
+      const fixed=[...box.children].filter(k=>!kids.includes(k as HTMLElement)).reduce((a,k)=>a+(k as HTMLElement).offsetHeight,0);
+      const room=box.clientHeight-fixed,need=box.scrollHeight-fixed;if(room<=0||need<=room+2)return;
+      const z=Math.max(.5,room/need);kids.forEach(k=>{k.style.zoom=String(z);});
+    };
+    const free=(k:Element)=>!k.matches(".cas-view-title,details.iso-table-popover");
+    // Whole body first (cashier, record...), then a fixed-height game whose own children overflow.
+    shrink(this.body,[...this.body.children].filter(free) as HTMLElement[]);
+    const game=this.body.querySelector<HTMLElement>(":scope > .iso-game");
+    if(game&&game.scrollHeight>game.clientHeight+2)shrink(game,[...game.children].filter(free) as HTMLElement[]);
+    const side=this.el.querySelector<HTMLElement>(".cas-sidebar");shrink(side,[...(side?.children??[])] as HTMLElement[]);
   }
 
   private recordView():HTMLElement{
@@ -471,7 +490,7 @@ export class Casino {
       const id = nums.join("-");
       const ex = this.rBets.find((b) => b.id === id);
       if (ex) ex.amount += this.chipSel; else this.rBets.push({ id, label, numbers: nums, amount: this.chipSel });
-      this.rUndo.push({id,amount:this.chipSel});this.msg = `${label} (${payoutFor(nums)}:1)`; this.render();
+      this.rJust=id;this.rUndo.push({id,amount:this.chipSel});this.msg = `${label} (${payoutFor(nums)}:1)`; this.render();
     };
     const clickNumber = (n: number) => {
       if (this.rMode === "straight") return place(insideBet("straight", n), `Straight ${n}`);
@@ -496,12 +515,45 @@ export class Casino {
     const mode=h('select',{'aria-label':'Bet type',disabled:this.rSpinning,onchange:(e:Event)=>{this.rMode=(e.target as HTMLSelectElement).value as RMode;this.rPending=-1;this.render();}},(['straight','split','street','corner','line'] as const).map(m=>h('option',{value:m,selected:this.rMode===m,text:m==='line'?'Six line':m[0].toUpperCase()+m.slice(1)})));
     const number=h('select',{'aria-label':'Roulette number',disabled:this.rSpinning,onchange:(e:Event)=>{this.rNumber=+(e.target as HTMLSelectElement).value;}},Array.from({length:37},(_,n)=>h('option',{value:n,selected:this.rNumber===n,text:n+' '+colorOf(n)})));
     const outside=h('select',{'aria-label':'Outside bet',disabled:this.rSpinning,onchange:(e:Event)=>{this.rOutside=(e.target as HTMLSelectElement).value;}},Object.entries(OUTSIDE).map(([key,o])=>h('option',{value:key,selected:this.rOutside===key,text:o.label})));
-    const controls=h('div.iso-table-console',null,[h('div.roulette-view-controls',{role:'group','aria-label':'Roulette view'},[this.btn('Casino room',()=>{this.rBetView=false;this.render();},{cls:this.rBetView?'':'.gold',pressed:!this.rBetView}),this.btn('Betting layout',()=>{this.rBetView=true;this.render();},{cls:this.rBetView?'.gold':'',pressed:this.rBetView})]),h('div.iso-bet-controls',null,[mode,...(this.rBetView?[]:[number,this.btn(this.rPending>=0?'Add adjacent number':'Place number bet',()=>clickNumber(this.rNumber),{disabled:this.rSpinning}),outside,this.btn('Place outside bet',()=>place(OUTSIDE[this.rOutside].numbers,OUTSIDE[this.rOutside].label),{disabled:this.rSpinning})])]),
-      h('div.iso-chip-actions',null,[this.chipRow(),h('div.cx-row',null,[this.btn(this.rSpinning?'No more bets…':'Spin · '+money(totalBet),()=>this.spinRoulette(),{cls:'.gold',disabled:!totalBet||this.rSpinning,aria:'Spin the wheel with '+money(totalBet)+' on the table'}),this.btn('Clear bets',()=>{for(const b of this.rBets)this.chips+=b.amount;this.rBets=[];this.rUndo=[];this.rPending=-1;this.render();},{disabled:(!totalBet&&this.rPending<0)||this.rSpinning}),this.btn(this.rPending>=0?'Cancel split':'Undo last chip',()=>{if(this.rPending>=0)this.rPending=-1;else{const move=this.rUndo.pop(),bet=move&&this.rBets.find(b=>b.id===move.id);if(move&&bet){const amount=Math.min(bet.amount,move.amount);bet.amount-=amount;this.chips+=amount;this.rBets=this.rBets.filter(b=>b.amount>0);}}this.render();},{disabled:this.rSpinning||!this.rUndo.length&&this.rPending<0}),this.btn('Buy $100 chips',()=>{if(this.w.getCash()<100){this.msg='Not enough cash for $100 in chips.';}else{this.w.setCash(this.w.getCash()-100);this.chips+=100;this.bought+=100;this.msg='Bought $100 in chips.';}this.render();},{disabled:this.rSpinning})])]),
+    const controls=h('div.iso-table-console',null,[h('div.roulette-view-controls',{role:'group','aria-label':'Roulette view'},[this.btn(this.wheel?'3D wheel':'Betting layout',()=>{this.rBetView=true;this.render();},{pressed:this.rBetView}),this.btn('Casino room',()=>{this.rBetView=false;this.render();},{pressed:!this.rBetView})]),h('div.iso-bet-controls',null,[mode,...(this.rBetView?[]:[number,this.btn(this.rPending>=0?'Add adjacent number':'Place number bet',()=>clickNumber(this.rNumber),{disabled:this.rSpinning}),outside,this.btn('Place outside bet',()=>place(OUTSIDE[this.rOutside].numbers,OUTSIDE[this.rOutside].label),{disabled:this.rSpinning})])]),
+      h('div.iso-chip-actions',null,[this.chipRow(),h('div.cx-row',null,[this.btn(this.rSpinning?'No more bets…':'Spin · '+money(totalBet),()=>this.spinRoulette(),{cls:'.gold',disabled:!totalBet||this.rSpinning,aria:'Spin the wheel with '+money(totalBet)+' on the table'}),this.btn('Rebet',()=>{const need=this.rLastBets.reduce((a,b)=>a+b.amount,0);if(!need||this.rBets.length){this.msg=need?'Clear the table to rebet.':'No previous bet.';}else if(this.chips<need){this.msg='Not enough chips to rebet '+money(need)+'.';}else{this.chips-=need;this.rBets=this.rLastBets.map(b=>({...b,numbers:[...b.numbers]}));this.rUndo=this.rBets.map(b=>({id:b.id,amount:b.amount}));this.msg='Same bets again · '+money(need);}this.render();},{disabled:this.rSpinning||!this.rLastBets.length||this.rBets.length>0}),this.btn('Clear bets',()=>{for(const b of this.rBets)this.chips+=b.amount;this.rBets=[];this.rUndo=[];this.rPending=-1;this.render();},{disabled:(!totalBet&&this.rPending<0)||this.rSpinning}),this.btn(this.rPending>=0?'Cancel split':'Undo last chip',()=>{if(this.rPending>=0)this.rPending=-1;else{const move=this.rUndo.pop(),bet=move&&this.rBets.find(b=>b.id===move.id);if(move&&bet){const amount=Math.min(bet.amount,move.amount);bet.amount-=amount;this.chips+=amount;this.rBets=this.rBets.filter(b=>b.amount>0);}}this.render();},{disabled:this.rSpinning||!this.rUndo.length&&this.rPending<0}),this.btn('Buy $100 chips',()=>{if(this.w.getCash()<100){this.msg='Not enough cash for $100 in chips.';}else{this.w.setCash(this.w.getCash()-100);this.chips+=100;this.bought+=100;this.msg='Bought $100 in chips.';}this.render();},{disabled:this.rSpinning})])]),
       h('p.iso-round-status',{role:'status',text:this.msg||'Choose a chip, then tap the cloth or use the number selector. Zero loses outside bets.'}),h('p.iso-last-results',{'aria-label':'Last results',text:'Last results: '+(this.rHistory.slice(0,12).join(' · ')||'—')})]);
     if(this.rBets.length)controls.append(h('details.iso-bet-slip',null,[h('summary',{text:'Your wagers · '+money(totalBet)}),h('ul',null,this.rBets.map(b=>h('li',{text:b.label+' · '+money(b.amount)+' · pays '+payoutFor(b.numbers)+':1'})))]));
     const services=this.tableServices('Roulette',this.rSpinning,this.rSpinning||totalBet>0);
-    return h('section.iso-game.iso-roulette',null,[this.rBetView?precise:scene,controls,services]);
+    const w3d=this.rBetView?this.wheel:null;
+    if(w3d){queueMicrotask(()=>w3d.wake());if(!this.rSpinning&&!this.rSettled)w3d.message(this.rBets.length?'Bets on · '+money(totalBet):'Place your bets');}
+    return h('section.iso-game.iso-roulette'+(w3d?'.rw3d-mode':''),null,[w3d?h('div.rw3d-stage',null,[w3d.el,this.rouletteFelt(clickNumber,place)]):this.rBetView?precise:scene,controls,services]);
+  }
+
+  /** The persistent 3D wheel, created once on first use; null when WebGL is unavailable. */
+  private get wheel(): RouletteWheel3D | null {
+    if (this.wheel3d === undefined) { this.wheel3d = RouletteWheel3D.create(); this.wheel3d?.setHistory(this.rHistory); }
+    return this.wheel3d;
+  }
+
+  /** Flat felt layout under the 3D wheel: zero, 3×12 grid, columns, dozens and even-money boxes. */
+  private rouletteFelt(clickNumber: (n: number) => void, place: (nums: number[] | null, label: string) => void): HTMLElement {
+    const settled = this.rSettled, bets = settled ? settled.bets : this.rBets;
+    const covered = new Set(bets.flatMap(b => b.numbers.length <= 6 ? b.numbers : []));
+    const amountOn = (nums: number[]) => bets.filter(b => b.numbers.length === nums.length && nums.every(n => b.numbers.includes(n))).reduce((a, b) => a + b.amount, 0);
+    const chip = (amount: number, id: string, nums: number[]) => {
+      if (!amount) return null;
+      const tier = amount < 5 ? 'c1' : amount < 25 ? 'c5' : amount < 100 ? 'c25' : amount < 500 ? 'c100' : 'c500';
+      const fate = settled ? (nums.includes(settled.result) ? '.pay' : '.lose') : this.rJust === id ? '.drop' : '';
+      return h('span.rf-chip.' + tier + fate, { text: chipLabel(amount), title: money(amount) });
+    };
+    const cell = (cls: string, label: string, area: string, onclick: () => void, nums: number[], aria: string) => {
+      const id = nums.join('-'), won = !this.rSpinning && this.rLast >= 0 && nums.includes(this.rLast) && !!settled;
+      return h('button.rf-cell.' + cls + (covered.size && nums.length === 1 && covered.has(nums[0]) ? '.covered' : '') + (this.rPending >= 0 && nums.length === 1 && nums[0] === this.rPending ? '.pending' : '') + (won ? '.win' : ''),
+        { style: `grid-area:${area}`, disabled: this.rSpinning, 'aria-label': aria, onclick }, [h('b', { text: label }), chip(amountOn(nums), id, nums)]);
+    };
+    const cells: HTMLElement[] = [cell('green', '0', '1/1/4/2', () => clickNumber(0), [0], '0 zero')];
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 12; c++) { const n = c * 3 + 3 - r; cells.push(cell(colorOf(n), String(n), `${r + 1}/${c + 2}`, () => clickNumber(n), [n], `${n} ${colorOf(n)}`)); }
+    (['c3', 'c2', 'c1'] as const).forEach((k, i) => cells.push(cell('out', '2:1', `${i + 1}/14`, () => place(OUTSIDE[k].numbers, OUTSIDE[k].label), OUTSIDE[k].numbers, OUTSIDE[k].label)));
+    (['d1', 'd2', 'd3'] as const).forEach((k, i) => cells.push(cell('out', OUTSIDE[k].label, `4/${2 + i * 4}/5/${6 + i * 4}`, () => place(OUTSIDE[k].numbers, OUTSIDE[k].label), OUTSIDE[k].numbers, OUTSIDE[k].label)));
+    (['low', 'even', 'red', 'black', 'odd', 'high'] as const).forEach((k, i) => cells.push(cell('out' + (k === 'red' || k === 'black' ? '.' + k : ''), OUTSIDE[k].label, `5/${2 + i * 2}/6/${4 + i * 2}`, () => place(OUTSIDE[k].numbers, OUTSIDE[k].label), OUTSIDE[k].numbers, OUTSIDE[k].label)));
+    this.rJust = '';
+    return h('div.rf-wrap', null, [h('div.rf-table', { role: 'group', 'aria-label': 'Roulette betting cloth' }, cells)]);
   }
 
   private drawWheel(cv: HTMLCanvasElement): void {
@@ -511,22 +563,22 @@ export class Casino {
     g.drawImage(bowl, 0, 0);
     g.setTransform(d, 0, 0, d, 0, 0); g.translate(c, c);
     g.save(); g.rotate(this.rRot); g.drawImage(rotor, -c, -c, S, S); g.restore();
-    if(this.rSpinning&&!reducedMotion()){for(let i=1;i<9;i++){const a=this.rBall+i*.06;g.fillStyle=`rgba(240,225,184,${(1-i/9)*.24})`;g.beginPath();g.arc(Math.cos(a)*this.rBallR,Math.sin(a)*this.rBallR,Math.max(1,5-i*.4),0,7);g.fill();}g.strokeStyle='#e4c47d66';g.lineWidth=2;g.beginPath();g.arc(0,0,c-8,this.rRot,this.rRot+Math.PI*1.1);g.stroke();}
+    if(this.rSpinning&&!reducedMotion()){for(let i=1;i<9;i++){const a=this.rBall+i*.06;g.fillStyle=`rgba(240,225,184,${(1-i/9)*.24})`;g.beginPath();g.arc(Math.cos(a)*this.rBallR,Math.sin(a)*this.rBallR,Math.max(1,5-i*.4),0,7);g.fill();}g.strokeStyle='#c74d5766';g.lineWidth=2;g.beginPath();g.arc(0,0,c-8,this.rRot,this.rRot+Math.PI*1.1);g.stroke();}
     const bx = Math.cos(this.rBall) * this.rBallR, by = Math.sin(this.rBall) * this.rBallR;
     g.fillStyle = "rgba(0,0,0,.45)"; g.beginPath(); g.arc(bx + 1.5, by + 2, 5.5, 0, 6.2832); g.fill();
-    const ball = g.createRadialGradient(bx - 2, by - 2, 0.5, bx, by, 6); ball.addColorStop(0, "#fff"); ball.addColorStop(0.6, "#e8e4dc"); ball.addColorStop(1, "#8d877c");
+    const ball = g.createRadialGradient(bx - 2, by - 2, 0.5, bx, by, 6); ball.addColorStop(0, "#fff"); ball.addColorStop(0.6, "#e5e2df"); ball.addColorStop(1, "#8d877c");
     g.fillStyle = ball; g.beginPath(); g.arc(bx, by, 5.5, 0, 6.2832); g.fill();
   }
 
   private spinRoulette(): void {
     if (this.rSpinning || !this.rBets.length) return;
-    this.rSpinning = true;this.rBetView=false; this.rPending = -1;this.rUndo=[]; this.msg = "No more bets.";
+    this.rSpinning = true; this.rPending = -1;this.rSettled=null;this.rLastBets=this.rBets.map(b=>({...b,numbers:[...b.numbers]}));this.rUndo=[]; this.msg = "No more bets.";
     const result = spinWheel(rnd);
     const idx = WHEEL_ORDER.indexOf(result), step = (Math.PI * 2) / 37;
-    const dur = reducedMotion() ? 300 : 5200, t0 = performance.now(), startRot = this.rRot % (Math.PI * 2);
+    const dur = reducedMotion() ? 300 : this.wheel ? 8200 : 5200, t0 = performance.now(), startRot = this.rRot % (Math.PI * 2);
     const endRot = startRot + Math.PI * 2 * 2 + rnd() * Math.PI * 2;
     const ballEnd = endRot + idx * step + step / 2 - Math.PI / 2, ballStart = ballEnd + Math.PI * 2 * 6; // ball runs against the wheel
-    this.render();
+    this.render();this.wheel?.spin(result,dur);
     const anim = () => {
       const t = Math.min(1, (performance.now() - t0) / dur);
       this.rRot = startRot + (endRot - startRot) * (1 - Math.pow(1 - t, 3));
@@ -539,13 +591,16 @@ export class Casino {
       if (cv) this.drawWheel(cv);
       if (t < 1) { requestAnimationFrame(anim); return; }
       const staked = this.rBets.reduce((s, b) => s + b.amount, 0), back = settle(this.rBets, result);
-      this.chips += back; this.rBets = []; this.rSpinning = false; this.rLast = result;
+      this.rSettled={bets:this.rBets,result,at:Date.now()};this.chips += back; this.rBets = []; this.rSpinning = false; this.rLast = result;
       this.rHistory.unshift(result); this.rHistory.length = Math.min(this.rHistory.length, 40);
       const net = back - staked;
       this.record("Roulette", net);
       this.msg = `${result} ${colorOf(result).toUpperCase()}. ${net > 0 ? `You win ${money(net)}.` : net < 0 ? `House takes ${money(-net)}.` : "Even."}`;
       if (net >= 300) this.w.onEvent(`You hit ${result} at roulette and won ${money(net)}`, true);
+      this.wheel?.reveal(result,net,staked);this.wheel?.setHistory(this.rHistory);
       this.render();
+      // Leave the paid / swept chips on the cloth for a beat, then clear them.
+      setTimeout(()=>{if(this.rSettled&&!this.rSpinning&&Date.now()-this.rSettled.at>=2500){this.rSettled=null;if(this.tab==='roulette')this.render();}},2600);
     };
     requestAnimationFrame(anim);
   }
@@ -568,7 +623,7 @@ export class Casino {
         h("span.cx-paysyms", { role: "cell" }, p.label.split(" ").map(symEl)), h("b", { role: "cell", text: `${p.mult}×` }), h("span.cx-paycr", { role: "cell", text: money(p.mult * this.slotBet) }),
       ]))),
       h("div.cx-reelbox" + (this.slotHit >= 0 && !this.slotSpinning ? ".won" : ""), { "aria-live": "polite" }, [this.reelEl(0), this.reelEl(1), this.reelEl(2), h("i.cx-payline", { "aria-hidden": "true" })]),
-      h("div.cx-meters", null, [ledEl("Credit", this.chips), ledEl("Bet", this.slotBet, "#ffb52e", 6), ledEl("Win", this.slotWin, "#3dff7a")]),
+      h("div.cx-meters", null, [ledEl("Credit", this.chips), ledEl("Bet", this.slotBet, "#c74d57", 6), ledEl("Win", this.slotWin, "#c74d57")]),
       h("p.cx-slotmsg", { role: "status", text: this.slotSpinning ? "Good luck…" : this.slotMsg || "Pick a bet and spin." }),
       h("div.cx-deck", null, [
         h("div.cx-row", { role: "group", "aria-label": "Bet per spin" }, (this.highLimit ? [1000,10_000,100_000,1_000_000] : [1,2,5,10]).map((b) => h("button.cx-btn" + (this.slotBet === b ? ".on" : ""), { "aria-pressed": String(this.slotBet === b), disabled: this.slotSpinning, "aria-label": `Bet ${money(b)} per spin`, onclick: () => { this.slotBet = b; this.render(); }, text: `BET ${money(b)}` }))),
@@ -621,7 +676,7 @@ export class Casino {
       table,
       h("div.cx-vp-cards", null, cards),
       h("p.cx-vp-status", { role: "status", text: status }),
-      h("div.cx-meters", null, [ledEl("Win", this.vpWin, "#3dff7a"), ledEl("Bet", this.vpCoins * this.vpValue, "#ffb52e", 6), ledEl("Credit", this.chips)]),
+      h("div.cx-meters", null, [ledEl("Win", this.vpWin, "#c74d57"), ledEl("Bet", this.vpCoins * this.vpValue, "#c74d57", 6), ledEl("Credit", this.chips)]),
       h("div.cx-vp-deck", null, [
         this.btn(`Bet one · ${this.vpCoins}`, () => { this.vpCoins = (this.vpCoins % 5) + 1; this.render(); }, { disabled: live, aria: `Bet one coin, now ${this.vpCoins}` }),
         this.btn(`Coin ${money(this.vpValue)}`, () => { const values=this.highLimit?[1000,10_000,100_000,1_000_000]:[1,5]; this.vpValue=values[(values.indexOf(this.vpValue)+1)%values.length]; this.render(); }, { disabled: live, aria: `Coin value ${money(this.vpValue)}, change` }),

@@ -5,6 +5,7 @@ import "./ui/clarity.css";
 import "./ui/interface.css";
 import { setMosaicData, MOSAIC } from "./content/mosaicscope";
 import { loadBuzz } from "./content/buzz";
+import "./ui/theme.css";
 
 /**
  * Pull the live business details from the main site (content.json) and the real Instagram feed
