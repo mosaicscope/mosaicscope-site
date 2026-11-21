@@ -47,7 +47,7 @@ function woodland(tx: number, ty: number): number {
 // ---------------------------------------------------------------- placement
 
 const CH = 16;
-const TREES = new Set<number>([D.OAK, D.PINE, D.BIRCH]);
+const TREES = new Set<number>([D.OAK, D.PINE, D.BIRCH, D.CABBAGE]);
 /** Small ground cover: skipped when zoomed out or far away, and first to go when the governor trims. */
 const TINY = new Set<number>([D.FERN, D.FLOWERS, D.TALLGRASS, D.MUSHROOM]);
 
@@ -60,21 +60,21 @@ function placeKind(w: World, tx: number, ty: number): number {
   let k = 0;
   if (f > 0.52) { // woodland: canopy over an understorey
     const d = clamp01((f - 0.52) / 0.35);
-    if (r < 0.2 + d * 0.1) k = r2 < 0.38 ? D.OAK : r2 < 0.78 ? D.PINE : D.BIRCH;
-    else if (r < 0.3 + d * 0.1) k = D.BUSH;
-    else if (r < 0.42 + d * 0.06) k = D.FERN;
-    else if (r < 0.46 + d * 0.04) k = r2 < 0.4 ? D.LOG : r2 < 0.75 ? D.MUSHROOM : D.ROCK;
+    if (r < 0.26 + d * 0.12) k = r2 < 0.3 ? D.OAK : r2 < 0.65 ? D.PINE : r2 < 0.85 ? D.BIRCH : D.CABBAGE;
+    else if (r < 0.36 + d * 0.1) k = D.BUSH;
+    else if (r < 0.44 + d * 0.05) k = D.FERN;
+    else if (r < 0.47 + d * 0.03) k = r2 < 0.4 ? D.LOG : r2 < 0.75 ? D.MUSHROOM : D.ROCK;
   } else if (f > 0.34) { // meadow
-    if (r < 0.14) k = D.FLOWERS;
-    else if (r < 0.3) k = D.TALLGRASS;
-    else if (r < 0.34) k = D.BUSH;
-    else if (r < 0.36) k = D.ROCK;
-    else if (r < 0.385) k = r2 < 0.5 ? D.OAK : D.BIRCH;
+    if (r < 0.16) k = D.FLOWERS;
+    else if (r < 0.32) k = D.TALLGRASS;
+    else if (r < 0.38) k = D.BUSH;
+    else if (r < 0.4) k = D.ROCK;
+    else if (r < 0.45) k = r2 < 0.45 ? D.OAK : r2 < 0.8 ? D.BIRCH : D.CABBAGE;
   } else { // mown lawn: tufts, wildflowers, the odd shade tree and shrub
-    if (r < 0.07) k = D.TALLGRASS;
-    else if (r < 0.13) k = D.FLOWERS;
-    else if (r < 0.145) k = r2 < 0.6 ? D.OAK : D.BIRCH;
-    else if (r < 0.18) k = D.BUSH;
+    if (r < 0.09) k = D.TALLGRASS;
+    else if (r < 0.15) k = D.FLOWERS;
+    else if (r < 0.175) k = r2 < 0.5 ? D.OAK : r2 < 0.8 ? D.BIRCH : D.CABBAGE;
+    else if (r < 0.21) k = D.BUSH;
   }
   if (!k) return 0;
   // keep footpaths, kerbs and facades clear: trees, bushes and logs need grass all round; small ground cover may
@@ -160,12 +160,8 @@ function buildChunk(w: World, cache: Cache, cx: number, cy: number, rev: number)
   let deer = 0;
   const lakes = w.mapped ? waterPolys(w.mapped).filter((p) => p.x1 >= x0 - 1 && p.x0 <= x0 + CH + 1 && p.y1 >= y0 - 1 && p.y0 <= y0 + CH + 1) : [];
   for (let ty = y0; ty < y0 + CH; ty++) for (let tx = x0; tx < x0 + CH; tx++) {
-    const k = placeKind(w, tx, ty); // TEMP-DEBUG block start
-    const S = flora.dbg.st; if (w.tile(tx, ty) === 0) S.grass++; if (k) S.cand++;
-    if (k && isBusy(w, cache, tx, ty)) { S.busy++; continue; }
-    if (k && lakes.length && nearWater(lakes, tx, ty)) { S.water++; continue; }
-    if (k) S.kept++; // TEMP-DEBUG block end
-    if (!k) continue;
+    const k = placeKind(w, tx, ty);
+    if (!k || isBusy(w, cache, tx, ty) || (lakes.length && nearWater(lakes, tx, ty))) continue;
     const s = Math.floor(h2(tx * 3 + 1, ty * 17 + 9) * 1000);
     c.tx.push(tx); c.ty.push(ty); c.k.push(k); c.s.push(s); c.n++;
     if (c.homes.length >= 6) continue;
@@ -206,12 +202,15 @@ function chunkAt(w: World, cx: number, cy: number): Chunk {
 // ---------------------------------------------------------------- the governor
 
 /**
- * Holds the frame rate near 45 fps (22.2 ms). It watches how long the renderer itself took on recent frames, not the
- * raw frame interval, so a throttled or vsync-capped display is not mistaken for a slow scene. Past ~15 ms of render
- * time (leaving ~7 ms of the 22 ms budget for the sim, input and compositing) it thins flora and fauna; once there is
- * clear headroom it brings them back. `scale` (0.3 .. 1) is the share drawn; `animate` turns off sway, wing flaps and
- * window animation once the renderer stays over budget. Game.adaptQuality is the second line: it steps the whole
- * quality tier down if real frames still fall under 45 fps.
+ * Keeps wild greenery from ever being what breaks 45 fps (22.2 ms a frame). Three layers, cheapest first:
+ *   1. Cost is small by construction: a piece is one drawImage of a cached panel and fauna are closed-form poses.
+ *      Measured at about 0.1 ms to gather plus 3 us a panel, so ~300 pieces is roughly 0.3 ms.
+ *   2. How much is drawn follows the quality tier (QUALITY_KEEP and the caps), and Game.adaptQuality steps that tier
+ *      down whenever real frames fall under 45 fps, so flora thins along with everything else.
+ *   3. This governor is the fast lever on top. It watches the time the renderer itself took on recent frames (not the
+ *      raw frame interval, so a throttled or vsync-capped display is not mistaken for a slow scene). Past 24 ms it thins
+ *      flora and fauna by a stable per-piece seed, so nothing pops about, and freezes sway, wing flaps and window
+ *      animation. It recovers once there is clear headroom.
  */
 export const flora = {
   scale: 1,
@@ -219,7 +218,6 @@ export const flora = {
   reduce: false,
   ema: 8,
   acc: 0,
-  dbg: { w: null as World | null, count: 0, animals: 0, chunks: 0, items: [] as number[][], focus: [0, 0], fd: forestDepth, t: { gather: 0, draw: 0, calls: 0 }, st: { grass: 0, early: 0, cand: 0, busy: 0, water: 0, kept: 0 } }, // TEMP-DEBUG
   update(renderMs: number, dt: number, reduceMotion: boolean): void {
     this.reduce = reduceMotion;
     if (dt <= 0 || dt > 0.25 || !(renderMs >= 0)) return; // hidden tab / loading hitch: not a real frame
@@ -227,9 +225,9 @@ export const flora = {
     this.acc += dt;
     if (this.acc < 0.35) return;
     this.acc = 0;
-    if (this.ema > 15.5) this.scale = Math.max(0.3, this.scale - 0.1);
-    else if (this.ema < 12) this.scale = Math.min(1, this.scale + 0.025);
-    this.animate = this.scale > 0.5 && !reduceMotion;
+    if (this.ema > 24) this.scale = Math.max(0.5, this.scale - 0.1);
+    else if (this.ema < 19.5) this.scale = Math.min(1, this.scale + 0.05);
+    this.animate = this.scale > 0.6 && !reduceMotion;
   },
 };
 
@@ -294,7 +292,7 @@ function pose(h: Home, t: number, dark: number): boolean {
 
 // ---------------------------------------------------------------- gathering what to draw
 
-const QUALITY_KEEP = [0.3, 0.55, 0.8, 1];
+const QUALITY_KEEP = [0.4, 0.7, 0.9, 1];
 const FLORA_CAP = [300, 500, 800, 1200];
 const FAUNA_CAP = [3, 8, 14, 22];
 
@@ -304,7 +302,7 @@ const FAUNA_CAP = [3, 8, 14, 22];
  * (wx, wy) the ground position in tiles, lift px above ground at zoom 1. Draw it with drawPanel(ref / 1000 ...).
  * `maxDist` (tiles from the focus) bounds the work for the 3D view; pass Infinity for the overhead view.
  */
-function gatherFloraInner(
+export function gatherFlora(
   w: World, minX: number, maxX: number, minY: number, maxY: number, zoom: number, quality: number, time: number, dark: number,
   focusX: number, focusY: number, maxDist: number,
   emit: (depth: number, ref: number, wx: number, wy: number, lift: number) => void,
@@ -313,11 +311,10 @@ function gatherFloraInner(
   const keep = flora.scale * QUALITY_KEEP[q] * 1000, keepTree = Math.min(1000, keep * 1.6);
   const small = zoom < 0.62, limited = maxDist < Infinity, md2 = maxDist * maxDist, far2 = md2 * 0.3;
   const cap = Math.floor(FLORA_CAP[q] * flora.scale);
-  flora.dbg.items.length = 0; flora.dbg.focus = [focusX, focusY]; flora.dbg.w = w; flora.dbg.count = 0; flora.dbg.animals = 0; flora.dbg.chunks = 0; // TEMP-DEBUG
   const cx0 = Math.floor(minX / CH), cx1 = Math.floor(maxX / CH), cy0 = Math.floor(minY / CH), cy1 = Math.floor(maxY / CH);
   let count = 0;
   for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
-    const c = chunkAt(w, cx, cy); flora.dbg.chunks++; // TEMP-DEBUG
+    const c = chunkAt(w, cx, cy);
     for (let i = 0; i < c.n; i++) {
       const k = c.k[i], s = c.s[i];
       if (s >= (TREES.has(k) ? keepTree : keep)) continue;
@@ -326,7 +323,7 @@ function gatherFloraInner(
       const wx = c.tx[i] + 0.5, wy = c.ty[i] + 0.5;
       if (wx < minX || wx > maxX + 1 || wy < minY || wy > maxY + 1) continue;
       if (limited) { const dx = wx - focusX, dy = wy - focusY, d2 = dx * dx + dy * dy; if (d2 > md2 || (tiny && d2 > far2)) continue; }
-      emit(wx + wy, k * 1000 + s, wx, wy, 0); flora.dbg.count++; if (flora.dbg.items.length < 400) flora.dbg.items.push([wx, wy, k]); // TEMP-DEBUG
+      emit(wx + wy, k * 1000 + s, wx, wy, 0);
       if (++count >= cap) break;
     }
     if (count >= cap) break;
@@ -345,7 +342,7 @@ function gatherFloraInner(
       const o = POSE;
       if (o.x < minX || o.x > maxX + 1 || o.y < minY || o.y > maxY + 1) continue;
       const kind = FAUNA_BASE + h.fk * 16 + (h.seed & 3) * 4 + o.frame * 2 + o.dir;
-      emit(o.x + o.y + 0.02, kind * 1000 + h.seed, o.x, o.y, o.lift); flora.dbg.animals++; // TEMP-DEBUG
+      emit(o.x + o.y + 0.02, kind * 1000 + h.seed, o.x, o.y, o.lift);
       if (++animals >= faunaMax) return;
     }
   }
@@ -366,17 +363,17 @@ export function setPanelResolution(dpr: number): void {
 const BOX: Record<number, [number, number, number, number]> = {
   1: [28, 58, 30, 10], 2: [14, 20, 14, 8], 3: [16, 20, 18, 8], 4: [16, 16, 20, 6], 5: [20, 24, 20, 10],
   6: [32, 68, 34, 12], 7: [22, 74, 24, 10], 8: [24, 60, 26, 10], 9: [16, 24, 16, 8], 10: [22, 24, 22, 6],
-  11: [14, 18, 14, 5], 12: [14, 22, 14, 4], 13: [16, 18, 20, 6], 14: [18, 12, 18, 6], 15: [12, 14, 12, 4],
+  11: [14, 18, 14, 5], 12: [14, 22, 14, 4], 13: [16, 18, 20, 6], 14: [18, 12, 18, 6], 15: [12, 14, 12, 4], 16: [18, 38, 18, 6],
 };
 const FAUNA_BOX: [number, number, number, number][] = [[8, 8, 8, 4], [16, 18, 16, 5], [16, 20, 16, 5], [28, 46, 28, 8], [10, 10, 10, 10]];
 /** Kinds that get three pre-painted sway poses. */
-const SWAY = new Set<number>([D.TREE, D.OAK, D.PINE, D.BIRCH, D.FERN, D.TALLGRASS]);
+const SWAY = new Set<number>([D.TREE, D.OAK, D.PINE, D.BIRCH, D.CABBAGE, D.FERN, D.TALLGRASS]);
 
 /**
  * Draw one panel (kerb tree, planter, wild flora, or animal) centred on its base point (sx, sy).
  * Same signature as the old drawDecor, so the renderers swap it in directly.
  */
-function drawPanelInner(g: CanvasRenderingContext2D, kind: number, sx: number, sy: number, z: number, time: number, dark: number, n: number): void {
+export function drawPanel(g: CanvasRenderingContext2D, kind: number, sx: number, sy: number, z: number, time: number, dark: number, n: number): void {
   if (z <= 0.02 || kind <= 0) return;
   const zi = Math.max(0, Math.min(63, Math.round(Math.log2(z) * 3) + 24)); // a third of an octave per size step
   let frame = 1;
@@ -461,6 +458,20 @@ function paintFlora(g: CanvasRenderingContext2D, kind: number, sx: number, sy: n
       g.fillStyle = pal[0]; g.beginPath(); g.arc(sx + o * 0.4 - 6 * z, cy + 3 * z, r * 0.8, 0, TAU); g.arc(sx + o * 0.4 + 7 * z, cy + 2 * z, r * 0.75, 0, TAU); g.fill();
       g.fillStyle = pal[1]; blob(g, sx + o * 0.7, cy - 4 * z, r);
       g.fillStyle = pal[2]; blob(g, sx + o - 2 * z, cy - 10 * z, r * 0.6);
+      break;
+    }
+    case D.CABBAGE: { // tī kōuka, the cabbage tree: a bare trunk with a mop of spiky leaves
+      const o = sw * 1.8 * z, tx = sx + o * 0.25, ty = sy - 22 * z;
+      shadow(g, sx, sy, 12, 5, z);
+      g.strokeStyle = "#5a4a38"; g.lineWidth = 3.6 * z; g.lineCap = "round";
+      g.beginPath(); g.moveTo(sx, sy); g.quadraticCurveTo(sx - 1 * z, sy - 12 * z, tx, ty); g.stroke();
+      g.lineWidth = 2.2 * z;
+      for (let i = -4; i <= 4; i++) {
+        const a = i * 0.38, len = (12 - Math.abs(i) * 0.7) * z;
+        g.strokeStyle = i & 1 ? "#5f8a2e" : "#7aa63a";
+        g.beginPath(); g.moveTo(tx, ty); g.quadraticCurveTo(tx + Math.sin(a) * len * 0.5, ty - Math.cos(a) * len * 1.1, tx + Math.sin(a) * len + o * 0.4, ty - Math.cos(a) * len * 0.6 + Math.abs(i) * 1.2 * z); g.stroke();
+      }
+      g.lineCap = "butt";
       break;
     }
     case D.BUSH: {
@@ -596,9 +607,3 @@ function paintFauna(g: CanvasRenderingContext2D, f: number, x: number, y: number
     }
   }
 }
-
-if (typeof window !== "undefined") (window as unknown as { __flora?: unknown }).__flora = flora; // TEMP-DEBUG
-
-// TEMP-DEBUG timing wrappers
-export function gatherFlora(...a: Parameters<typeof gatherFloraInner>): void { const t = performance.now(); gatherFloraInner(...a); flora.dbg.t.gather += performance.now() - t; }
-export function drawPanel(...a: Parameters<typeof drawPanelInner>): void { const t = performance.now(); drawPanelInner(...a); flora.dbg.t.draw += performance.now() - t; flora.dbg.t.calls++; }

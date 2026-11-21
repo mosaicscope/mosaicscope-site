@@ -180,3 +180,7 @@
 
 #ui .car-diagram-wrap{display:inline-flex;align-items:center;justify-content:center;flex:none;min-width:48px}
 #ui .condition-detail .car-diagram-wrap{transform:scale(1.5);transform-origin:left center;margin-right:30px}
+#ui .car-diagram.critical{animation:cdPulse 1s ease-in-out infinite}@keyframes cdPulse{50%{filter:drop-shadow(0 0 4px #df7065)}}
+#ui .cd-fire{animation:cdFlick .4s steps(2) infinite}@keyframes cdFlick{50%{transform:translateY(-1px)}}
+#ui .cd-spin{animation:cdPulse .5s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){#ui .car-diagram.critical,#ui .cd-fire,#ui .cd-spin{animation:none}}

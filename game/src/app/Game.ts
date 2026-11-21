@@ -863,7 +863,7 @@ export class Game {
   }
 
   private conditionDiagram(v:import('../entities/types').Vehicle):HTMLElement {
-    return carDiagram(v);
+    return carDiagram(v,this.sim);
   }
   private conditionButton(v:import('../entities/types').Vehicle):HTMLElement {
     const c=vehicleCondition(v),status=c.worst>=.7?'Critical':c.worst>=.25?'Damaged':'Healthy';

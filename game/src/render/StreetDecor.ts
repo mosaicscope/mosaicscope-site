@@ -11,7 +11,7 @@ import {worldIndex} from "../world/WorldIndex";
 export const enum D {
   NONE = 0, TREE = 1, PLANTER = 2, BOLLARDS = 3, BIKES = 4, CAFE = 5,
   /** Wild greenery for open grass (drawn by Flora.ts through the same panel engine; never part of decorGrid, so no physics or damage). */
-  OAK = 6, PINE = 7, BIRCH = 8, BUSH = 9, FERN = 10, FLOWERS = 11, TALLGRASS = 12, ROCK = 13, LOG = 14, MUSHROOM = 15,
+  OAK = 6, PINE = 7, BIRCH = 8, BUSH = 9, FERN = 10, FLOWERS = 11, TALLGRASS = 12, ROCK = 13, LOG = 14, MUSHROOM = 15, CABBAGE = 16,
 }
 
 const cache = new WeakMap<World, Uint8Array>();
