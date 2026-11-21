@@ -26,6 +26,7 @@ export function prepareStreetProps(sim:Simulation):void{
    sim.cityPlay.props.push({id:sim.cityPlay.props.length,kind,x:q.x,y:q.y,z:0,vx:0,vy:0,vz:0,turn:i*.36,spin:0,health:1,lastHit:-1000,lastUse:-1000,uses:0});break;
   }
  }
+ scatterExtras(sim,anchors);
 }
 export function useStreetProp(sim:Simulation,c:Character,p:StreetProp,manual=true):boolean{
  if(c.inCar>=0||c.inside>=0||c.phys!==0||Math.hypot(c.x-p.x,c.y-p.y)>1.35)return false;
@@ -58,5 +59,19 @@ export function updateStreetProps(sim:Simulation,dt:number):void{
   const round=['ball','football','basketball'].includes(p.kind);if(p.z<0){p.z=0;p.vz=Math.abs(p.vz)>.6?-p.vz*(round?.65:.18):0;}
   const drag=Math.max(0,1-dt*(round||p.kind==='barrel'||p.kind==='skateboard'?.7:3));p.vx*=drag;p.vy*=drag;p.spin*=drag;
   if(!sim.world.inBounds(Math.floor(p.x),Math.floor(p.y))||sim.world.buildingAt(Math.floor(p.x),Math.floor(p.y))){p.x=oldX;p.y=oldY;p.vx*=-.3;p.vy*=-.3;}
+ }
+}
+
+/** How many of each there should be around town: the clutter and the stalls that make a pavement look lived in. */
+const EXTRAS:Partial<Record<StreetPropKind,number>>={cone:10,traffic_barrier:3,wheelie_bin:6,newspaper_box:4,bike_rack:4,bollard:6,planter:4,sandwich_board:4,parking_meter:6,delivery_box:3,recycling_bag:4,hotdog_stand:3,newspaper_stand:3,flower_stall:2,coffee_cart:3,road_sign:3,hydrant:3,postbox:2};
+function scatterExtras(sim:Simulation,anchors:{x:number;y:number;kind:string}[]):void{
+ if(!anchors.length)return;let salt=0;
+ for(const [kind,target] of Object.entries(EXTRAS) as [StreetPropKind,number][]){
+  let have=sim.cityPlay.props.filter(p=>p.kind===kind).length;
+  for(let attempt=0;have<target&&attempt<anchors.length*2;attempt++){
+   salt++;const a=anchors[(salt*29+attempt*7)%anchors.length],side=(salt%2?1:-1),q=sim.world.nearestFoot(a.x+side*(1.2+(salt%4)*.35),a.y+.7+(salt%3)*.3,5);
+   if(sim.world.mapped&&(!sim.world.walkable(q.x,q.y)||sim.world.carriageway(q.x,q.y))||sim.world.buildingAt(Math.floor(q.x),Math.floor(q.y))||sim.cityPlay.props.some(p=>Math.hypot(p.x-q.x,p.y-q.y)<.9)||sim.world.buildings.some(b=>Math.hypot(b.door.x-q.x,b.door.y-q.y)<1))continue;
+   sim.cityPlay.props.push({id:sim.cityPlay.props.length,kind,x:q.x,y:q.y,z:0,vx:0,vy:0,vz:0,turn:salt*.5,spin:0,health:1,lastHit:-1000,lastUse:-1000,uses:0});have++;
+  }
  }
 }

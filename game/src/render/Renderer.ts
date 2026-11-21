@@ -32,7 +32,8 @@ import { drawLitter } from "./LitterArt";
 import { T, TILE_HEIGHT, ROAD_W } from "../world/World";
 import { Camera } from "./Camera";
 import { Terrain, drawTallTile, drawPoi } from "./Terrain";
-import { decorGrid, drawDecor, mappedStreetDecor } from "./StreetDecor";
+import { decorGrid, mappedStreetDecor } from "./StreetDecor";
+import { drawPanel, gatherFlora, flora, setPanelResolution } from "./Flora";
 import { Particles } from "./Particles";
 import { Lighting, Rain } from "./Lighting";
 import { NightFX } from "./NightFX";
@@ -166,6 +167,7 @@ export class Renderer {
     // Never render below device pixels: a sub-native canvas is upscaled by the browser and reads as blur on the ground and figures.
     // Lower tiers cap the pixel count instead (fill-rate is the real cost on weak machines); ultra stays at full native sharpness.
     this.dpr = quality === 0 ? Math.min(1, native) : quality === 1 ? Math.min(1.25, native) : quality === 2 ? Math.min(1.5, native) : Math.min(2,native);
+    setPanelResolution(this.dpr);
     this.canvas.width = Math.round(w * this.dpr); this.canvas.height = Math.round(h * this.dpr);
     this.cam.resize(w, h);
     this.particles.scale = quality === 0 ? 0.35 : quality === 1 ? 0.7 : quality === 2 ? 1 : 1.4;
@@ -184,6 +186,7 @@ export class Renderer {
   render(alpha: number, dt: number, o: RenderOptions): void {
     setDamageBlood(this.fakeBlood);
     const t0 = performance.now();
+    flora.update(this.stats.frameMs, dt, o.reduceMotion); // governor: last frame's render cost decides how much wild greenery to draw (holds ~45 fps)
     beginSignFrame(this.cam.viewW,this.cam.viewH);
     const sim = this.sim, g = this.g, cam = this.cam;
     this.time += o.reduceMotion ? dt * 0.4 : dt;
@@ -281,6 +284,8 @@ export class Renderer {
         cam.toScreen(tx+.5,ty+.5,0,pt);if(inView(pt.x,pt.y,70*z))this.push(tx+ty+1,15,kind*1000+Math.abs(Math.imul(tx,73856093)^Math.imul(ty,19349663))%1000,pt.x,pt.y);
       }
     }
+    // wild greenery and wildlife on open grass: panel blits, thinned by the governor, painter-sorted with everything else
+    if (z >= 0.5) gatherFlora(sim.world, minX, maxX, minY, maxY, z, o.quality, time, 1 - sim.daylight, cam.x, cam.y, Infinity, (d, ref, wx, wy, lift) => { cam.toScreen(wx, wy, 0, pt); if (inView(pt.x, pt.y, 70 * z)) this.push(d, 15, ref, pt.x, pt.y - lift * z); });
     // Water effects must never paint over a mapped road deck, even where the
     // underlying terrain tile is water. Clip all surface effects together.
     g.save();g.beginPath();
@@ -485,7 +490,7 @@ export class Renderer {
           drawFacadeDamage(g,sim.world,b.id,tx,ty,it.sx,it.sy,z);
         } else drawTallTile(g, t, it.sx, it.sy, z, time, (it.ref * 0.618) % 1);
       } else if(it.kind===15){
-        flush();drawDecor(g,Math.floor(it.ref/1000),it.sx,it.sy,z,time,1-sim.daylight,(it.ref%1000)/1000);
+        flush();drawPanel(g,Math.floor(it.ref/1000),it.sx,it.sy,z,time,1-sim.daylight,(it.ref%1000)/1000);
       } else if(it.kind===14){
         flush();const source=mapped!.byBuilding.get(it.ref)!;
         const P=(x:number,y:number,height=0):[number,number]=>{const p=cam.toScreen(x/2+mapped!.offsetX,y/2+mapped!.offsetY,height/2,{x:0,y:0});return[p.x,p.y];};
@@ -516,7 +521,7 @@ export class Renderer {
       } else if (it.kind === 7) {
         flush();
         if(drawDebris(g,sim.world.civicDamage[`d:${it.ref}`],it.sx,it.sy,z))continue;
-        drawDecor(g, decorGrid(sim.world)[it.ref], it.sx, it.sy, z, time, 1 - sim.daylight, (it.ref * 0.618) % 1);
+        drawPanel(g, decorGrid(sim.world)[it.ref], it.sx, it.sy, z, time, 1 - sim.daylight, (it.ref * 0.618) % 1);
       } else {
         flush();
         if(it.kind===13){drawVehicleFragment(g,cam,sim.vehicles[Math.floor(it.ref/32)],it.ref%32);continue;}

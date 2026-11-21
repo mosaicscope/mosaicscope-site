@@ -79,7 +79,9 @@ export class World {
   /** Tiles changed since last render (drives chunk re-render). */
   dirtyTiles = new Set<number>();
   dirtyChunks=new Set<string>();
-  readonly cityTiles=new CityTiles((x,y)=>this.dirtyChunks.add(Math.floor(x/16)+','+Math.floor(y/16)));
+  /** Visual layers that cache per-16x16-chunk data derived from tiles (wild flora) subscribe here to hear when a chunk streams in or changes. */
+  readonly chunkWatchers: ((cx: number, cy: number) => void)[] = [];
+  readonly cityTiles=new CityTiles((x,y)=>{const cx=Math.floor(x/16),cy=Math.floor(y/16);this.dirtyChunks.add(cx+','+cy);for(const watch of this.chunkWatchers)watch(cx,cy);});
   coreContains(x:number,y:number){return x>=0&&y>=0&&x<this.size&&y<this.size;}
 
   constructor(size: number) {
@@ -112,7 +114,7 @@ export class World {
     if (!this.inBounds(tx, ty)) return;
     if(!this.coreContains(tx,ty)){this.cityTiles.set(tx,ty,t);return;}
     const i = ty * this.size + tx;
-    if (this.tiles[i] !== t) { this.tiles[i] = t; this.dirtyTiles.add(i); }
+    if (this.tiles[i] !== t) { this.tiles[i] = t; this.dirtyTiles.add(i); for (const watch of this.chunkWatchers) watch(Math.floor(tx / 16), Math.floor(ty / 16)); }
   }
   /** Extra solid footprints that aren't tiles (the parked jet): blocks walking, not drawing. */
   blocked: Uint8Array = new Uint8Array(0);

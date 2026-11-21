@@ -36,6 +36,10 @@ export const STREET_PROPS={
  basketball:{name:'Basketball',action:'Bounce the basketball',pose:'give',model:'basketball',colour:'#bb8250',mass:.3,benefit:'fun',line:'The ball bounces with a hollow thump.'},
  football:{name:'Football',action:'Kick the football',pose:'kick',model:'football',colour:'#d4d4be',mass:.25,benefit:'fun',line:'A clean kick sends the ball rolling across the pavement.'},
  shopping_basket:{name:'Shopping basket',action:'Move the basket',pose:'give',model:'basket',colour:'#788d9a',mass:.4,line:'A little basket with a surprisingly squeaky handle.'},
+  hotdog_stand:{name:'Hot dog stand',action:'Buy a hot dog',pose:'give',model:'hotdog',colour:'#c0392b',mass:30,fixed:true,cost:6,benefit:'energy',line:'Onions, mustard and a sausage that has seen things. Six dollars well spent.'},
+ newspaper_stand:{name:'Newspaper kiosk',action:'Buy a paper',pose:'inspect',model:'newsstand',colour:'#8a6b3b',mass:40,fixed:true,cost:2,benefit:'curiosity',line:'The headlines shout. You read the sports pages first, like everyone.'},
+ flower_stall:{name:'Flower stall',action:'Buy flowers',pose:'give',model:'flowerstall',colour:'#cf6f9a',mass:25,fixed:true,cost:5,benefit:'fun',line:'A bunch of daffodils for someone who deserves them.'},
+ coffee_cart:{name:'Coffee cart',action:'Buy a flat white',pose:'give',model:'coffeecart',colour:'#6b4a2e',mass:30,fixed:true,cost:4,benefit:'energy',line:'A flat white from a man who takes his beans very seriously.'},
  water_cooler:{name:'Public water refill',action:'Refill with drinking water',pose:'press',model:'cooler',colour:'#83a8b0',mass:12,fixed:true,benefit:'energy',line:'Your bottle fills with clean drinking water.'},
 } satisfies Record<string,PropDef>;
 export type StreetPropKind=keyof typeof STREET_PROPS;

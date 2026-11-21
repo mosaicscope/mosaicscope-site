@@ -11,7 +11,8 @@ import {PerspectivePrepared} from './PerspectivePrepared';
 import {mappedRails,railSpan} from '../world/MappedRails';
 import {drawCar,drawHeli,drawVehicleFragment} from './Cars';
 import {drawStreetProp} from './StreetProps';
-import {decorGrid,drawDecor,mappedStreetDecor,D} from './StreetDecor';
+import {decorGrid,mappedStreetDecor,D} from './StreetDecor';
+import {drawPanel,gatherFlora,flora,setPanelResolution} from './Flora';
 import {GLOW} from './Buildings';
 import type {Particles} from './Particles';
 import type {Rain} from './Lighting';
@@ -115,6 +116,18 @@ export class DrivingView {
     else if(q.t===T.GRASS)quad([[x,y,.015],[x+.035,y,.015],[x+.035,y+.14,.015],[x,y+.14,.015]],'#76907088');
     else if(q.t===T.ROAD||q.t===T.SIDEWALK||q.t===T.PAVE)quad([[x,y,.015],[x+.08,y,.015],[x+.08,y+.035,.015],[x,y+.035,.015]],'#a09e8a55');
    }
+    // Real-street ground detail, seeded by tile so it never shimmers: manhole covers, kerbside drain grates, patched asphalt and hairline cracks on the road; slab joints, grease stains and chewing gum on the footpath.
+    if(q.d<30){const hh=(Math.imul(q.x*73856093^q.y*19349663,2654435761)>>>0),cx=q.x+.5,cy=q.y+.5;
+     if(q.t===T.ROAD){
+      if(hh%9===0&&sim.world.tile(q.x,q.y+1)===T.SIDEWALK){quad([[q.x+.3,q.y+.8,q.z+.015],[q.x+.7,q.y+.8,q.z+.015],[q.x+.7,q.y+.98,q.z+.015],[q.x+.3,q.y+.98,q.z+.015]],'#141313','#5a5855');for(let i=1;i<4;i++)quad([[q.x+.3+i*.1,q.y+.8,q.z+.016],[q.x+.32+i*.1,q.y+.8,q.z+.016],[q.x+.32+i*.1,q.y+.98,q.z+.016],[q.x+.3+i*.1,q.y+.98,q.z+.016]],'#6a6865');}
+      if(hh%53===0){const pts=(r:number)=>Array.from({length:12},(_,i)=>[cx+Math.cos(i/12*6.283)*r,cy+Math.sin(i/12*6.283)*r,q.z+.016] as [number,number,number]);quad(pts(.42),'#1d1c1b','#585653');quad(pts(.3),'#2b2a28','#444240');}
+      else if(hh%41===0)quad([[q.x+.1,q.y+.15,q.z+.014],[q.x+.8,q.y+.12,q.z+.014],[q.x+.85,q.y+.6,q.z+.014],[q.x+.15,q.y+.65,q.z+.014]],'#2b2b2cb0');
+      else if(hh%29===0){let x0=q.x+.1,y0=q.y+(hh%7)/10+.1;for(let i=0;i<4;i++){const x1=x0+.2,y1=y0+((hh>>(i+2))%5-2)/40;quad([[x0,y0,q.z+.014],[x1,y1,q.z+.014],[x1,y1+.025,q.z+.014],[x0,y0+.025,q.z+.014]],'#0d0d0d99');x0=x1;y0=y1;}}
+     } else if(q.t===T.SIDEWALK&&q.d<24){
+      quad([[q.x,q.y+.5,q.z+.013],[q.x+1,q.y+.5,q.z+.013],[q.x+1,q.y+.512,q.z+.013],[q.x,q.y+.512,q.z+.013]],'#3a3835a0');quad([[q.x+.5,q.y,q.z+.013],[q.x+.512,q.y,q.z+.013],[q.x+.512,q.y+1,q.z+.013],[q.x+.5,q.y+1,q.z+.013]],'#3a3835a0');
+      if(hh%11===0)quad([[cx-.12,cy-.1,q.z+.014],[cx+.14,cy-.08,q.z+.014],[cx+.1,cy+.12,q.z+.014],[cx-.1,cy+.1,q.z+.014]],'#2c2a28a0');
+      else if(hh%7===0)quad([[cx,cy,q.z+.015],[cx+.05,cy,q.z+.015],[cx+.05,cy+.05,q.z+.015],[cx,cy+.05,q.z+.015]],'#d8c9d9');
+     }}
   }
   // Project small world-aligned patches; the asphalt pattern stays attached to the pavement.
   for(const patch of roadGrain.values()){const z=sim.world.groundZ(patch.x+2,patch.y+2)+.012,ps=[[patch.x,patch.y,z],[patch.x+4,patch.y,z],[patch.x,patch.y+4,z]].map(p=>local(p[0],p[1],p[2]));if(ps.some(p=>p.z<near+1))continue;const [a,b,c]=ps.map(screen);g.save();g.clip(patch.path);g.transform((b.x-a.x)/4,(b.y-a.y)/4,(c.x-a.x)/4,(c.y-a.y)/4,a.x,a.y);g.beginPath();g.rect(0,0,4,4);fillTextured(g,patch.material,patch.material==='asphalt'?1:.9,{x:-((patch.x%3)+3)%3,y:-((patch.y%3)+3)%3,zoom:1/32});g.restore();}
@@ -130,11 +143,17 @@ export class DrivingView {
   // Draw the same street greenery and tree tiles as the overhead view, depth-sorted with traffic.
   const decor=map?null:decorGrid(sim.world);
   for(const tile of ground){
-   const kind=tile.t===T.TREE?D.TREE:map&&map.visibility.fixtures?mappedStreetDecor(sim.world,tile.x,tile.y):decor&&tile.x>=0&&tile.y>=0&&tile.x<sim.world.size&&tile.y<sim.world.size?decor[tile.y*sim.world.size+tile.x]:D.NONE;
+   const kind=tile.t===T.TREE?D.OAK:map&&map.visibility.fixtures?mappedStreetDecor(sim.world,tile.x,tile.y):decor&&tile.x>=0&&tile.y>=0&&tile.x<sim.world.size&&tile.y<sim.world.size?decor[tile.y*sim.world.size+tile.x]:D.NONE;
    if(!kind)continue;const x=tile.x+.5,y=tile.y+.5,p=local(x,y,tile.z);if(p.z<2||p.z>38||Math.abs(p.x)>p.z+3)continue;
    const seed=Math.abs(Math.imul(tile.x,73856093)^Math.imul(tile.y,19349663));
-   items.push({k:"decor",depth:p.z,draw:()=>{const at=screen(p),scale=Math.min(2.5,focal/p.z/26);drawDecor(g,kind,at.x,at.y,scale,time,1-daylight,(seed%1000)/1000);}});
+   items.push({k:"decor",depth:p.z,draw:()=>{const at=screen(p),scale=Math.min(2.5,focal/p.z/26);drawPanel(g,kind,at.x,at.y,scale,time,1-daylight,(seed%1000)/1000);}});
   }
+  // Wild greenery and wildlife: same panel engine, bounded by distance, thinned by the frame-time governor.
+  setPanelResolution(dpr);
+  gatherFlora(sim.world,cx-radius,cx+radius,cy-radius,cy+radius,1,quality,time,1-daylight,focus.x,focus.y,Math.min(34,radius)*Math.max(.6,this.lod),(_depth,ref,wx,wy,lift)=>{
+   const p=local(wx,wy,sim.world.groundZ(wx,wy)+lift/26);if(p.z<2||p.z>38||Math.abs(p.x)>p.z+3)return;
+   items.push({k:'decor',depth:p.z,draw:()=>{const at=screen(p),scale=Math.min(2.5,focal/p.z/26);drawPanel(g,Math.floor(ref/1000),at.x,at.y,scale,time,1-daylight,(ref%1000)/1000);}});
+  });
   if(map)for(const rail of mappedRails(map,focus.x,focus.y,38)){
    const [start,end]=railSpan(rail,focus.x,focus.y,38);if(end<=start)continue;
    for(let at=Math.floor(start/4)*4;at<end;at+=4){const from=Math.max(at,start),to=Math.min(at+4,end),ax=rail.x+rail.dx*from,ay=rail.y+rail.dy*from,bx=rail.x+rail.dx*to,by=rail.y+rail.dy*to,p=local((ax+bx)/2,(ay+by)/2,0);
@@ -185,7 +204,7 @@ export class DrivingView {
      if((dist>=30||windowGeometryBudget<=(dist>20?140:0))&&!/industrial|warehouse|shed|hangar/.test(source?.tags.building??'')){const ps=[at(0,0),at(1,0),at(1,wallTop),at(0,wallTop)].map(q=>local(...q));if(ps.every(q=>q.z>near+1)){const [pa,pb,,pd]=ps.map(screen),rows=Math.min(floors,4),groups=Math.min(cols,5),layout=this.prepared.windows(rows,groups,arch?.window==='ribbon');g.fillStyle='#4e6a76';g.beginPath();for(let i=0;i<layout.length;i+=4){const u=layout[i],v=layout[i+1],lo=layout[i+2],hi=layout[i+3],point=(x:number,y:number)=>({x:pa.x+(pb.x-pa.x)*x+(pd.x-pa.x)*y,y:pa.y+(pb.y-pa.y)*x+(pd.y-pa.y)*y}),a=point(u,lo),b=point(v,lo),c=point(v,hi),d=point(u,hi);g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.lineTo(c.x,c.y);g.lineTo(d.x,d.y);g.closePath();}g.fill();}}
      if(dist<30){for(let f=0;f<floors;f++){const level=f*floor;quad([at(0,level+.08),at(1,level+.08),at(1,level+.14),at(0,level+.14)],arch?.trim??'#929a92');
       for(let c=0;c<cols&&windowGeometryBudget>(dist>20?140:0);c++){windowGeometryBudget--;const inset=arch?.window==='ribbon'?.08:arch?.heritage?.3:.2,u=(c+inset)/cols,v=(c+1-inset)/cols,lo=level+floor*.25,hi=level+floor*.76,seed=Math.abs((b.id*31+f*13+c*7)%9),lit=daylight<.45&&seed<4&&sim.env.power;quad([at(u,lo),at(v,lo),at(v,hi),at(u,hi)],lit?'#dacb95':'#4e6a76',arch?.trim??'#a0aea8');const mid=(u+v)/2;quad([at(mid-.008,lo),at(mid+.008,lo),at(mid+.008,hi),at(mid-.008,hi)],'#a3aca4');
-       if(dist<18&&windowBudget>0){const corners=[at(u,lo),at(v,lo),at(v,hi),at(u,hi)].map(q=>local(...q));if(corners.every(q=>q.z>near+1)){const pp=corners.map(screen);const win:Win={A:[pp[0].x,pp[0].y],B:[pp[1].x,pp[1].y],C:[pp[2].x,pp[2].y],D:[pp[3].x,pp[3].y],col:lit?'#dacb95':'#4e6a76',seed:b.id*131+f*31+c*17};if(Math.hypot(win.B[0]-win.A[0],win.B[1]-win.A[1])>=7){windowBudget--;paintWindowStories(g,[win],reduceMotion?0:time);}}}
+       if(dist<18&&windowBudget>0){const corners=[at(u,lo),at(v,lo),at(v,hi),at(u,hi)].map(q=>local(...q));if(corners.every(q=>q.z>near+1)){const pp=corners.map(screen);const win:Win={A:[pp[0].x,pp[0].y],B:[pp[1].x,pp[1].y],C:[pp[2].x,pp[2].y],D:[pp[3].x,pp[3].y],col:lit?'#dacb95':'#4e6a76',seed:b.id*131+f*31+c*17};if(Math.hypot(win.B[0]-win.A[0],win.B[1]-win.A[1])>=7){windowBudget--;paintWindowStories(g,[win],reduceMotion||!flora.animate?0:time);}}}
        if(dist<15&&seed%3===0){const reflection=lo+(hi-lo)*.75;quad([at(u+.02/cols,reflection),at(v-.02/cols,reflection),at(v-.02/cols,reflection+.025),at(u+.02/cols,reflection+.025)],'#c8dedb77');}}}
       if(/brick|stone|timber|wood/.test(arch?.material??''))for(let z0=.2;z0<height;z0+=.55)quad([at(0,z0),at(1,z0),at(1,z0+.025),at(0,z0+.025)],'#6f706b');
       if(b.kind==='house'){quad([at(.42,.05),at(.58,.05),at(.58,Math.min(1.4,height*.7)),at(.42,Math.min(1.4,height*.7))],'#34484a',arch?.trim);}

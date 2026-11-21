@@ -3,6 +3,7 @@ import {ROAD_PAINT,paintRoadArrow} from './RoadArt';
 import { reserveSign } from "./ScreenBounds";
 import { World, T, TILE_HEIGHT, Poi, ROAD_W, CROSS_W, PERIOD } from "../world/World";
 import { decorGrid, D } from "./StreetDecor";
+import { drawPanel, forestDepth, dryness, valueNoise } from "./Flora";
 import { hash01 } from "./noir";
 import { drawBin } from "./LitterArt";
 import { TILE_W, TILE_H, Z_PX } from "../world/iso";
@@ -62,7 +63,7 @@ export class Terrain {
       const [c1, c2] = GROUND[base] ?? ["#1a1614", "#1e1a17"];
       const sx = (tx - ty) * hw - ox, sy = (tx + ty) * hh - oy;
       // soft tonal variation: blend the two ground colours smoothly (no checkerboard)
-      g.fillStyle = base === T.WATER ? waterShade(g, sx, sy, w, tx, ty) : mix(c1, c2, this.smooth(tx, ty), base === T.GRASS ? 0 : zoneAt(w, tx, ty));
+      g.fillStyle = base === T.WATER ? waterShade(g, sx, sy, w, tx, ty) : base === T.GRASS ? grassMix(c1, c2, this.smooth(tx, ty), tx, ty) : mix(c1, c2, this.smooth(tx, ty), zoneAt(w, tx, ty));
       g.beginPath(); diamond(sx, sy); g.fill();
       const mat = MAT_OF[base];
       if (mat) { const k = mat[0] + mat[1]; let e = grit.get(k); if (!e) grit.set(k, e = { m: mat[0], a: mat[1], at: [] }); e.at.push(sx, sy); }
@@ -101,6 +102,19 @@ export class Terrain {
     }
     while(this.chunks.size>80)this.chunks.delete(this.chunks.keys().next().value!);
   }
+}
+
+/**
+ * Lawn colour with relief: groves sink into darker moss, dry patches bleach toward straw, and small blotches break up the flat green.
+ * Baked into the chunk canvas, so it costs nothing per frame.
+ */
+function grassMix(a: string, b: string, t: number, tx: number, ty: number): string {
+  const p = (c: string, i: number) => parseInt(c.slice(1 + i * 2, 3 + i * 2), 16);
+  const fd = forestDepth(tx, ty), dry = dryness(tx, ty), blot = valueNoise(tx / 2.2 + 11, ty / 2.2 - 7) - 0.5;
+  const r = (p(a, 0) + (p(b, 0) - p(a, 0)) * t) * (1 - 0.3 * fd) + 14 * dry + blot * 9;
+  const gr = (p(a, 1) + (p(b, 1) - p(a, 1)) * t) * (1 - 0.2 * fd) + 6 * dry + blot * 12;
+  const bl = (p(a, 2) + (p(b, 2) - p(a, 2)) * t) * (1 - 0.28 * fd) - 4 * dry + blot * 3;
+  return "rgb(" + Math.round(Math.max(0, r)) + "," + Math.round(Math.max(0, gr)) + "," + Math.round(Math.max(0, bl)) + ")";
 }
 
 function mix(a: string, b: string, t: number, zone = 0): string {
@@ -175,8 +189,20 @@ function detail(g: CanvasRenderingContext2D, t: number, sx: number, sy: number, 
   const hw = TILE_W / 2, hh = TILE_H / 2;
   switch (t) {
     case T.GRASS: {
-      g.strokeStyle = "rgba(198,255,61,.07)"; g.lineWidth = 1;
-      for (let i = 0; i < 3; i++) { const a = (n * 7 + i * 0.37) % 1, b = (n * 13 + i * 0.61) % 1; const x = sx + (a - 0.5) * hw, y = sy + hh + (b - 0.5) * hh * 0.9; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 1, y - 3); g.stroke(); }
+      const fd = forestDepth(tx, ty), dry = dryness(tx, ty);
+      // forest floor: dappled shade under the canopy
+      if (fd > 0.25 && n < 0.5) { g.fillStyle = "rgba(4,14,6," + (0.1 + fd * 0.1).toFixed(2) + ")"; g.beginPath(); g.ellipse(sx + ((n * 5) % 1 - 0.5) * hw, sy + hh + ((n * 11) % 1 - 0.5) * hh * 0.8, 10, 4.5, 0, 0, 6.283); g.fill(); }
+      // bare, sun-baked soil in dry patches
+      if (dry > 0.5 && n > 0.55) { g.fillStyle = "rgba(92,70,40,.14)"; g.beginPath(); g.ellipse(sx + ((n * 7) % 1 - 0.5) * hw * 0.6, sy + hh, 8, 3.5, 0, 0, 6.283); g.fill(); }
+      // leaf litter under trees
+      if (fd > 0.3 && n > 0.7) { g.fillStyle = n > 0.85 ? "rgba(168,101,30,.3)" : "rgba(122,66,26,.28)"; for (let i = 0; i < 3; i++) g.fillRect(sx + ((n * (i + 3) * 17) % 1 - 0.5) * hw, sy + hh + ((n * (i + 5) * 11) % 1 - 0.5) * hh * 0.8, 2, 1.5); }
+      // clover and daisies where the grass is open
+      if (fd < 0.15 && n > 0.8) { g.fillStyle = n > 0.93 ? "rgba(238,228,211,.55)" : "rgba(246,182,44,.45)"; g.beginPath(); g.arc(sx + ((n * 9) % 1 - 0.5) * hw, sy + hh + ((n * 5) % 1 - 0.5) * hh * 0.7, 1.2, 0, 6.283); g.arc(sx + ((n * 13) % 1 - 0.5) * hw, sy + hh + ((n * 3) % 1 - 0.5) * hh * 0.7, 1, 0, 6.283); g.fill(); }
+      // tufts: more, and darker, where it is wild
+      g.strokeStyle = fd > 0.3 ? "rgba(10,30,12,.18)" : "rgba(198,255,61,.09)"; g.lineWidth = 1; g.beginPath();
+      const tufts = 3 + Math.round(fd * 3);
+      for (let i = 0; i < tufts; i++) { const a = (n * 7 + i * 0.37) % 1, b = (n * 13 + i * 0.61) % 1; const x = sx + (a - 0.5) * hw, y = sy + hh + (b - 0.5) * hh * 0.9; g.moveTo(x, y); g.lineTo(x + 1, y - 3.5); g.moveTo(x + 2, y); g.lineTo(x + 3, y - 2.5); }
+      g.stroke();
       break;
     }
     case T.PAVE: case T.PATH: {
@@ -316,18 +342,7 @@ export function drawTallTile(g: CanvasRenderingContext2D, t: number, sx: number,
       }
       break;
     }
-    case T.TREE: {
-      g.strokeStyle = "#4a3020"; g.lineWidth = 4 * z;
-      g.beginPath(); g.moveTo(sx, sy + hh); g.lineTo(sx, sy + hh - 30 * z); g.stroke();
-      const sway = Math.sin(time * 0.8 + n * 10) * 2 * z;
-      const greens = ["#183a1c", "#1f4a22", "#2a5f2a"];
-      for (let i = 0; i < 3; i++) {
-        g.fillStyle = greens[i];
-        g.beginPath(); g.arc(sx + sway * (i + 1) / 3 + (i - 1) * 6 * z, sy + hh - (34 + i * 10) * z, (17 - i * 3) * z, 0, 6.283); g.fill();
-      }
-      g.fillStyle = "rgba(198,255,61,.12)"; g.beginPath(); g.arc(sx + sway - 4 * z, sy + hh - 58 * z, 6 * z, 0, 6.283); g.fill();
-      break;
-    }
+    case T.TREE: drawPanel(g, D.OAK, sx, sy + hh, z, time, 0, n); break; // one panel blit instead of a trunk stroke plus four arcs per frame
     case T.FENCE: {
       g.strokeStyle = "rgba(154,141,128,.55)"; g.lineWidth = Math.max(1, 1.2 * z);
       g.beginPath();

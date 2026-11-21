@@ -478,8 +478,8 @@ export class Game {
     if (this.settings.quality !== "auto") return;
     const ms = dt * 1000;
     this.sim.detailBudget=[8,16,24,40][this.quality];
-    // aim for 60fps: anything slower than ~55fps for a second steps quality down; recover slowly
-    if (ms > 18.5) { this.slowFor += dt; this.fastFor = 0; } else if (ms < 17.5) { this.fastFor += dt; this.slowFor = Math.max(0, this.slowFor - dt); } else { this.fastFor = 0; }
+    // hold 45fps: the flora governor trims wild greenery first (from ~49fps); sustained frames over 22ms (45fps) step the quality tier down; recover slowly
+    if (ms > 22.2) { this.slowFor += dt; this.fastFor = 0; } else if (ms < 17.5) { this.fastFor += dt; this.slowFor = Math.max(0, this.slowFor - dt); } else { this.fastFor = 0; }
     if (this.slowFor > .4 && this.quality > 0) { this.quality = (this.quality - 1) as Quality; this.slowFor = 0; this.renderer.resize(this.quality); }
     if (this.fastFor > 12 && this.quality < 2) { this.quality = (this.quality + 1) as Quality; this.fastFor = 0; this.renderer.resize(this.quality); }
   }
