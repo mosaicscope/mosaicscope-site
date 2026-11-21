@@ -15,7 +15,7 @@ import {busDestination,serviceBus} from './BusService';
 const bk=(x:number,y:number):number=>(x+8192)*16384+(y+8192);
 interface Edge{segment:CitySegment;sign:number;from:string;to:string;x:number;y:number;dx:number;dy:number;length:number;offset:number;next:number[];junction:boolean}
 /** sx/sy: lateral slip still to be absorbed after a join between differently laid-out segments (glides instead of snapping). laneAt: tick of the last deliberate lane change. */
-interface Route{edge:number;at:number;wait:number;next?:number;laneFrom?:number;laneBlend?:number;sx?:number;sy?:number;laneAt?:number}
+interface Route{ghostUntil?:number;laneRate?:number;edge:number;at:number;wait:number;next?:number;laneFrom?:number;laneBlend?:number;sx?:number;sy?:number;laneAt?:number}
 interface Network{revision:number;source:CitySegment[]|undefined;edges:Edge[];segmentEdges:Map<CitySegment,number[]>;routes:WeakMap<Vehicle,Route>;buckets:Map<number,Vehicle[]>;tick:number;edgeCells:Map<string,number[]>;junctions:Map<string,{car:Vehicle;until:number;entry:number;exit:number}>}
 const networks=new WeakMap<Simulation,Network>();
 const crossingPeople:number[]=[];
@@ -119,14 +119,14 @@ export function driveMappedVehicle(sim:Simulation,v:Vehicle,dt:number):void{
   const dx=playerCar.x-v.x,dy=playerCar.y-v.y,along=dx*e.dx+dy*e.dy,cross=Math.abs(-dx*e.dy+dy*e.dx),closing=(playerCar.vx??Math.cos(playerCar.heading)*playerCar.speed)*e.dx+(playerCar.vy??Math.sin(playerCar.heading)*playerCar.speed)*e.dy-v.speed;
   if(along<0&&along> -Math.min(100,Math.max(18,closing*2.5))&&closing>5&&cross<(geometry.width+vehicleGeometry(playerCar).width)/2+.5){
    const alt=adjacentLane(n,e,geometry.width*.8);
-   if(alt!==undefined){const lane=n.edges[alt],p=position(lane,route.at),safe=obstacles.every(o=>{const ox=o.x-p.x,oy=o.y-p.y,forward=ox*e.dx+oy*e.dy,side=Math.abs(-ox*e.dy+oy*e.dx);return side>(geometry.width+vehicleGeometry(o).width)/2+.6||forward>geometry.length+10||forward< -geometry.length-12;});if(safe){route.laneFrom=e.offset;route.laneBlend=0;route.laneAt=sim.tick;route.edge=alt;route.next=undefined;e=lane;}}
+   if(alt!==undefined){const lane=n.edges[alt],p=position(lane,route.at),safe=obstacles.every(o=>{const ox=o.x-p.x,oy=o.y-p.y,forward=ox*e.dx+oy*e.dy,side=Math.abs(-ox*e.dy+oy*e.dx);return side>(geometry.width+vehicleGeometry(o).width)/2+.6||forward>geometry.length+10||forward< -geometry.length-12;});if(safe){route.laneFrom=e.offset;route.laneBlend=0;route.laneRate=1/Math.max(2.8,Math.min(5.2,2.8+Math.abs(v.speed)*.06));route.laneAt=sim.tick;route.edge=alt;route.next=undefined;e=lane;}}
   }
  }
  // Only pass on a second lane travelling in the same direction, with space ahead and behind.
  if(target<v.speed*.75&&route.laneBlend===undefined&&sim.tick-(route.laneAt??-1e9)>600&&route.at>5&&e.length-route.at>12){
   const alt=adjacentLane(n,e,geometry.width*.8);
   if(alt!==undefined){const lane=n.edges[alt],p=position(lane,route.at),safe=obstacles.every(o=>{const dx=o.x-p.x,dy=o.y-p.y,along=dx*e.dx+dy*e.dy,cross=Math.abs(-dx*e.dy+dy*e.dx);return cross>(geometry.width+vehicleGeometry(o).width)/2+.5||along>geometry.length+8||along< -geometry.length-10;});
-   if(safe){route.laneFrom=e.offset;route.laneBlend=0;route.laneAt=sim.tick;route.edge=alt;route.next=undefined;e=lane;}}
+   if(safe){route.laneFrom=e.offset;route.laneBlend=0;route.laneRate=1/Math.max(2.8,Math.min(5.2,2.8+Math.abs(v.speed)*.06));route.laneAt=sim.tick;route.edge=alt;route.next=undefined;e=lane;}}
  }
  if(sim.world.mapped?.closedRoads?.has(e.segment.id))target=0;
  {const lookahead=Math.max(5,v.speed*v.speed/(2*d.brake)+geometry.length+2),count=sim.charHash.query(v.x+e.dx*lookahead/2,v.y+e.dy*lookahead/2,lookahead/2+2,crossingPeople);for(let i=0;i<count;i++){const c=sim.chars[crossingPeople[i]];if(c.inCar>=0||c.inside>=0||!sim.world.drivable(c.x,c.y))continue;const along=(c.x-v.x)*e.dx+(c.y-v.y)*e.dy,cross=Math.abs(-(c.x-v.x)*e.dy+(c.y-v.y)*e.dx);if(along>0&&cross<geometry.width/2+.8)target=Math.min(target,Math.sqrt(Math.max(0,2*d.brake*(along-geometry.length/2-1.2))));}}
@@ -147,16 +147,18 @@ export function driveMappedVehicle(sim:Simulation,v:Vehicle,dt:number):void{
   if(obstacles.some(o=>{const dx=o.x-exit.x,dy=o.y-exit.y,g=vehicleGeometry(o);return Math.abs(dx*e.dx+dy*e.dy)<(geometry.length+g.length)/2+.8&&Math.abs(-dx*e.dy+dy*e.dx)<(geometry.width+g.width)/2+.15&&(o.state==='parked'||Math.cos(o.heading)*e.dx+Math.sin(o.heading)*e.dy>.25);})){v.speed=0;if(route.wait>6){const alternative=options.find(i=>i!==nextEdge&&!obstacles.some(o=>{const q=n.edges[i],exit=position(q,Math.min(q.length,geometry.length+1));return Math.hypot(o.x-exit.x,o.y-exit.y)<geometry.length+2;}));if(alternative!==undefined){route.next=alternative;route.wait=0;}}return;}
   lease={key:old.to,entry:route.edge,exit:nextEdge};
  }
- const heading=Math.atan2(e.dy,e.dx),angle=Math.atan2(Math.sin(heading-v.heading),Math.cos(heading-v.heading)),nextHeading=v.heading+angle*Math.min(1,dt*5*utility.turnResponse);
+ let laneTilt=0;if(route.laneBlend!==undefined&&route.laneFrom!==undefined){const lb=route.laneBlend,ds=6*lb*(1-lb)*(route.laneRate??.5),vOff=-(route.laneFrom-e.offset)*ds;laneTilt=Math.max(-.2,Math.min(.2,-Math.atan2(vOff,Math.max(2,Math.abs(v.speed)))));}
+ const heading=Math.atan2(e.dy,e.dx)+laneTilt,angle=Math.atan2(Math.sin(heading-v.heading),Math.cos(heading-v.heading)),nextHeading=v.heading+angle*Math.min(1,dt*5*utility.turnResponse);
  const p=position(e,nextAt);
  let sx=(route.sx??0)+slipX,sy=(route.sy??0)+slipY;if(sx||sy){const m=Math.hypot(sx,sy);if(m>8)sx=sy=0;else{const k=Math.exp(-dt*Math.min(4,1.2+.6*m));sx*=k;sy*=k;p.x+=sx;p.y+=sy;}}
- if(route.laneBlend!==undefined&&route.laneFrom!==undefined){route.laneBlend=Math.min(1,route.laneBlend+dt*.5);const off=(route.laneFrom-e.offset)*(1-route.laneBlend);p.x+=e.dy*off;p.y-=e.dx*off;if(route.laneBlend>=1){route.laneBlend=undefined;route.laneFrom=undefined;}}
+ if(route.laneBlend!==undefined&&route.laneFrom!==undefined){route.laneBlend=Math.min(1,route.laneBlend+dt*(route.laneRate??.5));const lb=route.laneBlend,sm=lb*lb*(3-2*lb),off=(route.laneFrom-e.offset)*(1-sm);p.x+=e.dy*off;p.y-=e.dx*off;if(route.laneBlend>=1){route.laneBlend=undefined;route.laneFrom=undefined;}}
  let candidate=probes.get(v);if(!candidate){candidate={...v};probes.set(v,candidate);}candidate.cls=v.cls;candidate.plate=v.plate;candidate.lifeMods=v.lifeMods;candidate.x=p.x;candidate.y=p.y;candidate.px=v.x;candidate.py=v.y;candidate.heading=nextHeading;
  // Reject an occupied or swept chassis position before committing the route, including opposite lanes and turns.
- const occupied=obstacles.some(o=>chassisContact(candidate!,o)||sweptChassisContact(candidate!,o,true))||crossingPeople.some(id=>{const c=sim.chars[id];if(c.inCar>=0||c.inside>=0||!sim.world.drivable(c.x,c.y))return false;const dx=c.x-p.x,dy=c.y-p.y,cos=Math.cos(nextHeading),sin=Math.sin(nextHeading);return Math.abs(dx*cos+dy*sin)<geometry.length/2+c.radius+.4&&Math.abs(-dx*sin+dy*cos)<geometry.width/2+c.radius+.4;});
+ if(route.ghostUntil!==undefined&&sim.tick>=route.ghostUntil)route.ghostUntil=undefined;
+ const occupied=route.ghostUntil===undefined&&obstacles.some(o=>chassisContact(candidate!,o)||sweptChassisContact(candidate!,o,true))||crossingPeople.some(id=>{const c=sim.chars[id];if(c.inCar>=0||c.inside>=0||!sim.world.drivable(c.x,c.y))return false;const dx=c.x-p.x,dy=c.y-p.y,cos=Math.cos(nextHeading),sin=Math.sin(nextHeading);return Math.abs(dx*cos+dy*sin)<geometry.length/2+c.radius+.4&&Math.abs(-dx*sin+dy*cos)<geometry.width/2+c.radius+.4;});
  if(!occupied&&(sim.world.walkable(p.x,p.y)||(sim.world.tile(Math.floor(p.x),Math.floor(p.y))===T.WATER&&waterDepth(sim.world,p.x,p.y)===0))){if(lease){n.junctions.set(lease.key,{car:v,until:sim.tick+Math.max(90,Math.min(240,(geometry.length+3)/Math.max(2,v.speed)*60)),entry:lease.entry,exit:lease.exit});route.next=undefined;}v.x=p.x;v.y=p.y;route.at=nextAt;route.edge=nextEdge;v.heading=nextHeading;const small=Math.hypot(sx,sy)<.02;route.sx=small?0:sx;route.sy=small?0:sy;
   const cell=bk(Math.floor(v.x/8),Math.floor(v.y/8)),before=bk(cx,cy);if(cell!==before){const list=n.buckets.get(before),i=list?.indexOf(v)??-1;if(i>=0)list!.splice(i,1);const next=n.buckets.get(cell)??[];next.push(v);n.buckets.set(cell,next);}
- }else{v.speed=0;route.wait+=dt;if(lease&&route.wait>8){const alternative=n.edges[route.edge].next.find(i=>i!==nextEdge&&!sim.world.mapped?.closedRoads?.has(n.edges[i].segment.id));if(alternative!==undefined){route.next=alternative;route.wait=0;}}}
+ }else{v.speed=0;route.wait+=dt;if(route.wait>12&&route.ghostUntil===undefined)route.ghostUntil=sim.tick+240;if(lease&&route.wait>8){const alternative=n.edges[route.edge].next.find(i=>i!==nextEdge&&!sim.world.mapped?.closedRoads?.has(n.edges[i].segment.id));if(alternative!==undefined){route.next=alternative;route.wait=0;}}}
  v.dir=((Math.round(v.heading/(Math.PI/2))%4)+4)%4;v.yaw=v.speed>0?angle*Math.min(5,1/Math.max(.001,dt)):0;v.wheelTravel=(v.wheelTravel??0)+v.speed*dt;
  stepUtility(v,(v.speed-oldSpeed)/dt,v.yaw*v.speed,v.speed,delta<-.3,dt);
 }

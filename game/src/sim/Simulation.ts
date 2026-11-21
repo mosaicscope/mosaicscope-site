@@ -649,7 +649,7 @@ export class Simulation {
     for (const v of this.vehicles) {
       if (v.state !== "drive" || v.siren || this.player.inCar === v.id || v.driver < 0) continue;
       const far = Math.hypot(v.x - this.focus.x, v.y - this.focus.y) > 130;
-      if (v.stuck > (far ? 6 : 75)) this.relocateCar(v, this.chars[v.driver]);
+      if (v.stuck > (far ? 6 : 30)) this.relocateCar(v, this.chars[v.driver]);
     }
     // cops in pursuing cars bail out near a suspect on foot
     for (const v of this.vehicles) {

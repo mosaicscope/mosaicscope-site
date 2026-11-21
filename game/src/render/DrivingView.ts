@@ -153,6 +153,38 @@ export class DrivingView {
    const seed=Math.abs(Math.imul(tile.x,73856093)^Math.imul(tile.y,19349663));
    items.push({k:"decor",depth:p.z,draw:()=>{g.globalAlpha=Math.max(.03,Math.min(1,(37-p.z)/9));const at=screen(p),scale=Math.min(2.5,focal/p.z/26);drawPanel(g,kind,at.x,at.y,scale,time,1-daylight,(seed%1000)/1000);}});
   }
+  // Street life in 3D: lamp posts, bins, benches, hydrants, planters, bollards and bike racks along the pavements, placed by a hash of the
+  // tile so they stay where they are. Real boxes (only the faces turned toward you), faded at the edge, and capped so they cost almost nothing.
+  {
+   let placed=0;const night=1-daylight;
+   const shade=(hex:string,k:number):string=>{const m=/^#([0-9a-f]{6})$/i.exec(hex);if(!m)return hex;const n=parseInt(m[1],16),r=Math.round((n>>16)*k),gg=Math.round((n>>8&255)*k),b=Math.round((n&255)*k);return `rgb(${r},${gg},${b})`;};
+   const solid=(x:number,y:number,sx:number,sy:number,height:number,z0:number,side:string,top:string):void=>{
+    const x0=x-sx/2,x1=x+sx/2,y0=y-sy/2,y1=y+sy/2;
+    if(ey<y0)quad([[x0,y0,z0],[x1,y0,z0],[x1,y0,z0+height],[x0,y0,z0+height]],side);else if(ey>y1)quad([[x0,y1,z0],[x1,y1,z0],[x1,y1,z0+height],[x0,y1,z0+height]],side);
+    if(ex<x0)quad([[x0,y0,z0],[x0,y1,z0],[x0,y1,z0+height],[x0,y0,z0+height]],shade(side,.78));else if(ex>x1)quad([[x1,y0,z0],[x1,y1,z0],[x1,y1,z0+height],[x1,y0,z0+height]],shade(side,.78));
+    quad([[x0,y0,z0+height],[x1,y0,z0+height],[x1,y1,z0+height],[x0,y1,z0+height]],top);
+   };
+   for(const tile of ground){
+    if(placed>46)break;if(tile.t!==T.SIDEWALK&&tile.t!==T.PATH)continue;
+    const hs=(Math.imul(tile.x,73856093)^Math.imul(tile.y,19349663))>>>0,pick=hs%97;if(pick>6)continue;   // roughly one pavement tile in fourteen carries something
+    const x=tile.x+.5+((hs>>8)%5-2)*.08,y=tile.y+.5+((hs>>12)%5-2)*.08,p=local(x,y,tile.z);if(p.z<2.2||p.z>40||Math.abs(p.x)>p.z+3)continue;
+    placed++;const fade=Math.max(.03,Math.min(1,(39-p.z)/9)),z0=tile.z;
+    items.push({k:"prop3d",depth:p.z,draw:()=>{
+     g.globalAlpha=fade;
+     if(pick===0||pick===1){   // lamp post: pole, arm and a head that glows after dark
+      solid(x,y,.14,.14,3.6,z0,"#3b4047","#566069");solid(x+.28,y,.6,.1,.1,z0+3.5,"#3b4047","#566069");
+      const head=night>.35?"#ffe7a6":"#cfd5d8";solid(x+.52,y,.34,.2,.1,z0+3.42,head,head);
+      if(night>.35){const at=screen(local(x+.52,y,z0+3.3)),r=Math.min(60,focal/p.z*1.6),gr=g.createRadialGradient(at.x,at.y,0,at.x,at.y,r);gr.addColorStop(0,"rgba(255,226,150,.55)");gr.addColorStop(1,"rgba(255,226,150,0)");g.fillStyle=gr;g.fillRect(at.x-r,at.y-r,r*2,r*2);}
+     }else if(pick===2){solid(x,y,.5,.5,.85,z0,"#5d6b5a","#74846f");solid(x,y,.56,.56,.08,z0+.85,"#3c4a3b","#4a5b49");   // litter bin
+     }else if(pick===3){solid(x,y,.8,.34,.07,z0+.42,"#7d5f3f","#a07c52");solid(x,y+.14,.8,.06,.45,z0+.45,"#7d5f3f","#a07c52");solid(x-.32,y,.07,.3,.42,z0,"#2d3236","#2d3236");solid(x+.32,y,.07,.3,.42,z0,"#2d3236","#2d3236");   // bench
+     }else if(pick===4){solid(x,y,.22,.22,.55,z0,"#b3342c","#cc4a40");solid(x,y,.3,.3,.07,z0+.5,"#8c2822","#a8332b");   // hydrant
+     }else if(pick===5){solid(x,y,.7,.7,.4,z0,"#8b8379","#a29a8e");solid(x,y,.56,.56,.5,z0+.4,"#2f6b3a","#3d8a4c");solid(x,y,.34,.34,.4,z0+.8,"#3d8a4c","#58ad68");   // planter with a shrub
+     }else{for(let k=0;k<3;k++)solid(x+(k-1)*.28,y,.07,.07,.7,z0,"#e3d24d","#f2e56a");   // bollards
+     }
+     g.globalAlpha=1;
+    }});
+   }
+  }
   // Wild greenery and wildlife: same panel engine, bounded by distance, thinned by the frame-time governor.
   setPanelResolution(dpr);
   gatherFlora(sim.world,cx-radius,cx+radius,cy-radius,cy+radius,1,quality,time,1-daylight,focus.x,focus.y,Math.min(34,radius)*Math.max(.6,this.lod),(_depth,ref,wx,wy,lift)=>{
