@@ -1,10 +1,10 @@
 {
- "at": 1795209401257,
+ "at": 1795220835501,
  "totals": {
   "duplicate-code": 10,
-  "long-function": 21,
+  "long-function": 22,
   "format": 26,
-  "oversized-module": 10,
+  "oversized-module": 11,
   "unused-css": 1
  },
  "findings": [
@@ -217,6 +217,22 @@
    "fp": "oversized-module|qx1vhj"
   },
   {
+   "kind": "oversized-module",
+   "severity": "low",
+   "where": "game/src/engines/ambient-life-engine.ts",
+   "detail": "1248 lines",
+   "fix": "consider splitting",
+   "fp": "oversized-module|17pf39m"
+  },
+  {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "game/src/engines/ambient-life-engine.ts:452",
+   "detail": "507 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|1pbbw1s"
+  },
+  {
    "kind": "format",
    "severity": "low",
    "where": "game/src/experimental/DirectGpuPrototype.ts",
@@ -372,9 +388,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Simulation.ts",
-   "detail": "1013 lines",
+   "detail": "1022 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|1fksgt"
+   "fp": "oversized-module|hf8xyd"
   },
   {
    "kind": "long-function",
@@ -471,22 +487,6 @@
    "detail": "Windows line endings",
    "fix": "convert to LF",
    "fp": "format|1dwkea9"
-  },
-  {
-   "kind": "format",
-   "severity": "low",
-   "where": "game/tests/gpu-settings.test.ts",
-   "detail": "Windows line endings",
-   "fix": "convert to LF",
-   "fp": "format|1wqkao6"
-  },
-  {
-   "kind": "format",
-   "severity": "low",
-   "where": "game/tests/nearby-quips.test.ts",
-   "detail": "Windows line endings",
-   "fix": "convert to LF",
-   "fp": "format|jg7tq0"
   }
  ]
 }
