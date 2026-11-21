@@ -56,7 +56,7 @@ function adjacentLane(n:Network,e:Edge,minGap:number):number|undefined{let best:
 /** Keep the existing pool busy around newly visited streets, without adding entities or teleporting visible cars. */
 export function refreshCityPopulation(sim:Simulation):void{
  const m=sim.world.mapped;if(!m)return;const n=network(sim),p=sim.player;
- const local=localEdges(n,p.x,p.y,70).map(i=>({e:n.edges[i],i})).filter(({e})=>e.length>10&&Math.hypot(e.x+e.dx*Math.max(0,Math.min(e.length,(p.x-e.x)*e.dx+(p.y-e.y)*e.dy))-p.x,e.y+e.dy*Math.max(0,Math.min(e.length,(p.x-e.x)*e.dx+(p.y-e.y)*e.dy))-p.y)<65&&!m.closedRoads?.has(e.segment.id));
+ const local=localEdges(n,p.x,p.y,92).map(i=>({e:n.edges[i],i})).filter(({e})=>e.length>10&&Math.hypot(e.x+e.dx*Math.max(0,Math.min(e.length,(p.x-e.x)*e.dx+(p.y-e.y)*e.dy))-p.x,e.y+e.dy*Math.max(0,Math.min(e.length,(p.x-e.x)*e.dx+(p.y-e.y)*e.dy))-p.y)<90&&!m.closedRoads?.has(e.segment.id));
  if(!local.length)return;
  // Older saves may not contain a service bus; convert only clear, ordinary background traffic.
  let buses=sim.vehicles.filter(v=>v.state==='drive'&&(v.cls==='bus'||VEHICLES[v.cls].design?.base==='bus')).length;
@@ -65,11 +65,11 @@ export function refreshCityPopulation(sim:Simulation):void{
  let moved=0;
  for(const v of sim.vehicles){if(moved>=budget)break;if(v.owner>=0||v.state!=='drive'||v.siren||v.rescueTarget!==undefined||isPolice(v.cls)||Math.hypot(v.x-p.x,v.y-p.y)<110)continue;
   for(let attempt=0;attempt<6;attempt++){const {e,i}=sim.rng.pick(local),at=sim.rng.range(4,e.length-4),q=position(e,at),distance=Math.hypot(q.x-p.x,q.y-p.y);
-   if(distance<32||distance>70||!sim.world.drivable(q.x,q.y)||sim.vehicles.some(o=>Math.hypot(o.x-q.x,o.y-q.y)<7)||sim.chars.some(c=>c.inCar<0&&Math.hypot(c.x-q.x,c.y-q.y)<3))continue;
+   if(distance<64||distance>88||!sim.world.drivable(q.x,q.y)||sim.vehicles.some(o=>Math.hypot(o.x-q.x,o.y-q.y)<7)||sim.chars.some(c=>c.inCar<0&&Math.hypot(c.x-q.x,c.y-q.y)<3))continue;
    v.x=v.px=q.x;v.y=v.py=q.y;v.heading=Math.atan2(e.dy,e.dx);v.speed=0;n.routes.set(v,{edge:i,at,wait:0});n.tick=-1;if(v.driver>=0){const c=sim.chars[v.driver];c.x=c.px=q.x;c.y=c.py=q.y;}moved++;break;
   }
  }
- let people=0;for(const c of sim.chars){if(people>=6)break;if(c.tier!=='background'||c.promoted||c.inCar>=0||c.inside>=0||c.talkWith>=0||Math.hypot(c.x-p.x,c.y-p.y)<110)continue;const {e}=sim.rng.pick(local),at=sim.rng.range(3,e.length-3),off=e.segment.half+1,q={x:e.x+e.dx*at+e.dy*off,y:e.y+e.dy*at-e.dx*off};if(Math.hypot(q.x-p.x,q.y-p.y)<32||!sim.world.walkable(q.x,q.y)||sim.world.carriageway(q.x,q.y))continue;c.x=c.px=q.x;c.y=c.py=q.y;c.path=null;c.goal=null;c.vx=c.vy=0;people++;}
+ let people=0;for(const c of sim.chars){if(people>=6)break;if(c.tier!=='background'||c.promoted||c.inCar>=0||c.inside>=0||c.talkWith>=0||Math.hypot(c.x-p.x,c.y-p.y)<110)continue;const {e}=sim.rng.pick(local),at=sim.rng.range(3,e.length-3),off=e.segment.half+1,q={x:e.x+e.dx*at+e.dy*off,y:e.y+e.dy*at-e.dx*off};if(Math.hypot(q.x-p.x,q.y-p.y)<64||!sim.world.walkable(q.x,q.y)||sim.world.carriageway(q.x,q.y))continue;c.x=c.px=q.x;c.y=c.py=q.y;c.path=null;c.goal=null;c.vx=c.vy=0;people++;}
 }
 export function snapMappedVehicle(sim:Simulation,v:Vehicle):boolean{
  const n=network(sim);let route:Route|undefined,best=4;
