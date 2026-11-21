@@ -1,10 +1,10 @@
 {
- "at": 1795289521706,
+ "at": 1795291387097,
  "totals": {
-  "duplicate-code": 10,
+  "duplicate-code": 11,
   "long-function": 22,
   "format": 25,
-  "oversized-module": 12,
+  "oversized-module": 13,
   "unused-css": 1
  },
  "findings": [
@@ -79,6 +79,14 @@
    "detail": "8+ identical lines in 2 places",
    "fix": "extract a shared helper",
    "fp": "duplicate-code|q00wg"
+  },
+  {
+   "kind": "duplicate-code",
+   "severity": "low",
+   "where": "game/src/ui/felt/RoyalFelt.ts:2201 = game/src/ui/felt/RoyalFelt.ts:2225",
+   "detail": "8+ identical lines in 2 places",
+   "fix": "extract a shared helper",
+   "fp": "duplicate-code|1918x6g"
   },
   {
    "kind": "duplicate-code",
@@ -450,6 +458,14 @@
   },
   {
    "kind": "oversized-module",
+   "severity": "medium",
+   "where": "game/src/ui/felt/RoyalFelt.ts",
+   "detail": "3679 lines",
+   "fix": "split by feature into modules",
+   "fp": "oversized-module|lon0f"
+  },
+  {
+   "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/ui/minigames/Burger.ts",
    "detail": "828 lines",
@@ -471,22 +487,6 @@
    "detail": "Windows line endings",
    "fix": "convert to LF",
    "fp": "format|1a9w5ut"
-  },
-  {
-   "kind": "long-function",
-   "severity": "low",
-   "where": "game/tests/chronicles.test.ts:35",
-   "detail": "212 lines",
-   "fix": "split into named steps",
-   "fp": "long-function|5n3or5"
-  },
-  {
-   "kind": "format",
-   "severity": "low",
-   "where": "game/tests/city-upgrades.test.ts",
-   "detail": "Windows line endings",
-   "fix": "convert to LF",
-   "fp": "format|1dwkea9"
   }
  ]
 }
