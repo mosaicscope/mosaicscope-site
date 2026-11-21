@@ -106,7 +106,7 @@ export class TouchControls {
     window.addEventListener("pointerdown", (e) => {
       if (!STICK_ON || !this.el.classList.contains("on") || this.stickId >= 0 || e.clientX > innerWidth * 0.5) return;
       const t = e.target;
-      if (!(t instanceof Element) || !this.zone.contains(t) || t.closest("button, .tc-btn, .tc-sheet, .tc-cluster, .tc-sheet *")) return;
+      if (!this.canStick(t)) return;
       if (this.el.classList.contains("hidden") || !this.el.classList.contains("on")) return;
       this.stickDown(e);
     }, { capture: true });
@@ -116,7 +116,7 @@ export class TouchControls {
     window.addEventListener("touchstart", (e) => {
       if (!STICK_ON || this.stickId >= 0 || e.touches.length === 0) return;
       const t = e.changedTouches[0]; if (!t || t.clientX > innerWidth * 0.5) return;
-      const target = e.target; if (!(target instanceof Element) || !this.zone.contains(target) || target.closest("button, .tc-btn, .tc-sheet, .tc-cluster")) return;
+      const target = e.target; if (!this.canStick(target)) return;
       if (this.el.classList.contains("hidden") || !this.el.classList.contains("on")) return;
       this.stickDown(asPointer(t, target));
     }, { capture: true, passive: true });
@@ -276,6 +276,13 @@ export class TouchControls {
     this.sheet.classList.toggle("open", on);
     this.moreButton.setAttribute("aria-expanded",String(on));
     this.el.classList.toggle("sheet-open", on);
+  }
+
+  /** A thumb may start the stick on the zone or on the game canvas and plain overlays, but never on a button, field, menu or panel. */
+  private canStick(t: EventTarget | null): boolean {
+    if (!(t instanceof Element)) return false;
+    if (this.zone.contains(t)) return !t.closest("button, .tc-btn, .tc-sheet, .tc-cluster");
+    return !t.closest("button, a, input, select, textarea, label, summary, [role=dialog], [role=menu], .modal, .modal-wrap, .tc, .panel, .cl-box, aside, nav, header, [data-no-stick]");
   }
 
   private stickDown(e: PointerEvent): void {
