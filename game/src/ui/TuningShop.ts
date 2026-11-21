@@ -1,7 +1,7 @@
 import { h } from "./dom";
 import type { Simulation } from "../sim/Simulation";
 import type { Vehicle } from "../entities/types";
-import { TUNING, TUNE_GROUPS, NEUTRAL, type TuneDef } from "../content/tuning";
+import { TUNING, TUNE_GROUPS, NEUTRAL, familyOf, FAMILY_LABEL, type TuneDef } from "../content/tuning";
 import { install, installed, remove } from "../sim/VehicleTuning";
 
 /** The tuning shop: fifty upgrades in seven groups. Each shows what it changes; fit or remove it on the car you are next to. */
@@ -19,14 +19,14 @@ export function tuningShop(sim: Simulation, car: () => Vehicle | undefined, say:
   const wrap = h("section.tuning-shop"), group = h("select", { "aria-label": "Tuning group" }, TUNE_GROUPS.map((g) => h("option", { value: g, text: g }))) as HTMLSelectElement, list = h("div");
   const render = (): void => {
     const v = car(), fitted = v ? installed(sim, v) : [];
-    list.replaceChildren(...TUNING.filter((t) => t.group === group.value).map((t) => {
+    list.replaceChildren(...TUNING.filter((t) => t.group === group.value && (!t.only || (v && t.only.includes(familyOf(v.cls))))).map((t) => {
       const on = fitted.includes(t.id);
       return h("article.street-card", null, [h("h3", { text: t.name + (on ? " · fitted" : "") }), h("p", { text: t.blurb }), h("small", { text: summary(t) + `  ·  $${t.cost.toLocaleString()}` }),
         h("div", null, [h("button.btn" + (on ? "" : ".acid"), { type: "button", disabled: !v, text: on ? `Remove (refund $${Math.round(t.cost / 2).toLocaleString()})` : "Fit it", onclick: () => { const c = car(); if (!c) { say("Walk up to a vehicle first."); return; } say(on ? remove(sim, c, t.id) : install(sim, c, t.id)); render(); } })])]);
     }));
-    wrap.querySelector("h3.ts-head")!.textContent = v ? `Tuning shop · ${v.plate} · ${fitted.length}/${TUNING.length} fitted` : "Tuning shop · stand next to a car";
+    wrap.querySelector("h3.ts-head")!.textContent = v ? `Tuning shop · ${v.plate} (${FAMILY_LABEL[familyOf(v.cls)]}) · ${fitted.length} fitted` : "Tuning shop · stand next to a car";
   };
   group.addEventListener("change", render);
-  wrap.append(h("h3.ts-head"), h("p", { text: "Fifty upgrades that change how the car really drives: power and boost, brakes, tyres, balance, differentials, weight, aero and electronics. Rear-drive cars will slide under power; all-wheel drive grips and pushes; front-drive understeers." }), group, list);
+  wrap.append(h("h3.ts-head"), h("p", { text: "A hundred upgrades (fifty for every car, fifty made for particular kinds of vehicle) that change how the car really drives: power and boost, brakes, tyres, balance, differentials, weight, aero and electronics. Rear-drive cars will slide under power; all-wheel drive grips and pushes; front-drive understeers." }), group, list);
   render(); return wrap;
 }

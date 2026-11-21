@@ -1,10 +1,11 @@
+import { VEHICLES } from "./vehicles";
 /**
  * Fifty driving upgrades, none of which does the same job as another. Each changes how the car actually behaves in the physics
  * (see sim/VehicleTuning.ts and the car step in sim/Traffic.ts): power and boost, launch and top speed, brakes and brake fade,
  * tyre grip in the dry and wet, how the front bites and the rear lets go, differentials and drivetrain swaps, weight, roll,
  * drag and downforce, cooling, and driver electronics. Prices are game dollars.
  */
-export type TuneGroup = "Engine" | "Drivetrain" | "Brakes" | "Tyres & wheels" | "Suspension & chassis" | "Aero, cooling & body" | "Electronics & steering";
+export type TuneGroup = "For this car" | "Engine" | "Drivetrain" | "Brakes" | "Tyres & wheels" | "Suspension & chassis" | "Aero, cooling & body" | "Electronics & steering";
 /** Multiplier keys start at 1 and multiply together; the others start at 0 and add. */
 export interface Fx {
   power: number; launch: number; top: number; brake: number; fade: number; grip: number; steer: number; steerSpeed: number; oversteer: number; frontBite: number; diff: number; mass: number;
@@ -14,7 +15,7 @@ export interface Fx {
 }
 export const NEUTRAL: Fx = { power: 1, launch: 1, top: 1, brake: 1, fade: 1, grip: 1, steer: 1, steerSpeed: 1, oversteer: 1, frontBite: 1, diff: 1, mass: 1, roll: 1, drag: 1, resp: 1, shift: 1, hand: 1, puncture: 1,
   boost: 0, lag: 0, nitro: 0, wet: 0, rough: 0, down: 0, cooling: 0, durable: 0, warm: 0, launchCtl: 0, drive: "" };
-export interface TuneDef { id: string; name: string; group: TuneGroup; cost: number; blurb: string; fx: Partial<Fx>; conflicts?: string[] }
+export interface TuneDef { id: string; name: string; group: TuneGroup; cost: number; blurb: string; fx: Partial<Fx>; conflicts?: string[]; only?: Family[] }
 const T = (id: string, group: TuneGroup, name: string, cost: number, blurb: string, fx: Partial<Fx>, conflicts: string[] = []): TuneDef => ({ id, group, name, cost, blurb, fx, conflicts });
 
 export const TUNING: TuneDef[] = [
@@ -76,8 +77,101 @@ export const TUNING: TuneDef[] = [
   T("launch", "Electronics & steering", "Launch control", 2100, "The car meters the power to the line: much less wheelspin off a standing start.", { launchCtl: 1, launch: 1.08 }),
   T("rack", "Electronics & steering", "Quick-ratio steering rack", 1900, "More lock and faster response, though it can be twitchy.", { steer: 1.1, steerSpeed: 1.06 }),
 ];
+
+/* ------------------------------------------------------------------ fifty more, each made for particular kinds of vehicle */
+export type Family = "bike" | "hatch" | "sedan" | "muscle" | "sports" | "super" | "suv" | "offroad" | "ute" | "van" | "bus" | "ev" | "classic" | "rally";
+export const FAMILY_LABEL: Record<Family, string> = { bike: "bikes", hatch: "hatchbacks", sedan: "saloons", muscle: "muscle cars", sports: "sports cars", super: "supercars", suv: "SUVs", offroad: "off-roaders", ute: "utes", van: "vans", bus: "buses and trucks", ev: "electric cars", classic: "classics", rally: "rally and drift cars" };
+/** Which kind of vehicle this class is, from its own name and the body style it was built on. */
+export function familyOf(cls: string): Family {
+  const d = VEHICLES[cls as keyof typeof VEHICLES] as unknown as { design?: { base?: string } } | undefined;
+  const k = `${cls} ${d?.design?.base ?? ""}`.toLowerCase();
+  if (/motorcycle|sportbike|cruiser|bicycle|ebike|escooter|scooter|moped/.test(k)) return "bike";
+  if (/rally|drift/.test(k)) return "rally";
+  if (/(^|\W)bus|coach|truck|lorry|tractor/.test(k)) return "bus";
+  if (/tank|fourby|offroad|lift_suv|box_suv|ranger/.test(k)) return "offroad";
+  if (/ambulance|limo|hearse|minivan|camper|stepvan|panelvan|(^|\W)van/.test(k)) return "van";
+  if (/ute|pickup|tradie|flatdeck/.test(k)) return "ute";
+  if (/_ev|ev_|(^|\W)ev(\W|$)|electric/.test(k)) return "ev";
+  if (/super/.test(k)) return "super";
+  if (/muscle|hotrod|lowrider/.test(k)) return "muscle";
+  if (/retro|classic|vintage/.test(k)) return "classic";
+  if (/suv|crossover|wagon/.test(k)) return "suv";
+  if (/jdm|coupe|roadster|sports|fastback|grandtourer/.test(k)) return "sports";
+  if (/hatch|mini|micro|kei/.test(k)) return "hatch";
+  return "sedan";
+}
+const C = (id: string, only: Family[], name: string, cost: number, blurb: string, fx: Partial<Fx>, conflicts: string[] = []): TuneDef => ({ id, group: "For this car", only, name, cost, blurb, fx, conflicts });
+TUNING.push(
+  // bikes
+  C("b-quickshift", ["bike"], "Quickshifter", 650, "Clutchless upshifts: almost no power lost between gears.", { shift: 0.35 }),
+  C("b-slipper", ["bike"], "Slipper clutch", 480, "Calms the rear wheel on a hard downshift, so the back end stays planted.", { oversteer: 0.9, brake: 1.03 }),
+  C("b-damper", ["bike"], "Steering damper", 520, "Kills the head-shake at speed and steadies the front end.", { oversteer: 0.88, steerSpeed: 0.97 }),
+  C("b-sprocket", ["bike"], "Sport sprocket kit", 190, "A shorter final drive: it leaps off the line, tops out lower.", { launch: 1.12, top: 0.95 }),
+  C("b-fairing", ["bike"], "Full aero fairing", 1400, "Slips through the air: lower drag and a higher top speed.", { drag: 0.9, top: 1.04 }),
+  C("b-slicks", ["bike"], "Track slicks", 900, "Huge dry grip. Do not take them out in the rain.", { grip: 1.16, wet: -0.2 }),
+  // hatchbacks
+  C("h-shifter", ["hatch"], "Short-throw shifter", 320, "Quick, tight gear changes.", { shift: 0.75, resp: 1.04 }),
+  C("h-spoiler", ["hatch"], "Roof spoiler", 450, "A touch of rear downforce and a calmer tail at speed.", { down: 0.04, oversteer: 0.94 }),
+  C("h-torsen", ["hatch"], "Helical front differential", 1500, "Front-drive cars pull out of corners instead of spinning the inside wheel.", { diff: 1.15 }),
+  C("h-ducts", ["hatch"], "Brake cooling ducts", 380, "Cooler brakes on a spirited drive.", { fade: 1.25 }),
+  C("h-strip", ["hatch"], "Rear-seat delete", 260, "Lose the back seat and a chunk of weight.", { mass: 0.97 }),
+  // saloons and executives
+  C("s-dct", ["sedan"], "Dual-clutch gearbox", 3900, "Lightning-quick, seamless shifts.", { shift: 0.3, power: 1.01 }),
+  C("s-adaptive", ["sedan"], "Adaptive dampers", 2600, "Soft on the bumps, firm in the corners: less roll and a calmer ride.", { roll: 0.78, rough: 0.06 }),
+  C("s-rearlsd", ["sedan"], "Rear limited-slip diff", 1700, "Better traction out of slow corners.", { diff: 1.12 }),
+  C("s-stability", ["sedan"], "Sports stability tune", 800, "Calibrated to catch a slide earlier: much harder to spin.", { oversteer: 0.84 }),
+  C("s-eco", ["sedan"], "Long-legs economy gearing", 600, "A relaxed motorway cruiser: higher top speed, softer launch.", { top: 1.06, launch: 0.94 }),
+  // muscle cars
+  C("m-posi", ["muscle"], "Positraction rear axle", 1400, "Both rear wheels dig in. Big power, bigger launches.", { diff: 1.18, launch: 1.05 }),
+  C("m-bigblock", ["muscle"], "Big-block engine swap", 7800, "A monster of an engine: huge power, much heavier up front.", { power: 1.25, mass: 1.06, frontBite: 0.93 }),
+  C("m-radials", ["muscle"], "Drag radials", 1100, "Sticky rear rubber for the quarter-mile, uncertain in the wet.", { launch: 1.1, grip: 1.05, wet: -0.12 }),
+  C("m-ramair", ["muscle"], "Ram-air hood", 700, "Forced induction through the bonnet scoop.", { power: 1.03, drag: 1.02 }),
+  C("m-bars", ["muscle"], "Traction bars", 540, "Stops the axle wrapping up under launch, so the power gets down.", { launch: 1.06, oversteer: 0.92 }),
+  // sports cars
+  C("sp-align", ["sports"], "Track alignment", 420, "Aggressive camber and toe: sharper turn-in.", { steer: 1.04, grip: 1.03, steerSpeed: 1.04 }),
+  C("sp-driveshaft", ["sports"], "Carbon driveshaft", 2200, "Less rotating weight: the car revs and responds quicker.", { resp: 1.08, power: 1.015 }),
+  C("sp-magride", ["sports"], "Magnetic ride dampers", 3800, "Dampers that change in milliseconds: flat and composed.", { roll: 0.7, rough: 0.05 }),
+  C("sp-trackpads", ["sports"], "Track brake pads", 760, "Bite hard when hot. A little noisy cold.", { brake: 1.1, fade: 1.3 }),
+  // supercars
+  C("su-aero", ["super"], "Active aero package", 9800, "Flaps and a wing that adjust: massive downforce with little drag penalty.", { down: 0.12, drag: 1.02 }),
+  C("su-launch", ["super"], "Launch-spec gearbox", 6200, "Pre-loaded for a violent start.", { launch: 1.12, shift: 0.5 }),
+  C("su-mono", ["super"], "Carbon monocoque tub", 15000, "A featherweight, rigid core.", { mass: 0.93, roll: 0.9 }),
+  C("su-hybrid", ["super"], "Hybrid boost system", 11000, "Electric assist fills the turbo lag.", { boost: 0.12 }),
+  // SUVs and crossovers
+  C("v-airsus", ["suv"], "Air suspension", 3200, "Raise it for rough roads, drop it for speed.", { rough: 0.15, roll: 0.82 }),
+  C("v-rack", ["suv"], "Aero roof bars", 260, "Slimmer than the stock rack: less drag.", { drag: 0.98 }),
+  C("v-sway", ["suv"], "Active anti-roll", 2900, "Stiffens the car in corners: a tall SUV that leans far less.", { roll: 0.6 }),
+  C("v-torque", ["suv"], "Electronic torque split", 2100, "Moves the drive between axles for traction.", { diff: 1.1, frontBite: 1.05 }),
+  C("v-tow", ["suv"], "Tow-pack cooling", 540, "A bigger cooler for the engine and the gearbox.", { cooling: 0.25 }),
+  // off-roaders
+  C("o-lockers", ["offroad"], "Front and rear locking diffs", 2800, "Maximum traction on loose and uneven ground.", { diff: 1.2, rough: 0.12 }),
+  C("o-snorkel", ["offroad"], "Raised snorkel", 520, "Keeps the engine breathing through deep water.", { wet: 0.08, rough: 0.05 }),
+  C("o-skid", ["offroad"], "Skid plates and sliders", 900, "Protect the underbody on rocks.", { durable: 0.12, mass: 1.015 }),
+  C("o-beadlock", ["offroad"], "Beadlock wheels", 1900, "Run low tyre pressure without losing the tyre.", { puncture: 0.35, rough: 0.12 }),
+  C("o-airshock", ["offroad"], "Long-travel shocks", 3300, "Eats big bumps.", { rough: 0.3, roll: 1.05 }),
+  C("o-bullbar", ["offroad"], "Steel bull bar", 640, "Shrugs off knocks, adds weight up front.", { durable: 0.08, mass: 1.02 }),
+  // utes, vans, buses and trucks
+  C("u-leaf", ["ute", "van", "bus"], "Heavy-duty leaf springs", 780, "Stiffer rear, less body roll under load.", { roll: 0.8, rough: 0.08 }),
+  C("u-airbags", ["ute", "van"], "Load-levelling air bags", 920, "Keeps the tail steady when it is loaded.", { oversteer: 0.92, roll: 0.9 }),
+  C("u-tonneau", ["ute"], "Tonneau cover", 400, "Smooths the airflow over the tray: less drag.", { drag: 0.97 }),
+  C("u-diesel", ["ute", "van", "bus"], "Diesel torque tune", 2100, "Loads of low-down pull; it runs out of breath sooner.", { power: 1.1, top: 0.95 }),
+  C("u-exbrake", ["bus", "van"], "Exhaust brake", 1500, "Engine braking that saves the brakes on long descents.", { fade: 1.35 }),
+  C("u-airsus", ["bus"], "Full air suspension", 4200, "Level and smooth: far less pitch and roll.", { roll: 0.6, rough: 0.1 }),
+  // electric
+  C("e-regen", ["ev"], "Regen tuning", 800, "Stronger regeneration: slows you more with the pedal lifted.", { brake: 1.04, fade: 1.2 }),
+  C("e-torquemap", ["ev"], "Sport torque map", 1200, "Instant torque, remapped for a rapid start.", { launch: 1.1, resp: 1.1 }),
+  C("e-lowrr", ["ev"], "Low-rolling-resistance tyres", 900, "Slippery rubber: less drag, slightly less grip.", { drag: 0.93, grip: 0.98 }),
+  // classics
+  C("c-discs", ["classic"], "Disc brake conversion", 1900, "Swap the old drums for discs: far stronger, far less fade.", { brake: 1.2, fade: 1.3 }),
+  C("c-overdrive", ["classic"], "Overdrive gearbox", 1500, "A taller top gear: relaxed and quick on the open road.", { top: 1.08 }),
+  C("c-powersteer", ["classic"], "Power steering conversion", 1100, "No more arm-wrestling the wheel.", { steerSpeed: 1.15, steer: 1.04 }),
+  // rally and drift
+  C("r-welded", ["rally", "sports", "muscle"], "Welded differential", 450, "Locks both rear wheels together: a drift machine, a handful on the street.", { diff: 1.2, oversteer: 1.1 }),
+  C("r-gravel", ["rally", "offroad"], "Gravel-spec suspension", 3100, "Long travel and soft damping for loose surfaces.", { rough: 0.35, roll: 1.1 }),
+  C("r-angle", ["rally", "sports", "muscle"], "Steering angle kit", 2400, "Huge lock for holding deep slides.", { steer: 1.18, oversteer: 1.1 }),
+);
 export const TUNING_BY_ID = new Map(TUNING.map((t) => [t.id, t]));
-export const TUNE_GROUPS: TuneGroup[] = ["Engine", "Drivetrain", "Brakes", "Tyres & wheels", "Suspension & chassis", "Aero, cooling & body", "Electronics & steering"];
+export const TUNE_GROUPS: TuneGroup[] = ["For this car", "Engine", "Drivetrain", "Brakes", "Tyres & wheels", "Suspension & chassis", "Aero, cooling & body", "Electronics & steering"];
 const ADD = new Set(["boost", "lag", "nitro", "wet", "rough", "down", "cooling", "durable", "warm", "launchCtl"]);
 /** Combine the installed upgrades into one set of effects. */
 export function combine(ids: readonly string[]): Fx {

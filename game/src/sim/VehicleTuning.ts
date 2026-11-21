@@ -1,6 +1,6 @@
 import type { Simulation } from "./Simulation";
 import type { Vehicle } from "../entities/types";
-import { TUNING_BY_ID, combine, NEUTRAL, type Fx } from "../content/tuning";
+import { TUNING_BY_ID, combine, NEUTRAL, familyOf, FAMILY_LABEL, type Fx } from "../content/tuning";
 
 /** Installed upgrades per car (by plate, saved in worldFun.tuning), combined into the effects the car step reads. */
 const cache = new WeakMap<Vehicle, { key: string; fx: Fx }>();
@@ -12,6 +12,7 @@ export function tuningEffects(sim: Simulation, v: Vehicle): Fx {
 }
 export function install(sim: Simulation, v: Vehicle, id: string): string {
   const t = TUNING_BY_ID.get(id), p = sim.player; if (!t) return "Unknown upgrade.";
+  if (t.only && !t.only.includes(familyOf(v.cls))) return `${t.name} is only made for ${t.only.map((f) => FAMILY_LABEL[f]).join(" and ")}.`;
   const list = (sim.worldFun.tuning ??= {})[v.plate] ??= []; if (list.includes(id)) return "Already fitted.";
   const clash = t.conflicts?.find((c) => list.includes(c)); if (clash) return `Remove the ${TUNING_BY_ID.get(clash)?.name.toLowerCase()} first.`;
   if (p.cash < t.cost) return `${t.name} costs $${t.cost.toLocaleString()}.`;
