@@ -166,6 +166,38 @@ export class DrivingView {
    }
   }
   const screenHull=(pts:[number,number][],height:number):[number,number][]=>{const out:[number,number][]=[];for(const [x,y] of pts)for(const z of[0,height]){const q=screen(local(x,y,z));out.push([q.x,q.y]);}return convexHull(out);};
+  // Sun shadows, the cheap stand-in for ray tracing: every wall edge throws a quad away from the sun (all in one path, so overlaps never
+  // double-darken), a tighter darker core hugs the wall, and cars and people get soft ground shadows. Skipped at night and when the view is struggling.
+  const hourNow=((sim.hour%24)+24)%24,sunA=Math.PI*(hourNow-6)/12,sunUp=Math.max(0,Math.sin(sunA));
+  if(sunUp>.06&&!reduceMotion&&this.lod>.5){
+   const sdx=-Math.cos(sunA),sdy=.42+.3*(1-sunUp),sl=Math.hypot(sdx,sdy),shx=sdx/sl,shy=sdy/sl,shadowR=Math.round(64*Math.max(.5,this.lod)),alpha=Math.min(.36,.1+sunUp*.3);
+   const shadowQuads:{pts:[number,number][];height:number;wind:number}[]=[];
+   for(const id of worldIndex(sim.world).buildings.query(cx-shadowR,cy-shadowR,cx+shadowR,cy+shadowR)){
+    const b=sim.world.buildings[id];if(!b)continue;const bx=(b.x0+b.x1+1)/2,by=(b.y0+b.y1+1)/2,forward=(bx-ex)*fx+(by-ey)*fy;if(forward<-12||forward>shadowR)continue;
+    const source=map?.byBuilding.get(id),cachedFp=source&&map?this.footprint(source,map):null,fp=cachedFp?.points??[[b.x0,b.y0],[b.x1+1,b.y0],[b.x1+1,b.y1+1],[b.x0,b.y1+1]] as [number,number][];if(fp.length<3)continue;
+    const height=Math.max(1,Math.min(60,source&&map?source.height/map.metresPerTile:b.height));let area=0;for(let i=0;i<fp.length;i++){const a=fp[i],z=fp[(i+1)%fp.length];area+=a[0]*z[1]-z[0]*a[1];}
+    shadowQuads.push({pts:fp,height,wind:area>=0?1:-1});if(shadowQuads.length>90)break;
+   }
+   items.push({k:"shadow",depth:1e6,draw:()=>{
+    const reach=Math.min(.45,Math.max(.12,Math.tan(.15+(1-sunUp)*1.1)*.5));   // longer shadows when the sun is low
+    for(const [scale,a] of [[1,alpha],[.42,alpha*.55]] as const){
+     g.beginPath();
+     for(const sq of shadowQuads){const len=Math.min(sq.height*reach*2.2,30)*scale,fp=sq.pts;
+      for(let i=0;i<fp.length;i++){const p=fp[i],q=fp[(i+1)%fp.length],nx=(q[1]-p[1])*sq.wind,ny=-(q[0]-p[0])*sq.wind;if(nx*shx+ny*shy<=0)continue;
+       const c4:[number,number][]=[[p[0],p[1]],[q[0],q[1]],[q[0]+shx*len,q[1]+shy*len],[p[0]+shx*len,p[1]+shy*len]],pr=c4.map(c=>local(c[0],c[1],0));if(pr.some(c=>c.z<=near))continue;
+       const sc=pr.map(screen);let ar=0;for(let k=0;k<4;k++){const s1=sc[k],s2=sc[(k+1)%4];ar+=s1.x*s2.y-s2.x*s1.y;}if(ar<0)sc.reverse();
+       g.moveTo(sc[0].x,sc[0].y);for(let k=1;k<4;k++)g.lineTo(sc[k].x,sc[k].y);g.closePath();}
+     }
+     g.fillStyle=`rgba(10,8,18,${a})`;g.fill();
+    }
+    // soft ground shadows under cars and people
+    g.fillStyle=`rgba(10,8,18,${Math.min(.34,.12+sunUp*.22)})`;
+    for(const v of sim.vehicles){const dx=v.x-ex,dy=v.y-ey,fwd=dx*fx+dy*fy;if(fwd<1||fwd>70||v.x<0)continue;const gg=vehicleGeometry(v),hl=gg.length*.56,hw=gg.width*.6,co=Math.cos(v.heading),si=Math.sin(v.heading);
+     g.beginPath();let ok=true;for(let k=0;k<12;k++){const t=k/12*Math.PI*2,lx=Math.cos(t)*hl,ly=Math.sin(t)*hw,wx=v.x+lx*co-ly*si+shx*.35,wy=v.y+lx*si+ly*co+shy*.35,p=local(wx,wy,0);if(p.z<=near){ok=false;break;}const s=screen(p);if(k)g.lineTo(s.x,s.y);else g.moveTo(s.x,s.y);}if(ok){g.closePath();g.fill();}}
+    g.fillStyle=`rgba(10,8,18,${Math.min(.3,.1+sunUp*.2)})`;let shown=0;
+    for(const c of sim.chars){if(c.inCar>=0||c.inside>=0)continue;const dx=c.x-ex,dy=c.y-ey,fwd=dx*fx+dy*fy;if(fwd<1||fwd>34)continue;const p=local(c.x+shx*.18,c.y+shy*.18,c.z),s=screen(p),r=Math.max(2,focal/p.z*.42);g.beginPath();g.ellipse(s.x,s.y,r,r*.38,0,0,6.283);g.fill();if(++shown>70)break;}
+   }});
+  }
   const damageByBuilding=new Map<number|string,import('../sim/MappedFacadeDamage').MappedFacadeRecord[]>();for(const d of sim.mappedDamage.values()){const list=damageByBuilding.get(d.buildingId)??[];list.push(d);damageByBuilding.set(d.buildingId,list);}
   for(const id of worldIndex(sim.world).buildings.query(cx-farRadius,cy-farRadius,cx+farRadius,cy+farRadius)){
    const b=sim.world.buildings[id];if(!b)continue;const bx=(b.x0+b.x1+1)/2,by=(b.y0+b.y1+1)/2,extent=Math.hypot(b.x1-b.x0+1,b.y1-b.y0+1)/2,forward=(bx-ex)*fx+(by-ey)*fy,side=(bx-ex)*rx+(by-ey)*ry;if(forward+extent<near||forward-extent>farRadius||Math.abs(side)>Math.max(0,forward)*1.05+extent*2+8)continue;const source=map?.byBuilding.get(id),cached=source&&map?this.footprint(source,map):null,pts=cached?.points??[[b.x0,b.y0],[b.x1+1,b.y0],[b.x1+1,b.y1+1],[b.x0,b.y1+1]] as [number,number][];
