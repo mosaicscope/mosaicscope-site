@@ -1,5 +1,5 @@
 {
- "at": 1795291387097,
+ "at": 1795292903722,
  "totals": {
   "duplicate-code": 11,
   "long-function": 22,
@@ -83,10 +83,10 @@
   {
    "kind": "duplicate-code",
    "severity": "low",
-   "where": "game/src/ui/felt/RoyalFelt.ts:2201 = game/src/ui/felt/RoyalFelt.ts:2225",
+   "where": "game/src/ui/felt/RoyalFelt.ts:2221 = game/src/ui/felt/RoyalFelt.ts:2245",
    "detail": "8+ identical lines in 2 places",
    "fix": "extract a shared helper",
-   "fp": "duplicate-code|1918x6g"
+   "fp": "duplicate-code|1oc5h14"
   },
   {
    "kind": "duplicate-code",
@@ -460,9 +460,9 @@
    "kind": "oversized-module",
    "severity": "medium",
    "where": "game/src/ui/felt/RoyalFelt.ts",
-   "detail": "3679 lines",
+   "detail": "3733 lines",
    "fix": "split by feature into modules",
-   "fp": "oversized-module|lon0f"
+   "fp": "oversized-module|1rj9zlq"
   },
   {
    "kind": "oversized-module",
