@@ -624,6 +624,8 @@ export class Game {
         return;
       }
     }
+    const coop = (window as unknown as { __mp?: { coop?: import("../net/Coop").Coop } }).__mp?.coop;
+    if (coop?.riding) { coop.leaveRide(sim); return; }
     if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; if (Math.abs(v.speed) > 2) { this.toast("Slow down to get out"); return; } const door = this.nearDoor(); v.speed = 0; unseat(sim, v); v.state = "parked"; this.renderer.cam.follow = p.id; if (door) this.enterPlace(door); return; } // pull up outside and E walks you straight in
     const door = this.nearDoor();
     // At the entrance itself E means enter; nearby litter must not steal the door action.
@@ -637,6 +639,7 @@ export class Game {
     if(nudgeStreetProp(sim))return;
     const car = nearestCar(sim, p.x, p.y, 2.2);
     if (!car) { this.toast("Nothing to pick up here"); return; }
+    if (coop?.isGhostCar(car)) { if (!coop.ride(sim, car)) this.toast("Nobody is driving that"); return; }
     if (car.forSale) { this.toast(`For sale: ${fmtCash(car.price)}. Buy it inside the dealership.`); return; }
     const mine = car.owner === p.id;
     if (car.driver >= 0) {
@@ -1332,6 +1335,7 @@ export class Game {
     context: () => {
       const sim = this.sim, p = sim.player;
       if (p.inCar >= 0) return { label: "Get out", icon: "exit" };
+      const rt = (window as unknown as { __mp?: { coop?: import("../net/Coop").Coop } }).__mp?.coop?.rideTarget(sim); if (rt) return { label: `Ride with ${rt.name}`, icon: "use" };
       const d = this.nearDoor(); if (d) return { label: d.studio ? "Enter Studio" : `Enter ${sim.world.buildings[d.building].name}`, icon: "use" };
       if (this.nearestToy()) return { label: "Pick up", icon: "pickup" };
       if (this.nearestLitter()) return { label: "Pick up litter", icon: "use" };

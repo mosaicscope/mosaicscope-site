@@ -1,6 +1,7 @@
 import type { Character } from "../entities/types";
 import type { Simulation } from "../sim/Simulation";
 import { TICKS_PER_HOUR } from "../sim/Environment";
+import { Coop, parseAux } from "./Coop";
 
 /**
  * Mosaics World, together. Type the same PIN as someone else and you share one world: you see each other's characters walk
@@ -20,7 +21,27 @@ export class Multiplayer {
   private myId = Math.random().toString(36).slice(2, 12);
   private socks = new Map<string, WebSocket>(); private remotes = new Map<string, Remote>(); private pool: Character[] = []; private slot = new Map<string, number>();
   private sendAt = 0; private raf = 0; private retryAt = new Map<string, number>(); private syncedAt = 0; private listeners: (() => void)[] = [];
-  constructor(private sim: () => Simulation | undefined) {}
+  coop: Coop; private toastEl: HTMLElement | null = null; private toastT = 0;
+  constructor(private sim: () => Simulation | undefined) {
+    this.coop = new Coop({ myId: this.myId, send: (o) => this.sendAll(o), note: (t) => this.note(t),
+      peer: (id) => this.peerOf(id), peers: () => [...this.slot].map(([id]) => this.peerOf(id)).filter((p): p is NonNullable<typeof p> => !!p) });
+  }
+  private sendAll(o: object): void { const s = JSON.stringify(o); for (const w of this.socks.values()) if (w.readyState === 1) w.send(s); }
+  private peerOf(id: string): { peer: { id: string; name: string; x: number; y: number; c: string }; ghost: Character; slot: number } | undefined {
+    const r = this.remotes.get(id), i = this.slot.get(id); if (!r || i === undefined) return undefined;
+    return { peer: { id, name: r.name, x: r.x, y: r.y, c: r.c }, ghost: this.pool[i], slot: i };
+  }
+  nearestPeer(range: number): { id: string; name: string } | undefined {
+    const sim = this.sim(); if (!sim) return undefined; const p = sim.player; let best: { id: string; name: string } | undefined, bd = range;
+    for (const [id, i] of this.slot) { const r = this.remotes.get(id); if (!r) continue; const d = Math.hypot(r.x - p.x, r.y - p.y); if (d < bd) { bd = d; best = { id, name: r.name }; } void i; }
+    return best;
+  }
+  /** A short message at the top of the screen for co-op happenings. */
+  note(t: string): void {
+    if (typeof document === "undefined") return;
+    let el = this.toastEl; if (!el) { el = this.toastEl = document.createElement("div"); el.setAttribute("role", "status"); el.style.cssText = "position:fixed;left:50%;top:calc(max(72px,env(safe-area-inset-top)) + 8px);transform:translateX(-50%);z-index:60;max-width:min(92vw,420px);background:rgba(24,17,18,.92);color:#f1ece6;border:1px solid #b3343c;border-radius:10px;padding:8px 12px;font:600 13px/1.35 system-ui,sans-serif;text-align:center;pointer-events:none"; document.body.append(el); }
+    el.textContent = t; el.style.display = "block"; clearTimeout(this.toastT); this.toastT = window.setTimeout(() => { if (this.toastEl) this.toastEl.style.display = "none"; }, 3500);
+  }
   onChange(fn: () => void): void { this.listeners.push(fn); }
   private changed(): void { for (const f of this.listeners) f(); }
 
@@ -33,6 +54,7 @@ export class Multiplayer {
   }
   leave(): void {
     cancelAnimationFrame(this.raf); try { this.lob?.close(); } catch { /* closed */ } this.lob = null; for (const s of this.socks.values()) { try { s.close(); } catch { /* closed */ } }
+    const sm = this.sim(); if (sm) { if (this.coop.riding) this.coop.leaveRide(sm); for (const i of this.slot.values()) this.coop.release(sm, i); }
     this.socks.clear(); this.remotes.clear(); this.slot.clear(); for (const c of this.pool) this.park(c);
     this.status = "off"; this.nearby = 0; this.message = ""; this.changed();
   }
@@ -112,7 +134,7 @@ export class Multiplayer {
 
   private onMsg(raw: unknown): void {
     if (typeof raw !== "string") return;
-    let m: { t: string; p?: unknown[][]; now?: number; id?: string; n?: string; m?: string };
+    let m: { t: string; p?: unknown[][]; now?: number; id?: string; n?: string; m?: string; k?: string; to?: string; s?: string; d?: number };
     try { m = JSON.parse(raw); } catch { return; }
     const sim = this.sim(); if (!sim) return;
     if (m.t === "w" && m.p) {
@@ -123,6 +145,8 @@ export class Multiplayer {
           name: r.length > 8 ? String(r[8]) : old?.name ?? "Mosaic", look: r.length > 9 ? (r[9] as Record<string, unknown>) : old?.look ?? {}, at: performance.now() });
       }
       if (m.now && performance.now() - this.syncedAt > 300000) { this.syncedAt = performance.now(); this.syncClock(sim, m.now); }
+    } else if (m.t === "e") {
+      this.coop.onEvent(sim, m as { id?: string; n?: string; k?: string; to?: string; s?: string; d?: number });
     } else if (m.t === "c" && m.id && m.m) {
       const i = this.slot.get(m.id), c = i === undefined ? undefined : this.pool[i];
       if (c) sim.say(c, m.m, "say", 6);
@@ -153,15 +177,14 @@ export class Multiplayer {
     for (const cell of want) if (!this.socks.has(cell)) this.connect(cell);
     if (now - this.sendAt > SEND_MS && p.inside < 0) {
       this.sendAt = now;
-      const car = p.inCar >= 0 ? String(sim.vehicles[p.inCar]?.cls ?? "") : "";
-      const msg = JSON.stringify({ t: "s", x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), h: +p.facing.toFixed(2), sp: +Math.hypot(p.vx, p.vy).toFixed(1), p: p.anim.pose, c: car });
+            const msg = JSON.stringify({ t: "s", x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), h: +p.facing.toFixed(2), sp: +Math.hypot(p.vx, p.vy).toFixed(1), p: p.anim.pose, c: this.coop.aux(sim) });
       for (const s of this.socks.values()) if (s.readyState === 1) s.send(msg);
     }
     // drop the long-gone, pick the nearest few to draw
     for (const [id, r] of this.remotes) if (now - r.at > TTL_MS) this.remotes.delete(id);
     const near = [...this.remotes.values()].sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y)).slice(0, this.pool.length);
     const keep = new Set(near.map((r) => r.id));
-    for (const [id, i] of [...this.slot]) if (!keep.has(id)) { this.park(this.pool[i]); this.slot.delete(id); }
+    for (const [id, i] of [...this.slot]) if (!keep.has(id)) { this.coop.release(sim, i); this.park(this.pool[i]); this.slot.delete(id); }
     const used = new Set(this.slot.values());
     for (const r of near) {
       let i = this.slot.get(r.id);
@@ -172,8 +195,12 @@ export class Multiplayer {
       }
       const c = this.pool[i], dx = r.x - c.x, dy = r.y - c.y, far = Math.hypot(dx, dy) > 12;
       c.x = c.px = far ? r.x : c.x + dx * 0.25; c.y = c.py = far ? r.y : c.y + dy * 0.25; c.z = r.z; c.facing = r.h;
-      c.vx = Math.cos(r.h) * r.sp; c.vy = Math.sin(r.h) * r.sp; c.anim.pose = r.p; c.inCar = -1; c.inside = -1;
+      c.vx = Math.cos(r.h) * r.sp; c.vy = Math.sin(r.h) * r.sp; c.anim.pose = r.p; c.inside = -1;
+      const a = parseAux(r.c); c.name = r.name + (a.pvp ? " ⚔" : "");
+      this.coop.applyGhost(sim, i, c, r, a);
+      if (a.cls === "ride") { c.inCar = -1; c.x = c.px = -400; c.y = c.py = -400; }
     }
+    this.coop.step(sim);
     this.nearby = this.slot.size;
     if (Math.floor(now / 1000) !== Math.floor((now - 17) / 1000)) this.changed();
   }

@@ -27,19 +27,35 @@ export function mountMultiplayer(sim: () => Simulation | undefined): Multiplayer
 <input class="mp-pin" placeholder="World PIN (e.g. 4821)" maxlength="32" autocomplete="off" inputmode="text"/>
 <div><button class="mp-join">Join</button><button class="alt mp-meet">Meet up</button><button class="alt mp-leave">Leave</button></div><div class="mp-status"></div>
 <div class="mp-list"></div>
+<div class="mp-together" hidden><h3>Together</h3><button class="alt mp-fight"></button><div class="mp-near"></div><small class="mp-tip"></small></div>
 <input class="mp-say" placeholder="Say something nearby, press Enter" maxlength="120" autocomplete="off" hidden/>
 <details><summary>Server</summary><input class="mp-url" placeholder="${DEFAULT_URL}"/><small>Only change this if you run your own server.</small></details>`;
   document.body.append(btn, panel);
   const $ = <T extends HTMLElement>(s: string) => panel.querySelector(s) as T;
   const pin = $<HTMLInputElement>(".mp-pin"), url = $<HTMLInputElement>(".mp-url"), say = $<HTMLInputElement>(".mp-say"), name = $<HTMLInputElement>(".mp-name"), status = $(".mp-status"), list = $(".mp-list");
   pin.value = store.get(KEY_PIN); url.value = store.get(KEY_URL); name.value = store.get("mosaics-world:mp-name");
+  const together = $(".mp-together"), fight = $<HTMLButtonElement>(".mp-fight"), nearBox = $(".mp-near"), tip = $(".mp-tip");
+  fight.onclick = () => { mp.coop.setPvp(!mp.coop.pvp); render(); };
   const render = () => {
     btn.classList.toggle("live", mp.status === "live");
     btn.textContent = mp.status === "live" ? `🌐 ${mp.pin} · ${mp.total || mp.nearby + 1} here` : "🌐 World PIN";
     status.textContent = mp.status === "off" ? "Not connected" : mp.status === "live" ? (mp.message || `In world ${mp.pin} · ${mp.total || mp.nearby + 1} Mosaics here, ${mp.nearby} near you`) : mp.message;
     say.hidden = mp.status !== "live";
     list.replaceChildren();
+    together.hidden = mp.status !== "live";
+    fight.textContent = mp.coop.pvp ? "⚔ Fight mode: ON (tap to turn off)" : "⚔ Fight mode: off (tap to turn on)";
+    tip.textContent = mp.coop.riding ? "You are riding along. Press E or Get out to leave." : "Walk up to a friend's car and press E (Ride) to hop in. Both of you need Fight mode on to hurt each other.";
+    nearBox.replaceChildren();
     const s = sim(); const me = s?.player;
+    if (s && mp.status === "live") {
+      const near = mp.nearestPeer(10);
+      if (near) {
+        const row = document.createElement("div"); const who = document.createElement("b"); who.textContent = near.name; row.append("With ", who, ": ");
+        for (const [k, label] of [["hi5", "High five"], ["hug", "Hug"], ["dance", "Dance"], ["cheers", "Cheers"]] as const) { const b = document.createElement("button"); b.className = "alt"; b.textContent = label; b.onclick = () => { mp.coop.emoteTo(s, k, near.id); panel.hidden = true; }; row.append(b); }
+        for (const amt of [50, 500]) { const b = document.createElement("button"); b.className = "alt"; b.textContent = "Give $" + amt; b.onclick = () => { mp.note(mp.coop.give(s, near.id, amt)); render(); }; row.append(b); }
+        nearBox.append(row);
+      } else nearBox.textContent = "Nobody within reach. Walk up to a friend to high five, hug, dance or hand over cash.";
+    }
     for (const o of mp.others.slice(0, 12)) {
       const b = document.createElement("button"), d = me ? Math.round(Math.hypot(o.x - me.x, o.y - me.y)) : 0;
       const strong = document.createElement("b"); strong.textContent = o.name; b.append("Go to ", strong, ` · ${d} tiles`); b.onclick = () => { mp.goTo(o.x, o.y); panel.hidden = true; }; list.append(b);

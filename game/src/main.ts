@@ -59,7 +59,7 @@ try {
   game.start();
   loadMosaicScope();
   (window as any).__mosaics = game; // handy for debugging and the smoke test
-  mountMultiplayer(() => (game as any).sim); // the "World PIN" button: play together with anyone who types the same PIN
+  (window as unknown as { __mp?: unknown }).__mp = mountMultiplayer(() => (game as any).sim); // the "World PIN" button: play together with anyone who types the same PIN
   window.addEventListener("error", (e) => console.error("[mosaics]", e.message));
 } catch (e) {
   console.error(e);

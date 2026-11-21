@@ -14,7 +14,7 @@ const MAX_SEEN = 48;           // nearest people sent to each client
 const TICK_MS = 200;           // snapshot rate (5 per second)
 const GONE_MS = 6000;          // no update for this long = left
 const MAX_SOCKETS = 1800;      // per cell
-const MAX_MSG_PER_SEC = 14;
+const MAX_MSG_PER_SEC = 26;
 const MAX_CHAT = 120;
 
 interface Env { WORLD: any }
@@ -74,8 +74,12 @@ export class Cell {
     } else if (m.t === "s" && conn.id) {   // state
       const p = this.players.get(conn.id); if (!p) return;
       p.x = conn.x = num(m.x, -1e5, 1e5, p.x); p.y = conn.y = num(m.y, -1e5, 1e5, p.y); p.z = num(m.z, -10, 200, 0); p.h = num(m.h, -7, 7, 0);
-      p.sp = num(m.sp, 0, 60, 0); p.p = str(m.p, 16) || "auto"; p.c = str(m.c, 20); p.at = now; p.ver++;
+      p.sp = num(m.sp, 0, 60, 0); p.p = str(m.p, 16) || "auto"; p.c = str(m.c, 80); p.at = now; p.ver++;
       if (m.n) p.name = str(m.n, 24) || p.name;
+    } else if (m.t === "e" && conn.id) {   // co-op event (ride, hit, emote, gift): heard by people within earshot, the receiver filters by "to"
+      const p = this.players.get(conn.id); if (!p) return;
+      const msg = JSON.stringify({ t: "e", id: p.id, n: p.name, k: str(m.k, 8), to: str(m.to, 24), s: str(m.s, 60), d: num(m.d, 0, 5000, 0) });
+      for (const c of this.conns) { if (!c.id || c.id === p.id) continue; const dx = c.x - p.x, dy = c.y - p.y; if (dx * dx + dy * dy < INTEREST * INTEREST) { try { c.ws.send(msg); } catch { /* closed */ } } }
     } else if (m.t === "c" && conn.id) {   // chat: heard by people within earshot
       const p = this.players.get(conn.id), text = str(m.m, MAX_CHAT); if (!p || !text) return;
       const msg = JSON.stringify({ t: "c", id: p.id, n: p.name, m: text });
