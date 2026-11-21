@@ -15,13 +15,26 @@ const toE = (x: number, y: number, z = 0): Vec3 => ({ x: x * M, y: z, z: y * M }
 const toGame = (p: Vec3) => ({ x: p.x / M, y: p.z / M });
 const MONTH_C = [17, 17, 15, 12, 9, 6, 6, 7, 9, 12, 14, 16];   // Christchurch monthly mean temperatures, January first
 const ANCHOR: Record<string, AnchorTag> = { lamp: "lamp", light: "lamp", bench: "bench", bin: "bin", door: "door", streetsign: "sign", roadsign: "sign", busstop: "sign" };
-interface Rt { engine: AmbientEngine; cues: Cue[]; wet: number; still: number; lx: number; ly: number; ctx: WorldContext | null }
+interface Critter { sp: string; x: number; y: number; tx: number; ty: number; speed: number; orbit: number; a: number }
+interface Prop { prop: string; x: number; y: number }
+interface Rt { engine: AmbientEngine; cues: Cue[]; wet: number; still: number; lx: number; ly: number; ctx: WorldContext | null; critters: Map<number, Critter>; props: Map<number, Prop>; beat: number }
+/** The renderer already draws pooled particles (dust, water, text glyphs...); critters and drifting props are drawn as short-lived glyphs refreshed as they move. */
+const PRESET: Record<string, { kind: string; color?: string; text?: string }> = {
+  dust_devil: { kind: "dust" }, feather_dust: { kind: "dust", color: "#f4f0e6" }, leaf_burst: { kind: "text", text: "🍂" }, leaf_fall: { kind: "text", text: "🍃" }, leaf_swirl: { kind: "text", text: "🍂" },
+  puddle_splash: { kind: "rain_splash" }, sun_glint: { kind: "star", color: "#fff6c0" }, water_splash_small: { kind: "water" },
+};
+const CRITTER: Record<string, string> = { cat: "🐈", pigeon: "🐦", songbird: "🐦", squirrel: "🐿️", butterfly: "🦋", moth: "🦋" };
+const PROP: Record<string, string> = { prop_leaf: "🍂", prop_paper_cup: "🥤", prop_newspaper: "📰", prop_plastic_bag: "🛍️", prop_tin_can: "🥫", prop_crisp_packet: "🍟", prop_feather: "🪶", prop_balloon: "🎈", prop_tumbleweed: "🌾", prop_seed_fluff: "✨" };
+const fx = (sim: Simulation, kind: string, x: number, y: number, z: number, n = 1, color?: string, text?: string): void => {
+  if (Math.hypot(x - sim.player.x, y - sim.player.y) > 30) return;
+  sim.bus.emit("fx", { kind, x, y, z, n, color, text } as never);
+};
 const rts = new WeakMap<Simulation, Rt>();
 
 function runtime(sim: Simulation): Rt {
   let rt = rts.get(sim);
   if (!rt) {
-    const made: Rt = { engine: null as unknown as AmbientEngine, cues: [], wet: 0, still: 0, lx: sim.player.x, ly: sim.player.y, ctx: null };
+    const made: Rt = { engine: null as unknown as AmbientEngine, cues: [], wet: 0, still: 0, lx: sim.player.x, ly: sim.player.y, ctx: null, critters: new Map(), props: new Map(), beat: 0 };
     made.engine = new AmbientEngine({ emit: (cue) => route(sim, made, cue) }, { seed: sim.cfg.seed, density: 0.8, maxLitter: 60 });
     rts.set(sim, made); rt = made;
   }
@@ -35,7 +48,38 @@ function route(sim: Simulation, rt: Rt, cue: Cue): void {
     if (sim.world.walkable(g.x, g.y) && !sim.world.carriageway(g.x, g.y)) sim.litter.add(LITTER_KINDS[Math.abs(cue.handle) % LITTER_KINDS.length], g.x, g.y);
     return;
   }
-  rt.cues.push(cue); if (rt.cues.length > 200) rt.cues.shift();   // for a renderer to draw
+  if (cue.kind === "particles") { const g = toGame(cue.pos), p = PRESET[cue.preset] ?? { kind: "dust" }; fx(sim, p.kind, g.x, g.y, cue.pos.y + 0.3, Math.max(1, Math.round(cue.intensity * 4)), p.color, p.text); return; }
+  if (cue.kind === "critter") {
+    const g = toGame(cue.pos), t = cue.target ? toGame(cue.target) : g;
+    if (cue.action === "despawn") rt.critters.delete(cue.handle);
+    else if (cue.action === "spawn") rt.critters.set(cue.handle, { sp: cue.species, x: g.x, y: g.y, tx: t.x, ty: t.y, speed: (cue.speed ?? 1) / M, orbit: 0, a: 0 });
+    else { const c = rt.critters.get(cue.handle); if (c) { if (cue.action === "moveTo") { c.tx = t.x; c.ty = t.y; c.speed = (cue.speed ?? c.speed * M) / M; c.orbit = 0; } else if (cue.action === "orbit") { c.tx = g.x; c.ty = g.y; c.orbit = (cue.radius ?? 3) / M; } } }
+    return;
+  }
+  if (cue.kind === "prop") {
+    const g = toGame(cue.pos);
+    if (cue.action === "despawn") rt.props.delete(cue.handle); else rt.props.set(cue.handle, { prop: cue.prop, x: g.x, y: g.y });
+    return;
+  }
+  if (cue.kind === "light") {
+    const poi = sim.world.pois[Number(cue.anchorId.replace("poi:", ""))];
+    if (poi && cue.mode !== "on") fx(sim, "flash", poi.x, poi.y, 2.4, 1);
+    return;
+  }
+  rt.cues.push(cue); if (rt.cues.length > 200) rt.cues.shift();   // anchor animations and the like, for a renderer to draw
+}
+
+/** Move the critters and refresh glyphs for critters and props so they read as moving things. */
+function visuals(sim: Simulation, rt: Rt, dt: number): void {
+  rt.beat += dt;
+  const refresh = rt.beat >= 0.4; if (refresh) rt.beat = 0;
+  for (const [h, c] of rt.critters) {
+    if (c.orbit > 0) { c.a += dt * c.speed / Math.max(0.5, c.orbit); c.x = c.tx + Math.cos(c.a) * c.orbit; c.y = c.ty + Math.sin(c.a) * c.orbit; }
+    else { const dx = c.tx - c.x, dy = c.ty - c.y, d = Math.hypot(dx, dy); if (d > 0.05) { const s = Math.min(d, c.speed * dt); c.x += dx / d * s; c.y += dy / d * s; } }
+    if (Math.hypot(c.x - sim.player.x, c.y - sim.player.y) > 60) rt.critters.delete(h);
+    else if (refresh) fx(sim, "text", c.x, c.y, c.sp === "butterfly" || c.sp === "moth" || c.sp === "songbird" ? 1.2 : 0.4, 1, undefined, CRITTER[c.sp] ?? "🐾");
+  }
+  if (refresh) for (const [h, p] of rt.props) { if (rt.props.size > 40) rt.props.delete(h); else fx(sim, "text", p.x, p.y, 0.25, 1, undefined, PROP[p.prop] ?? "🍂"); }
 }
 
 /** Cues the game has no drawing for yet (props, critters, particles, lights). Drain this each frame when a renderer exists. */
@@ -84,4 +128,5 @@ export function updateAmbient(sim: Simulation): void {
   if (sim.tick % 6 !== 3) return;
   const rt = runtime(sim);
   rt.engine.update(0.1, worldContext(sim));
+  visuals(sim, rt, 0.1);
 }
