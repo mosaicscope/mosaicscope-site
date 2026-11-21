@@ -376,3 +376,22 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
   80% { opacity: 1; transform: translate(-50%, -50%) rotate(-3deg) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) rotate(-3deg) scale(.96); } }
 @media (prefers-reduced-motion: reduce) { .heat-cue.go .heat-stamp { animation: heatfade 1.8s linear forwards; } .heat-cue.go .heat-flash { animation: none; } #ui .hud .stars.searching b { animation: none; } }
 @keyframes heatfade { 0%, 85% { opacity: 1; transform: translate(-50%, -50%) rotate(-3deg); } 100% { opacity: 0; transform: translate(-50%, -50%) rotate(-3deg); } }
+
+/* ---- The Mosaics banner logo (top bar, welcome card) ---------------------- */
+.logo-img { display: block; max-width: 100%; height: auto; user-select: none; -webkit-user-drag: none; }
+#ui .bar .brand { align-items: center; }
+#ui .bar .brand-logo { height: 42px; width: auto; max-width: min(210px, 46vw); object-fit: contain; border-radius: 4px; }
+.welcome-logo { width: min(460px, 100%); margin: 0 auto 14px; border-radius: 10px; box-shadow: 0 6px 30px rgba(0, 0, 0, .55); }
+.sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+@media (max-width: 650px) { #ui .bar .brand-logo { height: 32px; max-width: 42vw; } }
+
+/* ---- Discreet heat cue: a small corner tag instead of a screen-wide stamp --- */
+/* No red screen flash, no big rotating stamp. A compact label drops in under the area name and fades. */
+.heat-flash { display: none !important; }
+.heat-stamp, .heat-cue.small .heat-stamp { left: 50%; right: auto; top: 132px; transform: translateX(-50%); justify-items: center; gap: 2px; max-width: min(70vw, 300px); text-align: center; rotate: 0deg; }
+.heat-stamp b, .heat-cue.small .heat-stamp b { font: 700 12px/1 var(--display); letter-spacing: .14em; padding: 5px 10px 4px; border: 1px solid rgba(255, 255, 255, .35); box-shadow: 0 2px 10px rgba(0, 0, 0, .5); text-shadow: none; border-radius: 4px; background: rgba(125, 34, 41, .88); }
+.heat-stamp span { font-size: 10px; letter-spacing: .08em; padding: 3px 8px; border-radius: 4px; background: rgba(8, 7, 7, .7); max-width: 100%; }
+.heat-cue.go .heat-stamp, .heat-cue.small.go .heat-stamp { animation: heatchip 2.4s ease-out forwards; }
+@keyframes heatchip { 0% { opacity: 0; transform: translate(-50%, -6px); } 10% { opacity: 1; transform: translateX(-50%); } 80% { opacity: .95; transform: translateX(-50%); } 100% { opacity: 0; transform: translateX(-50%); } }
+@keyframes heatfade { 0%, 85% { opacity: 1; transform: translateX(-50%); } 100% { opacity: 0; transform: translateX(-50%); } }
+@media (max-width: 650px) { .heat-stamp, .heat-cue.small .heat-stamp { top: 120px; max-width: 80vw; } }

@@ -75,6 +75,7 @@ import { brainsBody } from "../ui/BrainsPanel";
 import { BRAIN_IDS } from "../persistence/Settings";
 import { OPENAI_COMPAT_PRESETS } from "../ai/llm/backends";
 import { h, fmtHour } from "../ui/dom";
+import { logoImg } from "../ui/logo";
 import { moveTo, stop } from "../ai/steps";
 import { canPickUp } from "../inventory/Inventory";
 import {continueSlot} from '../persistence/ContinueCookie';
@@ -616,7 +617,7 @@ export class Game {
         p.cash -= cost; p.wanted = 0; repairVehicle(v);
         for (const c of sim.chars) if (c.pursuing === p.id) { c.pursuing = -1; c.goal = null; }
         const cols = VEHICLES[v.cls].colors; v.color = cols[(cols.indexOf(v.color) + 1) % cols.length]; v.plate = v.plate.split("").reverse().join("");
-        this.focus("Fresh paint", `${fmtCash(cost)} · new plates · cops lost you`, 2.6);
+        this.toast(`Fresh paint · ${fmtCash(cost)} · new plates · cops lost you`);
         return;
       }
     }
@@ -661,7 +662,7 @@ export class Game {
       sim.tills[b.id] = 0; p.cash += take;
       commitCrime(sim, p, "armed_robbery", null);
       p.wanted = Math.max(p.wanted, 3);
-      this.focus("Hold-up", `${b.name} · ${fmtCash(take)} from the till · RUN`, 3);
+      this.toast(`Hold-up · ${b.name} · ${fmtCash(take)} from the till · RUN`, "red");
       return;
     }
     if (door && !door.studio && !armed) { this.toast("You'd need something scarier in your hand to rob a till", "red"); return; }
@@ -1231,7 +1232,7 @@ export class Game {
       const morgue = sim.world.buildings.find((b) => b.kind === "hospital");
       t.inside = morgue ? morgue.id : 0; t.insideUntil = Number.MAX_SAFE_INTEGER; t.bubble = null;
       for (const o of sim.chars) if (o.partner === t.id) o.partner = -1;
-      this.focus("Whacked", `RIP ${t.name}. ${c.from} paid ${fmtCash(c.pay)}. The cops want a word (3★).`, 4);
+      this.toast(`Whacked · RIP ${t.name}. ${c.from} paid ${fmtCash(c.pay)}. The cops want a word (3★).`, "red");
       this.toast(`📰 Press: ${t.name} found dead on ${sim.world.streetName(t.x, t.y) || "a city street"}. Police appeal for witnesses.`, "red");
       this.contract = null;
     }
@@ -1481,7 +1482,7 @@ export class Game {
     ]);
     this.rootEl.append(dock,this.aerialCredit,this.elevationCredit);
     return h("header.bar", null, [
-      h("a.brand", { href: "/", title: "Back to MosaicScope" }, [h("span.brand-gem", { text: "◆" }), h("b", { text: "The Mosaics" }), h("i", { text: "Ōtautahi / After Hours" })]),
+      h("a.brand", { href: "/", title: "Back to MosaicScope" }, [logoImg("brand-logo")]),
       this.clockEl, h("div.spacer"), h("div.seg", { role: "group", "aria-label": "Simulation speed" }, this.speedEls), this.soundBtn,
       h("button.btn.menu-toggle", { text: "☰ Menu", "aria-label": "Menu", "aria-expanded": "false", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar")!; const open = bar.classList.toggle("open"); if (open) this.dev.toggle(false); (e.currentTarget as HTMLElement).setAttribute("aria-expanded", String(open)); } }),
       h("nav.game-menu", { "aria-label": "More game options", onclick: (e: Event) => { const bar = (e.currentTarget as HTMLElement).closest(".bar"); bar?.classList.remove("open"); bar?.querySelector(".menu-toggle")?.setAttribute("aria-expanded", "false"); } }, [

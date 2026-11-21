@@ -1,6 +1,7 @@
 import {hairControls} from './HairStudio';
 import {accessoryControls} from './Accessories';
 import { h } from './dom';
+import { logoImg } from './logo';
 import { canvasStage, roundBox, sceneText } from './CanvasStage';
 import { pose, solve, drawFigure } from '../render/StickFigure';
 import type { Character, Look, HatStyle } from '../entities/types';
@@ -24,7 +25,7 @@ export class Welcome {
   private menu(){
     const latest=this.host.latest(),error=h('p.welcome-error',{role:'alert'});
     this.el.replaceChildren(h('div.welcome-card',null,[
-      h('small',{text:'ŌTAUTAHI / AFTER HOURS'}),h('h1',null,['The ',h('em',{text:'Mosaics'})]),
+      logoImg('welcome-logo'),h('h1.sr-only',null,['The ',h('em',{text:'Mosaics'})]),
       h('p',{text:'A city full of characters. A story that belongs to you.'}),
       h('div.welcome-actions',null,[
         h('button.btn.acid',{text:'Continue',disabled:!latest,onclick:()=>{if(!latest)return;const message=this.host.continue(latest.slot);if(message)error.textContent=message;else this.close();}}),

@@ -16,7 +16,6 @@ export class HeatCue {
   private stamp = h("div.heat-stamp", null, [h("b"), h("span")]);
   private overlay = document.createElement("canvas");
   private hideAt = 0;
-  private slowTimer = 0;
 
   constructor(private opts: { reduceMotion: () => boolean; setSlow: (on: boolean) => void; project: (x: number, y: number, h?: number) => { x: number; y: number } }) {
     this.el.append(this.flash, this.stamp);
@@ -32,8 +31,8 @@ export class HeatCue {
     this.el.className = "heat-cue on " + (big ? "big" : "small") + " k-" + kind;
     void this.el.offsetWidth; // restart the animation
     this.el.classList.add("go");
-    this.hideAt = performance.now() + (big ? 2100 : 1500);
-    if (big && kind !== "evaded" && !this.opts.reduceMotion()) { this.opts.setSlow(true); clearTimeout(this.slowTimer); this.slowTimer = window.setTimeout(() => this.opts.setSlow(false), 650); }
+    this.hideAt = performance.now() + (big ? 2400 : 1700);
+    // no slow-mo any more: the cue is a small corner tag and never interrupts play
   }
 
   /** Each frame: drain the sim's cue queue, end slow-mo, hide stamps, draw the search zone and stingers. */
