@@ -1,5 +1,5 @@
 {
- "at": 1795248407281,
+ "at": 1795251991837,
  "totals": {
   "duplicate-code": 10,
   "long-function": 22,
@@ -308,9 +308,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/render/Renderer.ts",
-   "detail": "1195 lines",
+   "detail": "1203 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|cnonrx"
+   "fp": "oversized-module|1ml2o17"
   },
   {
    "kind": "format",
@@ -380,9 +380,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/sim/Simulation.ts",
-   "detail": "1030 lines",
+   "detail": "1031 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|12l4e1u"
+   "fp": "oversized-module|18nvjh1"
   },
   {
    "kind": "long-function",
@@ -428,9 +428,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/ui/Club.ts",
-   "detail": "880 lines",
+   "detail": "1034 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|1bdr5wc"
+   "fp": "oversized-module|jnl540"
   },
   {
    "kind": "oversized-module",
