@@ -17,6 +17,7 @@ export function mountMultiplayer(sim: () => Simulation | undefined): Multiplayer
 .mp-panel button{background:#b3343c;color:#fff;border:0;border-radius:8px;padding:10px 12px;font-size:13px;font-weight:600;cursor:pointer;margin:0 6px 6px 0;touch-action:manipulation}
 .mp-panel button.alt{background:#2a2323}.mp-status{margin:6px 0;color:#bfb6ad;min-height:18px}.mp-panel details{margin-top:8px;color:#9f958b}.mp-panel small{color:#8d837a}
 .mp-list button{display:block;width:100%;text-align:left;background:#241d1d;margin:0 0 5px}.mp-list b{color:#fff}
+@media (pointer:fine) and (min-width:701px){.mp-btn{left:50%;bottom:auto;top:calc(22px + env(safe-area-inset-top));transform:translateX(-50%)}.mp-panel{left:50%;bottom:auto;top:calc(66px + env(safe-area-inset-top));transform:translateX(-50%);max-height:calc(100dvh - 90px)}}
 @media (pointer:coarse),(max-width:700px){.mp-btn{left:50%;transform:translateX(-50%);padding:8px 11px}.mp-panel{left:50%;transform:translateX(-50%)}}`;
   document.head.appendChild(css);
   const btn = document.createElement("button"); btn.className = "mp-btn"; btn.textContent = "🌐 World PIN"; btn.setAttribute("aria-label", "Multiplayer world PIN");
