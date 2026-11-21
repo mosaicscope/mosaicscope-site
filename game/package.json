@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "rbush": "^4.0.1",
-    "three": "0.170.0"
+    "three": "0.170.0",
+    "three128": "npm:three@^0.128.0"
   }
 }

@@ -277,7 +277,7 @@ export class Casino {
     }
     const pending = this.rBets.reduce((sum, b) => sum + b.amount, 0);
     const round = this.bj.phase === "player" || this.bj.phase === "insurance";
-    const pokerStack=this.social.poker&&!this.social.poker.claimed?this.social.poker.seats[0].stack+(this.social.poker.phase==='betting'?this.social.poker.seats[0].paid:0):0,flightStake=this.social.flight&&!this.social.flight.paid?this.social.flight.stake:0,sideStake=this.social.sideBet?.stake??0;
+    const pokerStack=(this.social.poker&&!this.social.poker.claimed?this.social.poker.seats[0].stack+(this.social.poker.phase==='betting'?this.social.poker.seats[0].paid:0):0)+this.extra.feltStack,flightStake=this.social.flight&&!this.social.flight.paid?this.social.flight.stake:0,sideStake=this.social.sideBet?.stake??0;
     const atRisk = pokerStack+flightStake+sideStake+pending + (round ? this.bj.hands.reduce((sum, hand) => sum + hand.bet, 0) + this.bj.insurance : 0) + (this.vp.phase === "draw" ? this.vpCoins * this.vpValue : 0) + (this.slotSpinning ? this.slotBet : 0);
     const net = this.chips + atRisk + this.cashedOut - this.bought;
     const session = h("aside.cas-session", null, [h("small", { text: "YOUR SESSION" }),

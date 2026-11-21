@@ -1,0 +1,272 @@
+/* Royal Felt 3D: stage host + scoped reset. Everything lives under .felt3d so the casino UI is untouched. */
+.felt3d{position:relative;width:100%;height:100%;min-height:440px;overflow:hidden;isolation:isolate;background:#030406;color:#e5e7eb;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px;line-height:1.5;border-radius:10px;-webkit-user-select:none;user-select:none}
+.felt3d *,.felt3d *::before,.felt3d *::after{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+.felt3d button{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;cursor:pointer;letter-spacing:inherit;text-transform:none;text-shadow:none;box-shadow:none;border-radius:0}
+.felt3d h1,.felt3d h2,.felt3d p,.felt3d span,.felt3d div,.felt3d label{margin:0;letter-spacing:inherit;text-shadow:none}
+.felt3d h1,.felt3d h2,.felt3d p{font-weight:inherit;color:inherit;text-transform:none;font-family:inherit}
+.felt3d label{color:inherit}
+.felt3d aside,.felt3d header,.felt3d footer{position:static}
+.felt3d .font-casino{font-family:Cinzel,Georgia,"Times New Roman",serif;letter-spacing:.02em}
+.felt3d .fixed{position:absolute!important}
+.felt3d #canvas-container{position:absolute;inset:0;z-index:1;touch-action:none}
+.felt3d canvas{display:block;width:100%;height:100%}
+.felt3d #seat-overlay{position:absolute;inset:0;pointer-events:none;z-index:10;overflow:hidden}
+.felt3d input{font:inherit;color:inherit}
+.felt3d .felt-input{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);color:#fff;outline:none}
+.felt3d .felt-input:focus{border-color:rgba(201,167,78,.7)}
+.felt3d button:focus-visible,.felt3d input:focus-visible{outline:2px solid rgba(227,198,119,.8);outline-offset:2px}
+.felt3d button:disabled{cursor:not-allowed}
+.felt3d{--gold:#c9a74e;--line:rgba(255,255,255,.08)}
+.felt3d .casino-glass{background:rgba(7,9,13,.84);border:1px solid var(--line);box-shadow:0 20px 50px rgba(0,0,0,.6)}
+.felt3d .ghost{background:transparent;border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.72);transition:border-color .2s,color .2s,background .2s}
+.felt3d .ghost:hover:not(:disabled){border-color:rgba(201,167,78,.55);color:#fff;background:rgba(255,255,255,.04)}
+.felt3d .ghost:active:not(:disabled){transform:scale(.98)}
+.felt3d .ghost:disabled{opacity:.25;cursor:not-allowed}
+.felt3d .ghost-gold{border-color:rgba(201,167,78,.4);color:#e3c677}
+.felt3d .ghost-red{color:rgba(248,113,113,.8)}
+.felt3d .icon-btn{min-width:28px;height:28px;display:flex;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,.35);transition:color .2s;border-radius:8px;font-size:10px}
+.felt3d .icon-btn:hover{color:rgba(255,255,255,.85)}
+.felt3d .icon-btn.on{color:rgba(201,167,78,.95)}
+.felt3d .icon-btn.is-muted .wave{display:none}
+.felt3d .street-label{display:inline-block;text-transform:lowercase}
+.felt3d .street-label::first-letter{text-transform:uppercase}
+.felt3d #raise-controls-row{opacity:.45;transition:opacity .25s}
+.felt3d #betting-panel:hover #raise-controls-row,.felt3d #betting-panel:focus-within #raise-controls-row{opacity:1}
+.felt3d input[type=range].bet-slider{-webkit-appearance:none;appearance:none;height:2px;border-radius:2px;background:rgba(255,255,255,.18);outline:none}
+.felt3d input[type=range].bet-slider::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#c9a74e;border:0;cursor:pointer}
+.felt3d input[type=range].bet-slider::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:#c9a74e;border:0;cursor:pointer}
+.felt3d .seat-tag{position:absolute;left:0;top:0;transition:opacity .35s;pointer-events:none;will-change:transform}
+.felt3d .seat-card{border-bottom:1px solid transparent;padding-bottom:2px;transition:border-color .3s}
+.felt3d .seat-card.active-turn-ring{border-bottom-color:rgba(227,198,119,.75)}
+.felt3d .seat-card.tilt-glow{border-bottom-color:rgba(239,68,68,.6)}
+@keyframes bannerPop{0%{transform:translate(-50%,-46%);opacity:0}15%{transform:translate(-50%,-50%);opacity:1}80%{opacity:1}100%{opacity:0}}
+.felt3d .banner-animate{animation:bannerPop 2.4s ease-out forwards}
+@keyframes logFade{0%{opacity:0;transform:translateY(4px)}8%{opacity:1;transform:none}75%{opacity:1}100%{opacity:0}}
+.felt3d .log-row{animation:logFade 6s forwards}
+.felt3d .hud-card{width:30px;height:42px;border-radius:4px;background:#d8d3c5;border:1px solid #b9b3a2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-weight:800;line-height:1}
+.felt3d .hud-card.ghosted{background:transparent;border:1px dashed rgba(255,255,255,.12)}
+.felt3d .custom-scroll::-webkit-scrollbar{width:5px}
+.felt3d .custom-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:5px}
+@media (prefers-reduced-motion:reduce){.felt3d *{animation-duration:.01s!important;transition-duration:.01s!important}}
+.felt3d .-top-8{top:-2rem}
+.felt3d .-translate-x-1\/2{transform:translateX(-50%)}
+.felt3d .absolute{position:absolute}
+.felt3d .bg-amber-300\/70{background-color:rgb(252 211 77 / 0.7)}
+.felt3d .bg-amber-500\/20{background-color:rgb(245 158 11 / 0.2)}
+.felt3d .bg-black\/60{background-color:rgb(0 0 0 / 0.6)}
+.felt3d .bg-black\/80{background-color:rgb(0 0 0 / 0.8)}
+.felt3d .bg-black\/85{background-color:rgb(0 0 0 / 0.85)}
+.felt3d .bg-black\/90{background-color:rgb(0 0 0 / 0.9)}
+.felt3d .bg-emerald-500\/25{background-color:rgb(16 185 129 / 0.25)}
+.felt3d .bg-purple-500\/25{background-color:rgb(168 85 247 / 0.25)}
+.felt3d .bg-red-500\/20{background-color:rgb(239 68 68 / 0.2)}
+.felt3d .bg-sky-500\/25{background-color:rgb(14 165 233 / 0.25)}
+.felt3d .bg-transparent{background-color:transparent}
+.felt3d .bg-white\/10{background-color:rgb(255 255 255 / 0.1)}
+.felt3d .block{display:block}
+.felt3d .border{border-width:1px;border-style:solid}
+.felt3d .border-0{border-width:0}
+.felt3d .border-2{border-width:2px;border-style:solid}
+.felt3d .border-amber-200\/30{border-color:rgb(253 230 138 / 0.3)}
+.felt3d .border-amber-300{border-color:rgb(252 211 77)}
+.felt3d .border-amber-300\/60{border-color:rgb(252 211 77 / 0.6)}
+.felt3d .border-amber-400\/30{border-color:rgb(251 191 36 / 0.3)}
+.felt3d .border-b{border-bottom-width:1px;border-style:solid}
+.felt3d .border-emerald-400\/40{border-color:rgb(52 211 153 / 0.4)}
+.felt3d .border-purple-400\/40{border-color:rgb(192 132 252 / 0.4)}
+.felt3d .border-red-400\/30{border-color:rgb(248 113 113 / 0.3)}
+.felt3d .border-sky-400\/40{border-color:rgb(56 189 248 / 0.4)}
+.felt3d .border-transparent{border-color:transparent}
+.felt3d .border-white\/10{border-color:rgb(255 255 255 / 0.1)}
+.felt3d .border-white\/20{border-color:rgb(255 255 255 / 0.2)}
+.felt3d .border-white\/40{border-color:rgb(255 255 255 / 0.4)}
+.felt3d .border-y{border-top-width:1px;border-bottom-width:1px;border-style:solid}
+.felt3d .bottom-0{bottom:0rem}
+.felt3d .bottom-24{bottom:6rem}
+.felt3d .cursor-pointer{cursor:pointer}
+.felt3d .disabled\:opacity-30:disabled{opacity:0.3}
+.felt3d .duration-500{transition-duration:500ms}
+.felt3d .fixed{position:fixed}
+.felt3d .flex{display:flex}
+.felt3d .flex-1{flex:1 1 0%}
+.felt3d .flex-col{flex-direction:column}
+.felt3d .flex-wrap{flex-wrap:wrap}
+.felt3d .font-medium{font-weight:500}
+.felt3d .font-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.felt3d .font-semibold{font-weight:600}
+.felt3d .from-amber-500{--g-from:rgb(245 158 11)}
+.felt3d .from-blue-600{--g-from:rgb(37 99 235)}
+.felt3d .from-emerald-600{--g-from:rgb(5 150 105)}
+.felt3d .from-fuchsia-600{--g-from:rgb(192 38 211)}
+.felt3d .from-red-600{--g-from:rgb(220 38 38)}
+.felt3d .gap-0\.5{gap:0.125rem}
+.felt3d .gap-1{gap:0.25rem}
+.felt3d .gap-1\.5{gap:0.375rem}
+.felt3d .gap-2{gap:0.5rem}
+.felt3d .gap-3{gap:0.75rem}
+.felt3d .gap-4{gap:1rem}
+.felt3d .gap-x-2{column-gap:0.5rem}
+.felt3d .grid{display:grid}
+.felt3d .grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.felt3d .grid-cols-6{grid-template-columns:repeat(6,minmax(0,1fr))}
+.felt3d .group:hover .group-hover\:text-amber-200{color:rgb(253 230 138)}
+.felt3d .h-1\.5{height:0.375rem}
+.felt3d .h-2{height:0.5rem}
+.felt3d .h-5{height:1.25rem}
+.felt3d .h-6{height:1.5rem}
+.felt3d .h-\[2px\]{height:2px}
+.felt3d .h-full{height:100%}
+.felt3d .hidden{display:none}
+.felt3d .hover\:border-white\/40:hover{border-color:rgb(255 255 255 / 0.4)}
+.felt3d .hover\:text-amber-200:hover{color:rgb(253 230 138)}
+.felt3d .hover\:text-red-300:hover{color:rgb(252 165 165)}
+.felt3d .hover\:text-white\/80:hover{color:rgb(255 255 255 / 0.8)}
+.felt3d .inset-0{inset:0}
+.felt3d .italic{font-style:italic}
+.felt3d .items-baseline{align-items:baseline}
+.felt3d .items-center{align-items:center}
+.felt3d .items-start{align-items:flex-start}
+.felt3d .items-stretch{align-items:stretch}
+.felt3d .justify-between{justify-content:space-between}
+.felt3d .justify-center{justify-content:center}
+.felt3d .leading-relaxed{line-height:1.625}
+.felt3d .leading-snug{line-height:1.375}
+.felt3d .leading-tight{line-height:1.25}
+.felt3d .left-0{left:0rem}
+.felt3d .left-1\/2{left:50%}
+.felt3d .left-4{left:1rem}
+.felt3d .lowercase{text-transform:lowercase}
+.felt3d .max-h-56{max-height:14rem}
+.felt3d .max-h-\[88vh\]{max-height:88vh}
+.felt3d .max-w-\[140px\]{max-width:140px}
+.felt3d .max-w-\[170px\]{max-width:170px}
+.felt3d .max-w-md{max-width:28rem}
+.felt3d .max-w-sm{max-width:24rem}
+.felt3d .max-w-xl{max-width:36rem}
+.felt3d .mb-1{margin-bottom:0.25rem}
+.felt3d .mb-1\.5{margin-bottom:0.375rem}
+.felt3d .mb-2{margin-bottom:0.5rem}
+.felt3d .mb-3{margin-bottom:0.75rem}
+.felt3d .mb-6{margin-bottom:1.5rem}
+.felt3d .min-w-0{min-width:0}
+.felt3d .min-w-\[44px\]{min-width:44px}
+.felt3d .ml-2{margin-left:0.5rem}
+.felt3d .ml-auto{margin-left:auto}
+.felt3d .mr-2{margin-right:0.5rem}
+.felt3d .mt-0\.5{margin-top:0.125rem}
+.felt3d .mt-1{margin-top:0.25rem}
+.felt3d .mt-2{margin-top:0.5rem}
+.felt3d .mt-2\.5{margin-top:0.625rem}
+.felt3d .mt-3{margin-top:0.75rem}
+.felt3d .overflow-hidden{overflow:hidden}
+.felt3d .overflow-y-auto{overflow-y:auto}
+.felt3d .p-0{padding:0rem}
+.felt3d .p-3{padding:0.75rem}
+.felt3d .p-4{padding:1rem}
+.felt3d .p-5{padding:1.25rem}
+.felt3d .pb-1{padding-bottom:0.25rem}
+.felt3d .pb-3{padding-bottom:0.75rem}
+.felt3d .pointer-events-auto{pointer-events:auto}
+.felt3d .pointer-events-none{pointer-events:none}
+.felt3d .pt-3{padding-top:0.75rem}
+.felt3d .px-1{padding-left:0.25rem;padding-right:0.25rem}
+.felt3d .px-2{padding-left:0.5rem;padding-right:0.5rem}
+.felt3d .px-2\.5{padding-left:0.625rem;padding-right:0.625rem}
+.felt3d .px-3{padding-left:0.75rem;padding-right:0.75rem}
+.felt3d .px-4{padding-left:1rem;padding-right:1rem}
+.felt3d .px-5{padding-left:1.25rem;padding-right:1.25rem}
+.felt3d .py-1{padding-top:0.25rem;padding-bottom:0.25rem}
+.felt3d .py-1\.5{padding-top:0.375rem;padding-bottom:0.375rem}
+.felt3d .py-2{padding-top:0.5rem;padding-bottom:0.5rem}
+.felt3d .py-2\.5{padding-top:0.625rem;padding-bottom:0.625rem}
+.felt3d .py-4{padding-top:1rem;padding-bottom:1rem}
+.felt3d .relative{position:relative}
+.felt3d .right-0{right:0rem}
+.felt3d .right-4{right:1rem}
+.felt3d .rounded{border-radius:0.25rem}
+.felt3d .rounded-2xl{border-radius:1rem}
+.felt3d .rounded-full{border-radius:9999px}
+.felt3d .rounded-lg{border-radius:0.5rem}
+.felt3d .rounded-md{border-radius:0.375rem}
+.felt3d .rounded-xl{border-radius:0.75rem}
+.felt3d .self-start{align-self:flex-start}
+.felt3d .tabular-nums{font-variant-numeric:tabular-nums}
+.felt3d .text-2xl{font-size:1.5rem;line-height:2rem}
+.felt3d .text-\[10px\]{font-size:10px}
+.felt3d .text-\[11px\]{font-size:11px}
+.felt3d .text-\[13px\]{font-size:13px}
+.felt3d .text-\[15px\]{font-size:15px}
+.felt3d .text-\[8px\]{font-size:8px}
+.felt3d .text-\[9px\]{font-size:9px}
+.felt3d .text-amber-100\/90{color:rgb(254 243 199 / 0.9)}
+.felt3d .text-amber-200{color:rgb(253 230 138)}
+.felt3d .text-amber-200\/70{color:rgb(253 230 138 / 0.7)}
+.felt3d .text-amber-200\/80{color:rgb(253 230 138 / 0.8)}
+.felt3d .text-amber-200\/90{color:rgb(253 230 138 / 0.9)}
+.felt3d .text-amber-300{color:rgb(252 211 77)}
+.felt3d .text-base{font-size:1rem;line-height:1.5rem}
+.felt3d .text-blue-200{color:rgb(191 219 254)}
+.felt3d .text-center{text-align:center}
+.felt3d .text-emerald-300{color:rgb(110 231 183)}
+.felt3d .text-gray-400{color:rgb(156 163 175)}
+.felt3d .text-gray-900{color:rgb(17 24 39)}
+.felt3d .text-left{text-align:left}
+.felt3d .text-lg{font-size:1.125rem;line-height:1.75rem}
+.felt3d .text-purple-200{color:rgb(233 213 255)}
+.felt3d .text-purple-200\/80{color:rgb(233 213 255 / 0.8)}
+.felt3d .text-red-300{color:rgb(252 165 165)}
+.felt3d .text-red-300\/80{color:rgb(252 165 165 / 0.8)}
+.felt3d .text-red-400{color:rgb(248 113 113)}
+.felt3d .text-red-600{color:rgb(220 38 38)}
+.felt3d .text-right{text-align:right}
+.felt3d .text-sky-200\/70{color:rgb(186 230 253 / 0.7)}
+.felt3d .text-sky-300{color:rgb(125 211 252)}
+.felt3d .text-sm{font-size:0.875rem;line-height:1.25rem}
+.felt3d .text-white\/35{color:rgb(255 255 255 / 0.35)}
+.felt3d .text-white\/40{color:rgb(255 255 255 / 0.4)}
+.felt3d .text-white\/45{color:rgb(255 255 255 / 0.45)}
+.felt3d .text-white\/50{color:rgb(255 255 255 / 0.5)}
+.felt3d .text-white\/55{color:rgb(255 255 255 / 0.55)}
+.felt3d .text-white\/60{color:rgb(255 255 255 / 0.6)}
+.felt3d .text-white\/70{color:rgb(255 255 255 / 0.7)}
+.felt3d .text-white\/80{color:rgb(255 255 255 / 0.8)}
+.felt3d .text-white\/85{color:rgb(255 255 255 / 0.85)}
+.felt3d .text-white\/90{color:rgb(255 255 255 / 0.9)}
+.felt3d .text-xs{font-size:0.75rem;line-height:1rem}
+.felt3d .to-amber-500{--g-to:rgb(245 158 11)}
+.felt3d .to-emerald-500{--g-to:rgb(16 185 129)}
+.felt3d .to-indigo-700{--g-to:rgb(67 56 202)}
+.felt3d .to-teal-700{--g-to:rgb(15 118 110)}
+.felt3d .top-0{top:0rem}
+.felt3d .top-1\/3{top:33.33333333333333%}
+.felt3d .top-12{top:3rem}
+.felt3d .top-14{top:3.5rem}
+.felt3d .top-3{top:0.75rem}
+.felt3d .tracking-\[0\.28em\]{letter-spacing:0.28em}
+.felt3d .tracking-\[0\.2em\]{letter-spacing:0.2em}
+.felt3d .tracking-wide{letter-spacing:.025em}
+.felt3d .tracking-widest{letter-spacing:.1em}
+.felt3d .transition{transition-property:color,background-color,border-color,opacity,box-shadow,transform;transition-duration:150ms;transition-timing-function:cubic-bezier(.4,0,.2,1)}
+.felt3d .transition-all{transition-property:all;transition-duration:150ms;transition-timing-function:cubic-bezier(.4,0,.2,1)}
+.felt3d .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.felt3d .w-1\.5{width:0.375rem}
+.felt3d .w-2{width:0.5rem}
+.felt3d .w-28{width:7rem}
+.felt3d .w-5{width:1.25rem}
+.felt3d .w-6{width:1.5rem}
+.felt3d .w-60{width:15rem}
+.felt3d .w-64{width:16rem}
+.felt3d .w-72{width:18rem}
+.felt3d .w-full{width:100%}
+.felt3d .whitespace-nowrap{white-space:nowrap}
+.felt3d .z-20{z-index:20}
+.felt3d .z-30{z-index:30}
+.felt3d .z-40{z-index:40}
+.felt3d .z-50{z-index:50}
+.felt3d .divide-white\/10>:not([hidden])~:not([hidden]){border-color:rgb(255 255 255 / 0.1)}
+.felt3d .divide-y>:not([hidden])~:not([hidden]){border-top-width:1px;border-style:solid}
+@media (min-width:640px){.felt3d .sm\:flex-row{flex-direction:row}.felt3d .sm\:inline{display:inline}.felt3d .sm\:items-end{align-items:flex-end}.felt3d .sm\:min-w-\[400px\]{min-width:400px}.felt3d .sm\:self-end{align-self:flex-end}.felt3d .sm\:text-lg{font-size:1.125rem;line-height:1.75rem}.felt3d .sm\:w-auto{width:auto}}
+@media (min-width:1024px){.felt3d .lg\:flex{display:flex}}
+/* inside the casino panel the stage simply fills the table area */
+.casino .iso-felt{grid-template-rows:minmax(0,1fr)!important}
+.casino .iso-felt .felt3d{min-height:0;height:100%}
