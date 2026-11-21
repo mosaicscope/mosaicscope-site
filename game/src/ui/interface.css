@@ -177,3 +177,6 @@
 #ui .damage-all{margin-top:3px}#ui .damage-group{border-top:1px solid #ffffff1a;padding:5px 0}#ui .damage-group summary{cursor:pointer;min-height:32px;font-size:13px}#ui .damage-list{display:grid;gap:8px;max-height:180px;overflow-y:auto;overscroll-behavior:contain;padding:6px 2px}
 
 #ui .elevation-credit{top:110px} @media(pointer:coarse),(max-width:650px){#ui .elevation-credit{top:212px}}
+
+#ui .car-diagram-wrap{display:inline-flex;align-items:center;justify-content:center;flex:none;min-width:48px}
+#ui .condition-detail .car-diagram-wrap{transform:scale(1.5);transform-origin:left center;margin-right:30px}

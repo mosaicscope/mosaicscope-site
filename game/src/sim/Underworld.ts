@@ -25,10 +25,10 @@ const RATE: Record<SubstanceKind, number> = { alcohol: 0.04, cannabis: 0.03, sti
 const DRUGS: SubstanceKind[] = ["stimulant", "sedative", "cannabis"];
 const ASK = ["Got anything for me?", "I'm looking to buy."], SELL = ["Sure. Keep it quiet.", "Here you go."];
 interface Habit { dep: number; seen: number; lastUse: number; nextSeek: number }
-interface State { habits: Map<number, Habit>; stock: Map<number, { units: number; kind: SubstanceKind; price: number }>; workers: Map<number, { price: number; refused: Map<number, number> }>;
+interface State { pimps: Map<number, number>; habits: Map<number, Habit>; stock: Map<number, { units: number; kind: SubstanceKind; price: number }>; workers: Map<number, { price: number; refused: Map<number, number> }>;
   pending: Map<number, { worker: number; until: number }>; busy: Map<number, number>; poses: { ids: number[]; at: number }[]; tension: number; nextWar: number; nextRestock: number; ready: boolean }
 const states = new WeakMap<Simulation, State>();
-const state = (sim: Simulation): State => { let s = states.get(sim); if (!s) states.set(sim, s = { habits: new Map(), stock: new Map(), workers: new Map(), pending: new Map(), busy: new Map(), poses: [], tension: 0, nextWar: 0, nextRestock: 0, ready: false }); return s; };
+const state = (sim: Simulation): State => { let s = states.get(sim); if (!s) states.set(sim, s = { pimps: new Map(), habits: new Map(), stock: new Map(), workers: new Map(), pending: new Map(), busy: new Map(), poses: [], tension: 0, nextWar: 0, nextRestock: 0, ready: false }); return s; };
 const dist = (a: Character, b: Character) => Math.hypot(a.x - b.x, a.y - b.y);
 const free = (_sim: Simulation, c: Character) => c.tier !== "player" && c.phys === Phys.OK && c.inside < 0 && c.inCar < 0 && c.jailUntil <= 0 && c.arrestedBy < 0;
 const face = (a: Character, b: Character) => { a.facing = Math.atan2(b.y - a.y, b.x - a.x); b.facing = Math.atan2(a.y - b.y, a.x - b.x); };
@@ -42,7 +42,7 @@ export function updateUnderworld(sim: Simulation): void {
     st.nextRestock = sim.tick + 60 * 300;
     for (const [id, s] of st.stock) if (s.units < 3) { const d = sim.chars[id]; const n = d ? restock(sim, d, s.kind) : 4; s.units += n ?? 4; }
   }
-  updateLabs(sim); updateHealth(sim);
+  updateLabs(sim); updateHealth(sim); pimpWatch(sim);
   habits(sim, st);
   services(sim, st);
   st.tension = Math.max(0, st.tension - 0.002);
@@ -118,7 +118,7 @@ export function hireDecision(sim: Simulation, worker: Character): boolean {
 export function playerHire(sim: Simulation, worker: Character): void {
   const w = state(sim).workers.get(worker.id)!, p = sim.player;
   const place = sim.world.buildings.filter((b) => b.kind === "hotel" || b.kind === "velvet" || b.kind === "apartments").sort((a, b) => Math.hypot(a.door.x - worker.x, a.door.y - worker.y) - Math.hypot(b.door.x - worker.x, b.door.y - worker.y))[0];
-  p.cash -= w.price; worker.cash += w.price; p.emo.mood = Math.min(0.6, p.emo.mood + 0.15);
+  p.cash -= w.price; worker.cash += w.price; pimpCut(sim, state(sim), worker, w.price); p.emo.mood = Math.min(0.6, p.emo.mood + 0.15);
   if (place) enterBuilding(sim, worker, place, 25);
   state(sim).busy.set(worker.id, sim.tick + 60 * 90);
 }
@@ -141,7 +141,7 @@ function services(sim: Simulation, st: State): void {
       const place = sim.world.buildings.filter((b) => b.kind === "hotel" || b.kind === "velvet" || b.kind === "apartments").sort((a, b) => Math.hypot(a.door.x - worker.x, a.door.y - worker.y) - Math.hypot(b.door.x - worker.x, b.door.y - worker.y))[0];
       if (willing && place && Math.hypot(place.door.x - worker.x, place.door.y - worker.y) < 40) {
         sim.say(worker, "All right. Somewhere private, then.", "say", 2);
-        client.cash -= w.price; worker.cash += w.price; client.emo.mood = Math.min(0.6, client.emo.mood + 0.15);
+        client.cash -= w.price; worker.cash += w.price; pimpCut(sim, st, worker, w.price); client.emo.mood = Math.min(0.6, client.emo.mood + 0.15);
         enterBuilding(sim, worker, place, 25); enterBuilding(sim, client, place, 25);   // fade to black: they go indoors and time passes
         st.busy.set(wid, sim.tick + 60 * 90); st.busy.set(cid, sim.tick + 60 * 90);
       } else {
@@ -169,4 +169,29 @@ export function debugDeal(sim: Simulation): string {
   const buyer = sim.chars.filter((c) => free(sim, c) && c !== d).sort((a, b) => dist(a, d) - dist(b, d))[0]; if (!buyer) return "No buyer free";
   buyer.x = d.x + 1; buyer.y = d.y; const stock = state(sim).stock.get(d.id)!; stock.units = Math.max(stock.units, 1); buyer.cash = Math.max(buyer.cash, 40);
   deal(sim, state(sim), buyer, d); return `${buyer.name} bought from ${d.name}`;
+}
+
+// ------------------------------------------------------------------ street cast (see Street.ts)
+/** The pimp takes a cut of what his people earn. */
+function pimpCut(sim: Simulation, st: State, worker: Character, price: number): void {
+  const pid = st.pimps.get(worker.id), pimp = pid === undefined ? undefined : sim.chars[pid]; if (!pimp) return;
+  const take = Math.round(price * 0.4); worker.cash -= take; pimp.cash += take; sim.say(pimp, "Good. Keep it moving.", "say", 2);
+}
+export function addWorker(sim: Simulation, c: Character, price = 40): void { state(sim).workers.set(c.id, { price, refused: new Map() }); }
+export function addDealer(sim: Simulation, c: Character, kind: SubstanceKind = "stimulant"): void { state(sim).stock.set(c.id, { units: 8, kind, price: 20 }); }
+export function setPimp(sim: Simulation, workerId: number, pimpId: number): void { state(sim).pimps.set(workerId, pimpId); }
+/** Someone already deep in a habit: they will be hunting a dealer almost at once. */
+export function seedHabit(sim: Simulation, c: Character, dep: number, kind: SubstanceKind = "stimulant"): void {
+  const h = state(sim).habits.get(c.id) ?? { dep: 0, seen: 0, lastUse: sim.tick - 60 * 400, nextSeek: 0 };
+  h.dep = Math.max(h.dep, dep); h.lastUse = Math.min(h.lastUse, sim.tick - 60 * 400); state(sim).habits.set(c.id, h);
+  if (!c.substances) c.substances = { levels: { alcohol: 0, stimulant: 0, cannabis: 0, sedative: 0 }, last: kind, usedAt: 0, actionUntil: 0, updatedAt: sim.tick, crashUntil: 0, crisis: false };
+}
+export function dryOut(sim: Simulation, c: Character): void { const h = state(sim).habits.get(c.id); if (h) h.dep = Math.max(0, h.dep - 0.25); }
+/** The pimp watches his people: if someone lays hands on one, he steps in. */
+export function pimpWatch(sim: Simulation): void {
+  const st = state(sim);
+  for (const [wid, pid] of st.pimps) {
+    const w = sim.chars[wid], pimp = sim.chars[pid]; if (!w || !pimp || !free(sim, pimp)) continue;
+    if (w.lastHitBy >= 0 && w.lastHitBy !== pid && sim.tick - w.lastHitTick < 600) { const a = sim.chars[w.lastHitBy]; if (a && a.phys === Phys.OK) { sim.say(pimp, "Hey! Back off, they are with me!", "shout", 2); forceGoal(pimp, sim, "fight", { u: 2, target: a.id }); w.lastHitBy = -1; } }
+  }
 }

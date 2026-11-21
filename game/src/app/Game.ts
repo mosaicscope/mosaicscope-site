@@ -99,6 +99,7 @@ import { Photos } from "../ui/Photos";
 import { MOMENTS } from "../content/photos";
 import { HeatCue } from "../ui/HeatCue";
 import { raiseCue } from "../sim/Pursuit";
+import { carDiagram } from "../ui/CarSilhouette";
 import { recordInteriorVisit } from "../sim/WorldFun";
 
 /** Wires simulation, renderer, input, audio, UI and persistence together and runs the loop. */
@@ -861,9 +862,7 @@ export class Game {
   }
 
   private conditionDiagram(v:import('../entities/types').Vehicle):HTMLElement {
-    const c=vehicleCondition(v),colour=(n:number)=>n>=.7?'#df7065':n>=.25?'#d7ad5c':'#7db995';
-    const block=(name:string,n:number)=>h('span.condition-'+name,{style:{background:colour(n)},title:`${name} ${Math.round(n*100)}% damaged`});
-    return h('span.condition-map',{'aria-hidden':'true'},[block('front',c.zones[0]),block('left',c.zones[1]),block('right',c.zones[2]),block('rear',c.zones[3]),...c.wheels.map((n,i)=>block('wheel'+i,n))]);
+    return carDiagram(v);
   }
   private conditionButton(v:import('../entities/types').Vehicle):HTMLElement {
     const c=vehicleCondition(v),status=c.worst>=.7?'Critical':c.worst>=.25?'Damaged':'Healthy';
