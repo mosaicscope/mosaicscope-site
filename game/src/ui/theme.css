@@ -397,3 +397,19 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 @keyframes heatchip { 0% { opacity: 0; transform: translate(-50%, -6px); } 10% { opacity: 1; transform: translateX(-50%); } 80% { opacity: .95; transform: translateX(-50%); } 100% { opacity: 0; transform: translateX(-50%); } }
 @keyframes heatfade { 0%, 85% { opacity: 1; transform: translateX(-50%); } 100% { opacity: 0; transform: translateX(-50%); } }
 @media (max-width: 650px) { .heat-stamp, .heat-cue.small .heat-stamp { top: 120px; max-width: 80vw; } }
+
+/* ---- Kiwi Gold: the 3D pokie sits in the same one-screen layout as the roulette wheel ---- */
+.iso-slots.rw3d-mode { display: grid !important; grid-template-rows: minmax(160px, 1fr) auto auto; gap: 8px; height: 100% !important; max-height: 100%; overflow: hidden !important; }
+.iso-slots.rw3d-mode .rw3d { height: auto; min-height: 0; }
+.sm3d-console { display: grid; gap: 8px; width: 100%; max-width: 980px; margin-inline: auto; }
+.sm3d-console .cx-meters { justify-content: center; }
+.sm3d-console .cx-deck { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 14px; }
+.sm3d-pay { font: 600 12px var(--display); letter-spacing: .06em; color: var(--paper); }
+.sm3d-pay summary { cursor: pointer; text-align: center; padding: 4px; text-transform: uppercase; }
+.sm3d-pay[open] .cx-glass { max-height: 28vh; overflow: auto; margin-top: 6px; }
+.sm3d-tools { position: absolute; top: 10px; left: 10px; right: 10px; z-index: 1; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-start; pointer-events: none; }
+.sm3d-tools button { pointer-events: auto; font: 600 11px var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--paper); background: rgba(12, 8, 8, .72); border: 1px solid rgba(235, 230, 224, .28); border-radius: 999px; padding: 6px 12px; cursor: pointer; backdrop-filter: blur(4px); }
+.sm3d-tools button:hover { border-color: var(--red-hi); }
+.sm3d-tools button[aria-pressed="true"] { background: rgba(138, 29, 37, .85); border-color: var(--red-hi); }
+.sm3d-tools .sm3d-theme { margin-left: auto; }
+@media (max-width: 640px) { .sm3d-tools button { padding: 5px 9px; font-size: 10px; } }

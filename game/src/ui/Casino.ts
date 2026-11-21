@@ -5,6 +5,7 @@ import {drawCasinoStation,STATION_W,STATION_H} from './CasinoStations';
 import {drawRouletteTable,rouletteCells,cellQuad,rouletteSurroundingGuests,ROULETTE_W,ROULETTE_H} from './RouletteTableArt';
 import {CasinoExtras} from './CasinoExtras';
 import {RouletteWheel3D} from './RouletteWheel3D';
+import {SlotMachine3D} from './SlotMachine3D';
 import {newCityPlay,type CasinoSocial} from '../sim/CityPlay';
 import {hospitality,type HospitalityHost} from './VenueHospitality';
 import type { Character } from "../entities/types";
@@ -207,7 +208,7 @@ export class Casino {
   private rPending = -1;
   private rHistory: number[] = [];
   private rSpinning = false;
-  private rLast = -1;private rHovered='';private rNumber=7;private rOutside='red';private rServicesOpen=false;private rBetView=true;private fitBound=false;private wheel3d?:RouletteWheel3D|null;private rLastBets:RouletteBet[]=[];private rJust='';private rSettled:{bets:RouletteBet[];result:number;at:number}|null=null;private rPage=0;private rZoom=1;private rFocus:'cloth'|'wheel'='cloth';
+  private rLast = -1;private rHovered='';private rNumber=7;private rOutside='red';private rServicesOpen=false;private rBetView=true;private fitBound=false;private wheel3d?:RouletteWheel3D|null;private slot3d?:SlotMachine3D|null;private rLastBets:RouletteBet[]=[];private rJust='';private rSettled:{bets:RouletteBet[];result:number;at:number}|null=null;private rPage=0;private rZoom=1;private rFocus:'cloth'|'wheel'='cloth';
   private rRot = 0; private rBall = -Math.PI / 2; private rBallR = TRACK_R;
   private vp = new VideoPoker(rnd);
   private vpCoins = 5; private vpValue = 1; private vpWin = 0; private vpFresh = [false, false, false, false, false];
@@ -291,7 +292,12 @@ export class Casino {
     ]);
     if(window.innerWidth<=640)requestAnimationFrame(()=>nav.querySelector('[aria-selected="true"]')?.scrollIntoView({block:'nearest',inline:'nearest'}));
     this.body.id = "casino-table"; this.body.setAttribute("role", "tabpanel"); this.body.setAttribute("aria-label", tabs.find(t => t[0] === this.tab)?.[1] ?? "Cashier");
-    if(["blackjack","pokies","poker"].includes(this.tab)){
+    const m3=this.tab==='pokies'?this.slotMachine:null;
+    if(m3){
+      queueMicrotask(()=>m3.wake());
+      if(this.msg&&!this.slotSpinning&&!this.slotWin)m3.message(this.msg);
+      view=h('section.iso-game.iso-slots.rw3d-mode',null,[m3.el,view,this.tableServices('pokies',this.slotSpinning||round||this.vp.phase==='draw')]);
+    }else if(["blackjack","pokies","poker"].includes(this.tab)){
       const kind=this.tab as 'blackjack'|'pokies'|'poker';let zoom=1;
       const scene=canvasStage((g,t,reduced)=>drawCasinoStation(g,{kind,people:this.w.people?.()??[],dealer:this.w.dealer?.(),blackjack:this.bj,bet:kind==='blackjack'?this.bjBet:this.slotBet,reels:this.reels,spinning:this.slotSpinning,hand:this.vp.hand,held:this.vp.held,win:kind==='pokies'?this.slotWin:this.vpWin},t,reduced),{width:STATION_W,height:STATION_H,camera:()=>({scale:zoom,x:zoom===1?600:kind==='blackjack'?600:545,y:zoom===1?350:kind==='blackjack'?370:310}),label:kind==='blackjack'?'Isometric blackjack room with dealer, actual cards, chips and Mosaic players':'Isometric '+(kind==='pokies'?'slot machine':'video poker')+' lounge with occupied cabinets and your live screen'});
       scene.append(h('nav.roulette-camera',{'aria-label':'Game room camera'},[this.btn('Full room',()=>{zoom=1;}),this.btn(kind==='blackjack'?'Table close-up':'My machine',()=>{zoom=1.7;})]));
@@ -614,7 +620,35 @@ export class Casino {
     ]);
   }
 
+  /** The persistent 3D pokie, created once on first use; null when WebGL is unavailable (the 2D cabinet is used then). */
+  private get slotMachine(): SlotMachine3D | null {
+    if (this.slot3d === undefined) this.slot3d = SlotMachine3D.create({ onSpin: () => this.spinSlots(), onBet: () => this.cycleSlotBet() });
+    return this.slot3d;
+  }
+  private cycleSlotBet(): void {
+    if (this.slotSpinning) return;
+    const bets = this.highLimit ? [1000, 10_000, 100_000, 1_000_000] : [1, 2, 5, 10];
+    this.slotBet = bets[(bets.indexOf(this.slotBet) + 1) % bets.length]; this.render();
+  }
+  private payRows(): HTMLElement {
+    return h("div.cx-glass", { role: "table", "aria-label": "Paytable" }, PAYS.map((p, i) => h("div.cx-pay" + (i === this.slotHit && !this.slotSpinning ? ".hit" : ""), { role: "row" }, [
+      h("span.cx-paysyms", { role: "cell" }, p.label.split(" ").map(symEl)), h("b", { role: "cell", text: `${p.mult}×` }), h("span.cx-paycr", { role: "cell", text: money(p.mult * this.slotBet) }),
+    ])));
+  }
+  /** Controls under the 3D machine: meters, bet, spin and the paytable. */
+  private slotConsole(): HTMLElement {
+    return h("div.sm3d-console", null, [
+      h("div.cx-meters", null, [ledEl("Credit", this.chips), ledEl("Bet", this.slotBet, "#c74d57", 6), ledEl("Win", this.slotWin, "#c74d57")]),
+      h("div.cx-deck", null, [
+        h("div.cx-row", { role: "group", "aria-label": "Bet per spin" }, (this.highLimit ? [1000,10_000,100_000,1_000_000] : [1,2,5,10]).map((b) => h("button.cx-btn" + (this.slotBet === b ? ".on" : ""), { "aria-pressed": String(this.slotBet === b), disabled: this.slotSpinning, "aria-label": `Bet ${money(b)} per spin`, onclick: () => { this.slotBet = b; this.render(); }, text: `BET ${money(b)}` }))),
+        h("button.cx-spin", { disabled: this.slotSpinning, "aria-label": `Spin for ${money(this.slotBet)}`, onclick: () => this.spinSlots(), text: "SPIN" }),
+      ]),
+      h("details.sm3d-pay", null, [h("summary", { text: `Paytable · return to player ${(rtp() * 100).toFixed(1)}%` }), this.payRows()]),
+    ]);
+  }
+
   private pokiesView(): HTMLElement {
+    if (this.slotMachine) return this.slotConsole();
     const blur = svg("svg", { class: "cx-defs", width: 0, height: 0, "aria-hidden": "true" }, [svg("filter", { id: "cx-vblur", x: "0", y: "-20%", width: "100%", height: "140%" }, [svg("feGaussianBlur", { stdDeviation: "0 7" })])]);
     return h("section.cx-cab", { "aria-label": "Kiwi Gold pokie machine" }, [
       blur,
@@ -639,7 +673,9 @@ export class Casino {
     const final = spinReels(rnd), reduce = reducedMotion();
     this.slotSpinning = true; this.slotMsg = ""; this.slotWin = 0; this.slotHit = -1; this.reelStopped = [false, false, false];
     this.render();
+    const m3 = this.slotMachine; m3?.spinStart();
     final.forEach((s, i) => setTimeout(() => {
+      m3?.stopReel(i, s);
       this.reels[i] = s; this.reelWin[i] = reelWindow(s); this.reelStopped[i] = true;
       this.el.querySelector(`.cx-reel[data-i="${i}"]`)?.replaceWith(this.reelEl(i, true));
       if (i < 2) return;
@@ -648,6 +684,7 @@ export class Casino {
       this.record("Kiwi Gold", this.slotWin - bet);
       this.slotHit = PAYS.findIndex((x) => x.label === p.label);
       this.slotMsg = this.slotWin ? `${p.label}: WIN ${money(this.slotWin)}` : "No win.";
+      m3?.reveal(this.slotWin, bet, p.label);
       if (this.slotWin >= 100) this.w.onEvent(`Kiwi Gold paid ${money(this.slotWin)}!`, true);
       setTimeout(() => this.render(), reduce ? 0 : 380);
     }, reduce ? 30 : 800 + i * 450));
