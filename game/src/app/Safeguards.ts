@@ -8,17 +8,17 @@
  * Progress is untouched: the game keeps saving as usual and the restart reloads the same save.
  */
 type Any = any; // the game's internals are private by design; this module only pokes a few fields on purpose
-const BOOT = "mosaics-world:boot", SAFE = "mosaics-world:safe", RELOADED = "mosaics-world:reloaded";
+const BOOT = "mosaics-world:boot", SAFE = "mosaics-world:safe";
 const ls = { get: (k: string): string | null => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k: string, v: string): void => { try { localStorage.setItem(k, v); } catch { /* private mode */ } }, del: (k: string): void => { try { localStorage.removeItem(k); } catch { /* private mode */ } } };
-const ss = { get: (k: string): string | null => { try { return sessionStorage.getItem(k); } catch { return null; } }, set: (k: string, v: string): void => { try { sessionStorage.setItem(k, v); } catch { /* private mode */ } } };
+const ss = { get: (k: string): string | null => { try { return sessionStorage.getItem(k); } catch { return null; } }, set: (k: string, v: string): void => { try { sessionStorage.setItem(k, v); } catch { /* private mode */ } }, del: (k: string): void => { try { sessionStorage.removeItem(k); } catch { /* private mode */ } } };
 
 /** Call before the game starts. Returns true when this run should start in safe mode. */
 export function bootCheck(): boolean {
-  const prev = ls.get(BOOT);
-  if (prev && Date.now() - Number(prev) < 5 * 60_000) ls.set(SAFE, "1");   // the last run never reached a clean exit
-  ls.set(BOOT, String(Date.now()));
-  // a normal close, reload or navigation clears the marker; a crashed tab cannot
-  window.addEventListener("pagehide", () => { ls.del(BOOT); });
+  const prev = ss.get(BOOT);   // per tab: sessionStorage survives a crashed tab being reloaded, and other tabs cannot trip it
+  if (prev && Date.now() - Number(prev) < 5 * 60_000) ls.set(SAFE, "1");   // the last run in this tab never reached a clean exit
+  ss.set(BOOT, String(Date.now()));
+  // a normal reload or navigation clears the marker; a crashed tab cannot
+  window.addEventListener("pagehide", () => { ss.del(BOOT); });
   return ls.get(SAFE) === "1";
 }
 
@@ -39,7 +39,7 @@ export function enterSafeMode(game: Any, why: string): void {
   note(why, { label: "Back to full detail", run: () => leaveSafeMode(game) });
 }
 export function leaveSafeMode(game: Any): void {
-  ls.del(SAFE); ls.del(RELOADED);
+  ls.del(SAFE);
   const r = game.renderer; try { r.safeMode = false; } catch { /* ignore */ }
   note("Full detail is back on. If it struggles again the game will step down by itself.");
 }
@@ -48,8 +48,8 @@ export function installSafeguards(game: Any, safe: boolean): void {
   let lastFrame = performance.now(), healthySince = performance.now(), memNoted = false;
   if (safe) enterSafeMode(game, "The last session closed unexpectedly, so the game started in light mode (flat city view, lowest detail). Your progress is safe.");
   // frame heartbeat: wrap the renderer so we know drawing is alive
-  const r = game.renderer, orig = r.render?.bind(r);
-  if (orig) r.render = (...a: unknown[]) => { orig(...a); lastFrame = performance.now(); };
+  const r = game.renderer, origFrame = game.frame?.bind(game);
+  if (origFrame) game.frame = (...a: unknown[]) => { origFrame(...a); lastFrame = performance.now(); };
   window.addEventListener("error", (e) => console.error("[mosaics:window]", e.message));
   window.addEventListener("unhandledrejection", (e) => { console.error("[mosaics:promise]", e.reason); e.preventDefault(); });
   const cvs = game.canvas as HTMLCanvasElement | undefined;
@@ -59,16 +59,12 @@ export function installSafeguards(game: Any, safe: boolean): void {
     if (document.visibilityState !== "visible") { lastFrame = now; return; }
     // a clean thirty seconds: this run is fine, clear the crash marker (a later crash starts a new one)
     if (now - healthySince > 30_000) {
-      ls.del(BOOT); healthySince = Infinity;
+      ss.del(BOOT); healthySince = Infinity;
       // two clean light-mode sessions in a row and the game quietly goes back to full detail next time
       if (safe) { const n = Number(ls.get("mosaics-world:safeClean") ?? "0") + 1; if (n >= 2) { ls.del(SAFE); ls.del("mosaics-world:safeClean"); } else ls.set("mosaics-world:safeClean", String(n)); }
     }
-    // drawing has stopped while the tab is open
-    if (now - lastFrame > 4000 && !game.modal?.open && !game.casino?.open && !game.club?.open && !game.interior?.open && !game.travel?.open) {
-      lastFrame = now;
-      if (ss.get(RELOADED) !== "1") { ss.set(RELOADED, "1"); ls.set(SAFE, "1"); console.error("[mosaics] drawing stalled; restarting in light mode"); location.reload(); }
-      else enterSafeMode(game, "Drawing stalled, so the game switched to light mode.");
-    }
+    // the frame loop itself has stopped while the tab is open
+    if (now - lastFrame > 6000 && !r.safeMode) { lastFrame = now; enterSafeMode(game, "The game stalled, so it switched to light mode (flat city view, lowest detail). Your progress is safe."); }
     // memory ceiling (Chrome only)
     const mem = (performance as Any).memory;
     if (mem && !memNoted && mem.usedJSHeapSize > mem.jsHeapSizeLimit * 0.82) { memNoted = true; enterSafeMode(game, "The tab was close to its memory limit, so detail was lowered to keep the game running."); }
