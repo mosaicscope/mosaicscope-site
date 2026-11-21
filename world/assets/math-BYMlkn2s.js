@@ -1,0 +1,1 @@
+var e=(e,t,n)=>e<t?t:e>n?n:e;function t(e,t){let n=(e-t)%(Math.PI*2);return n>Math.PI&&(n-=Math.PI*2),n<=-Math.PI&&(n+=Math.PI*2),n}export{e as n,t};
