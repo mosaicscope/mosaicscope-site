@@ -50,7 +50,7 @@ export class Multiplayer {
     if (url) this.url = url.replace(/\/+$/, "");
     this.autoMeet = true; this.total = 0; this.others = [];
     this.status = "connecting"; this.message = "Connecting..."; this.changed();
-    const loop = () => { this.tick(); this.raf = requestAnimationFrame(loop); }; this.raf = requestAnimationFrame(loop);
+    const loop = () => { this.raf = requestAnimationFrame(loop); try { this.tick(); } catch (e) { console.error("[mosaics:multiplayer]", e); } }; this.raf = requestAnimationFrame(loop);
   }
   leave(): void {
     cancelAnimationFrame(this.raf); try { this.lob?.close(); } catch { /* closed */ } this.lob = null; for (const s of this.socks.values()) { try { s.close(); } catch { /* closed */ } }

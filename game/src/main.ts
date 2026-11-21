@@ -1,5 +1,6 @@
 import { appStorage } from "./persistence/storage";
 import { mountMultiplayer } from "./net/MultiplayerPanel";
+import { bootCheck, installSafeguards } from "./app/Safeguards";
 import "./ui/styles.css";
 import { Game } from "./app/Game";
 import "./ui/dashboard.css";
@@ -56,7 +57,9 @@ try {
   if (!canvas.getContext("2d")) throw new Error("Your browser can't draw the world (canvas is unavailable).");
   const game = new Game(canvas, ui);
   loadBuzz(); // what the real town is talking about, for small talk
+  const safeBoot = bootCheck();
   game.start();
+  installSafeguards(game, safeBoot);
   loadMosaicScope();
   (window as any).__mosaics = game; // handy for debugging and the smoke test
   (window as unknown as { __mp?: unknown }).__mp = mountMultiplayer(() => (game as any).sim); // the "World PIN" button: play together with anyone who types the same PIN

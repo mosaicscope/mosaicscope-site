@@ -75,9 +75,11 @@ export class Renderer {
   private artworkBudget=new CrowdArtworkBudget();
   readonly cam = new Camera();
   drivingViewEnabled = false;
-  cycleCamera():void{this.drivingViewEnabled=!this.drivingViewEnabled;}
+  /** Light mode (see app/Safeguards.ts): flat city view only, lowest detail. */
+  safeMode = false;
+  cycleCamera():void{if(this.safeMode){this.drivingViewEnabled=false;return;}this.drivingViewEnabled=!this.drivingViewEnabled;}
   private lastPerspective?:boolean;
-  get perspectiveActive():boolean{return this.drivingViewEnabled&&this.sim.player.inside<0;}
+  get perspectiveActive():boolean{return this.drivingViewEnabled&&!this.safeMode&&this.sim.player.inside<0;}
   get perspectiveHeading():number{return this.drivingView.heading;}
   screenToWorld(x:number,y:number,height=0):{x:number;y:number}{return this.perspectiveActive?this.drivingView.unproject(x,y,height):this.cam.toWorldAtHeight(x,y,height);}
   worldToScreen(x:number,y:number,height=0):{x:number;y:number}{return this.perspectiveActive?this.drivingView.project(x,y,height):this.cam.toScreen(x,y,height,{x:0,y:0});}

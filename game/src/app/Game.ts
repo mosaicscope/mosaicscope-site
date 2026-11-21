@@ -102,6 +102,7 @@ import { raiseCue } from "../sim/Pursuit";
 import { carDiagram } from "../ui/CarSilhouette";
 import { showWealth } from "../ui/WealthPanel";
 import { recordInteriorVisit } from "../sim/WorldFun";
+import { enterSafeMode } from "./Safeguards";
 
 /** Wires simulation, renderer, input, audio, UI and persistence together and runs the loop. */
 export class Game {
@@ -330,6 +331,8 @@ export class Game {
     const now = performance.now();
     console.error(`[mosaics:${name}]`, e);
     this.faults.push(now); this.faults = this.faults.filter((t) => now - t < 5000);
+    // drawing keeps failing: drop to the light version of the same game rather than a dead or dark screen
+    if (name === "render" && !this.renderer.safeMode && this.faults.filter((t) => now - t < 3000).length >= 3) { this.faults = []; enterSafeMode(this, "Drawing hit a snag, so the game switched to light mode (flat city view, lowest detail). Your progress is safe."); return; }
     if (this.faults.length >= 8 && !this.faultEl) {
       // something keeps failing: stop the clock and let the player choose, instead of a dead screen
       this.setSpeed(0);
@@ -485,7 +488,7 @@ export class Game {
     const slow = Math.max(12, this.dtMin * 1.45), fast = Math.max(9, this.dtMin * 1.15);
     if (ms > slow) { this.slowFor += dt; this.fastFor = 0; } else if (ms < fast) { this.fastFor += dt; this.slowFor = Math.max(0, this.slowFor - dt); } else { this.fastFor = 0; }
     if (this.slowFor > .4 && this.quality > 0) { this.quality = (this.quality - 1) as Quality; this.slowFor = 0; this.renderer.resize(this.quality); }
-    if (this.fastFor > 12 && this.quality < 2) { this.quality = (this.quality + 1) as Quality; this.fastFor = 0; this.renderer.resize(this.quality); }
+    if (this.fastFor > 12 && this.quality < (this.renderer.safeMode ? 1 : 2)) { this.quality = (this.quality + 1) as Quality; this.fastFor = 0; this.renderer.resize(this.quality); }
   }
 
   // ------------------------------------------------------------------ player
