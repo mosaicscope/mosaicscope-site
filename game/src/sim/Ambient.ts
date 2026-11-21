@@ -23,7 +23,7 @@ const PRESET: Record<string, { kind: string; color?: string; text?: string }> = 
   dust_devil: { kind: "dust" }, feather_dust: { kind: "dust", color: "#f4f0e6" }, leaf_burst: { kind: "text", text: "🍂" }, leaf_fall: { kind: "text", text: "🍃" }, leaf_swirl: { kind: "text", text: "🍂" },
   puddle_splash: { kind: "rain_splash" }, sun_glint: { kind: "star", color: "#fff6c0" }, water_splash_small: { kind: "water" },
 };
-const CRITTER: Record<string, string> = { cat: "🐈", pigeon: "🐦", songbird: "🐦", squirrel: "🐿️", butterfly: "🦋", moth: "🦋" };
+export const CRITTER: Record<string, string> = { cat: "🐈", pigeon: "🐦", songbird: "🐦", squirrel: "🐿️", butterfly: "🦋", moth: "🦋" };
 const fx = (sim: Simulation, kind: string, x: number, y: number, z: number, n = 1, color?: string, text?: string): void => {
   if (Math.hypot(x - sim.player.x, y - sim.player.y) > 30) return;
   sim.bus.emit("fx", { kind, x, y, z, n, color, text } as never);
@@ -75,7 +75,7 @@ function visuals(sim: Simulation, rt: Rt, dt: number): void {
     if (c.orbit > 0) { c.a += dt * c.speed / Math.max(0.5, c.orbit); c.x = c.tx + Math.cos(c.a) * c.orbit; c.y = c.ty + Math.sin(c.a) * c.orbit; }
     else { const dx = c.tx - c.x, dy = c.ty - c.y, d = Math.hypot(dx, dy); if (d > 0.05) { const s = Math.min(d, c.speed * dt); c.x += dx / d * s; c.y += dy / d * s; } }
     if (Math.hypot(c.x - sim.player.x, c.y - sim.player.y) > 60) rt.critters.delete(h);
-    else if (refresh) fx(sim, "text", c.x, c.y, c.sp === "butterfly" || c.sp === "moth" || c.sp === "songbird" ? 1.2 : 0.4, 1, undefined, CRITTER[c.sp] ?? "🐾");
+    /* critters are not drawn: floating glyph birds and bugs read as random things popping up */
   }
 
 }

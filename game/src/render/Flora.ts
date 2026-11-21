@@ -168,7 +168,7 @@ function buildChunk(w: World, cache: Cache, cx: number, cy: number, rev: number)
     // wildlife lives where its habitat is
     const h3 = h2(tx * 29 + 3, ty * 31 + 11), fd = forestDepth(tx, ty), x = tx + 0.5, y = ty + 0.5;
     if (k === D.FLOWERS && h3 < 0.3) c.homes.push({ x, y, fk: FK.BUTTERFLY, seed: s });
-    else if (TREES.has(k) && h3 < 0.06) c.homes.push({ x, y, fk: FK.BIRD, seed: s });
+    /* no birds: they read as random things appearing */
     else if ((k === D.TALLGRASS || k === D.BUSH) && fd < 0.4 && h3 < 0.02) c.homes.push({ x, y, fk: FK.RABBIT, seed: s });
     else if ((k === D.OAK || k === D.PINE) && fd > 0.5 && h3 < 0.012 && deer < 1) { deer++; c.homes.push({ x, y, fk: FK.DEER, seed: s }); }
     else if ((k === D.FERN || k === D.BUSH) && fd > 0.3 && h3 < 0.12) c.homes.push({ x, y, fk: FK.FIREFLY, seed: s });
