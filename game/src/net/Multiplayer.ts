@@ -9,7 +9,7 @@ import { TICKS_PER_HOUR } from "../sim/Environment";
  * Everyone plays their own copy of the city simulation, so the NPCs are not shared: the people you meet are the other players.
  */
 const CELL = 192, INTEREST = 70, POOL = 40, SEND_MS = 200, TTL_MS = 4000;
-export const DEFAULT_URL = "wss://mosaics-realtime.mosaicscope.workers.dev";
+export const DEFAULT_URL = "wss://mosaics-realtime.mosiacscope.workers.dev";
 const LOOK_KEYS = ["kind", "color", "accent", "hat", "hair", "skin", "hairColor", "top", "bottom", "shoes", "shoeColor"] as const;
 interface Remote { id: string; name: string; look: Record<string, unknown>; x: number; y: number; z: number; h: number; p: string; sp: number; c: string; at: number }
 type Status = "off" | "connecting" | "live" | "error";
