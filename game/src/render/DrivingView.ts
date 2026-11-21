@@ -55,7 +55,8 @@ export class DrivingView {
  lod=1;private ema=12;private lodAt=0;
  draw(g:CanvasRenderingContext2D,sim:Simulation,w:number,h:number,dpr:number,time:number,alpha:number,dt:number,particles:Particles,rain:Rain,quality:number,reduceMotion:boolean):void{
   const t0=performance.now();this.drawFrame(g,sim,w,h,dpr,time,alpha,dt,particles,rain,quality,reduceMotion);
-  this.ema+=(Math.min(performance.now()-t0,60)-this.ema)*.08;
+  const spent=performance.now()-t0;this.ema+=(Math.min(spent,60)-this.ema)*.08;
+  if(spent>20)this.lod=Math.max(.4,this.lod-.1);   // fast attack: a slow frame trims the next one straight away, recovery stays gradual
   if(t0-this.lodAt>250){this.lodAt=t0;if(this.ema>9.5)this.lod=Math.max(.4,this.lod-.06);else if(this.ema<7)this.lod=Math.min(1,this.lod+.02);}
  }
  private drawFrame(g:CanvasRenderingContext2D,sim:Simulation,w:number,h:number,dpr:number,time:number,alpha:number,dt:number,particles:Particles,rain:Rain,quality:number,reduceMotion:boolean):void {
@@ -78,7 +79,7 @@ export class DrivingView {
   this.gpuGround??=new PerspectiveGroundGPU(false,this.highPerformanceGpu);const gpu=this.gpuGround.begin(w*dpr,h*dpr),flatPaths=new Map<string,Path2D>();
   const flat=(pts:[number,number,number][],color:string)=>{const ps=pts.map(q=>local(q[0],q[1],q[2]));if(ps.some(q=>q.z<near))return quad(pts,color);const sc=ps.map(screen);if(sc.every(q=>q.x<0)||sc.every(q=>q.x>w)||sc.every(q=>q.y<0)||sc.every(q=>q.y>h))return;if(gpu){this.gpuGround!.polygon(sc,color,w,h,0);return;}let path=flatPaths.get(color);if(!path){path=new Path2D();flatPaths.set(color,path);}for(let i=0;i<sc.length;i++)if(i)path.lineTo(sc[i].x,sc[i].y);else path.moveTo(sc[i].x,sc[i].y);path.closePath();};
   const flushFlat=()=>{for(const [color,path] of flatPaths){g.fillStyle=color;g.fill(path);}flatPaths.clear();};
-  const farRadius=Math.round(500*Math.max(.6,this.lod)),farStep=Math.round((quality===0?40:32)/Math.max(.5,this.lod)),far:{x:number;y:number;d:number;t:number}[]=[];
+  const farRadius=Math.round(500*Math.max(.3,this.lod)),farStep=Math.round((quality===0?40:32)/Math.max(.35,this.lod)),far:{x:number;y:number;d:number;t:number}[]=[];
   const centreX=Math.floor(focus.x/farStep)*farStep,centreY=Math.floor(focus.y/farStep)*farStep;
   for(let y=centreY-farRadius;y<=centreY+farRadius;y+=farStep)for(let x=centreX-farRadius;x<=centreX+farRadius;x+=farStep){const mx=x+farStep*.5,my=y+farStep*.5,d=(mx-ex)*fx+(my-ey)*fy,side=Math.abs((mx-ex)*rx+(my-ey)*ry);if(d<33||d>farRadius||side>d*.9+farStep)continue;far.push({x,y,d,t:sim.world.tile(Math.floor(mx),Math.floor(my))});}
   far.sort((a,b)=>b.d-a.d);for(const q of far){const color=(GROUND[q.t===T.TREE?T.GRASS:q.t]??GROUND[T.PAVE])[0];flat([[q.x,q.y,0],[q.x+farStep,q.y,0],[q.x+farStep,q.y+farStep,0],[q.x,q.y+farStep,0]],color);}flushFlat();

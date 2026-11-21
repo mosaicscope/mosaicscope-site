@@ -161,10 +161,18 @@ export class World {
 
   /** Nearest walkable tile centre to (x, y), spiralling outward. */
   /** Car space: the road and its crossings. Parking bays are fine to stand in. */
+  /** Remembered answers for the road-width test, per 1/8-tile cell (people ask this every tick; the road list only changes when streets stream in). */
+  private cwX = new Int32Array(1 << 17); private cwY = new Int32Array(1 << 17); private cwV = new Uint8Array(1 << 17); private cwN = -1;
   carriageway(x: number, y: number): boolean {
     const t=this.tile(Math.floor(x),Math.floor(y));if(t===T.ROAD||t===T.CROSSWALK)return true;
     if(!this.mapped)return false;
-    for(const id of worldIndex(this).roads.query(x-9,y-9,x+9,y+9)){const r=this.mapped.streetSegments[id];if(!r)continue;const along=Math.max(0,Math.min(r.length,(x-r.x)*r.dx+(y-r.y)*r.dy));if(Math.hypot(x-r.x-r.dx*along,y-r.y-r.dy*along)<r.half)return true;}
+    const count=(this.mapped.streetSegments as unknown as {length?:number}).length??0;if(count!==this.cwN){this.cwV.fill(0);this.cwN=count;}
+    const ix=Math.floor(x*8),iy=Math.floor(y*8),slot=((Math.imul(ix,73856093)^Math.imul(iy,19349663))>>>0)&0x1ffff;
+    if(this.cwV[slot]!==0&&this.cwX[slot]===ix&&this.cwY[slot]===iy)return this.cwV[slot]===2;
+    const hit=this.carriagewayExact((ix+.5)/8,(iy+.5)/8);this.cwX[slot]=ix;this.cwY[slot]=iy;this.cwV[slot]=hit?2:1;return hit;
+  }
+  private carriagewayExact(x: number, y: number): boolean {
+    for(const id of worldIndex(this).roads.query(x-9,y-9,x+9,y+9)){const r=this.mapped!.streetSegments[id];if(!r)continue;const along=Math.max(0,Math.min(r.length,(x-r.x)*r.dx+(y-r.y)*r.dy));if(Math.hypot(x-r.x-r.dx*along,y-r.y-r.dy*along)<r.half)return true;}
     return false;
   }
   /** All corners of a fixture stay outside lanes and solid footprints. */
