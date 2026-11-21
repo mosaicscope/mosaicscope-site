@@ -8,6 +8,9 @@ import "./ui/interface.css";
 import { setMosaicData, MOSAIC } from "./content/mosaicscope";
 import { loadBuzz } from "./content/buzz";
 import "./ui/theme.css";
+import "./ui/fullscreen.css";
+import { mountFullscreen } from "./ui/Fullscreen";
+mountFullscreen();
 
 /**
  * Pull the live business details from the main site (content.json) and the real Instagram feed

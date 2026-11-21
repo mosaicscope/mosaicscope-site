@@ -1,0 +1,13 @@
+html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+body { position: fixed; inset: 0; width: 100%; height: var(--app-h, 100dvh); -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; background: #0e0b0a; }
+#world { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+#ui { position: absolute; inset: 0; height: 100%; }
+.fs-btn { position: fixed; z-index: 90; left: max(6px, env(safe-area-inset-left)); top: 50%; transform: translateY(-50%); width: 32px; height: 32px; border-radius: 8px; border: 1px solid rgba(228,224,221,.25); background: rgba(24,17,18,.6); color: #e4e0dd; font: 700 17px/1 system-ui, sans-serif; padding: 0; opacity: .5; touch-action: manipulation; }
+.fs-btn.on { opacity: .3; }
+.fs-tip { position: fixed; z-index: 95; left: 50%; transform: translateX(-50%); top: max(10px, env(safe-area-inset-top)); width: min(92vw, 420px); background: rgba(24,17,18,.94); color: #e4e0dd; border: 1px solid rgba(228,224,221,.3); border-radius: 12px; padding: 10px 12px; font: 13px/1.4 system-ui, sans-serif; text-align: center; }
+.fs-tip button { margin-left: 8px; background: #e4e0dd; color: #181112; border: 0; border-radius: 8px; padding: 5px 10px; font: 600 12px system-ui, sans-serif; }
+.is-app .fs-btn { display: none; }
+
+/* button labels never run out of their button */
+#ui .tc-btn { overflow: hidden; }
+#ui .tc-ctx .tc-lbl, #ui .tc-arc .tc-lbl { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; max-width: 100%; box-sizing: border-box; padding: 0 5px; font-size: 10px; line-height: 1.1; letter-spacing: 0; text-align: center; }
