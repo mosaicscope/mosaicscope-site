@@ -8,6 +8,7 @@ import type { Building } from "../world/World";
 import { BUILDINGS, isOpen } from "../content/buildings";
 import type { InteriorDef, Interactable, Launch } from "../content/interiors";
 import { interiorForBuilding, FEEDS } from "../content/interiorVariety";
+import { recordInteriorVisit } from "../sim/WorldFun";
 import { applyEffect } from "../content/interiorEffects";
 import { moveInside, zoneAt, findPath } from "../content/interiorNav";
 import { InteriorView, type ViewActor, type ViewState } from "../render/InteriorView";
@@ -100,7 +101,7 @@ export class InteriorOverlay {
   get footing(): { moving: boolean; running: boolean } { return { moving: this.open && this.me.speed > 0.2, running: this.open && this.me.speed > 3.6 }; }
 
   show(b: Building): void {
-    const sim = this.host.sim(),source=sim.world.mapped?.byBuilding.get(b.id),def = furnishInterior(sim,b.id,interiorForBuilding({...b,usage:[source?.kind,b.legacyName].filter(Boolean).join(' ')}));
+    const sim = this.host.sim(),source=sim.world.mapped?.byBuilding.get(b.id),visits=recordInteriorVisit(sim,b.id),def = furnishInterior(sim,b.id,interiorForBuilding({...b,usage:[source?.kind,b.legacyName].filter(Boolean).join(' ')},visits));
     this.b = b; this.def = def;this.path=[];this.destination=null;
     this.actionsEl.replaceChildren(...def.interactables.map(it=>h("button",{text:it.label,onclick:()=>this.walkTo(it)})));
     this.crowd = new InteriorCrowd(def, sim, b);

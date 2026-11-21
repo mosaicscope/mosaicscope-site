@@ -117,10 +117,10 @@ function standPoint(def: InteriorDef, q: Prop): Pt | null {
 // ------------------------------------------------------------------ build
 const cache = new Map<string, InteriorDef>();
 /** This building's interior. Cached per building, so the nav grid and the look are stable between visits. */
-export function interiorForBuilding(b: BuildingRef): InteriorDef {
-  const key = `${b.id}:${b.kind}:${b.name}:${b.usage??''}`;
+export function interiorForBuilding(b: BuildingRef, visits = 0): InteriorDef {
+  const key = `${b.id}:${b.kind}:${b.name}:${b.usage??''}:${Math.max(0, Math.floor(visits))}`;
   let d = cache.get(key);
-  if (!d) { d = placeActions(vary(buildingInterior(b.kind,b.name,b.usage)??interiorFor(b.kind), b)); cache.set(key, d);while(cache.size>96)cache.delete(cache.keys().next().value!); }
+  if (!d) { d = placeActions(driftInterior(vary(buildingInterior(b.kind,b.name,b.usage)??interiorFor(b.kind), b), b, visits)); cache.set(key, d);while(cache.size>96)cache.delete(cache.keys().next().value!); }
   return d;
 }
 
@@ -242,3 +242,54 @@ export const FEEDS: Record<Effect, "hunger" | "energy" | "social" | "fun" | "cur
   treat: "health", vend: "hunger", eat: "hunger", cuppa: "social", rest: "energy", sit: "energy", wash: "energy", workout: "fun",
   play: "fun", music: "fun", dance: "fun", browse: "curiosity", read: "curiosity", work: "cash",
 };
+
+// ------------------------------------------------------------------ visit drift
+/** Most mutations any visit can add on top of a building's fixed identity. */
+export const MAX_DRIFT = 4;
+const MOVABLE: ReadonlySet<PropType> = new Set<PropType>(["plant", "flower", "lamp", "bin", "rug"]);
+/**
+ * Real randomness, but persistence. The building's identity (theme, layout, anchor furniture, owner) comes only from its id (vary()).
+ * Each visit then layers a few small, capped changes on top: something is nudged to a new spot, repainted, a poster is swapped, a
+ * plant or flowers appear. The changes are seeded from building + visit number, so visit N always looks the same, but not like visit N-1.
+ * Every counter, seat and doorway stays reachable, and shops that must stay put (hospital, police, bank...) only get cosmetic drift.
+ */
+export function driftInterior(def: InteriorDef, b: BuildingRef, visits: number): InteriorDef {
+  const n = Math.min(Math.max(0, Math.floor(visits)), MAX_DRIFT);
+  if (n <= 0) return def;
+  const d: InteriorDef = JSON.parse(JSON.stringify(def)), strict = STRICT.has(b.kind);
+  const rng = new Rng((hashString(`${b.kind}#${b.id}#${b.name}`) ^ Math.imul(Math.floor(visits), 0x9e3779b9)) >>> 0);
+  const baseline = [...d.interactables.map((i) => ({ x: i.x, y: i.y })), ...d.spots.map((s) => ({ x: s.x, y: s.y }))].filter((pt) => reachable(d, d.door, pt));
+  const okStill = () => baseline.every((pt) => reachable(d, d.door, pt));
+  const clear = (x: number, y: number, w: number, h: number): boolean => {
+    if (Math.hypot(x + w / 2 - d.door.x, y + h / 2 - d.door.y) < 2.4) return false;
+    return !baseline.some((pt) => pt.x > x - 0.8 && pt.x < x + w + 0.8 && pt.y > y - 0.8 && pt.y < y + h + 0.8);
+  };
+  /** A free spot for a prop of this size that keeps everything reachable (the prop itself is added or moved by the caller). */
+  const spot = (w: number, h: number, flat: boolean): { x: number; y: number } | null => {
+    for (let t = 0; t < 20; t++) {
+      const x = +rng.range(0.3, d.size.w - w - 0.3).toFixed(2), y = +rng.range(0.3, d.size.h - h - 0.3).toFixed(2);
+      if (overlaps(d, x, y, w, h, flat ? 0.05 : 0.3) || (!flat && !clear(x, y, w, h))) continue;
+      return { x, y };
+    }
+    return null;
+  };
+  for (let i = 0; i < n; i++) {
+    const roll = rng.int(0, strict ? 1 : 3), movable = d.props.filter((q) => MOVABLE.has(q.type) && !PROP_INFO[q.type].wall);
+    if (roll === 0 && movable.length) {            // repaint something (a rug fades, a plant is replaced by a different one)
+      const q = movable[rng.int(0, movable.length - 1)]; q.color = shiftColor(q.color, rng.range(-25, 25), 1, rng.range(0.9, 1.1));
+    } else if (roll === 1) {                        // swap a poster (never the health posters)
+      const posters = d.props.filter((q) => q.type === "poster" && !/0800|1737|healthline|wash your hands/i.test(q.label ?? ""));
+      if (posters.length && !strict) posters[rng.int(0, posters.length - 1)].label = rng.pick(POSTERS);
+    } else if (roll === 2 && movable.length) {     // nudge something to a new spot
+      const q = movable[rng.int(0, movable.length - 1)], flat = !!PROP_INFO[q.type].flat, ox = q.x, oy = q.y;
+      q.x = -99; q.y = -99;                          // out of the way while we look for its new spot
+      const at = spot(q.w, q.h, flat);
+      if (at) { q.x = at.x; q.y = at.y; if (!flat && !okStill()) { q.x = ox; q.y = oy; } } else { q.x = ox; q.y = oy; }
+    } else if (roll === 3 && d.props.length < 80) { // something new turns up (fresh flowers, a new plant)
+      const [type, w, h, col, label] = rng.pick<[PropType, number, number, string, string | undefined]>([["plant", 0.8, 0.8, "#3f8f4a", undefined], ["flower", 0.7, 0.7, "#ff7ad9", undefined], ["plant", 1, 1, "#2f7a3d", "Fern"]]);
+      const at = spot(w, h, false);
+      if (at) { const prop = p(type, at.x, at.y, w, h, shiftColor(col, rng.range(-20, 20), 1, rng.range(0.85, 1.15)), label); d.props.push(prop); if (!okStill()) d.props.pop(); }
+    }
+  }
+  return d;
+}
