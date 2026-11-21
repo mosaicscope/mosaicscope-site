@@ -638,7 +638,8 @@ export class Simulation {
       if (v.driver >= 0 || v.state !== "parked" || !this.world.isRoadLine(Math.floor(v.x)) && !this.world.isRoadLine(Math.floor(v.y)) || this.world.tile(Math.floor(v.x), Math.floor(v.y)) === 20) { this.abandoned.delete(v.id); continue; }
       const since = this.abandoned.get(v.id) ?? this.tick;
       this.abandoned.set(v.id, since);
-      if (this.tick - since < 60 * 120 || this.player.inCar === v.id) continue;
+      // never tow a car the player could be looking at (the 3D view is full detail out to about 100 tiles)
+      if (this.tick - since < 60 * 120 || this.player.inCar === v.id || Math.hypot(v.x - this.focus.x, v.y - this.focus.y) < 130) continue;
       this.abandoned.delete(v.id);
       this.emit({ type: "towed", x: v.x, y: v.y, summary: `A tow truck took away the ${VEHICLES[v.cls].name.toLowerCase()} (${v.plate}) blocking the road` });
       const drv = this.chars.find((c) => c.tier === "background" && c.inCar < 0 && c.inside < 0 && c.lod >= Lod.BACKGROUND);
@@ -647,8 +648,8 @@ export class Simulation {
     // gridlock breaker: a stuck traffic car quietly rejoins traffic somewhere else (off-camera first)
     for (const v of this.vehicles) {
       if (v.state !== "drive" || v.siren || this.player.inCar === v.id || v.driver < 0) continue;
-      const far = Math.hypot(v.x - this.focus.x, v.y - this.focus.y) > 18;
-      if (v.stuck > (far ? 6 : 18)) this.relocateCar(v, this.chars[v.driver]);
+      const far = Math.hypot(v.x - this.focus.x, v.y - this.focus.y) > 130;
+      if (v.stuck > (far ? 6 : 75)) this.relocateCar(v, this.chars[v.driver]);
     }
     // cops in pursuing cars bail out near a suspect on foot
     for (const v of this.vehicles) {

@@ -98,6 +98,14 @@ export class Renderer {
   private pt = { x: 0, y: 0 };
   private pt2 = { x: 0, y: 0 };
   private dpr = 1;
+  /** Resolution governor for the 3D view: sharp while there is headroom, a little softer when a frame runs long, so motion stays even. */
+  private baseDpr = 1; private scaleK = 1; private p3 = 10; private p3At = 0;
+  private adaptScale(ms: number, nowS: number): void {
+    this.p3 += (Math.min(ms, 60) - this.p3) * 0.06; if (nowS - this.p3At < 1.5) return; this.p3At = nowS;
+    let k = this.scaleK; if (this.p3 > 13.5 && k > 0.75) k = Math.max(0.75, k - 0.08); else if (this.p3 < 9 && k < 1) k = Math.min(1, k + 0.05);
+    if (Math.abs(k - this.scaleK) < 0.001) return; this.scaleK = k; this.dpr = this.baseDpr * k;
+    this.canvas.width = Math.round(this.cam.viewW * this.dpr); this.canvas.height = Math.round(this.cam.viewH * this.dpr);
+  }
   private time = 0;
   private motion = new Map<number,{x:number;y:number;speed:number}>();
   private lastPose = new Map<number, string>();
@@ -167,7 +175,7 @@ export class Renderer {
     // Never render below device pixels: a sub-native canvas is upscaled by the browser and reads as blur on the ground and figures.
     // Lower tiers cap the pixel count instead (fill-rate is the real cost on weak machines); ultra stays at full native sharpness.
     this.dpr = quality === 0 ? Math.min(1, native) : quality === 1 ? Math.min(1.25, native) : quality === 2 ? Math.min(1.5, native) : Math.min(2,native);
-    setPanelResolution(this.dpr);
+    this.baseDpr = this.dpr; this.scaleK = 1; setPanelResolution(this.dpr);
     this.canvas.width = Math.round(w * this.dpr); this.canvas.height = Math.round(h * this.dpr);
     this.cam.resize(w, h);
     this.particles.scale = quality === 0 ? 0.35 : quality === 1 ? 0.7 : quality === 2 ? 1 : 1.4;
@@ -194,7 +202,7 @@ export class Renderer {
     // camera follow
     if (cam.follow >= 0 && sim.chars[cam.follow]) { const f = sim.chars[cam.follow],car=f.inCar>=0?sim.vehicles[f.inCar]:undefined;const vx=car?.vx??0,vy=car?.vy??0,speed=Math.hypot(vx,vy),ahead=car?Math.min(.32,4/Math.max(1,speed)):0;cam.lookAt(f.x+vx*ahead,f.y+vy*ahead); }
     const perspective=this.perspectiveActive;if(this.lastPerspective!==undefined&&this.lastPerspective!==perspective&&!o.reduceMotion)this.crossfade();this.lastPerspective=perspective;
-    if(perspective) { cam.update(dt,o.reduceMotion); sim.focus.x=sim.player.x; sim.focus.y=sim.player.y; sim.trafficRadius=64; this.drivingView.draw(g,sim,cam.viewW,cam.viewH,this.dpr,time,alpha,dt,this.particles,this.rain,o.quality,o.reduceMotion); if(!o.quietInterface)this.drawPerspectiveBubbles(); this.stats.frameMs=performance.now()-t0; return; }
+    if(perspective) { cam.update(dt,o.reduceMotion); sim.focus.x=sim.player.x; sim.focus.y=sim.player.y; sim.trafficRadius=88; this.drivingView.draw(g,sim,cam.viewW,cam.viewH,this.dpr,time,alpha,dt,this.particles,this.rain,o.quality,o.reduceMotion); if(!o.quietInterface)this.drawPerspectiveBubbles(); this.stats.frameMs=performance.now()-t0; this.adaptScale(this.stats.frameMs,time); return; }
     // zoomed right in: the camera drops to street level for a flat 2D side view; zoom out to go back to 3D
     // (hysteresis stops it flickering at the boundary mid-pinch; a quick crossfade hides the switch)
     const want2D = STREET_2D && (this.in2D ? cam.zoom > 2.8 : cam.zoom > 3.4);

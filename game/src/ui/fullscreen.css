@@ -11,3 +11,6 @@ body { position: fixed; inset: 0; width: 100%; height: var(--app-h, 100dvh); -we
 /* button labels never run out of their button */
 #ui .tc-btn { overflow: hidden; }
 #ui .tc-ctx .tc-lbl, #ui .tc-arc .tc-lbl { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; max-width: 100%; box-sizing: border-box; padding: 0 5px; font-size: 10px; line-height: 1.1; letter-spacing: 0; text-align: center; }
+
+/* the radio never sits under the dock on narrower desktops */
+@media (max-width: 1500px) { #ui .radio .radio-title { display: none; } #ui .radio { padding: 3px 6px; } }

@@ -153,8 +153,9 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 
 /* ---- Main menu: one centred panel, grouped, never a wall of buttons ------ */
 #ui .bar.open > .game-menu {
-  position: fixed !important; inset: auto !important; left: 50% !important; top: 50% !important; right: auto !important;
-  transform: translate(-50%, -50%); width: min(900px, calc(100vw - 24px)) !important; max-height: calc(100dvh - 24px) !important; overflow: hidden !important; height: auto !important;
+  /* hangs under the top bar (the bar has a backdrop filter, so fixed centring would be measured against the bar and clip the top) */
+  position: absolute !important; inset: auto !important; left: 50% !important; top: calc(100% + 8px) !important; right: auto !important;
+  transform: translateX(-50%); width: min(900px, calc(100vw - 24px)) !important; max-height: calc(100dvh - 104px) !important; overflow-y: auto !important; overflow-x: hidden !important; overscroll-behavior: contain; height: auto !important;
   grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 6px !important; padding: 14px 16px 16px !important;
   background: var(--grain), var(--panel-grad) !important; border: 1px solid rgba(242, 239, 235, .14) !important; border-radius: 16px !important;
   box-shadow: var(--bevel), 0 0 0 100vmax rgba(5, 4, 4, .72), 0 30px 80px rgba(0, 0, 0, .7) !important; z-index: 90;

@@ -43,9 +43,9 @@ export function upgradeLattice(old:CrashLattice|undefined):CrashLattice{
 }
 export function strikeLattice(lattice:CrashLattice|undefined,x:number,y:number,nx:number,ny:number,energy:number):CrashLattice {
  const state=upgradeLattice(lattice);state.linkDamage??=links.map(()=>0);
- for(let i=0;i<state.nodes.length;i++){const n=state.nodes[i],base=crashPositions[i],dist=(base[0]-x)**2+(base[1]-y)**2,weight=Math.exp(-dist*9)*energy*(base[2]>.5?.55:1),crush=Math.max(0,weight-.1)*.055;
-  n.restX=clamp(n.restX-nx*crush,base[0]-.16,base[0]+.16);n.restY=clamp(n.restY-ny*crush,base[1]-.16,base[1]+.16);
-  n.restZ=clamp((n.restZ??base[2])-crush*(base[2]>.5?.2:.03),base[2]-.09,base[2]+.06);
+ for(let i=0;i<state.nodes.length;i++){const n=state.nodes[i],base=crashPositions[i],dist=(base[0]-x)**2+(base[1]-y)**2,weight=Math.exp(-dist*9)*energy*(base[2]>.5?.55:1),crush=Math.max(0,weight-.1)*.1;
+  n.restX=clamp(n.restX-nx*crush,base[0]-.28,base[0]+.28);n.restY=clamp(n.restY-ny*crush,base[1]-.28,base[1]+.28);
+  n.restZ=clamp((n.restZ??base[2])-crush*(base[2]>.5?.2:.03),base[2]-.16,base[2]+.1);
   n.vx=clamp(n.vx-nx*weight*1.25,-2,2);n.vy=clamp(n.vy-ny*weight*1.25,-2,2);n.vz=clamp((n.vz??0)+weight*(base[2]>.5?-.3:.15),-1,1);
  }
  for(let i=0;i<links.length;i++){const [a,b]=links[i],pa=crashPositions[a],pb=crashPositions[b],mx=(pa[0]+pb[0])*.5,my=(pa[1]+pb[1])*.5,w=Math.exp(-((mx-x)**2+(my-y)**2)*9)*energy;state.linkDamage[i]=clamp((state.linkDamage[i]??0)+Math.max(0,w-.25)*.32,0,1);}
@@ -62,16 +62,16 @@ export function stepLattice(state:CrashLattice,dt:number):void{
    const rest=Math.hypot(b.restX-a.restX,b.restY-a.restY,b.restZ!-a.restZ!)||.001,strain=Math.abs(len-rest)/rest;
    // Above yield, load permanently shifts the connected nodes and weakens the link.
    // Fully failed links no longer transmit spring force; the remaining links still connect the chassis.
-   const excess=Math.max(0,strain-.12),damage=state.linkDamage[i]??0;
+   const excess=Math.max(0,strain-.09),damage=state.linkDamage[i]??0;
    if(excess>0&&damage<1){
     state.linkDamage[i]=clamp(damage+excess*h*.85,0,1);
-    const plastic=Math.min(.08,excess*h*.32);
-    for(const [node,index] of [[a,ia],[b,ib]] as const){const base=crashPositions[index];node.restX=clamp(node.restX+(node.x-node.restX)*plastic,base[0]-.2,base[0]+.2);node.restY=clamp(node.restY+(node.y-node.restY)*plastic,base[1]-.2,base[1]+.2);node.restZ=clamp(node.restZ!+(node.z!-node.restZ!)*plastic,base[2]-.12,base[2]+.08);}
+    const plastic=Math.min(.14,excess*h*.5);
+    for(const [node,index] of [[a,ia],[b,ib]] as const){const base=crashPositions[index];node.restX=clamp(node.restX+(node.x-node.restX)*plastic,base[0]-.32,base[0]+.32);node.restY=clamp(node.restY+(node.y-node.restY)*plastic,base[1]-.32,base[1]+.32);node.restZ=clamp(node.restZ!+(node.z!-node.restZ!)*plastic,base[2]-.12,base[2]+.08);}
    }
    const strength=state.linkDamage[i]>=.98?0:1-state.linkDamage[i]*.9,force=clamp((len-rest)*18*strength,-2,2)*h,fx=dx/len*force,fy=dy/len*force,fz=dz/len*force;
    a.vx+=fx;a.vy+=fy;a.vz!+=fz;b.vx-=fx;b.vy-=fy;b.vz!-=fz;
   }
-  for(const n of state.nodes){n.vx+=(n.restX-n.x)*8*h;n.vy+=(n.restY-n.y)*8*h;n.vz!+=(n.restZ!-n.z!)*8*h;const damping=Math.exp(-5*h);n.vx*=damping;n.vy*=damping;n.vz!*=damping;n.x=clamp(n.x+n.vx*h,n.restX-.18,n.restX+.18);n.y=clamp(n.y+n.vy*h,n.restY-.18,n.restY+.18);n.z=clamp(n.z!+n.vz!*h,n.restZ!-.12,n.restZ!+.12);}
+  for(const n of state.nodes){n.vx+=(n.restX-n.x)*8*h;n.vy+=(n.restY-n.y)*8*h;n.vz!+=(n.restZ!-n.z!)*8*h;const damping=Math.exp(-5*h);n.vx*=damping;n.vy*=damping;n.vz!*=damping;n.x=clamp(n.x+n.vx*h,n.restX-.28,n.restX+.28);n.y=clamp(n.y+n.vy*h,n.restY-.28,n.restY+.28);n.z=clamp(n.z!+n.vz!*h,n.restZ!-.12,n.restZ!+.12);}
  }
  state.active=Math.max(0,state.active-dt);if(state.active===0)for(const n of state.nodes){n.x=n.restX;n.y=n.restY;n.z=n.restZ;n.vx=n.vy=n.vz=0;}
 }
