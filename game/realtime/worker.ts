@@ -28,8 +28,11 @@ export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url), parts = url.pathname.split("/").filter(Boolean);
     if (parts[0] === "health") return new Response("ok", { headers: { "access-control-allow-origin": "*" } });
-    if (parts[0] !== "ws" || parts.length < 4 || req.headers.get("Upgrade") !== "websocket") return new Response("Mosaics World realtime", { status: 426 });
-    const pin = parts[1].replace(/[^A-Za-z0-9_-]/g, "").slice(0, 32) || "public", cx = parseInt(parts[2], 10) | 0, cy = parseInt(parts[3], 10) | 0;
+    if (parts[0] !== "ws" || parts.length < 3 || req.headers.get("Upgrade") !== "websocket") return new Response("Mosaics World realtime", { status: 426 });
+    const pin = parts[1].replace(/[^A-Za-z0-9_-]/g, "").slice(0, 32) || "public";
+    if (parts[2] === "lobby") return env.WORLD.get(env.WORLD.idFromName(`${pin}:lobby`)).fetch(req);   // the PIN-wide directory: who is here and where
+    if (parts.length < 4) return new Response("bad path", { status: 400 });
+    const cx = parseInt(parts[2], 10) | 0, cy = parseInt(parts[3], 10) | 0;
     if (Math.abs(cx) > 500 || Math.abs(cy) > 500) return new Response("bad cell", { status: 400 });
     const id = env.WORLD.idFromName(`${pin}:${cx}:${cy}`);
     return env.WORLD.get(id).fetch(req);
@@ -40,9 +43,11 @@ export class Cell {
   players = new Map<string, Player>();
   conns = new Set<Conn>();
   timer: any = null;
+  lobby = false;
   constructor(_state: any, _env: Env) {}
 
-  async fetch(_req: Request): Promise<Response> {
+  async fetch(req: Request): Promise<Response> {
+    this.lobby = new URL(req.url).pathname.split("/").filter(Boolean)[2] === "lobby";
     if (this.conns.size >= MAX_SOCKETS) return new Response("cell full", { status: 503 });
     const pair = new (globalThis as any).WebSocketPair(), client = pair[0], server = pair[1];
     server.accept();
@@ -51,7 +56,7 @@ export class Cell {
     server.addEventListener("message", (e: any) => this.onMessage(conn, e.data));
     const bye = () => { this.conns.delete(conn); if (conn.id) { /* the player record expires on its own, so a cell hop does not flicker */ } if (!this.conns.size && this.timer) { clearInterval(this.timer); this.timer = null; } };
     server.addEventListener("close", bye); server.addEventListener("error", bye);
-    if (!this.timer) this.timer = setInterval(() => this.tick(), TICK_MS);
+    if (!this.timer) this.timer = setInterval(() => (this.lobby ? this.tickLobby() : this.tick()), this.lobby ? 2000 : TICK_MS);
     return new Response(null, { status: 101, webSocket: client } as any);
   }
 
@@ -77,6 +82,8 @@ export class Cell {
       for (const c of this.conns) { if (!c.id) continue; const dx = c.x - p.x, dy = c.y - p.y; if (dx * dx + dy * dy < INTEREST * INTEREST) { try { c.ws.send(msg); } catch { /* closed */ } } }
     }
   }
+
+  tickLobby!: () => void;
 
   tick(): void {
     const now = Date.now(), gone: string[] = [];
@@ -109,3 +116,15 @@ function sanitizeLook(l: any): any {
   out.scale = num(l.scale, 0.7, 1.4, 1);
   return out;
 }
+
+/** Lobby mode (one per PIN): a directory of everyone in the world, so friends can find and teleport to each other. */
+export interface LobbyNote { why: string }
+(Cell.prototype as any).tickLobby = function (this: Cell): void {
+  const now = Date.now(), all: Player[] = [];
+  for (const [id, p] of this.players) { if (now - p.at > 10000) this.players.delete(id); else all.push(p); }
+  // everyone gets the same short list (O(people), not O(people squared)); each client drops itself and picks who to meet
+  const start = Math.floor(now / 2000) % Math.max(1, all.length), sample: any[] = [];
+  for (let i = 0; i < Math.min(40, all.length); i++) { const p = all[(start + i) % all.length]; sample.push([p.id, p.name, round(p.x), round(p.y)]); }
+  const msg = JSON.stringify({ t: "L", n: all.length, p: sample });
+  for (const c of this.conns) { try { c.ws.send(msg); } catch { /* closed */ } }
+};

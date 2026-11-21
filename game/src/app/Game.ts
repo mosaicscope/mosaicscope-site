@@ -57,7 +57,7 @@ import { zooState } from "../mind/Town";
 import { SimulationClock } from "../core/clock";
 import { Renderer, Quality } from "../render/Renderer";
 import { AudioSystem } from "../audio/Audio";
-import { LocalStorageProvider } from "../persistence/storage";
+import { appStorage } from "../persistence/storage";
 import { SaveSystem, SaveError } from "../persistence/SaveSystem";
 import { setGravityScale, gravityScale } from "../physics/PhysicsWorld";
 import {substancePhase,impairment} from '../sim/Substances';
@@ -107,7 +107,7 @@ export class Game {
   clock = new SimulationClock({ step: 1 / 60, maxStepsPerFrame: 8 });
   renderer: Renderer;
   audio: AudioSystem;
-  store = new LocalStorageProvider();
+  store = appStorage;
   saves = new SaveSystem(this.store,true);
   settings: Settings;
   debug = newDebugFlags();

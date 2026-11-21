@@ -15,7 +15,8 @@ interface Remote { id: string; name: string; look: Record<string, unknown>; x: n
 type Status = "off" | "connecting" | "live" | "error";
 
 export class Multiplayer {
-  status: Status = "off"; pin = ""; url = DEFAULT_URL; nearby = 0; message = "";
+  status: Status = "off"; pin = ""; url = DEFAULT_URL; nearby = 0; message = ""; total = 0; others: { id: string; name: string; x: number; y: number }[] = []; autoMeet = true;
+  private lob: WebSocket | null = null; private lobAt = 0; private lobSend = 0; private nameKey = "mosaics-world:mp-name";
   private myId = Math.random().toString(36).slice(2, 12);
   private socks = new Map<string, WebSocket>(); private remotes = new Map<string, Remote>(); private pool: Character[] = []; private slot = new Map<string, number>();
   private sendAt = 0; private raf = 0; private retryAt = new Map<string, number>(); private syncedAt = 0; private listeners: (() => void)[] = [];
@@ -26,11 +27,12 @@ export class Multiplayer {
   join(pin: string, url?: string): void {
     this.leave(); this.pin = pin.trim().replace(/[^A-Za-z0-9_-]/g, "").slice(0, 32); if (!this.pin) return;
     if (url) this.url = url.replace(/\/+$/, "");
+    this.autoMeet = true; this.total = 0; this.others = [];
     this.status = "connecting"; this.message = "Connecting..."; this.changed();
     const loop = () => { this.tick(); this.raf = requestAnimationFrame(loop); }; this.raf = requestAnimationFrame(loop);
   }
   leave(): void {
-    cancelAnimationFrame(this.raf); for (const s of this.socks.values()) { try { s.close(); } catch { /* closed */ } }
+    cancelAnimationFrame(this.raf); try { this.lob?.close(); } catch { /* closed */ } this.lob = null; for (const s of this.socks.values()) { try { s.close(); } catch { /* closed */ } }
     this.socks.clear(); this.remotes.clear(); this.slot.clear(); for (const c of this.pool) this.park(c);
     this.status = "off"; this.nearby = 0; this.message = ""; this.changed();
   }
@@ -40,6 +42,45 @@ export class Multiplayer {
     const sim = this.sim(); if (sim) sim.say(sim.player, t, "say", 5);
   }
 
+
+  /** The name other players see: what you typed in the panel, or your character's own name. */
+  myName(): string {
+    let n = ""; try { n = localStorage.getItem(this.nameKey) ?? ""; } catch { /* private mode */ }
+    if (n.trim()) return n.trim().slice(0, 24);
+    const p = this.sim()?.player; return p && p.name && p.name !== "You" ? p.name : "Mosaic" + (parseInt(this.myId.slice(0, 3), 36) % 900 + 100);
+  }
+  setName(n: string): void { try { localStorage.setItem(this.nameKey, n.trim().slice(0, 24)); } catch { /* private mode */ } }
+
+  /** Teleport next to a spot (a friend): on foot, or with your car if you are driving it. */
+  goTo(x: number, y: number): void {
+    const sim = this.sim(); if (!sim) return; const p = sim.player; if (p.inside >= 0) { this.message = "Step outside first"; this.changed(); return; }
+    const q = sim.world.nearestFoot(x + 1.2, y, 8) ?? { x: x + 1.2, y };
+    p.x = p.px = q.x; p.y = p.py = q.y;
+    if (p.inCar >= 0) { const v = sim.vehicles[p.inCar]; if (v) { v.x = v.px = q.x; v.y = v.py = q.y; v.speed = 0; } }
+  }
+  meetNearest(): boolean {
+    const sim = this.sim(); if (!sim || !this.others.length) return false; const p = sim.player;
+    const o = [...this.others].sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0];
+    this.goTo(o.x, o.y); this.message = "Teleported to " + o.name; this.changed(); return true;
+  }
+  private connectLobby(): void {
+    const now = performance.now(); if (now < this.lobAt) return; this.lobAt = now + 4000;
+    let ws: WebSocket; try { ws = new WebSocket(`${this.url}/ws/${this.pin}/lobby`); } catch { return; }
+    this.lob = ws;
+    ws.onopen = () => { const sim = this.sim(); if (!sim) return; ws.send(JSON.stringify({ t: "j", id: this.myId, n: this.myName(), l: {}, x: sim.player.x, y: sim.player.y })); };
+    ws.onmessage = (e) => {
+      if (typeof e.data !== "string") return; let m: { t: string; n?: number; p?: unknown[][] }; try { m = JSON.parse(e.data); } catch { return; }
+      if (m.t !== "L" || !m.p) return;
+      this.total = m.n ?? 0; this.others = m.p.filter((r) => String(r[0]) !== this.myId).map((r) => ({ id: String(r[0]), name: String(r[1]), x: +(r[2] as number), y: +(r[3] as number) }));
+      const sim = this.sim();
+      if (this.autoMeet && sim && this.others.length) {   // typing the same PIN as a friend should put you next to them
+        this.autoMeet = false; const p = sim.player;
+        if (this.others.some((o) => Math.hypot(o.x - p.x, o.y - p.y) > 25)) this.meetNearest();
+      }
+      this.changed();
+    };
+    ws.onclose = () => { if (this.lob === ws) this.lob = null; };
+  }
   /** Cells to be connected to: the one I am in, plus neighbours I am close enough to the edge of. */
   private wanted(x: number, y: number): string[] {
     const cx = Math.floor(x / CELL), cy = Math.floor(y / CELL), out = new Set<string>([cx + "/" + cy]);
@@ -61,7 +102,7 @@ export class Multiplayer {
       const p = sim.player, src = p.look as unknown as Record<string, unknown>, look: Record<string, unknown> = {};
       for (const k of LOOK_KEYS) if (typeof src[k] === "string") look[k] = src[k];
       look.scale = p.look.scale;
-      ws.send(JSON.stringify({ t: "j", id: this.myId, n: p.name, l: look, x: p.x, y: p.y, v: 1 }));
+      ws.send(JSON.stringify({ t: "j", id: this.myId, n: this.myName(), l: look, x: p.x, y: p.y, v: 1 }));
       this.status = "live"; this.message = ""; this.changed();
     };
     ws.onmessage = (e) => this.onMsg(e.data);
@@ -105,6 +146,8 @@ export class Multiplayer {
     const sim = this.sim(); if (!sim) return;
     const p = sim.player, now = performance.now();
     this.ensurePool(sim);
+    if (!this.lob || this.lob.readyState > 1) this.connectLobby();
+    if (this.lob && this.lob.readyState === 1 && now - this.lobSend > 1000 && p.inside < 0) { this.lobSend = now; this.lob.send(JSON.stringify({ t: "s", x: +p.x.toFixed(1), y: +p.y.toFixed(1) })); }
     const want = this.wanted(p.x, p.y);
     for (const [cell, ws] of [...this.socks]) if (!want.includes(cell)) { try { ws.close(); } catch { /* closed */ } this.socks.delete(cell); }
     for (const cell of want) if (!this.socks.has(cell)) this.connect(cell);

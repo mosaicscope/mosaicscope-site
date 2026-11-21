@@ -1,3 +1,4 @@
+import { appStorage } from "./persistence/storage";
 import { mountMultiplayer } from "./net/MultiplayerPanel";
 import "./ui/styles.css";
 import { Game } from "./app/Game";
@@ -45,6 +46,7 @@ function fatal(msg: string): void {
   document.body.append(el);
 }
 
+appStorage.init().catch(() => { /* no IndexedDB: localStorage still works */ }).then(() => {
 try {
   const canvas = document.getElementById("world") as HTMLCanvasElement;
   const ui = document.getElementById("ui")!;
@@ -60,3 +62,4 @@ try {
   console.error(e);
   fatal(e instanceof Error ? e.message : String(e));
 }
+});
