@@ -1,0 +1,13 @@
+{
+  "population": 650,
+  "simulation": {
+    "mean": 25.683333333271246,
+    "p95": 45.5
+  },
+  "render": {
+    "mean": 17.947499999962748,
+    "p95": 59.30000000447035
+  },
+  "fullFigures": 48,
+  "silhouettes": 70
+}
