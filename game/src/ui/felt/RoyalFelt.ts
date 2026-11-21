@@ -24,6 +24,10 @@ export interface FeltBridge {
   buyChips(n: number): boolean;
   settled(net: number, game: string): void;
   changed(): void;
+  /** Mosaic guests who take the other seats (up to five), with how they play. */
+  opponents?(): { id: number; name: string; style: 'patient' | 'pressure' | 'tricky' | 'loose' }[];
+  /** Draw one Mosaic (seated, betting, cheering...) with the game's own figure renderer. */
+  drawPerson?(id: number, g: CanvasRenderingContext2D, x: number, y: number, k: number, t: number, doing: string): void;
 }
 export interface FeltHandle {
   locked(): boolean;
@@ -1631,7 +1635,12 @@ export function mountRoyalFelt(host: HTMLElement, bridge: FeltBridge): FeltHandl
           placeholder.add(ring);
 
           let char = null;
-          if (!cfg.isPlayer) { char = buildCharacter(idx - 1); placeholder.add(char.group); }
+          let mosaic = null;
+          if (!cfg.isPlayer) {
+            const prof = AI_PROFILES[idx - 1];
+            if (prof.mosaicId !== undefined && bridge.drawPerson) { mosaic = makeMosaicBillboard(prof.mosaicId); placeholder.add(mosaic.sprite); }
+            else { char = buildCharacter(idx - 1); placeholder.add(char.group); }
+          }
 
           anchor.add(placeholder);
 
@@ -1656,7 +1665,7 @@ export function mountRoyalFelt(host: HTMLElement, bridge: FeltBridge): FeltHandl
             placeholder,
             ringMat,
             baseColor: accentColor.clone(),
-            char, thinkT: 0, thinkGoal: 0,
+            char, mosaic, mood: 'idle', thinkT: 0, thinkGoal: 0,
             customCharacter: null,
             facingRotationY: facingY,
             cardPos: new THREE.Vector3(cfg.cardX, 0.03, cfg.cardZ),
@@ -1947,6 +1956,13 @@ export function mountRoyalFelt(host: HTMLElement, bridge: FeltBridge): FeltHandl
 
       _animateCharacters(dt, now) {
         this.seatAnchors.forEach(sa => {
+          if (sa.mosaic) {
+            const m = sa.mosaic;
+            m.doing = sa.mood === 'win' ? 'cheer' : sa.mood === 'turn' ? 'bet' : 'sit';
+            m.mat.opacity += ((sa.mood === 'folded' ? 0.5 : 1) - m.mat.opacity) * Math.min(1, dt * 6);
+            paintMosaic(m, now);
+            return;
+          }
           const ch = sa.char;
           if (!ch) return;
           sa.thinkT += ((sa.thinkGoal || 0) - sa.thinkT) * Math.min(1, dt * 3);
@@ -2031,8 +2047,11 @@ export function mountRoyalFelt(host: HTMLElement, bridge: FeltBridge): FeltHandl
           this.camDesiredTarget.set(this.actionFocusPoint.x * 0.25, 0.15, 0.15);
         } else {
           // Player POV (Crisp default view of hole cards & full table)
-          this.camDesiredPos.set(0, isMobile ? 6.4 : 5.15, isMobile ? 8.3 : 6.75);
-          this.camDesiredTarget.set(0, 0.1, 0.45);
+          // frame every seat (the Mosaics sit around the rail), whatever shape the casino panel is
+          const asp = vw() / vh(), halfH = Math.atan(Math.tan(21 * Math.PI / 180) * asp);
+          const dist = Math.min(15.5, Math.max(8.4, 5.4 / Math.tan(halfH) + 1.2)), pitch = isMobile ? 0.78 : 0.6;
+          this.camDesiredPos.set(0, 0.5 + Math.sin(pitch) * dist, 0.2 + Math.cos(pitch) * dist);
+          this.camDesiredTarget.set(0, 0.45, 0.2);
         }
 
         this.camera.position.lerp(this.camDesiredPos, 0.07);
@@ -2063,6 +2082,7 @@ export function mountRoyalFelt(host: HTMLElement, bridge: FeltBridge): FeltHandl
       setSeatHighlight(seatIndex, state) {
         const sa = this.seatAnchors[seatIndex];
         if (!sa || !sa.ringMat) return;
+        sa.mood = state;
         const m = sa.ringMat, base = sa.baseColor;
         if (state === 'turn') { m.color.set(0xe5c158); m.emissive.set(0xe5c158); m.emissiveIntensity = 1.15; }
         else if (state === 'win') { m.color.set(0xfff1a8); m.emissive.set(0xffd54a); m.emissiveIntensity = 1.6; }
@@ -2796,7 +2816,7 @@ export function mountRoyalFelt(host: HTMLElement, bridge: FeltBridge): FeltHandl
         const humanFoldRate = this.humanStats.facedBets >= 3
           ? (this.humanStats.foldsToBet / this.humanStats.facedBets)
           : 0.4;
-        const exploitBluffBonus = (prof.name === 'Duchess' || prof.name === 'Viper') && humanFoldRate > 0.55 ? 0.16 : 0;
+        const exploitBluffBonus = (prof.persona === 'Duchess' || prof.persona === 'Viper') && humanFoldRate > 0.55 ? 0.16 : 0;
 
         // Board scariness (flush/paired/broadway makes bluffs more credible)
         const boardScary = this._isBoardScary(this.communityCards);
@@ -3434,6 +3454,40 @@ export function mountRoyalFelt(host: HTMLElement, bridge: FeltBridge): FeltHandl
 
     let table3D = null;
     let game = null;
+
+    // ---- Mosaic opponents: the game's own characters, drawn with its figure renderer onto billboards ----
+    function makeMosaicBillboard(id) {
+      const W = 256, H = 256, cv = document.createElement('canvas');
+      cv.width = W; cv.height = H;
+      const tex = new THREE.CanvasTexture(cv);
+      tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+      mat.color.setScalar(0.92);
+      const sprite = new THREE.Sprite(mat);
+      sprite.scale.set(2.0, 2.0, 1);
+      sprite.position.set(0, 1.22, 0.6);
+      return { id, cv, g: cv.getContext('2d'), tex, mat, sprite, W, H, doing: 'sit', last: -1e9 };
+    }
+    function paintMosaic(m, now) {
+      if (now - m.last < 85) return; // about 12 redraws a second is plenty for a seated figure
+      m.last = now;
+      m.g.clearRect(0, 0, m.W, m.H);
+      try { bridge.drawPerson(m.id, m.g, m.W / 2, m.H + 130, 2.6, now / 1000, m.doing); } catch (_) {}
+      m.tex.needsUpdate = true;
+    }
+    // map each Mosaic guest onto the seat personality that suits their play style
+    const PERSONA_PREF = { patient: ['The Professor', 'Viper'], pressure: ['Viper', 'Mad Dog'], tricky: ['Duchess', 'Lucky Lou'], loose: ['Lucky Lou', 'Mad Dog'] };
+    AI_PROFILES.forEach((p) => { p.persona = p.persona || p.name; delete p.mosaicId; });
+    {
+      const used = new Set();
+      for (const o of (bridge.opponents ? bridge.opponents() : []).slice(0, 5)) {
+        const order = (PERSONA_PREF[o.style] || []).concat(AI_PROFILES.map((p) => p.persona));
+        const persona = order.find((n) => !used.has(n));
+        const prof = AI_PROFILES.find((p) => p.persona === persona);
+        if (!prof) continue;
+        used.add(persona); prof.name = o.name; prof.mosaicId = o.id;
+      }
+    }
 
     function wireUI() {
       // Mode selection cards

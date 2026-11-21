@@ -8,6 +8,7 @@ import {FeltRoom} from './felt/FeltRoom';
 import {newPokerTable,nextPokerHand,pokerAction,pokerBots,bestHand,type PlayStyle} from '../casino/holdem';
 import {casinoCredit,repayCredit,type CasinoSocial} from '../sim/CityPlay';
 import type {Character} from '../entities/types';
+import {resetHdBudget} from '../render/StickFigure';
 export interface ExtraHost{state():CasinoSocial;people():readonly Character[];tick():number;cash():number;setCash(n:number):void;chips():number;setChips(n:number):void;render():void;buyChips?(n:number):boolean;guestDrink?(id:number):string}
 const styles:PlayStyle[]=['patient','pressure','tricky','loose'];
 const bios=['A patient accountant who saves chips for strong hands.','A club owner who uses big bets to control a table.','An art student who enjoys bluffs and watches every reaction.','A friendly mechanic who plays many hands and loves a comeback.'];
@@ -16,7 +17,9 @@ export class CasinoExtras{
  private guest=0;private message='';private entry=100;private mode:'cash'|'tournament'='cash';private pokerSelected=1;private pokerRaise=0;private pokerChat='';private pokerBoard=-1;private pokerRound=0;private pokerDealAt=0;private pokerProfileOpen=false;
  private flightPanel:FlightPanel;
  private room:FeltRoom;
- constructor(private host:ExtraHost){this.flightPanel=new FlightPanel({...host,round:(game,net)=>this.round(game,net,undefined,false)});this.room=new FeltRoom({chips:()=>host.chips(),setChips:n=>host.setChips(n),buyChips:n=>host.buyChips?.(n)??false,record:(net,game)=>this.round(game,net,undefined,false),changed:()=>host.render()});}
+ constructor(private host:ExtraHost){this.flightPanel=new FlightPanel({...host,round:(game,net)=>this.round(game,net,undefined,false)});this.room=new FeltRoom({chips:()=>host.chips(),setChips:n=>host.setChips(n),buyChips:n=>host.buyChips?.(n)??false,record:(net,game)=>this.round(game,net,undefined,false),changed:()=>host.render(),opponents:()=>this.pokerCast(),drawPerson:(id,g,x,y,k,t,doing)=>{resetHdBudget(6);this.actor(g,id,x,y,k,t,doing);}});}
+ /** The Mosaics who take the other five poker seats: the casino's regular guests, in table order. */
+ private pokerCast():{id:number;name:string;style:PlayStyle}[]{this.ensure();return this.state.guests.map(a=>({a,c:this.person(a.id)})).filter(x=>!!x.c).slice(0,5).map(({a,c})=>({id:a.id,name:(c!.name.split(' ')[0]||c!.name).slice(0,12),style:a.style}));}
  get state(){return this.host.state();}
  ensure():void{if(this.state.guests.length>=12)return;const pool=this.host.people().filter(c=>c.phys===0&&c.tier!=='player'),ordered=[...pool.slice(0,6),...pool.filter(c=>c.look.kind==='girl'),...pool];for(const c of ordered){if(this.state.guests.some(a=>a.id===c.id))continue;const i=this.state.guests.length;this.state.guests.push({id:c.id,style:styles[i%4],balance:Math.max(0,c.cash),bet:5,pick:(c.id*7)%37,line:bios[i%4],affinity:0});if(this.state.guests.length>=12)break;}}
  selectGuest(id:number):void{this.ensure();let index=this.state.guests.findIndex(a=>a.id===id);if(index<0){const c=this.person(id);if(!c)return;index=this.state.guests.length;if(index>=24)return;this.state.guests.push({id,style:styles[index%4],balance:Math.max(0,c.cash),bet:5,pick:id*7%37,line:c.bio||bios[index%4],affinity:0});}this.guest=index;this.message=(this.person(id)?.name??'Guest')+': '+(this.person(id)?.catchphrase||this.state.guests[index].line);}

@@ -8,6 +8,8 @@ export interface FeltHost {
   buyChips(n: number): boolean;
   record(net: number, game: string): void;
   changed(): void;
+  opponents(): { id: number; name: string; style: 'patient' | 'pressure' | 'tricky' | 'loose' }[];
+  drawPerson(id: number, g: CanvasRenderingContext2D, x: number, y: number, k: number, t: number, doing: string): void;
 }
 
 /**
@@ -40,6 +42,8 @@ export class FeltRoom {
       buyChips: (n) => host.buyChips(n),
       settled: (net, game) => host.record(net, game),
       changed: () => host.changed(),
+      opponents: () => host.opponents(),
+      drawPerson: (id, g, x, y, k, t, doing) => host.drawPerson(id, g, x, y, k, t, doing),
     };
   }
 
