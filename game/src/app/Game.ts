@@ -124,6 +124,7 @@ export class Game {
   private pendingEnter: { building: number; studio: boolean } | null = null;
   // Start phones within a conservative frame budget; desktop starts at medium.
   private quality: Quality = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches ? 0 : 1;
+  private dtMin = 16.7; private dtWin = 0; private dtWinMin = 99;
   private fpsAvg = 60; private slowFor = 0; private fastFor = 0;
   private ticksThisSecond = 0; private tickRate = 0; private tickWindow = 0;
   private toastEl: HTMLElement; private hintEl: HTMLElement; private clockEl: HTMLElement; private speedEls: HTMLButtonElement[] = [];
@@ -477,9 +478,12 @@ export class Game {
     this.sim.detailBudget=[8,16,24,40][this.quality];
     if (this.settings.quality !== "auto") return;
     const ms = dt * 1000;
+    // learn the screen's refresh interval (the shortest frames we see) so a 144 Hz or 120 Hz display is held near its own rate, and a 60 Hz one is not over-trimmed
+    this.dtWin += dt; this.dtWinMin = Math.min(this.dtWinMin, ms); if (this.dtWin > 3) { this.dtMin = Math.min(20, Math.max(5, this.dtWinMin)); this.dtWin = 0; this.dtWinMin = 99; }
     this.sim.detailBudget=[8,16,24,40][this.quality];
     // hold 45fps: the flora governor trims wild greenery first (from ~49fps); sustained frames over 22ms (45fps) step the quality tier down; recover slowly
-    if (ms > 22.2) { this.slowFor += dt; this.fastFor = 0; } else if (ms < 17.5) { this.fastFor += dt; this.slowFor = Math.max(0, this.slowFor - dt); } else { this.fastFor = 0; }
+    const slow = Math.max(12, this.dtMin * 1.45), fast = Math.max(9, this.dtMin * 1.15);
+    if (ms > slow) { this.slowFor += dt; this.fastFor = 0; } else if (ms < fast) { this.fastFor += dt; this.slowFor = Math.max(0, this.slowFor - dt); } else { this.fastFor = 0; }
     if (this.slowFor > .4 && this.quality > 0) { this.quality = (this.quality - 1) as Quality; this.slowFor = 0; this.renderer.resize(this.quality); }
     if (this.fastFor > 12 && this.quality < 2) { this.quality = (this.quality + 1) as Quality; this.fastFor = 0; this.renderer.resize(this.quality); }
   }

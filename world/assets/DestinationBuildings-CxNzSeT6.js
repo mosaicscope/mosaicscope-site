@@ -1,1 +1,0 @@
-export{p as DestinationBuildings}from"./index-B9goi9Id.js";
