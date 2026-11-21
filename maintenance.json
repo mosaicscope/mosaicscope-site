@@ -1,9 +1,9 @@
 {
- "at": 1795225061193,
+ "at": 1795225762191,
  "totals": {
   "duplicate-code": 10,
   "long-function": 22,
-  "format": 26,
+  "format": 25,
   "oversized-module": 11,
   "unused-css": 1
  },
@@ -275,14 +275,6 @@
   {
    "kind": "format",
    "severity": "low",
-   "where": "game/src/render/DrivingView.ts",
-   "detail": "Windows line endings",
-   "fix": "convert to LF",
-   "fp": "format|11xv55o"
-  },
-  {
-   "kind": "format",
-   "severity": "low",
    "where": "game/src/render/PerspectiveGroundGPU.ts",
    "detail": "Windows line endings",
    "fix": "convert to LF",
@@ -487,6 +479,14 @@
    "detail": "Windows line endings",
    "fix": "convert to LF",
    "fp": "format|1dwkea9"
+  },
+  {
+   "kind": "format",
+   "severity": "low",
+   "where": "game/tests/gpu-settings.test.ts",
+   "detail": "Windows line endings",
+   "fix": "convert to LF",
+   "fp": "format|1wqkao6"
   }
  ]
 }
