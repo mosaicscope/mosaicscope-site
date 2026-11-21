@@ -99,6 +99,7 @@ import { Photos } from "../ui/Photos";
 import { MOMENTS } from "../content/photos";
 import { HeatCue } from "../ui/HeatCue";
 import { raiseCue } from "../sim/Pursuit";
+import { recordInteriorVisit } from "../sim/WorldFun";
 
 /** Wires simulation, renderer, input, audio, UI and persistence together and runs the loop. */
 export class Game {
@@ -1400,6 +1401,7 @@ export class Game {
     homeCity:()=>this.openLiveCity(),
     takeComfortTablet:()=>useSubstance(this.sim,this.sim.player,'sedative'),
     player:()=>this.sim.player,people:()=>this.sim.chars,
+    venueVisit:key=>recordInteriorVisit(this.sim,"dest:"+key),
     refresh:kind=>{const p=this.sim.player;if(kind==='eat')p.hunger=Math.min(1,p.hunger+.25);else p.needs.energy=Math.min(1,p.needs.energy+.2);},
     getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; },
     companions: () => this.sim.chars.filter((c) => c.tier === "principal" && c.name !== "Chris").map((c) => ({ name: c.name, color: c.look.color })),

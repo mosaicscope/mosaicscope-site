@@ -44,4 +44,4 @@ export function streetEffect(sim:Simulation,id:string):string{
 export function updateWorldFun(sim:Simulation):void{updateMissions(sim);updateChallenges(sim);if(sim.worldFun.poseUntil&&sim.tick>=sim.worldFun.poseUntil){sim.player.anim.pose='auto';sim.worldFun.poseUntil=0;}}
 
 /** Count one more visit to a building and return the new total (saved with the game). The interior's identity never changes; this only decides how far its small drift has gone. */
-export function recordInteriorVisit(sim:Simulation,buildingId:number):number{const v=sim.worldFun.interiorVisits??(sim.worldFun.interiorVisits={}),k=String(buildingId);v[k]=Math.min(1e6,(v[k]??0)+1);return v[k];}
+export function recordInteriorVisit(sim:Simulation,buildingId:number|string):number{const v=sim.worldFun.interiorVisits??(sim.worldFun.interiorVisits={}),k=String(buildingId);v[k]=Math.min(1e6,(v[k]??0)+1);return v[k];}

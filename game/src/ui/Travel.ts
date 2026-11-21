@@ -11,7 +11,7 @@ import type {Character} from '../entities/types';
 import {TravelRoom} from './TravelRoom';
 import {airportRoom,LOUNGES,type LoungeId} from '../content/travelRooms';
 import {DestinationDistrict,venueKind,type DistrictVisit} from './DestinationDistrict';
-import {interiorForBuilding} from '../content/interiorVariety';
+import {interiorForBuilding,driftInterior} from '../content/interiorVariety';
 import {pose,solve,drawFigure} from '../render/StickFigure';
 let travelCast:readonly Character[]=[];
 
@@ -24,6 +24,8 @@ export interface TravelHost {
   homeCity?():void;
   takeComfortTablet?():boolean;
   player():Character; people():readonly Character[];
+  /** count one more visit to a venue (saved with the game) and return the total, so it can drift a little each time */
+  venueVisit?(key:string):number;
   refresh?(kind:'rest'|'eat'):void;
   getCash(): number; setCash(v: number): void;
   /** the crew members who can come along: name + colour (hex) */
@@ -485,7 +487,7 @@ export class Travel {
     ],[this.btn(this.cleared?'Board flight':'Back to departures',()=>this.go(this.cleared?'flight':'board'),{primary:true}),this.btn('Use nearby service',()=>{
       const text=this.room?.use()??'';const msg=this.el.querySelector('.tv-msg');if(msg)msg.textContent=text;if(this.room?.effect==='eat'||this.room?.effect==='rest')this.host.refresh?.(this.room.effect);
     })]);
-    this.room=new TravelRoom(canvas,airportRoom(this.lounge),this.host.people(),this.host.player());
+    this.room=new TravelRoom(canvas,driftInterior(airportRoom(this.lounge),{id:0,kind:'airport',name:'lounge:'+this.lounge},this.host.venueVisit?.('lounge:'+this.lounge)??0),this.host.people(),this.host.player());
   }
   private conversation:DestinationConversation|null=null;
   private destView(): void {
@@ -504,7 +506,7 @@ export class Travel {
     const district=this.district,v=district?.selected;if(!v)return;if(!district.canEnter()){const msg=this.el.querySelector('.tv-msg');if(msg)msg.textContent='Walk closer to this venue (within 30 metres).';return;}
     this.visits.set(this.dest.code,district.snapshot());district.dispose();this.district=null;this.conversation?.dispose();this.conversation=null;const canvas=this.makeCanvas((v.name||'Mapped venue')+' · game interior');
     this.scene(this.dest.name,v.name||v.tags.address||'Mapped venue',[canvas,h('p.tv-note',{text:'Game-authored interior informed by the mapped venue type. Walk with WASD / arrows or tap the floor.'})],[this.btn('Back outside',()=>{this.room?.dispose();this.room=null;this.render();},{primary:true}),this.btn('Use nearby service',()=>{this.useMappedService();})]);
-    const country=countryFor(this.dest.code,this.dest.country??''),def=regionalInterior(country,this.dest.name,interiorForBuilding({id:v.id,name:v.name||'Mapped venue',kind:venueKind(v)})),food=regionalFood(country,venueKind(v));if(food)for(const q of def.interactables)if(q.effect==='eat')q.text='Enjoy '+food.slice(0,2).map(id=>TOYS[id].name).join(' or ')+'.';this.room=new TravelRoom(canvas,def,this.host.people(),this.host.player());
+    const country=countryFor(this.dest.code,this.dest.country??''),def=regionalInterior(country,this.dest.name,interiorForBuilding({id:v.id,name:v.name||'Mapped venue',kind:venueKind(v)},this.host.venueVisit?.(this.dest.code+':'+v.id)??0)),food=regionalFood(country,venueKind(v));if(food)for(const q of def.interactables)if(q.effect==='eat')q.text='Enjoy '+food.slice(0,2).map(id=>TOYS[id].name).join(' or ')+'.';this.room=new TravelRoom(canvas,def,this.host.people(),this.host.player());
   }
 
   private useMappedService():void{const text=this.room?.use()??'',effect=this.room?.effect;let message=text;if(effect==='eat'){if(this.host.getCash()<12)message='A meal costs $12 in game money. You do not have enough cash.';else{this.host.setCash(this.host.getCash()-12);this.host.refresh?.('eat');message=text+' · $12 paid';}}else if(effect==='rest')this.host.refresh?.('rest');const msg=this.el.querySelector('.tv-msg');if(msg)msg.textContent=message;const wallet=this.el.querySelector('.tv-wallet b');if(wallet)wallet.textContent=money(this.host.getCash());}
