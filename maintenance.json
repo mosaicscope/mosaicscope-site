@@ -1,5 +1,5 @@
 {
- "at": 1795231446004,
+ "at": 1795231710054,
  "totals": {
   "duplicate-code": 10,
   "long-function": 22,
@@ -428,9 +428,9 @@
    "kind": "oversized-module",
    "severity": "low",
    "where": "game/src/ui/Club.ts",
-   "detail": "841 lines",
+   "detail": "880 lines",
    "fix": "consider splitting",
-   "fp": "oversized-module|oxkx1f"
+   "fp": "oversized-module|1bdr5wc"
   },
   {
    "kind": "oversized-module",
