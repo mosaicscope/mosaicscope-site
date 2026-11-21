@@ -651,8 +651,10 @@ export class Club {
     if (!this.open) return;
     const dt = Math.min(0.05, (ms - this.last) / 1000); this.last = ms; this.now = ms / 1000;
     this.updateTalk();
-    if (this.venue === "strip") { this.updateGun(dt); this.updateLive(dt); this.drawStrip(this.reduce ? 0 : this.now); } else this.drawVelvet(this.reduce ? 0 : this.now);
-    this.drawBubbles();
+    try {
+      if (this.venue === "strip") { this.updateGun(dt); this.updateLive(dt); this.drawStrip(this.reduce ? 0 : this.now); } else this.drawVelvet(this.reduce ? 0 : this.now);
+      this.drawBubbles();
+    } catch (err) { console.error("[club]", err); }   // one bad frame never takes the whole club (or the game behind it) down
     this.raf = requestAnimationFrame(this.loop);
   };
 
@@ -824,7 +826,7 @@ export class Club {
       g.fillStyle = th.beams[k % th.beams.length] + (hype > 0.5 ? "2a" : "16"); g.beginPath(); g.moveTo(ox, 110); g.lineTo(ox + Math.sin(a) * 300 - 60, 330); g.lineTo(ox + Math.sin(a) * 300 + 60, 330); g.closePath(); g.fill();
     }
     // stage
-    const st = g.createLinearGradient(0, 230, 0, 330); st.addColorStop(0, "#211d1d"); st.addColorStop(1, th.accent + "aa");
+    const st = g.createLinearGradient(0, 230, 0, 330); st.addColorStop(0, "#211d1d"); st.addColorStop(1, (th.accent.length === 7 ? th.accent : "#c74d57") + "aa");
     g.fillStyle = st; g.beginPath(); g.moveTo(sx0 + 40, 235); g.lineTo(sx1 - 40, 235); g.lineTo(sx1 + 20, 330); g.lineTo(sx0 - 20, 330); g.closePath(); g.fill();
     g.fillStyle = "#141111"; g.fillRect(sx0 - 20, 330, sx1 - sx0 + 40, 18);
     for (let x = sx0 - 14; x < sx1 + 20; x += 14) { const on = this.reduce ? (x % 28 === 0) : (Math.floor(t * 8 - x / 14) % 4 === 0); g.fillStyle = on ? "#c74d57" : "#352e2e"; g.beginPath(); g.arc(x, 339, 2.5, 0, 6.283); g.fill(); }
