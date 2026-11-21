@@ -100,6 +100,7 @@ import { MOMENTS } from "../content/photos";
 import { HeatCue } from "../ui/HeatCue";
 import { raiseCue } from "../sim/Pursuit";
 import { carDiagram } from "../ui/CarSilhouette";
+import { showWealth } from "../ui/WealthPanel";
 import { recordInteriorVisit } from "../sim/WorldFun";
 
 /** Wires simulation, renderer, input, audio, UI and persistence together and runs the loop. */
@@ -1464,6 +1465,7 @@ export class Game {
   private elevationCredit=h('a.aerial-credit.elevation-credit',{href:'https://open-meteo.com/en/docs/elevation-api',target:'_blank',rel:'noopener',text:'Elevation: Copernicus DEM · Open-Meteo'});
   private aerialCredit=h('a.aerial-credit',{href:'https://gisimagery.ecan.govt.nz/arcgis/rest/services/Imagery/Latest_Imagery/ImageServer',target:'_blank',rel:'noopener',text:'Aerial: Canterbury Maps · CC BY 4.0'});
   private openMissions():void{showMissions(this.sim,this.modal,()=>this.resumeGame(),text=>this.toast(text));}
+  private openWealth():void{showWealth(this.sim,this.modal,()=>this.resumeGame(),text=>this.toast(text,'acid'));}
 
   private buildBar(): HTMLElement {
     this.clockEl = h("div.clock");
@@ -1480,6 +1482,7 @@ export class Game {
       command("Strip club", "♥", () => { this.pausedBefore = this.clock.paused; this.club.show("strip"); }, ".dock-secondary"),
       command("Daily life", "☀", () => this.cityLifePanel.show()),
       command("Missions", "◎", () => this.openMissions()),
+      command("Wealth", "$", () => this.openWealth(), ".dock-secondary"),
       command("Photo", "▣", () => this.photos.open(), ".dock-secondary"),
       command("Save", "↓", () => this.openSaves(), ".dock-secondary"),
     ]);
@@ -1499,6 +1502,7 @@ export class Game {
         h('button.btn',{text:'Casino',onclick:()=>this.casino.show()}),
         h('button.btn',{text:'Strip club (18+)',onclick:()=>{this.pausedBefore=this.clock.paused;this.club.show('strip');}}),
         h('button.btn',{text:'City missions',onclick:()=>this.openMissions()}),
+        h('button.btn',{text:'Markets & wealth',onclick:()=>this.openWealth()}),
         h('button.btn',{text:'Photo',onclick:()=>this.photos.open()}),
         h('button.btn',{text:'Save game',onclick:()=>this.openSaves()}),
         h('h3.menu-group',{text:'Life & city'}),

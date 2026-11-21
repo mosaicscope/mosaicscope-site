@@ -2,6 +2,7 @@ import { Phys } from "../entities/types";
 import type { Simulation } from "./Simulation";
 import { raiseCue } from "./Pursuit";
 import { mappedDrivingLimit } from "./MappedTraffic";
+import { wealthTier } from "./Wealth";
 
 /**
  * Lived-in police, adapted from cop_life / cop_ai_engine and layered on the existing Society + Pursuit systems
@@ -74,7 +75,7 @@ export function updateCopLife(sim: Simulation): void {
   }
   if (sim.tick - s.lastTicket < 5400) return;
   s.lastTicket = sim.tick;
-  if (sim.rng.next() < 0.35 + QUIRKS[watcher.id % QUIRKS.length].mercy) {
+  if (sim.rng.next() < 0.35 + QUIRKS[watcher.id % QUIRKS.length].mercy + wealthTier(sim) * 0.05) {
     sim.say(watcher, "Slow down, alright? I'll let it go this time.", "say", 3); raiseCue(sim, "ticket", "Warning", "Slow down");
   } else {
     const fine = Math.min(p.cash, Math.round(sim.rng.range(60, 140))); p.cash -= fine;

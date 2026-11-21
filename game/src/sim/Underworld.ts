@@ -9,6 +9,7 @@ import { peek } from "../social/Social";
 import { bustHeat, onSale, restock, updateLabs } from "./Labs";
 import { updateHealth, updateFaces } from "./Health";
 import { raiseCue } from "./Pursuit";
+import { priceMultiplier } from "./Wealth";
 
 /**
  * The street economy, adapted from npc-conditions / npc-industry and layered on the game's own substances, crews,
@@ -91,7 +92,8 @@ function deal(sim: Simulation, st: State, buyer: Character, dealer: Character): 
   const stock = st.stock.get(dealer.id); if (!stock) return;
   face(buyer, dealer); buyer.goal = null;
   if (!useSubstance(sim, buyer, stock.kind)) return;
-  stock.units--; buyer.cash -= stock.price; dealer.cash += stock.price; onSale(sim, dealer, buyer, stock.price, stock.kind);
+  const price = buyer.tier === "player" ? Math.round(stock.price * priceMultiplier(sim)) : stock.price;   // the street charges the rich more
+  stock.units--; buyer.cash -= price; dealer.cash += price; onSale(sim, dealer, buyer, price, stock.kind);
   for (const c of [buyer, dealer]) { c.anim.pose = "deal"; c.anim.poseT = 0; }
   st.poses.push({ ids: [buyer.id, dealer.id], at: sim.tick + 120 });
   sim.say(buyer, ASK[sim.rng.int(0, ASK.length - 1)], "say", 2); sim.say(dealer, SELL[sim.rng.int(0, SELL.length - 1)], "say", 2);
@@ -106,7 +108,7 @@ function deal(sim: Simulation, st: State, buyer: Character, dealer: Character): 
 }
 
 /** Player menu hooks (see UnderworldTalk.ts). */
-export const dealerInfo = (sim: Simulation, id: number) => { const s = state(sim).stock.get(id); return s && s.units > 0 ? { price: s.price } : undefined; };
+export const dealerInfo = (sim: Simulation, id: number) => { const s = state(sim).stock.get(id); return s && s.units > 0 ? { price: Math.round(s.price * priceMultiplier(sim)) } : undefined; };
 export const workerInfo = (sim: Simulation, id: number) => { const w = state(sim).workers.get(id); return w ? { price: w.price } : undefined; };
 export function playerBuy(sim: Simulation, dealer: Character): boolean { const before = sim.player.cash; deal(sim, state(sim), sim.player, dealer); return sim.player.cash < before; }
 /** Paid company for the player: the worker decides, the scene is never shown (they go indoors, the player's mood lifts). */

@@ -64,6 +64,7 @@ import "./UnderworldTalk";
 import { updateAmbient } from "./Ambient";
 import { updateProblems } from "./Problems";
 import { updateStreet } from "./Street";
+import { updateWealth } from "./Wealth";
 import { updatePlayerAim } from "./PlayerAim";
 import { Crime, Booking, exitBuilding, insideOutcome, updateCustody, commitCrime, evaluateTrade, executeTrade, fmtCash } from "./Society";
 import { NameBook } from "./Spawner";
@@ -335,6 +336,7 @@ export class Simulation {
     updateAmbient(this);
     updateProblems(this);
     updateStreet(this);
+    updateWealth(this);
     updatePlayerAim(this);
     if(this.tick%60===0)updateMedicalResponses(this);
     if(this.tick%15===0)updateFireResponse(this);

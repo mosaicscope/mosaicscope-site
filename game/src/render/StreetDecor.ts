@@ -8,7 +8,11 @@ import {worldIndex} from "../world/WorldIndex";
  * the same every load, and it lives in one byte per tile so the renderer only looks at tiles on screen.
  * Follows game/docs/LOOK.md: warm-dark materials, accents small, greenery at the edges of concrete.
  */
-export const enum D { NONE = 0, TREE = 1, PLANTER = 2, BOLLARDS = 3, BIKES = 4, CAFE = 5 }
+export const enum D {
+  NONE = 0, TREE = 1, PLANTER = 2, BOLLARDS = 3, BIKES = 4, CAFE = 5,
+  /** Wild greenery for open grass (drawn by Flora.ts through the same panel engine; never part of decorGrid, so no physics or damage). */
+  OAK = 6, PINE = 7, BIRCH = 8, BUSH = 9, FERN = 10, FLOWERS = 11, TALLGRASS = 12, ROCK = 13, LOG = 14, MUSHROOM = 15,
+}
 
 const cache = new WeakMap<World, Uint8Array>();
 
@@ -68,7 +72,7 @@ export function mappedStreetDecor(w: World, x: number, y: number): number {
 
 const INK = "#0e0b0a";
 /** Warm-dark foliage, with the odd autumn tree so the canopy is not one flat green. */
-const LEAF: [string, string, string][] = [["#183a1c", "#1f4a22", "#2a5f2a"], ["#1b3a22", "#245230", "#33663a"], ["#2a3a1a", "#3a4f1f", "#506a28"], ["#4a2a14", "#7a421a", "#a8651e"]];
+export const LEAF: [string, string, string][] = [["#183a1c", "#1f4a22", "#2a5f2a"], ["#1b3a22", "#245230", "#33663a"], ["#2a3a1a", "#3a4f1f", "#506a28"], ["#4a2a14", "#7a421a", "#a8651e"]];
 
 /** Draw one decor piece centred on the tile at (sx, sy). `dark` is 0 (day) .. 1 (night); `n` a 0..1 per-tile seed. */
 export function drawDecor(g: CanvasRenderingContext2D, kind: number, sx: number, sy: number, z: number, time: number, dark: number, n: number): void {
