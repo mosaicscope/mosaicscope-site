@@ -122,6 +122,8 @@ export const TOPICS: Topic[] = [
 ];
 
 export const TOPIC_BY_ID = new Map(TOPICS.map((t) => [t.id, t]));
+/** Let other systems (street economy, health) add their own things to say. */
+export function addTopics(list: Topic[]): void { for (const t of list) if (!TOPIC_BY_ID.has(t.id)) { TOPICS.push(t); TOPIC_BY_ID.set(t.id, t); } }
 
 const GOAL_LINES: Record<string, string[]> = {
   wander: ["Just wandering. Seeing who's about.", "Nowhere. Everywhere. Walking."], routine: ["Doing my rounds. Same as every day.", "Routine. Keeps me sane."],

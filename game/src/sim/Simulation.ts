@@ -58,6 +58,11 @@ import { pickUp, drop, transfer, craftable, detach, PickupResult, carried } from
 import { Vehicle } from "../entities/types";
 import { spawnVehicles, updateVehicles, unseat, laneCoord, clearLaneState, walkSignal, carVel, bump } from "./Traffic";
 import { pursuitState, pursuitStep, type PursuitState } from "./Pursuit";
+import { updateCopLife } from "./CopLife";
+import { updateUnderworld } from "./Underworld";
+import "./UnderworldTalk";
+import { updateAmbient } from "./Ambient";
+import { updateProblems } from "./Problems";
 import { Crime, Booking, exitBuilding, insideOutcome, updateCustody, commitCrime, evaluateTrade, executeTrade, fmtCash } from "./Society";
 import { NameBook } from "./Spawner";
 import { VEHICLES } from "../content/vehicles";
@@ -323,6 +328,10 @@ export class Simulation {
     if (this.tick % 120 === 0) { this.groups.update(this.chars, this.tick); updateLitter(this); }
     if (this.tick % 30 === 0) this.policeTick();
     pursuitStep(this);
+    updateCopLife(this);
+    updateUnderworld(this);
+    updateAmbient(this);
+    updateProblems(this);
     if(this.tick%60===0)updateMedicalResponses(this);
     if(this.tick%15===0)updateFireResponse(this);
     if (this.tick % 60 === 0) this.housekeeping();

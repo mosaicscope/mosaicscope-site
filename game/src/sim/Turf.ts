@@ -1,4 +1,5 @@
 import { impairment } from './Substances';
+import { solveLead, v3 } from "../engines/aim";
 import type { Simulation } from "./Simulation";
 import { Character, Phys, Toy } from "../entities/types";
 import { TOYS, isGun, isBullet } from "../content/toys";
@@ -167,7 +168,10 @@ export function fireGun(sim: Simulation, c: Character, tx: number, ty: number, t
 
   c.weaponAction={weapon:def,firedAt:sim.tick,shots:fired,...(ws.mag&&fired>=ws.mag?{reloadFrom:sim.tick+Math.round(ws.rate*60),reloadUntil:sim.tick+Math.round(wait*60)}:{})};
   sim.bus.emit('sound',{kind:'mechanism_'+def,x:c.x,y:c.y,vol:.5});
-  const base = Math.atan2(ty - c.y, tx - c.x);
+  // NPC gunmen lead a moving target (aim engine), so running people and cars are not trivially safe
+  const mover = targetId >= 0 && c.tier !== "player" ? sim.chars[targetId] : undefined;
+  const lead = mover && Math.hypot(mover.vx, mover.vy) > 0.4 ? solveLead(v3(c.x, c.y, 0), 18, v3(tx, ty, 0), v3(mover.vx, mover.vy, 0), 0) : undefined;
+  const base = lead ? Math.atan2(lead.y - c.y, lead.x - c.x) : Math.atan2(ty - c.y, tx - c.x);
   c.facing = base; c.anim.pose = "shoot"; c.anim.poseT = 0;
   const steady = c.tier === "player" ? 1.1 : (0.7 + c.emo.confidence * 0.3) * (c.emo.fear > 0.5 ? 0.8 : 1);
   const recoil=c.combat?Math.max(0,(c.combat.recoil??0)-(sim.tick-(c.combat.recoilTick??0))/60*.9):0;

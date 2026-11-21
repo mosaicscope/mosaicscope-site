@@ -7,6 +7,7 @@ import { VEHICLES } from "../content/vehicles";
 import { unseat } from "./Traffic";
 import { forceGoal } from "../ai/brain";
 import { policeClassFor } from "../content/policeFleet";
+import { disguiseFactor } from "./CopLife";
 
 /**
  * GTA-style police pursuit layered on the existing police (Society.reportCrime / Simulation.policeTick),
@@ -19,7 +20,7 @@ import { policeClassFor } from "../content/policeFleet";
  * On foot, officers bail out of their cars and run you down (existing "pursue" goal) and cuff you.
  */
 export type Phase = "calm" | "stalk" | "chase" | "search";
-export type CueKind = "wanted" | "crash" | "busted" | "evaded" | "spotted" | "lost" | "pit" | "ram" | "spikes" | "roadblock" | "boxed" | "tailed" | "foot" | "chopper" | "news";
+export type CueKind = "wanted" | "crash" | "busted" | "evaded" | "spotted" | "lost" | "pit" | "ram" | "spikes" | "roadblock" | "boxed" | "tailed" | "foot" | "chopper" | "news" | "ticket";
 export interface Cue { kind: CueKind; title: string; sub: string; tick: number }
 export interface Spike { id: number; x: number; y: number; ax: number; ay: number; len: number; until: number; hit: boolean }
 /** A helicopter over the chase: the police one hunts you with a spotlight, the news one circles for the cameras. */
@@ -101,7 +102,7 @@ export function pursuitStep(sim: Simulation): void {
   let seen = false;
   for (const c of sim.chars) {
     if (c.role !== "cop" || c.inside >= 0 || c.phys !== Phys.OK) continue;
-    const r = c.inCar >= 0 ? 18 : 14, d = Math.hypot(c.x - p.x, c.y - p.y);
+    const r = (c.inCar >= 0 ? 18 : 14) * disguiseFactor(sim), d = Math.hypot(c.x - p.x, c.y - p.y);
     if (d < r && (d < 3 || sim.world.lineOfSight(c.x, c.y, p.x, p.y))) { seen = true; break; }
   }
   tickHelis(sim);
