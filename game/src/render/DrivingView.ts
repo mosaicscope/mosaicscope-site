@@ -147,13 +147,13 @@ export class DrivingView {
    const kind=tile.t===T.TREE?D.OAK:map&&map.visibility.fixtures?mappedStreetDecor(sim.world,tile.x,tile.y):decor&&tile.x>=0&&tile.y>=0&&tile.x<sim.world.size&&tile.y<sim.world.size?decor[tile.y*sim.world.size+tile.x]:D.NONE;
    if(!kind)continue;const x=tile.x+.5,y=tile.y+.5,p=local(x,y,tile.z);if(p.z<2||p.z>38||Math.abs(p.x)>p.z+3)continue;
    const seed=Math.abs(Math.imul(tile.x,73856093)^Math.imul(tile.y,19349663));
-   items.push({k:"decor",depth:p.z,draw:()=>{const at=screen(p),scale=Math.min(2.5,focal/p.z/26);drawPanel(g,kind,at.x,at.y,scale,time,1-daylight,(seed%1000)/1000);}});
+   items.push({k:"decor",depth:p.z,draw:()=>{g.globalAlpha=Math.max(.03,Math.min(1,(37-p.z)/9));const at=screen(p),scale=Math.min(2.5,focal/p.z/26);drawPanel(g,kind,at.x,at.y,scale,time,1-daylight,(seed%1000)/1000);}});
   }
   // Wild greenery and wildlife: same panel engine, bounded by distance, thinned by the frame-time governor.
   setPanelResolution(dpr);
   gatherFlora(sim.world,cx-radius,cx+radius,cy-radius,cy+radius,1,quality,time,1-daylight,focus.x,focus.y,Math.min(34,radius)*Math.max(.6,this.lod),(_depth,ref,wx,wy,lift)=>{
    const p=local(wx,wy,sim.world.groundZ(wx,wy)+lift/26);if(p.z<2||p.z>38||Math.abs(p.x)>p.z+3)return;
-   items.push({k:'decor',depth:p.z,draw:()=>{const at=screen(p),scale=Math.min(2.5,focal/p.z/26);drawPanel(g,Math.floor(ref/1000),at.x,at.y,scale,time,1-daylight,(ref%1000)/1000);}});
+   items.push({k:'decor',depth:p.z,draw:()=>{g.globalAlpha=Math.max(.03,Math.min(1,(37-p.z)/9));const at=screen(p),scale=Math.min(2.5,focal/p.z/26);drawPanel(g,Math.floor(ref/1000),at.x,at.y,scale,time,1-daylight,(ref%1000)/1000);}});
   });
   if(map)for(const rail of mappedRails(map,focus.x,focus.y,38)){
    const [start,end]=railSpan(rail,focus.x,focus.y,38);if(end<=start)continue;
@@ -265,10 +265,10 @@ export class DrivingView {
    if(p.z>Math.max(26,55*this.lod*this.lod)&&v.id!==car?.id){items.push({k:"carLod",depth:p.z,draw:()=>farCar(v)});continue;}items.push({k:"car",depth:p.z,draw:()=>{this.cam.zoom=Math.max(.08,focal/p.z/25);this.cam.viewVector=[ex-v.x,ey-v.y,eye];drawCar(g,this.cam,v,alpha,time,1-daylight,false,sim.chars[v.driver]);}});}
   for(const hl of sim.pursuit.helis){if(!hl.on)continue;const p=local(hl.x,hl.y,hl.alt);if(p.z<3||p.z>90||Math.abs(p.x)>p.z+4)continue;items.push({depth:p.z,draw:()=>{this.cam.zoom=Math.max(.08,focal/p.z/25);this.cam.viewVector=[ex-hl.x,ey-hl.y,eye-hl.alt];drawHeli(g,this.cam,hl,time,1-daylight);}});}
   for(const v of sim.vehicles)for(let i=0;i<(v.components?.debris.length??0);i++){const d=v.components!.debris[i],p=local(d.x,d.y,d.z);if(p.z<1||p.z>38||Math.abs(p.x)>p.z+3)continue;items.push({depth:p.z,draw:()=>{this.cam.zoom=Math.max(.08,focal/p.z/25);drawVehicleFragment(g,this.cam,v,i);}});}
-  for(const prop of sim.cityPlay.props){const p=local(prop.x,prop.y,prop.z);if(p.z<1||p.z>32||Math.abs(p.x)>p.z+3)continue;items.push({depth:p.z,draw:()=>{this.cam.zoom=Math.max(.08,focal/p.z/25);drawStreetProp(g,this.cam,prop,time);}});}
+  for(const prop of sim.cityPlay.props){const p=local(prop.x,prop.y,prop.z);if(p.z<1||p.z>46||Math.abs(p.x)>p.z+3)continue;items.push({depth:p.z,draw:()=>{g.globalAlpha=Math.max(.03,Math.min(1,(45-p.z)/10));this.cam.zoom=Math.max(.08,focal/p.z/25);drawStreetProp(g,this.cam,prop,time);}});}
   for(const id of worldIndex(sim.world).pois.query(cx-radius,cy-radius,cx+radius,cy+radius)){
-   const prop=sim.world.pois[id];if(!prop||prop.kind==='door')continue;const p=local(prop.x,prop.y,0);if(p.z<1||p.z>32||Math.abs(p.x)>p.z+2)continue;
-   items.push({depth:p.z,draw:()=>{
+   const prop=sim.world.pois[id];if(!prop||prop.kind==='door')continue;const p=local(prop.x,prop.y,0);if(p.z<1||p.z>46||Math.abs(p.x)>p.z+2)continue;
+   items.push({depth:p.z,draw:()=>{g.globalAlpha=Math.max(.03,Math.min(1,(45-p.z)/10));
     if(prop.kind==='busstop'||prop.kind==='bench'||prop.kind==='foodtruck'){
      // Build fixtures in world space so their sides and roof turn with the road and camera.
      const dir=prop.angle??(prop.dir===1?Math.PI/2:0),co=Math.cos(dir),si=Math.sin(dir),point=(x:number,y:number,z:number):[number,number,number]=>[prop.x+x*co-y*si,prop.y+x*si+y*co,z];
@@ -296,7 +296,7 @@ export class DrivingView {
    }});
   }
   for(const c of sim.chars){if(c.inCar>=0||c.inside>=0)continue;const p=local(c.x,c.y,c.z);if(p.z<1||p.z>(c.tier==="background"?Math.max(36,70*this.lod):Math.max(48,80*this.lod))||Math.abs(p.x)>p.z+2)continue;items.push({k:"char",depth:p.z,draw:()=>{const at=screen(p),k=Math.max(.025,focal/p.z/110)*c.look.scale,dir=Math.cos(c.facing-angle)>=0?1:-1;this.picks.push({id:c.id,x:at.x,y:at.y,size:105*k,depth:p.z});if(c!==player&&(c.tier==='background'||p.z>30)&&p.z>(quality===0?14:quality===1?18:22)){const h=105*k;g.save();g.lineCap='round';g.strokeStyle=c.look.color;g.lineWidth=Math.max(1,h*.045);g.beginPath();g.moveTo(at.x,at.y-h*.24);g.lineTo(at.x,at.y-h*.7);g.moveTo(at.x,at.y-h*.24);g.lineTo(at.x-h*.1,at.y);g.moveTo(at.x,at.y-h*.24);g.lineTo(at.x+h*.1,at.y);g.moveTo(at.x,at.y-h*.6);g.lineTo(at.x-h*.12,at.y-h*.38);g.moveTo(at.x,at.y-h*.6);g.lineTo(at.x+h*.12,at.y-h*.38);g.stroke();g.fillStyle=c.look.color;g.beginPath();g.arc(at.x,at.y-h*.82,Math.max(1,h*.09),0,6.283);g.fill();if((c.fireUntil??0)>sim.tick){g.strokeStyle='#ff982e';g.lineWidth=Math.max(2,h*.07);g.beginPath();g.moveTo(at.x,at.y-h*.25);g.lineTo(at.x+Math.sin(time*8)*h*.08,at.y-h);g.stroke();}g.restore();return;}const a=pose(Math.hypot(c.vx,c.vy)>.12?"walk":c.anim.pose,c.style,time,time*5+c.seedPhase,Math.hypot(c.vx,c.vy),c.anim.poseT);applyGait(a,gaitOf(c.id));applyLegVariation(a,c.id,c.anim.pose,time*5+c.seedPhase);if(c.phys===Phys.DOWN){const limbs=impactRagdollPose(c);a.armL+=limbs[0];a.armR+=limbs[1];a.thighL+=limbs[2];a.thighR+=limbs[3];a.foreL+=limbs[4]*.5;a.foreR+=limbs[5]*.5;a.bendL+=limbs[6]*.5;a.bendR+=limbs[7]*.5;a.tilt+=limbs[8]*.35;}solve(a,at.x,at.y,k,dir);drawFigure(g,c,at.x,at.y,k,dir,time,c.anim.flash,1,false);if(c.hand>=0){const toy=sim.toys[c.hand],def=toy&&TOYS[toy.def];if(def)drawToy(g,toy.def,J[14],J[15],k,def.uses.includes("melee")?Math.atan2(J[15]-J[13],J[14]-J[12]):0,toy.color,1,dir);}if((c.fireUntil??0)>sim.tick){g.fillStyle="rgba(255,120,25,.8)";for(let j=0;j<4;j++){const x=J[j*4],y=J[j*4+1],size=Math.max(2,k*6);g.beginPath();g.moveTo(x-size,y);g.quadraticCurveTo(x-size,y-size*2,x+Math.sin(time*8+j)*size,y-size*4);g.quadraticCurveTo(x+size,y-size*2,x+size,y);g.fill();}}}});}
-  items.sort((a,b)=>b.depth-a.depth);for(const item of items)item.draw();
+  items.sort((a,b)=>b.depth-a.depth);for(const item of items){g.globalAlpha=1;item.draw();}
   g.save();for(const glow of GLOW)glow(g);g.restore();GLOW.length=0;
   particles.update(dt);particles.draw(g,this.cam,(x,y)=>{const p=local(x,y,0);return p.z>near?Math.min(4,focal/p.z/26):0;});
   if(!map||map.visibility.weather)rain.draw(g,sim.env.rain,w,h,dt,quality===0?60:quality===1?160:260,reduceMotion);
