@@ -158,3 +158,15 @@ function services(sim: Simulation, st: State): void {
     }
   }
 }
+
+/** Developer helpers (debug box commands): where things are, and a deal on demand. */
+export function debugFind(sim: Simulation, what: "dealer" | "worker"): Character | undefined {
+  const st = state(sim); const ids = what === "dealer" ? [...st.stock.keys()] : [...st.workers.keys()];
+  return ids.map((i) => sim.chars[i]).filter(Boolean).sort((a, b) => dist(a, sim.player) - dist(b, sim.player))[0];
+}
+export function debugDeal(sim: Simulation): string {
+  const d = debugFind(sim, "dealer"); if (!d) return "No dealer yet";
+  const buyer = sim.chars.filter((c) => free(sim, c) && c !== d).sort((a, b) => dist(a, d) - dist(b, d))[0]; if (!buyer) return "No buyer free";
+  buyer.x = d.x + 1; buyer.y = d.y; const stock = state(sim).stock.get(d.id)!; stock.units = Math.max(stock.units, 1); buyer.cash = Math.max(buyer.cash, 40);
+  deal(sim, state(sim), buyer, d); return `${buyer.name} bought from ${d.name}`;
+}

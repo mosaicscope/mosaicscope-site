@@ -137,3 +137,11 @@ addTopics([
     reply: (t) => { const a = problemOf(t.sim, t.npc.id); return a ? ["Would you? That would be a huge help.", "Yes. Please. Thank you."] : ["I think it's sorted."]; },
     effect: (t) => { const a = problemOf(t.sim, t.npc.id); if (a) finish(t.sim, state(t.sim), a, t.sim.player, a.fixIndex); } },
 ]);
+
+/** Developer helper: start a problem (a given id, or a rolled one) on the nearest person. */
+export function debugProblem(sim: Simulation, id?: string): string {
+  const st = state(sim), p = sim.player, def = id ? PROBLEM_BY_ID.get(id) : undefined;
+  const inst = def ? instantiate(def, st.rng) : rollProblem(worldContext(sim), st.rng, {});
+  const actor = pickActor(sim, st, p.x, p.y, 2, 40); if (!inst || !actor) return "Nothing to start";
+  start(sim, st, inst, actor); return `${inst.def.title} on ${actor.name}`;
+}

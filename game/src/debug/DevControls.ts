@@ -1,3 +1,7 @@
+import {debugFind,debugDeal} from '../sim/Underworld';
+import {debugLab} from '../sim/Labs';
+import {debugCondition} from '../sim/Health';
+import {debugProblem} from '../sim/Problems';
 import {equipDeveloperWeapon} from './DevEquipment';
 import {VEHICLES,type VehicleClass} from '../content/vehicles';
 import {makeVehicle} from '../sim/Traffic';
@@ -25,13 +29,18 @@ export function devControls(sim:()=>Simulation,renderer:Renderer,ctl:DevControlH
  const output=h('output.dev-output',{'aria-live':'polite',text:'Commands: help · pause · resume · speed 2 · spawn 50 · give pistol · heal · cash 1000 · time 18'});
  const command=h('input',{type:'text','aria-label':'Developer command',placeholder:'Enter a command…',autocomplete:'off',spellcheck:'false'}) as HTMLInputElement;
  const run=()=>{const [name,arg]=command.value.trim().toLowerCase().split(/\s+/),n=Number(arg);let result='Command applied';
-  if(name==='help')result='pause | resume | speed 0/1/2/4 | spawn 1–1000 | give item_id | effect alcohol/stimulant/cannabis/sedative | scene meetup/dispute/protection/nightlife/intoxication/police/truce/turf | heal | cash amount | time 0–24 | focus';
+  if(name==='help')result='pause | resume | speed 0/1/2/4 | spawn 1–1000 | give item_id | effect alcohol/stimulant/cannabis/sedative | scene meetup/dispute/protection/nightlife/intoxication/police/truce/turf | heal | goto dealer/worker/lab | deal | problem [id] | lab accident/raid/where | condition infect/psychosis | cash amount | time 0–24 | focus';
   else if(name==='effect'&&['alcohol','stimulant','cannabis','sedative'].includes(arg))result=useSubstance(sim(),target(),arg as SubstanceKind)?'Effect started on target':'Target is busy or receiving medical help';
   else if(name==='scene'&&STREET_KINDS.includes(arg as StreetKind)){const e=triggerStreetIncident(sim(),arg as StreetKind);result=e?`${e.title} · ${e.area}`:'No free crew or scene budget available';}
   else if(name==='pause')ctl.setSpeed(0);else if(name==='resume')ctl.setSpeed(1);
   else if(name==='speed'&&[0,1,2,4].includes(n))ctl.setSpeed(n);
   else if(name==='spawn'&&Number.isFinite(n)&&n>=1&&n<=1000){const s=sim();s.spawnNpcAt(s.player.x,s.player.y,n);}
   else if(name==='give'&&TOYS[arg]?.portable)equip(arg);else if(name==='heal')heal();
+  else if(name==='goto'&&(arg==='dealer'||arg==='worker'||arg==='lab')){const s=sim(),t=arg==='lab'?debugLab(s,'where'):debugFind(s,arg);if(t){s.player.x=t.x+1.5;s.player.y=t.y+1.5;result='Moved next to the '+arg;}else result='None yet (give the world a minute)';}
+  else if(name==='deal')result=debugDeal(sim());
+  else if(name==='problem')result=debugProblem(sim(),arg);
+  else if(name==='lab'&&(arg==='accident'||arg==='raid'||arg==='where'))result=debugLab(sim(),arg)?.text??'No lab yet';
+  else if(name==='condition'&&(arg==='infect'||arg==='psychosis')){const s=sim(),p=s.player,c=s.chars.filter((x)=>x.tier!=='player'&&x.inside<0).sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0];result=c?debugCondition(s,c,arg):'Nobody near';}
   else if(name==='cash'&&Number.isFinite(n)&&n>=0&&n<=1e7)target().cash=n;
   else if(name==='time'&&Number.isFinite(n)&&n>=0&&n<24)hour(n);
   else if(name==='focus'){const c=target();renderer.cam.follow=c.id;renderer.cam.lookAt(c.x,c.y,true);}

@@ -168,3 +168,11 @@ function bystanders(sim: Simulation, c: Character): void {
     else if (o.pers.kindness > 0.6 && !helped) { helped = true; sim.say(o, "Hey, it's okay. I'm here.", "say", 2); forceGoal(o, sim, "help", { u: 1, target: c.id }); const m = state(sim).mind.get(c.id); if (m) m.support = clamp(m.support + 0.3); }
   }
 }
+
+/** Developer helper: put a condition on someone. */
+export function debugCondition(sim: Simulation, c: Character, kind: string): string {
+  const st = state(sim);
+  if (kind === "infect") { st.inf.set(c.id, { severity: 0.65, known: true, treated: false, hospAt: 0 }); return `${c.name} has Red Fever`; }
+  if (kind === "psychosis") { st.mind.set(c.id, { psychosis: 0.6, theme: "persecution", next: sim.tick, support: 0, onMeds: false, reacted: false }); return `${c.name} is having an episode`; }
+  return "infect | psychosis";
+}

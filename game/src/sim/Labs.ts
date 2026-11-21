@@ -167,3 +167,12 @@ function tickGang(sim: Simulation, st: State, g: Gang): void {
     sim.emit({ type: "rumour", x: m.x, y: m.y, actors: [m.id], summary: `Word is someone in ${g.id === "famiglia" ? "the Famiglia" : "the Riccarton Boys"} is talking to the police` });
   }
 }
+
+/** Developer helpers: find the first lab, make it have an accident, or call a raid on it. */
+export function debugLab(sim: Simulation, action: string): { x: number; y: number; text: string } | undefined {
+  const st = state(sim), lab = st.labs[0]; if (!lab) return undefined;
+  const g = st.gangs.get(lab.owner)!;
+  if (action === "accident") { const who = crewOf(sim, lab.owner)[0]; if (who) { lab.reopenAt = 0; accident(sim, lab, g, who, 0.7); } return { x: lab.x, y: lab.y, text: `Accident at ${lab.name}` }; }
+  if (action === "raid") { lab.suspicion = 1; lab.reopenAt = 0; return { x: lab.x, y: lab.y, text: `${lab.name} is being watched; a raid follows` }; }
+  return { x: lab.x, y: lab.y, text: `${lab.name} (${lab.owner}) stash ${JSON.stringify(g.stash)} cash ${g.cash}` };
+}
