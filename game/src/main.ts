@@ -1,3 +1,4 @@
+import { mountMultiplayer } from "./net/MultiplayerPanel";
 import "./ui/styles.css";
 import { Game } from "./app/Game";
 import "./ui/dashboard.css";
@@ -53,6 +54,7 @@ try {
   game.start();
   loadMosaicScope();
   (window as any).__mosaics = game; // handy for debugging and the smoke test
+  mountMultiplayer(() => (game as any).sim); // the "World PIN" button: play together with anyone who types the same PIN
   window.addEventListener("error", (e) => console.error("[mosaics]", e.message));
 } catch (e) {
   console.error(e);

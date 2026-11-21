@@ -50,7 +50,14 @@ export class DrivingView {
  project(x:number,y:number,z=0):{x:number;y:number}{const a=this.projection;if(!a)return{x:0,y:0};const dx=x-a.ex,dy=y-a.ey,depth=Math.max(.6,dx*a.fx+dy*a.fy);return{x:a.width/2+(dx*a.rx+dy*a.ry)*a.focal/depth,y:a.horizon-(z+a.terrain(x,y)-a.eye)*a.focal/depth};}
  unproject(x:number,y:number,z=0):{x:number;y:number}{const a=this.projection;if(!a)return{x:0,y:0};const delta=y-a.horizon;if(delta<=1)return{x:a.ex+a.fx*5,y:a.ey+a.fy*5};let depth=Math.min(100,Math.max(.6,(a.eye-z)*a.focal/delta)),wx=0,wy=0;for(let i=0;i<4;i++){const side=(x-a.width/2)*depth/a.focal;wx=a.ex+a.fx*depth+a.rx*side;wy=a.ey+a.fy*depth+a.ry*side;depth=Math.min(100,Math.max(.6,(a.eye-z-a.terrain(wx,wy))*a.focal/delta));}return{x:wx,y:wy};}
  pickCharacter(x:number,y:number):number{let best=-1,depth=Infinity;for(const p of this.picks)if(Math.abs(x-p.x)<p.size*.25&&y>=p.y-p.size&&y<=p.y+p.size*.1&&p.depth<depth){best=p.id;depth=p.depth;}return best;}
- draw(g:CanvasRenderingContext2D,sim:Simulation,w:number,h:number,dpr:number,time:number,alpha:number,dt:number,particles:Particles,rain:Rain,quality:number,reduceMotion:boolean):void {
+ /** Adaptive detail: the 3D view measures its own frame cost and trims far-ground work and the near ground radius a little at a time when it runs slow, then restores it when there is headroom, so frames stay even instead of spiking. */
+ lod=1;private ema=12;private lodAt=0;
+ draw(g:CanvasRenderingContext2D,sim:Simulation,w:number,h:number,dpr:number,time:number,alpha:number,dt:number,particles:Particles,rain:Rain,quality:number,reduceMotion:boolean):void{
+  const t0=performance.now();this.drawFrame(g,sim,w,h,dpr,time,alpha,dt,particles,rain,quality,reduceMotion);
+  this.ema+=(Math.min(performance.now()-t0,60)-this.ema)*.08;
+  if(t0-this.lodAt>250){this.lodAt=t0;if(this.ema>12.5)this.lod=Math.max(.5,this.lod-.05);else if(this.ema<9.5)this.lod=Math.min(1,this.lod+.025);}
+ }
+ private drawFrame(g:CanvasRenderingContext2D,sim:Simulation,w:number,h:number,dpr:number,time:number,alpha:number,dt:number,particles:Particles,rain:Rain,quality:number,reduceMotion:boolean):void {
   const player=sim.player,car=sim.vehicles[player.inCar],focus=car??player;
   const chase=car?this.chase.update(car,alpha,dt,reduceMotion):this.chase.updateFoot(player,alpha,dt,reduceMotion),angle=chase.heading,fx=Math.cos(angle),fy=Math.sin(angle),rx=-fy,ry=fx;
   // Resolve each elevation district once per frame; thousands of vertices share the same grid.
@@ -70,7 +77,7 @@ export class DrivingView {
   this.gpuGround??=new PerspectiveGroundGPU(false,this.highPerformanceGpu);const gpu=this.gpuGround.begin(w*dpr,h*dpr),flatPaths=new Map<string,Path2D>();
   const flat=(pts:[number,number,number][],color:string)=>{const ps=pts.map(q=>local(q[0],q[1],q[2]));if(ps.some(q=>q.z<near))return quad(pts,color);const sc=ps.map(screen);if(sc.every(q=>q.x<0)||sc.every(q=>q.x>w)||sc.every(q=>q.y<0)||sc.every(q=>q.y>h))return;if(gpu){this.gpuGround!.polygon(sc,color,w,h,0);return;}let path=flatPaths.get(color);if(!path){path=new Path2D();flatPaths.set(color,path);}for(let i=0;i<sc.length;i++)if(i)path.lineTo(sc[i].x,sc[i].y);else path.moveTo(sc[i].x,sc[i].y);path.closePath();};
   const flushFlat=()=>{for(const [color,path] of flatPaths){g.fillStyle=color;g.fill(path);}flatPaths.clear();};
-  const farRadius=500,farStep=quality===0?40:32,far:{x:number;y:number;d:number;t:number}[]=[];
+  const farRadius=Math.round(500*Math.max(.6,this.lod)),farStep=Math.round((quality===0?40:32)/Math.max(.5,this.lod)),far:{x:number;y:number;d:number;t:number}[]=[];
   const centreX=Math.floor(focus.x/farStep)*farStep,centreY=Math.floor(focus.y/farStep)*farStep;
   for(let y=centreY-farRadius;y<=centreY+farRadius;y+=farStep)for(let x=centreX-farRadius;x<=centreX+farRadius;x+=farStep){const mx=x+farStep*.5,my=y+farStep*.5,d=(mx-ex)*fx+(my-ey)*fy,side=Math.abs((mx-ex)*rx+(my-ey)*ry);if(d<33||d>farRadius||side>d*.9+farStep)continue;far.push({x,y,d,t:sim.world.tile(Math.floor(mx),Math.floor(my))});}
   far.sort((a,b)=>b.d-a.d);for(const q of far){const color=(GROUND[q.t===T.TREE?T.GRASS:q.t]??GROUND[T.PAVE])[0];flat([[q.x,q.y,0],[q.x+farStep,q.y,0],[q.x+farStep,q.y+farStep,0],[q.x,q.y+farStep,0]],color);}flushFlat();
@@ -79,8 +86,8 @@ export class DrivingView {
    // LOD: ribbon pieces lengthen with distance (12 tiles near, up to 96 far), so far streets cost a handful of quads.
    for(let at=start;at<end;){const mx=r.x+r.dx*(at+6),my=r.y+r.dy*(at+6),depth=(mx-ex)*fx+(my-ey)*fy,step=depth<90?12:Math.min(96,Math.floor(depth/90)*24),to=Math.min(end,at+step),cx2=r.x+r.dx*(at+to)/2,cy2=r.y+r.dy*(at+to)/2,p=local(cx2,cy2,0);const from=at;at=to;if(p.z<38||p.z>farRadius||Math.abs(p.x)>p.z+10+step)continue;if(sim.world.tile(Math.floor(cx2),Math.floor(cy2))===T.WATER)continue;const x=r.x+r.dx*from,y=r.y+r.dy*from,u=r.x+r.dx*to,v=r.y+r.dy*to;flat([[x-ox,y+oy,.01],[u-ox,v+oy,.01],[u+ox,v-oy,.01],[x+ox,y-oy,.01]],GROUND[T.ROAD][0]);}}flushFlat();
   // Ground remains tied to the world's collision tiles, including bridge and water tiles.
-  const ground:{x:number;y:number;d:number;t:number;z:number}[]=[];const cx=Math.floor(focus.x),cy=Math.floor(focus.y),radius=36;
-  for(let y=cy-radius;y<=cy+radius;y++)for(let x=cx-radius;x<=cx+radius;x++){const d=(x+.5-ex)*fx+(y+.5-ey)*fy,side=Math.abs((x+.5-ex)*rx+(y+.5-ey)*ry);if(d<near||d>38||side>d*.9+3)continue;const t=sim.world.tile(x,y);ground.push({x,y,d,t,z:sim.world.groundZ(x+.5,y+.5)+(t===T.SIDEWALK?.1:0)});}
+  const ground:{x:number;y:number;d:number;t:number;z:number}[]=[];const cx=Math.floor(focus.x),cy=Math.floor(focus.y),radius=Math.max(28,Math.round(36*this.lod));
+  for(let y=cy-radius;y<=cy+radius;y++)for(let x=cx-radius;x<=cx+radius;x++){const d=(x+.5-ex)*fx+(y+.5-ey)*fy,side=Math.abs((x+.5-ex)*rx+(y+.5-ey)*ry);if(d<near||d>radius+2||side>d*.9+3)continue;const t=sim.world.tile(x,y);ground.push({x,y,d,t,z:sim.world.groundZ(x+.5,y+.5)+(t===T.SIDEWALK?.1:0)});}
   // Elevation can overlap neighbouring tiles in projection; paint distant tiles first.
   ground.sort((a,b)=>b.d-a.d);
     if(gpu){
