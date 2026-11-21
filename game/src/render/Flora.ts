@@ -160,8 +160,12 @@ function buildChunk(w: World, cache: Cache, cx: number, cy: number, rev: number)
   let deer = 0;
   const lakes = w.mapped ? waterPolys(w.mapped).filter((p) => p.x1 >= x0 - 1 && p.x0 <= x0 + CH + 1 && p.y1 >= y0 - 1 && p.y0 <= y0 + CH + 1) : [];
   for (let ty = y0; ty < y0 + CH; ty++) for (let tx = x0; tx < x0 + CH; tx++) {
-    const k = placeKind(w, tx, ty);
-    if (!k || isBusy(w, cache, tx, ty) || (lakes.length && nearWater(lakes, tx, ty))) continue;
+    const k = placeKind(w, tx, ty); // TEMP-DEBUG block start
+    const S = flora.dbg.st; if (w.tile(tx, ty) === 0) S.grass++; if (k) S.cand++;
+    if (k && isBusy(w, cache, tx, ty)) { S.busy++; continue; }
+    if (k && lakes.length && nearWater(lakes, tx, ty)) { S.water++; continue; }
+    if (k) S.kept++; // TEMP-DEBUG block end
+    if (!k) continue;
     const s = Math.floor(h2(tx * 3 + 1, ty * 17 + 9) * 1000);
     c.tx.push(tx); c.ty.push(ty); c.k.push(k); c.s.push(s); c.n++;
     if (c.homes.length >= 6) continue;
@@ -215,7 +219,7 @@ export const flora = {
   reduce: false,
   ema: 8,
   acc: 0,
-  dbg: { w: null as World | null, count: 0, animals: 0, chunks: 0, items: [] as number[][], focus: [0, 0], fd: forestDepth }, // TEMP-DEBUG
+  dbg: { w: null as World | null, count: 0, animals: 0, chunks: 0, items: [] as number[][], focus: [0, 0], fd: forestDepth, t: { gather: 0, draw: 0, calls: 0 }, st: { grass: 0, early: 0, cand: 0, busy: 0, water: 0, kept: 0 } }, // TEMP-DEBUG
   update(renderMs: number, dt: number, reduceMotion: boolean): void {
     this.reduce = reduceMotion;
     if (dt <= 0 || dt > 0.25 || !(renderMs >= 0)) return; // hidden tab / loading hitch: not a real frame
@@ -300,7 +304,7 @@ const FAUNA_CAP = [3, 8, 14, 22];
  * (wx, wy) the ground position in tiles, lift px above ground at zoom 1. Draw it with drawPanel(ref / 1000 ...).
  * `maxDist` (tiles from the focus) bounds the work for the 3D view; pass Infinity for the overhead view.
  */
-export function gatherFlora(
+function gatherFloraInner(
   w: World, minX: number, maxX: number, minY: number, maxY: number, zoom: number, quality: number, time: number, dark: number,
   focusX: number, focusY: number, maxDist: number,
   emit: (depth: number, ref: number, wx: number, wy: number, lift: number) => void,
@@ -372,7 +376,7 @@ const SWAY = new Set<number>([D.TREE, D.OAK, D.PINE, D.BIRCH, D.FERN, D.TALLGRAS
  * Draw one panel (kerb tree, planter, wild flora, or animal) centred on its base point (sx, sy).
  * Same signature as the old drawDecor, so the renderers swap it in directly.
  */
-export function drawPanel(g: CanvasRenderingContext2D, kind: number, sx: number, sy: number, z: number, time: number, dark: number, n: number): void {
+function drawPanelInner(g: CanvasRenderingContext2D, kind: number, sx: number, sy: number, z: number, time: number, dark: number, n: number): void {
   if (z <= 0.02 || kind <= 0) return;
   const zi = Math.max(0, Math.min(63, Math.round(Math.log2(z) * 3) + 24)); // a third of an octave per size step
   let frame = 1;
@@ -594,3 +598,7 @@ function paintFauna(g: CanvasRenderingContext2D, f: number, x: number, y: number
 }
 
 if (typeof window !== "undefined") (window as unknown as { __flora?: unknown }).__flora = flora; // TEMP-DEBUG
+
+// TEMP-DEBUG timing wrappers
+export function gatherFlora(...a: Parameters<typeof gatherFloraInner>): void { const t = performance.now(); gatherFloraInner(...a); flora.dbg.t.gather += performance.now() - t; }
+export function drawPanel(...a: Parameters<typeof drawPanelInner>): void { const t = performance.now(); drawPanelInner(...a); flora.dbg.t.draw += performance.now() - t; flora.dbg.t.calls++; }

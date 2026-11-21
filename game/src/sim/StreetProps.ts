@@ -63,7 +63,7 @@ export function updateStreetProps(sim:Simulation,dt:number):void{
 }
 
 /** How many of each there should be around town: the clutter and the stalls that make a pavement look lived in. */
-const EXTRAS:Partial<Record<StreetPropKind,number>>={cone:10,traffic_barrier:3,wheelie_bin:6,newspaper_box:4,bike_rack:4,bollard:6,planter:4,sandwich_board:4,parking_meter:6,delivery_box:3,recycling_bag:4,hotdog_stand:3,newspaper_stand:3,flower_stall:2,coffee_cart:3,road_sign:3,hydrant:3,postbox:2};
+const EXTRAS:Partial<Record<StreetPropKind,number>>={sign_colombo:1,sign_manchester:1,sign_hereford:1,sign_worcester:1,sign_cashel:1,sign_armagh:1,sign_gloucester:1,sign_oxford:1,sign_durham:1,sign_montreal:1,sign_madras:1,sign_barbadoes:1,sign_moorhouse:1,sign_bealey:1,sign_papanui:1,sign_riccarton:1,sign_fendalton:1,sign_memorial:1,sign_ferry:1,sign_lincoln:1,cone:10,traffic_barrier:3,wheelie_bin:6,newspaper_box:4,bike_rack:4,bollard:6,planter:4,sandwich_board:4,parking_meter:6,delivery_box:3,recycling_bag:4,hotdog_stand:3,newspaper_stand:3,flower_stall:2,coffee_cart:3,road_sign:3,hydrant:3,postbox:2};
 function scatterExtras(sim:Simulation,anchors:{x:number;y:number;kind:string}[]):void{
  if(!anchors.length)return;let salt=0;
  for(const [kind,target] of Object.entries(EXTRAS) as [StreetPropKind,number][]){
