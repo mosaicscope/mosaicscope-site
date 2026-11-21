@@ -4,6 +4,7 @@ import { dressOf } from "../mind/Dress";
 import type { Dress } from "../mind/Dress";
 import { modelOf } from "./Models";
 import { drawFaceGenes } from "./FaceGenes";
+import { faceStates, drawDrugFace } from "./FaceState";
 import { drawRefFigure, lookSpec, personalize } from "./RefFigure";
 
 /**
@@ -520,6 +521,7 @@ function drawHead(g: CanvasRenderingContext2D, L: Character["look"], x: number, 
     case "mole": g.fillStyle = col; g.beginPath(); g.arc(fx + 5 * k * dir, my - 1 * k, 0.8 * k, 0, 6.283); g.fill(); break;
   }
   if (F.gene !== undefined) drawFaceGenes(g, F.gene, { x, y, k, dir, lw, col, alpha, fx, ey, my, rx, ry, covered: F.eyes === "shades" || F.eyes === "visor" || F.eyes === "aviator" || F.eyes === "shutter" });
+  { const fs = faceStates.get(L); if (fs) drawDrugFace(g, fs, { x, y, k, fx, ey, my, rx, ry, alpha, skin: skin ?? (L as unknown as { skin?: string }).skin ?? "#e6c3a0", covered: F.eyes === "shades" || F.eyes === "visor" || F.eyes === "aviator" || F.eyes === "shutter" }); }
   if (L.glam) { g.strokeStyle = "#f6b62c"; g.beginPath(); g.arc(x - rx * 1.05, y + 6 * k, 2.4 * k, 0, 6.283); g.arc(x + rx * 1.05, y + 6 * k, 2.4 * k, 0, 6.283); g.stroke(); }
 }
 

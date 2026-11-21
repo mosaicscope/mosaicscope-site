@@ -1,3 +1,4 @@
+import {cabinet,type CabinetHost,type CabinetKind} from './VenueCabinet';
 import {hospitality,type HospitalityHost} from './VenueHospitality';
 import {pose as nativePose,solve,drawFigure} from '../render/StickFigure';
 import type {Character} from '../entities/types';
@@ -9,7 +10,7 @@ import { h } from "./dom";
  * club", where doors only ever open on punchlines). Strictly PG-13: neon stick figures in cartoon
  * outfits, innuendo and slapstick, nothing shown. Styles live in ./club.css (classes prefixed `cl-`).
  */
-export interface ClubHost extends HospitalityHost { people?():readonly Character[]; getCash(): number; setCash(v: number): void; toast(t: string): void; playerName(): string; owned(key: string): boolean; setOwned(key: string, v: boolean): void }
+export interface ClubHost extends HospitalityHost { consume?(kind: CabinetKind, label: string): { ok: boolean; msg: string }; people?():readonly Character[]; getCash(): number; setCash(v: number): void; toast(t: string): void; playerName(): string; owned(key: string): boolean; setOwned(key: string, v: boolean): void }
 
 type Venue = "strip" | "velvet";
 interface Spot { id: string; label: string; x: number; y: number; w: number; h: number }
@@ -271,6 +272,7 @@ export class Club {
   }
 
   show(venue: Venue): void {
+    if (venue === "strip" && !adultConfirmed()) return;   // adults only: asked once, remembered
     if (!this.beforeOpen()) return;
     this.venue = venue; this.open = true; this.reduce = reducedMotion();
     this.el.setAttribute("aria-label", venue === "strip" ? "The Pink Pukeko" : "The Velvet Rooms");
@@ -401,7 +403,7 @@ export class Club {
     const stage = h("div.cl-stage", null, [this.cv, this.card ? this.cardEl() : null]);
     const panel = strip ? this.stripPanel() : this.velvetPanel();
     const spotBtns = h("div.cl-row", null, this.spots().map((s) => h("button.cl-btn.sm", { onclick: () => this.activate(s.id), text: s.label + (s.id === "dj" ? " · request $50" : s.id === "bar" ? " · L&P $14" : "") })));
-    this.el.replaceChildren(h("div.cl-frame." + (strip ? "pink" : "velvet"), null, [head, stage, this.tickerEl, spotBtns,hospitality(this.host), panel,
+    this.el.replaceChildren(h("div.cl-frame." + (strip ? "pink" : "velvet"), null, [head, stage, this.tickerEl, spotBtns,hospitality(this.host), strip ? cabinet(this.host as unknown as CabinetHost) : null, panel,
       h("footer.cl-foot", { text: strip ? "All performers are fictional adult stick figures. Nobody is ever unclothed; the sequins are load-bearing." : "Nothing is ever shown. Everything is implied. Sir Ponsonby's lawyers insist." })]));
   }
 
@@ -622,6 +624,12 @@ export class Club {
     if (o.mic) { g.fillStyle = "#e4e0dd"; g.beginPath(); g.arc(rh.x, rh.y - 4, 3, 0, 6.283); g.fill(); }
   }
 
+  private showUntil = 0; private nextShow = 0; private patronNext: number[] = [];
+  /** The revue's synchronised kick line: the same moves, together. */
+  private revuePose(t: number): number[] {
+    const seq = [1, 0, 1, 2], k = t * 1.4, i = Math.floor(k) % seq.length, f0 = k - Math.floor(k), f = this.reduce ? 0 : f0 * f0 * (3 - 2 * f0);
+    const a = POSES[seq[i]], b = POSES[seq[(i + 1) % seq.length]]; return a.map((v, j) => v + (b[j] - v) * f);
+  }
   private poseOf(d: Dancer, t: number): number[] {
     const k = t * d.speed * (1 + this.hype * 0.8) + d.x * 0.01, n = d.seq.length;
     const i = Math.floor(k) % n, f0 = k - Math.floor(k), f = this.reduce ? 0 : f0 * f0 * (3 - 2 * f0);
@@ -631,6 +639,10 @@ export class Club {
 
   private drawStrip(t: number): void {
     const g = this.begin(), big = this.hasUp("stage"), smoke = this.hasUp("smoke"), hype = this.hype;
+    // the Burlesque Revue every so often (everyone in a synchronised kick line), and the catwalk strut between
+    if (this.nextShow === 0) this.nextShow = t + 18;
+    if (t >= this.nextShow && t >= this.showUntil) { this.showUntil = t + 22; this.nextShow = t + 80; this.say("MC|Ladies and gentlemen, the Pink Pukeko Burlesque Revue!"); }
+    const showing = t < this.showUntil, cyc = t % 28, catwalkU = !showing && cyc < 12 ? (cyc < 6 ? cyc / 6 : (12 - cyc) / 6) : -1;
     // walls & floor
     const wall = g.createLinearGradient(0, 0, 0, 120); wall.addColorStop(0, "#110f0f"); wall.addColorStop(1, "#090808");
     g.fillStyle = wall; g.fillRect(0, 0, W, 120); g.fillStyle = "#0c0a0a"; g.fillRect(0, 120, W, H - 120);
@@ -655,20 +667,42 @@ export class Club {
     g.fillStyle = st; g.beginPath(); g.moveTo(sx0 + 40, 235); g.lineTo(sx1 - 40, 235); g.lineTo(sx1 + 20, 330); g.lineTo(sx0 - 20, 330); g.closePath(); g.fill();
     g.fillStyle = "#141111"; g.fillRect(sx0 - 20, 330, sx1 - sx0 + 40, 18);
     for (let x = sx0 - 14; x < sx1 + 20; x += 14) { const on = this.reduce ? (x % 28 === 0) : (Math.floor(t * 8 - x / 14) % 4 === 0); g.fillStyle = on ? "#c74d57" : "#352e2e"; g.beginPath(); g.arc(x, 339, 2.5, 0, 6.283); g.fill(); }
+    // the catwalk: a lit runway pushing out from the stage into the crowd
+    g.fillStyle = "#1c1717"; g.beginPath(); g.moveTo(452, 330); g.lineTo(508, 330); g.lineTo(522, 478); g.lineTo(438, 478); g.closePath(); g.fill();
+    for (let y2 = 345; y2 < 475; y2 += 18) {
+      const on = this.reduce || Math.floor(t * 6 - y2 / 18) % 3 === 0, dx = (y2 - 330) * 0.1; g.fillStyle = on ? "#c74d57" : "#3a2e2e";
+      g.beginPath(); g.arc(452 - dx, y2, 2, 0, 6.283); g.fill(); g.beginPath(); g.arc(508 + dx, y2, 2, 0, 6.283); g.fill();
+    }
     const poleG = g.createLinearGradient(476, 0, 484, 0); poleG.addColorStop(0, "#777"); poleG.addColorStop(0.5, "#fff"); poleG.addColorStop(1, "#888");
     g.fillStyle = poleG; g.fillRect(477, 110, 6, 190);
     // dancers
     this.dancerPos = [];
     for (const d of this.dancers) {
       if (d.needsStage && !big) continue;
-      let x = d.x, y = 300;
-      if (d.pole) { x = 480 + (this.reduce ? -10 : Math.sin(t * 1.4) * 14); y = 292 - (this.reduce ? 0 : (Math.sin(t * 0.7) * 0.5 + 0.5) * 50); }
+      const vis = this.dancers.filter((q) => !(q.needsStage && !big)), idx = vis.indexOf(d);
+      let x = d.x, y = 300, strut = false;
+      if (showing) x = sx0 + 60 + idx * ((sx1 - sx0 - 120) / Math.max(1, vis.length - 1));   // the revue: everyone in the kick line
+      else if (d.pole) { x = 480 + (this.reduce ? -10 : Math.sin(t * 1.4) * 14); y = 292 - (this.reduce ? 0 : (Math.sin(t * 0.7) * 0.5 + 0.5) * 50); }
+      else if (d.name === "Crystal" && catwalkU >= 0) { x = 480; y = 300 + 170 * catwalkU; strut = true; }   // the catwalk strut out into the crowd
       else if (!this.reduce) x += Math.sin(t * 0.5 + d.x) * 14;
-      const pose = d.pole ? this.poseOf(d, t).map((v, j) => (j === 2 ? (x < 480 ? 2.6 : 3.4) : v)) : this.poseOf(d, t);
+      let pose = showing ? this.revuePose(t) : d.pole ? this.poseOf(d, t).map((v, j) => (j === 2 ? (x < 480 ? 2.6 : 3.4) : v)) : this.poseOf(d, t);
+      if (d.pole && !showing && !this.reduce) { pose = pose.slice(); pose[8] += Math.sin(t * 4.5) * 0.45; pose[9] += Math.abs(Math.sin(t * 4.5)) * 3; }   // pole routine: hips and spin
+      if (strut && !this.reduce) { pose = pose.slice(); pose[9] += Math.abs(Math.sin(t * 6)) * 3; pose[8] += Math.sin(t * 3) * 0.3; }                  // strut bob
       if (d.hit > 0) { pose[9] += d.hit * 8; pose[0] = -2.6; }
-      this.fig(x, y, pose, d.col, { hat: d.hat, boa: d.boa, sequins: d.sequins, skirt: true, t });
+      this.fig(x, y, pose, d.col, { hat: d.hat, boa: d.boa || showing, sequins: d.sequins || showing, skirt: true, t });
       if (d.hit > 0 && !this.reduce) for (let k = 0; k < 4; k++) { const a = t * 6 + k * 1.6; g.fillStyle = "#f6f4f3"; g.fillRect(x + Math.cos(a) * 22, y - 50 + Math.sin(a) * 22, 2, 2); }
       this.dancerPos.push({ d, x, y });
+    }
+    // patrons toss cash at whoever is on stage, and the revue gets its banner and sparkle
+    if (!this.reduce && this.dancerPos.length) this.patrons.forEach((p, i) => {
+      if ((this.patronNext[i] ??= t + 2 + i * 0.7) > t) return;
+      this.patronNext[i] = t + 2.5 + Math.random() * 5;
+      const dp = this.dancerPos[Math.floor(Math.random() * this.dancerPos.length)], T = 0.85, bx = p.x, by = 470, tx = dp.x + (Math.random() - 0.5) * 20, ty = dp.y - 30;
+      this.bills.push({ x: bx, y: by, tx, ty, vx: (tx - bx) / T, vy: (ty - by) / T - 0.5 * 520 * T, r: Math.random() * 6, vr: (Math.random() - 0.5) * 18, age: 0, fly: T, col: "#7dcf94", landed: false, done: false, v: 5 });
+    });
+    if (showing) {
+      this.neonText("★ BURLESQUE REVUE ★", W / 2, 190, 30, "#c74d57", t * 2);
+      if (!this.reduce) for (let k = 0; k < 16; k++) { const a = t * 3 + k * 1.7; g.fillStyle = k % 2 ? "#f6f4f3" : "#c74d57"; g.fillRect(sx0 + ((k * 61 + t * 40) % (sx1 - sx0)), 240 + Math.sin(a) * 40 + 40, 2, 2); }
     }
     if (smoke) for (let k = 0; k < 7; k++) { const sx = sx0 + ((k * 83 + (this.reduce ? 0 : t * 18)) % (sx1 - sx0)); const gr = g.createRadialGradient(sx, 318, 0, sx, 318, 60); gr.addColorStop(0, "rgba(230,227,225,.16)"); gr.addColorStop(1, "rgba(230,227,225,0)"); g.fillStyle = gr; g.fillRect(sx - 60, 258, 120, 120); }
     // MC
@@ -795,4 +829,12 @@ export class Club {
       g.textAlign = "center";
     }
   }
+}
+
+/** The strip club is adults only: ask once and remember the answer in this browser. */
+function adultConfirmed(): boolean {
+  try { if (localStorage.getItem("mosaics-world:adult") === "yes") return true; } catch { /* private mode: ask each time */ }
+  const ok = typeof confirm === "function" ? confirm("The Pink Pukeko is for adults only (18+). Are you 18 or over?") : false;
+  if (ok) { try { localStorage.setItem("mosaics-world:adult", "yes"); } catch { /* private mode */ } }
+  return ok;
 }

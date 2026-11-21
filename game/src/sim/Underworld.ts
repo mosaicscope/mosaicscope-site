@@ -7,7 +7,7 @@ import { arrest, enterBuilding } from "./Society";
 import { startTurfWar, turfWarActive } from "./Turf";
 import { peek } from "../social/Social";
 import { bustHeat, onSale, restock, updateLabs } from "./Labs";
-import { updateHealth } from "./Health";
+import { updateHealth, updateFaces } from "./Health";
 import { raiseCue } from "./Pursuit";
 
 /**
@@ -42,7 +42,7 @@ export function updateUnderworld(sim: Simulation): void {
     st.nextRestock = sim.tick + 60 * 300;
     for (const [id, s] of st.stock) if (s.units < 3) { const d = sim.chars[id]; const n = d ? restock(sim, d, s.kind) : 4; s.units += n ?? 4; }
   }
-  updateLabs(sim); updateHealth(sim); pimpWatch(sim);
+  updateLabs(sim); updateHealth(sim); updateFaces(sim); pimpWatch(sim);
   habits(sim, st);
   services(sim, st);
   st.tension = Math.max(0, st.tension - 0.002);

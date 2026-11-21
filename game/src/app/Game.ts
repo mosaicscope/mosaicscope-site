@@ -1289,10 +1289,11 @@ export class Game {
   // ------------------------------------------------------------------ the clubs
   private owned = new Set<string>((() => { try { return JSON.parse(localStorage.getItem("mosaics-world:owned") ?? "[]") as string[]; } catch { return []; } })());
   private venueDrink(kind:'water'|'beer'|'wine'):string{const s=this.sim,p=s.player,price=kind==='beer'?8:kind==='wine'?12:0;if(p.cash<price)return 'Not enough cash.';if(kind!=='water'&&!useSubstance(s,p,'alcohol'))return 'Finish your current action before ordering another drink.';p.cash-=price;if(kind==='water')p.hunger=Math.min(1,p.hunger+.03);return kind==='water'?'A glass of water. It does not instantly remove intoxication.':`Your ${kind} is served. You feel warm and a little unsteady.`;}
+  private venueConsume(kind:"alcohol"|"cannabis"|"stimulant"|"sedative",label:string):{ok:boolean;msg:string}{const s=this.sim,p=s.player;if(!useSubstance(s,p,kind))return{ok:false,msg:"Finish what you are doing, or get help, before ordering again."};const t={alcohol:"It goes down easy.",cannabis:"The room goes soft and slow.",stimulant:"Your heart picks up and the music gets louder.",sedative:"Everything softens and slows down."};return{ok:true,msg:label+". "+t[kind]};}
   private venueDealer():Character|undefined{const casino=this.sim.world.buildings.find(b=>b.kind==='casino');return this.sim.chars.find(c=>c.workplace===casino?.id&&c.id!==this.sim.playerId)??this.sim.chars.find(c=>c.role==='office'&&c.id!==this.sim.playerId)??this.sim.chars.find(c=>c.tier==='background');}
   private dealerHitAt=-1;private canConfrontDealer():boolean{const s=this.sim.player.substances;return !!s&&!s.crisis&&(s.levels.alcohol>.6||s.levels.stimulant>.6)&&this.sim.tick>=this.dealerHitAt;}
   private confrontDealer():string{if(!this.canConfrontDealer())return 'You decide to keep your distance.';const d=this.venueDealer();if(!d)return 'The table is closed.';this.dealerHitAt=this.sim.tick+300;wound(this.sim,d,'head',1,'bruise',this.sim.playerId,this.sim.player.x,this.sim.player.y);d.emo.fear=Math.max(.6,d.emo.fear);d.emo.frustration=Math.max(.7,d.emo.frustration);commitCrime(this.sim,this.sim.player,'assault',d);return 'You lash out. The dealer recoils and security reports the assault. Police have been notified.';}
-  private club = new Club({people:()=>this.sim.chars,buyDrink:kind=>this.venueDrink(kind),
+  private club = new Club({people:()=>this.sim.chars,buyDrink:kind=>this.venueDrink(kind),consume:(k,l)=>this.venueConsume(k,l),
     getCash: () => this.sim.player.cash, setCash: (v) => { this.sim.player.cash = v; }, toast: (t) => this.toast(t, "acid"),
     playerName: () => "you", owned: (k) => this.owned.has(k),
     setOwned: (k, v) => { if (v) this.owned.add(k); else this.owned.delete(k); try { localStorage.setItem("mosaics-world:owned", JSON.stringify([...this.owned])); } catch { /* private mode */ } },
@@ -1476,6 +1477,7 @@ export class Game {
       command("City map", "▦", () => this.minimap.toggle()),
       command('Live city','◉',()=>this.openLiveCity(), '.dock-secondary'),
       command("Casino", "♠", () => { this.pausedBefore = this.clock.paused; this.casino.show(); }, ".casino-launch.dock-secondary"),
+      command("Strip club", "♥", () => { this.pausedBefore = this.clock.paused; this.club.show("strip"); }, ".dock-secondary"),
       command("Daily life", "☀", () => this.cityLifePanel.show()),
       command("Missions", "◎", () => this.openMissions()),
       command("Photo", "▣", () => this.photos.open(), ".dock-secondary"),
@@ -1495,6 +1497,7 @@ export class Game {
         h('button.btn',{text:'City map',onclick:()=>this.minimap.toggle()}),
         h('button.btn',{text:'Daily life',onclick:()=>this.cityLifePanel.show()}),
         h('button.btn',{text:'Casino',onclick:()=>this.casino.show()}),
+        h('button.btn',{text:'Strip club (18+)',onclick:()=>{this.pausedBefore=this.clock.paused;this.club.show('strip');}}),
         h('button.btn',{text:'City missions',onclick:()=>this.openMissions()}),
         h('button.btn',{text:'Photo',onclick:()=>this.photos.open()}),
         h('button.btn',{text:'Save game',onclick:()=>this.openSaves()}),

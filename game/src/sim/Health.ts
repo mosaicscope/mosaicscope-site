@@ -176,3 +176,26 @@ export function debugCondition(sim: Simulation, c: Character, kind: string): str
   if (kind === "psychosis") { st.mind.set(c.id, { psychosis: 0.6, theme: "persecution", next: sim.tick, support: 0, onMeds: false, reacted: false }); return `${c.name} is having an episode`; }
   return "infect | psychosis";
 }
+
+/** Set (or clear) what shows on each person's face, from what is in their system. Read by render/StickFigure.ts. */
+import { faceStates, type FaceState } from "../render/FaceState";
+export function updateFaces(sim: Simulation): void {
+  if (sim.tick % 30 !== 19) return;
+  const st = state(sim);
+  for (const c of sim.chars) {
+    const s = c.substances, m = st.mind.get(c.id), inf = st.inf.get(c.id), lv = s?.levels;
+    const crash = !!s && sim.tick < s.crashUntil && (lv ? lv.alcohol + lv.stimulant + lv.cannabis + lv.sedative : 0) < 0.3;
+    if (!lv && !m && !inf) { if (faceStates.has(c.look)) faceStates.delete(c.look); continue; }
+    const a = lv?.alcohol ?? 0, t = lv?.cannabis ?? 0, sp = lv?.stimulant ?? 0, sd = lv?.sedative ?? 0, psy = m?.psychosis ?? 0;
+    const f: FaceState = {
+      red: clamp(t * 0.7 + a * 0.4 + sd * 0.2 + (crash ? 0.3 : 0)),
+      pupil: clamp(sp * 0.9 + psy * 0.5 + t * 0.3, 0, 1) - clamp(sd * 0.8, 0, 1) * 0.9,
+      lids: clamp(sd * 0.8 + a * 0.45 + t * 0.5 + (crash ? 0.3 : 0)),
+      sweat: clamp(sp * 0.7 + (psy > 0.3 ? 0.4 : 0) + (inf ? inf.severity * 0.5 : 0) + (crash ? 0.3 : 0)),
+      pale: clamp((crash ? 0.6 : 0) + (inf ? inf.severity : 0) + sd * 0.2),
+      dark: clamp((crash ? 0.8 : 0) + (inf ? inf.severity * 0.7 : 0) + sp * 0.2),
+      wide: clamp(psy * 1.2 + (psy > 0.25 ? 0.3 : 0)),
+    };
+    faceStates.set(c.look, f);
+  }
+}
