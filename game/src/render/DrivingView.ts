@@ -54,7 +54,11 @@ export class DrivingView {
  /** Adaptive detail: the 3D view measures its own frame cost and trims far-ground work and the near ground radius a little at a time when it runs slow, then restores it when there is headroom, so frames stay even instead of spiking. */
  lod=1;private ema=12;private lodAt=0;
  draw(g:CanvasRenderingContext2D,sim:Simulation,w:number,h:number,dpr:number,time:number,alpha:number,dt:number,particles:Particles,rain:Rain,quality:number,reduceMotion:boolean):void{
-  const t0=performance.now();this.drawFrame(g,sim,w,h,dpr,time,alpha,dt,particles,rain,quality,reduceMotion);
+  const t0=performance.now();
+  // At speed the world is a blur and every new street is new work: trim detail in proportion to speed so the frame cost stays flat instead of spiking when it matters most.
+  const car=sim.player.inCar>=0?sim.vehicles[sim.player.inCar]:undefined,fast=car?Math.min(1,Math.max(0,(Math.abs(car.speed)-10)/30)):0,keep=this.lod;
+  this.lod=Math.min(keep,1-.5*fast);
+  try{this.drawFrame(g,sim,w,h,dpr,time,alpha,dt,particles,rain,quality,reduceMotion);}finally{this.lod=keep;}
   const spent=performance.now()-t0;this.ema+=(Math.min(spent,60)-this.ema)*.08;
   if(spent>20)this.lod=Math.max(.4,this.lod-.1);   // fast attack: a slow frame trims the next one straight away, recovery stays gradual
   if(t0-this.lodAt>250){this.lodAt=t0;if(this.ema>9.5)this.lod=Math.max(.4,this.lod-.06);else if(this.ema<7)this.lod=Math.min(1,this.lod+.02);}
