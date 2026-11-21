@@ -1,6 +1,6 @@
 {
- "at": 1795292903919,
- "key": "1c7vzcj",
+ "at": 1795293125495,
+ "key": "1rj3km2",
  "findings": [
   {
    "kind": "doc-dead-path",
@@ -29,6 +29,13 @@
    "where": "game/art-requests/README.md",
    "detail": "mentions `analysis.md`, which doesn't exist",
    "fp": "doc-dead-path|lhfrhs"
+  },
+  {
+   "kind": "doc-missing-api",
+   "severity": "low",
+   "where": "functions/api/cameras.js",
+   "detail": "/api/cameras isn't mentioned in any README",
+   "fp": "doc-missing-api|p4hltw"
   },
   {
    "kind": "doc-missing-api",
