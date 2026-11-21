@@ -24,7 +24,6 @@ const PRESET: Record<string, { kind: string; color?: string; text?: string }> = 
   puddle_splash: { kind: "rain_splash" }, sun_glint: { kind: "star", color: "#fff6c0" }, water_splash_small: { kind: "water" },
 };
 const CRITTER: Record<string, string> = { cat: "🐈", pigeon: "🐦", songbird: "🐦", squirrel: "🐿️", butterfly: "🦋", moth: "🦋" };
-const PROP: Record<string, string> = { prop_leaf: "🍂", prop_paper_cup: "🥤", prop_newspaper: "📰", prop_plastic_bag: "🛍️", prop_tin_can: "🥫", prop_crisp_packet: "🍟", prop_feather: "🪶", prop_balloon: "🎈", prop_tumbleweed: "🌾", prop_seed_fluff: "✨" };
 const fx = (sim: Simulation, kind: string, x: number, y: number, z: number, n = 1, color?: string, text?: string): void => {
   if (Math.hypot(x - sim.player.x, y - sim.player.y) > 30) return;
   sim.bus.emit("fx", { kind, x, y, z, n, color, text } as never);
@@ -57,8 +56,7 @@ function route(sim: Simulation, rt: Rt, cue: Cue): void {
     return;
   }
   if (cue.kind === "prop") {
-    const g = toGame(cue.pos);
-    if (cue.action === "despawn") rt.props.delete(cue.handle); else rt.props.set(cue.handle, { prop: cue.prop, x: g.x, y: g.y });
+    // drifting props were drawn as floating glyphs and read as random floaties, so they are not drawn; real litter still lands on the street
     return;
   }
   if (cue.kind === "light") {
@@ -79,7 +77,7 @@ function visuals(sim: Simulation, rt: Rt, dt: number): void {
     if (Math.hypot(c.x - sim.player.x, c.y - sim.player.y) > 60) rt.critters.delete(h);
     else if (refresh) fx(sim, "text", c.x, c.y, c.sp === "butterfly" || c.sp === "moth" || c.sp === "songbird" ? 1.2 : 0.4, 1, undefined, CRITTER[c.sp] ?? "🐾");
   }
-  if (refresh) for (const [h, p] of rt.props) { if (rt.props.size > 40) rt.props.delete(h); else fx(sim, "text", p.x, p.y, 0.25, 1, undefined, PROP[p.prop] ?? "🍂"); }
+
 }
 
 /** Cues the game has no drawing for yet (props, critters, particles, lights). Drain this each frame when a renderer exists. */
