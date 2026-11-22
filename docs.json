@@ -1,6 +1,6 @@
 {
- "at": 1795331823641,
- "key": "xt5tlb",
+ "at": 1795348036580,
+ "key": "eqt8nd",
  "findings": [
   {
    "kind": "doc-dead-path",
@@ -29,13 +29,6 @@
    "where": "game/art-requests/README.md",
    "detail": "mentions `analysis.md`, which doesn't exist",
    "fp": "doc-dead-path|lhfrhs"
-  },
-  {
-   "kind": "doc-missing-api",
-   "severity": "low",
-   "where": "functions/api/cameras.js",
-   "detail": "/api/cameras isn't mentioned in any README",
-   "fp": "doc-missing-api|p4hltw"
   },
   {
    "kind": "doc-missing-api",
