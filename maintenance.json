@@ -1,10 +1,10 @@
 {
- "at": 1795348036395,
+ "at": 1795352533053,
  "totals": {
   "duplicate-code": 11,
-  "long-function": 26,
+  "long-function": 28,
+  "oversized-module": 15,
   "format": 24,
-  "oversized-module": 14,
   "unused-css": 1
  },
  "findings": [
@@ -95,6 +95,30 @@
    "detail": "8+ identical lines in 2 places",
    "fix": "extract a shared helper",
    "fp": "duplicate-code|10yri85"
+  },
+  {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "beats/dj-midi.js:13",
+   "detail": "153 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|1h4srv0"
+  },
+  {
+   "kind": "oversized-module",
+   "severity": "low",
+   "where": "beats/dj.js",
+   "detail": "1131 lines",
+   "fix": "consider splitting",
+   "fp": "oversized-module|1pov8hv"
+  },
+  {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "beats/dj.js:15",
+   "detail": "1115 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|1xcy4hx"
   },
   {
    "kind": "long-function",
@@ -463,30 +487,6 @@
    "detail": "233 lines",
    "fix": "split into named steps",
    "fp": "long-function|w5s3mf"
-  },
-  {
-   "kind": "long-function",
-   "severity": "low",
-   "where": "game/src/ui/cage/CashierCage.ts:1582",
-   "detail": "195 lines",
-   "fix": "split into named steps",
-   "fp": "long-function|1h2hizr"
-  },
-  {
-   "kind": "long-function",
-   "severity": "low",
-   "where": "game/src/ui/club3d/Club3D.ts:109",
-   "detail": "528 lines",
-   "fix": "split into named steps",
-   "fp": "long-function|xa8tr0"
-  },
-  {
-   "kind": "long-function",
-   "severity": "low",
-   "where": "game/src/ui/club3d/Club3D.ts:409",
-   "detail": "192 lines",
-   "fix": "split into named steps",
-   "fp": "long-function|1w1fys8"
   }
  ]
 }
