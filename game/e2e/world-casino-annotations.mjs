@@ -27,8 +27,8 @@ try{
  check(await page.evaluate(()=>window.__mosaics.sim.player.cash)===9963,'Guest drink was not charged once');
  await button('Famiglia side bet · even · $25').click();
  // Another game must never settle a roulette side wager.
- await tab('Crash flight').click();check(await page.getByLabel('Crash aircraft',{exact:true}).locator('option').count()===60,'Sixty aircraft missing');
- await page.getByLabel('Crash aircraft',{exact:true}).selectOption('42');await page.getByLabel('Flight scenery',{exact:true}).selectOption('1');
+ await tab('Crash flight').click();check(await page.getByLabel('Rocket livery',{exact:true}).locator('option').count()===12,'Twelve rocket liveries missing');
+ await page.getByLabel('Rocket livery',{exact:true}).selectOption('7');await page.getByLabel('Flight scenery',{exact:true}).selectOption('1');
  await button('Launch · $25').click();
  await page.evaluate(()=>{const f=window.__mosaics.sim.cityPlay.casino.flight;if(!f.paid)f.bust=100;});
  await page.waitForTimeout(500);await button('Cash out flight').click();

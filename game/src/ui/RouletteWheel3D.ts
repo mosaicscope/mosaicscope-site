@@ -9,6 +9,7 @@
  * Motion mirrors a real wheel: the rotor spins one way, the ball the other along the track, then it
  * drops, rattles the frets and settles in the pocket the game already chose.
  */
+import { planBall, BALL_R, type BallPlan } from './RouletteBallPhysics';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { WHEEL_ORDER, colorOf } from '../casino/roulette';
@@ -86,7 +87,8 @@ export class RouletteWheel3D {
   private hud: { hist: HTMLElement; res: HTMLElement; msg: HTMLElement };
   // motion state
   private W = 0; private B = 0; private last = 0; private idle = .3; private energy = 0; private focus = 0; private shake = 0;
-  private spinState: null | { t: number; dur: number; W0: number; wTot: number; B0: number; bTot: number; dropped: boolean; fi: number; pb: number; target: number } = null;
+  private spinState: null | { t: number; dur: number; W0: number; wTot: number; plan: BallPlan; ev: number; dropped: boolean; target: number } = null;
+  private lastBall = new THREE.Vector3(); private rollAxis = new THREE.Vector3();
   private highlight: { i: number; t: number } | null = null;
   private az = .35; private el0 = .95; private dist = 11.5; private drag: { x: number; y: number } | null = null;
   private raf = 0; private prev = 0; private idleSince = 0; private audio?: AudioContext;
@@ -221,8 +223,13 @@ export class RouletteWheel3D {
 
   /** Animate a spin that ends on `target` after `ms`. The game has already decided the result. */
   spin(target: number, ms: number): void {
-    const tgt = WHEEL_ORDER.indexOf(target), wTot = TAU * (2 + Math.random() * 1.5), Wend = this.W + wTot, pa = tgt * STEP;
-    this.spinState = { t: 0, dur: Math.max(.3, ms / 1000), W0: this.W, wTot, B0: this.B, bTot: (((this.B - Wend - pa) % TAU) + TAU) % TAU + TAU * 8, dropped: false, fi: 0, pb: 0, target: tgt };
+    const tgt = WHEEL_ORDER.indexOf(target), wTot = TAU * (2 + Math.random() * 1.5), dur = Math.max(.3, ms / 1000), W0 = this.W;
+    // The rotor's own motion. The ball is a physics simulation in that moving frame, searched so it comes to rest in the decided pocket.
+    const Wf = (t: number) => W0 + wTot * (1 - Math.pow(1 - Math.min(t / dur, 1), 2.2));
+    const Wd = (t: number) => { const u = Math.min(t / dur, 1); return u >= 1 ? 0 : wTot * 2.2 * Math.pow(1 - u, 1.2) / dur; };
+    const plan = planBall({ target: tgt, dur, N, STEP, W: Wf, Wd });
+    this.spinState = { t: 0, dur, W0, wTot, plan, ev: 0, dropped: false, target: tgt };
+    this.lastBall.copy(this.ball.position);
     this.highlight = null; this.hud.res.style.display = 'none'; this.message('No more bets'); this.tone(520, .25, 'triangle', .07, 880); this.wake();
   }
 
@@ -247,8 +254,10 @@ export class RouletteWheel3D {
   get spinning(): boolean { return !!this.spinState; }
 
   /* ---------------------------------------------------------------- per frame */
-  private place(r: number, y: number, b: number): void {
+  private place(r: number, y: number, b: number, roll = false): void {
     this.ball.position.set(r * Math.cos(b), y, r * Math.sin(b));
+    if (roll) { const dx = this.ball.position.x - this.lastBall.x, dz = this.ball.position.z - this.lastBall.z, d = Math.hypot(dx, dz); if (d > 1e-5 && d < 1.5) this.ball.rotateOnWorldAxis(this.rollAxis.set(dz, 0, -dx).normalize(), d / BALL_R); }
+    this.lastBall.copy(this.ball.position);
     this.ballShadow.position.set(r * Math.cos(b) * 1.01, y - .12, r * Math.sin(b) * 1.01);
   }
   private frame(now: number): void {
@@ -256,20 +265,22 @@ export class RouletteWheel3D {
     if (!this.el.isConnected && !this.spinState) { if (!this.idleSince) this.idleSince = t; if (t - this.idleSince > 1.5) { this.raf = 0; return; } }
     else this.idleSince = 0;
     this.raf = requestAnimationFrame(n => this.frame(n));
-    const s = this.spinState, trackY = (r: number) => (r > 3.3 ? .035 + .5 * (r - 3.3) : .05) + .13;
+    const s = this.spinState;
     if (s) {
-      s.t += dt; const u = Math.min(s.t / s.dur, 1);
+      s.t += dt; const u = Math.min(s.t / s.dur, 1), pl = s.plan;
       this.W = s.W0 + s.wTot * (1 - Math.pow(1 - u, 2.2));
-      let b = s.B0 - s.bTot * (1 - Math.pow(1 - u, 2.6)), r = 4.35 - 1.6 * smooth((u - .55) / .25), y = trackY(r);
-      if (u > .55 && !s.dropped) { s.dropped = true; this.message('Ball’s dropping…'); }
-      if (u > .78) {
-        const q = (u - .78) / .22, e = Math.exp(-q * 3.2), ph = q * 17;
-        y += .38 * e * Math.abs(Math.sin(ph)); r = 2.75 + .45 * e * Math.abs(Math.sin(ph * .8 + .5)); b += .4 * (1 - q) * (1 - q) * Math.sin(q * 24);
-        const pb = Math.floor(ph / Math.PI); if (pb !== s.pb && e > .12) { s.pb = pb; this.tone(700 + Math.random() * 500, .06, 'triangle', .08, 250); this.shake = .1; }
+      // Play back the simulated ball: smooth interpolation between 240 Hz samples.
+      const f = Math.min(s.t / pl.dt, pl.n - 1), i0 = Math.floor(f), i1 = Math.min(i0 + 1, pl.n - 1), k = f - i0;
+      let b = pl.th[i0] + (pl.th[i1] - pl.th[i0]) * k, r = pl.r[i0] + (pl.r[i1] - pl.r[i0]) * k, y = pl.y[i0] + (pl.y[i1] - pl.y[i0]) * k;
+      if (!s.dropped && s.t >= pl.dropAt - .35) { s.dropped = true; this.message('Ball’s dropping…'); }
+      while (s.ev < pl.events.length && pl.events[s.ev].t <= s.t) {
+        const e = pl.events[s.ev++], p = Math.min(1, e.power / 12);
+        if (e.kind === 'fret') { this.tone(650 + Math.random() * 600, .05, 'triangle', .03 + .07 * p, 250); if (p > .5) this.shake = Math.max(this.shake, .06 * p); }
+        else if (e.kind === 'deflector') { this.tone(1900 + Math.random() * 500, .04, 'square', .03 + .03 * p, 900); this.shake = Math.max(this.shake, .05); }
+        else this.tone(300, .05, 'sine', .02 + .03 * p, 200);
       }
-      if (u > .7) { const fi = Math.floor((b - this.W) / STEP); if (fi !== s.fi) { s.fi = fi; this.tone(1700, .02, 'square', .015); } }
       if (u >= 1) { this.spinState = null; this.idle = 0; this.last = s.target; b = this.W + s.target * STEP; r = 2.75; y = .18; }
-      this.B = b; this.place(r, y, b); this.focus += (smooth((u - .5) / .3) - this.focus) * Math.min(1, dt * 3);
+      this.B = b; this.place(r, y, b, true); this.focus += (smooth((u - .5) / .3) - this.focus) * Math.min(1, dt * 3);
     } else {
       this.idle += (.3 - this.idle) * Math.min(1, dt * .8); this.W += dt * this.idle * (reduced() ? .2 : 1);
       this.B = this.W + this.last * STEP; this.place(2.75, .18, this.B);

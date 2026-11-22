@@ -43,6 +43,7 @@ import "../ui/club.css";
 import { Luxury } from "../ui/Luxury";
 import { TouchControls } from "../ui/Touch";
 import "../ui/casino.css";
+import "../ui/cage.css";
 import { RoastBattle } from "../ui/minigames/Roast";
 import { BurgerShift } from "../ui/minigames/Burger";
 import "../ui/minigames/minigames.css";

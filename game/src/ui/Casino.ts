@@ -6,7 +6,8 @@ import {drawRouletteTable,rouletteCells,cellQuad,rouletteSurroundingGuests,ROULE
 import {CasinoExtras} from './CasinoExtras';
 import {RouletteWheel3D} from './RouletteWheel3D';
 import {SlotMachine3D} from './SlotMachine3D';
-import {newCityPlay,type CasinoSocial} from '../sim/CityPlay';
+import {newCityPlay,casinoCredit,repayCredit,type CasinoSocial} from '../sim/CityPlay';
+import {createCage,type CageView} from './cage/CashierCage';
 import {hospitality,type HospitalityHost} from './VenueHospitality';
 import type { Character } from "../entities/types";
 import { casinoVenue } from "./VenueArt";
@@ -198,6 +199,8 @@ export class Casino {
   private venueOutside = false;private floor=new CasinoFloor();
   private body: HTMLElement;
   private chipSel = 5;
+  /** The 3D cashier's cage is built once, on first visit, and kept: the scene pauses while another tab is showing. */
+  private cage?: CageView;
   private bj = new Blackjack(rnd);
   private bjBet = 0;
   private bjHint = false;
@@ -255,7 +258,7 @@ export class Casino {
   }
 
   private render(): void {
-    const tabs = [["floor", "Lobby", "◈"], ["blackjack", "Blackjack", "♠"], ["roulette", "Roulette", "◎"], ["pokies", "Kiwi Gold", "7"], ["poker", "Video poker", "♦"], ["holdem", "Poker tables", "♣"], ["flight", "Crash flight", "✈"], ["record", "My record", "▤"], ["cashier", "Cashier", "$"]];
+    const tabs = [["floor", "Lobby", "◈"], ["blackjack", "Blackjack", "♠"], ["roulette", "Roulette", "◎"], ["pokies", "Kiwi Gold", "7"], ["poker", "Video poker", "♦"], ["holdem", "Poker tables", "♣"], ["flight", "Crash flight", "🚀"], ["record", "My record", "▤"], ["cashier", "Cashier", "$"]];
     const nav = h("nav.cas-tabs", { role: "tablist", "aria-label": "Casino areas" }, tabs.map(([id, l, icon]) => h("button" + (this.tab === id ? ".on" : ""), { role: "tab", "aria-selected": String(this.tab === id), onclick: () => this.go(id) }, [h("span", { text: icon, "aria-hidden": "true" }), l])));
     if (this.onMoreGames) nav.append(h("button", { text: "More games & racing", onclick: () => { this.close(); if (!this.open) this.onMoreGames?.(); } }));
     const head = h("header.cas-head", null, [
@@ -303,9 +306,9 @@ export class Casino {
       scene.append(h('nav.roulette-camera',{'aria-label':'Game room camera'},[this.btn('Full room',()=>{zoom=1;}),this.btn(kind==='blackjack'?'Table close-up':'My machine',()=>{zoom=1.7;})]));
       view=h('section.iso-game.casino-station',null,[scene,view,this.tableServices(kind,this.slotSpinning||round||this.vp.phase==='draw')]);
     }
-    if(this.tab==="cashier")view.append(this.extra.social(this.rSpinning));
+    if(this.tab==="cashier"&&!view.classList.contains("cage-wrap"))view.append(this.extra.social(this.rSpinning));
     this.body.replaceChildren(h("div.cas-view-title", null, [h("small", { text: this.tab === "floor" ? "WELCOME BACK" : "THE TESSERA / TABLE GAMES" }), h("h2", { text: tabs.find(t => t[0] === this.tab)?.[1] ?? "Cashier" })]), this.msg ? h("p.cas-msg", { role: "status", text: this.msg }) : h("span"), view);
-    this.el.replaceChildren(h("div.cas-frame.cx"+(["floor","flight","holdem","roulette","blackjack","pokies","poker"].includes(this.tab)?".cas-table-frame":""), null, [head, h("div.cas-layout", null, [h("aside.cas-sidebar", null, [nav, session]), this.body]), h("footer.cas-foot", { text: "THE TESSERA · Fictional casino · No real money · Finish your round, then leave to cash out automatically." })]));
+    this.el.replaceChildren(h("div.cas-frame.cx"+(["floor","flight","holdem","roulette","blackjack","pokies","poker","cashier"].includes(this.tab)&&!(this.tab==="cashier"&&this.cage?.failed)?".cas-table-frame":""), null, [head, h("div.cas-layout", null, [h("aside.cas-sidebar", null, [nav, session]), this.body]), h("footer.cas-foot", { text: "THE TESSERA · Fictional casino · No real money · Finish your round, then leave to cash out automatically." })]));
     requestAnimationFrame(()=>this.fitView());setTimeout(()=>this.fitView(),300);
   }
 
@@ -318,7 +321,7 @@ export class Casino {
       const room=box.clientHeight-fixed,need=box.scrollHeight-fixed;if(room<=0||need<=room+2)return;
       const z=Math.max(.5,room/need);kids.forEach(k=>{k.style.zoom=String(z);});
     };
-    const free=(k:Element)=>!k.matches(".cas-view-title,details.iso-table-popover");
+    const free=(k:Element)=>!k.matches(".cas-view-title,details.iso-table-popover,.cage-wrap");
     // Whole body first (cashier, record...), then a fixed-height game whose own children overflow.
     shrink(this.body,[...this.body.children].filter(free) as HTMLElement[]);
     const game=this.body.querySelector<HTMLElement>(":scope > .iso-game");
@@ -353,7 +356,32 @@ export class Casino {
   }
 
   // ------------------------------------------------------------------ cashier
+  private rulesList(): HTMLElement {
+    return h("ul.cas-rules", null, [
+        "Blackjack: 6 decks, dealer stands on soft 17, blackjack pays 3:2, insurance 2:1, double any two cards, split to 4 hands, late surrender. Limits $5–$5,000,000 in the private salon; standard maximum $500. House edge ≈ 0.5% with basic strategy.",
+        "Roulette: European single zero. Straight 35:1, split 17:1, street 11:1, corner 8:1, six line 5:1, dozens/columns 2:1, even money 1:1. House edge 2.70%.",
+        `Pokies "Kiwi Gold": 3 reels, one line. Return to player ${(rtp() * 100).toFixed(1)}%.`,
+        "Video poker: Jacks or Better, 9/6 full pay (99.5% with perfect play). 5 coins for the 4,000-coin royal.",
+    ].map((t) => h("li", { text: t })));
+  }
+
+  /** The cashier tab: the 3D cage wired to the real wallet, with the credit, side bets and house rules tucked under it. Falls back to the flat cashier where WebGL is unavailable. */
   private cashierView(): HTMLElement {
+    if (!this.cage) {
+      this.cage = createCage({
+        cash: () => this.w.getCash(), setCash: (n) => this.w.setCash(n),
+        chips: () => this.chips, setChips: (n) => { this.chips = n; },
+        bought: (n) => { this.bought += n; }, cashedOut: (n) => { this.cashedOut += n; },
+        debt: () => this.social.debt, borrow: (n) => casinoCredit(this.social, "bank", n, this.w.tick?.() ?? 0, this.w.getCash()),
+        settle: () => { repayCredit(this.social, this.social.debt); },
+        changed: () => this.render(),
+      });
+    }
+    if (this.cage.failed) return this.cashierClassic();
+    return h("div.cage-wrap", null, [this.cage.el, h("details.cage-more", null, [h("summary", { text: "Credit, side bets & house rules" }), this.extra.social(this.rSpinning), h("h3", { text: "House rules" }), this.rulesList()])]);
+  }
+
+  private cashierClassic(): HTMLElement {
     const buy = (n: number) => { const cash = this.w.getCash(); const amt = Math.min(n, Math.floor(cash)); if (amt <= 0) { this.msg = "You're out of cash."; this.render(); return; } this.w.setCash(cash - amt); this.chips += amt; this.bought += amt; this.msg = `Bought ${money(amt)} in chips.`; this.render(); };
     const held = breakdown(this.chips);
     const tray = h("div.cx-tray-cage", { role: "group", "aria-label": "Chip tray: your chips by denomination. Pick one to bet with." }, [...CHIPS].reverse().map((c) => {
@@ -373,12 +401,7 @@ export class Casino {
         h("div.cx-row", null, [this.btn("Cash out chips", () => { if (this.chips > 0) { this.w.setCash(this.w.getCash() + this.chips); this.cashedOut += this.chips; this.msg = `Cashed out ${money(this.chips)}.`; this.chips = 0; this.render(); } }, { disabled: this.chips <= 0 })]),
       ]),
       h("h3", { text: "House rules" }),
-      h("ul.cas-rules", null, [
-        "Blackjack: 6 decks, dealer stands on soft 17, blackjack pays 3:2, insurance 2:1, double any two cards, split to 4 hands, late surrender. Limits $5–$5,000,000 in the private salon; standard maximum $500. House edge ≈ 0.5% with basic strategy.",
-        "Roulette: European single zero. Straight 35:1, split 17:1, street 11:1, corner 8:1, six line 5:1, dozens/columns 2:1, even money 1:1. House edge 2.70%.",
-        `Pokies "Kiwi Gold": 3 reels, one line. Return to player ${(rtp() * 100).toFixed(1)}%.`,
-        "Video poker: Jacks or Better, 9/6 full pay (99.5% with perfect play). 5 coins for the 4,000-coin royal.",
-      ].map((t) => h("li", { text: t }))),
+      this.rulesList(),
     ]);
   }
 

@@ -1,0 +1,72 @@
+/* The Cashier's Cage (3D counter). Bar above, scene in the middle, dock below: nothing floats over text. */
+.cage{flex:1 1 0;display:flex;flex-direction:column;gap:8px;min-width:0;min-height:0;color:#e2e8f0;font:12px/1.4 system-ui,sans-serif;user-select:none}
+.cage .hidden{display:none!important}
+.cage button{font:inherit;color:inherit;cursor:pointer}
+.cage-bar,.cage-dock{flex:none;background:rgba(10,12,15,.78);border:1px solid rgba(255,255,255,.09);border-radius:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+.cage-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 14px;padding:8px 12px}
+.cage-brand{display:flex;align-items:center;gap:8px;white-space:nowrap;font:700 12px Georgia,serif;letter-spacing:.2em}
+.cage-brand span{color:#64748b;font-weight:400}.cage-brand em{color:#d4af37;font-style:normal}
+.cage-dot{width:8px;height:8px;border-radius:50%;background:#34d399;box-shadow:0 0 8px #10b981}
+.cage-read{display:flex;align-items:center;gap:14px;margin-left:auto}
+.cage-read span{display:flex;align-items:baseline;gap:6px;white-space:nowrap}
+.cage-read small{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:#7c8798;font-weight:700}
+.cage-read b{font:600 13px ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums}
+.cage-read .c-cash{color:#34d399}.cage-read .c-chips{color:#f3d27a}.cage-read .c-debt{color:#8b95a5}.cage-read .debt-active{color:#fb7185;text-shadow:0 0 12px rgba(244,63,94,.5)}
+.cage-cams{display:flex;align-items:center;gap:4px;padding:3px;border-radius:999px;background:rgba(0,0,0,.35)}
+.cage-cams button{min-height:30px;padding:0 12px;border-radius:999px;border:1px solid transparent;background:none;color:#94a3b8;font-size:11px;font-weight:600}
+.cage-cams button:hover{color:#f8fafc}
+.cage-cams button.on{color:#f3d27a;background:rgba(212,175,55,.14);border-color:rgba(212,175,55,.35)}
+.cage-cams [data-act=mute]{display:flex;align-items:center;justify-content:center;width:34px;padding:0}
+.cage-stage{position:relative;flex:1 1 auto;min-height:200px;overflow:hidden;border-radius:14px;border:1px solid rgba(255,255,255,.09);background:radial-gradient(circle at 50% 35%,#11141b 0%,#050608 100%)}
+.cage-stage canvas{position:absolute;inset:0;display:block;width:100%;height:100%;touch-action:none}
+.cage-toasts{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:2;display:flex;flex-direction:column;align-items:center;gap:6px;width:min(92%,420px);pointer-events:none}
+.cage-toast{max-width:100%;padding:6px 14px;border-radius:999px;background:rgba(10,12,15,.88);border:1px solid rgba(212,175,55,.4);color:#f3d27a;font-size:11px;font-weight:600;text-align:center;animation:cagetoast 2.8s cubic-bezier(.22,1,.36,1) forwards}
+.cage-toast.t-emerald{border-color:rgba(52,211,153,.4);color:#6ee7b7}.cage-toast.t-crimson{border-color:rgba(244,63,94,.45);color:#fda4af}
+@keyframes cagetoast{0%{opacity:0;transform:translateY(-8px)}12%,86%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-6px)}}
+.cage-dock{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"tabs toys" "strip strip";gap:8px 12px;align-items:center;padding:8px 10px}
+.cage-tabs{grid-area:tabs;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:3px;border-radius:12px;background:rgba(0,0,0,.35)}
+.cage-tabs button{min-height:34px;padding:0 6px;border-radius:9px;border:1px solid transparent;background:none;color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
+.cage-tabs button:hover{color:#e2e8f0}
+.cage-tabs button.on{color:#f3d27a;background:rgba(212,175,55,.14);border-color:rgba(212,175,55,.35)}
+.cage-toys{grid-area:toys;display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end}
+.cage-toys button{min-height:30px;padding:0 10px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:#a8b3c4;font-size:11px;font-weight:600;white-space:nowrap}
+.cage-toys button:hover{background:rgba(255,255,255,.1);border-color:rgba(212,175,55,.35);color:#f8fafc}
+.cage-toys [data-act=vault]{color:#f3d27a}
+.cage-strip{grid-area:strip;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;min-height:40px}
+.cage-pills{display:flex;flex-wrap:wrap;gap:5px}
+.cage-pill{min-width:52px;min-height:36px;padding:0 12px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:#cbd5e1;font:600 12px ui-monospace,Consolas,monospace}
+.cage-pill:hover{background:rgba(255,255,255,.09);color:#fff}
+.cage-pill.on.t-emerald{background:rgba(16,185,129,.16);border-color:rgba(16,185,129,.55);color:#6ee7b7}
+.cage-pill.on.t-brass{background:rgba(212,175,55,.18);border-color:rgba(212,175,55,.55);color:#fde68a}
+.cage-pill.on.t-crimson{background:rgba(244,63,94,.18);border-color:rgba(244,63,94,.55);color:#fda4af}
+.cage-acts{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}
+.cage-note{color:#8b95a5;font-size:11px}
+.cage-cta{min-height:38px;padding:0 18px;border-radius:12px;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;margin-left:auto;transition:transform .1s,filter .15s}
+.cage-acts .cage-cta{margin-left:0}
+.cage-cta:hover{filter:brightness(1.1)}.cage-cta:active{transform:scale(.97)}
+.cage-cta.t-emerald{background:linear-gradient(135deg,#059669,#10b981);color:#02140d;border:1px solid rgba(110,231,183,.45)}
+.cage-cta.t-brass{background:linear-gradient(135deg,#b88f2a,#e5c158 52%,#a67c1e);color:#0a0905;border:1px solid rgba(253,230,138,.45)}
+.cage-cta.t-crimson{background:linear-gradient(135deg,#be123c,#e11d48);color:#fff1f2;border:1px solid rgba(253,164,175,.35)}
+.cage-cta.t-plain{background:rgba(255,255,255,.05);color:#e2e8f0;border:1px solid rgba(255,255,255,.14)}
+.cage-wrap{flex:1 1 0;display:flex;flex-direction:column;gap:8px;min-width:0;min-height:0}
+.cage-more{flex:none;color:#dcd8d4;font:12px/1.5 system-ui,sans-serif}
+.cage-more>summary{display:flex;align-items:center;min-height:34px;padding:0 14px;border:1px solid #908a8555;border-radius:999px;cursor:pointer;list-style:none;width:max-content;max-width:100%}
+.cage-more>summary::-webkit-details-marker{display:none}
+.cage-more[open]{max-height:38%;overflow:auto;padding:10px;background:#2d2929;border:1px solid #9c969155;border-radius:12px}
+.cage-more[open]>summary{border:0;padding:0;min-height:28px}
+.cage-more .cas-rules{margin:8px 0 0;padding-left:18px}
+@media(max-width:760px){
+ .cage-bar{padding:6px 8px;gap:6px 10px}.cage-brand{display:none}.cage-read{margin-left:0;gap:10px;flex:1 1 auto;justify-content:space-between}.cage-cams button{padding:0 9px;min-height:28px}
+ .cage-dock{grid-template-columns:minmax(0,1fr);grid-template-areas:"tabs" "strip" "toys";padding:6px 8px}.cage-toys{justify-content:flex-start}
+ .cage-strip{gap:6px}.cage-pill{min-width:44px;min-height:34px;padding:0 8px}.cage-cta{min-height:36px;padding:0 12px}
+ .cage-note{display:none}.cage-stage{min-height:170px}
+}
+/* Phones and landscape: the shared casino theme gives the sidebar and the body 100% height each, which hides the body in a column layout. */
+@media(max-width:700px),(max-height:540px){.casino .cas-table-frame .cas-layout>.cas-sidebar{height:auto!important;max-height:none!important;flex:0 0 auto}.casino .cas-table-frame .cas-layout>.cas-body{height:auto!important;max-height:none!important;flex:1 1 0;min-height:0}}
+.cage-wrap{overflow-y:auto;scrollbar-width:thin}
+@media(max-width:760px){.cage-wrap{padding-bottom:50px}}
+@media(max-height:540px){
+ .cage-bar{padding:4px 8px}.cage-brand{display:none}.cage-read{margin-left:0;flex:1 1 auto;justify-content:space-between}
+ .cage-stage{min-height:140px}.cage-dock{padding:4px 6px;gap:4px 8px}.cage-strip{min-height:34px}.cage-pill,.cage-cta,.cage-tabs button{min-height:30px}.cage-more{display:none}
+}
+@media(max-height:540px){.cage-dock{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);grid-template-areas:"tabs strip"}.cage-toys{display:none}.cage-strip{justify-content:flex-end}.cage-note{display:none}.cage-tabs button{font-size:10px;letter-spacing:.04em}.cage-pill{min-width:40px;padding:0 6px}.cage-wrap{padding-bottom:0}}
