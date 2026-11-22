@@ -1,10 +1,10 @@
 {
- "at": 1795293125268,
+ "at": 1795309727274,
  "totals": {
   "duplicate-code": 11,
-  "long-function": 22,
-  "format": 25,
-  "oversized-module": 13,
+  "long-function": 24,
+  "format": 24,
+  "oversized-module": 14,
   "unused-css": 1
  },
  "findings": [
@@ -188,9 +188,9 @@
    "kind": "oversized-module",
    "severity": "medium",
    "where": "game/src/app/Game.ts",
-   "detail": "1847 lines",
+   "detail": "1848 lines",
    "fix": "split by feature into modules",
-   "fp": "oversized-module|1hn2frn"
+   "fp": "oversized-module|1hiwft6"
   },
   {
    "kind": "oversized-module",
@@ -449,12 +449,28 @@
    "fp": "oversized-module|1ix6ohz"
   },
   {
-   "kind": "format",
+   "kind": "oversized-module",
+   "severity": "medium",
+   "where": "game/src/ui/cage/CashierCage.ts",
+   "detail": "2585 lines",
+   "fix": "split by feature into modules",
+   "fp": "oversized-module|1n8yw8a"
+  },
+  {
+   "kind": "long-function",
    "severity": "low",
-   "where": "game/src/ui/MosaicFlightArt.ts",
-   "detail": "Windows line endings",
-   "fix": "convert to LF",
-   "fp": "format|5z6gal"
+   "where": "game/src/ui/cage/CashierCage.ts:630",
+   "detail": "233 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|w5s3mf"
+  },
+  {
+   "kind": "long-function",
+   "severity": "low",
+   "where": "game/src/ui/cage/CashierCage.ts:1582",
+   "detail": "195 lines",
+   "fix": "split into named steps",
+   "fp": "long-function|1h2hizr"
   },
   {
    "kind": "oversized-module",
@@ -471,22 +487,6 @@
    "detail": "828 lines",
    "fix": "consider splitting",
    "fp": "oversized-module|1kvrijw"
-  },
-  {
-   "kind": "long-function",
-   "severity": "low",
-   "where": "game/src/world/WorldGenerator.ts:60",
-   "detail": "358 lines",
-   "fix": "split into named steps",
-   "fp": "long-function|1vqilex"
-  },
-  {
-   "kind": "format",
-   "severity": "low",
-   "where": "game/tests/casino-record.test.ts",
-   "detail": "Windows line endings",
-   "fix": "convert to LF",
-   "fp": "format|1a9w5ut"
   }
  ]
 }
