@@ -1,5 +1,5 @@
 {
- "at": 1795331367624,
+ "at": 1795331599802,
  "totals": {
   "duplicate-code": 11,
   "long-function": 26,
@@ -188,9 +188,9 @@
    "kind": "oversized-module",
    "severity": "medium",
    "where": "game/src/app/Game.ts",
-   "detail": "1848 lines",
+   "detail": "1850 lines",
    "fix": "split by feature into modules",
-   "fp": "oversized-module|1hiwft6"
+   "fp": "oversized-module|jksu2f"
   },
   {
    "kind": "oversized-module",
