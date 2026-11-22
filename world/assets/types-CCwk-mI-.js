@@ -1,0 +1,1 @@
+var e=function(e){return e[e.FULL=0]=`FULL`,e[e.REDUCED=1]=`REDUCED`,e[e.GROUP=2]=`GROUP`,e[e.BACKGROUND=3]=`BACKGROUND`,e[e.SLEEP=4]=`SLEEP`,e}({}),t=[`full`,`reduced`,`group`,`background`,`sleep`],n=[1,3,8,15,45],r=function(e){return e[e.OK=0]=`OK`,e[e.STUMBLE=1]=`STUMBLE`,e[e.DOWN=2]=`DOWN`,e[e.RECOVER=3]=`RECOVER`,e}({});export{r as i,t as n,e as r,n as t};
