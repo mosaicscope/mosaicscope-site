@@ -8,6 +8,10 @@ import {RouletteWheel3D} from './RouletteWheel3D';
 import {SlotMachine3D} from './SlotMachine3D';
 import {newCityPlay,casinoCredit,repayCredit,type CasinoSocial} from '../sim/CityPlay';
 import {createCage,type CageView} from './cage/CashierCage';
+import {Lobby3D} from './lobby/Lobby3D';
+import {ArcadeRoom} from './arcade/ArcadeRoom';
+import {plinkoGame,pachinkoGame} from './arcade/RapierGames';
+import {diceGame,coinGame} from './arcade/CannonGames';
 import {hospitality,type HospitalityHost} from './VenueHospitality';
 import type { Character } from "../entities/types";
 import { casinoVenue } from "./VenueArt";
@@ -201,6 +205,10 @@ export class Casino {
   private chipSel = 5;
   /** The 3D cashier's cage is built once, on first visit, and kept: the scene pauses while another tab is showing. */
   private cage?: CageView;
+  /** The 3D lobby is built once on first visit and kept; the scene pauses while another tab shows. null = no WebGL, use the 2D floor. */
+  private lobby3d?: Lobby3D | null;
+  /** The physics arcade (Rapier and cannon-es games), built once on first visit. */
+  private arcade?: ArcadeRoom | null;
   private bj = new Blackjack(rnd);
   private bjBet = 0;
   private bjHint = false;
@@ -230,6 +238,7 @@ export class Casino {
 
   show(): void { if (!this.beforeOpen()) return; this.bjHint = this.w.strategy?.() ?? this.bjHint; this.open = true; this.tab = this.social.poker&&!this.social.poker.claimed?"holdem":this.social.flight&&!this.social.flight.paid?"flight":"floor"; this.el.classList.remove("hidden"); this.render(); }
   close(): void {
+    if(this.arcade?.busy){this.msg="Let the arcade round finish first.";this.render();return;}
     if(this.extra.locked()){this.msg="Finish your hand or flight first. Tournament entries can be forfeited at the poker table between hands.";this.render();return;}
     this.extra.leave();if(this.social.sideBet){this.chips+=this.social.sideBet.stake;this.social.sideBet=undefined;}
     if (this.bj.phase === "player" || this.bj.phase === "insurance") { this.msg = "Finish the hand first."; this.render(); return; }
@@ -247,7 +256,7 @@ export class Casino {
 
   private take(n: number): boolean { if (!Number.isFinite(n) || n <= 0) return false; if (n > this.chips + 1e-9) { this.msg = "Not enough chips. Visit the cashier."; return false; } this.chips -= n; return true; }
   private go(tab: string): void {
-    if (this.extra.locked() || this.rSpinning || this.slotSpinning || this.bj.phase === "player" || this.bj.phase === "insurance" || this.vp.phase === "draw") {
+    if (this.extra.locked() || this.arcade?.busy || this.rSpinning || this.slotSpinning || this.bj.phase === "player" || this.bj.phase === "insurance" || this.vp.phase === "draw") {
       this.msg = "Finish your current round before changing tables."; this.render(); return;
     }
     this.tab = tab; this.msg = "";this.rServicesOpen=false;this.render();
@@ -258,7 +267,7 @@ export class Casino {
   }
 
   private render(): void {
-    const tabs = [["floor", "Lobby", "◈"], ["blackjack", "Blackjack", "♠"], ["roulette", "Roulette", "◎"], ["pokies", "Kiwi Gold", "7"], ["poker", "Video poker", "♦"], ["holdem", "Poker tables", "♣"], ["flight", "Crash flight", "🚀"], ["record", "My record", "▤"], ["cashier", "Cashier", "$"]];
+    const tabs = [["floor", "Lobby", "◈"], ["blackjack", "Blackjack", "♠"], ["roulette", "Roulette", "◎"], ["pokies", "Kiwi Gold", "7"], ["poker", "Video poker", "♦"], ["holdem", "Poker tables", "♣"], ["flight", "Crash flight", "🚀"], ["arcade", "Physics arcade", "◉"], ["record", "My record", "▤"], ["cashier", "Cashier", "$"]];
     const nav = h("nav.cas-tabs", { role: "tablist", "aria-label": "Casino areas" }, tabs.map(([id, l, icon]) => h("button" + (this.tab === id ? ".on" : ""), { role: "tab", "aria-selected": String(this.tab === id), onclick: () => this.go(id) }, [h("span", { text: icon, "aria-hidden": "true" }), l])));
     if (this.onMoreGames) nav.append(h("button", { text: "More games & racing", onclick: () => { this.close(); if (!this.open) this.onMoreGames?.(); } }));
     const head = h("header.cas-head", null, [
@@ -275,6 +284,7 @@ export class Casino {
       case "holdem": view=this.extra.holdem();break;
       case "flight": view=this.extra.flight();view.append(this.tableServices("Flight",this.extra.locked()));break;
       case "floor": view = this.lobbyView(); break;
+      case "arcade": view = this.arcadeView(); break;
       case "record": view = this.recordView(); break;
       default: view = this.cashierView();
     }
@@ -308,7 +318,7 @@ export class Casino {
     }
     if(this.tab==="cashier"&&!view.classList.contains("cage-wrap"))view.append(this.extra.social(this.rSpinning));
     this.body.replaceChildren(h("div.cas-view-title", null, [h("small", { text: this.tab === "floor" ? "WELCOME BACK" : "THE TESSERA / TABLE GAMES" }), h("h2", { text: tabs.find(t => t[0] === this.tab)?.[1] ?? "Cashier" })]), this.msg ? h("p.cas-msg", { role: "status", text: this.msg }) : h("span"), view);
-    this.el.replaceChildren(h("div.cas-frame.cx"+(["floor","flight","holdem","roulette","blackjack","pokies","poker","cashier"].includes(this.tab)&&!(this.tab==="cashier"&&this.cage?.failed)?".cas-table-frame":""), null, [head, h("div.cas-layout", null, [h("aside.cas-sidebar", null, [nav, session]), this.body]), h("footer.cas-foot", { text: "THE TESSERA · Fictional casino · No real money · Finish your round, then leave to cash out automatically." })]));
+    this.el.replaceChildren(h("div.cas-frame.cx"+(["floor","flight","holdem","roulette","blackjack","pokies","poker","cashier","arcade"].includes(this.tab)&&!(this.tab==="cashier"&&this.cage?.failed)?".cas-table-frame":""), null, [head, h("div.cas-layout", null, [h("aside.cas-sidebar", null, [nav, session]), this.body]), h("footer.cas-foot", { text: "THE TESSERA · Fictional casino · No real money · Finish your round, then leave to cash out automatically." })]));
     requestAnimationFrame(()=>this.fitView());setTimeout(()=>this.fitView(),300);
   }
 
@@ -321,7 +331,7 @@ export class Casino {
       const room=box.clientHeight-fixed,need=box.scrollHeight-fixed;if(room<=0||need<=room+2)return;
       const z=Math.max(.5,room/need);kids.forEach(k=>{k.style.zoom=String(z);});
     };
-    const free=(k:Element)=>!k.matches(".cas-view-title,details.iso-table-popover,.cage-wrap");
+    const free=(k:Element)=>!k.matches(".cas-view-title,details.iso-table-popover,.cage-wrap,.lobby-wrap,.arcade-wrap");
     // Whole body first (cashier, record...), then a fixed-height game whose own children overflow.
     shrink(this.body,[...this.body.children].filter(free) as HTMLElement[]);
     const game=this.body.querySelector<HTMLElement>(":scope > .iso-game");
@@ -340,6 +350,8 @@ export class Casino {
   /** Clickable cutaway floor and exterior use the same figures and materials as the street. */
   private lobbyView(): HTMLElement {
     if(this.venueOutside)return h('section.iso-game.iso-casino-floor',null,[casinoVenue(()=>{this.venueOutside=false;this.render();},true,this.w.patrons(),this.w.people?.()??[]),h('div.iso-table-console',null,[this.btn('Casino interior',()=>{this.venueOutside=false;this.render();})])]);
+    if(this.lobby3d===undefined)this.lobby3d=Lobby3D.create({people:()=>this.w.people?.()??[],go:id=>this.go(id),meet:id=>{if(id!==undefined)this.extra.selectGuest(id);this.rServicesOpen=true;this.render();},cash:()=>this.w.getCash(),setCash:n=>{this.w.setCash(n);this.render();}});
+    if(this.lobby3d){const pop=this.tableServices('Casino floor',false);pop.querySelector('.venue-service-actions')?.append(this.btn('Casino exterior',()=>{this.venueOutside=true;this.render();}));return h('section.lobby-wrap',null,[this.lobby3d.el,pop]);}
     const view=this.floor.view(this.w.people?.()??[],id=>this.go(id),id=>{if(id!==undefined)this.extra.selectGuest(id);this.rServicesOpen=true;this.render();});
     view.append(this.tableServices('Casino floor',false));view.querySelector('.venue-service-actions')?.append(this.btn('Casino exterior',()=>{this.venueOutside=true;this.render();}));return view;
   }
@@ -356,6 +368,12 @@ export class Casino {
   }
 
   // ------------------------------------------------------------------ cashier
+  private arcadeView(): HTMLElement {
+    if (this.arcade === undefined) this.arcade = ArcadeRoom.create({ chips: () => this.chips, setChips: (n) => { this.chips = n; }, round: (g, n) => this.extra.round(g, n, undefined, false), changed: () => this.render() }, [plinkoGame(), pachinkoGame(), diceGame(), coinGame()]);
+    if (!this.arcade) return h("p", { text: "The physics arcade needs WebGL, which this browser does not have." });
+    return h("section.arcade-wrap", null, [this.arcade.el]);
+  }
+
   private rulesList(): HTMLElement {
     return h("ul.cas-rules", null, [
         "Blackjack: 6 decks, dealer stands on soft 17, blackjack pays 3:2, insurance 2:1, double any two cards, split to 4 hands, late surrender. Limits $5–$5,000,000 in the private salon; standard maximum $500. House edge ≈ 0.5% with basic strategy.",

@@ -1,0 +1,32 @@
+/* The 3D lobby. Controls sit on the scene on wide screens and in their own bars under it on phones, so nothing overlaps. */
+.lobby-wrap{position:relative;flex:1 1 0;display:flex;min-width:0;min-height:0}
+.lobby3d{position:relative;flex:1 1 auto;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:#0b0508;color:#f4ece2;font:12px/1.4 system-ui,sans-serif}
+.lb-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none;cursor:grab}
+.lb-title{position:absolute;top:12px;left:14px;display:flex;flex-direction:column;pointer-events:none;text-shadow:0 2px 8px #000}
+.lb-title small{font-size:10px;letter-spacing:.22em;color:#e5c566;font-weight:700}.lb-title b{font:700 20px Georgia,serif;letter-spacing:.04em}
+.lb-nav{position:absolute;left:12px;right:330px;bottom:12px;display:flex;flex-wrap:wrap;gap:6px}
+.lb-chip{min-height:34px;padding:0 14px;border-radius:999px;border:1px solid color-mix(in srgb,var(--c,#e5c566) 70%,transparent);background:rgba(12,8,12,.78);color:#f4ece2;font:700 12px system-ui,sans-serif;cursor:pointer;backdrop-filter:blur(6px)}
+.lb-chip:hover{background:color-mix(in srgb,var(--c,#e5c566) 28%,#0c080c)}
+.lb-tip{position:absolute;top:0;left:0;z-index:3;padding:5px 10px;border-radius:8px;background:rgba(10,6,10,.9);border:1px solid rgba(229,197,102,.5);font-weight:700;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .12s}
+.lb-bubble{position:absolute;top:0;left:0;z-index:4;width:min(260px,70%);padding:10px 12px;border-radius:12px;background:rgba(14,9,14,.94);border:1px solid rgba(229,197,102,.55);box-shadow:0 12px 30px #000a;display:none;flex-direction:column;gap:6px}
+.lb-bubble.on{display:flex}.lb-bubble b{font:700 13px Georgia,serif;color:#f1d98a}.lb-bubble span{color:#e8dfd2;font-style:italic}
+.lb-go{min-height:34px;border-radius:999px;border:0;background:var(--c,#e5c566);color:#140c10;font:800 12px system-ui,sans-serif;cursor:pointer}
+.lb-status{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);margin:0}
+.lb-cannon{position:absolute;right:12px;bottom:12px;width:300px;display:grid;gap:8px;padding:10px 12px;border-radius:14px;background:rgba(10,14,10,.86);border:1px solid rgba(125,255,154,.5);backdrop-filter:blur(8px);box-shadow:0 10px 28px #000a}
+.lb-cannon.pulse{animation:lbpulse .5s ease 3}@keyframes lbpulse{50%{box-shadow:0 0 0 4px rgba(125,255,154,.55),0 10px 28px #000a}}
+.lb-cn-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px}.lb-cn-head b{font:800 12px system-ui,sans-serif;letter-spacing:.14em;color:#7dff9a}.lb-cn-head small{color:#b9c8bb;font-size:11px}
+.lb-cn-wallet{font:700 15px ui-monospace,Consolas,monospace;color:#e9fff0}
+.lb-cn-chips{display:flex;flex-wrap:wrap;gap:5px}
+.lb-cn-chip{min-width:46px;min-height:32px;padding:0 9px;border-radius:9px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.05);color:#e8f4ea;font:700 12px ui-monospace,Consolas,monospace;cursor:pointer}
+.lb-cn-chip.on{background:rgba(125,255,154,.2);border-color:#7dff9a;color:#b8ffcb}.lb-cn-chip:disabled,.lb-cn-fire:disabled{opacity:.38;cursor:not-allowed}
+.lb-cn-fire{min-height:42px;border-radius:12px;border:0;background:linear-gradient(135deg,#1fa65a,#4be98f);color:#04180c;font:800 14px system-ui,sans-serif;letter-spacing:.04em;cursor:pointer;box-shadow:0 4px 0 #0e6a37}
+.lb-cn-fire:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 #0e6a37}
+.lb-cn-msg{margin:0;min-height:1.3em;color:#cfe0d2;font-size:11px}
+@media(max-width:900px){
+ .lb-nav{right:12px;bottom:auto;top:46px}.lb-cannon{left:12px;right:12px;width:auto;bottom:12px;grid-template-columns:1fr auto;align-items:center}.lb-cn-head,.lb-cn-msg{grid-column:1/-1}.lb-cn-chips{grid-column:1}.lb-cn-fire{grid-column:2;padding:0 16px}
+}
+@media(max-width:760px){
+ .lobby3d{display:grid;grid-template-rows:minmax(220px,1fr) auto auto auto}.lb-canvas{position:relative;grid-row:1;height:100%;min-height:220px}.lb-title{display:none}
+ .lb-nav{position:static;grid-row:2;flex-wrap:nowrap;overflow-x:auto;padding:6px 8px;scrollbar-width:none}.lb-chip{flex:none}
+ .lb-cannon{position:static;grid-row:3;border-radius:0 0 12px 12px;margin:0}.lb-bubble{width:min(240px,86%)}
+}
