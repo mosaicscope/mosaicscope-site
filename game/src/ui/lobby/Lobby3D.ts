@@ -148,12 +148,6 @@ export class Lobby3D {
       this.cyl(.04, .04, .45, chrome, cab, .52, 1.3, .1, 10); this.add(new THREE.Mesh(new THREE.SphereGeometry(.07, 14, 10), this.mat("#c0273d", .2, .2)), cab, .52, 1.55, .1); this.box(.6, .12, .3, this.mat("#2a1c3a", .4, .4), cab, 0, 1.02, .5); stool(slots, x, 1.1, ["#7a1426", "#14405a", "#5a2a7a", "#1c5a3a", "#8a4a14", "#7a1448"][i]);
       this.glow(col, cab, 0, 2.5, .3, 1.2, .6);
     }
-    // ---- Video poker row
-    const vp = this.station("poker", "Video Poker", "poker", V(3.2, 0, -8.7), V(3.2, 1.5, -5.5), "#46e0ff", ["Jacks or better, baby.", "Hold the pair, chase the royal.", "Five coins. Always five coins."], [3.6, 2], () => this.vpGimmick());
-    for (let i = 0; i < 3; i++) {
-      const x = -1.1 + i * 1.1; this.box(.9, 1.5, .8, this.mat("#101a2a", .35, .5), vp, x, .75, 0, true); const tex = paint("vp" + i, 256, 192, (g, w, h) => { g.fillStyle = "#0a1630"; g.fillRect(0, 0, w, h); for (let k = 0; k < 5; k++) { g.fillStyle = "#f7f4ea"; g.fillRect(12 + k * 47, 40, 42, 70); g.fillStyle = (k + i) % 2 ? "#c0273d" : "#111"; g.font = "700 26px Georgia"; g.textAlign = "center"; g.fillText(["A", "K", "Q", "J", "10"][(k + i) % 5], 33 + k * 47, 78); g.fillText(["♥", "♠", "♦", "♣", "♥"][(k + i) % 5], 33 + k * 47, 102); } g.fillStyle = "#46e0ff"; g.font = "700 18px system-ui"; g.textAlign = "center"; g.fillText("JACKS OR BETTER", w / 2, 24); g.fillText("ROYAL FLUSH  4000", w / 2, 160); });
-      const s = new THREE.Mesh(new THREE.PlaneGeometry(.78, .58), new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: "#fff", emissiveIntensity: .8 })); s.position.set(x, 1.12, .41); s.rotation.x = -.35; vp.add(s); this.box(.8, .1, .08, this.mat("#46e0ff", .3, 0, undefined, { emissive: "#46e0ff", emissiveIntensity: 1.6 }), vp, x, 1.52, .35); stool(vp, x, 1.15, "#14405a");
-    }
     // ---- Blackjack
     const bj = this.station("blackjack", "Blackjack", "blackjack", V(-5.4, 0, -2.2), V(-4.2, 1.4, 1), "#ff5a5a", ["Dealer shows a six. Stand!", "Double down? Bold. I like it.", "Twenty-one pays three to two."], [4.8, 4], () => this.bjGimmick());
     const half = new THREE.Mesh(new THREE.CylinderGeometry(2.05, 2.05, .1, 48, 1, false, -Math.PI / 2 - Math.PI * .5 + Math.PI, Math.PI), [this.mat("#fff", .9, 0, felt("blackjack", "#0f5a3a")), leather, leather] as THREE.Material[]); half.rotation.y = Math.PI * .0; half.position.y = .92; half.castShadow = half.receiveShadow = true; bj.add(half);
@@ -301,7 +295,6 @@ export class Lobby3D {
     // slots: players seated at four of the six machines, one watcher standing behind
     for (const i of [0, 1, 3, 4]) spawn("slot", "pokies", -8.7 + i * 1.0, -7.4, Math.PI, { seated: true });
     spawn("slot", "pokies", -5.2, -6.1, Math.PI * .9, { menu: ["chat", "clap", "cheer", "sip", "phone"] });
-    spawn("lounge", "poker", 2.1, -7.4, Math.PI, { seated: true, menu: ["cards", "think", "cheer", "facepalm", "sip"] }); spawn("cards", "poker", 4.3, -7.4, Math.PI, { seated: true, menu: ["cards", "think", "cheer", "phone"] });
     // blackjack
     spawn("dealer", "blackjack", -5.4, -1.0, 0, { menu: ["deal", "deal", "deal", "shuffle", "chat"] }); for (let i = 0; i < 3; i++) { const a = (i + .5) / 3 * Math.PI * .86 + Math.PI * .07; spawn("cards", "blackjack", -5.4 + Math.cos(a) * 2.5, -2.2 + Math.sin(a) * 2.5 + .1, Math.PI + (a - Math.PI / 2) * -1 + Math.PI * 0, { seated: true }); }
     // roulette
@@ -324,6 +317,11 @@ export class Lobby3D {
     spawn("walker", "holdem", 0, 0, 0, { walk: [V(-3, 0, 2.6), V(2.9, 0, 3.1), V(3.8, 0, -3.8), V(-1.5, 0, -5.4), V(-6, 0, 2)], pause: ["chat", "wave", "phone", "dance", "clap", "sip"] });
     spawn("highroller", "blackjack", 0, 0, 0, { walk: [V(6, 0, 7.2), V(1.5, 0, 3.2), V(-3.3, 0, 3.2), V(-7.2, 0, 7.6), V(-1.4, 0, 8.6)], pause: ["toast", "chat", "stretch", "think"] });
     spawn("walker", "pokies", 0, 0, 0, { walk: [V(-3.2, 0, -5.6), V(-0.4, 0, -4.4), V(2.2, 0, -5.2), V(-5, 0, -5.9)], pause: ["chat", "cheer", "phone", "dance"] });
+    // a crowd that really moves: loops round the medallion, the front aisle, the back aisle and the bar side
+    const ring = (r: number, n: number, a0: number, dir: number) => Array.from({ length: n }, (_, i) => V(Math.cos(a0 + dir * i / n * Math.PI * 2) * r, 0, Math.sin(a0 + dir * i / n * Math.PI * 2) * r));
+    const front = [V(-8, 0, 8.6), V(-3, 0, 8.9), V(3, 0, 8.9), V(8.5, 0, 8.4), V(3, 0, 8.1), V(-3, 0, 8.1)], back = [V(-3, 0, -5.9), V(1.5, 0, -5.4), V(6, 0, -5.8), V(7.6, 0, -2.4), V(5.4, 0, -5.6), V(-1, 0, -5.9)], barSide = [V(-6.3, 0, 1.2), V(-6.3, 0, 4), V(-6.3, 0, 7.6), V(-6.3, 0, 4)], right = [V(7.4, 0, -3.8), V(7.2, 0, 3.4), V(8.6, 0, 7.4), V(7.2, 0, 3.4)];
+    const pauses: Action[][] = [["chat", "wave", "phone"], ["dance", "clap", "cheer", "toast"], ["think", "sip", "stretch"], ["chat", "point", "wave", "sip"]];
+    ([["walker", ring(3.7, 8, 0, 1), 0], ["lounge", ring(3.9, 8, 3.1, -1), 1], ["highroller", ring(3.5, 8, 1.6, 1), 3], ["walker", front, 0], ["slot", front.slice().reverse(), 2], ["lounge", back, 1], ["cards", back.slice().reverse(), 3], ["walker", barSide, 0], ["lounge", right, 2], ["walker", ring(4.1, 8, 4.6, -1), 1], ["highroller", right.slice().reverse(), 3]] as [Role, THREE.Vector3[], number][]).forEach(([role, pts, pi], k) => { const a = spawn(role, "jackpot", pts[0].x, pts[0].z, 0, { walk: pts, pause: pauses[pi] }); if (a?.walker) { a.walker.i = (k * 2) % pts.length; a.walker.speed = rnd(.85, 1.4); } });
     if (player) spawn("player", "jackpot", 1.0, 8.2, Math.PI, { c: player, menu: ["idle", "wave", "idle", "stretch"] });
     const you = this.agents.find(a => a.fig.role === "player"); if (you) { const ring = new THREE.Mesh(new THREE.RingGeometry(.5, .6, 40), new THREE.MeshBasicMaterial({ color: "#f4d777", transparent: true, opacity: .8, side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.position.set(1, .04, 8.2); this.scene.add(ring); }
   }
@@ -339,7 +337,6 @@ export class Lobby3D {
   private agentsAt(id: string) { return this.agents.filter(a => a.station === id); }
   private perform(a: Agent, action: Action, secs: number) { a.override = { action, until: this.time + secs }; }
   private slotGimmick() { const st = this.stations.get("pokies")!; const i = [0, 1, 3, 4][Math.floor(rnd(0, 4))]; const sc = this.screens[i]; if (sc) sc.spin = 3.2; this.agentsAt("pokies").forEach((a, k) => this.perform(a, k % 2 ? "cheer" : "fistpump", 3.4)); setTimeout(() => { const p = st.at.clone().add(V(-2.5 + i, 2.3, .6)); this.burst("coin", p, 140, 3.2, 8); this.burst("confetti", p, 60, 3, 6); if (this.screens[i]) this.screens[i].spin = 0; }, 1600); }
-  private vpGimmick() { const st = this.stations.get("poker")!; this.burst("sparkle", st.at.clone().add(V(0, 1.6, .5)), 90, 2.6, 5); this.burst("coin", st.at.clone().add(V(0, 1.6, .5)), 60, 2.4, 7); this.agentsAt("poker").forEach(a => this.perform(a, "cheer", 3)); }
   private bjGimmick() { const st = this.stations.get("blackjack")!; this.agentsAt("blackjack").forEach(a => this.perform(a, a.fig.role === "dealer" ? "deal" : "cheer", 3.4)); this.burst("confetti", st.at.clone().add(V(0, 1.6, .5)), 70, 2.8, 5); for (let k = 0; k < 4; k++) setTimeout(() => this.burst("sparkle", st.at.clone().add(V(rnd(-1.5, 1.5), 1.1, rnd(.2, 1.4))), 24, 1.2, 3), k * 300); }
   private rouletteGimmick() { this.wheelSpin = 7; const st = this.stations.get("roulette")!; this.agentsAt("roulette").forEach(a => this.perform(a, a.fig.role === "croupier" ? "spin" : "clap", 4)); setTimeout(() => { this.burst("coin", st.at.clone().add(V(0, 1.4, 1)), 100, 3, 7); this.agentsAt("roulette").forEach(a => this.perform(a, "cheer", 2.4)); }, 3800); }
   private holdemGimmick() { const st = this.stations.get("holdem")!; this.agentsAt("holdem").forEach(a => this.perform(a, a.fig.role === "dealer" ? "shuffle" : "fistpump", 3)); for (let k = 0; k < 3; k++) setTimeout(() => this.burst("confetti", st.at.clone().add(V(rnd(-1, 1), 1.2, rnd(-.6, .6))), 40, 2.4, 5), k * 350); this.burst("coin", st.at.clone().add(V(0, 1.1, 0)), 80, 2.6, 6); }

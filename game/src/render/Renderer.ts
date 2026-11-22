@@ -139,7 +139,7 @@ export class Renderer {
     sim.bus.on("fx", (f) => this.onFx(f));
   }
 
-  private onFx(f: { kind: string; x: number; y: number; z: number; n?: number; color?: string; text?: string }): void {
+  private onFx(f: { kind: string; x: number; y: number; z: number; n?: number; color?: string; text?: string; a?: number }): void {
     if (Math.hypot(f.x - this.cam.x, f.y - this.cam.y) > 40 / Math.max(0.5, this.cam.zoom)) return;
     if (f.kind === "blood" && !this.fakeBlood) return;
     if (f.kind === "skid") {
@@ -148,7 +148,7 @@ export class Renderer {
       if (this.decals.length > 220) this.decals.splice(0, this.decals.length - 220);
       return;
     }
-    this.particles.spawn(f.kind as any, f.x, f.y, f.z, f.n, f.color, f.text);
+    this.particles.spawn(f.kind as any, f.x, f.y, f.z, f.n, f.color, f.text, Math.random, f.a);
     if (f.kind === "blood" || f.kind === "paint" || f.kind === "water") {
       const n = f.kind === "blood" ? 3 : 2;
       for (let i = 0; i < n; i++) this.decals.push({ x: f.x + (Math.random() - 0.5) * 0.8, y: f.y + (Math.random() - 0.5) * 0.8, r: 0.12 + Math.random() * (f.kind === "water" ? 0.35 : 0.22), color: f.kind === "blood" ? "#7a0d12" : f.kind === "paint" ? f.color ?? "#ff7ad9" : "rgba(61,214,255,.5)", born: this.time, life: f.kind === "water" ? 6 : 75, blood:f.kind==="blood", rot: Math.random() * 3 });

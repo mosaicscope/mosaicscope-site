@@ -378,3 +378,4 @@ html.cb { --red: #a2333c; --acid: #c74d57; --gold: #af3741; --pink: #a7a29e; --c
 .dialogue .chat { display: flex; gap: 6px; margin-top: 6px; }
 .dialogue .chat input { flex: 1; min-width: 0; font-size: 16px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--ink2); color: inherit; }
 .dialogue .chat input:focus-visible { outline: none; border-color: var(--acid); }
+.bigmap-head{flex-wrap:wrap;gap:8px 10px;justify-content:flex-start}.bigmap-head>b{margin-right:auto;font-size:calc(20px*var(--ts))}.bigmap-head .btn,.bigmap-head .x{font:700 calc(12px*var(--ts)) var(--mono);min-height:32px}.bigmap-head .x{margin-left:4px}

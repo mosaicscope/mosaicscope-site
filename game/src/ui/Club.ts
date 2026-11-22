@@ -21,7 +21,33 @@ export interface ClubHost extends HospitalityHost { mood?(d: number): void; cons
 
 type Venue = "strip" | "velvet";
 interface Spot { id: string; label: string; x: number; y: number; w: number; h: number }
-interface Bill { x: number; y: number; vx: number; vy: number; r: number; vr: number; age: number; fly: number; col: string; landed: boolean; done: boolean; tx: number; ty: number; v: number }
+interface Bill { patron?: boolean; x: number; y: number; vx: number; vy: number; r: number; vr: number; age: number; fly: number; col: string; landed: boolean; done: boolean; tx: number; ty: number; v: number }
+/** Ten ways to work the money gun. Each trigger pull fires `per` notes at the pattern's own targets, `rate` times a second. */
+const SPRAYS = [
+  { id: "stream", label: "Stream", rate: 12, per: 1 }, { id: "fan", label: "Fan", rate: 7, per: 5 }, { id: "burst", label: "Burst", rate: 2.4, per: 10 }, { id: "spiral", label: "Spiral", rate: 16, per: 1 }, { id: "ring", label: "Ring", rate: 2.2, per: 14 },
+  { id: "sweep", label: "Sweep", rate: 16, per: 1 }, { id: "rain", label: "Rain", rate: 9, per: 3 }, { id: "lob", label: "Lob", rate: 4, per: 3 }, { id: "cross", label: "Cross", rate: 12, per: 2 }, { id: "shotgun", label: "Shotgun", rate: 1.8, per: 16 },
+] as const;
+type SprayId = (typeof SPRAYS)[number]["id"];
+interface Shot { tx?: number; ty?: number; T?: number; ox?: number; oy?: number }
+const gauss = (): number => (Math.random() + Math.random() + Math.random() - 1.5) * 1.15;
+function sprayShots(mode: SprayId, aim: { x: number; y: number }, per: number, t: number, n: number): Shot[] {
+  const out: Shot[] = [], j = (a: number): number => (Math.random() - 0.5) * a;
+  for (let k = 0; k < per; k++) {
+    switch (mode) {
+      case "fan": out.push({ tx: aim.x + (k - (per - 1) / 2) * 70, ty: aim.y + j(30) }); break;
+      case "burst": out.push({ tx: aim.x + j(50), ty: aim.y + j(36), T: 0.42 + Math.random() * 0.14 }); break;
+      case "spiral": { const a = t * 9; out.push({ tx: aim.x + Math.cos(a) * 130, ty: aim.y + Math.sin(a) * 60 }); break; }
+      case "ring": { const a = (k / per) * 6.283; out.push({ tx: aim.x + Math.cos(a) * 150, ty: aim.y + Math.sin(a) * 70 }); break; }
+      case "sweep": out.push({ tx: W / 2 + Math.sin(t * 2.2) * W * 0.42, ty: aim.y + j(40) }); break;
+      case "rain": out.push({ ox: Math.random() * W, oy: -10, tx: aim.x + j(240), ty: aim.y + j(90), T: 0.75 + Math.random() * 0.2 }); break;
+      case "lob": out.push({ tx: aim.x + j(120), ty: aim.y + j(60), T: 0.95 + Math.random() * 0.15 }); break;
+      case "cross": out.push(n % 2 ? { tx: aim.x + j(10), ty: aim.y + (k - 0.5) * 130 } : { tx: aim.x + (k - 0.5) * 240, ty: aim.y + j(10) }); break;
+      case "shotgun": out.push({ tx: aim.x + gauss() * 90, ty: aim.y + gauss() * 55, T: 0.4 + Math.random() * 0.12 }); break;
+      default: out.push({});
+    }
+  }
+  return out;
+}
 interface Bubble { who: string; text: string; x: number; y: number; until: number }
 interface Queued { who: string; text: string; at: number }
 interface Floaty { x: number; y: number; text: string; age: number; col: string }
@@ -230,7 +256,7 @@ export class Club {
   private deck: string[] = [];
   private nextAmbient = 0;
   // money gun
-  private mag = 0; private spent = 0; private note = 20; private firing = false; private fireAcc = 0;
+  private mag = 0; private spent = 0; private note = 20; private firing = false; private fireAcc = 0; private spray: SprayId = "stream"; private sprayN = 0; private patronAcc = 0;
   private aim = { x: W / 2, y: 250 }; private aimByPointer = false;
   private combo = 0; private tier = 0; private hype = 0;
   private bills: Bill[] = [];
@@ -264,22 +290,26 @@ export class Club {
     this.g = this.cv.getContext("2d")!;
     this.el = h("div.club.hidden", { role: "dialog", "aria-modal": "true", "aria-label": "Club" });
     const pos = (e: PointerEvent) => { const r = this.cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * (W / r.width), y: (e.clientY - r.top) * (H / r.height) }; };
+    const nrm = (e: PointerEvent) => { const r = this.cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height] as const; };
     this.cv.addEventListener("pointermove", (e) => {
+      if (this.r3?.carrying()) { const [nx, ny] = nrm(e); this.r3.aim(nx, ny); this.cv.style.cursor = "crosshair"; return; }
       const p = pos(e); this.hover = this.hit(p.x, p.y)?.id ?? ""; this.cv.style.cursor = this.hover ? "pointer" : this.canSpray() ? "crosshair" : "";
       if (this.firing && this.aimByPointer) this.aim = p;
     });
     this.cv.addEventListener("pointerdown", (e) => {
+      if (this.r3?.carrying()) { const [nx, ny] = nrm(e); this.r3.aim(nx, ny); this.r3.trigger(true); this.cv.setPointerCapture(e.pointerId); e.preventDefault(); return; }
       const p = pos(e); const s = this.hit(p.x, p.y);
       if (s) { this.activate(s.id); return; }
       if (this.venue === "strip" && this.canSpray()) { this.aim = p; this.aimByPointer = true; this.firing = true; this.cv.setPointerCapture(e.pointerId); e.preventDefault(); }
       else if (this.venue === "strip" && this.host.owned(KEY.gun)) this.say("DJ|Your money gun's empty! Load it up, legend!");
     });
-    const stop = () => { this.firing = false; this.aimByPointer = false; };
+    const stop = () => { this.firing = false; this.aimByPointer = false; this.r3?.trigger(false); };
     this.cv.addEventListener("pointerup", stop);
     this.cv.addEventListener("pointercancel", stop);
     window.addEventListener("keydown", (e) => {
       if (!this.open || e.key !== "Escape") return;
       e.preventDefault(); e.stopPropagation();
+      if (this.r3?.carrying()) { this.setCarry(false); return; }
       if (this.card) { this.card = null; this.render(); } else this.close();
     }, true);
   }
@@ -318,7 +348,7 @@ export class Club {
       const draw = (c: Character | null, g: CanvasRenderingContext2D, x: number, y: number, k: number, t: number, doing: string, o: { fear: number; color?: string; glam: boolean }): void => {
         const base = c ?? cast0[0]; if (!base) return;
         const ch = { ...base, look: { ...base.look, main: true, glam: o.glam, color: o.color ?? base.look.color, top: o.glam ? ("dress" as const) : base.look.top }, emo: { fear: o.fear, frustration: 0, confidence: 0.9, mood: 0.75, composure: 1 } };
-        solve(nativePose(doing === "dance" ? "dance" : doing === "sit" ? "sit" : doing === "talk" ? "talk" : "idle", "normal", t, t, 0, 0), x, y, k, 1); drawFigure(g, ch, x, y, k, 1, t, 0, 1);
+        solve(nativePose(doing === "dance" ? "dance" : doing === "sit" ? "sit" : doing === "talk" ? "talk" : doing === "hurt" ? "stumble" : "idle", "normal", t, t, 0, 0), x, y, k, 1); drawFigure(g, ch, x, y, k, 1, t, 0, 1);
       };
       const r3 = await mountClub3D({ draw, cast: this.host.people?.() ?? [], roster: this.dancers.map((d) => ({ name: d.name, pole: !!d.pole, needsStage: !!d.needsStage })), accent: this.theme.accent,
         news: (spec) => this.say(spec), swept: (v) => { if (this.ownsClub()) this.till += v * 0.3; } });
@@ -330,7 +360,7 @@ export class Club {
 
   close(): void {
     if (!this.open) return;
-    this.firing = false;
+    this.firing = false; this.setCarry(false);
     if (this.mag > 0) { this.host.setCash(this.host.getCash() + this.mag); this.host.toast(`${money(this.mag)} unsprayed cash went back in your wallet. The money gun is disappointed in you.`); this.mag = 0; }
     if (this.spent > 0) this.host.toast(`You made it rain ${money(this.spent)} at the Pink Pukeko. Worth it? Absolutely not. Did it look cool? Yes.`);
     this.save.lifetime += this.spent; saveClub(this.save); this.spent = 0; this.bills = []; this.floaties = []; this.card = null;
@@ -351,6 +381,20 @@ export class Club {
   private isMember(): boolean { return this.host.owned(KEY.member); }
   private hasUp(id: string): boolean { return this.host.owned("club.up." + id); }
   private income(): number { return BASE_INCOME + UPGRADES.reduce((s, u) => s + (this.hasUp(u.id) ? u.inc : 0), 0) + this.aggCache.income; }
+  /** Pick the money gun up and walk the floor with it (3D room only), or put it down. */
+  private setCarry(on: boolean): void {
+    const r3 = this.r3; if (!r3) return;
+    if (!on) { if (r3.carrying()) { r3.carry(false); this.renderPane(); } return; }
+    if (this.venue !== "strip" || !this.host.owned(KEY.gun)) { this.say("DJ|You need the money gun first, legend."); return; }
+    this.firing = false;
+    r3.carry(true, {
+      take: () => { if (this.mag < this.note) { this.say("DJ|Out of ammo! Load the gun from the Gun tab."); this.setCarry(false); return 0; } this.mag -= this.note; this.spent += this.note; if (this.ownsClub()) this.till += this.note * HOUSE_CUT; this.combo = Math.min(100, this.combo + 1.2 + this.note / 100); return this.note; },
+      news: (spec) => this.say(spec), rate: () => 9,
+      tipped: (name, v) => { const d = this.dancers.find((q) => q.name === name); if (!d) return; d.hit = 0.6; d.tips += v; this.save.aff[name] = (this.save.aff[name] ?? 0) + (v / 20) * (1 + this.aggCache.tip); },
+    });
+    this.renderPane();
+  }
+
   private canSpray(): boolean { return this.venue === "strip" && this.host.owned(KEY.gun) && this.mag >= this.note; }
   private djName(): string { return this.hasUp("dj") ? "DJ HOKEY POKEY" : "DJ KUMARA"; }
   private pay(n: number, what: string): boolean {
@@ -511,8 +555,10 @@ export class Club {
         h("div.cl-stats", null, [h("span", { text: "Loaded" }), mag, h("span", { text: "Sprayed tonight" }), spent]),
         h("div.cl-row", null, [load(100), load(1_000), load(10_000)]),
         h("div.cl-row", { role: "group", "aria-label": "Note" }, NOTES.map((n) => h("button.cl-note-btn" + (this.note === n.v ? ".on" : ""), { style: `--c:${n.c}`, "aria-pressed": String(this.note === n.v), onclick: () => { this.note = n.v; this.renderPane(); } }, [`$${n.v}`]))),
+        h("div.cl-row", { role: "group", "aria-label": "Spray pattern" }, SPRAYS.map((m) => h("button.cl-chip" + (this.spray === m.id ? ".on" : ""), { "aria-pressed": String(this.spray === m.id), title: m.per + " per pull", onclick: () => { this.spray = m.id; this.renderPane(); } }, [m.label]))),
         h("div.cl-row", { role: "group", "aria-label": "Ammo" }, AMMO.map((a) => h("button.cl-chip" + (this.ammo === a.id ? ".on" : ""), { onclick: () => { this.ammo = a.id; this.renderPane(); } }, [a.label]))),
         spray,
+        this.r3 ? h("button.cl-btn" + (this.r3.carrying() ? ".hot" : ""), { "aria-pressed": String(this.r3.carrying()), title: "WASD to walk, move the mouse to aim, hold to fire, Esc to put it down", onclick: () => this.setCarry(!this.r3?.carrying()) }, [this.r3.carrying() ? "Put the gun down (Esc)" : "Carry the gun"]) : null,
         h("div.cl-combo", { "aria-hidden": "true" }, [h("span", { text: "Combo" }), h("div.cl-track", null, [fill]), num]),
         h("p.cl-note", { text: "Aim by pressing on the stage. Hit floating piggy banks, ATMs, treasure chests and the golden pukeko to win more than you spend. Fun tab: summon more targets." }),
       );
@@ -737,16 +783,21 @@ export class Club {
   private updateGun(dt: number): void {
     if (this.firing && !this.aimByPointer) this.aim = { x: W / 2 + Math.sin(this.now * 1.3) * 160, y: 250 + Math.sin(this.now * 2.1) * 30 };
     if (this.firing) {
-      this.fireAcc += dt * 12;
+      const mode = SPRAYS.find((m) => m.id === this.spray) ?? SPRAYS[0];
+      this.fireAcc += dt * mode.rate;
       while (this.fireAcc >= 1) {
-        this.fireAcc -= 1;
-        if (this.mag < this.note) { this.firing = false; this.say("DJ|Out of ammo! The rain has stopped! Somebody fetch an ATM!"); break; }
-        this.mag -= this.note; this.spent += this.note;
-        if (this.ownsClub()) this.till += this.note * HOUSE_CUT;
-        this.combo = Math.min(100, this.combo + 1.4 + this.note / 100);
-        this.spawnBill();
+        this.fireAcc -= 1; let fired = 0;
+        for (const shot of sprayShots(mode.id, this.aim, mode.per, this.now, this.sprayN++)) {
+          if (this.mag < this.note) break;
+          this.mag -= this.note; this.spent += this.note;
+          if (this.ownsClub()) this.till += this.note * HOUSE_CUT;
+          this.combo = Math.min(100, this.combo + (1.4 + this.note / 100) / Math.sqrt(mode.per));
+          this.spawnBill(shot); fired++;
+        }
+        if (!fired) { this.firing = false; this.say("DJ|Out of ammo! The rain has stopped! Somebody fetch an ATM!"); break; }
       }
     } else this.combo = Math.max(this.aggCache.hype * 100, this.combo - dt * 16);
+    this.patronsThrow(dt);
     const tier = Math.floor(this.combo / 25);
     if (tier > this.tier) { this.say("DJ|" + pick(RAIN_SHOUTS)); if (tier >= 3) this.say("PATRON|" + pick(["WOOOO!", "Chur! Chur! Chur!", "Somebody stop them! No, don't!", "That's my rent money! Worth it!"])); }
     this.tier = tier;
@@ -776,16 +827,30 @@ export class Club {
     if (this.live.cash) this.live.cash.textContent = money(this.host.getCash());
   }
 
-  private spawnBill(): void {
+  /** The crowd's own money: patrons at the rail throw notes at whichever dancer is working hardest. It costs you nothing and earns you nothing, but the dancers feel it. */
+  private patronsThrow(dt: number): void {
+    if (this.venue !== "strip" || !this.dancerPos.length || document.hidden) return;
+    this.patronAcc += dt * (0.35 + this.hype * 1.8 + this.tier * 0.25);
+    while (this.patronAcc >= 1) {
+      this.patronAcc -= 1; if (this.bills.filter((b) => b.patron).length > 40) break;
+      const target = this.dancerPos[Math.floor(Math.random() * this.dancerPos.length)], note = NOTES[Math.floor(Math.random() * Math.min(3, NOTES.length))];
+      const x = 60 + Math.random() * (W - 120), y = H - 6, T = 0.55 + Math.random() * 0.25, tx = target.x + (Math.random() - 0.5) * 36, ty = target.y - 34 + (Math.random() - 0.5) * 20;
+      this.bills.push({ patron: true, x, y, tx, ty, vx: (tx - x) / T, vy: (ty - y) / T - 0.5 * 520 * T, r: Math.random() * 6, vr: (Math.random() - 0.5) * 18, age: 0, fly: T, col: note.c, landed: false, done: false, v: note.v });
+      if (Math.random() < 0.08) this.say("PATRON|" + pick(["Over here, sweetheart!", "Take it! Take all of it!", "Put it on my tab!", "That's for the rent!", "WOOOO!"]));
+    }
+  }
+
+  private spawnBill(shot: Shot = {}): void {
     const n = NOTES.find((x) => x.v === this.note)!;
-    const x = W / 2 + (Math.random() - 0.5) * 20, y = H - 18, T = 0.45 + Math.random() * 0.2;
-    const tx = this.aim.x + (Math.random() - 0.5) * 70, ty = this.aim.y + (Math.random() - 0.5) * 50;
+    const x = shot.ox ?? W / 2 + (Math.random() - 0.5) * 20, y = shot.oy ?? H - 18, T = shot.T ?? 0.45 + Math.random() * 0.2;
+    const tx = shot.tx ?? this.aim.x + (Math.random() - 0.5) * 70, ty = shot.ty ?? this.aim.y + (Math.random() - 0.5) * 50;
     this.bills.push({ x, y, tx, ty, vx: (tx - x) / T, vy: (ty - y) / T - 0.5 * 520 * T, r: Math.random() * 6, vr: (Math.random() - 0.5) * 18, age: 0, fly: T, col: n.c, landed: false, done: false, v: n.v });
   }
 
   private tip(b: Bill): void {
     let best: { d: Dancer; x: number; y: number } | null = null, bd = 55;
     for (const p of this.dancerPos) { const d = Math.hypot(p.x - b.x, p.y - 30 - b.y); if (d < bd) { bd = d; best = p; } }
+    if (b.patron) { this.r3?.land(b.x, b.y, b.v, b.col); if (best) { best.d.hit = 0.5; } return; }
     this.ammoFx(b); this.r3?.land(b.x, b.y, b.v, b.col);
     const win = this.fx.hit(b.x, b.y, b.v * this.ammoMult());
     if (win > 0) { this.mag += win; this.floaties.push({ x: b.x, y: b.y - 30, text: "+$" + Math.round(win), age: 0, col: "#f6b62c" }); }

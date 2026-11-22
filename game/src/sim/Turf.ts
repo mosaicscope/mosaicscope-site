@@ -198,8 +198,9 @@ export function fireGun(sim: Simulation, c: Character, tx: number, ty: number, t
   }
   // muzzle flash, a spent casing, the bang
   sim.bus.emit("fx", { kind: "flash", x: mx, y: my, z: mz, n: 1 });
-  sim.bus.emit("fx", { kind: "spark", x: mx, y: my, z: mz, n: 3, color: "#ff9a3d" });
-  sim.bus.emit("fx", { kind: "spark", x: c.x - Math.sin(base) * 0.25, y: c.y + Math.cos(base) * 0.25, z: c.z + 1.5, n: 1, color: pellets > 1 ? "#ec2a1c" : "#f6b62c" });
+  sim.bus.emit("fx", { kind: "muzzle", x: mx, y: my, z: mz, n: pellets > 1 ? 16 : 9, a: base });
+  sim.bus.emit("fx", { kind: "gun_smoke", x: mx, y: my, z: mz, n: pellets > 1 ? 4 : 2, a: base });
+  sim.bus.emit("fx", { kind: "casing", x: c.x + Math.cos(base) * 0.2 - Math.sin(base) * 0.12, y: c.y + Math.sin(base) * 0.2 + Math.cos(base) * 0.12, z: c.z + 1.45, n: def === "smg" ? 2 : 1, a: base });
   if (def === "golden_pistol") sim.bus.emit("fx", { kind: "confetti", x: mx, y: my, z: mz, n: 6 });
   sim.bus.emit("sound", { kind: def === "shotgun" ? "bang_shotgun" : def === "smg" ? "bang_smg" : "bang", x: c.x, y: c.y, vol: 1 });
   c.stats.throws++;
@@ -270,7 +271,9 @@ export function bulletHit(sim: Simulation, t: Toy, c: Character, nx: number, ny:
   const blocked = shooter ? shieldBlocks(c, sim.toys, shooter.x, shooter.y) : false;
   const kb = ws.knockback / (ws.pellets ?? 1) * (ws.pellets ? 2 : 1);
   const res = applyImpact(c, kb, nx, ny, blocked, sim.cfg.maxImpulse, ws.damage);
-  sim.bus.emit("fx", { kind: blocked ? "spark" : "impact", x: hx, y: hy, z: hz, n: 6, color: blocked ? "#eee4d3" : "#ff9a3d" });
+  const bulletDir = Math.atan2(ny, nx);
+  sim.bus.emit("fx", { kind: blocked ? "spark" : "hit_flesh", x: hx, y: hy, z: hz, n: blocked ? 6 : 16, color: "#eee4d3", a: bulletDir });
+  if (blocked) sim.bus.emit("fx", { kind: "hit_chip", x: hx, y: hy, z: hz, n: 8, a: bulletDir });
   sim.bus.emit("sound", { kind: blocked ? "ricochet" : "hit_metal", x: hx, y: hy, vol: 0.7 });
   if (!blocked) {
     const part = pickPart(sim, hz);
@@ -278,6 +281,16 @@ export function bulletHit(sim: Simulation, t: Toy, c: Character, nx: number, ny:
     const sev = (part === "head" ? 3 : part === "torso" ? (heavy || sim.rng.chance(0.35) ? 3 : 2) : sim.rng.chance(heavy ? 0.8 : 0.55) ? 2 : 1) as 1 | 2 | 3;
     const injury=wound(sim, c, part, t.load==='rubber'?1:sev, t.load==='rubber'?"bruise":part === "head" ? "gash" : sev >= 2 ? "cut" : "graze", shooter?.id ?? -1, shooter?.x ?? hx, shooter?.y ?? hy,gun,t.load);
     if(t.load!=='rubber'&&injury.kind!=='bruise'){const holes=injury.ballistics??=[];if(holes.length>=8)holes.shift();holes.push({angle:Math.atan2(ny,nx),exit:t.load==='heavy'&&part!=='head',age:sim.tick});}
+    // the body takes it: thrown back along the bullet, doubled over, shaken, and the harder the hit the longer it lasts
+    const force = 0.35 + sev * 0.3 + (heavy ? 0.3 : 0), reaction = sev + (heavy ? 1 : 0);
+    if (c.phys === Phys.OK) {
+      c.kx += nx * force; c.ky += ny * force; c.anim.pose = part === "head" ? "stunned" : "stumble"; c.anim.poseT = 0;
+      c.stunUntil = Math.max(c.stunUntil, sim.tick + 10 + reaction * 16);
+      c.emo.fear = Math.min(1, c.emo.fear + 0.3 + sev * 0.15);
+      sim.bus.emit("fx", { kind: "hit_flesh", x: c.x, y: c.y, z: c.z + (part === "head" ? 1.6 : part === "torso" ? 1.15 : 0.7), n: 8 + sev * 5, a: bulletDir });
+      sim.bus.emit("fx", { kind: "gib", x: c.x, y: c.y, z: c.z + 1.7, n: sev >= 3 ? 3 : 1 });
+      sim.bus.emit("sound", { kind: "hit_body", x: hx, y: hy, vol: 0.6 + sev * 0.1 });
+    }
     // a bad hit puts them on the floor for a while (paramedics do the rest)
     if (sev >= 3 && c.tier !== "player" && c.phys !== Phys.DOWN) { c.phys = Phys.DOWN; c.physTimer = 5 + sim.rng.range(0, 4); c.vz = 2; c.stats.falls++; }
   }
@@ -286,6 +299,7 @@ export function bulletHit(sim: Simulation, t: Toy, c: Character, nx: number, ny:
 
 /** A bullet hit a wall or the ground: a spark and a ricochet, nothing else. */
 export function bulletBounce(sim: Simulation, t: Toy): void {
+  sim.bus.emit("fx", { kind: "hit_chip", x: t.x, y: t.y, z: t.z, n: 12, a: Math.atan2(t.vy, t.vx) });
   sim.bus.emit("fx", { kind: "spark", x: t.x, y: t.y, z: t.z, n: 4, color: "#fff6c8" });
   sim.bus.emit("sound", { kind: "ricochet", x: t.x, y: t.y, vol: 0.3 });
   t.state = "broken"; t.brokenAt = sim.tick; t.vx = t.vy = t.vz = 0; t.x = -100; t.y = -100;

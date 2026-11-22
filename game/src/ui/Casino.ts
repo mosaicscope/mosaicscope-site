@@ -4,6 +4,8 @@ import {CasinoFloor} from './CasinoFloor';
 import {drawCasinoStation,STATION_W,STATION_H} from './CasinoStations';
 import {drawRouletteTable,rouletteCells,cellQuad,rouletteSurroundingGuests,ROULETTE_W,ROULETTE_H} from './RouletteTableArt';
 import {CasinoExtras} from './CasinoExtras';
+import {BlackjackTable3D} from "./bj3d/BlackjackTable3D";
+import {casinoCompany} from "./CasinoFloorPlan";
 import {RouletteWheel3D} from './RouletteWheel3D';
 import {SlotMachine3D} from './SlotMachine3D';
 import {newCityPlay,casinoCredit,repayCredit,type CasinoSocial} from '../sim/CityPlay';
@@ -219,7 +221,7 @@ export class Casino {
   private rPending = -1;
   private rHistory: number[] = [];
   private rSpinning = false;
-  private rLast = -1;private rHovered='';private rNumber=7;private rOutside='red';private rServicesOpen=false;private rBetView=true;private fitBound=false;private wheel3d?:RouletteWheel3D|null;private slot3d?:SlotMachine3D|null;private rLastBets:RouletteBet[]=[];private rJust='';private rSettled:{bets:RouletteBet[];result:number;at:number}|null=null;private rPage=0;private rZoom=1;private rFocus:'cloth'|'wheel'='cloth';
+  private rLast = -1;private rHovered='';private rNumber=7;private rOutside='red';private rServicesOpen=false;private rBetView=true;private fitBound=false;private wheel3d?:RouletteWheel3D|null;private bj3d?:BlackjackTable3D|null;private slot3d?:SlotMachine3D|null;private rLastBets:RouletteBet[]=[];private rJust='';private rSettled:{bets:RouletteBet[];result:number;at:number}|null=null;private rPage=0;private rZoom=1;private rFocus:'cloth'|'wheel'='cloth';
   private rRot = 0; private rBall = -Math.PI / 2; private rBallR = TRACK_R;
   private vp = new VideoPoker(rnd);
   private vpCoins = 5; private vpValue = 1; private vpWin = 0; private vpFresh = [false, false, false, false, false];
@@ -267,7 +269,7 @@ export class Casino {
   }
 
   private render(): void {
-    const tabs = [["floor", "Lobby", "◈"], ["blackjack", "Blackjack", "♠"], ["roulette", "Roulette", "◎"], ["pokies", "Kiwi Gold", "7"], ["poker", "Video poker", "♦"], ["holdem", "Poker tables", "♣"], ["flight", "Crash flight", "🚀"], ["arcade", "Physics arcade", "◉"], ["record", "My record", "▤"], ["cashier", "Cashier", "$"]];
+    const tabs = [["floor", "Lobby", "◈"], ["blackjack", "Blackjack", "♠"], ["roulette", "Roulette", "◎"], ["pokies", "Kiwi Gold", "7"], ["holdem", "Poker tables", "♣"], ["flight", "Crash flight", "🚀"], ["arcade", "Physics arcade", "◉"], ["record", "My record", "▤"], ["cashier", "Cashier", "$"]];
     const nav = h("nav.cas-tabs", { role: "tablist", "aria-label": "Casino areas" }, tabs.map(([id, l, icon]) => h("button" + (this.tab === id ? ".on" : ""), { role: "tab", "aria-selected": String(this.tab === id), onclick: () => this.go(id) }, [h("span", { text: icon, "aria-hidden": "true" }), l])));
     if (this.onMoreGames) nav.append(h("button", { text: "More games & racing", onclick: () => { this.close(); if (!this.open) this.onMoreGames?.(); } }));
     const head = h("header.cas-head", null, [
@@ -310,6 +312,9 @@ export class Casino {
       queueMicrotask(()=>m3.wake());
       if(this.msg&&!this.slotSpinning&&!this.slotWin)m3.message(this.msg);
       view=h('section.iso-game.iso-slots.rw3d-mode',null,[m3.el,view,this.tableServices('pokies',this.slotSpinning||round||this.vp.phase==='draw')]);
+    }else if(this.tab==="blackjack"&&this.bjTable){
+      const b3=this.bjTable;b3.sync(this.bj,this.bjBet);view.querySelector(".blackjack-card-detail")?.remove();
+      view=h("section.iso-game.iso-slots.rw3d-mode",null,[b3.el,view,this.tableServices("blackjack",round)]);
     }else if(["blackjack","pokies","poker"].includes(this.tab)){
       const kind=this.tab as 'blackjack'|'pokies'|'poker';let zoom=1;
       const scene=canvasStage((g,t,reduced)=>drawCasinoStation(g,{kind,people:this.w.people?.()??[],dealer:this.w.dealer?.(),blackjack:this.bj,bet:kind==='blackjack'?this.bjBet:this.slotBet,reels:this.reels,spinning:this.slotSpinning,hand:this.vp.hand,held:this.vp.held,win:kind==='pokies'?this.slotWin:this.vpWin},t,reduced),{width:STATION_W,height:STATION_H,camera:()=>({scale:zoom,x:zoom===1?600:kind==='blackjack'?600:545,y:zoom===1?350:kind==='blackjack'?370:310}),label:kind==='blackjack'?'Isometric blackjack room with dealer, actual cards, chips and Mosaic players':'Isometric '+(kind==='pokies'?'slot machine':'video poker')+' lounge with occupied cabinets and your live screen'});
@@ -573,6 +578,10 @@ export class Casino {
   }
 
   /** The persistent 3D wheel, created once on first use; null when WebGL is unavailable. */
+  private get bjTable(): BlackjackTable3D | null {
+    if (this.bj3d === undefined) { const all = this.w.people?.() ?? [], player = all.find((c) => c.tier === "player"), dealer = casinoCompany(all, player ? [player.id] : [], 12).find((c) => c.look.kind !== "girl") ?? casinoCompany(all, player ? [player.id] : [], 1)[0] ?? null; this.bj3d = BlackjackTable3D.create(dealer); }
+    return this.bj3d;
+  }
   private get wheel(): RouletteWheel3D | null {
     if (this.wheel3d === undefined) { this.wheel3d = RouletteWheel3D.create(); this.wheel3d?.setHistory(this.rHistory); }
     return this.wheel3d;

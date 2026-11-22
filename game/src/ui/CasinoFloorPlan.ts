@@ -1,7 +1,6 @@
 import type {Character} from '../entities/types';
 export const FLOOR_AREAS=[
  {id:'pokies',label:'Kiwi Gold',x:-4.5,y:-3.5,w:3.3,d:1.9},
- {id:'poker',label:'Video poker',x:1.5,y:-3.5,w:3.4,d:1.9},
  {id:'cashier',label:'Cashier',x:5.5,y:-3.9,w:1.5,d:1.3},
  {id:'blackjack',label:'Blackjack',x:-3.9,y:-.2,w:3.7,d:2.5},
  {id:'holdem',label:'Poker tables',x:0,y:1,w:3.8,d:2.6},

@@ -77,9 +77,9 @@ import { fireGun, startTurfWar, turfWarActive } from "./Turf";
 import { LitterState, updateLitter } from "./Litter";
 import { LifeSystemFlags, newLifeSystemFlags } from "../debug/flags";
 
-export type FxKind = "dust" | "impact" | "spark" | "confetti" | "break" | "heart" | "rain_splash" | "text" | "spring" | "zzz" | "music" | "star" | "blood" | "spray" | "flash" | "paint" | "water" | "cash" | "gib" | "skid" | "tyre_smoke";
+export type FxKind = "dust" | "impact" | "spark" | "confetti" | "break" | "heart" | "rain_splash" | "text" | "spring" | "zzz" | "music" | "star" | "blood" | "spray" | "flash" | "paint" | "water" | "cash" | "gib" | "skid" | "tyre_smoke" | "casing" | "muzzle" | "gun_smoke" | "hit_flesh" | "hit_chip";
 export interface SimSignals {
-  fx: { kind: FxKind; x: number; y: number; z: number; color?: string; n?: number; text?: string };
+  fx: { kind: FxKind; x: number; y: number; z: number; color?: string; n?: number; text?: string; /** direction the effect travels, radians */ a?: number };
   sound: { kind: string; x: number; y: number; vol: number };
   event: WorldEvent;
   say: { id: number; text: string };

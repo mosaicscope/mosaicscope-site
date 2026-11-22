@@ -1,0 +1,8 @@
+.bj3d { position: relative; height: clamp(320px, 56vh, 600px); border-radius: 14px; overflow: hidden; background: radial-gradient(ellipse at 50% 40%, #2c1019 0%, #12070b 70%); box-shadow: inset 0 0 0 1px rgba(229,197,102,.25); }
+.bj3d-canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.bj3d-canvas:active { cursor: grabbing; }
+.bj3d-hud { position: absolute; inset: 0; pointer-events: none; }
+.bj3d-tag { position: absolute; left: 0; top: 0; padding: 3px 10px; border-radius: 999px; background: rgba(10,6,8,.82); border: 1px solid rgba(229,197,102,.45); color: #f3ead2; font: 700 13px/1.3 system-ui, sans-serif; letter-spacing: .02em; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,.4); }
+.bj3d-tag.on { border-color: #e5c566; color: #ffe6a3; }
+.bj3d-tag.win { border-color: #4fbf7d; color: #b9f3cf; }
+.bj3d-tag.lose { border-color: #c0485a; color: #ffc3cb; }

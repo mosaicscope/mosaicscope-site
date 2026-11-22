@@ -51,7 +51,6 @@ import { BurgerShift } from "../ui/minigames/Burger";
 import "../ui/minigames/minigames.css";
 import { Travel } from "../ui/Travel";
 import {WorldCityPanel} from '../ui/WorldCityPanel';
-import {LiveCameras} from '../ui/LiveCameras';
 import { HeistUI } from "../ui/Heist";
 import "../ui/travel.css";
 import { Minimap } from "../ui/Minimap";
@@ -1476,8 +1475,6 @@ export class Game {
   private addressPanel=new AddressPanel({sim:()=>this.sim,modal:this.modal,camera:()=>this.renderer.cam,arrive:(x,y)=>{this.moveTarget=null;this.pendingTalk=-1;this.pendingEnter=null;this.keys.clear();this.touchMove={x:0,y:0};this.renderer.cam.lookAt(x,y,true);this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);},walk:(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);},toast:t=>this.toast(t),worldCities:()=>this.travel.worldCities()});
   private cityPanel=new WorldCityPanel({sim:()=>this.sim,camera:()=>this.renderer.cam,close:()=>this.modal.close(),walk:(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);},talk:id=>this.talkTo(id),vehicle:()=>this.interact(),stop:()=>{this.moveTarget=null;this.pendingTalk=-1;},toast:t=>this.toast(t)});
   private openStreetLife():void{void import('../ui/StreetLifePanel').then(m=>m.showStreetLife(this.modal,this.sim,(x,y)=>{this.moveTarget={x,y};this.pendingTalk=-1;this.renderer.cam.follow=this.sim.playerId;this.setSpeed(1);}));}
-  private liveCameras=new LiveCameras();
-  private openLiveCameras():void{this.liveCameras.show(this.sim.world.mapped?.origin);}
   private openLiveCity():void{this.modal.show('Christchurch · live city',[this.cityPanel.render()]);}
   private elevationCredit=h('a.aerial-credit.elevation-credit',{href:'https://open-meteo.com/en/docs/elevation-api',target:'_blank',rel:'noopener',text:'Elevation: Copernicus DEM · Open-Meteo'});
   private aerialCredit=h('a.aerial-credit',{href:'https://gisimagery.ecan.govt.nz/arcgis/rest/services/Imagery/Latest_Imagery/ImageServer',target:'_blank',rel:'noopener',text:'Aerial: Canterbury Maps · CC BY 4.0'});
@@ -1495,7 +1492,6 @@ export class Game {
       command("Life & upgrades", "◆", () => this.lifePhone.show()),
       command("City map", "▦", () => this.minimap.toggle()),
       command('Live city','◉',()=>this.openLiveCity(), '.dock-secondary'),
-      command('Live cameras','▣',()=>this.openLiveCameras(), '.dock-secondary'),
       command("Casino", "♠", () => { this.pausedBefore = this.clock.paused; this.casino.show(); }, ".casino-launch.dock-secondary"),
       command("Strip club", "♥", () => { this.pausedBefore = this.clock.paused; this.club.show("strip"); }, ".dock-secondary"),
       command("Daily life", "☀", () => this.cityLifePanel.show()),

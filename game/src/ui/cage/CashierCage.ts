@@ -1925,7 +1925,7 @@ export function createCage(host: CageHost): CageView {
     // =========================================================================
     // 9. CASINO ECONOMY: every chip on the felt is a chip in the player's balance (host.chips())
     // =========================================================================
-    const state = { mode: 'buy', buyAmount: 1000, sellAmount: 'ALL', markerAmount: 1000 };
+    const state = { mode: 'buy', buyAmount: 100, sellAmount: 'ALL', markerAmount: 1000 };
     const money = (n) => '$' + Math.floor(n).toLocaleString('en-NZ');
     // Chips under $10 (and anything past the felt's chip cap) are held in the cage tray, not drawn.
     let dust = 0, busyUntil = 0;
@@ -2487,10 +2487,10 @@ export function createCage(host: CageHost): CageView {
       const cta = (text, tone, fn) => { const b = el('button', 'cage-cta t-' + tone, text); b.type = 'button'; b.addEventListener('click', fn); return b; };
 
       if (state.mode === 'buy') {
-        elActionStrip.append(pills([100, 500, 1000, 5000, 'MAX'], 'buyAmount', 'emerald'),
+        elActionStrip.append(pills([25, 100, 500, 1000, 5000, 'MAX'], 'buyAmount', 'emerald'),
           cta(state.buyAmount === 'MAX' ? 'Buy max' : `Buy $${state.buyAmount.toLocaleString()}`, 'emerald', executeBuy));
       } else if (state.mode === 'sell') {
-        elActionStrip.append(pills([100, 500, 1000, 5000, 'ALL'], 'sellAmount', 'brass'),
+        elActionStrip.append(pills([25, 100, 500, 1000, 5000, 'ALL'], 'sellAmount', 'brass'),
           cta(state.sellAmount === 'ALL' ? 'Cash out all' : `Cash out $${state.sellAmount.toLocaleString()}`, 'brass', executeCashOut));
       } else if (state.mode === 'marker') {
         const acts = el('div', 'cage-acts');

@@ -20,6 +20,7 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import type { Character } from "../../entities/types";
 import { GRAVITY, gravityScale } from "../../physics/PhysicsWorld";
 import { aggregate, PROPS, type Owned, type Shoot } from "./ClubProps";
+import { createCarryGun, type CarryHooks } from "./CarryGun";
 import { applyDance, autoMove, DANCES } from "./Dances";
 import { buildMosaic, applyOutfit, applyRoutine, resetPose, paintBillboard, OUTFITS, ROUTINES, type Mosaic, type Routine, type Role, type DrawFn } from "./Mosaic3D";
 
@@ -48,6 +49,8 @@ export interface Club3D {
   booth(on: boolean, name?: string, kind?: string): void;
   setDance(name: string, idx: number): void; getDance(name: string): number;
   setView(preset: string): void; sink: { take(k: string, x: number, y: number, n: number, o: EmitOpts): boolean; creature(k: string, secs: number): boolean; note(k: string, n: number): void };
+  /** Carry the money gun yourself: walk the floor, aim at the dancers, hold to fire. */
+  carry(on: boolean, hooks?: CarryHooks): void; aim(nx: number, ny: number): void; trigger(on: boolean): void; carrying(): boolean; aimingAt(): string;
   litter(): number; dispose(): void;
 }
 
@@ -98,7 +101,7 @@ function neonTex(text: string, hex: string): THREE.CanvasTexture {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 
-interface Dancer { dance: number; m: Mosaic; slot: THREE.Vector3; pole: boolean; routine: Routine; outfit: string; needsStage: boolean; pos: THREE.Vector3; hop: number; scoop: number }
+interface Dancer { recoil: number; rdx: number; rdz: number; dance: number; m: Mosaic; slot: THREE.Vector3; pole: boolean; routine: Routine; outfit: string; needsStage: boolean; pos: THREE.Vector3; hop: number; scoop: number }
 interface Npc { st: string; m: Mosaic; base: THREE.Vector3; pos: THREE.Vector3; ph: number; fall: number; face: number; i: number }
 interface Critter { k: string; g: THREE.Group; until: number; dir: number; x: number; z: number; age: number; take: number }
 interface Stool { g: THREE.Group; tilt: number; until: number }
@@ -253,7 +256,7 @@ export async function mountClub3D(o: Club3DOptions): Promise<Club3D> {
   const saved: Record<string, { routine: Routine; outfit: string; dance?: number }> = (() => { try { return JSON.parse(localStorage.getItem("club3d.styles") ?? "{}"); } catch { return {}; } })();
   const dancers: Dancer[] = o.roster.map((r, i) => {
     const m = buildMosaic(takeChar(true, hashOf(r.name)), "dancer", r.name, o.accent); const slot = SLOTS[i % SLOTS.length], st = saved[r.name];
-    const d: Dancer = { dance: st?.dance ?? (r.pole || i < 3 ? -1 : -2), m, slot, pole: r.pole || i < 3, routine: st?.routine ?? DEFAULT_R[i % 5], outfit: st?.outfit ?? "own", needsStage: r.needsStage, pos: slot.clone(), hop: 0, scoop: 0 };
+    const d: Dancer = { recoil: 0, rdx: 0, rdz: 0, dance: st?.dance ?? (r.pole || i < 3 ? -1 : -2), m, slot, pole: r.pole || i < 3, routine: st?.routine ?? DEFAULT_R[i % 5], outfit: st?.outfit ?? "own", needsStage: r.needsStage, pos: slot.clone(), hop: 0, scoop: 0 };
     m.root.position.copy(slot); scene.add(m.root); applyOutfit(m, d.outfit); return d;
   });
   const mkNpc = (role: Role, x: number, z: number, y = 0, face = 0, name = ""): Npc => { const m = buildMosaic(takeChar(false, Math.floor(rnd(0, 999))), role, name || role, o.accent); m.root.position.set(x, y, z); m.root.rotation.y = face; scene.add(m.root); return { st: "idle", m, base: new THREE.Vector3(x, y, z), pos: new THREE.Vector3(x, y, z), ph: rnd(0, TAU), fall: 0, face, i: 0 }; };
@@ -265,6 +268,30 @@ export async function mountClub3D(o: Club3DOptions): Promise<Club3D> {
   const cleaner = mkNpc("cleaner", EXIT.x, EXIT.z, 0, 0, "Staff"); cleaner.m.root.visible = false;
   const boxes: Record<SpotId, THREE.Box3> = { dj: new THREE.Box3(), vip: new THREE.Box3(), bar: new THREE.Box3(), bouncer: new THREE.Box3() };
   scene.updateMatrixWorld(true); (Object.keys(hotspots) as SpotId[]).forEach((k) => hotspots[k].forEach((ob) => boxes[k].union(new THREE.Box3().setFromObject(ob))));
+
+  // ------------------------------------------------------------------ carried money gun
+  let carryHooks: CarryHooks | null = null, carryFig: Mosaic | null = null;
+  const carryGun = createCarryGun({
+    scene, camera, accent: o.accent, floorY: surfaceY, blocked: (x, z) => surfaceY(x, z) > 0,
+    targets: () => dancers.filter((d) => d.m.root.visible).map((d) => ({ name: d.m.name, base: d.m.root.position, chest: new THREE.Vector3(d.m.root.position.x, d.m.root.position.y + 1.25, d.m.root.position.z), radius: 0.42, height: 1.95 })),
+    burst: (p, n) => { for (let i = 0; i < n * 2; i++) spawn("conf", p.x, p.y, p.z, rnd(-1, 1), rnd(0.3, 1.4), rnd(-1, 1), colOf("#ffd27a"), 0, 3, 0.5); },
+    miss: (p, v) => { for (let i = 0; i < 3; i++) spawn("bill", p.x + rnd(-0.1, 0.1), p.y + 0.05, p.z + rnd(-0.1, 0.1), rnd(-1.2, 1.2), rnd(0.4, 1.4), rnd(-1.2, 1.2), colOf("#7dcf94"), v, 60); },
+    hit: (name, p, dir, v) => {
+      const d = dancers.find((q) => q.m.name === name); if (!d) return;
+      // her body takes it: knocked back along the shot, flashed, doubled over, and the cash bursts off her
+      d.recoil = 1; d.rdx = dir.x; d.rdz = dir.z; d.scoop = Math.max(d.scoop, 0.6);
+      for (let i = 0; i < 12; i++) spawn("bill", p.x, p.y, p.z, dir.x * rnd(0.5, 2.5) + rnd(-2, 2), rnd(0.6, 3), dir.z * rnd(0.5, 2.5) + rnd(-2, 2), colOf(["#7dcf94", "#e5c566", "#9ad0ff"][i % 3]), v, 60);
+      for (let i = 0; i < 6; i++) spawn("coin", p.x, p.y, p.z, rnd(-2.2, 2.2), rnd(1, 3.4), rnd(-2.2, 2.2), colOf("#f6b62c"), v * 2, 60);
+      for (let i = 0; i < 14; i++) spawn("conf", p.x, p.y, p.z, rnd(-2, 2), rnd(0.8, 3), rnd(-2, 2), colOf(["#ff4fa0", "#ffd27a", "#9ad0ff"][i % 3]), 0, 3, 0.6);
+      popT = 0.25; carryHooks?.tipped(name, v);
+      if (Math.random() < 0.35) o.news(`${name.toUpperCase().split(" ")[0]}|${["Ow! My ribs! They were loose notes!", "Hey! That's a lot of money to the face!", "Ooof. Worth it. Do it again.", "I felt that in my soul and my knees."][Math.floor(Math.random() * 4)]}`);
+    },
+    setFigure: (on, p, moving, t) => {
+      if (!carryFig && on) { const you = o.cast.find((c) => c.tier === "player") ?? o.cast[0] ?? null; carryFig = buildMosaic(you, "patron", "You", o.accent); scene.add(carryFig.root); }
+      if (!carryFig) return; carryFig.root.visible = on; if (!on) return;
+      carryFig.root.position.set(p.x, p.y + (moving ? Math.abs(Math.sin(t * 9)) * 0.04 : 0), p.z); carryFig.rig.hips.visible = false; paintBillboard(carryFig, o.draw, t, moving ? "dance" : "idle", 0, undefined, 0.09);
+    },
+  });
 
   // ------------------------------------------------------------------ state of the room
   const v3 = new THREE.Vector3();
@@ -386,7 +413,7 @@ export async function mountClub3D(o: Club3DOptions): Promise<Club3D> {
     // camera: tween, cinematic orbit, shake
     if (tween) { tween.k = Math.min(1, tween.k + dt * 1.8); const e = 1 - Math.pow(1 - tween.k, 3); camera.position.lerpVectors(tween.p0, tween.p1, e); controls.target.lerpVectors(tween.t0, tween.t1, e); if (tween.k >= 1) tween = null; }
     else if (cine) { const a = elapsed * 0.2; camera.position.set(Math.sin(a) * 9, 3 + Math.sin(elapsed * 0.4) * 0.6, Math.cos(a) * 8 + 1); controls.target.set(0, 1.6, 0.6); }
-    controls.update(); const sh = !reduce && fx.shake > 0 ? fx.shake * 0.08 : 0; if (sh) camera.position.add(v3.set(rnd(-sh, sh), rnd(-sh, sh), 0));
+    if (carryGun.active) carryGun.update(dt, f.t); else controls.update(); const sh = !reduce && fx.shake > 0 ? fx.shake * 0.08 : 0; if (sh) camera.position.add(v3.set(rnd(-sh, sh), rnd(-sh, sh), 0));
 
     // ---- consequences: heat, scorch, sprinklers
     const flaming = fx.flames > 0; if (flaming) { heat += dt * 0.15; flameOn += dt; } if (heat < 0.8) heat += dt * agg.heat * 0.012; heat = Math.max(0, heat - dt * (0.05 + agg.cool * 0.05));
@@ -450,6 +477,8 @@ export async function mountClub3D(o: Club3DOptions): Promise<Club3D> {
       if (info && info.hit > 0) { d.scoop = Math.max(d.scoop, info.hit); } d.scoop = Math.max(0, d.scoop - dt * 0.9); d.hop = Math.max(0, d.hop - dt * 1.2);
       if (d.scoop > 0 && !f.showing && routine !== "poleSpin") { const s = Math.min(1, d.scoop * 2); m.rig.chest.rotation.x += 0.7 * s; m.rig.armR.shoulder.rotation.set(-0.3 - 1.4 * s, 0, -0.2); m.rig.hips.position.y -= 0.08 * s; }
       m.rig.hips.position.y += Math.abs(Math.sin(d.hop * 12)) * d.hop * 0.4;
+      // hit by a carried shot: thrown back along the line of fire, dropped at the knees, then she gets her feet back
+      if (d.recoil > 0) { const k = d.recoil; m.root.position.x += d.rdx * 0.34 * k; m.root.position.z += d.rdz * 0.34 * k; m.rig.hips.position.y -= 0.14 * k; if (m.bb) m.bb.sprite.material.rotation = d.rdx * 0.32 * k * (Math.sin(f.t * 40) > 0 ? 1 : 0.7); d.recoil = Math.max(0, d.recoil - dt * 1.5); } else if (m.bb && m.bb.sprite.material.rotation !== 0) m.bb.sprite.material.rotation = 0;
       if (fear) { m.rig.armL.shoulder.rotation.set(-2.5, 0, 0.5); m.rig.armR.shoulder.rotation.set(-2.5, 0, -0.5); m.rig.armL.elbow.rotation.x = -1.8; m.rig.armR.elbow.rotation.x = -1.8; }
       if (wet && Math.floor(f.t) % 9 === idx) { m.rig.hips.rotation.z += Math.sin(elapsed * 14) * 0.12; }
       // a tipped dancer picks up what is near her
@@ -547,7 +576,7 @@ export async function mountClub3D(o: Club3DOptions): Promise<Club3D> {
     const lt = clamp(0.22 + 0.78 * lightsOut, 0.15, 1), tintC = alarm > 0 ? tmpC.setRGB(1, 0.55, 0.55) : fx.uv > 0 ? tmpC.setRGB(0.75, 0.5, 1) : (fx.wash > 0 || fx.kaleido > 0) ? hue.setHSL((f.t * 0.2) % 1, 0.5, 0.8) : tmpC.setRGB(1, 0.94, 0.96);
     const paintAll = (m: Mosaic, doing: string, fr: number, col: string | undefined, every: number): void => { paintBillboard(m, o.draw, f.t, doing, fr, col, every); const b = m.bb; if (!b) return; b.sprite.material.color.copy(tintC).multiplyScalar(lt); b.sprite.position.y = Math.max(-0.4, m.rig.hips.position.y - 0.94); b.sprite.material.rotation = m.root.rotation.x; };
     const fr = fear ? 0.7 : 0;
-    for (const d of vis) paintAll(d.m, d.routine === "stagePose" ? "idle" : "dance", fr, d.m.outfitId === "own" ? undefined : "#" + d.m.outfit.color.getHexString(), 0.07);
+    for (const d of vis) { paintAll(d.m, d.recoil > 0.3 ? "hurt" : d.routine === "stagePose" ? "idle" : "dance", fr, d.m.outfitId === "own" ? undefined : "#" + d.m.outfit.color.getHexString(), d.recoil > 0.3 ? 0.03 : 0.07); if (d.recoil > 0 && d.m.bb) d.m.bb.sprite.material.color.setRGB(1, 1 - 0.55 * d.recoil, 1 - 0.55 * d.recoil); }
     for (const p of patrons) { const st = p.st; paintAll(p.m, ["cheer", "hype", "wave", "chant", "mosh", "conga", "drunk"].includes(st) ? "dance" : "idle", st === "cower" || st === "flee" ? 0.7 : 0, undefined, 0.14); }
     paintAll(djN.m, "dance", 0, undefined, 0.16); paintAll(bartender.m, "talk", 0, undefined, 0.16); paintAll(bouncer.m, "idle", 0, undefined, 0.2); paintAll(mc.m, "talk", 0, undefined, 0.16); fam.forEach((n) => paintAll(n.m, "sit", 0, undefined, 0.25)); if (cleaner.m.root.visible) paintAll(cleaner.m, "idle", 0, undefined, 0.14);
     hostNpcs.forEach((h) => paintAll(h.m, "talk", 0, undefined, 0.22));
@@ -600,6 +629,8 @@ export async function mountClub3D(o: Club3DOptions): Promise<Club3D> {
       }
     },
     sink, litter: costs, setProps,
+    carry: (on, h) => { if (on && h) { carryHooks = h; controls.enabled = false; carryGun.start(h); } else { carryGun.stop(); controls.enabled = true; carryHooks = null; api.setView("free"); } },
+    aim: (nx, ny) => carryGun.aim(nx, ny), trigger: (on) => carryGun.trigger(on), carrying: () => carryGun.active, aimingAt: () => carryGun.aimingAt,
     dispose: () => { controls.dispose(); renderer.dispose(); },
   };
   return api;
