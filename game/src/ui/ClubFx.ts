@@ -7,6 +7,7 @@ export type FxKind = "bill" | "coin" | "confetti" | "streamer" | "balloon" | "bu
 interface P { k: FxKind; x: number; y: number; vx: number; vy: number; ay: number; r: number; vr: number; age: number; life: number; col: string; sz: number; w: number }
 interface Creature { k: "raccoon" | "flamingo" | "chicken" | "pigeon" | "ghost"; x: number; y: number; vx: number; age: number; until: number }
 export interface Target { k: "piggy" | "atm" | "pukeko" | "chest" | "bauble"; x: number; y: number; vx: number; hp: number; max: number; r: number; pay: number; flash: number }
+export interface FxSink { take(k: FxKind, x: number, y: number, n: number, o: { sx?: number; sy?: number; vx?: number; vy?: number; life?: number; cols?: readonly string[]; sz?: number }): boolean; creature(k: string, secs: number): boolean; note(k: FxKind, n: number): void }
 export type CrowdMode = "wave" | "chant" | "mosh" | "conga" | "drunk" | "cheer" | "";
 export interface FxApi {
   W: number; H: number;
@@ -21,6 +22,8 @@ const pick = <T>(a: readonly T[]): T => a[Math.floor(Math.random() * a.length)];
 const PARTY = ["#c74d57", "#f6b62c", "#7b2cff", "#1fd1b8", "#f6f4f3", "#3d8bff", "#ff7a3d", "#7dcf94"];
 
 export class ClubFx {
+  /** When a 3D room is drawing the scene it takes the physical stuff (cash, paper, creatures) and the world lighting. */
+  sink: FxSink | null = null;
   parts: P[] = []; creatures: Creature[] = []; targets: Target[] = [];
   strobe = 0; blackout = 0; wash = 0; washCol = "#c74d57"; lasers = 0; disco = 0; spot = 0; spotX = 480; uv = 0; kaleido = 0; fog = 0; bolt = 0; boltX = 0; shake = 0; slowmo = 0;
   crowd: CrowdMode = ""; crowdUntil = 0; flash = 0; banner = ""; bannerUntil = 0; flames = 0; cooldown = new Map<string, number>(); fired = 0;
@@ -30,6 +33,7 @@ export class ClubFx {
   setCrowd(m: CrowdMode, until: number): void { this.crowd = m; this.crowdUntil = until; }
 
   emit(k: FxKind, x: number, y: number, n: number, o: { sx?: number; sy?: number; vx?: number; vy?: number; ay?: number; life?: number; cols?: readonly string[]; sz?: number } = {}): void {
+    if (this.sink) { this.sink.note(k, n); if (this.sink.take(k, x, y, n, o)) return; }
     for (let i = 0; i < n && this.parts.length < 1400; i++) {
       const col = pick(o.cols ?? PARTY), sz = (o.sz ?? 1) * rnd(0.8, 1.25);
       let vx = (o.vx ?? 0) + rnd(-1, 1) * (o.sx ?? 40), vy = (o.vy ?? 0) + rnd(-1, 1) * (o.sy ?? 40), ay = o.ay ?? 220, life = o.life ?? rnd(2, 4);
@@ -41,7 +45,7 @@ export class ClubFx {
     for (let i = 0; i < n; i++) { const a = rnd(0, 6.283), s = rnd(0.3, 1) * speed; this.emit(k, x, y, 1, { ...o, vx: Math.cos(a) * s, vy: Math.sin(a) * s, sx: 0, sy: 0 }); }
   }
   say(t: string, secs = 3): void { this.banner = t; this.bannerUntil = performance.now() / 1000 + secs; }
-  creature(k: Creature["k"], t: number, secs = 14): void { const dir = Math.random() < 0.5 ? 1 : -1; this.creatures.push({ k, x: dir > 0 ? -30 : 990, y: k === "flamingo" ? 300 : k === "pigeon" ? 120 : k === "ghost" ? 200 : 468, vx: dir * (k === "raccoon" ? 150 : 55), age: 0, until: t + secs }); }
+  creature(k: Creature["k"], t: number, secs = 14): void { if (this.sink?.creature(k, secs)) return; const dir = Math.random() < 0.5 ? 1 : -1; this.creatures.push({ k, x: dir > 0 ? -30 : 990, y: k === "flamingo" ? 300 : k === "pigeon" ? 120 : k === "ghost" ? 200 : 468, vx: dir * (k === "raccoon" ? 150 : 55), age: 0, until: t + secs }); }
   spawnTarget(k: Target["k"]): void {
     const dir = Math.random() < 0.5 ? 1 : -1, def: Record<Target["k"], { r: number; hp: number; pay: number; y: number; sp: number }> = { piggy: { r: 26, hp: 3, pay: 6, y: 170, sp: 70 }, atm: { r: 28, hp: 5, pay: 12, y: 215, sp: 40 }, pukeko: { r: 22, hp: 4, pay: 25, y: 140, sp: 110 }, chest: { r: 26, hp: 6, pay: 40, y: 240, sp: 30 }, bauble: { r: 18, hp: 1, pay: 3, y: 120, sp: 90 } };
     const d = def[k]; this.targets.push({ k, x: dir > 0 ? -30 : 990, y: d.y + rnd(-20, 40), vx: dir * d.sp, hp: d.hp, max: d.hp, r: d.r, pay: d.pay, flash: 0 });
@@ -72,25 +76,25 @@ export class ClubFx {
     for (const g of this.targets) { g.x += g.vx * dt; g.flash = Math.max(0, g.flash - dt); }
     this.targets = this.targets.filter((g) => g.hp > 0 && g.x > -60 && g.x < 1020);
     for (const k of ["strobe", "blackout", "wash", "lasers", "disco", "spot", "uv", "kaleido", "fog", "bolt", "shake", "slowmo", "flash", "flames"] as const) this[k] = Math.max(0, this[k] - dt);
-    if (this.flames > 0) for (const x of [190, 330, 630, 770]) this.emit("flame", x + rnd(-8, 8), 335, 2, { vy: -60, sx: 20, sy: 30, sz: 1.3 });
-    if (this.fog > 0 && Math.random() < dt * 25) this.emit("smoke", rnd(250, 710), 330, 1, { sx: 30, sy: 5, sz: 2.2 });
+    if (this.flames > 0 && !this.sink) for (const x of [190, 330, 630, 770]) this.emit("flame", x + rnd(-8, 8), 335, 2, { vy: -60, sx: 20, sy: 30, sz: 1.3 });
+    if (this.fog > 0 && !this.sink && Math.random() < dt * 25) this.emit("smoke", rnd(250, 710), 330, 1, { sx: 30, sy: 5, sz: 2.2 });
   }
 
   /** Lights and screen-wide effects, drawn over the stage. */
-  drawOver(g: CanvasRenderingContext2D, t: number, W: number, H: number): void {
-    if (this.uv > 0) { g.fillStyle = "rgba(40,0,90,.5)"; g.fillRect(0, 0, W, H); }
-    if (this.wash > 0) { g.globalCompositeOperation = "lighter"; g.globalAlpha = Math.min(0.5, this.wash * 0.4); g.fillStyle = `hsl(${(t * 90) % 360},90%,50%)`; g.fillRect(0, 0, W, H); g.globalAlpha = 1; g.globalCompositeOperation = "source-over"; }
-    if (this.kaleido > 0) { g.globalAlpha = 0.18; for (let k = 0; k < 10; k++) { const a = t * 0.6 + k * 0.63; g.fillStyle = `hsl(${(k * 36 + t * 60) % 360},90%,55%)`; g.beginPath(); g.moveTo(W / 2, H / 2); g.lineTo(W / 2 + Math.cos(a) * 700, H / 2 + Math.sin(a) * 700); g.lineTo(W / 2 + Math.cos(a + 0.3) * 700, H / 2 + Math.sin(a + 0.3) * 700); g.fill(); } g.globalAlpha = 1; }
-    if (this.lasers > 0) { g.lineWidth = 2; for (let k = 0; k < 9; k++) { g.strokeStyle = k % 2 ? "rgba(80,255,160,.85)" : "rgba(255,60,120,.85)"; g.shadowColor = g.strokeStyle as string; g.shadowBlur = 8; const a = Math.sin(t * 1.7 + k) * 0.9 + (k - 4) * 0.22; g.beginPath(); g.moveTo(480 + (k - 4) * 60, 0); g.lineTo(480 + (k - 4) * 60 + Math.sin(a) * 900, 520); g.stroke(); } g.shadowBlur = 0; }
-    if (this.disco > 0) {
+  drawOver(g: CanvasRenderingContext2D, t: number, W: number, H: number, hudOnly = false): void {
+    if (!hudOnly && this.uv > 0) { g.fillStyle = "rgba(40,0,90,.5)"; g.fillRect(0, 0, W, H); }
+    if (!hudOnly && this.wash > 0) { g.globalCompositeOperation = "lighter"; g.globalAlpha = Math.min(0.5, this.wash * 0.4); g.fillStyle = `hsl(${(t * 90) % 360},90%,50%)`; g.fillRect(0, 0, W, H); g.globalAlpha = 1; g.globalCompositeOperation = "source-over"; }
+    if (!hudOnly && this.kaleido > 0) { g.globalAlpha = 0.18; for (let k = 0; k < 10; k++) { const a = t * 0.6 + k * 0.63; g.fillStyle = `hsl(${(k * 36 + t * 60) % 360},90%,55%)`; g.beginPath(); g.moveTo(W / 2, H / 2); g.lineTo(W / 2 + Math.cos(a) * 700, H / 2 + Math.sin(a) * 700); g.lineTo(W / 2 + Math.cos(a + 0.3) * 700, H / 2 + Math.sin(a + 0.3) * 700); g.fill(); } g.globalAlpha = 1; }
+    if (!hudOnly && this.lasers > 0) { g.lineWidth = 2; for (let k = 0; k < 9; k++) { g.strokeStyle = k % 2 ? "rgba(80,255,160,.85)" : "rgba(255,60,120,.85)"; g.shadowColor = g.strokeStyle as string; g.shadowBlur = 8; const a = Math.sin(t * 1.7 + k) * 0.9 + (k - 4) * 0.22; g.beginPath(); g.moveTo(480 + (k - 4) * 60, 0); g.lineTo(480 + (k - 4) * 60 + Math.sin(a) * 900, 520); g.stroke(); } g.shadowBlur = 0; }
+    if (!hudOnly && this.disco > 0) {
       const k = Math.min(1, (this.disco) / 1.2), y = 62 * Math.min(1, (6 - this.disco + 0.1) / 1) ;
       void k; g.fillStyle = "#cfd6dc"; g.beginPath(); g.arc(480, Math.min(80, y + 30), 26, 0, 6.283); g.fill(); g.strokeStyle = "#667"; g.beginPath(); g.moveTo(480, 0); g.lineTo(480, Math.min(80, y + 30) - 26); g.stroke();
       for (let i = 0; i < 26; i++) { const a = t * 0.9 + i * 0.52, rr = 80 + (i % 5) * 70; g.fillStyle = `hsla(${(i * 47) % 360},90%,70%,.55)`; g.beginPath(); g.arc(480 + Math.cos(a) * rr * 1.3, 250 + Math.sin(a * 1.3) * rr * 0.55, 6, 0, 6.283); g.fill(); }
     }
-    if (this.spot > 0) { const gr = g.createRadialGradient(this.spotX, 290, 10, this.spotX, 290, 120); gr.addColorStop(0, "rgba(255,244,200,.5)"); gr.addColorStop(1, "rgba(255,244,200,0)"); g.fillStyle = gr; g.fillRect(this.spotX - 140, 120, 280, 260); }
-    if (this.blackout > 0) { const on = this.strobe > 0 || (Math.floor(t * 9) % 5 === 0); g.fillStyle = `rgba(0,0,0,${on ? 0.6 : 0.93})`; g.fillRect(0, 0, W, H); }
-    if (this.strobe > 0 && Math.floor(t * 14) % 2 === 0) { g.fillStyle = "rgba(255,255,255,.55)"; g.fillRect(0, 0, W, H); }
-    if (this.bolt > 0) { g.strokeStyle = "#f6f4ff"; g.lineWidth = 4; g.shadowColor = "#bcd"; g.shadowBlur = 16; g.beginPath(); let x = this.boltX, y = 0; g.moveTo(x, y); while (y < 330) { x += rnd(-26, 26); y += rnd(22, 40); g.lineTo(x, y); } g.stroke(); g.shadowBlur = 0; g.fillStyle = `rgba(230,235,255,${Math.min(0.55, this.bolt * 1.4)})`; g.fillRect(0, 0, W, H); }
+    if (!hudOnly && this.spot > 0) { const gr = g.createRadialGradient(this.spotX, 290, 10, this.spotX, 290, 120); gr.addColorStop(0, "rgba(255,244,200,.5)"); gr.addColorStop(1, "rgba(255,244,200,0)"); g.fillStyle = gr; g.fillRect(this.spotX - 140, 120, 280, 260); }
+    if (!hudOnly && this.blackout > 0) { const on = this.strobe > 0 || (Math.floor(t * 9) % 5 === 0); g.fillStyle = `rgba(0,0,0,${on ? 0.6 : 0.93})`; g.fillRect(0, 0, W, H); }
+    if (!hudOnly && this.strobe > 0 && Math.floor(t * 14) % 2 === 0) { g.fillStyle = "rgba(255,255,255,.55)"; g.fillRect(0, 0, W, H); }
+    if (!hudOnly && this.bolt > 0) { g.strokeStyle = "#f6f4ff"; g.lineWidth = 4; g.shadowColor = "#bcd"; g.shadowBlur = 16; g.beginPath(); let x = this.boltX, y = 0; g.moveTo(x, y); while (y < 330) { x += rnd(-26, 26); y += rnd(22, 40); g.lineTo(x, y); } g.stroke(); g.shadowBlur = 0; g.fillStyle = `rgba(230,235,255,${Math.min(0.55, this.bolt * 1.4)})`; g.fillRect(0, 0, W, H); }
     if (this.flash > 0) { g.fillStyle = `rgba(255,255,255,${Math.min(0.5, this.flash * 1.4)})`; g.fillRect(0, 0, W, H); }
     const nowS = performance.now() / 1000;
     if (nowS < this.bannerUntil && this.banner) { g.font = "900 34px 'Big Shoulders Display', Impact, sans-serif"; g.textAlign = "center"; g.fillStyle = "#fff"; g.shadowColor = "#c74d57"; g.shadowBlur = 16; g.globalAlpha = Math.min(1, (this.bannerUntil - nowS) * 2); g.fillText(this.banner, W / 2, 150); g.globalAlpha = 1; g.shadowBlur = 0; }

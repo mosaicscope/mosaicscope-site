@@ -1,11 +1,14 @@
 import {cabinet,type CabinetHost,type CabinetKind} from './VenueCabinet';
-import {vipPanel,ADULT_LINES,PERSONALITY} from './ClubVip';
+import {vipPanel,cellarPanel,ADULT_LINES,PERSONALITY} from './ClubVip';
+import { DANCES } from './club3d/Dances';
 import {MOVES,evalMove} from './ClubMoves';
 import {hospitality,type HospitalityHost} from './VenueHospitality';
-import {pose as nativePose,solve,drawFigure} from '../render/StickFigure';
+import {pose as nativePose,solve,drawFigure,resetHdBudget} from '../render/StickFigure';
 import type {Character} from '../entities/types';
 import { h } from "./dom";
 import { ClubFx, ACTIONS, ACTION_GROUPS, AMMO, type AmmoId, type FxApi } from "./ClubFx";
+import type { Club3D, Frame as Frame3D } from "./club3d/Club3D";
+import { PROPS, TIERS, stackPrice, tierOf, loadProps, saveProps, aggregate } from "./club3d/ClubProps";
 import { THEMES, themeById, paintRoom, HAPPENINGS, FLIRTS, CHAPTERS, AFFINITY_STEPS, loadClub, saveClub, type Theme, type ClubSave } from "./ClubScenes";
 
 /**
@@ -251,6 +254,8 @@ export class Club {
   // live scene: effects, the room theme, the girls' memory
   private fx = new ClubFx(); private save: ClubSave = loadClub(); private theme: Theme = THEMES[0]; private nextTheme = 0; private nextHappen = 0; private ammo: AmmoId = "notes"; private tab = "fun"; private funGroup = "Cash"; private girl = "Velocity";
   private nextTarget = 0; private catwalkFrom = -1; private boosts = new Map<string, { what: string; until: number }>();
+  private props = loadProps(); private aggCache = aggregate(this.props); private propTier = 0;
+  private r3: Club3D | null = null; private r3Busy = false; private view = h("div.cl-view"); private dt = 0.016; private camView = "free";
   private paneEl: HTMLElement = h("div.cl-pane"); private tabsEl: HTMLElement = h("div.cl-tabs", { role: "tablist" });
 
   constructor(private host: ClubHost) {
@@ -293,6 +298,7 @@ export class Club {
       this.roomDeck = shuffle(ROOMS); this.doors = this.roomDeck.splice(0, 6);
       this.say(this.isMember() ? `DOORMAN|Good evening, ${this.host.playerName()}. Your monocle has been polished. Your reputation has not.` : "DOORMAN|" + VELVET_LINES[0]);
     } else this.say(this.ownsClub() ? pick(OWNER_LINES) : "MC|Welcome to the Pink Pukeko, Ōtautahi's third-classiest establishment!");
+    this.fx.sink = venue === "strip" && this.r3 ? this.r3.sink : null; if (venue === "strip") void this.mount3D();
     this.el.classList.remove("hidden");
     this.render();
     cancelAnimationFrame(this.raf);
@@ -300,6 +306,27 @@ export class Club {
     this.raf = requestAnimationFrame(this.loop);
     (this.el.querySelector(".cl-x") as HTMLElement | null)?.focus();
   }
+
+  /** The 3D room loads on demand. No WebGL, or any failure, and the classic 2D stage carries on exactly as before. */
+  private async mount3D(): Promise<void> {
+    if (this.r3) { this.themeTo3D(); this.r3.setProps(this.props); return; }
+    if (this.r3Busy) return; this.r3Busy = true;
+    try {
+      const probe = document.createElement("canvas"); if (!probe.getContext("webgl2") && !probe.getContext("webgl")) return;
+      const { mountClub3D } = await import("./club3d/Club3D");
+      const cast0 = this.host.people?.() ?? [];
+      const draw = (c: Character | null, g: CanvasRenderingContext2D, x: number, y: number, k: number, t: number, doing: string, o: { fear: number; color?: string; glam: boolean }): void => {
+        const base = c ?? cast0[0]; if (!base) return;
+        const ch = { ...base, look: { ...base.look, main: true, glam: o.glam, color: o.color ?? base.look.color, top: o.glam ? ("dress" as const) : base.look.top }, emo: { fear: o.fear, frustration: 0, confidence: 0.9, mood: 0.75, composure: 1 } };
+        solve(nativePose(doing === "dance" ? "dance" : doing === "sit" ? "sit" : doing === "talk" ? "talk" : "idle", "normal", t, t, 0, 0), x, y, k, 1); drawFigure(g, ch, x, y, k, 1, t, 0, 1);
+      };
+      const r3 = await mountClub3D({ draw, cast: this.host.people?.() ?? [], roster: this.dancers.map((d) => ({ name: d.name, pole: !!d.pole, needsStage: !!d.needsStage })), accent: this.theme.accent,
+        news: (spec) => this.say(spec), swept: (v) => { if (this.ownsClub()) this.till += v * 0.3; } });
+      this.r3 = r3; if (this.venue === "strip" && this.open) { this.fx.sink = r3.sink; this.themeTo3D(); r3.setProps(this.props); this.render(); }
+    } catch (err) { console.warn("[club] 3D room unavailable, using the classic stage", err); this.r3 = null; this.fx.sink = null; } finally { this.r3Busy = false; }
+  }
+  private themeTo3D(): void { const th = this.theme; this.r3?.setTheme(th.id === "classic" ? "THE PINK PUKEKO" : th.name, th.accent, th.beams, th.sky, th.floor); }
+  private stage3D(): boolean { return this.venue === "strip" && !!this.r3; }
 
   close(): void {
     if (!this.open) return;
@@ -323,7 +350,7 @@ export class Club {
   private ownsClub(): boolean { return this.host.owned(KEY.club); }
   private isMember(): boolean { return this.host.owned(KEY.member); }
   private hasUp(id: string): boolean { return this.host.owned("club.up." + id); }
-  private income(): number { return BASE_INCOME + UPGRADES.reduce((s, u) => s + (this.hasUp(u.id) ? u.inc : 0), 0); }
+  private income(): number { return BASE_INCOME + UPGRADES.reduce((s, u) => s + (this.hasUp(u.id) ? u.inc : 0), 0) + this.aggCache.income; }
   private canSpray(): boolean { return this.venue === "strip" && this.host.owned(KEY.gun) && this.mag >= this.note; }
   private djName(): string { return this.hasUp("dj") ? "DJ HOKEY POKEY" : "DJ KUMARA"; }
   private pay(n: number, what: string): boolean {
@@ -342,6 +369,7 @@ export class Club {
   }
 
   private speakerAt(who: string): { x: number; y: number } {
+    if (this.stage3D()) { const a = this.r3!.anchor(who); if (a) return a; }
     if (this.venue === "velvet") return who === "DOORMAN" ? { x: 80, y: 330 } : { x: 140, y: 350 };
     switch (who) {
       case "MC": return { x: 250, y: 278 };
@@ -355,6 +383,7 @@ export class Club {
   }
 
   private spots(): Spot[] {
+    if (this.stage3D()) { const L: Record<string, string> = { dj: "DJ booth", vip: "VIP booth", bar: "Bar", bouncer: "Bouncer" }; return this.r3!.spotRects().map((r) => ({ ...r, label: L[r.id] })); }
     if (this.venue === "strip") return [
       { id: "dj", label: "DJ booth", x: 25, y: 140, w: 180, h: 115 },
       { id: "vip", label: "VIP booth", x: 755, y: 130, w: 190, h: 130 },
@@ -411,12 +440,14 @@ export class Club {
       h("div.cl-bank", null, [h("span", { text: "Wallet" }), cash]),
       h("button.cl-x", { "aria-label": "Leave (Escape)", onclick: () => this.close(), text: "×" }),
     ]);
-    const stage = h("div.cl-stage", null, [this.cv, this.card ? this.cardEl() : null]);
+    let main: HTMLElement = this.cv; if (strip && this.r3) { this.view.replaceChildren(this.r3.el, this.cv); this.cv.classList.add("over"); main = this.view; } else this.cv.classList.remove("over");
+    const stage = h("div.cl-stage", null, [main, this.card ? this.cardEl() : null]);
     const left = h("div.cl-left", null, [stage, this.tickerEl, strip ? h("div.cl-row.cl-quick", null, [
       h("button.cl-btn.sm", { onclick: () => this.changeTheme() }, ["🎬 Next room"]),
       h("button.cl-btn.sm", { onclick: () => { HAPPENINGS[Math.floor(Math.random() * HAPPENINGS.length)].run(this.fx, this.api()); } }, ["🎲 Surprise me"]),
       h("span.cl-room", { text: this.theme.name }),
-    ]) : null]);
+      ...(this.r3 ? [["free", "🎥 Wide"], ["stage", "Stage"], ["pole", "Pole"], ["vip", "VIP"], ["dj", "DJ"], ["cine", "Cinematic"]].map(([id, label]) => h("button.cl-chip" + (this.camView === id ? ".on" : ""), { onclick: () => { this.camView = id; this.r3?.setView(id); this.render(); } }, [label])) : []),
+    ]) : null, strip && this.r3 ? cellarPanel(this.vipCtx(), this.popped) : null]);
     this.renderPane();
     const side = h("div.cl-side", null, [strip ? this.tabsEl : null, this.paneEl]);
     this.el.replaceChildren(h("div.cl-frame." + (strip ? "pink" : "velvet"), null, [head, h("div.cl-main", null, [left, side]),
@@ -427,10 +458,10 @@ export class Club {
     const strip = this.venue === "strip";
     this.live = { cash: this.live.cash };
     if (!strip) { this.paneEl.replaceChildren(this.velvetPanel()); return; }
-    const TABS: [string, string][] = [["fun", "🎆 Fun"], ["gun", "💸 Gun"], ["girls", "💋 Girls"], ["bar", "🍸 Bar"], ["club", "🏠 Club"]];
+    const TABS: [string, string][] = [["fun", "🎆 Fun"], ["gun", "💸 Gun"], ["girls", "💋 Girls"], ["props", "🪑 Props"], ["bar", "🍸 Bar"], ["club", "🏠 Club"]];
     this.tabsEl.replaceChildren(...TABS.map(([id, label]) => h("button.cl-tab" + (this.tab === id ? ".on" : ""), { role: "tab", "aria-selected": String(this.tab === id), onclick: () => { this.tab = id; this.renderPane(); } }, [label])));
     const body: (HTMLElement | null)[] = this.tab === "fun" ? [this.funPane()] : this.tab === "gun" ? [this.gunSection()] : this.tab === "girls" ? [this.girlsPane(), vipPanel(this.vipCtx())]
-      : this.tab === "bar" ? [h("div.cl-row", null, this.spots().map((s) => h("button.cl-btn.sm", { onclick: () => this.activate(s.id), text: s.label + (s.id === "dj" ? " · request $50" : s.id === "bar" ? " · L&P $14" : "") }))), hospitality(this.host), cabinet(this.host as unknown as CabinetHost)]
+      : this.tab === "props" ? [this.propsPane()] : this.tab === "bar" ? [h("div.cl-row", null, this.spots().map((s) => h("button.cl-btn.sm", { onclick: () => this.activate(s.id), text: s.label + (s.id === "dj" ? " · request $50" : s.id === "bar" ? " · L&P $14" : "") }))), hospitality(this.host), cabinet(this.host as unknown as CabinetHost)]
       : [this.ownSection(), this.roomSection()];
     this.paneEl.replaceChildren(...body.filter((x): x is HTMLElement => !!x));
     this.paneEl.scrollTop = 0;
@@ -489,6 +520,27 @@ export class Club {
     return h("section.cl-box.wide", null, gunBox);
   }
 
+  /** Fifty props. Buy as many copies as you like: each costs 35% more than the last and adds less than the one before. The more you have spent, the more excessive the shelf. */
+  private propsPane(): HTMLElement {
+    const cash = this.host.getCash(), spent = this.save.lifetime + this.spent + (this.props.__spent ?? 0), tier = tierOf(spent), a = this.aggCache;
+    const head = h("div.cl-stats", null, [h("span", { text: "Excess level" }), h("b", { text: TIERS[tier].name }), h("span", { text: "Spent in the club" }), h("b", { text: money(spent) })]);
+    const eff = h("p.cl-note", { text: `Props at work: +${money(a.income)}/s takings${this.ownsClub() ? "" : " (needs you to own the club)"} · hype floor ${Math.round(a.hype * 100)}% · tips x${(1 + a.tip).toFixed(2)} · calm ${a.calm.toFixed(1)} · ${Math.round(a.extinguish)} extinguisher shots · cleaning ${a.vac.toFixed(1)}/s${a.hosts ? " · " + Math.round(a.hosts) + " VIP hosts" : ""}` });
+    const chips = h("div.cl-chips", null, TIERS.map((t, i) => h("button.cl-chip" + (this.propTier === i ? ".on" : ""), { title: i > tier ? `Unlocks at ${money(t.at)} spent` : t.name, onclick: () => { this.propTier = i; this.renderPane(); } }, [(i > tier ? "🔒 " : "") + t.name])));
+    const grid = h("div.cl-acts", null, PROPS.filter((p) => p.tier === this.propTier).map((p) => {
+      const n = this.props[p.id] ?? 0, price = stackPrice(p, n), locked = p.tier > tier;
+      return h("button.cl-act", { title: p.blurb, disabled: locked || cash < price, onclick: () => this.buyProp(p.id) }, [h("span.ic", { text: p.icon }), h("span.nm", { text: p.name + (n ? ` x${n}` : "") }), h("span.pr", { text: locked ? "locked" : money(price) })]);
+    }));
+    const sel = PROPS.filter((p) => p.tier === this.propTier);
+    return h("section.cl-box.wide", null, [h("h3", { text: "Props" }), head, eff, chips, grid, h("p.cl-note", { text: sel.map((p) => `${p.icon} ${p.name}: ${p.blurb}`).join("  ") })]);
+  }
+  private buyProp(id: string): void {
+    const p = PROPS.find((x) => x.id === id); if (!p) return; const n = this.props[id] ?? 0, price = stackPrice(p, n);
+    if (p.tier > tierOf(this.save.lifetime + this.spent + (this.props.__spent ?? 0))) { this.host.toast("Spend more in the club first. Excess has to be earned."); return; }
+    if (!this.pay(price, p.name)) return;
+    this.props[id] = n + 1; this.props.__spent = (this.props.__spent ?? 0) + price; saveProps(this.props); this.aggCache = aggregate(this.props); this.r3?.setProps(this.props);
+    this.say(`MC|${p.name}, number ${n + 1}! ${p.blurb}`); this.renderPane();
+  }
+
   private ownSection(): HTMLElement {
     const cash = this.host.getCash(), own: (HTMLElement | null)[] = [h("h3", { text: "Blow money, make money" })];
     if (!this.ownsClub()) {
@@ -521,10 +573,17 @@ export class Club {
     const who = h("select", { "aria-label": "Dancer", onchange: () => { this.girl = (who as HTMLSelectElement).value; this.renderPane(); } }, names.map((n) => h("option", { value: n, text: n, selected: n === this.girl }))) as HTMLSelectElement;
     const aff = this.save.aff[this.girl] ?? 0, ch = this.save.chapter[this.girl] ?? 0, next = AFFINITY_STEPS[ch], cash = this.host.getCash();
     const fill = h("i"); fill.style.width = Math.min(100, (aff / (next ?? 100)) * 100) + "%";
+    const sty = this.r3 ? this.r3.getStyle(this.girl) : null, girl = this.girl;
+    const pick2 = (label: string, opts: readonly { id: string; label: string }[], cur: string, set: (v: string) => void) => h("label", null, [label, h("select", { "aria-label": label, onchange: (e: Event) => set((e.target as HTMLSelectElement).value) }, opts.map((o) => h("option", { value: o.id, text: o.label, selected: o.id === cur })))]);
+    const styleEl = sty ? h("div.cl-style", null, [
+      pick2("Dance style", [{ id: "poleSpin", label: "Pole spin" }, { id: "hipSway", label: "Hip sway" }, { id: "floorWork", label: "Floor work" }, { id: "clubFreestyle", label: "Club freestyle" }, { id: "stagePose", label: "Stage pose" }], sty.routine, (v) => this.r3?.setStyle(girl, v as never)),
+      pick2("Dance move", [{ id: "-1", label: "Style default" }, { id: "-2", label: "Auto: all " + DANCES.length + " moves" }, ...DANCES.map((d) => ({ id: String(d.id), label: d.name }))], String(this.r3?.getDance(girl) ?? -1), (v) => this.r3?.setDance(girl, +v)),
+      pick2("Outfit", [{ id: "own", label: "Own colours" }, { id: "neon", label: "Neon glow" }, { id: "noir", label: "Noir & gold" }, { id: "feather", label: "Feather boa" }, { id: "cowgirl", label: "Saloon cowgirl" }, { id: "showgirl", label: "Burlesque skirt" }], sty.outfit, (v) => this.r3?.setStyle(girl, undefined, v)),
+    ]) : null;
     const flirts = h("div.cl-acts", null, FLIRTS.map((f) => h("button.cl-act", { disabled: cash < f.cost, onclick: () => this.flirt(f.id) }, [h("span.nm", { text: f.label }), h("span.pr", { text: f.cost ? money(f.cost) : "free" })])));
     const story = ch >= 5 ? h("p.cl-note", { text: `${this.girl}'s story is complete. She remembers every night. Keep visiting.` })
       : aff >= next ? h("button.cl-btn.hot", { onclick: () => this.chapter() }, [`Chapter ${ch + 1} with ${this.girl} is ready`]) : h("p.cl-note", { text: `Chapter ${ch + 1} opens at ${next} affection. Flirt, tip and dance to earn it.` });
-    return h("section.cl-box.wide", null, [h("h3", { text: "The girls" }), who, h("div.cl-aff", null, [h("span", { text: `${this.girl} likes you: ${Math.floor(aff)}` }), h("div.cl-track", null, [fill])]), flirts, story]);
+    return h("section.cl-box.wide", null, [h("h3", { text: "The girls" }), who, styleEl, h("div.cl-aff", null, [h("span", { text: `${this.girl} likes you: ${Math.floor(aff)}` }), h("div.cl-track", null, [fill])]), flirts, story]);
   }
   private flirt(id: string): void {
     const f = FLIRTS.find((x) => x.id === id); if (!f) return;
@@ -556,7 +615,7 @@ export class Club {
       hype: (n) => { this.combo = Math.min(100, this.combo + n * 80); },
       dancer: (name, what) => { if (what === "strut") { this.catwalkFrom = this.lastT; return; } this.boosts.set(name, { what, until: this.lastT + (what === "pole" ? 8 : 3) }); },
       revue: () => { this.nextShow = this.lastT; this.showUntil = 0; },
-      costume: () => { this.showIndex++; },
+      costume: () => { this.showIndex++; if (this.r3) for (const d of this.dancers) { const o = ["own", "neon", "noir", "feather", "cowgirl", "showgirl"], cur = this.r3.getStyle(d.name).outfit; this.r3.setStyle(d.name, undefined, o[(o.indexOf(cur) + 1) % o.length]); } },
       scene: (n) => this.changeTheme(n), mood: (d) => this.host.mood?.(d),
       give: (n) => {
         this.spent += n; if (this.ownsClub()) this.till += n * HOUSE_CUT;
@@ -572,6 +631,7 @@ export class Club {
     this.fx.flash = 0.45; this.fx.say(next.name.toUpperCase(), 3.2);
     this.fx.burst("glitter", 480, 260, 90, 240, { life: 2.6, cols: ["#f6f4f3", next.accent] });
     this.say(next.arrive); this.nextTheme = this.now + 55 + Math.random() * 35;
+    this.themeTo3D();
     const label = this.el.querySelector(".cl-room"); if (label) label.textContent = next.name;
   }
   private updateLive(dt: number): void {
@@ -652,7 +712,7 @@ export class Club {
     const dt = Math.min(0.05, (ms - this.last) / 1000); this.last = ms; this.now = ms / 1000;
     this.updateTalk();
     try {
-      if (this.venue === "strip") { this.updateGun(dt); this.updateLive(dt); this.drawStrip(this.reduce ? 0 : this.now); } else this.drawVelvet(this.reduce ? 0 : this.now);
+      if (this.venue === "strip") { this.updateGun(dt); this.updateLive(dt); this.dt = dt; if (this.stage3D()) this.drawStrip3D(this.reduce ? 0 : this.now); else this.drawStrip(this.reduce ? 0 : this.now); } else this.drawVelvet(this.reduce ? 0 : this.now);
       this.drawBubbles();
     } catch (err) { console.error("[club]", err); }   // one bad frame never takes the whole club (or the game behind it) down
     this.raf = requestAnimationFrame(this.loop);
@@ -661,8 +721,8 @@ export class Club {
   private updateTalk(): void {
     while (this.queue.length && this.queue[0].at <= this.now) {
       const q = this.queue.shift()!; const p = this.speakerAt(q.who);
-      this.bubbles = this.bubbles.filter((b) => b.who !== q.who).slice(-2);
-      this.bubbles.push({ who: q.who, text: q.text, x: p.x, y: p.y, until: this.now + 2.4 + q.text.length * 0.035 });
+      this.bubbles = this.bubbles.filter((b) => b.who !== q.who).slice(-1);
+      this.bubbles.push({ who: q.who, text: q.text, x: p.x, y: p.y, until: this.now + 1.8 + q.text.length * 0.028 });
       const label = q.who === "DJ" ? this.djName() : q.who === "PATRON" ? "Patron" : q.who.charAt(0) + q.who.slice(1).toLowerCase();
       this.tickerEl.replaceChildren(h("b", { text: label + ": " }), q.text);
     }
@@ -686,7 +746,7 @@ export class Club {
         this.combo = Math.min(100, this.combo + 1.4 + this.note / 100);
         this.spawnBill();
       }
-    } else this.combo = Math.max(0, this.combo - dt * 16);
+    } else this.combo = Math.max(this.aggCache.hype * 100, this.combo - dt * 16);
     const tier = Math.floor(this.combo / 25);
     if (tier > this.tier) { this.say("DJ|" + pick(RAIN_SHOUTS)); if (tier >= 3) this.say("PATRON|" + pick(["WOOOO!", "Chur! Chur! Chur!", "Somebody stop them! No, don't!", "That's my rent money! Worth it!"])); }
     this.tier = tier;
@@ -697,7 +757,7 @@ export class Club {
       b.age += dt;
       if (!b.landed) {
         b.vy += grav * dt; b.x += b.vx * dt; b.y += b.vy * dt; b.r += b.vr * dt;
-        if (b.age >= b.fly) { b.landed = true; b.vx = (Math.random() - 0.5) * 30; b.vy = 25 + Math.random() * 25; this.tip(b); }
+        if (b.age >= b.fly) { b.landed = true; b.vx = (Math.random() - 0.5) * 30; b.vy = 25 + Math.random() * 25; this.tip(b); if (this.stage3D()) b.done = true; }
       } else if (!b.done) {
         b.x += (b.vx + (this.reduce ? 0 : Math.sin(b.age * 5 + b.r) * 40)) * dt; b.y += b.vy * dt; b.r += (this.reduce ? 0 : Math.sin(b.age * 3) * 2) * dt;
         if (b.y > 330 && b.ty < 330 || b.y > 470) b.done = true;
@@ -726,11 +786,11 @@ export class Club {
   private tip(b: Bill): void {
     let best: { d: Dancer; x: number; y: number } | null = null, bd = 55;
     for (const p of this.dancerPos) { const d = Math.hypot(p.x - b.x, p.y - 30 - b.y); if (d < bd) { bd = d; best = p; } }
-    this.ammoFx(b);
+    this.ammoFx(b); this.r3?.land(b.x, b.y, b.v, b.col);
     const win = this.fx.hit(b.x, b.y, b.v * this.ammoMult());
     if (win > 0) { this.mag += win; this.floaties.push({ x: b.x, y: b.y - 30, text: "+$" + Math.round(win), age: 0, col: "#f6b62c" }); }
     if (!best) return;
-    best.d.hit = 0.5; best.d.tips += b.v; this.save.aff[best.d.name] = (this.save.aff[best.d.name] ?? 0) + b.v / 20;
+    best.d.hit = 0.5; best.d.tips += b.v; this.save.aff[best.d.name] = (this.save.aff[best.d.name] ?? 0) + (b.v / 20) * (1 + this.aggCache.tip);
     const pe = PERSONALITY[best.d.name]; if (pe && Math.random() < 0.12) this.say(pe.tipLines[Math.floor(Math.random() * pe.tipLines.length)]);
     if (Math.random() < 0.25) this.floaties.push({ x: best.x, y: best.y - 70, text: "+$" + b.v, age: 0, col: b.col });
   }
@@ -781,7 +841,7 @@ export class Club {
   /** What the VIP panel can do: pay, speak, play a booth scene, change your mood, and push the bouncer's patience. */
   private vipCtx() {
     return { cash: this.host.getCash(), dancers: this.dancers.filter((d) => !(d.needsStage && !this.hasUp("stage"))).map((d) => d.name), spent: this.spent, pay: (n: number, w: string) => this.pay(n, w), say: (s: string) => this.say(s), toast: (t: string) => this.host.toast(t), mood: (d: number) => this.host.mood?.(d),
-      scene: (kind: "lap" | "partner" | "private", dancer: string, secs: number) => { this.scene = { kind, dancer, from: this.lastT, until: this.lastT + secs }; this.render(); }, strike: () => ++this.strikes, eject: () => { this.host.toast("The bouncer walked you out. Ask nicely next time."); this.close(); } };
+      moves: DANCES.map((d) => d.name), setMove: (n: string, i: number) => this.r3?.setDance(n, i), scene: (kind: "lap" | "partner" | "private" | "bottles" | "spray", dancer: string, secs: number) => { this.scene = { kind, dancer, from: this.lastT, until: this.lastT + secs }; this.render(); }, strike: () => ++this.strikes, eject: () => { this.host.toast("The bouncer walked you out. Ask nicely next time."); this.close(); } };
   }
   /** The revue's synchronised kick line: the same moves, together. */
   private revuePose(t: number): number[] {
@@ -799,6 +859,38 @@ export class Club {
     const i = Math.floor(k) % n, f0 = k - Math.floor(k), f = this.reduce ? 0 : f0 * f0 * (3 - 2 * f0);
     const a = POSES[d.seq[i]], b = POSES[d.seq[(i + 1) % n]];
     return a.map((v, j) => v + (b[j] - v) * f);
+  }
+
+  /** The 3D room draws the world; this canvas becomes the overlay: flying cash, floaties, targets, sparkle, banners, hotspots. All the rules stay here. */
+  private drawStrip3D(t: number): void {
+    const r3 = this.r3!, g = this.begin(), big = this.hasUp("stage"); this.lastT = t;
+    g.clearRect(0, 0, W, H);
+    if (!this.vipOffered && this.spent >= 150) { this.vipOffered = true; this.say("BOUNCER|Big spender. The rope's open if you want the VIP side.||PIMP|Treat the girls right and the night gets interesting."); this.render(); }
+    if (this.nextShow === 0) this.nextShow = t + 18;
+    if (t >= this.nextShow && t >= this.showUntil) { this.showUntil = t + 22; this.nextShow = t + 80; this.showIndex++; this.say(["MC|Ladies and gentlemen, the Pink Pukeko Burlesque Revue!", "MC|The Feather Fan Fantasy! Don't touch the feathers!", "MC|And now: three costumes, one number, zero refunds!"][this.showIndex % 3]); }
+    const showing = t < this.showUntil, cyc = t % 28, forced = this.catwalkFrom >= 0 && t - this.catwalkFrom < 12, ct = forced ? t - this.catwalkFrom : cyc, catwalkU = !showing && (forced || cyc < 12) ? (ct < 6 ? ct / 6 : (12 - ct) / 6) : -1;
+    const vis = this.dancers.filter((q) => !(q.needsStage && !big));
+    const frame: Frame3D = {
+      t: this.now, dt: this.dt, reduce: this.reduce, hype: this.hype, fx: this.fx, crowd: this.fx.crowdMode(this.now), showing, showT: t - (this.showUntil - 22), showIndex: this.showIndex, catwalkU, big, smoke: this.hasUp("smoke"), djPro: this.hasUp("dj"),
+      dancers: vis.map((d) => { const b = this.boosts.get(d.name); return { name: d.name, hit: d.hit, boost: b && t < b.until ? b.what : "" }; }),
+    };
+    resetHdBudget(10); r3.frame(frame);
+    this.dancerPos = [];
+    for (const d of vis) { const p = r3.project(d.name); if (p) this.dancerPos.push({ d, x: p.x, y: p.y }); }
+    if (!this.reduce && this.dancerPos.length) this.patrons.forEach((p, i) => {
+      if ((this.patronNext[i] ??= t + 2 + i * 0.7) > t) return;
+      this.patronNext[i] = t + 2.5 + Math.random() * 5;
+      const dp = this.dancerPos[Math.floor(Math.random() * this.dancerPos.length)], T = 0.85, bx = p.x, by = 470, tx = dp.x + (Math.random() - 0.5) * 20, ty = dp.y - 30;
+      this.bills.push({ x: bx, y: by, tx, ty, vx: (tx - bx) / T, vy: (ty - by) / T - 0.5 * 520 * T, r: Math.random() * 6, vr: (Math.random() - 0.5) * 18, age: 0, fly: T, col: "#7dcf94", landed: false, done: false, v: 5 });
+    });
+    for (const b of this.bills) { if (b.landed) continue; g.save(); g.translate(b.x, b.y); g.rotate(b.r); g.fillStyle = b.col; g.fillRect(-8, -4, 16, 8); g.fillStyle = "rgba(255,255,255,.55)"; g.fillRect(-5, -2, 10, 4); g.restore(); }
+    for (const f of this.floaties) { g.globalAlpha = 1 - f.age / 1.2; g.fillStyle = f.col; g.font = "900 16px 'Big Shoulders Display', Impact, sans-serif"; g.fillText(f.text, f.x, f.y); }
+    g.globalAlpha = 1;
+    this.fx.drawParts(g, t); this.fx.drawOver(g, t, W, H, true);
+    if (this.tier > 0) this.neonText(`x${this.tier + 1} HYPE`, W / 2, 80, 26 + this.tier * 4, NEON[this.tier % NEON.length], t * 3);
+    if (showing && !this.scene) this.neonText("★ BURLESQUE REVUE ★", W / 2, 50, 26, "#c74d57", t * 2);
+    this.drawScene(t);
+    this.drawSpots(t);
   }
 
   private drawStrip(t: number): void {
@@ -928,13 +1020,24 @@ export class Club {
     this.drawSpots(t);
   }
 
+  private booth3 = false; private popped = { n: 0, sprayed: 0 };
+  /** Hand the camera back to the room when a booth scene ends (or is cut short). */
+  private boothOff(): void { if (!this.booth3) return; this.booth3 = false; this.r3?.booth(false); }
+  /** Over the 3D booth view: cinema bars, a soft vignette and the neon caption. Everyone stays clothed. */
+  private boothOverlay(g: CanvasRenderingContext2D, s: { kind: string; dancer: string }, k: number, t: number): void {
+    const bar = 46 * k; g.fillStyle = "#050203"; g.fillRect(0, 0, W, bar); g.fillRect(0, H - bar, W, bar);
+    const vg = g.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.95); vg.addColorStop(0, "rgba(10,2,6,0)"); vg.addColorStop(1, `rgba(10,2,6,${0.7 * k})`); g.fillStyle = vg; g.fillRect(0, 0, W, H);
+    const cap = s.kind === "bottles" ? `THE CELLAR · BOTTLE SERVICE · ${s.dancer.toUpperCase()}` : s.kind === "spray" ? `THE CELLAR · FOAM PARTY · ${s.dancer.toUpperCase()}` : s.kind === "lap" ? `LAP DANCE · ${s.dancer.toUpperCase()}` : s.kind === "partner" ? `ON THE FLOOR · ${s.dancer.toUpperCase()}` : "THE VIP ROOM";
+    if (k > 0.5) this.neonText(cap, W / 2, bar + 34, 28, "#c74d57", t * 2);
+  }
+
   /** The booth scenes: a clothed lap dance or a partner dance, and the private room that fades to black. */
   private drawScene(t: number): void {
-    const s = this.scene; if (!s) return; const g = this.g;
-    if (t >= s.until) { this.scene = null; if (s.kind === "private") this.say("MC|...and a while later, somebody left looking very pleased with themselves."); this.render(); return; }
+    const s = this.scene; if (!s) { this.boothOff(); return; } const g = this.g;
+    if (t >= s.until) { this.scene = null; this.boothOff(); if (s.kind === "private") this.say("MC|...and a while later, somebody left looking very pleased with themselves."); this.render(); return; }
     const k = Math.min(1, (t - s.from) / 0.8), fade = s.kind === "private" ? Math.min(1, Math.max(0, (t - s.from - 1.8) / 1.6)) : 0;
-    g.fillStyle = `rgba(10,6,8,${0.86 * k})`; g.fillRect(0, 0, W, H);
-    if (fade < 1) {
+    if (this.r3) { if (!this.booth3) { this.booth3 = true; this.r3.booth(true, s.dancer, s.kind); } this.boothOverlay(g, s, k, t); } else { g.fillStyle = `rgba(10,6,8,${0.86 * k})`; g.fillRect(0, 0, W, H); }
+    if (fade < 1 && !this.r3) {
       g.fillStyle = "#3a1013"; g.beginPath(); g.roundRect(W / 2 - 170, 330, 340, 90, 30); g.fill(); g.fillStyle = "#2a0d10"; g.fillRect(W / 2 - 170, 300, 340, 40);
       const idx = this.dancers.findIndex((d) => d.name === s.dancer), dd = this.dancers[Math.max(0, idx)];
       this.fig(W / 2 - 70, 410, POSES[8], "#e4e0dd", { s: 1.1, t });
@@ -1011,9 +1114,11 @@ export class Club {
 
   private drawBubbles(): void {
     const g = this.g;
-    g.font = "600 12px 'IBM Plex Mono', monospace";
+    if (this.scene) return; // booth and cellar scenes keep the view clear; the ticker still shows the line
+    g.font = "600 11px 'IBM Plex Mono', monospace";
     for (const b of this.bubbles) {
-      const lines = this.wrap(b.text, 230), lw = Math.max(...lines.map((l) => g.measureText(l).width));
+      const left = b.until - this.now; g.globalAlpha = Math.min(0.8, left / 0.4);
+      const lines = this.wrap(b.text, 170), lw = Math.max(...lines.map((l) => g.measureText(l).width));
       const bw = lw + 18, bh = lines.length * 15 + 12, bx = clamp(b.x - bw / 2, 6, W - bw - 6), by = clamp(b.y - bh - 18, 6, H - bh - 6);
       const velvet = this.venue === "velvet";
       g.fillStyle = velvet ? "#efedeb" : "#fff0fa"; g.strokeStyle = velvet ? "#c74d57" : "#c74d57"; g.lineWidth = 2;
@@ -1023,6 +1128,7 @@ export class Club {
       lines.forEach((l, i) => g.fillText(l, bx + 9, by + 18 + i * 15));
       g.textAlign = "center";
     }
+    g.globalAlpha = 1;
   }
 }
 

@@ -7,7 +7,7 @@ import { h } from "./dom";
  */
 export interface VipCtx {
   cash: number; dancers: string[]; pay(n: number, what: string): boolean; say(spec: string): void; toast(t: string): void; mood(d: number): void;
-  scene(kind: "lap" | "partner" | "private", dancer: string, secs: number): void; strike(): number; eject(): void; spent: number;
+  scene(kind: "lap" | "partner" | "private" | "bottles" | "spray", dancer: string, secs: number): void; moves?: string[]; setMove?(dancer: string, idx: number): void; strike(): number; eject(): void; spent: number;
 }
 
 /** Each dancer has her own personality: how she reacts to tips and how she answers a private-room offer. */
@@ -49,4 +49,26 @@ export function vipPanel(c: VipCtx): HTMLElement {
   return h("section.cl-box.small", null, [h("h3", { text: "VIP & private rooms (18+)" }),
     h("p.cl-note", { text: c.spent >= 150 ? "The bouncer unhooks the rope for a big spender. Pick who you want, but she decides. Private rooms fade to black." : "Spend $150 on the stage and the bouncer will open the rope to the VIP side." }),
     h("div.cl-row", null, [who]), h("div.cl-row", null, [lap, partner]), h("div.cl-row", null, [room(150), room(300), room(600)]), h("p.cl-note", { text: pick(["Respect the dancers. Three pushy asks and you're out.", "No means no. The bouncer is watching.", "Nothing explicit is ever shown. It's a burlesque show, not a back alley."]) })]);
+}
+
+/**
+ * The Cellar: a private lounge under the stage, drawn in the empty space below the club view. Bottle service, champagne
+ * pops and a comic foam spray. Everyone is clothed, the dancer decides whether she wants the spray, and nothing is explicit.
+ */
+export function cellarPanel(c: VipCtx, popped: { n: number; sprayed: number }): HTMLElement {
+  const who = h("select", { "aria-label": "Cellar dancer" }, c.dancers.map((n) => h("option", { value: n, text: n }))) as HTMLSelectElement;
+  const open = c.spent >= 150;
+  const pop = h("button.cl-btn", { disabled: !open || c.cash < 120, onclick: () => { if (c.pay(120, "a bottle of champagne")) { popped.n++; c.say(`${who.value}|Ooh, the good stuff! Cheers, darling.`); c.scene("bottles", who.value, 9); c.mood(0.1); } } }, ["Pop a bottle · $120"]);
+  const spray = h("button.cl-btn.gold", { disabled: !open || c.cash < 300, onclick: () => {
+    const p = PERSONALITY[who.value] ?? { yes: 0.4 };
+    // she decides: not everybody wants a hair full of champagne, and a no costs nothing
+    if (Math.random() < Math.min(0.92, p.yes + 0.45) && c.pay(300, "a champagne spray")) { popped.sprayed++; c.say(`${who.value}|Oh my GOD, it's freezing! Do it again!`); c.scene("spray", who.value, 9); c.mood(0.15); }
+    else c.say(`${who.value}|Not the hair, darling. Pop one for the table instead.`);
+  } }, ["Spray the dancer · $300"]);
+  const service = h("button.cl-btn", { disabled: !open || c.cash < 600, onclick: () => { if (c.pay(600, "bottle service")) { popped.n += 4; c.say(`MC|Bottle service for the cellar! Sparklers, sirens, and a bill nobody will read.`); c.scene("bottles", who.value, 14); c.mood(0.2); } } }, ["Bottle service · $600"]);
+  const move = c.moves && c.setMove ? h("select", { "aria-label": "Dance move", onchange: (e: Event) => c.setMove?.(who.value, +(e.target as HTMLSelectElement).value) }, [h("option", { value: "-2", text: "Move: auto (all 520)" }), ...c.moves.map((m, i) => h("option", { value: String(i), text: m }))]) : null;
+  return h("section.cl-box.small.cl-cellar", null, [h("h3", { text: "The Cellar · under the stage" }),
+    h("p.cl-note", { text: open ? "A private lounge below the stage: velvet, marble and a lot of ice. Pop a bottle, order the table service, or ask for the foam. She decides." : "Spend $150 on the stage and the bouncer will show you the stairs down to the cellar." }),
+    h("div.cl-row", null, [who, ...(move ? [move] : [])]), h("div.cl-row", null, [pop, spray, service]),
+    h("p.cl-note", { text: `Bottles popped tonight: ${popped.n} · Dancers sprayed: ${popped.sprayed}` })]);
 }
