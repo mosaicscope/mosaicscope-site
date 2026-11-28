@@ -1,5 +1,5 @@
 {
- "at": 1795814978098,
+ "at": 1795853263697,
  "target": "https://mosaicscope.pages.dev",
  "sha": "b6f20f91e4c9f015b8ab585b748f11312ed249a6",
  "results": [
@@ -40,17 +40,17 @@
    ],
    "requests": 134,
    "bytes": 3476,
-   "ownBytes": 332,
+   "ownBytes": 333,
    "thirdParty": 111,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 299,
-    "loadMs": 1207,
-    "lcpMs": 760,
+    "domContentLoadedMs": 303,
+    "loadMs": 1323,
+    "lcpMs": 720,
     "cls": 0.125,
-    "tbtMs": 369,
+    "tbtMs": 353,
     "longTasks": 3,
-    "heapMB": 17.4,
+    "heapMB": 18.4,
     "domNodes": 1501,
     "renderBlocking": 8,
     "resourceEntries": 29,
@@ -164,17 +164,17 @@
    ],
    "requests": 135,
    "bytes": 3508,
-   "ownBytes": 333,
+   "ownBytes": 332,
    "thirdParty": 112,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 234,
-    "loadMs": 1001,
-    "lcpMs": 256,
+    "domContentLoadedMs": 222,
+    "loadMs": 999,
+    "lcpMs": 236,
     "cls": 0.096,
-    "tbtMs": 416,
+    "tbtMs": 418,
     "longTasks": 3,
-    "heapMB": 22,
+    "heapMB": 15.4,
     "domNodes": 1823,
     "renderBlocking": 8,
     "resourceEntries": 29,
@@ -278,9 +278,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 149,
-    "loadMs": 149,
-    "lcpMs": 148,
+    "domContentLoadedMs": 153,
+    "loadMs": 154,
+    "lcpMs": 156,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -325,9 +325,9 @@
    "thirdParty": 2,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 148,
-    "loadMs": 148,
-    "lcpMs": 104,
+    "domContentLoadedMs": 89,
+    "loadMs": 89,
+    "lcpMs": 60,
     "cls": 0,
     "tbtMs": 0,
     "longTasks": 0,
@@ -366,8 +366,8 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 208,
-    "loadMs": 316,
+    "domContentLoadedMs": 212,
+    "loadMs": 306,
     "lcpMs": 232,
     "cls": 0.007,
     "tbtMs": 0,
@@ -407,10 +407,10 @@
    "thirdParty": 6,
    "status": 200,
    "perf": {
-    "domContentLoadedMs": 155,
-    "loadMs": 251,
-    "lcpMs": 180,
-    "cls": 0.147,
+    "domContentLoadedMs": 147,
+    "loadMs": 240,
+    "lcpMs": 172,
+    "cls": 0.146,
     "tbtMs": 0,
     "longTasks": 0,
     "heapMB": 9.5,
@@ -489,84 +489,84 @@
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 390,
-   "ms": 2678,
+   "ms": 2623,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 390,
-   "ms": 1961,
+   "ms": 1960,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 390,
-   "ms": 2158,
+   "ms": 2146,
    "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 390,
-   "ms": 1914,
+   "ms": 1900,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 390,
-   "ms": 2502,
+   "ms": 2472,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 390,
-   "ms": 1074,
+   "ms": 1062,
    "status": "pass"
   },
   {
    "id": "nav-to-rates",
    "name": "Header link jumps to Rates",
    "width": 1280,
-   "ms": 2763,
+   "ms": 2708,
    "status": "pass"
   },
   {
    "id": "quote-builder",
    "name": "Quote builder updates the total",
    "width": 1280,
-   "ms": 2031,
+   "ms": 2115,
    "status": "pass"
   },
   {
    "id": "contact-validation",
    "name": "Enquiry form refuses an empty send",
    "width": 1280,
-   "ms": 2318,
+   "ms": 2268,
    "status": "pass"
   },
   {
    "id": "faq-opens",
    "name": "An FAQ answer opens",
    "width": 1280,
-   "ms": 2058,
+   "ms": 2012,
    "status": "pass"
   },
   {
    "id": "work-viewer",
    "name": "A work tile opens and closes",
    "width": 1280,
-   "ms": 2560,
+   "ms": 2635,
    "status": "pass"
   },
   {
    "id": "lost-visitor",
    "name": "404 page leads back home",
    "width": 1280,
-   "ms": 1088,
+   "ms": 1045,
    "status": "pass"
   }
  ]
